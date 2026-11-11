@@ -7736,6 +7736,96 @@ async fn a_wait_hears_nothing_from_another_swarm() {
     assert!(got.messages.is_empty(), "{:?}", got.messages);
 }
 
+/// The operator's notices, through kkt-api-operator's contract: they hear
+/// every channel of the swarm, closed ones included, and nothing of
+/// another swarm; an operator who may not read hears nothing.
+#[tokio::test]
+async fn the_operators_notices_hear_every_channel_of_its_swarm_only() {
+    use kkt_api_operator::{Notice as Heard, Notices, Views};
+    let w = world().await;
+    let other = other_swarm(&w).await;
+    let home: &dyn Views = &w.rules;
+    let away: &dyn Views = &other;
+    let mut home_notices: Box<dyn Notices> = home.subscribe(&web_page()).await.expect("home");
+    let mut away_notices: Box<dyn Notices> = away.subscribe(&web_page()).await.expect("away");
+    let no_read = Operator::new(Permissions::of(&[]), Audit::WebPage);
+    assert_eq!(
+        home.subscribe(&no_read).await.err().map(|e| e.code),
+        Some(Code::Unauthenticated)
+    );
+
+    let theirs = agent_in(&other).await;
+    let ch = open_channel_in(&other, &theirs, "away talk").await;
+    other
+        .send(&theirs, ch, "not for home".into())
+        .await
+        .unwrap();
+    let mine = w.agent().await;
+    let closed = w
+        .rules
+        .create_channel(
+            &mine,
+            NewChannel {
+                name: "closed room".into(),
+                open: false,
+                purpose: None,
+                members: Vec::new(),
+            },
+        )
+        .await
+        .expect("create");
+    w.rules
+        .send(&mine, closed.id.clone(), "for home".into())
+        .await
+        .unwrap();
+
+    assert!(
+        matches!(home_notices.next().await, Some(Heard::Agent(a)) if a.handle == mine.handle),
+        "home heard another swarm"
+    );
+    assert!(
+        matches!(home_notices.next().await, Some(Heard::Channel(c)) if c.id == closed.id && !c.open)
+    );
+    assert!(
+        matches!(home_notices.next().await, Some(Heard::Message(m)) if m.body == "for home" && m.channel_id == closed.id)
+    );
+    assert!(
+        matches!(away_notices.next().await, Some(Heard::Agent(a)) if a.handle == theirs.handle)
+    );
+    assert!(matches!(away_notices.next().await, Some(Heard::Channel(c)) if c.name == "away talk"));
+    assert!(
+        matches!(away_notices.next().await, Some(Heard::Message(m)) if m.body == "not for home")
+    );
+}
+
+/// An operator's notices that fall behind say so, with no count, and go on
+/// with what is new.
+#[tokio::test]
+async fn the_operators_notices_say_they_fell_behind_without_a_count() {
+    use kkt_api_operator::{Notice as Heard, Views};
+    let w = world().await;
+    let rules = Rules::new(Deps {
+        db: w.rules.unbound_db().clone(),
+        swarm: SwarmId::main(),
+        events: Events::new(kkt_events::Settings { buffer: 1 }),
+        clock: w.clock.clone(),
+        entropy: Arc::new(SeqEntropy::new(7)),
+        run_id: w.run_id,
+        settings: Settings::DEFAULT,
+        wording: Arc::new(DefaultWording),
+    });
+    let views: &dyn Views = &rules;
+    let mut notices = views.subscribe(&web_page()).await.expect("subscribe");
+    let mut handles = Vec::new();
+    for _ in 0..3 {
+        handles.push(rules.register().await.expect("register").handle);
+    }
+    assert_eq!(notices.next().await, Some(Heard::Missed));
+    assert!(
+        matches!(notices.next().await, Some(Heard::Agent(a)) if Some(&a.handle) == handles.last())
+    );
+}
+
 /// The rules meet kkt-api-operator's contract through `dyn`, and each
 /// operation gives what the rules' own method gives, permission checks
 /// included.

@@ -3,10 +3,11 @@
 //! mode's identity; plus page tests that need the rules, and tests of the
 //! gate's viewers.
 
-use super::{AdmissionGate, RulesSource, WebViewer};
+use super::AdmissionGate;
 use axum::http::StatusCode;
 use kkt_admission::{Admission, Principal, ServerKey, SharedKey, WebAdmission};
 use kkt_api_agent::{Agent, Audit, Code, NewChannel, Operator, Permission, RuleError, SwarmId};
+use kkt_api_operator::{ChannelChange, ChannelHidden, Left, Notice};
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::SeqEntropy;
@@ -17,21 +18,20 @@ use kkt_names as names;
 use kkt_rules::NewServerRunRecord;
 use kkt_rules::{Deps, Rules};
 use kkt_web::testing::{
-    ACTIVITY_BUCKET, ACTIVITY_WINDOW, ChannelHidden, Door, administration_works, agent_row,
+    ACTIVITY_BUCKET, ACTIVITY_WINDOW, App, Door, administration_works, agent_row,
     announcement_editor_works, changes_work, channel_creation_works, channel_row,
-    earlier_pages_work, get, handoff_works, hidden_channels_show_only_on_request, history_works,
-    lanes_pages_work, lists_channel, member_lists_show_lanes_and_latest_messages, members_shown,
-    next_change, operator_changes_are_live, page_script_works, pages_work, site, site_with,
-    stale_agents_work, start_time, summaries_agree_with_the_pages, toast,
+    earlier_pages_work, form_token_in, get, handoff_works, hidden_channels_show_only_on_request,
+    history_works, lanes_pages_work, lists_channel, member_lists_show_lanes_and_latest_messages,
+    members_shown, next_change, operator_changes_are_live, page_script_works, pages_work,
+    post_for_page, site, site_with, stale_agents_work, start_time, summaries_agree_with_the_pages,
+    toast,
 };
-use kkt_web::{
-    Access, Admit, ChannelAction, Gate, Left, LiveEvent, Session, Sessions, SignIn, Source,
-};
+use kkt_web::{Access, Admit, Gate, Session, Sessions, SignIn, Viewer};
 use std::sync::Arc;
 
 /// The server's gate over real admission, open, and key mode, with the
 /// page's sessions: for the rules' runs.
-fn rules_gate() -> Door<WebViewer, Principal> {
+fn rules_gate() -> Door<Principal> {
     let sessions = Sessions::new(
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(9)),
@@ -71,7 +71,10 @@ async fn handoff_works_through_the_rules() {
 async fn earlier_pages_work_through_the_rules() {
     let source = rules_source().await;
     let settings = kkt_web::Settings {
-        page_messages: 2,
+        page: kkt_web::PageLimits {
+            page_messages: 2,
+            ..kkt_web::PageLimits::DEFAULT
+        },
         ..kkt_web::Settings::DEFAULT
     };
     assert!(earlier_pages_work(source, rules_gate(), settings).await >= 2);
@@ -84,24 +87,22 @@ async fn changes_work_through_the_rules() {
 
 /// Rules over an in-memory database with two agents, an open and a closed
 /// channel, and a few messages.
-async fn rules_source() -> Arc<dyn Source> {
+async fn rules_source() -> App {
     rules_world().await.1
 }
 
 /// The rules behind `rules_source`, too, for checking what a change did.
-async fn rules_world() -> (Rules, Arc<dyn Source>) {
+async fn rules_world() -> (Rules, App) {
     rules_world_with(kkt_rules::Settings::DEFAULT).await
 }
 
-async fn rules_world_with(settings: kkt_rules::Settings) -> (Rules, Arc<dyn Source>) {
+async fn rules_world_with(settings: kkt_rules::Settings) -> (Rules, App) {
     let (rules, source, _) = rules_world_and_clock(settings).await;
     (rules, source)
 }
 
 /// `rules_world_with`, and the clock the rules read.
-async fn rules_world_and_clock(
-    settings: kkt_rules::Settings,
-) -> (Rules, Arc<dyn Source>, Arc<FixedClock>) {
+async fn rules_world_and_clock(settings: kkt_rules::Settings) -> (Rules, App, Arc<FixedClock>) {
     let (rules, source, clock, _) = rules_world_and_db(settings).await;
     (rules, source, clock)
 }
@@ -110,12 +111,7 @@ async fn rules_world_and_clock(
 /// database, as `kkt agent` and `kkt lanes` use them.
 async fn rules_world_and_db(
     settings: kkt_rules::Settings,
-) -> (
-    Rules,
-    Arc<dyn Source>,
-    Arc<FixedClock>,
-    kkt_rules::CommandLine,
-) {
+) -> (Rules, App, Arc<FixedClock>, kkt_rules::CommandLine) {
     let clock = Arc::new(FixedClock::new(start_time()));
     let db = { kkt_rules::testing::memory().expect("an in-memory store") };
     // An earlier run, from before an upgrade, with values as long as real
@@ -206,7 +202,7 @@ async fn rules_world_and_db(
         .expect("memory entry");
     (
         rules.clone(),
-        Arc::new(RulesSource::new(rules, web_operator().await)),
+        App::new(Arc::new(rules), web_operator().await),
         clock,
         operator,
     )
@@ -302,7 +298,10 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
 async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
     let (rules, source) = rules_world().await;
     let settings = kkt_web::Settings {
-        member_excerpt_chars: 12,
+        page: kkt_web::PageLimits {
+            member_excerpt_chars: 12,
+            ..kkt_web::PageLimits::DEFAULT
+        },
         ..kkt_web::Settings::DEFAULT
     };
     let open = source
@@ -311,9 +310,9 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
         .expect("overview")
         .channels
         .into_iter()
-        .find(|c| c.channel.open)
+        .find(|c| c.info.open)
         .expect("an open channel")
-        .channel
+        .info
         .id;
     rules
         .save_lane(
@@ -375,7 +374,7 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
 }
 
 /// The site over `source`, behind the open gate, with `settings`.
-fn rules_site(source: Arc<dyn Source>, settings: kkt_web::Settings) -> axum::Router {
+fn rules_site(source: App, settings: kkt_web::Settings) -> axum::Router {
     site_with(source, rules_gate(), settings)
 }
 
@@ -410,7 +409,7 @@ async fn channel_page_shows_the_pinned_note_and_editor_as_escaped_text() {
         .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
         .await
         .unwrap();
-    let ch = &overview.channels[0].channel;
+    let ch = &overview.channels[0].info;
     let (status, page) = get(
         &site(source.clone(), rules_gate()),
         &format!("/channels/{}", ch.id),
@@ -424,7 +423,7 @@ async fn channel_page_shows_the_pinned_note_and_editor_as_escaped_text() {
     );
     assert!(!page.contains("<script>alert(1)</script>"));
     assert!(page.contains("Last edited by"));
-    assert!(page.contains(ch.note_edited_by.as_deref().unwrap()));
+    assert!(page.contains(ch.note.edited_by.as_deref().unwrap()));
     assert!(page.contains("2026-10-25"));
 }
 
@@ -482,7 +481,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         .await
         .expect("side")
         .id;
-    let mut live = source.live();
+    let mut live = source.live().await;
     let op = names::OPERATOR;
 
     // Leaving: the agent did it.
@@ -493,7 +492,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     let event = next_change(&mut live).await;
     assert_eq!(
         event,
-        LiveEvent::Left(Left {
+        Notice::Left(Left {
             agent: leaver.handle.clone(),
             channel_id: town.clone(),
             channel_name: "town".into(),
@@ -516,7 +515,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         .await
         .expect("remove");
     let event = next_change(&mut live).await;
-    let LiveEvent::Left(l) = &event else {
+    let Notice::Left(l) = &event else {
         panic!("expected left, got {event:?}");
     };
     assert_eq!(
@@ -535,12 +534,12 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     source
         .change_channel(
             town.clone(),
-            ChannelAction::RemoveMember(removed_by_op.handle.clone()),
+            ChannelChange::RemoveMember(removed_by_op.handle.clone()),
         )
         .await
         .expect("remove");
     let event = next_change(&mut live).await;
-    let LiveEvent::Left(l) = &event else {
+    let Notice::Left(l) = &event else {
         panic!("expected left, got {event:?}");
     };
     assert_eq!(
@@ -558,7 +557,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     // Unregistering: the agent goes from every channel it was in.
     rules.unregister(quitter).await.expect("unregister");
     let event = next_change(&mut live).await;
-    let LiveEvent::AgentHidden(h) = &event else {
+    let Notice::AgentHidden(h) = &event else {
         panic!("expected agent_hidden, got {event:?}");
     };
     assert_eq!(
@@ -594,7 +593,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         .await
         .expect("hide agent");
     let event = next_change(&mut live).await;
-    let LiveEvent::AgentHidden(h) = &event else {
+    let Notice::AgentHidden(h) = &event else {
         panic!("expected agent_hidden, got {event:?}");
     };
     assert_eq!(
@@ -630,7 +629,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     let event = next_change(&mut live).await;
     assert_eq!(
         event,
-        LiveEvent::ChannelHidden(ChannelHidden {
+        Notice::ChannelHidden(ChannelHidden {
             channel_id: side.clone(),
             channel_name: "side".into(),
             by: owner.handle.clone(),
@@ -642,13 +641,13 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         format!("{} hid #side", owner.handle)
     );
     source
-        .change_channel(town.clone(), ChannelAction::Hide)
+        .change_channel(town.clone(), ChannelChange::Hide)
         .await
         .expect("hide town");
     let event = next_change(&mut live).await;
     assert_eq!(
         event,
-        LiveEvent::ChannelHidden(ChannelHidden {
+        Notice::ChannelHidden(ChannelHidden {
             channel_id: town.clone(),
             channel_name: "town".into(),
             by: op.into(),
@@ -715,7 +714,7 @@ async fn the_history_names_the_admin_agent_that_saved_a_version() {
         )
         .await
         .unwrap();
-    let history = source.server_announcement().await.unwrap().history;
+    let history = source.server_announcement().await.unwrap();
     assert_eq!(history[0].saved_by_admin, None);
     assert_eq!(history[1].saved_by_admin.as_deref(), Some("admin-sentinel"));
     let (_, page) = get(&site, "/announcement").await;
@@ -776,10 +775,10 @@ async fn stale_agents_work_through_the_rules() {
     let open = overview
         .channels
         .iter()
-        .find(|c| c.channel.open)
+        .find(|c| c.info.open)
         .expect("an open channel");
     rules
-        .join_channel(&third, open.channel.id.clone())
+        .join_channel(&third, open.info.id.clone())
         .await
         .expect("join");
     clock.advance(Span::hours(25));
@@ -798,7 +797,7 @@ async fn history_works_through_the_rules() {
 
 /// The viewer key mode makes of the web page's human: every permission,
 /// audited as the web page, in the one swarm.
-fn assert_is_the_web_pages_human(viewer: &WebViewer) {
+fn assert_is_the_web_pages_human(viewer: &Viewer) {
     assert_eq!(viewer.swarm, SwarmId::main());
     for permission in [
         Permission::Read,
@@ -889,7 +888,7 @@ async fn the_gate_admits_viewers_as_identify_says() {
     let gate = gate(Admission::Open, Arc::new(Elsewhere { refuse: false }));
     assert_eq!(
         gate.admits(Session::Absent).await,
-        Admit::Yes(WebViewer {
+        Admit::Yes(Viewer {
             swarm: SwarmId::new("sw_other"),
             operator: KeyMode::admin_operator(None),
         })
@@ -919,13 +918,22 @@ async fn hiding_an_owner_tells_the_human_to_clear_it_on_each_channels_page() {
         .await
         .unwrap()
         .id;
-    let refused = source.hide_agent(me.handle.clone()).await.unwrap_err();
-    assert_eq!(
-        refused,
-        kkt_web::SourceError::Invalid(format!(
+    let site = site(source, rules_gate());
+    let (_, page) = get(&site, &format!("/agents/{}", me.handle)).await;
+    let token = form_token_in(&page);
+    let (status, page) = post_for_page(
+        &site,
+        &format!("/agents/{}/hide", me.handle),
+        &format!("form_token={token}"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(
+        page.contains(&format!(
             "{} owns {room}; make another member the owner, or clear the owner, \
-             on each channel's page first",
+             on each channel&#39;s page first",
             me.handle
-        ))
+        )),
+        "{page}"
     );
 }

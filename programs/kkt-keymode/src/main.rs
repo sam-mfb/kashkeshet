@@ -280,8 +280,10 @@ fn rules_settings(limits: &Limits) -> kkt_rules::Settings {
 /// The web page's share of `limits`.
 fn web_settings(limits: &Limits) -> kkt_web::Settings {
     kkt_web::Settings {
-        page_messages: limits.web_page_messages,
-        member_excerpt_chars: limits.web_member_excerpt_chars,
+        page: kkt_web::PageLimits {
+            page_messages: limits.web_page_messages,
+            member_excerpt_chars: limits.web_member_excerpt_chars,
+        },
         keep_alive: kkt_web::Settings::DEFAULT.keep_alive,
         session_lifetime: limits.web_session_lifetime,
     }

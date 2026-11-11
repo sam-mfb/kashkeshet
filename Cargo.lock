@@ -1667,6 +1667,8 @@ dependencies = [
  "axum",
  "clap",
  "futures",
+ "kkt-api-agent",
+ "kkt-api-operator",
  "kkt-clock",
  "kkt-clock-system",
  "kkt-entropy",

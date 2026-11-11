@@ -1,6 +1,8 @@
 //! What the human who runs the server may do: the web page's operator
 //! powers, by area ([`Views`], [`Changes`], [`Lanes`], [`Server`]), with the
-//! records only they use. The records every level shares are kkt-api-agent's.
+//! records only they use, and the notices the operator hears as things
+//! happen ([`Notice`], [`Notices`]). The records every level shares are
+//! kkt-api-agent's.
 //!
 //! A contract crate: traits and plain values. kkt-rules implements it; each
 //! operation checks the operator's permissions itself. Every operation gives
@@ -9,11 +11,13 @@
 
 mod changes;
 mod lanes;
+mod notices;
 mod stale;
 mod views;
 
 pub use changes::*;
 pub use lanes::*;
+pub use notices::*;
 pub use stale::*;
 pub use views::*;
 
@@ -28,7 +32,7 @@ use std::time::Duration;
 
 /// What the operator sees: the overview, with each channel's activity
 /// counted in buckets of `bucket` over the last `window`; hidden channels;
-/// and one channel or agent in full.
+/// one channel or agent in full; and what happens from now on.
 pub trait Views: Send + Sync {
     fn overview<'a>(
         &'a self,
@@ -55,6 +59,10 @@ pub trait Views: Send + Sync {
     ) -> Answer<'a, ChannelView>;
 
     fn agent_view<'a>(&'a self, operator: &'a Operator, handle: String) -> Answer<'a, AgentView>;
+
+    /// Hears what happens in this swarm from now on, in every channel,
+    /// closed ones included, and nothing from another swarm.
+    fn subscribe<'a>(&'a self, operator: &'a Operator) -> Answer<'a, Box<dyn Notices>>;
 }
 
 /// What the operator changes: creating and changing channels as the

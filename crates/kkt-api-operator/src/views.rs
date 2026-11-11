@@ -28,7 +28,7 @@ pub struct ChannelActivity {
 }
 
 /// One start of the server and what produced it.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServerRunInfo {
     pub id: i64,
     pub started_at: String,

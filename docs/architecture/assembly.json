@@ -914,12 +914,12 @@
   "kkt-server": {
    "wiring": [
     {
-     "impl": "kkt-server::RulesSources",
+     "impl": "kkt-rules::Rules",
      "crate": "kkt-web",
      "to": [
       {
        "at": "router",
-       "param": "sources"
+       "param": "api"
       }
      ]
     },
