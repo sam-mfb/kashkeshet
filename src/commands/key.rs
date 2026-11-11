@@ -21,8 +21,8 @@ pub fn header(
     json: bool,
 ) -> Result<(), String> {
     let path = selected_key_path(env, platform, serve_args, path, KeyKind::Access)?;
-    let text = std::fs::read_to_string(&path)
-        .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
+    let text = kkt_admission_os::KeyFiles::read(&path)
+        .map_err(|e| format!("could not read key file {}: {}", path.display(), e.error))?;
     Terminal.output(format_args!("{}\n", clients::header(text.trim(), json)?));
     Ok(())
 }
@@ -45,9 +45,9 @@ pub fn show(
             kkt_container::NO_ADMIN_KEY_EXIT,
         ));
     };
-    let text = match std::fs::read_to_string(&path) {
+    let text = match kkt_admission_os::KeyFiles::read(&path) {
         Ok(text) => text,
-        Err(e) if kind == KeyKind::Admin && e.kind() == std::io::ErrorKind::NotFound => {
+        Err(e) if kind == KeyKind::Admin && e.error.kind() == std::io::ErrorKind::NotFound => {
             Terminal.errors(format_args!(
                 "there is no admin key at {}; `kkt key create --admin` makes one\n",
                 path.display()
@@ -56,7 +56,13 @@ pub fn show(
                 kkt_container::NO_ADMIN_KEY_EXIT,
             ));
         }
-        Err(e) => return Err(format!("could not read key file {}: {e}", path.display())),
+        Err(e) => {
+            return Err(format!(
+                "could not read key file {}: {}",
+                path.display(),
+                e.error
+            ));
+        }
     };
     Terminal.output(format_args!("{}\n", text.trim()));
     if kind == KeyKind::Admin {

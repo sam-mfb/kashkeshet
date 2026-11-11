@@ -172,8 +172,7 @@ impl setup::Steps for OsSteps<'_> {
     fn stage_key(&self, key: &str) -> Result<PathBuf, String> {
         let dir = kkt_config_file::config_dir(self.env)
             .ok_or("set HOME to keep the key in ~/.config/kkt")?;
-        std::fs::create_dir_all(&dir)
-            .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
+        kkt_admission_os::KeyFiles::create_dir_all(&dir)?;
         let path = dir.join(format!("{}.partial", CLIENT_KEY_FILE_NAME));
         write_key_file(&path, key, true)?;
         Ok(path)
@@ -189,13 +188,12 @@ impl setup::Steps for OsSteps<'_> {
             .map(|b| format!("{b:02x}"))
             .collect();
         let path = dir.join(format!("{}-{server}", CLIENT_KEY_FILE_NAME));
-        std::fs::rename(staged, &path)
-            .map_err(|e| format!("could not move the key to {}: {e}", path.display()))?;
+        kkt_admission_os::KeyFiles::keep_staged(staged, &path)?;
         Ok(path)
     }
 
     fn discard_key(&self, staged: &Path) -> Result<(), String> {
-        std::fs::remove_file(staged)
+        kkt_admission_os::KeyFiles::remove(staged)
             .map_err(|e| format!("could not remove {}: {e}", staged.display()))
     }
 
