@@ -1,9 +1,9 @@
 //! Starting the log: to stdout, stderr or a log file, with kkt's own lines
 //! and its libraries' at their own levels.
 
-use kkt_clock_system::SystemClock;
-use kkt_logs::{LogLevel, LogPolicy, RotatingFile};
-use kkt_settings::DEFAULT_LOG_LEVEL;
+use crate::RotatingFile;
+use kkt_clock::Clock;
+use kkt_logs::{LogLevel, LogPolicy};
 use std::io::IsTerminal;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -17,11 +17,12 @@ const LOG_OWN_TARGETS: &[&str] = &["kashkeshet", "kkt"];
 
 /// Sends the log to stdout, or to a log file kept within the policy given
 /// with it. kkt's own code logs at `own`, the libraries it uses at
-/// `dependencies`.
+/// `dependencies`. The supplied clock determines when rolled files expire.
 pub fn init_logging(
     log_file: Option<(&Path, LogPolicy)>,
     own: LogLevel,
     dependencies: LogLevel,
+    clock: Arc<dyn Clock>,
 ) -> Result<(), String> {
     let filter = log_filter(own, dependencies);
     let format = tracing_subscriber::fmt::layer().with_target(false);
@@ -36,7 +37,7 @@ pub fn init_logging(
             policy
                 .check()
                 .map_err(|e| format!("invalid setting: {e}"))?;
-            let file = RotatingFile::open(path, policy, Arc::new(SystemClock)).map_err(|e| {
+            let file = RotatingFile::open(path, policy, clock).map_err(|e| {
                 format!(
                     "invalid setting: log_file could not be opened at {}: {e}",
                     path.display()
@@ -51,8 +52,8 @@ pub fn init_logging(
     started.map_err(|e| format!("could not start logging: {e}"))
 }
 
-/// Sends the log to stderr: kkt's own lines only (see [`own_log_filter`]).
-pub fn init_stderr_logging() -> Result<(), String> {
+/// Sends the log to stderr: kkt's own lines at `own` (see [`own_log_filter`]).
+pub fn init_stderr_logging(own: LogLevel) -> Result<(), String> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()
@@ -60,7 +61,7 @@ pub fn init_stderr_logging() -> Result<(), String> {
                 .with_ansi(std::io::stderr().is_terminal())
                 .with_writer(std::io::stderr),
         )
-        .with(own_log_filter(DEFAULT_LOG_LEVEL))
+        .with(own_log_filter(own))
         .try_init()
         .map_err(|e| format!("could not start logging: {e}"))
 }
@@ -100,7 +101,7 @@ mod tests {
 
     #[test]
     fn watch_logs_only_kkts_own_lines() {
-        let filter = own_log_filter(DEFAULT_LOG_LEVEL);
+        let filter = own_log_filter(LogLevel::Info);
         for target in ["rmcp", "rmcp::transport::worker", "reqwest", "hyper_util"] {
             assert!(!filter.would_enable(target, &Level::ERROR), "{target}");
         }

@@ -314,8 +314,15 @@
   },
   "kkt-logs": {
    "layer": "foundations",
-   "concern": "The log file the server writes itself, rolled over and pruned within its policy.",
-   "kind": "effect"
+   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans.",
+   "kind": "logic",
+   "must_not": "Touch the machine."
+  },
+  "kkt-logs-os": {
+   "layer": "foundations",
+   "kind": "effect",
+   "concern": "Writing log files and starting the tracing subscriber.",
+   "must_not": "Choose rollover or pruning rules; read a real clock itself."
   },
   "kkt-provenance": {
    "layer": "foundations",

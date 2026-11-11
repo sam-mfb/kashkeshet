@@ -9,7 +9,6 @@
 use kkt_scratch as scratch;
 
 pub mod commands;
-pub mod logging;
 pub mod machine;
 pub mod process;
 pub mod terminal;
