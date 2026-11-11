@@ -1,5 +1,5 @@
-//! What every store must do with swarms, written over [`Reads`] and
-//! [`Writes`] alone, so any implementation of the contract can be checked:
+//! What every store must do with swarms, written over [`Reader`] and
+//! [`Writer`] alone, so any implementation of the contract can be checked:
 //! a swarm sees and changes nothing of another.
 //!
 //! [`swarms_stay_apart`] seeds one swarm with rows of every sort and asks
@@ -11,7 +11,7 @@
 //! would tie a new row to the second must fail.
 //!
 //! Two reads look across swarms by design and are left out:
-//! [`Reads::agent_name_taken`] and [`Reads::channel_id_taken`], since
+//! [`Reader::agent_name_taken`] and [`Reader::channel_id_taken`], since
 //! handles and channel IDs are unique on the server. Message IDs are one
 //! sequence for the server, so the second swarm's messages leave gaps in
 //! the first's; the check seeds the first swarm completely before the
@@ -63,7 +63,7 @@ struct Seeded {
 
 /// Checks that two swarms stay apart in `store`, which must hold no
 /// avatars or channels yet. `Err` says what leaked.
-pub fn swarms_stay_apart(store: &dyn Writes) -> Result<(), String> {
+pub fn swarms_stay_apart(store: &Writer<'_>) -> Result<(), String> {
     let fail = |e: StoreError| e.to_string();
     let run_id = store
         .insert_server_run(&NewServerRunRecord {
@@ -162,7 +162,7 @@ fn channel_ids(tag: &str) -> Vec<String> {
 /// description and memory), `<tag>-bob`, `<tag>-hid` (hidden) and
 /// `<tag>-rev` (revoked); an open, a closed, a hidden and an ownerless
 /// channel, with notes, members and messages from avatars and the operator.
-fn seed(store: &dyn Writes, swarm: &SwarmId, tag: &str, run_id: i64) -> StoreResult<Seeded> {
+fn seed(store: &Writer<'_>, swarm: &SwarmId, tag: &str, run_id: i64) -> StoreResult<Seeded> {
     let agents = agent_names(tag);
     let channels = channel_ids(tag);
     let [ann, bob, hid, rev] = [&agents[0], &agents[1], &agents[2], &agents[3]];
@@ -302,7 +302,7 @@ impl AllIds {
 
 /// Every read that takes a swarm, asked in `swarm` about every ID in
 /// `ids`, one answer per line.
-fn every_read(store: &dyn Reads, swarm: &SwarmId, ids: &AllIds) -> StoreResult<String> {
+fn every_read(store: &Reader<'_>, swarm: &SwarmId, ids: &AllIds) -> StoreResult<String> {
     let mut out = String::new();
     let mut line = |question: String, answer: &dyn Debug| {
         out.push_str(&format!("{question} = {answer:?}\n"));
@@ -522,7 +522,7 @@ fn every_read(store: &dyn Reads, swarm: &SwarmId, ids: &AllIds) -> StoreResult<S
 /// to `away`'s rows must change nothing (the caller checks); changes that
 /// would add a row tied to `away` must fail.
 fn changes_aimed_across(
-    store: &dyn Writes,
+    store: &Writer<'_>,
     home: &Seeded,
     away: &Seeded,
     run_id: i64,

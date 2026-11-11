@@ -19,8 +19,8 @@ pub use operator::NoticeWording;
 #[cfg(test)]
 mod tests;
 
+use kkt_api_agent::RuleError;
 use kkt_clock::Clock;
-use kkt_rules::RuleError;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::json;

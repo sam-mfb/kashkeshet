@@ -22,6 +22,7 @@ dist = false
 dev-only = true
 
 [dependencies]
+kkt-api-agent = { path = "../../crates/kkt-api-agent" }
 futures.workspace = true
 kkt-admission = { path = "../../crates/kkt-admission" }
 # The real clock, so agents' waits end on time.

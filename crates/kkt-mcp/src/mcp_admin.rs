@@ -19,13 +19,13 @@ use crate::mcp_transport::Transport;
 use crate::principal;
 use crate::tool_text;
 use axum::Router;
+use kkt_api_agent::{
+    Actor, Audit, NewChannel, Operator, Permission, ReadQuery, Refusal, RuleError,
+};
 use kkt_identity::Identify;
 use kkt_mcp_formatter::{Format, Formatter};
 use kkt_rules::Settings;
-use kkt_rules::{
-    self as rules, Actor, Audit, ChannelChange, LaneSave, NewChannel, Operator, Permission,
-    ReadQuery, Refusal, RuleError, Rules,
-};
+use kkt_rules::{ChannelChange, LaneSave, Rules};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::service::RequestContext;
@@ -103,7 +103,7 @@ impl AdminServer {
 
     /// Who this call comes from, through `identify`: the operator, and the
     /// rules in its swarm.
-    async fn call(&self, context: &RequestContext<RoleServer>) -> rules::Result<Call> {
+    async fn call(&self, context: &RequestContext<RoleServer>) -> kkt_api_agent::Result<Call> {
         let principal = principal(context)?;
         let who = self.identify.operator(&principal).await?;
         Ok(Call {
@@ -120,7 +120,7 @@ impl AdminServer {
         f: Format,
         channel_id: String,
         change: ChannelChange,
-    ) -> rules::Result<String> {
+    ) -> kkt_api_agent::Result<String> {
         call.rules
             .change_channel(call.actor(), channel_id.clone(), change)
             .await?;
@@ -136,7 +136,12 @@ impl AdminServer {
 
     /// The answer to `call`: `out`, or its refusal with the advice
     /// [`word`] gives the call's operator.
-    fn respond(&self, format: Format, call: &Call, out: rules::Result<String>) -> CallToolResult {
+    fn respond(
+        &self,
+        format: Format,
+        call: &Call,
+        out: kkt_api_agent::Result<String>,
+    ) -> CallToolResult {
         self.refuse_or(format, out.map_err(|e| word(&call.operator.audit, e)))
     }
 
@@ -145,7 +150,7 @@ impl AdminServer {
         self.refuse_or(format, Err(e))
     }
 
-    fn refuse_or(&self, format: Format, out: rules::Result<String>) -> CallToolResult {
+    fn refuse_or(&self, format: Format, out: kkt_api_agent::Result<String>) -> CallToolResult {
         mcp_tools::respond(&self.fmt, format, out, |e| {
             tracing::error!(error = %e, "admin tool call failed");
         })
@@ -1080,7 +1085,7 @@ mod tests {
             .may(Permission::Change)
             .expect_err("an unnamed key may not change");
         let worded = word(&key(None), unnamed);
-        assert_eq!(worded.code, rules::Code::Unauthenticated);
+        assert_eq!(worded.code, kkt_api_agent::Code::Unauthenticated);
         assert_eq!(
             worded.message,
             "this admin key has no name, so it may only read. The operator names it by \
@@ -1103,7 +1108,7 @@ mod tests {
 
         // A named key refused a change keeps the rules' plain words: the
         // unnamed-key advice would be wrong for it.
-        let named = RuleError::new(rules::Code::Unauthenticated, "plain")
+        let named = RuleError::new(kkt_api_agent::Code::Unauthenticated, "plain")
             .because(Refusal::LacksPermission(Permission::Change));
         assert_eq!(word(&key(Some(sentinel())), named.clone()), named);
         // So does an operator on the web page, which has no admin key.
@@ -1111,6 +1116,8 @@ mod tests {
     }
 
     fn key(key_name: Option<AdminName>) -> Audit {
-        Audit::AdminEndpoint { key_name }
+        Audit::AdminEndpoint {
+            key_name: key_name.map(|n| n.to_string()),
+        }
     }
 }

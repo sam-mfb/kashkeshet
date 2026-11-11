@@ -10,12 +10,10 @@ use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use kkt_admission::{self as admission, Credentials, Decision, WebAdmission};
+use kkt_api_agent::{Actor, AgentInfo, ChannelInfo, Code, Operator, Refusal, RuleError, SwarmId};
 use kkt_identity::Identify;
 use kkt_names as names;
-use kkt_rules::{
-    self as rules, Actor, AgentInfo, ChannelInfo, Code, Operator, Refusal, RuleError, Rules,
-    ServerRunInfo, SwarmId,
-};
+use kkt_rules::{self as rules, Rules, ServerRunInfo};
 use kkt_web::live_event;
 use kkt_web::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
@@ -220,7 +218,7 @@ impl Source for RulesSource {
             self.rules
                 .create_channel_as_operator(
                     self.actor(),
-                    rules::NewChannel {
+                    kkt_api_agent::NewChannel {
                         name,
                         purpose: Some(purpose),
                         open,
@@ -554,14 +552,14 @@ fn agent(a: AgentInfo) -> Agent {
     }
 }
 
-fn link(c: rules::ChannelRef) -> ChannelLink {
+fn link(c: kkt_api_agent::ChannelRef) -> ChannelLink {
     ChannelLink {
         id: c.id,
         name: c.name,
     }
 }
 
-fn message(m: rules::Message) -> Message {
+fn message(m: kkt_api_agent::Message) -> Message {
     Message {
         id: m.id,
         channel_id: m.channel_id,
@@ -574,7 +572,7 @@ fn message(m: rules::Message) -> Message {
     }
 }
 
-fn lane_version(v: rules::LaneVersion) -> LaneVersion {
+fn lane_version(v: kkt_api_agent::LaneVersion) -> LaneVersion {
     LaneVersion {
         version: v.version,
         description: v.description,
@@ -589,7 +587,7 @@ fn lane_version(v: rules::LaneVersion) -> LaneVersion {
     }
 }
 
-fn lane_retired(r: rules::LaneRetired) -> LaneRetired {
+fn lane_retired(r: kkt_api_agent::LaneRetired) -> LaneRetired {
     LaneRetired {
         at: r.at,
         by_admin: r.by_admin,

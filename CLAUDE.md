@@ -66,7 +66,8 @@ has none.
 
 | Crate | Owns | Must not | Features |
 |---|---|---|---|
-| `kkt-rules` | Every permission decision and every change, for agents and the human; the core's data, in its storage module (`src/store/`): the `Reads`/`Writes` contract and its implementation in kkt-db's terms, and the core's tables as kkt-db migrations (`src/store/schema.rs`) | Reach the database except through `Reads` and `Writes`; format output; contain SQL or know a particular database (it is given a `kkt_db::Backend`) | `testing`: `testing::swarms_stay_apart` (the check every store must pass) |
+| `kkt-rules` | Every permission decision and every change, for agents and the human; the core's data, in its storage module (`src/store/`): its questions (`Reader`) and changes (`Writer`) in kkt-db's terms, and the core's tables as kkt-db migrations (`src/store/schema.rs`) | Reach the database except through the storage module's `Reader` and `Writer`; format output; contain SQL or know a particular database (it is given a `kkt_db::Backend`) | `testing`: `testing::swarms_stay_apart` (the check every store must pass) |
+| `kkt-api-agent` | What any registered agent may do, and the records every level shares: agents, channels, messages, memory, lanes, the queries, who acts (`Actor`, `Agent`, `Operator`, `Audit`, `Permissions`) and the errors (`RuleError`, `Code`) | | none |
 | `kkt-db` | The database contract, for any database: values; declaring tables, keys, references, indexes and constraints; the questions and changes a store may make (a narrow language, not SQL); transactions (a read sees one state, a write runs as if alone); search: what a search asks for (`Search`, `Excerpt`) and finds (`Hit`); migrations as additions, recorded per named set; `Legacy`, a database from before migrations were tracked, in no backend's terms; the `Backend` and `Evolve` traits a backend implements, and `BackendExt`, the typed read and write a store calls on any backend | Know a product's tables; name a database or use a database library | `testing`: `MemoryPlace`, a database in memory that keeps the contract; `conformance`, the checks every backend must pass; `FaultyBackend`, a backend that wraps another and fails a change on cue |
 | `kkt-db-sqlite` | kkt-db over SQLite, the only crate that knows SQLite: SQL written from kkt-db's operations, one writer behind a lock and read-only readers, constraints as triggers, search indexes as FTS5 over kkt-search's words, migrations recorded in `kkt_db_versions`, adopting a database from before kkt-db as the caller's kkt-db `Legacy` describes, reading SQLite's `user_version` itself (`SqlitePlace::adopting`), `copy_database` | Know a product's tables; let a rusqlite type out of the crate | `real`: `SqlitePlace` and `copy_database`, which open database files. `testing`: `MemoryPlace`, a SQLite database in memory |
 | `kkt-search` | Search as text: the words of a text (FTS5 `unicode61`'s rule, as a table of our own), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given | Know a database | none |
@@ -139,15 +140,16 @@ are told about each tool); `crates/kkt-mcp/build.rs` (builds the tool text); `te
 questions and changes, with search, constraints and migrations; it knows
 neither the core's tables nor any database. kkt-rules' storage module
 (`crates/kkt-rules/src/store/`) knows the core's tables, declares them
-and implements `Reads` and `Writes` in kkt-db's terms; it knows no
+and asks and changes them in kkt-db's terms, through `Reader` and
+`Writer`; it knows no
 database, holds no SQL and is handed a `kkt_db::Backend`. `kkt-db-sqlite` knows SQLite and no product's tables;
 it is the only crate that imports rusqlite, apart from the program's tests
 that inspect database files. The program opens the file through it and
-says, in `src/machine/database.rs`, which databases from before kkt-db it
-adopts. A
+adopts the databases from before kkt-db that `kkt_rules::legacy`
+describes (`src/machine/database.rs`). A
 question kkt-db cannot ask is a reason to add an operation to kkt-db, with
 its conformance check, never to reach past it. Rules ask for what they
-need through named methods on `Reads` or `Writes`. A rule that must be
+need through named methods on `Reader` or `Writer`. A rule that must be
 atomic runs as one `Db::write`: a write runs as if alone. Schema changes
 are new kkt-db migrations at the end of `crates/kkt-rules/src/store/schema.rs`;
 migrations only add, and never edit one that has shipped. Every backend

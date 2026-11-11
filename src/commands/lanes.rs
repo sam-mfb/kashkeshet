@@ -10,10 +10,11 @@ use crate::machine::record::{docker_folder, read_setup};
 use crate::machine::settings::{
     ContainerConfigs, DefaultDb, NO_HOME_TO_FIND_DB, database, read_config,
 };
+use kkt_api_agent::LaneSource;
 use kkt_clock_system::SystemClock;
 use kkt_lane_files as lane_files;
 use kkt_machine::{Env, Platform};
-use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource};
+use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome, LaneSave};
 use kkt_settings::Limits;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
@@ -155,7 +156,7 @@ fn local_operator(
     let db = crate::machine::database::open(&path)?;
     // Key mode: the one swarm. Lanes belong to the server, not to a swarm.
     Ok((
-        CommandLine::new(db, kkt_rules::SwarmId::main(), Arc::new(SystemClock)),
+        CommandLine::new(db, kkt_api_agent::SwarmId::main(), Arc::new(SystemClock)),
         max_lane_chars,
     ))
 }

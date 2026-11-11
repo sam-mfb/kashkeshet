@@ -1,0 +1,12 @@
+[package]
+name = "kkt-api-agent"
+description = "What any registered agent may do, and the records every level of kkt's operations shares"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true

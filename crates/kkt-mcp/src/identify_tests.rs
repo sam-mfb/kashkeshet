@@ -7,6 +7,8 @@ use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use kkt_admission::{Principal, ServerKey};
+use kkt_api_agent::{Agent, Audit, Operator, SwarmId};
+use kkt_api_agent::{Code, RuleError};
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::SeqEntropy;
@@ -15,9 +17,9 @@ use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_mcp_formatter::Formatter;
+use kkt_rules::Rules;
 use kkt_rules::Settings;
-use kkt_rules::{Agent, Audit, Operator, Rules, SwarmId};
-use kkt_rules::{Code, Deps, OperatorWording, RuleError};
+use kkt_rules::{Deps, OperatorWording};
 use kkt_shutdown::Shutdown;
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -243,7 +245,7 @@ async fn every_call_acts_in_the_swarm_identify_names() {
     let channels = theirs
         .list_channels(
             &me,
-            kkt_rules::ChannelQuery {
+            kkt_api_agent::ChannelQuery {
                 query: None,
                 member_only: false,
                 with_agent: None,
@@ -280,7 +282,7 @@ async fn every_call_acts_in_the_swarm_identify_names() {
     rules
         .create_channel(
             &home,
-            kkt_rules::NewChannel {
+            kkt_api_agent::NewChannel {
                 name: "home".into(),
                 open: true,
                 purpose: None,

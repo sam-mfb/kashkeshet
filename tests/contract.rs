@@ -168,7 +168,7 @@ async fn descriptions_state_the_live_limits() {
 /// code must be added here, as the match lists every code.
 #[test]
 fn error_codes_are_fixed() {
-    use kkt_rules::Code;
+    use kkt_api_agent::Code;
     let text = |code: Code| match code {
         Code::Unauthenticated
         | Code::NotFound

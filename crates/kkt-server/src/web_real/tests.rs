@@ -6,6 +6,7 @@
 use super::{AdmissionGate, RulesSource, WebViewer};
 use axum::http::StatusCode;
 use kkt_admission::{Admission, Principal, ServerKey, Sessions, SharedKey, WebAdmission};
+use kkt_api_agent::{Agent, Audit, Code, NewChannel, Operator, Permission, RuleError, SwarmId};
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::SeqEntropy;
@@ -14,9 +15,7 @@ use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_names as names;
 use kkt_rules::NewServerRunRecord;
-use kkt_rules::{
-    Agent, Audit, Code, Deps, NewChannel, Operator, Permission, RuleError, Rules, SwarmId,
-};
+use kkt_rules::{Deps, Rules};
 use kkt_web::testing::{
     ACTIVITY_BUCKET, ACTIVITY_WINDOW, ChannelHidden, administration_works, agent_row,
     announcement_editor_works, changes_work, channel_creation_works, channel_row,
@@ -140,10 +139,10 @@ async fn rules_world_and_db(
         .await
         .expect("record run");
     let operator =
-        kkt_rules::CommandLine::new(db.clone(), kkt_rules::SwarmId::main(), clock.clone());
+        kkt_rules::CommandLine::new(db.clone(), kkt_api_agent::SwarmId::main(), clock.clone());
     let rules = Rules::new(Deps {
         db,
-        swarm: kkt_rules::SwarmId::main(),
+        swarm: kkt_api_agent::SwarmId::main(),
         events: Events::new(kkt_events::Settings::DEFAULT),
         clock: clock.clone(),
         entropy: Arc::new(SeqEntropy::new(4)),
@@ -213,7 +212,7 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
     let (rules, source, _, operator) = rules_world_and_db(kkt_rules::Settings::DEFAULT).await;
     rules
         .save_lane(
-            kkt_rules::Actor::Operator(web_operator().await),
+            kkt_api_agent::Actor::Operator(web_operator().await),
             kkt_rules::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
@@ -229,7 +228,7 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
                 description: "Reviews.".into(),
                 text: "Read twice.".into(),
             }],
-            source: kkt_rules::LaneSource {
+            source: kkt_api_agent::LaneSource {
                 folder: "/home/sam/lanes".into(),
                 commit: Some("abc123-dirty".into()),
             },
@@ -258,7 +257,7 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
     };
     rules
         .save_lane(
-            kkt_rules::Actor::Operator(web_operator().await),
+            kkt_api_agent::Actor::Operator(web_operator().await),
             save("Read."),
         )
         .await
@@ -278,7 +277,7 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
 
     rules
         .save_lane(
-            kkt_rules::Actor::Operator(web_operator().await),
+            kkt_api_agent::Actor::Operator(web_operator().await),
             save("Read twice."),
         )
         .await
@@ -313,7 +312,7 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
         .id;
     rules
         .save_lane(
-            kkt_rules::Actor::Operator(web_operator().await),
+            kkt_api_agent::Actor::Operator(web_operator().await),
             kkt_rules::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
@@ -451,7 +450,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     let [owner, leaver, removed, removed_by_op, quitter, hidden] = &agents[..] else {
         panic!("six agents");
     };
-    let names_of = |list: &[&kkt_rules::Agent]| list.iter().map(|a| a.handle.clone()).collect();
+    let names_of = |list: &[&kkt_api_agent::Agent]| list.iter().map(|a| a.handle.clone()).collect();
     let town = rules
         .create_channel(
             owner,
@@ -685,12 +684,12 @@ async fn announcement_editor_works_through_rules() {
     announcement_editor_works(rules_source().await, rules_gate()).await;
 }
 /// An admin agent at the admin endpoint, under the admin key named `name`.
-fn admin_agent(name: kkt_names::AdminName) -> kkt_rules::Actor {
-    use kkt_rules::{Audit, Operator, Permission, Permissions};
-    kkt_rules::Actor::Operator(Operator::new(
+fn admin_agent(name: kkt_names::AdminName) -> kkt_api_agent::Actor {
+    use kkt_api_agent::{Audit, Operator, Permission, Permissions};
+    kkt_api_agent::Actor::Operator(Operator::new(
         Permissions::of(&[Permission::Read, Permission::Change]),
         Audit::AdminEndpoint {
-            key_name: Some(name),
+            key_name: Some(name.to_string()),
         },
     ))
 }
@@ -706,7 +705,7 @@ async fn the_history_names_the_admin_agent_that_saved_a_version() {
         .unwrap();
     rules
         .save_server_announcement(
-            kkt_rules::Actor::Operator(web_operator().await),
+            kkt_api_agent::Actor::Operator(web_operator().await),
             "Be kind.".into(),
         )
         .await
@@ -894,7 +893,7 @@ async fn hiding_an_owner_tells_the_human_to_clear_it_on_each_channels_page() {
     let room = rules
         .create_channel(
             &me,
-            kkt_rules::NewChannel {
+            kkt_api_agent::NewChannel {
                 name: "room".into(),
                 open: true,
                 purpose: None,

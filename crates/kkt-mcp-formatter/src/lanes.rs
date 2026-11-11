@@ -11,7 +11,7 @@
 use super::agents::{held_lane_json, with_held_lane};
 use super::fit::{Row, one_line};
 use super::{Format, Formatter};
-use kkt_rules::{Lane, LaneChange, LaneTaking, Page};
+use kkt_api_agent::{Lane, LaneChange, LaneTaking, Page};
 use serde_json::{Value, json};
 
 /// How many characters of a lane's instructions each part of `get_lane`
@@ -302,9 +302,9 @@ fn lane_json(l: &Lane, description: Option<&Description>, text: Option<&str>) ->
 mod tests {
     use super::*;
     use crate::MIN_RESPONSE_BYTES;
+    use kkt_api_agent::{LaneRetired, LaneVersion};
     use kkt_clock::testing::FixedClock;
     use kkt_names::MAX_ADMIN_NAME_CHARS;
-    use kkt_rules::{LaneRetired, LaneVersion};
     use std::sync::Arc;
 
     fn formatter(max_bytes: usize) -> Formatter {

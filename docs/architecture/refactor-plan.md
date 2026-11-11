@@ -130,8 +130,9 @@ this list; one that is not on it blocks.
 | kkt-mcp depends on kkt-rules, an extra arrow (the endpoints take `Rules`, not kkt-api-agent's `Api`) | before the refactor | 5.3b |
 | kkt-mcp-formatter's `NoticeWording` implements kkt-rules' `OperatorWording` (a contract of a logic crate) | before the refactor | 5.5 |
 | kkt-admission depends on kkt-clock, an extra arrow (web sessions' expiry) | before the refactor | 6.1 |
-| kkt-rules' `testing::memory` gives a `Db`, not `Rules`: other crates' tests still set up their data through `Writes` | 5.2b-1 | 5.3 |
-| kkt-rules' tests depend on kkt-db-sqlite, an effect crate (its in-memory `MemoryPlace`) | 5.2a | not yet scheduled: kkt-db's `MemoryPlace` would do |
+| kkt-rules' `testing::memory` gives a `Db`, not `Rules`: other crates' tests still set up their data through the store's `Writer` | 5.2b-1 | 5.3 |
+| kkt-rules' store records, `Reader`, `Writer` and `Db::read`/`Db::write` stay public: other crates' test setup and the program's 0.10.0 migration test still use them | 5.2b-2 | 5.3 |
+| kkt-rules' tests depend on kkt-db-sqlite, an effect crate (its in-memory `MemoryPlace`, in two test helpers) | 5.2a | 5.3b, where the two helpers use kkt-db's `MemoryPlace` as kkt-rules' `testing` does; kkt-db's conformance checks keep SQLite covered |
 | kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
 | The preview has its own copy of the access-key check and the session ID length (kkt-web may not depend on kkt-admission) | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
 
@@ -169,6 +170,7 @@ the last column says so.
 | kkt-settings depends on kkt-admission (`AccessKey` in `ServeSettings`, the key paths), kkt-logs (`LogLevel`, `LogPolicy`), kkt-mcp-formatter and kkt-web (the bounds `Limits::check` reads, now public) and kkt-names (`NamePack`) | 3.1b (#431), 3.5b (#449), 3.5c (#450) | Its values hold those types, and `Limits::check` reads the bounds their owners state. None of them depends on kkt-settings, and only the programs do | awaiting Sam | yes |
 | Each program keeps `check_settings`: a short function that turns kkt-settings' values into each crate's settings and calls each owner's check, with the mapping of `Limits` to kkt-rules' and kkt-web's settings (about 25 lines) in both kkt and kkt-keymode; `Limits::check` stays one ordered list; kkt-keymode keeps its own `KeyFiles` | 3.5c (#450) | No allowed owner exists for the mapping: kkt-rules and kkt-web may not know kkt-settings, nor kkt-settings them. One ordered list keeps the first bad limit named the same. `KeyFiles` goes with the proposal's kkt-admission-os (7.2) | awaiting Sam | yes |
 | kkt-settings words the settings a run records (`RecordedSettings`); kkt-provenance's `RunSettings` holds those lines and depends only on kkt-hash; kkt-service's plan takes its own `ServiceSettings`; kkt-container's `status` and `lane_limit` take their defaults from the program; `DEFAULT_ALLOW_ANY_BIND` is private | 3.5c (#450) | The wording moved unchanged with the golden tests that pin it, and the run record stays byte for byte the same; kkt-settings' defaults are `Limits::DEFAULT`'s, so no separate `DEFAULT_NAME_PACK` | awaiting Sam | yes |
+| kkt-api-agent's `Audit::AdminEndpoint` holds the admin key's name as text (`Option<String>`), not kkt-names' `AdminName` | 5.3a | A contract crate holds the already-checked name as a plain value and depends on no kkt crate; kkt-names checks the name where kkt-identity-keymode builds the `Audit` (msg 2476) | awaiting Sam | not a map change |
 
 ## The steps
 

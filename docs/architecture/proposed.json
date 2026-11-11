@@ -5248,7 +5248,7 @@
   },
   {
    "id": "4",
-   "text": "kkt-store's testing offers an in-memory store on kkt-db's testing::MemoryPlace, and the fail-a-write hook; since msg 2017 they are kkt-rules' testing::memory and testing::fail_next_write. The tests of kkt-identity-keymode, kkt-mcp, kkt-server and the fake product dev-depend on kkt-rules for them, not on kkt-db or kkt-db-sqlite. kkt-rules' own tests run on both backends."
+   "text": "kkt-store's testing offers an in-memory store on kkt-db's testing::MemoryPlace, and the fail-a-write hook; since msg 2017 they are kkt-rules' testing::memory and testing::fail_next_write. The tests of kkt-identity-keymode, kkt-mcp, kkt-server and the fake product dev-depend on kkt-rules for them, not on kkt-db or kkt-db-sqlite. kkt-rules' own tests run on kkt-db's in-memory database; kkt-db's conformance checks cover each backend."
   },
   {
    "id": "5",

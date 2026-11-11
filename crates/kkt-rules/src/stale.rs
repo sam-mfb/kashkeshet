@@ -4,7 +4,6 @@
 //! as hiding one agent. A channel owner is never hidden this way.
 
 use super::administration::{HIDDEN, Removal, hidden_body};
-use super::human::ChannelRef;
 use super::*;
 use std::time::Duration;
 
@@ -85,7 +84,7 @@ impl Rules {
         idle: Duration,
         chosen: Vec<String>,
     ) -> Result<StaleHidden> {
-        actor.may_change()?;
+        may_change(&actor)?;
         let who = self.operator_words(&actor)?;
         let cutoff = self.stale_cutoff(idle)?;
         let rules = self.clone();
@@ -168,7 +167,7 @@ impl Rules {
     }
 }
 
-fn stale_agent(store: &dyn Reads, swarm: &SwarmId, record: AgentRecord) -> Result<StaleAgent> {
+fn stale_agent(store: &Reader<'_>, swarm: &SwarmId, record: AgentRecord) -> Result<StaleAgent> {
     let handle = record.name.clone();
     Ok(StaleAgent {
         channels: channel_refs(store, swarm, store.all_channel_ids(swarm, Some(&handle))?)?,
@@ -178,7 +177,7 @@ fn stale_agent(store: &dyn Reads, swarm: &SwarmId, record: AgentRecord) -> Resul
     })
 }
 
-fn channel_refs(store: &dyn Reads, swarm: &SwarmId, ids: Vec<String>) -> Result<Vec<ChannelRef>> {
+fn channel_refs(store: &Reader<'_>, swarm: &SwarmId, ids: Vec<String>) -> Result<Vec<ChannelRef>> {
     let mut refs = Vec::new();
     for id in ids {
         if let Some(facts) = store.channel(swarm, &id)? {
