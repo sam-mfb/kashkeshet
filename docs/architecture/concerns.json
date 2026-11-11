@@ -183,7 +183,13 @@
    "layer": "operations",
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
    "must_not": "Touch the machine except through `Host`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-client-config-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's client-config files and claude command: plain OsHost methods, adapted by the program.",
+   "must_not": "Decide a client config's content."
   },
   "kkt-diagnostics": {
    "layer": "operations",

@@ -1042,6 +1042,7 @@ dependencies = [
  "kkt-agent-client",
  "kkt-backup",
  "kkt-client-config",
+ "kkt-client-config-os",
  "kkt-clock",
  "kkt-clock-system",
  "kkt-config",
@@ -1126,6 +1127,10 @@ dependencies = [
  "serde_json",
  "toml_edit",
 ]
+
+[[package]]
+name = "kkt-client-config-os"
+version = "0.10.0"
 
 [[package]]
 name = "kkt-clock"

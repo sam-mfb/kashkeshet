@@ -2,6 +2,7 @@
 //! setup record, key files, how a client reaches the server, agent
 //! credential files, and the database file.
 
+pub mod client_config;
 pub mod connection;
 pub(crate) mod credentials;
 pub mod database;

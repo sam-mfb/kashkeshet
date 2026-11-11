@@ -476,7 +476,6 @@
      "supplier": "kkt-remote-access-os's OsHost"
     },
     {
-     "impl": "kkt-client-config::OsHost",
      "crate": "kkt-client-config",
      "to": [
       {
@@ -504,7 +503,9 @@
        "param": "host"
       }
      ],
-     "note": "kkt connect, kkt setup, kkt doctor"
+     "note": "kkt connect, kkt setup, kkt doctor",
+     "own": "ClientHost, adapting kkt-client-config-os's OsHost",
+     "supplier": "kkt-client-config-os's OsHost"
     },
     {
      "impl": "kkt-diagnostics::OsProber",

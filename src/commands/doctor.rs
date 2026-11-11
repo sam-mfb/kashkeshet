@@ -2,6 +2,7 @@
 //! and how this machine runs kkt, and prints a line for each with a fix for
 //! each problem.
 
+use crate::machine::client_config::ClientHost;
 use crate::machine::connection::{ConnectionOptions, client_connection, recorded_connection};
 use crate::machine::keys::{KeyKind, local_operator_key, local_web_key};
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded, unfinished_mode};
@@ -121,7 +122,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
     };
     let (report, all_ok) = diagnostics::report(plan.checks(inspector));
     print!("{report}");
-    match clients::codex_password_store_hint(env, &clients::OsHost) {
+    match clients::codex_password_store_hint(env, &ClientHost) {
         Ok(true) => println!(
             "info: Codex: mcp_oauth_credentials_store is unset; a password-store timeout can prevent kkt from connecting. See https://github.com/sam-mfb/kashkeshet/blob/main/docs/clients.md#codex for the optional file-store setting and what it changes."
         ),
