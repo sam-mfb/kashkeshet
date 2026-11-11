@@ -577,7 +577,10 @@
         el("button", { class: "action", type: "button", onclick: showConfigTable }, `Item 7: kkt-config, item by item (${proposed.config_split.table.length})`)),
       shown.violations.length
         ? el("p", { class: "must" }, `The rule is broken in ${shown.violations.length} places: `, shown.violations.join("; "))
-        : el("p", { class: "muted" }, "Checked: no crate but a composition depends on an effect crate, implements another crate's trait, or is still mixed."),
+        : el("p", { class: "muted" }, "Checked: no crate but a composition depends on an effect crate, implements another crate's trait, or is still mixed, except as listed next."),
+      (graph.pending || []).length
+        ? el("p", {}, statusChip("recommended"), ` ${graph.pending.length} implementations are allowed only if an assumption holds, so they are pending Sam: `, graph.pending.join("; "), ".")
+        : null,
       kindChecks(graph.kind_mismatches),
       el("h3", {}, "Where this comes from"),
       el("p", { class: "muted" }, "The consumer counts, the proposed arrows and what changed are derived (propose.py) from the generated current map. How the rule applies, each trait's result, the conflicts, the assumptions and every status are written by hand in proposed.json; item 7 in config-split.json."),
@@ -623,6 +626,7 @@
     const arrow = (a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ", el("span", { class: "muted" }, `${a.kind}, ${a.role || ""}`), tags(a));
     openDialog("What changed",
       el("p", { class: "muted" }, "Compared with the current map. Derived by comparing the two maps; each note and arrow carries the status of the change behind it."),
+      (ch.gone || []).length ? [el("h3", {}, `Crates gone (${ch.gone.length})`), el("p", {}, ch.gone.join(", "), el("span", { class: "muted" }, ": see the notes of the crate each merged into."))] : null,
       el("h3", {}, `Crates (${ch.crates.length})`),
       el("ul", { class: "flows" }, ch.crates.map((c) => el("li", {}, crateLink(c.crate),
         el("ul", {}, c.notes.map((n) => el("li", {}, statusChip(n.status), " ", prose(n.text))))))),
@@ -658,7 +662,9 @@
       el("ol", { class: "conflicts" }, proposed.conflicts.map((c) => el("li", { id: `conflict-${c.id}`, class: c.id === focus ? "hit-item" : "" },
         el("strong", {}, `${c.id}. ${c.title}`), " ", c.resolved === false
           ? el("span", { class: "badge status status-open" }, "open, for Sam")
-          : el("span", { class: "badge status status-decided" }, "resolved: decided by Sam, strict rule"),
+          : c.pending
+            ? el("span", { class: "badge status status-recommended" }, `resolved by the strict rule; the reshape rests on ${c.pending}, pending Sam`)
+            : el("span", { class: "badge status status-decided" }, "resolved: decided by Sam, strict rule"),
         el("p", {}, prose(c.text)), el("p", {}, el("strong", {}, c.resolved === false ? "Options: " : "Resolution: "), prose(c.resolution))))),
       (proposed.withdrawn || []).length
         ? [el("h3", {}, "Withdrawn"), el("ul", {}, proposed.withdrawn.map((w) => el("li", {}, el("strong", {}, `${w.id}. `), prose(w.text))))]

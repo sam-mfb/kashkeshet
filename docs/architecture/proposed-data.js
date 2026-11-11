@@ -5,24 +5,14 @@ window.KKT_PROPOSED = {
   "about": "Every adapter in the proposal, measured against the code (msg 2009). Each method is forwarding (F): the same operation as a method of the provider, with at most a rename or a trivial conversion; or translating (T): it combines calls, reshapes records or holds logic. Copies: how many programs write it. Counted by hand from the code at the commit the map was generated from; the methods are each contract's.",
   "after": [
    {
-    "adapter": "kkt-store's own store (through Db)",
-    "copies": 1,
-    "forward": 0,
-    "methods": 73,
-    "to": "kkt-rules: Reads, Writes",
-    "translate": 73,
-    "where": "kkt-store (composition)",
-    "why": "Every method turns one of the rules' questions or changes into kkt-db operations: channel_ids joins memberships with open channels; insert_message checks the channel and the agent before inserting; append_lane_version reads the newest version before inserting (A6)."
-   },
-   {
     "adapter": "kkt-server::RulesSource",
     "copies": 1,
-    "forward": 9,
+    "forward": 14,
     "methods": 21,
     "to": "kkt-web: Source",
-    "translate": 12,
+    "translate": 7,
     "where": "kkt-server (composition)",
-    "why": "12 translate: overview, channel, agent, lanes and lane reshape the rules' results into the page's views; server_announcement and lanes add the limits; save_lane picks create or update; live maps the rules' events. 9 forward one command or limit each: new_recovery_code, create_channel, set_purpose, change_channel, hide_agent, save_server_announcement, retire_lane, page_messages, member_excerpt_chars. They are the same operations on both sides, so they stay (A6)."
+    "why": "7 translate, in three ways: overview, hidden_channels and channel work out whether the last speaker or a message's author is the operator; server_announcement, lanes and lane add the page's limits; save_lane picks create or update. 14 forward one rules call each, copying the record field by field or through kkt-web's own live_event: new_recovery_code, create_channel, set_purpose, change_channel, hide_agent, save_server_announcement, retire_lane, agent, server_runs, stale_agents, hide_stale_agents, live, page_messages and member_excerpt_chars. kkt-web's view types copy kkt-rules' records, and kkt-web may not depend on kkt-rules, so the adapter stays (Q6). Recounted after kkt-review-373's review (msg 2015)."
    },
    {
     "adapter": "kkt-server::RulesSources",
@@ -125,14 +115,14 @@ window.KKT_PROPOSED = {
     "why": "Each OS implementation exists only to meet its consumer's contract (Q4). The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each."
    }
   ],
-  "after_note": "After the reshape. An adapter in a composition (kkt-store, kkt-server) holds the translation itself, so there is no forwarding layer beside it (A6). The preview implements kkt-web's contract itself (A7), and kkt-server takes kkt-mcp's Identify (A8).",
+  "after_note": "After the reshape. kkt-store merges into kkt-rules, so the store needs no adapter at all (msg 2017). kkt-server, a composition, holds the page's and the wording's translation itself, pending A6. The preview implements kkt-web's contract itself (A7), and kkt-server takes kkt-mcp's Identify (A8).",
   "after_totals": {
-   "adapters": 17,
-   "forward": 81,
-   "forward_written": 93,
-   "methods": 168,
-   "translate": 87,
-   "written": 180
+   "adapters": 16,
+   "forward": 86,
+   "forward_written": 98,
+   "methods": 95,
+   "translate": 9,
+   "written": 107
   },
   "before": [
    {
@@ -440,7 +430,7 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "tests": [
        "kashkeshet",
-       "kkt-store"
+       "kkt-rules"
       ],
       "to": [
        "kkt-db::Backend",
@@ -479,18 +469,18 @@ window.KKT_PROPOSED = {
       "title": "Settings"
      },
      {
-      "fills": "kkt-store::Db::new (database)",
+      "fills": "kkt-rules::Db::new (database)",
       "items": [
        "kkt-db-sqlite::SqlitePlace",
        "kkt-db-sqlite::Options",
        "kkt-db-sqlite-db::SqliteBackend",
        "kkt-db::Legacy",
-       "kkt-store::legacy",
-       "kkt-store::schema",
-       "kkt-store::Db"
+       "kkt-rules::legacy",
+       "kkt-rules::schema",
+       "kkt-rules::Db"
       ],
       "proposed_step": true,
-      "text": "A SqlitePlace for the database file goes into kkt-db-sqlite-db's SqliteBackend, a kkt-db Backend; kkt-store's Db runs on it with the core's tables, adopting a database from before kkt-db as kkt-store's history describes it in kkt-db's Legacy shape. The Db meets kkt-rules' Reads and Writes itself (A6).",
+      "text": "A SqlitePlace for the database file goes into kkt-db-sqlite-db's SqliteBackend, a kkt-db Backend; kkt-rules' Db runs on it with the core's tables, adopting a database from before kkt-db as kkt-rules' history describes it in kkt-db's Legacy shape (msg 2017).",
       "title": "Database"
      },
      {
@@ -499,7 +489,7 @@ window.KKT_PROPOSED = {
        "kkt-server::record_run"
       ],
       "proposed_step": true,
-      "text": "What produced this run is stored through kkt-store's Db, and new rows carry its ID.",
+      "text": "What produced this run is stored through kkt-rules' Db, and new rows carry its ID.",
       "title": "Run record"
      },
      {
@@ -513,7 +503,7 @@ window.KKT_PROPOSED = {
        "kkt-server::AdmissionGate"
       ],
       "proposed_step": true,
-      "text": "kkt-store's Db, the program's adapters over the system clock, the operating system's randomness and key mode's identity go into the server's parts. kkt-server adapts the rest itself: the web page's sources and gate, and the notices' wording (A6).",
+      "text": "kkt-rules' Db, the program's adapters over the system clock, the operating system's randomness and key mode's identity go into the server's parts. kkt-server adapts the rest itself: the web page's sources and gate, and the notices' wording (A6).",
       "title": "Parts"
      },
      {
@@ -568,7 +558,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-server",
-      "impl": "kkt-store::Db",
+      "impl": "kkt-rules::Db",
       "to": [
        {
         "at": "Parts::new",
@@ -631,7 +621,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-rules",
-      "impl": "kkt-store::Db",
+      "impl": "kkt-rules::Db",
       "note": "kkt agent, kkt lanes",
       "to": [
        {
@@ -1075,7 +1065,7 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-store",
+      "crate": "kkt-rules",
       "impl": "kkt-db-sqlite-db::SqliteBackend",
       "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)",
       "status": "decided",
@@ -1125,7 +1115,7 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "tests": [
        "kashkeshet",
-       "kkt-store"
+       "kkt-rules"
       ],
       "to": [
        "kkt-db::Backend",
@@ -1142,15 +1132,15 @@ window.KKT_PROPOSED = {
     "inferred": false,
     "steps": [
      {
-      "fills": "kkt-store::Db::new (database)",
+      "fills": "kkt-rules::Db::new (database)",
       "items": [
        "kkt-db-sqlite::SqlitePlace",
        "kkt-db-sqlite-db::SqliteBackend",
-       "kkt-store::schema",
-       "kkt-store::Db"
+       "kkt-rules::schema",
+       "kkt-rules::Db"
       ],
       "proposed_step": true,
-      "text": "A database with the core's tables: kkt-store's in-memory store in its tests, a SqlitePlace file through SqliteBackend for its program. The product makes the second swarm in it.",
+      "text": "A database with the core's tables: kkt-rules' in-memory Db in its tests, a SqlitePlace file through SqliteBackend for its program. The product makes the second swarm in it.",
       "title": "Database"
      },
      {
@@ -1191,7 +1181,7 @@ window.KKT_PROPOSED = {
     "wiring": [
      {
       "crate": "kkt-fake-product",
-      "impl": "kkt-store::Db",
+      "impl": "kkt-rules::Db",
       "to": [
        {
         "at": "Product::start",
@@ -1269,7 +1259,7 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-store",
+      "crate": "kkt-rules",
       "impl": "kkt-db-sqlite-db::SqliteBackend",
       "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)",
       "status": "decided",
@@ -1319,7 +1309,7 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "tests": [
        "kashkeshet",
-       "kkt-store"
+       "kkt-rules"
       ],
       "to": [
        "kkt-db::Backend",
@@ -1344,13 +1334,13 @@ window.KKT_PROPOSED = {
       "title": "Settings"
      },
      {
-      "fills": "kkt-store::Db::new (database)",
+      "fills": "kkt-rules::Db::new (database)",
       "items": [
        "kkt-db-sqlite::SqlitePlace",
        "kkt-db-sqlite::Options",
        "kkt-db-sqlite-db::SqliteBackend",
-       "kkt-store::schema",
-       "kkt-store::Db"
+       "kkt-rules::schema",
+       "kkt-rules::Db"
       ],
       "proposed_step": true,
       "text": "As kkt serve's, through SqliteBackend. It adopts no database from before kkt-db.",
@@ -1406,7 +1396,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-server",
-      "impl": "kkt-store::Db",
+      "impl": "kkt-rules::Db",
       "to": [
        {
         "at": "Parts::new",
@@ -1468,7 +1458,7 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-store",
+      "crate": "kkt-rules",
       "impl": "kkt-db-sqlite-db::SqliteBackend",
       "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)",
       "status": "decided",
@@ -1647,15 +1637,15 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "A4",
-   "text": "\"The record types Reads and Writes use\" is taken as the 36 public types of kkt-store that the two traits' methods name (32), or that appear inside those types (AgentLaneRecord, ChannelNoteRecord, LaneSourceRecord) or inside StoreResult (StoreError). ChannelKind, the 16 channel kinds the tests go through, appears in neither trait, so it stays in kkt-store."
+   "text": "(Moot since msg 2017: with kkt-store merged into kkt-rules there are no copies.) \"The record types Reads and Writes use\" was taken as the 36 public types of kkt-store that the two traits' methods name (32), or that appear inside those types (AgentLaneRecord, ChannelNoteRecord, LaneSourceRecord) or inside StoreResult (StoreError)."
   },
   {
    "id": "A5",
-   "text": "kkt-rules no longer names kkt-store's Db: its Deps and CommandLine take a store meeting its Reads and Writes, which is the program's adapter over kkt-store's Db. How it opens a transaction on that store is left to the refactor."
+   "text": "(Moot since msg 2017.) kkt-rules no longer named kkt-store's Db: its Deps and CommandLine took a store meeting its Reads and Writes. Now Deps and CommandLine take kkt-rules' own Db."
   },
   {
    "id": "A6",
-   "text": "An adapter that turns one crate's contract into another's, and decides nothing of either domain, is a composition, even when its translation is large. So kkt-store, which turns the rules' questions into kkt-db operations, and kkt-server, which turns the rules' results into the page's views, may implement kkt-rules' and kkt-web's contracts. Without this, each would need a forwarding adapter beside it (73 and 28 methods) that holds no logic at all."
+   "text": "An adapter that turns one crate's contract into another's, and decides nothing of either domain, is a composition. So kkt-server, which turns the rules' results into the page's views and adapts the wording, may implement kkt-web's and kkt-rules' contracts; without this, each program would need a forwarding adapter beside it (29 methods). Pending Sam. Withdrawn for kkt-store (msg 2017): kkt-review-373 showed it decides things (msg 2015), and Sam merged it into kkt-rules instead."
   },
   {
    "id": "A7",
@@ -1663,7 +1653,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "A8",
-   "text": "kkt-server's use of Identify (its web gate asks who the operator is, and it hands the same value to /mcp and /mcp-admin) is kkt-mcp's question, so kkt-server takes kkt-mcp's Identify. Two copies of one contract meant one adapter meeting both."
+   "text": "An exception to the msg 1938 rule that each consumer of a trait declares its own: Identify has two consumers, kkt-mcp and kkt-server, and only kkt-mcp declares it. kkt-server's use (its web gate asks who the operator is, and it hands the same value to /mcp and /mcp-admin) is kkt-mcp's question, so kkt-server takes kkt-mcp's Identify. Two copies of one contract meant one adapter meeting both."
   },
   {
    "id": "A9",
@@ -1671,7 +1661,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "A10",
-   "text": "Search (which stays in kkt-db) holds an Excerpt, the style of its excerpts, and Excerpt moves to kkt-search with the text functions (msg 2014). So kkt-db depends on kkt-search for that value type, and kkt-store, which states its excerpt style, uses kkt-search's Excerpt beside kkt-db's Search and Hit. The other choice keeps Excerpt in kkt-db as a plain value and has kkt-search's excerpt take its marks and window as arguments; then neither kkt-db's Search nor kkt-store names kkt-search."
+   "text": "Search (which stays in kkt-db) holds an Excerpt, the style of its excerpts, and Excerpt moves to kkt-search with the text functions (msg 2014). So kkt-db depends on kkt-search for that value type, and kkt-rules (kkt-store's code, since msg 2017), which states its excerpt style, uses kkt-search's Excerpt beside kkt-db's Search and Hit. The other choice keeps Excerpt in kkt-db as a plain value and has kkt-search's excerpt take its marks and window as arguments; then neither kkt-db's Search nor kkt-rules names kkt-search."
   }
  ],
  "changes": {
@@ -1993,6 +1983,15 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-fake-product",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-rules"
+   },
+   {
+    "from": "kkt-fake-product",
     "kind": "normal",
     "role": "uses",
     "statuses": [
@@ -2017,15 +2016,6 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "to": "kkt-shutdown-os"
-   },
-   {
-    "from": "kkt-fake-product",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-store"
    },
    {
     "from": "kkt-mcp-formatter",
@@ -2118,15 +2108,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-rules"
    },
    {
-    "from": "kkt-identity-keymode",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-store"
-   },
-   {
     "from": "kkt-keymode",
     "kind": "normal",
     "role": "wires",
@@ -2179,6 +2160,15 @@ window.KKT_PROPOSED = {
      "recommended"
     ],
     "to": "kkt-mcp"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-rules"
    },
    {
     "from": "kkt-keymode",
@@ -2266,6 +2256,24 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-rules",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-db"
+   },
+   {
+    "from": "kkt-rules",
+    "kind": "dev",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-db-sqlite-db"
+   },
+   {
+    "from": "kkt-rules",
     "kind": "dev",
     "role": "uses",
     "statuses": [
@@ -2281,6 +2289,13 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-entropy"
+   },
+   {
+    "from": "kkt-rules",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-search"
    },
    {
     "from": "kkt-rules",
@@ -2360,49 +2375,6 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "to": "kkt-shutdown"
-   },
-   {
-    "from": "kkt-store",
-    "kind": "dev",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-db-sqlite-db"
-   },
-   {
-    "from": "kkt-store",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-names"
-   },
-   {
-    "from": "kkt-store",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "recommended"
-    ],
-    "to": "kkt-rules"
-   },
-   {
-    "from": "kkt-store",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "recommended"
-    ],
-    "to": "kkt-rules"
-   },
-   {
-    "from": "kkt-store",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [],
-    "to": "kkt-search"
    },
    {
     "from": "kkt-web",
@@ -2827,7 +2799,11 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "items_gone": [],
     "items_new": [
-     "SwarmId"
+     "CORE",
+     "Db",
+     "SwarmId",
+     "legacy",
+     "schema"
     ],
     "kind": "normal",
     "roles_after": [
@@ -2922,58 +2898,6 @@ window.KKT_PROPOSED = {
     ],
     "statuses": [],
     "to": "kkt-shutdown"
-   },
-   {
-    "from": "kashkeshet",
-    "items_gone": [
-     "ChannelFilter",
-     "ChannelScope",
-     "MessageRange",
-     "NewAgentRecord",
-     "NewChannelRecord",
-     "NewMessageRecord",
-     "NewServerRunRecord",
-     "NewerFilter",
-     "Reads",
-     "SearchFilter",
-     "SentFilter",
-     "StoreError",
-     "SwarmId"
-    ],
-    "items_new": [],
-    "kind": "dev",
-    "roles_after": [
-     "uses",
-     "wires"
-    ],
-    "roles_before": [
-     "uses",
-     "wires"
-    ],
-    "statuses": [],
-    "to": "kkt-store"
-   },
-   {
-    "from": "kashkeshet",
-    "items_gone": [
-     "SwarmId"
-    ],
-    "items_new": [
-     "legacy"
-    ],
-    "kind": "normal",
-    "roles_after": [
-     "uses",
-     "wires"
-    ],
-    "roles_before": [
-     "uses",
-     "wires"
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-store"
    },
    {
     "from": "kkt-admission",
@@ -3280,14 +3204,15 @@ window.KKT_PROPOSED = {
     "from": "kkt-fake-product",
     "items_gone": [],
     "items_new": [
+     "Db",
      "NewServerRunRecord",
-     "Reads",
      "StoreError",
-     "Writes"
+     "schema"
     ],
     "kind": "normal",
     "roles_after": [
-     "uses"
+     "uses",
+     "wires"
     ],
     "roles_before": [
      "uses"
@@ -3330,25 +3255,6 @@ window.KKT_PROPOSED = {
     ],
     "statuses": [],
     "to": "kkt-shutdown"
-   },
-   {
-    "from": "kkt-fake-product",
-    "items_gone": [
-     "NewServerRunRecord",
-     "StoreError"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses",
-     "wires"
-    ],
-    "roles_before": [
-     "uses",
-     "wires"
-    ],
-    "statuses": [],
-    "to": "kkt-store"
    },
    {
     "from": "kkt-hosts",
@@ -3533,29 +3439,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-rules"
    },
    {
-    "from": "kkt-mcp",
-    "items_gone": [
-     "NewServerRunRecord",
-     "StoreError"
-    ],
-    "items_new": [
-     "testing::memory"
-    ],
-    "kind": "dev",
-    "roles_after": [
-     "uses",
-     "wires"
-    ],
-    "roles_before": [
-     "uses",
-     "wires"
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-store"
-   },
-   {
     "from": "kkt-provenance",
     "items_gone": [],
     "items_new": [
@@ -3615,31 +3498,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-names"
-   },
-   {
-    "from": "kkt-rules",
-    "items_gone": [
-     "NewServerRunRecord",
-     "NewerFilter",
-     "SearchFilter",
-     "SentFilter",
-     "StoreError"
-    ],
-    "items_new": [
-     "testing::fail_next_write",
-     "testing::memory"
-    ],
-    "kind": "dev",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-store"
    },
    {
     "from": "kkt-server",
@@ -3723,12 +3581,11 @@ window.KKT_PROPOSED = {
     "from": "kkt-server",
     "items_gone": [],
     "items_new": [
+     "Db",
      "MAX_LANE_DESCRIPTION_CHARS",
      "NewServerRunRecord",
-     "Reads",
      "Settings",
-     "StoreResult",
-     "Writes"
+     "StoreResult"
     ],
     "kind": "normal",
     "roles_after": [
@@ -3745,30 +3602,6 @@ window.KKT_PROPOSED = {
      "recommended"
     ],
     "to": "kkt-rules"
-   },
-   {
-    "from": "kkt-server",
-    "items_gone": [
-     "NewServerRunRecord",
-     "StoreError",
-     "SwarmId"
-    ],
-    "items_new": [
-     "testing::memory"
-    ],
-    "kind": "dev",
-    "roles_after": [
-     "uses",
-     "wires"
-    ],
-    "roles_before": [
-     "uses",
-     "wires"
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-store"
    },
    {
     "from": "kkt-server",
@@ -3923,30 +3756,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-settings"
-   },
-   {
-    "from": "kkt-store",
-    "items_gone": [
-     "Database",
-     "search::Excerpt"
-    ],
-    "items_new": [
-     "Backend",
-     "BackendExt",
-     "Legacy",
-     "testing::MemoryPlace"
-    ],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-db"
    },
    {
     "from": "kkt-web",
@@ -4115,7 +3924,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program wires kkt-store's old-database facts into the SqlitePlace, with its \"upgrade with kkt 0.10 first\" message (item 3)"
+      "text": "the program wires kkt-rules' old-database facts into the SqlitePlace, with its \"upgrade with kkt 0.10 first\" message (item 3) (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
       "status": "decided",
@@ -5297,7 +5106,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "SqliteBackend adapts kkt-db-sqlite::SqlitePlace to kkt-db::Backend and kkt-db::Connection and kkt-db::Evolve, for kashkeshet, kkt-keymode, kkt-fake-product; and the tests of kashkeshet, kkt-store"
+      "text": "SqliteBackend adapts kkt-db-sqlite::SqlitePlace to kkt-db::Backend and kkt-db::Connection and kkt-db::Evolve, for kashkeshet, kkt-keymode, kkt-fake-product; and the tests of kashkeshet, kkt-rules"
      }
     ]
    },
@@ -5435,15 +5244,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Product::start takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
+      "text": "no longer depends on kkt-db-sqlite (dev): item 4: its tests use kkt-rules' in-memory Db (kkt-store's before msg 2017); its program still opens a SqlitePlace"
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): item 4: its tests use kkt-store's in-memory store; its program still opens a SqlitePlace"
-     },
-     {
-      "status": "decided",
-      "text": "item 4"
+      "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      }
     ]
    },
@@ -5473,7 +5278,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "item 4"
+      "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
       "status": "decided",
@@ -5557,7 +5362,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "item 4"
+      "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      }
     ]
    },
@@ -5726,10 +5531,6 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "testing::swarms_stay_apart comes here from kkt-store"
-     },
-     {
-      "status": "decided",
       "text": "AGENT_SECRET_CHARS comes here from kkt-config, private"
      },
      {
@@ -5750,27 +5551,51 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "kkt-store's Reads goes: kkt-rules reaches kkt-db directly, so there is no store contract to declare or implement (msg 2017)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-store's Writes goes: kkt-rules reaches kkt-db directly, so there is no store contract to declare or implement (msg 2017)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-store merges into it: its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and item 4's testing helpers. kkt-rules uses kkt-db directly, as a consumer of a shared contract crate; the program gives it the SQLite backend as before (msg 2017). Private now, used only here: ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelNoteRecord, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord, MessageRecord, MessageTimeRecord, NewLaneVersionRecord, NoteEditRecord, SearchHitRecord, ServerAnnouncementRecord, ServerRunRecord, TakenLaneRecord."
+     },
+     {
+      "status": "decided",
+      "text": "new fn legacy"
+     },
+     {
+      "status": "decided",
+      "text": "new fn testing::memory"
+     },
+     {
+      "status": "decided",
+      "text": "new fn testing::fail_next_write"
+     },
+     {
+      "status": "decided",
       "text": "new struct Settings"
      },
      {
       "status": "decided",
-      "text": "declares its own Reads (with the record and filter types it uses, which move with it: kkt-store implements Reads in kkt-rules' own types, so there are no copies (A4; A6))"
+      "text": "Db::new takes one database value meeting kkt-db::Backend"
      },
      {
       "status": "decided",
-      "text": "declares its own Writes (as Reads)"
+      "text": "its tests wire kkt-db-sqlite-db's SqliteBackend instead of an adapter of their own (item 8)"
      },
      {
       "status": "decided",
-      "text": "Deps takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
+      "text": "the store's private copy of OPERATOR goes; it takes kkt-names' (item 2) (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
       "status": "decided",
-      "text": "CommandLine::new takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
+      "text": "kkt-rules states its old databases in kkt-db's neutral shape (item 3) (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
       "status": "decided",
-      "text": "Rules holds a value meeting kkt-rules::Reads and kkt-rules::Writes in place of kkt-db::Backend: Rules holds a store meeting its own Reads and Writes (C3)"
+      "text": "its testing feature's in-memory store (item 4) (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
       "status": "decided",
@@ -5782,19 +5607,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db (dev): its tests dev-depend on kkt-store only (item 4)"
-     },
-     {
-      "status": "decided",
       "text": "no longer depends on kkt-db-sqlite (dev): item 4"
      },
      {
       "status": "decided",
-      "text": "item 4. Q1: kkt-store now depends on kkt-rules, so a unit test of kkt-rules that uses kkt-store's store sees a second copy of kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "kkt-rules takes its store through its own Reads and Writes, which kkt-store's Db implements (C3; A5; A6)"
+      "text": "no longer depends on kkt-db (dev): its tests reach kkt-db's in-memory backend through its normal dependency and its own testing::memory (msg 2017)"
      }
     ]
    },
@@ -5848,7 +5665,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "recommended",
-      "text": "RulesSource implements kkt-web::Source itself: kkt-server, a composition, adapts the rules to the page itself, as today: 12 of the 21 methods reshape the rules' results into the page's views; 9 forward one command each (A6)"
+      "text": "RulesSource implements kkt-web::Source itself: kkt-server, a composition, adapts the rules to the page itself, as today: 7 of the 21 methods translate (the operator flag, the limits, create or update); 14 forward one rules call each (A6; Q6)"
      },
      {
       "status": "recommended",
@@ -5865,22 +5682,6 @@ window.KKT_PROPOSED = {
      {
       "status": "recommended",
       "text": "Parts takes one identify value meeting kkt-mcp::Identify"
-     },
-     {
-      "status": "decided",
-      "text": "Parts::new takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
-     },
-     {
-      "status": "decided",
-      "text": "Parts takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
-     },
-     {
-      "status": "decided",
-      "text": "record_run takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
-     },
-     {
-      "status": "decided",
-      "text": "Parts holds a value meeting kkt-rules::Reads and kkt-rules::Writes in place of kkt-db::Backend: as Parts::new"
      },
      {
       "status": "recommended",
@@ -5900,15 +5701,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "item 4"
-     },
-     {
-      "status": "decided",
-      "text": "no longer depends on kkt-store (normal): kkt-server takes a store meeting kkt-rules' Reads and Writes and no longer names kkt-store's Db (C3)"
-     },
-     {
-      "status": "decided",
-      "text": "uses kkt-rules' record types, which it passes to Writes (C3)"
+      "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      }
     ]
    },
@@ -6220,67 +6013,6 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "crate": "kkt-store",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "testing::swarms_stay_apart moves to kkt-rules: with the Reads and Writes it checks, which it now runs over the program's adapter (C3)"
-     },
-     {
-      "status": "decided",
-      "text": "new fn legacy"
-     },
-     {
-      "status": "decided",
-      "text": "new fn testing::memory"
-     },
-     {
-      "status": "decided",
-      "text": "new fn testing::fail_next_write"
-     },
-     {
-      "status": "decided",
-      "text": "no longer declares Reads or the 36 types that go with it"
-     },
-     {
-      "status": "decided",
-      "text": "no longer declares Writes"
-     },
-     {
-      "status": "recommended",
-      "text": "its own type implements kkt-rules::Reads and kkt-rules::Writes itself: its private store type, reached through Db, is the adapter between kkt-db and kkt-rules: each of the 73 methods turns one of the rules' questions or changes into kkt-db operations, so none only forwards (A6)"
-     },
-     {
-      "status": "decided",
-      "text": "Db::new takes one database value meeting kkt-db::Backend"
-     },
-     {
-      "status": "decided",
-      "text": "its tests wire kkt-db-sqlite-db's SqliteBackend instead of an adapter of their own (item 8)"
-     },
-     {
-      "status": "decided",
-      "text": "kkt-store's private copy of OPERATOR goes; it takes kkt-names' (item 2)"
-     },
-     {
-      "status": "decided",
-      "text": "kkt-store states its old databases in kkt-db's neutral shape (item 3)"
-     },
-     {
-      "status": "decided",
-      "text": "its testing feature's in-memory store (item 4)"
-     },
-     {
-      "status": "recommended",
-      "text": "swarms_stay_apart, the check every store must pass, runs over kkt-store's Db (A6)"
-     },
-     {
-      "status": "recommended",
-      "text": "its store works in kkt-rules' record and filter types, so there are no copies to map (A6)"
-     }
-    ]
-   },
-   {
     "crate": "kkt-watch",
     "notes": [
      {
@@ -6488,12 +6220,27 @@ window.KKT_PROPOSED = {
     ]
    }
   ],
+  "gone": [
+   "kkt-store"
+  ],
   "removed": [
    {
     "from": "kashkeshet",
     "kind": "normal",
     "role": "wires",
     "to": "kkt-identity"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-store"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "dev",
+    "role": "uses",
+    "to": "kkt-store"
    },
    {
     "from": "kkt-admission",
@@ -6536,6 +6283,12 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "implements",
     "to": "kkt-identity"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-store"
    },
    {
     "from": "kkt-fake-product",
@@ -6640,6 +6393,12 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-store"
+   },
+   {
     "from": "kkt-logs",
     "kind": "normal",
     "role": "uses",
@@ -6668,6 +6427,12 @@ window.KKT_PROPOSED = {
     "kind": "dev",
     "role": "wires",
     "to": "kkt-db-sqlite"
+   },
+   {
+    "from": "kkt-mcp",
+    "kind": "dev",
+    "role": "uses",
+    "to": "kkt-store"
    },
    {
     "from": "kkt-provenance",
@@ -6706,6 +6471,12 @@ window.KKT_PROPOSED = {
     "to": "kkt-db-sqlite"
    },
    {
+    "from": "kkt-rules",
+    "kind": "dev",
+    "role": "uses",
+    "to": "kkt-store"
+   },
+   {
     "from": "kkt-server",
     "kind": "normal",
     "role": "uses",
@@ -6731,6 +6502,24 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-server",
+    "kind": "dev",
+    "role": "wires",
+    "to": "kkt-db-sqlite"
+   },
+   {
+    "from": "kkt-server",
+    "kind": "dev",
+    "role": "uses",
+    "to": "kkt-store"
+   },
+   {
+    "from": "kkt-store",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-db"
+   },
+   {
+    "from": "kkt-store",
     "kind": "dev",
     "role": "wires",
     "to": "kkt-db-sqlite"
@@ -6859,7 +6648,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-db-sqlite-db": {
-    "concern": "kkt-db-sqlite's `SqlitePlace` and `MemoryPlace` adapted to kkt-db's `Backend`, `Connection` and `Evolve` (14 methods): `SqliteBackend`. The programs, kkt-store's SQLite tests and the program's tests use it.",
+    "concern": "kkt-db-sqlite's `SqlitePlace` and `MemoryPlace` adapted to kkt-db's `Backend`, `Connection` and `Evolve` (14 methods): `SqliteBackend`. The programs, kkt-rules' SQLite tests (kkt-store's before msg 2017) and the program's tests use it.",
     "kind": "composition",
     "layer": "data",
     "status": "decided"
@@ -6983,10 +6772,10 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-rules": {
-    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm. It declares the store contract it uses, `Reads` and `Writes` with their record types, and the check every store must pass; kkt-store implements them (A6).",
+    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm, and the core's data: the questions and changes the rules make, as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. It uses kkt-db directly; kkt-store merged into it (msg 2017).",
     "kind": "logic",
     "layer": "core",
-    "must_not": "Reach the database except through `Reads` and `Writes`, or format output.",
+    "must_not": "Name a database or use a database library: it reaches the database through kkt-db's contract, which the program fills with the SQLite backend (msg 2017; CLAUDE.md's rule changes with the code refactor).",
     "status": "decided"
    },
    "kkt-scratch": {
@@ -7002,7 +6791,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-server": {
-    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take a store meeting kkt-rules' `Reads` and `Writes`, and an identity meeting kkt-mcp's `Identify`; it names none of kkt-store's types. As a composition it adapts what it builds itself (A6): RulesSource, RulesSources and AdmissionGate implement kkt-web's contract, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. Binding the socket is in kkt-server-listen.",
+    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take kkt-rules' `Db` and an identity meeting kkt-mcp's `Identify`. As a composition it adapts what it builds itself (A6): RulesSource, RulesSources and AdmissionGate implement kkt-web's contract, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. Binding the socket is in kkt-server-listen.",
     "kind": "composition",
     "layer": "assembly",
     "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
@@ -7052,13 +6841,6 @@ window.KKT_PROPOSED = {
     "kind": "effect",
     "layer": "foundations",
     "status": "follows"
-   },
-   "kkt-store": {
-    "concern": "The core's data: the adapter from kkt-db to kkt-rules. Its Db implements kkt-rules' Reads and Writes, in kkt-rules' record types, by turning each question and change into kkt-db operations; it declares the core's tables as migrations, with their history from before kkt-db. A composition: it decides nothing (A6). Its SQLite tests use kkt-db-sqlite-db.",
-    "kind": "composition",
-    "layer": "data",
-    "must_not": "Decide permissions, contain SQL, or know a particular database.",
-    "status": "recommended"
    },
    "kkt-watch": {
     "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server, clock, saved place, output and its retry and wait timings are injected by the program (item 7).",
@@ -9194,7 +8976,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "C3",
-   "resolution": "Resolved by the strict rule (decided by Sam): kkt-rules declares Reads and Writes and the record types they use. Reshaped after msg 2009 (recommended, A6): kkt-store is the adapter. It is a composition that implements kkt-rules' Reads and Writes over kkt-db, in kkt-rules' own record types, so the 73-method forwarding adapter, the copies of 36 types and kkt-store-rules all go. swarms_stay_apart moves with the traits and runs over kkt-store's Db; kkt-pro's store would implement them the same way, in a composition of its own.",
+   "resolution": "Decided by Sam (msg 2017): kkt-store merges into kkt-rules. Its queries, its decisions (the swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history move into kkt-rules, which uses kkt-db directly as a consumer of a shared contract crate. Reads, Writes, the 36 copied record types, kkt-store and kkt-store-rules all go, with no adapter. Since msg 2015 showed that kkt-store decides things, A6 does not cover it. CLAUDE.md's rule that kkt-rules reaches the database only through Reads and Writes, and its kkt-store row, change with the code refactor, not in this chart.",
    "resolved": true,
    "status": "decided",
    "text": "Reads and Writes have one consumer, kkt-rules, so the rule has kkt-rules declare them. The plan has a second store (kkt-pro's) used through the same Reads and Writes, with the agreement test and the two-swarm test over those traits.",
@@ -9202,17 +8984,19 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "C4",
+   "pending": "A6",
    "resolution": "Resolved by the strict rule (decided by Sam). Reshaped after msg 2009 (recommended, A6): kkt-server is a composition, so RulesSource, RulesSources and AdmissionGate implement kkt-web's Source, Sources and Gate themselves, as today, and kkt-server mounts the page with them. The programs' 28-method forwarding adapters, the sources and gate slots, and SourcesFactory and GateFactory all go.",
    "resolved": true,
-   "status": "decided",
+   "status": "recommended",
    "text": "Step 6 made kkt-server's adapters to kkt-web's contract public, for a product that builds its own page; the rule would have the programs adapt them.",
    "title": "kkt-server's web adapters"
   },
   {
    "id": "C5",
+   "pending": "A6",
    "resolution": "Resolved by the strict rule (decided by Sam): NoticeWording, in kkt-names, implements nothing. Reshaped after msg 2009 (recommended, A6): kkt-server's Wording adapts it once to OperatorWording and hands it to the rules; the wording slot and the programs' copies go.",
    "resolved": true,
-   "status": "decided",
+   "status": "recommended",
    "text": "The rule says the program adapts; kkt-format's NoticeWording is wired into the rules by kkt-server, which is not a program.",
    "title": "Who adapts OperatorWording"
   },
@@ -9240,15 +9024,15 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "2",
-   "text": "Operator and admin names stay in kkt-names. AdminName is split: its name rules stay in kkt-names; bound_to and bound_in (tying the name to the key's hash) move to kkt-admission. kkt-store's private OPERATOR copy goes, and kkt-store takes it from kkt-names."
+   "text": "Operator and admin names stay in kkt-names. AdminName is split: its name rules stay in kkt-names; bound_to and bound_in (tying the name to the key's hash) move to kkt-admission. kkt-store's private OPERATOR copy goes, and kkt-store takes it from kkt-names. (kkt-store merged into kkt-rules, msg 2017.)"
   },
   {
    "id": "3",
-   "text": "The history from before kkt-db moves out of the program. kkt-store owns it as database-neutral facts (old 21 \u2192 core 1, 22 \u2192 core 2, the dropped handoff_note columns). kkt-db defines the neutral shape (today kkt-db-sqlite's Legacy). kkt-db-sqlite keeps only the SQLite part (user_version, the adoption). The program wires it and supplies the \"upgrade with kkt 0.10 first\" message."
+   "text": "The history from before kkt-db moves out of the program. kkt-store owned it (kkt-rules since msg 2017) as database-neutral facts (old 21 \u2192 core 1, 22 \u2192 core 2, the dropped handoff_note columns). kkt-db defines the neutral shape (today kkt-db-sqlite's Legacy). kkt-db-sqlite keeps only the SQLite part (user_version, the adoption). The program wires it and supplies the \"upgrade with kkt 0.10 first\" message."
   },
   {
    "id": "4",
-   "text": "kkt-store's testing offers an in-memory store on kkt-db's testing::MemoryPlace, and the fail-a-write hook. The tests of kkt-rules, kkt-identity-keymode, kkt-mcp, kkt-server and the fake product dev-depend on kkt-store only, not kkt-db or kkt-db-sqlite. kkt-store's own tests run on both backends."
+   "text": "kkt-store's testing offers an in-memory store on kkt-db's testing::MemoryPlace, and the fail-a-write hook; since msg 2017 they are kkt-rules' testing::memory and testing::fail_next_write. The tests of kkt-identity-keymode, kkt-mcp, kkt-server and the fake product dev-depend on kkt-rules for them, not on kkt-db or kkt-db-sqlite. kkt-rules' own tests run on both backends."
   },
   {
    "id": "5",
@@ -9272,7 +9056,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "10",
-   "text": "kkt-server's Parts::new and Parts.db, its record_run, and the fake product's Product::start take a store meeting kkt-rules' Reads and Writes. kkt-server no longer names kkt-store's Db, and uses kkt-rules' record types."
+   "text": "kkt-server's Parts::new and Parts.db, its record_run, and the fake product's Product::start take kkt-rules' Db (since msg 2017; before, a store meeting kkt-rules' Reads and Writes). kkt-server no longer names a kkt-store type."
   },
   {
    "id": "11",
@@ -9292,7 +9076,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "15",
-   "text": "Shared adapters (msg 1984 item 8, accepted in msg 1987): an adapter that several programs and tests need lives once, in a composition crate, not in each program. kkt-db-sqlite-db adapts kkt-db-sqlite to kkt-db's traits (14 methods). After msg 2009, kkt-store-rules goes: kkt-store is itself the adapter to kkt-rules (A6)."
+   "text": "Shared adapters (msg 1984 item 8, accepted in msg 1987): an adapter that several programs and tests need lives once, in a composition crate, not in each program. kkt-db-sqlite-db adapts kkt-db-sqlite to kkt-db's traits (14 methods). kkt-store-rules is gone: kkt-store merges into kkt-rules (msg 2017)."
   },
   {
    "id": "16",
@@ -9321,6 +9105,10 @@ window.KKT_PROPOSED = {
   {
    "id": "22",
    "text": "kkt-db is contract-only, with no logic crate beside it (msg 2014, replacing msg 2012's). Database disappears: its typed read and write become BackendExt's provided methods, over Backend's async read and write, with a blanket implementation that works through dyn Backend; its fault hook becomes testing::FaultyBackend, a backend that wraps another. migrate and pending become provided methods of Evolve, schema and schema_at Schema's latest and at, and the query checks Schema's check_ methods and operand_type; Step::apply_to stays. Search's text functions, Word and Excerpt move to a new crate, kkt-search (logic, A9, A10); Search and Hit stay in kkt-db."
+  },
+  {
+   "id": "23",
+   "text": "kkt-store merges into kkt-rules (msg 2017): its queries, its decisions, the core's tables and their history, and item 4's testing helpers. kkt-rules uses kkt-db directly. Reads, Writes and the copied record types go; the record types only kkt-rules uses become private. Q1 is resolved. CLAUDE.md's rule on where database access lives changes with the code refactor, not in #409."
   }
  ],
  "graph": {
@@ -10085,7 +9873,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program wires kkt-store's old-database facts into the SqlitePlace, with its \"upgrade with kkt 0.10 first\" message (item 3)"
+      "text": "the program wires kkt-rules' old-database facts into the SqlitePlace, with its \"upgrade with kkt 0.10 first\" message (item 3) (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
       "status": "decided",
@@ -13297,7 +13085,7 @@ window.KKT_PROPOSED = {
       "path": "testing"
      },
      {
-      "doc": "A backend that wraps another and fails the next change to a table on cue, in place of Database::fail_next_change_to. kkt-store's testing::fail_next_write uses it (msg 2014).",
+      "doc": "A backend that wraps another and fails the next change to a table on cue, in place of Database::fail_next_change_to. kkt-rules' testing::fail_next_write uses it (msg 2014).",
       "feature": "testing",
       "kind": "struct",
       "methods": [
@@ -13623,7 +13411,7 @@ window.KKT_PROPOSED = {
     ],
     "items": [
      {
-      "doc": "A SQLite place, file or memory, meeting kkt-db's Backend, Connection and Evolve; kkt-store's Db is given it.",
+      "doc": "A SQLite place, file or memory, meeting kkt-db's Backend, Connection and Evolve; kkt-rules' Db is given it.",
       "kind": "struct",
       "path": "SqliteBackend",
       "proposed_item": true,
@@ -13646,7 +13434,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "SqliteBackend adapts kkt-db-sqlite::SqlitePlace to kkt-db::Backend and kkt-db::Connection and kkt-db::Evolve, for kashkeshet, kkt-keymode, kkt-fake-product; and the tests of kashkeshet, kkt-store"
+      "text": "SqliteBackend adapts kkt-db-sqlite::SqlitePlace to kkt-db::Backend and kkt-db::Connection and kkt-db::Evolve, for kashkeshet, kkt-keymode, kkt-fake-product; and the tests of kashkeshet, kkt-rules"
      }
     ],
     "released_program": false,
@@ -14639,15 +14427,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Product::start takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
+      "text": "no longer depends on kkt-db-sqlite (dev): item 4: its tests use kkt-rules' in-memory Db (kkt-store's before msg 2017); its program still opens a SqlitePlace"
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db-sqlite (dev): item 4: its tests use kkt-store's in-memory store; its program still opens a SqlitePlace"
-     },
-     {
-      "status": "decided",
-      "text": "item 4"
+      "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      }
     ],
     "released_program": false,
@@ -14665,21 +14449,21 @@ window.KKT_PROPOSED = {
      },
      {
       "at": "Product::start",
-      "holds": [],
+      "holds": [
+       {
+        "crate": "kkt-rules",
+        "traits": [
+         {
+          "crate": "kkt-db",
+          "trait": "Backend"
+         }
+        ],
+        "type": "Db"
+       }
+      ],
       "kind": "param",
       "name": "db",
-      "note": "as kkt-server's Parts::new: the fake product passes kkt-store's Db",
-      "status": "decided",
-      "traits": [
-       {
-        "crate": "kkt-rules",
-        "trait": "Reads"
-       },
-       {
-        "crate": "kkt-rules",
-        "trait": "Writes"
-       }
-      ]
+      "traits": []
      },
      {
       "at": "Product::start",
@@ -14783,7 +14567,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "item 4"
+      "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
       "status": "decided",
@@ -15254,7 +15038,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "item 4"
+      "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      }
     ],
     "released_program": false,
@@ -15307,12 +15091,8 @@ window.KKT_PROPOSED = {
           "trait": "OperatorWording"
          },
          {
-          "crate": "kkt-rules",
-          "trait": "Reads"
-         },
-         {
-          "crate": "kkt-rules",
-          "trait": "Writes"
+          "crate": "kkt-db",
+          "trait": "Backend"
          }
         ],
         "type": "Rules"
@@ -15370,12 +15150,8 @@ window.KKT_PROPOSED = {
           "trait": "OperatorWording"
          },
          {
-          "crate": "kkt-rules",
-          "trait": "Reads"
-         },
-         {
-          "crate": "kkt-rules",
-          "trait": "Writes"
+          "crate": "kkt-db",
+          "trait": "Backend"
          }
         ],
         "type": "Rules"
@@ -16076,29 +15852,13 @@ window.KKT_PROPOSED = {
        }
       ],
       "trait": "OperatorWording"
-     },
-     {
-      "implementors": [
-       {
-        "crate": "kkt-store",
-        "type": null
-       }
-      ],
-      "trait": "Reads"
-     },
-     {
-      "implementors": [
-       {
-        "crate": "kkt-store",
-        "type": null
-       }
-      ],
-      "trait": "Writes"
      }
     ],
     "crate_doc": "Every permission check and database change.",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "testing": []
+    },
     "holders": [
      {
       "holds": [
@@ -16159,19 +15919,6 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "declared_from": "kkt-store",
-      "doc": "",
-      "fields": [
-       "channel_id",
-       "channel_name",
-       "new_messages",
-       "latest_id"
-      ],
-      "kind": "struct",
-      "path": "ActivityRecord",
-      "status": "decided"
-     },
-     {
       "doc": "",
       "fields": [
        "channel_id",
@@ -16209,19 +15956,6 @@ window.KKT_PROPOSED = {
       "path": "Agent"
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "MCP initialization metadata last observed at registration or reclaim.",
-      "fields": [
-       "name",
-       "version",
-       "recorded_at",
-       "run_id"
-      ],
-      "kind": "struct",
-      "path": "AgentClient",
-      "status": "decided"
-     },
-     {
       "doc": "",
       "fields": [
        "handle",
@@ -16253,34 +15987,6 @@ window.KKT_PROPOSED = {
       "path": "AgentLane"
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "The lane an agent has taken, as stored.",
-      "fields": [
-       "taken",
-       "current_version"
-      ],
-      "kind": "struct",
-      "path": "AgentLaneRecord",
-      "status": "decided"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "An agent as stored.",
-      "fields": [
-       "name",
-       "created_at",
-       "last_seen",
-       "run_id",
-       "revoked_at",
-       "description",
-       "client",
-       "lane"
-      ],
-      "kind": "struct",
-      "path": "AgentRecord",
-      "status": "decided"
-     },
-     {
       "doc": "One agent as the operator sees it.",
       "fields": [
        "handle",
@@ -16303,19 +16009,6 @@ window.KKT_PROPOSED = {
       "path": "AgentView"
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "A channel, hidden or not, as no viewer in particular sees it.",
-      "fields": [
-       "summary",
-       "hidden",
-       "run_id",
-       "note_run_id"
-      ],
-      "kind": "struct",
-      "path": "AnyChannelRecord",
-      "status": "decided"
-     },
-     {
       "doc": "Where an operator's request came from: recorded with what it changes.",
       "kind": "enum",
       "methods": [
@@ -16326,6 +16019,13 @@ window.KKT_PROPOSED = {
        "WebPage",
        "AdminEndpoint"
       ]
+     },
+     {
+      "doc": "The name of the core's set of migrations.",
+      "kind": "const",
+      "moved_from": "kkt-store",
+      "path": "CORE",
+      "status": "decided"
      },
      {
       "doc": "A channel and how much it is used.",
@@ -16352,20 +16052,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "The facts about a channel that decide who may use it.",
-      "fields": [
-       "id",
-       "name",
-       "open",
-       "owner"
-      ],
-      "kind": "struct",
-      "path": "ChannelFacts",
-      "status": "decided"
-     },
-     {
-      "declared_from": "kkt-store",
       "doc": "Which channels `Reads::channel_ids` returns, in name order.",
       "fields": [
        "scope",
@@ -16375,6 +16061,7 @@ window.KKT_PROPOSED = {
        "limit"
       ],
       "kind": "struct",
+      "moved_from": "kkt-store",
       "path": "ChannelFilter",
       "status": "decided"
      },
@@ -16398,6 +16085,22 @@ window.KKT_PROPOSED = {
       "path": "ChannelInfo"
      },
      {
+      "doc": "The stored facts that decide whether a viewer may use a channel: whether it is hidden or open, and whether the viewer is in it or owns it.",
+      "fields": [
+       "hidden",
+       "open",
+       "member",
+       "owner"
+      ],
+      "kind": "struct",
+      "methods": [
+       "all"
+      ],
+      "moved_from": "kkt-store",
+      "path": "ChannelKind",
+      "status": "decided"
+     },
+     {
       "doc": "",
       "fields": [
        "channel_id",
@@ -16407,18 +16110,6 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ChannelNote"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "A pinned channel note, including the most recent edit (also when cleared).",
-      "fields": [
-       "text",
-       "edited_by",
-       "edited_at"
-      ],
-      "kind": "struct",
-      "path": "ChannelNoteRecord",
-      "status": "decided"
      },
      {
       "doc": "",
@@ -16443,7 +16134,6 @@ window.KKT_PROPOSED = {
       "path": "ChannelRef"
      },
      {
-      "declared_from": "kkt-store",
       "doc": "Which channels a query covers: those in one swarm whose kind, for the viewer, is one of the allowed kinds.",
       "kind": "struct",
       "methods": [
@@ -16452,40 +16142,8 @@ window.KKT_PROPOSED = {
        "swarm",
        "viewer"
       ],
+      "moved_from": "kkt-store",
       "path": "ChannelScope",
-      "status": "decided"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "A channel's stored fields and counts, as one viewer sees them.",
-      "fields": [
-       "note",
-       "id",
-       "name",
-       "purpose",
-       "open",
-       "created_by",
-       "created_at",
-       "owner",
-       "member_count",
-       "viewer_is_member",
-       "new_messages"
-      ],
-      "kind": "struct",
-      "path": "ChannelSummary",
-      "status": "decided"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "How much a channel has been used: for the human's dashboard.",
-      "fields": [
-       "channel_id",
-       "message_count",
-       "last_message_at",
-       "last_speaker"
-      ],
-      "kind": "struct",
-      "path": "ChannelUseRecord",
       "status": "decided"
      },
      {
@@ -16531,6 +16189,19 @@ window.KKT_PROPOSED = {
        "revoke"
       ],
       "path": "CommandLine"
+     },
+     {
+      "doc": "A database the store reads and changes.",
+      "kind": "struct",
+      "methods": [
+       "database",
+       "new",
+       "read",
+       "write"
+      ],
+      "moved_from": "kkt-store",
+      "path": "Db",
+      "status": "decided"
      },
      {
       "doc": "Everything the rules depend on, supplied at startup.",
@@ -16635,20 +16306,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "A lane with its newest version.",
-      "fields": [
-       "name",
-       "created_at",
-       "run_id",
-       "retired",
-       "current"
-      ],
-      "kind": "struct",
-      "path": "LaneRecord",
-      "status": "decided"
-     },
-     {
       "doc": "",
       "fields": [
        "at",
@@ -16657,18 +16314,6 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "LaneRetired"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "When a lane was retired, and by whom.",
-      "fields": [
-       "at",
-       "run_id",
-       "by_admin"
-      ],
-      "kind": "struct",
-      "path": "LaneRetiredRecord",
-      "status": "decided"
      },
      {
       "doc": "What the operator saves as a lane's next version.",
@@ -16688,17 +16333,6 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "LaneSource"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "The folder a lane version was imported from, and the git commit checked out there, if it was a git checkout.",
-      "fields": [
-       "folder",
-       "commit"
-      ],
-      "kind": "struct",
-      "path": "LaneSourceRecord",
-      "status": "decided"
      },
      {
       "doc": "The lane an agent holds after `take_lane`, and what changed.",
@@ -16724,22 +16358,6 @@ window.KKT_PROPOSED = {
       "path": "LaneVersion"
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "One immutable save of a lane: its description and instructions.",
-      "fields": [
-       "version",
-       "description",
-       "text",
-       "saved_at",
-       "run_id",
-       "saved_by_admin",
-       "source"
-      ],
-      "kind": "struct",
-      "path": "LaneVersionRecord",
-      "status": "decided"
-     },
-     {
       "doc": "The longest lane description, in characters.",
       "kind": "const",
       "moved_from": "kkt-config",
@@ -16758,18 +16376,6 @@ window.KKT_PROPOSED = {
       "path": "Members"
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "One agent's membership of one channel.",
-      "fields": [
-       "channel_id",
-       "channel_name",
-       "agent"
-      ],
-      "kind": "struct",
-      "path": "MembershipRecord",
-      "status": "decided"
-     },
-     {
       "doc": "One entry in an avatar's memory, whole.",
       "fields": [
        "handle",
@@ -16779,19 +16385,6 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "MemoryEntry"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "One named entry in an avatar's memory.",
-      "fields": [
-       "name",
-       "text",
-       "saved_at",
-       "run_id"
-      ],
-      "kind": "struct",
-      "path": "MemoryEntryRecord",
-      "status": "decided"
      },
      {
       "doc": "A page of an avatar's memory entries, and the memory as a whole.",
@@ -16851,9 +16444,9 @@ window.KKT_PROPOSED = {
       "path": "MessagePage"
      },
      {
-      "declared_from": "kkt-store",
       "doc": "Which messages of a channel to return, and in what order.",
       "kind": "enum",
+      "moved_from": "kkt-store",
       "path": "MessageRange",
       "status": "decided",
       "variants": [
@@ -16863,34 +16456,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "A message as stored, with its channel's name.",
-      "fields": [
-       "id",
-       "channel_id",
-       "channel_name",
-       "agent",
-       "body",
-       "created_at",
-       "run_id"
-      ],
-      "kind": "struct",
-      "path": "MessageRecord",
-      "status": "decided"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "When a message was sent, and where.",
-      "fields": [
-       "channel_id",
-       "created_at"
-      ],
-      "kind": "struct",
-      "path": "MessageTimeRecord",
-      "status": "decided"
-     },
-     {
-      "declared_from": "kkt-store",
       "doc": "",
       "fields": [
        "name",
@@ -16901,6 +16466,7 @@ window.KKT_PROPOSED = {
        "run_id"
       ],
       "kind": "struct",
+      "moved_from": "kkt-store",
       "path": "NewAgentRecord",
       "status": "decided"
      },
@@ -16916,7 +16482,6 @@ window.KKT_PROPOSED = {
       "path": "NewChannel"
      },
      {
-      "declared_from": "kkt-store",
       "doc": "",
       "fields": [
        "id",
@@ -16929,27 +16494,11 @@ window.KKT_PROPOSED = {
        "run_id"
       ],
       "kind": "struct",
+      "moved_from": "kkt-store",
       "path": "NewChannelRecord",
       "status": "decided"
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "",
-      "fields": [
-       "lane",
-       "description",
-       "text",
-       "saved_at",
-       "run_id",
-       "saved_by_admin",
-       "source"
-      ],
-      "kind": "struct",
-      "path": "NewLaneVersionRecord",
-      "status": "decided"
-     },
-     {
-      "declared_from": "kkt-store",
       "doc": "",
       "fields": [
        "channel_id",
@@ -16959,11 +16508,11 @@ window.KKT_PROPOSED = {
        "run_id"
       ],
       "kind": "struct",
+      "moved_from": "kkt-store",
       "path": "NewMessageRecord",
       "status": "decided"
      },
      {
-      "declared_from": "kkt-store",
       "doc": "",
       "fields": [
        "started_at",
@@ -16973,11 +16522,11 @@ window.KKT_PROPOSED = {
        "instructions_sha256"
       ],
       "kind": "struct",
+      "moved_from": "kkt-store",
       "path": "NewServerRunRecord",
       "status": "decided"
      },
      {
-      "declared_from": "kkt-store",
       "doc": "Which messages `Reads::newer_messages` and `Reads::count_newer_messages` cover.",
       "fields": [
        "scope",
@@ -16985,20 +16534,8 @@ window.KKT_PROPOSED = {
        "channel_ids"
       ],
       "kind": "struct",
+      "moved_from": "kkt-store",
       "path": "NewerFilter",
-      "status": "decided"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "A new text for a channel's note, and who saved it.",
-      "fields": [
-       "text",
-       "editor",
-       "at",
-       "run_id"
-      ],
-      "kind": "struct",
-      "path": "NoteEditRecord",
       "status": "decided"
      },
      {
@@ -17070,62 +16607,6 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ReadQuery"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "Questions the rules can ask.",
-      "kind": "trait",
-      "methods": [
-       "active_agent_count",
-       "activity",
-       "agent",
-       "agent_by_recovery_hash",
-       "agent_by_token_hash",
-       "agent_name_taken",
-       "agents",
-       "agents_by_last_seen",
-       "all_channel_ids",
-       "any_activity",
-       "any_channel",
-       "any_channel_ids",
-       "any_newer_messages",
-       "channel",
-       "channel_id_taken",
-       "channel_ids",
-       "channel_messages",
-       "channel_summary",
-       "channel_use",
-       "count_any_newer_messages",
-       "count_newer_messages",
-       "current_server_announcement",
-       "hidden_channel_ids",
-       "hidden_channel_summary",
-       "is_member",
-       "lane",
-       "lane_history",
-       "lane_version",
-       "lanes",
-       "lanes_after",
-       "latest_message_from",
-       "member_count",
-       "members_by_join",
-       "members_by_name",
-       "memberships",
-       "memory_entries",
-       "memory_entry",
-       "message",
-       "message_count_from",
-       "message_times_since",
-       "newer_messages",
-       "owned_channel_ids",
-       "recent_messages",
-       "search",
-       "server_announcement_history",
-       "server_runs",
-       "takeable_lanes_after"
-      ],
-      "path": "Reads",
-      "status": "decided"
      },
      {
       "doc": "A new authentication token for an existing avatar.",
@@ -17287,7 +16768,6 @@ window.KKT_PROPOSED = {
       "path": "Rules"
      },
      {
-      "declared_from": "kkt-store",
       "doc": "",
       "fields": [
        "scope",
@@ -17302,6 +16782,7 @@ window.KKT_PROPOSED = {
        "limit"
       ],
       "kind": "struct",
+      "moved_from": "kkt-store",
       "path": "SearchFilter",
       "status": "decided"
      },
@@ -17317,21 +16798,6 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "SearchHit"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "",
-      "fields": [
-       "message_id",
-       "channel_id",
-       "channel_name",
-       "agent",
-       "created_at",
-       "excerpt"
-      ],
-      "kind": "struct",
-      "path": "SearchHitRecord",
-      "status": "decided"
      },
      {
       "doc": "",
@@ -17350,7 +16816,6 @@ window.KKT_PROPOSED = {
       "path": "SearchQuery"
      },
      {
-      "declared_from": "kkt-store",
       "doc": "Which messages `Reads::latest_message_from` looks at.",
       "fields": [
        "agent",
@@ -17358,6 +16823,7 @@ window.KKT_PROPOSED = {
        "scope"
       ],
       "kind": "struct",
+      "moved_from": "kkt-store",
       "path": "SentFilter",
       "status": "decided"
      },
@@ -17374,20 +16840,6 @@ window.KKT_PROPOSED = {
       "path": "ServerAnnouncement"
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "One immutable save of the server announcement.",
-      "fields": [
-       "version",
-       "text",
-       "saved_at",
-       "run_id",
-       "saved_by_admin"
-      ],
-      "kind": "struct",
-      "path": "ServerAnnouncementRecord",
-      "status": "decided"
-     },
-     {
       "doc": "One start of the server and what produced it.",
       "fields": [
        "id",
@@ -17399,21 +16851,6 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "ServerRunInfo"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "One start of the server and what produced it.",
-      "fields": [
-       "id",
-       "started_at",
-       "version",
-       "git_commit",
-       "settings",
-       "instructions_sha256"
-      ],
-      "kind": "struct",
-      "path": "ServerRunRecord",
-      "status": "decided"
      },
      {
       "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars (item 7).",
@@ -17443,9 +16880,9 @@ window.KKT_PROPOSED = {
       "path": "StaleHidden"
      },
      {
-      "declared_from": "kkt-store",
       "doc": "",
       "kind": "enum",
+      "moved_from": "kkt-store",
       "path": "StoreError",
       "status": "decided",
       "variants": [
@@ -17456,36 +16893,17 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "declared_from": "kkt-store",
       "doc": "",
       "kind": "type",
+      "moved_from": "kkt-store",
       "path": "StoreResult",
       "status": "decided"
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "Which swarm an avatar or channel belongs to, and so which swarm a lookup is bound to.",
+      "doc": "",
+      "from": "kkt_store::SwarmId",
       "kind": "struct",
-      "methods": [
-       "as_str",
-       "main",
-       "new"
-      ],
-      "path": "SwarmId",
-      "status": "decided"
-     },
-     {
-      "declared_from": "kkt-store",
-      "doc": "Which lane, and which version of it, an agent takes.",
-      "fields": [
-       "lane",
-       "version",
-       "taken_at",
-       "run_id"
-      ],
-      "kind": "struct",
-      "path": "TakenLaneRecord",
-      "status": "decided"
+      "path": "SwarmId"
      },
      {
       "doc": "",
@@ -17509,41 +16927,6 @@ window.KKT_PROPOSED = {
       "path": "WaitResult"
      },
      {
-      "declared_from": "kkt-store",
-      "doc": "Changes the rules can make, on top of what they can ask.",
-      "kind": "trait",
-      "methods": [
-       "add_member",
-       "append_lane_version",
-       "append_server_announcement",
-       "delete_memory_entry",
-       "hide_agent",
-       "hide_channel",
-       "insert_agent",
-       "insert_channel",
-       "insert_lane",
-       "insert_message",
-       "insert_server_run",
-       "insert_swarm",
-       "remove_member",
-       "retire_lane",
-       "save_memory_entry",
-       "set_agent_client",
-       "set_agent_lane",
-       "set_channel_open",
-       "set_description",
-       "set_last_seen",
-       "set_note",
-       "set_owner",
-       "set_purpose",
-       "set_recovery_hash",
-       "set_revoked",
-       "set_token_hash"
-      ],
-      "path": "Writes",
-      "status": "decided"
-     },
-     {
       "doc": "The `list_channels` cursor that continues after `c`.",
       "kind": "fn",
       "path": "channel_cursor"
@@ -17557,6 +16940,42 @@ window.KKT_PROPOSED = {
       "doc": "Whether an import from `folder` that found `lanes` lane files and `skipped_files` skipped `.md` files may retire the lanes it leaves out.",
       "kind": "fn",
       "path": "check_retire_missing"
+     },
+     {
+      "doc": "The core's databases from before kkt-db, as database-neutral facts: kkt 0.10.0's (21) is the core's version 1, next's with swarms (22) its version 2, and the dropped handoff_note columns (item 3).",
+      "kind": "fn",
+      "path": "legacy",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The core's tables, at every version.",
+      "kind": "fn",
+      "moved_from": "kkt-store",
+      "path": "schema",
+      "status": "decided"
+     },
+     {
+      "doc": "What every store must do with swarms, written over `Reads` and `Writes` alone, so any implementation of the contract can be checked: a swarm sees and changes nothing of another.",
+      "feature": "testing",
+      "kind": "mod",
+      "moved_from": "kkt-store",
+      "path": "testing",
+      "status": "decided"
+     },
+     {
+      "doc": "Makes the next write to a test store fail, for tests of what a failed write leaves (item 4). It wraps the test store's backend in kkt-db's testing::FaultyBackend (msg 2014).",
+      "kind": "fn",
+      "path": "testing::fail_next_write",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A Db over kkt-db's in-memory database (testing::MemoryPlace) with the core's tables, for other crates' tests (item 4; in kkt-rules since msg 2017).",
+      "kind": "fn",
+      "path": "testing::memory",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "Checks that two swarms stay apart in `store`, which must hold no avatars or channels yet.",
@@ -17573,10 +16992,6 @@ window.KKT_PROPOSED = {
     "path": "crates/kkt-rules",
     "proposed": "changed",
     "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "testing::swarms_stay_apart comes here from kkt-store"
-     },
      {
       "status": "decided",
       "text": "AGENT_SECRET_CHARS comes here from kkt-config, private"
@@ -17599,27 +17014,51 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "kkt-store's Reads goes: kkt-rules reaches kkt-db directly, so there is no store contract to declare or implement (msg 2017)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-store's Writes goes: kkt-rules reaches kkt-db directly, so there is no store contract to declare or implement (msg 2017)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-store merges into it: its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and item 4's testing helpers. kkt-rules uses kkt-db directly, as a consumer of a shared contract crate; the program gives it the SQLite backend as before (msg 2017). Private now, used only here: ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelNoteRecord, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord, MessageRecord, MessageTimeRecord, NewLaneVersionRecord, NoteEditRecord, SearchHitRecord, ServerAnnouncementRecord, ServerRunRecord, TakenLaneRecord."
+     },
+     {
+      "status": "decided",
+      "text": "new fn legacy"
+     },
+     {
+      "status": "decided",
+      "text": "new fn testing::memory"
+     },
+     {
+      "status": "decided",
+      "text": "new fn testing::fail_next_write"
+     },
+     {
+      "status": "decided",
       "text": "new struct Settings"
      },
      {
       "status": "decided",
-      "text": "declares its own Reads (with the record and filter types it uses, which move with it: kkt-store implements Reads in kkt-rules' own types, so there are no copies (A4; A6))"
+      "text": "Db::new takes one database value meeting kkt-db::Backend"
      },
      {
       "status": "decided",
-      "text": "declares its own Writes (as Reads)"
+      "text": "its tests wire kkt-db-sqlite-db's SqliteBackend instead of an adapter of their own (item 8)"
      },
      {
       "status": "decided",
-      "text": "Deps takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
+      "text": "the store's private copy of OPERATOR goes; it takes kkt-names' (item 2) (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
       "status": "decided",
-      "text": "CommandLine::new takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
+      "text": "kkt-rules states its old databases in kkt-db's neutral shape (item 3) (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
       "status": "decided",
-      "text": "Rules holds a value meeting kkt-rules::Reads and kkt-rules::Writes in place of kkt-db::Backend: Rules holds a store meeting its own Reads and Writes (C3)"
+      "text": "its testing feature's in-memory store (item 4) (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
       "status": "decided",
@@ -17631,19 +17070,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-db (dev): its tests dev-depend on kkt-store only (item 4)"
-     },
-     {
-      "status": "decided",
       "text": "no longer depends on kkt-db-sqlite (dev): item 4"
      },
      {
       "status": "decided",
-      "text": "item 4. Q1: kkt-store now depends on kkt-rules, so a unit test of kkt-rules that uses kkt-store's store sees a second copy of kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "kkt-rules takes its store through its own Reads and Writes, which kkt-store's Db implements (C3; A5; A6)"
+      "text": "no longer depends on kkt-db (dev): its tests reach kkt-db's in-memory backend through its normal dependency and its own testing::memory (msg 2017)"
      }
     ],
     "released_program": false,
@@ -17661,21 +17092,21 @@ window.KKT_PROPOSED = {
      },
      {
       "at": "CommandLine::new",
-      "holds": [],
+      "holds": [
+       {
+        "crate": "kkt-rules",
+        "traits": [
+         {
+          "crate": "kkt-db",
+          "trait": "Backend"
+         }
+        ],
+        "type": "Db"
+       }
+      ],
       "kind": "param",
       "name": "db",
-      "note": "as Deps.db",
-      "status": "decided",
-      "traits": [
-       {
-        "crate": "kkt-rules",
-        "trait": "Reads"
-       },
-       {
-        "crate": "kkt-rules",
-        "trait": "Writes"
-       }
-      ]
+      "traits": []
      },
      {
       "at": "Deps",
@@ -17690,21 +17121,21 @@ window.KKT_PROPOSED = {
      },
      {
       "at": "Deps",
-      "holds": [],
+      "holds": [
+       {
+        "crate": "kkt-rules",
+        "traits": [
+         {
+          "crate": "kkt-db",
+          "trait": "Backend"
+         }
+        ],
+        "type": "Db"
+       }
+      ],
       "kind": "field",
       "name": "db",
-      "note": "a store meeting kkt-rules' Reads and Writes: kkt-store's Db, which implements them itself (A5; A6)",
-      "status": "decided",
-      "traits": [
-       {
-        "crate": "kkt-rules",
-        "trait": "Reads"
-       },
-       {
-        "crate": "kkt-rules",
-        "trait": "Writes"
-       }
-      ]
+      "traits": []
      },
      {
       "at": "Deps",
@@ -17759,15 +17190,24 @@ window.KKT_PROPOSED = {
       "traits": []
      },
      {
+      "at": "Db::new",
+      "holds": [],
+      "kind": "param",
+      "name": "database",
+      "note": "a backend, which kkt-rules' Db runs its work on through BackendExt; there is no Database to build (msgs 2014 and 2017)",
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-db",
+        "trait": "Backend"
+       }
+      ]
+     },
+     {
       "at": "testing::swarms_stay_apart",
       "kind": "param",
       "name": "store",
-      "traits": [
-       {
-        "crate": "kkt-rules",
-        "trait": "Writes"
-       }
-      ]
+      "traits": []
      }
     ],
     "third_party": [
@@ -18143,7 +17583,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "recommended",
-      "text": "RulesSource implements kkt-web::Source itself: kkt-server, a composition, adapts the rules to the page itself, as today: 12 of the 21 methods reshape the rules' results into the page's views; 9 forward one command each (A6)"
+      "text": "RulesSource implements kkt-web::Source itself: kkt-server, a composition, adapts the rules to the page itself, as today: 7 of the 21 methods translate (the operator flag, the limits, create or update); 14 forward one rules call each (A6; Q6)"
      },
      {
       "status": "recommended",
@@ -18160,22 +17600,6 @@ window.KKT_PROPOSED = {
      {
       "status": "recommended",
       "text": "Parts takes one identify value meeting kkt-mcp::Identify"
-     },
-     {
-      "status": "decided",
-      "text": "Parts::new takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
-     },
-     {
-      "status": "decided",
-      "text": "Parts takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
-     },
-     {
-      "status": "decided",
-      "text": "record_run takes one db value meeting kkt-rules::Reads and kkt-rules::Writes"
-     },
-     {
-      "status": "decided",
-      "text": "Parts holds a value meeting kkt-rules::Reads and kkt-rules::Writes in place of kkt-db::Backend: as Parts::new"
      },
      {
       "status": "recommended",
@@ -18195,15 +17619,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "item 4"
-     },
-     {
-      "status": "decided",
-      "text": "no longer depends on kkt-store (normal): kkt-server takes a store meeting kkt-rules' Reads and Writes and no longer names kkt-store's Db (C3)"
-     },
-     {
-      "status": "decided",
-      "text": "uses kkt-rules' record types, which it passes to Writes (C3)"
+      "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      }
     ],
     "released_program": false,
@@ -18254,21 +17670,21 @@ window.KKT_PROPOSED = {
      },
      {
       "at": "Parts",
-      "holds": [],
+      "holds": [
+       {
+        "crate": "kkt-rules",
+        "traits": [
+         {
+          "crate": "kkt-db",
+          "trait": "Backend"
+         }
+        ],
+        "type": "Db"
+       }
+      ],
       "kind": "field",
       "name": "db",
-      "note": "as Parts::new",
-      "status": "decided",
-      "traits": [
-       {
-        "crate": "kkt-rules",
-        "trait": "Reads"
-       },
-       {
-        "crate": "kkt-rules",
-        "trait": "Writes"
-       }
-      ]
+      "traits": []
      },
      {
       "at": "Parts",
@@ -18308,21 +17724,21 @@ window.KKT_PROPOSED = {
      },
      {
       "at": "Parts::new",
-      "holds": [],
+      "holds": [
+       {
+        "crate": "kkt-rules",
+        "traits": [
+         {
+          "crate": "kkt-db",
+          "trait": "Backend"
+         }
+        ],
+        "type": "Db"
+       }
+      ],
       "kind": "param",
       "name": "db",
-      "note": "a store meeting kkt-rules' Reads and Writes (kkt-store's Db); kkt-server no longer names kkt-store's Db (C3)",
-      "status": "decided",
-      "traits": [
-       {
-        "crate": "kkt-rules",
-        "trait": "Reads"
-       },
-       {
-        "crate": "kkt-rules",
-        "trait": "Writes"
-       }
-      ]
+      "traits": []
      },
      {
       "at": "Parts::new",
@@ -18368,12 +17784,8 @@ window.KKT_PROPOSED = {
           "trait": "OperatorWording"
          },
          {
-          "crate": "kkt-rules",
-          "trait": "Reads"
-         },
-         {
-          "crate": "kkt-rules",
-          "trait": "Writes"
+          "crate": "kkt-db",
+          "trait": "Backend"
          }
         ],
         "type": "Rules"
@@ -18402,12 +17814,8 @@ window.KKT_PROPOSED = {
           "trait": "OperatorWording"
          },
          {
-          "crate": "kkt-rules",
-          "trait": "Reads"
-         },
-         {
-          "crate": "kkt-rules",
-          "trait": "Writes"
+          "crate": "kkt-db",
+          "trait": "Backend"
          }
         ],
         "type": "Rules"
@@ -18436,12 +17844,8 @@ window.KKT_PROPOSED = {
           "trait": "Identify"
          },
          {
-          "crate": "kkt-rules",
-          "trait": "Reads"
-         },
-         {
-          "crate": "kkt-rules",
-          "trait": "Writes"
+          "crate": "kkt-db",
+          "trait": "Backend"
          }
         ],
         "type": "Parts"
@@ -18453,21 +17857,21 @@ window.KKT_PROPOSED = {
      },
      {
       "at": "record_run",
-      "holds": [],
+      "holds": [
+       {
+        "crate": "kkt-rules",
+        "traits": [
+         {
+          "crate": "kkt-db",
+          "trait": "Backend"
+         }
+        ],
+        "type": "Db"
+       }
+      ],
       "kind": "param",
       "name": "db",
-      "note": "as Parts::new: the run is recorded through kkt-rules' Writes",
-      "status": "decided",
-      "traits": [
-       {
-        "crate": "kkt-rules",
-        "trait": "Reads"
-       },
-       {
-        "crate": "kkt-rules",
-        "trait": "Writes"
-       }
-      ]
+      "traits": []
      }
     ],
     "third_party": [
@@ -20245,191 +19649,6 @@ window.KKT_PROPOSED = {
     "slots": [],
     "third_party": [
      "tokio"
-    ]
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "Storage: what the rules can ask of the database and change in it.",
-    "dev_only": false,
-    "features": {
-     "testing": []
-    },
-    "holders": [
-     {
-      "holds": [
-       {
-        "crate": "kkt-db",
-        "trait": "Backend"
-       }
-      ],
-      "type": "Db"
-     }
-    ],
-    "implements": [
-     {
-      "crate": "kkt-store",
-      "status": "recommended",
-      "trait": "Reads",
-      "trait_crate": "kkt-rules",
-      "type": null
-     },
-     {
-      "crate": "kkt-store",
-      "status": "recommended",
-      "trait": "Writes",
-      "trait_crate": "kkt-rules",
-      "type": null
-     }
-    ],
-    "items": [
-     {
-      "doc": "The name of the core's set of migrations.",
-      "kind": "const",
-      "path": "CORE"
-     },
-     {
-      "doc": "The stored facts that decide whether a viewer may use a channel: whether it is hidden or open, and whether the viewer is in it or owns it.",
-      "fields": [
-       "hidden",
-       "open",
-       "member",
-       "owner"
-      ],
-      "kind": "struct",
-      "methods": [
-       "all"
-      ],
-      "path": "ChannelKind"
-     },
-     {
-      "doc": "A database the store reads and changes.",
-      "kind": "struct",
-      "methods": [
-       "database",
-       "new",
-       "read",
-       "write"
-      ],
-      "path": "Db"
-     },
-     {
-      "doc": "The core's databases from before kkt-db, as database-neutral facts: kkt 0.10.0's (21) is the core's version 1, next's with swarms (22) its version 2, and the dropped handoff_note columns (item 3).",
-      "kind": "fn",
-      "path": "legacy",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "The core's tables, at every version.",
-      "kind": "fn",
-      "path": "schema"
-     },
-     {
-      "doc": "What every store must do with swarms, written over `Reads` and `Writes` alone, so any implementation of the contract can be checked: a swarm sees and changes nothing of another.",
-      "feature": "testing",
-      "kind": "mod",
-      "path": "testing"
-     },
-     {
-      "doc": "Makes the next write to a test store fail, for tests of what a failed write leaves (item 4). It wraps the test store's backend in kkt-db's testing::FaultyBackend (msg 2014).",
-      "kind": "fn",
-      "path": "testing::fail_next_write",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "A store over kkt-db's in-memory database (testing::MemoryPlace) with the core's tables, for other crates' tests (item 4).",
-      "kind": "fn",
-      "path": "testing::memory",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "composition",
-    "lib": "kkt_store",
-    "name": "kkt-store",
-    "path": "crates/kkt-store",
-    "proposed": "changed",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "testing::swarms_stay_apart moves to kkt-rules: with the Reads and Writes it checks, which it now runs over the program's adapter (C3)"
-     },
-     {
-      "status": "decided",
-      "text": "new fn legacy"
-     },
-     {
-      "status": "decided",
-      "text": "new fn testing::memory"
-     },
-     {
-      "status": "decided",
-      "text": "new fn testing::fail_next_write"
-     },
-     {
-      "status": "decided",
-      "text": "no longer declares Reads or the 36 types that go with it"
-     },
-     {
-      "status": "decided",
-      "text": "no longer declares Writes"
-     },
-     {
-      "status": "recommended",
-      "text": "its own type implements kkt-rules::Reads and kkt-rules::Writes itself: its private store type, reached through Db, is the adapter between kkt-db and kkt-rules: each of the 73 methods turns one of the rules' questions or changes into kkt-db operations, so none only forwards (A6)"
-     },
-     {
-      "status": "decided",
-      "text": "Db::new takes one database value meeting kkt-db::Backend"
-     },
-     {
-      "status": "decided",
-      "text": "its tests wire kkt-db-sqlite-db's SqliteBackend instead of an adapter of their own (item 8)"
-     },
-     {
-      "status": "decided",
-      "text": "kkt-store's private copy of OPERATOR goes; it takes kkt-names' (item 2)"
-     },
-     {
-      "status": "decided",
-      "text": "kkt-store states its old databases in kkt-db's neutral shape (item 3)"
-     },
-     {
-      "status": "decided",
-      "text": "its testing feature's in-memory store (item 4)"
-     },
-     {
-      "status": "recommended",
-      "text": "swarms_stay_apart, the check every store must pass, runs over kkt-store's Db (A6)"
-     },
-     {
-      "status": "recommended",
-      "text": "its store works in kkt-rules' record and filter types, so there are no copies to map (A6)"
-     }
-    ],
-    "released_program": false,
-    "slots": [
-     {
-      "at": "Db::new",
-      "holds": [],
-      "kind": "param",
-      "name": "database",
-      "note": "a backend, which the store runs its work on through BackendExt; there is no Database to build (msg 2014)",
-      "status": "decided",
-      "traits": [
-       {
-        "crate": "kkt-db",
-        "trait": "Backend"
-       }
-      ]
-     }
-    ],
-    "third_party": [
-     "serde",
-     "thiserror"
     ]
    },
    {
@@ -23241,18 +22460,20 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "items": [
      "ChannelFilter",
+     "ChannelKind",
      "ChannelScope",
+     "Db",
      "MessageRange",
      "NewAgentRecord",
      "NewChannelRecord",
      "NewMessageRecord",
      "NewServerRunRecord",
      "NewerFilter",
-     "Reads",
      "SearchFilter",
      "SentFilter",
      "StoreError",
-     "SwarmId"
+     "SwarmId",
+     "schema"
     ],
     "kind": "dev",
     "optional": false,
@@ -23262,6 +22483,7 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "ChannelFilter",
+       "ChannelKind",
        "ChannelScope",
        "MessageRange",
        "NewAgentRecord",
@@ -23269,13 +22491,19 @@ window.KKT_PROPOSED = {
        "NewMessageRecord",
        "NewServerRunRecord",
        "NewerFilter",
-       "Reads",
        "SearchFilter",
        "SentFilter",
        "StoreError",
-       "SwarmId"
+       "SwarmId",
+       "schema"
       ],
       "role": "uses"
+     },
+     {
+      "detail": [
+       "Db"
+      ],
+      "role": "wires"
      }
     ],
     "statuses": [
@@ -23289,7 +22517,9 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
+     "CORE",
      "CommandLine",
+     "Db",
      "ImportedLane",
      "LaneImport",
      "LaneOutcome",
@@ -23298,7 +22528,9 @@ window.KKT_PROPOSED = {
      "Revoked",
      "SwarmId",
      "check_lane_import",
-     "check_retire_missing"
+     "check_retire_missing",
+     "legacy",
+     "schema"
     ],
     "kind": "normal",
     "optional": false,
@@ -23307,6 +22539,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "CORE",
        "ImportedLane",
        "LaneImport",
        "LaneOutcome",
@@ -23315,13 +22548,16 @@ window.KKT_PROPOSED = {
        "Revoked",
        "SwarmId",
        "check_lane_import",
-       "check_retire_missing"
+       "check_retire_missing",
+       "schema"
       ],
       "role": "uses"
      },
      {
       "detail": [
-       "CommandLine"
+       "CommandLine",
+       "Db",
+       "legacy"
       ],
       "role": "wires"
      }
@@ -23332,6 +22568,7 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [
      "ChannelFilter",
+     "ChannelKind",
      "ChannelScope",
      "Code",
      "MessageRange",
@@ -23340,7 +22577,6 @@ window.KKT_PROPOSED = {
      "NewMessageRecord",
      "NewServerRunRecord",
      "NewerFilter",
-     "Reads",
      "SearchFilter",
      "SentFilter",
      "StoreError"
@@ -23765,77 +23001,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-shutdown-os"
-   },
-   {
-    "features": [
-     "testing"
-    ],
-    "from": "kashkeshet",
-    "items": [
-     "ChannelKind",
-     "Db",
-     "schema"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "ChannelKind",
-       "schema"
-      ],
-      "role": "uses"
-     },
-     {
-      "detail": [
-       "Db"
-      ],
-      "role": "wires"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-store"
-   },
-   {
-    "features": [],
-    "from": "kashkeshet",
-    "items": [
-     "CORE",
-     "Db",
-     "legacy",
-     "schema"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "CORE",
-       "schema"
-      ],
-      "role": "uses"
-     },
-     {
-      "detail": [
-       "Db",
-       "legacy"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [
-     "ChannelKind"
-    ],
-    "to": "kkt-store"
    },
    {
     "features": [],
@@ -25273,20 +24438,45 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-fake-product",
     "items": [
+     "testing::memory"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "testing::memory"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-rules"
+   },
+   {
+    "features": [],
+    "from": "kkt-fake-product",
+    "items": [
      "Agent",
      "Audit",
      "Code",
+     "Db",
      "NewServerRunRecord",
      "Operator",
      "Permission",
      "Permissions",
-     "Reads",
      "Result",
      "RuleError",
      "Rules",
      "StoreError",
      "SwarmId",
-     "Writes"
+     "schema"
     ],
     "kind": "normal",
     "optional": false,
@@ -25302,15 +24492,20 @@ window.KKT_PROPOSED = {
        "Operator",
        "Permission",
        "Permissions",
-       "Reads",
        "Result",
        "RuleError",
        "Rules",
        "StoreError",
        "SwarmId",
-       "Writes"
+       "schema"
       ],
       "role": "uses"
+     },
+     {
+      "detail": [
+       "Db"
+      ],
+      "role": "wires"
      }
     ],
     "statuses": [
@@ -25455,60 +24650,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-shutdown-os"
-   },
-   {
-    "features": [],
-    "from": "kkt-fake-product",
-    "items": [
-     "testing::memory"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "testing::memory"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-store"
-   },
-   {
-    "features": [],
-    "from": "kkt-fake-product",
-    "items": [
-     "Db",
-     "schema"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "schema"
-      ],
-      "role": "uses"
-     },
-     {
-      "detail": [
-       "Db"
-      ],
-      "role": "wires"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-store"
    },
    {
     "features": [
@@ -25863,8 +25004,11 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-identity-keymode",
     "items": [
+     "Db",
      "NewServerRunRecord",
-     "Settings"
+     "Settings",
+     "schema",
+     "testing::memory"
     ],
     "kind": "dev",
     "optional": false,
@@ -25874,9 +25018,17 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "NewServerRunRecord",
-       "Settings"
+       "Settings",
+       "schema",
+       "testing::memory"
       ],
       "role": "uses"
+     },
+     {
+      "detail": [
+       "Db"
+      ],
+      "role": "wires"
      }
     ],
     "statuses": [
@@ -25928,42 +25080,6 @@ window.KKT_PROPOSED = {
      "OperatorWording"
     ],
     "to": "kkt-rules"
-   },
-   {
-    "features": [
-     "testing"
-    ],
-    "from": "kkt-identity-keymode",
-    "items": [
-     "Db",
-     "schema",
-     "testing::memory"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "schema",
-       "testing::memory"
-      ],
-      "role": "uses"
-     },
-     {
-      "detail": [
-       "Db"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-store"
    },
    {
     "features": [],
@@ -26285,6 +25401,38 @@ window.KKT_PROPOSED = {
     "to": "kkt-provenance"
    },
    {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Db",
+     "schema"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "schema"
+      ],
+      "role": "uses"
+     },
+     {
+      "detail": [
+       "Db"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-rules"
+   },
+   {
     "features": [
      "real"
     ],
@@ -26433,34 +25581,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-shutdown-os"
-   },
-   {
-    "features": [],
-    "from": "kkt-keymode",
-    "items": [
-     "Db",
-     "schema"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "schema"
-      ],
-      "role": "uses"
-     },
-     {
-      "detail": [
-       "Db"
-      ],
-      "role": "wires"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-store"
    },
    {
     "features": [
@@ -26788,8 +25908,11 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-mcp",
     "items": [
+     "Db",
      "NewServerRunRecord",
-     "StoreError"
+     "StoreError",
+     "schema",
+     "testing::memory"
     ],
     "kind": "dev",
     "optional": false,
@@ -26799,9 +25922,17 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "NewServerRunRecord",
-       "StoreError"
+       "StoreError",
+       "schema",
+       "testing::memory"
       ],
       "role": "uses"
+     },
+     {
+      "detail": [
+       "Db"
+      ],
+      "role": "wires"
      }
     ],
     "statuses": [
@@ -26900,42 +26031,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-shutdown"
-   },
-   {
-    "features": [
-     "testing"
-    ],
-    "from": "kkt-mcp",
-    "items": [
-     "Db",
-     "schema",
-     "testing::memory"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "schema",
-       "testing::memory"
-      ],
-      "role": "uses"
-     },
-     {
-      "detail": [
-       "Db"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-store"
    },
    {
     "features": [],
@@ -27103,6 +26198,112 @@ window.KKT_PROPOSED = {
      "testing::FixedClock"
     ],
     "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-rules",
+    "items": [
+     "Backend",
+     "BackendExt",
+     "Column",
+     "Condition",
+     "Connection",
+     "Constraint",
+     "Count",
+     "DbError",
+     "Delete",
+     "Field",
+     "Group",
+     "Insert",
+     "Legacy",
+     "Operand",
+     "OrderBy",
+     "Related",
+     "Row",
+     "Select",
+     "Set",
+     "Sort",
+     "Step",
+     "Table",
+     "Update",
+     "Value",
+     "col",
+     "search",
+     "search::Search",
+     "testing::MemoryPlace",
+     "through"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Backend",
+       "BackendExt",
+       "Column",
+       "Condition",
+       "Connection",
+       "Constraint",
+       "Count",
+       "DbError",
+       "Delete",
+       "Field",
+       "Group",
+       "Insert",
+       "Legacy",
+       "Operand",
+       "OrderBy",
+       "Related",
+       "Row",
+       "Select",
+       "Set",
+       "Sort",
+       "Step",
+       "Table",
+       "Update",
+       "Value",
+       "col",
+       "search",
+       "search::Search",
+       "testing::MemoryPlace",
+       "through"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-db"
+   },
+   {
+    "features": [],
+    "from": "kkt-rules",
+    "items": [
+     "SqliteBackend"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "SqliteBackend"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-db-sqlite-db"
    },
    {
     "features": [
@@ -27287,35 +26488,26 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
-    "features": [
-     "testing"
-    ],
+    "features": [],
     "from": "kkt-rules",
     "items": [
-     "schema",
-     "testing::fail_next_write",
-     "testing::memory"
+     "Excerpt"
     ],
-    "kind": "dev",
+    "kind": "normal",
     "optional": false,
-    "proposed": "changed",
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "schema",
-       "testing::fail_next_write",
-       "testing::memory"
+       "Excerpt"
       ],
       "role": "uses"
      }
     ],
-    "statuses": [
-     "decided"
-    ],
     "target": null,
     "test_items": [],
-    "to": "kkt-store"
+    "to": "kkt-search"
    },
    {
     "features": [],
@@ -27732,9 +26924,12 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-server",
     "items": [
+     "Db",
      "NewServerRunRecord",
      "StoreError",
-     "SwarmId"
+     "SwarmId",
+     "schema",
+     "testing::memory"
     ],
     "kind": "dev",
     "optional": false,
@@ -27745,9 +26940,17 @@ window.KKT_PROPOSED = {
       "detail": [
        "NewServerRunRecord",
        "StoreError",
-       "SwarmId"
+       "SwarmId",
+       "schema",
+       "testing::memory"
       ],
       "role": "uses"
+     },
+     {
+      "detail": [
+       "Db"
+      ],
+      "role": "wires"
      }
     ],
     "statuses": [
@@ -27768,6 +26971,7 @@ window.KKT_PROPOSED = {
      "ChannelInfo",
      "ChannelRef",
      "Code",
+     "Db",
      "Deps",
      "KeptReason",
      "LaneRetired",
@@ -27778,15 +26982,13 @@ window.KKT_PROPOSED = {
      "NewChannel",
      "NewServerRunRecord",
      "Operator",
-     "Reads",
      "Refusal",
      "RuleError",
      "Rules",
      "ServerRunInfo",
      "Settings",
      "StoreResult",
-     "SwarmId",
-     "Writes"
+     "SwarmId"
     ],
     "kind": "normal",
     "optional": false,
@@ -27808,6 +27010,7 @@ window.KKT_PROPOSED = {
        "ChannelInfo",
        "ChannelRef",
        "Code",
+       "Db",
        "Deps",
        "KeptReason",
        "LaneRetired",
@@ -27818,14 +27021,12 @@ window.KKT_PROPOSED = {
        "NewChannel",
        "NewServerRunRecord",
        "Operator",
-       "Reads",
        "Refusal",
        "RuleError",
        "ServerRunInfo",
        "Settings",
        "StoreResult",
-       "SwarmId",
-       "Writes"
+       "SwarmId"
       ],
       "role": "uses"
      },
@@ -27849,7 +27050,8 @@ window.KKT_PROPOSED = {
      "LaneSource",
      "Permission",
      "Permissions",
-     "StoreError"
+     "StoreError",
+     "schema"
     ],
     "to": "kkt-rules"
    },
@@ -27873,42 +27075,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-shutdown"
-   },
-   {
-    "features": [
-     "testing"
-    ],
-    "from": "kkt-server",
-    "items": [
-     "Db",
-     "schema",
-     "testing::memory"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "schema",
-       "testing::memory"
-      ],
-      "role": "uses"
-     },
-     {
-      "detail": [
-       "Db"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-store"
    },
    {
     "features": [
@@ -28499,309 +27665,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-shutdown"
-   },
-   {
-    "features": [],
-    "from": "kkt-store",
-    "items": [
-     "Backend",
-     "BackendExt",
-     "Column",
-     "Condition",
-     "Connection",
-     "Constraint",
-     "Count",
-     "DbError",
-     "Delete",
-     "Field",
-     "Group",
-     "Insert",
-     "Legacy",
-     "Operand",
-     "OrderBy",
-     "Related",
-     "Row",
-     "Select",
-     "Set",
-     "Sort",
-     "Step",
-     "Table",
-     "Update",
-     "Value",
-     "col",
-     "search",
-     "search::Search",
-     "testing::MemoryPlace",
-     "through"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Backend",
-       "BackendExt",
-       "Column",
-       "Condition",
-       "Connection",
-       "Constraint",
-       "Count",
-       "DbError",
-       "Delete",
-       "Field",
-       "Group",
-       "Insert",
-       "Legacy",
-       "Operand",
-       "OrderBy",
-       "Related",
-       "Row",
-       "Select",
-       "Set",
-       "Sort",
-       "Step",
-       "Table",
-       "Update",
-       "Value",
-       "col",
-       "search",
-       "search::Search",
-       "testing::MemoryPlace",
-       "through"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db"
-   },
-   {
-    "features": [
-     "testing"
-    ],
-    "from": "kkt-store",
-    "items": [
-     "MemoryPlace"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "MemoryPlace"
-      ],
-      "role": "wires"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db-sqlite"
-   },
-   {
-    "features": [],
-    "from": "kkt-store",
-    "items": [
-     "SqliteBackend"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "SqliteBackend"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db-sqlite-db"
-   },
-   {
-    "features": [],
-    "from": "kkt-store",
-    "items": [
-     "OPERATOR"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "OPERATOR"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-names"
-   },
-   {
-    "features": [],
-    "from": "kkt-store",
-    "items": [
-     "testing::swarms_stay_apart"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "testing::swarms_stay_apart"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "recommended"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-rules"
-   },
-   {
-    "features": [],
-    "from": "kkt-store",
-    "items": [
-     "ActivityRecord",
-     "AgentClient",
-     "AgentLaneRecord",
-     "AgentRecord",
-     "AnyChannelRecord",
-     "ChannelFacts",
-     "ChannelFilter",
-     "ChannelNoteRecord",
-     "ChannelScope",
-     "ChannelSummary",
-     "ChannelUseRecord",
-     "LaneRecord",
-     "LaneRetiredRecord",
-     "LaneSourceRecord",
-     "LaneVersionRecord",
-     "MembershipRecord",
-     "MemoryEntryRecord",
-     "MessageRange",
-     "MessageRecord",
-     "MessageTimeRecord",
-     "NewAgentRecord",
-     "NewChannelRecord",
-     "NewLaneVersionRecord",
-     "NewMessageRecord",
-     "NewServerRunRecord",
-     "NewerFilter",
-     "NoteEditRecord",
-     "SearchFilter",
-     "SearchHitRecord",
-     "SentFilter",
-     "ServerAnnouncementRecord",
-     "ServerRunRecord",
-     "StoreError",
-     "StoreResult",
-     "SwarmId",
-     "TakenLaneRecord"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "a type of its own implements Reads",
-       "a type of its own implements Writes"
-      ],
-      "role": "implements"
-     },
-     {
-      "detail": [
-       "ActivityRecord",
-       "AgentClient",
-       "AgentLaneRecord",
-       "AgentRecord",
-       "AnyChannelRecord",
-       "ChannelFacts",
-       "ChannelFilter",
-       "ChannelNoteRecord",
-       "ChannelScope",
-       "ChannelSummary",
-       "ChannelUseRecord",
-       "LaneRecord",
-       "LaneRetiredRecord",
-       "LaneSourceRecord",
-       "LaneVersionRecord",
-       "MembershipRecord",
-       "MemoryEntryRecord",
-       "MessageRange",
-       "MessageRecord",
-       "MessageTimeRecord",
-       "NewAgentRecord",
-       "NewChannelRecord",
-       "NewLaneVersionRecord",
-       "NewMessageRecord",
-       "NewServerRunRecord",
-       "NewerFilter",
-       "NoteEditRecord",
-       "SearchFilter",
-       "SearchHitRecord",
-       "SentFilter",
-       "ServerAnnouncementRecord",
-       "ServerRunRecord",
-       "StoreError",
-       "StoreResult",
-       "SwarmId",
-       "TakenLaneRecord"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "recommended"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-rules"
-   },
-   {
-    "features": [],
-    "from": "kkt-store",
-    "items": [
-     "Excerpt"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Excerpt"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-search"
    },
    {
     "features": [
@@ -29636,7 +28499,15 @@ window.KKT_PROPOSED = {
     "to": "kkt-web"
    }
   ],
-  "kind_mismatches": []
+  "kind_mismatches": [],
+  "pending": [
+   "kkt-server's Wording implements kkt-rules::OperatorWording (A6)",
+   "kkt-server's RulesSource implements kkt-web::Source (A6)",
+   "kkt-server's RulesSources implements kkt-web::Sources (A6)",
+   "kkt-server's AdmissionGate implements kkt-web::Gate (A6)",
+   "kkt-web-preview's Preview implements kkt-web::Source (A7)",
+   "kkt-web-preview's PreviewGate implements kkt-web::Gate (A7)"
+  ]
  },
  "not_traits": [
   {
@@ -29647,7 +28518,8 @@ window.KKT_PROPOSED = {
  "open_questions": [
   {
    "id": "Q1",
-   "text": "(on hold since msg 2009, now restated) kkt-rules' unit tests cannot use kkt-store's store, because kkt-store depends on kkt-rules: a unit test that depends on kkt-store sees a second copy of kkt-rules, whose Reads is a different trait. The rule tests that need a store would become integration tests, which CLAUDE.md does not foresee (it puts them in src/tests.rs)."
+   "resolved": true,
+   "text": "Resolved (msg 2017): with kkt-store merged into kkt-rules, kkt-rules' unit tests use its own Db over kkt-db's in-memory backend, as src/tests.rs does today."
   },
   {
    "id": "Q2",
@@ -29660,6 +28532,15 @@ window.KKT_PROPOSED = {
   {
    "id": "Q4",
    "text": "66 forwarding methods remain whose provider exists only to meet one contract: KeyMode to Identify (3), SqlitePlace to kkt-db (14), SystemClock (2), OsEntropy (1), kkt-agent-client's Remote and AdminRemote to kkt-watch's Server (10), and the six -os crates (36). No contract reshape removes them under the strict rule: the provider cannot implement the contract, and the effects cannot sit beside their contracts without making those crates mixed. Recommended: accept them as the rule's cost. The six -os crates overlap (reading and writing files, running commands); one shared machine contract would cut their 36 methods to about 21, at the price of each consumer no longer declaring its own needs."
+  },
+  {
+   "id": "Q5",
+   "resolved": true,
+   "text": "Resolved (msg 2017): Sam chose the merge. kkt-store merges into kkt-rules, which uses kkt-db directly."
+  },
+  {
+   "id": "Q6",
+   "text": "RulesSource forwards 14 of its 21 methods: kkt-web's view types copy kkt-rules' records field by field. kkt-web may not depend on kkt-rules, so the adapter stays. kkt-review-373 notes two reshapes that would leave only copying: kkt-web takes its limits once, when the page is built, instead of asking the source; and Source's save_lane splits into create_lane and update_lane. The operator flag would then be the one translation left. Recommended: make both reshapes, so the page asks in its own terms; the copying stays as the cost of keeping kkt-web free of kkt-rules."
   }
  ],
  "rejected": [
@@ -29754,7 +28635,7 @@ window.KKT_PROPOSED = {
  ],
  "strict": {
   "status": "decided",
-  "text": "No implementation implements another crate's contract; the program always adapts (Sam, msg 1978). A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, DryRun implements System, and SameSource implements Sources (msg 1984). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
+  "text": "No implementation implements another crate's contract; the program always adapts (Sam, msg 1978). A composition may adapt too, being itself the adapter; where that rests on A6 or A7 it is pending Sam (msg 2009). A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, DryRun implements System, and SameSource implements Sources (msg 1984). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
  },
  "table": [
   {
@@ -30278,11 +29159,6 @@ window.KKT_PROPOSED = {
    "trait": "kkt-setup::SwitchSteps"
   },
   {
-   "assumptions": [
-    "A4",
-    "A5",
-    "A6"
-   ],
    "conflicts": [
     "C3"
    ],
@@ -30298,9 +29174,9 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Reads",
-   "result": "One consumer: kkt-rules declares Reads, with the record and filter types it uses, and the check every store must pass (swarms_stay_apart). Reshaped after msg 2009: kkt-store is the adapter, a composition implementing Reads and Writes over kkt-db in kkt-rules' types (73 methods, all translating). kkt-store-rules and the record copies go. kkt-pro's store would be its own such composition.",
+   "result": "Gone: kkt-store merges into kkt-rules, which uses kkt-db directly, so there is no store contract and no copies of the record types. Its one implementation had one consumer, and its queries hold decisions of the rules' own (msgs 2015 and 2017).",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [
     "kashkeshet"
    ],
@@ -30322,9 +29198,9 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Writes",
-   "result": "As Reads.",
+   "result": "Gone: kkt-store merges into kkt-rules, which uses kkt-db directly, so there is no store contract and no copies of the record types. Its one implementation had one consumer, and its queries hold decisions of the rules' own (msgs 2015 and 2017).",
    "rule": "declared by its consumers",
-   "status": "recommended",
+   "status": "decided",
    "test_only": [],
    "trait": "kkt-store::Writes"
   },

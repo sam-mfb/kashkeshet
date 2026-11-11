@@ -160,6 +160,44 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         note(move["to"], f"{path} comes here from {crate}" + (", private" if move.get("private") else ""),
              move["status"])
 
+    # A crate merged into another (kkt-store into kkt-rules, msg 2017):
+    # every item goes, under its own path. What no other crate uses becomes
+    # private; what `drop` names goes altogether.
+    merged, gone = {}, set()
+    for mg in spec.get("merges", []):
+        src, dst = mg["from"], mg["into"]
+        if src not in crates or dst not in crates:
+            problems.append(f"merges: no crate {src} or {dst}")
+            continue
+        used_outside = set()
+        for e in graph["edges"]:
+            if e["to"] == src and e["from"] not in (src, dst):
+                used_outside |= set(e["items"]) | set(e.get("test_items", []))
+        private = []
+        for path in sorted(items_of[src]):
+            item = items_of[src].pop(path)
+            home[(src, path)] = dst
+            if path in mg.get("drop", []):
+                gone.add((dst, path))
+                note(dst, f"{src}'s {path} goes: {mg['drop_note']}", mg["status"])
+            elif path in items_of[dst]:
+                pass  # the same item, re-exported: one copy stays
+            elif path in used_outside or path.split("::")[0] == "testing":
+                items_of[dst][path] = dict(item, moved_from=src, status=mg["status"])
+                item_status[(dst, path)] = mg["status"]
+            else:
+                private.append(path)
+                gone.add((dst, path))
+        missing = set(mg.get("drop", [])) - {p for (c, p) in gone if c == dst}
+        if missing:
+            problems.append(f"merges: {src} has no {', '.join(sorted(missing))}")
+        for feature, deps in crates[src]["features"].items():
+            crates[dst]["features"].setdefault(feature, deps)
+        crates[dst]["third_party"] = sorted(set(crates[dst]["third_party"]) | set(crates[src]["third_party"]))
+        merged[src] = dst
+        note(dst, f"{src} merges into it: {mg['note']}" +
+             (f" Private now, used only here: {', '.join(private)}." if private else ""), mg["status"])
+
     # A moved type's slots (its constructor's parameters, its fields) go
     # with it.
     for name, c in list(crates.items()):
@@ -172,6 +210,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             else:
                 keep.append(slot)
         c["slots"] = keep
+    for src in merged:
+        crates.pop(src)
+        kinds.pop(src, None)
 
     for add in spec.get("method_adds", []):
         crate, path = split(add["type"])
@@ -312,8 +353,10 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     for c in graph["crates"]:
         for i in c["implements"]:
             ref = f"{i['trait_crate']}::{i['trait']}"
-            impl_crate = where(c["name"], i["type"]) if i["type"] else c["name"]
+            impl_crate = where(c["name"], i["type"]) if i["type"] else merged.get(c["name"], c["name"])
             trait_crate = where(i["trait_crate"], i["trait"])
+            if (trait_crate, i["trait"]) in gone:
+                continue
             # The strict rule covers only another crate's contract: a crate
             # may implement its own trait (FixedClock implements Clock).
             if ref in stop and impl_crate != trait_crate:
@@ -340,6 +383,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                                 "adapts": a["adapts"], "status": a["status"], "kind": a.get("kind", "normal")})
             adapter_list.setdefault(program, []).append(a)
     shared_by = {}
+    pending = []
     for sa in spec.get("shared_adapters", []):
         if kinds.get(sa["crate"]) != "composition":
             problems.append(f"shared_adapters: {sa['crate']} is not a composition crate")
@@ -354,6 +398,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 problems.append(f"shared_adapters: {target} is not a trait in the proposed map")
             records.append({"crate": sa["crate"], "type": sa["as"], "trait_crate": tc, "trait": tp,
                             "adapts": sa["adapts"], "status": sa["status"]})
+        if sa.get("assumption"):
+            pending.append(f"{sa['crate']}'s {sa['as']} implements {' and '.join(sa['to'])} ({sa['assumption']})")
         for user in sa["used_by"]:
             if user not in programs:
                 problems.append(f"shared_adapters: {user} is not a program")
@@ -376,6 +422,10 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         if kinds.get(crate) != "composition" and crate not in programs:
             problems.append(f"direct: {crate} is neither a composition nor a program")
         note(crate, f"{path or 'its own type'} implements {' and '.join(d['to'])} itself: {d['note']}", d["status"])
+        # Allowed only if the assumption holds: shown as pending Sam,
+        # not as checked (kkt-review-373, msg 2015).
+        if d.get("assumption"):
+            pending.append(f"{crate}'s {path or 'own type'} implements {' and '.join(d['to'])} ({d['assumption']})")
     unique = {}
     for r in records:
         unique.setdefault((r["crate"], r["trait_crate"], r["trait"], r["type"] or "", r.get("adapts", "")), r)
@@ -391,6 +441,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         for slot in c["slots"]:
             slot["traits"] = [{"crate": where(t["crate"], t["trait"], name), "trait": t["trait"]}
                               for t in slot["traits"]]
+            # A trait that went with a merge leaves the slot taking the
+            # merged crate's own type (swarms_stay_apart takes a Db).
+            slot["traits"] = [t for t in slot["traits"] if (t["crate"], t["trait"]) not in gone]
             for h in slot.get("holds", []):
                 held = f"{h['crate']}::{h['type']}"
                 traits = []
@@ -494,6 +547,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             # item 7 says (user_moves).
             frm = from_moves.get((e["from"], e["to"], path), (None,))[0] or \
                 extra["user_moves"].get((e["from"], e["to"], path), e["from"])
+            frm = merged.get(frm, frm)
             replaced = extra["replace"].get((e["to"], path))
             if replaced is not None:
                 targets = [split(r) for r in replaced.get(e["from"], [])]
@@ -503,13 +557,14 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 if target != frm:
                     test_uses.setdefault((frm, target, e["kind"]), set()).add(p)
         role_of = {p: r["role"] for r in e.get("roles", []) for p in r["detail"]}
-        if not e["items"]:
-            entry_for((e["from"], e["to"], e["kind"]), e)
+        if not e["items"] and merged.get(e["from"], e["from"]) != merged.get(e["to"], e["to"]):
+            entry_for((merged.get(e["from"], e["from"]), merged.get(e["to"], e["to"]), e["kind"]), e)
         for path in e["items"]:
             ref = f"{e['to']}::{path}"
             if (e["from"], e["to"], path) in old_implemented and ref in stop:
                 continue
             frm, moved_status = from_moves.get((e["from"], e["to"], path), (e["from"], None))
+            frm = merged.get(frm, frm)
             # An item split into parts (Limits, in item 7): each user takes
             # the parts it uses.
             replaced = extra["replace"].get((e["to"], path))
@@ -563,7 +618,10 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     # Who takes a shared adapter: its programs wire it, and tests that
     # need a store wire it in theirs.
     for sa in spec.get("shared_adapters", []):
-        for user, kind in [(u, "normal") for u in sa["used_by"]] + [(t, "dev") for t in sa["tests"]]:
+        for t in sa["tests"]:
+            if t not in crates:
+                problems.append(f"shared_adapters: {sa['crate']}'s tests list names no crate {t}")
+        for user, kind in [(u, "normal") for u in sa["used_by"]] + [(t, "dev") for t in sa["tests"] if t in crates]:
             entry = entry_for((user, sa["crate"], kind))
             entry["items"][sa["as"]] = "wires"
             entry["had_items"] = True
@@ -600,6 +658,12 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         entry["statuses"].add(edit["status"])
         note(edit["from"], edit["note"], edit["status"])
 
+    for (frm, to, kind), entry in grouped.items():
+        for p in [p for p in entry["items"] if (to, p) in gone]:
+            entry["items"].pop(p)
+    for (frm, to, kind), paths in test_uses.items():
+        for p in [p for p in paths if (to, p) in gone]:
+            paths.discard(p)
     for (frm, to, kind), entry in grouped.items():
         for (crate, path), new in renamed_paths.items():
             if to == home[(crate, path)] and path in entry["items"]:
@@ -673,6 +737,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                   if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]
 
     new_concerns = copy.deepcopy(concerns)
+    for src in merged:
+        new_concerns["crates"].pop(src, None)
     layers = new_concerns["layers"]
     for added in spec["layers_added"]:
         at = next(i for i, l in enumerate(layers) if l["id"] == added["after"]) + 1
@@ -847,7 +913,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     violations += mixed
 
     graph_out = {"commit": graph["commit"], "crates": sorted(crates.values(), key=lambda c: c["name"]), "edges": edges,
-                 "kind_mismatches": kind_mismatches}
+                 "kind_mismatches": kind_mismatches, "pending": pending}
     return graph_out, new_concerns, new_assembly, violations
 
 
@@ -857,7 +923,10 @@ def diff(before, after):
     b = {key(e): e for e in before["edges"]}
     a = {key(e): e for e in after["edges"]}
     out = {"crates": [{"crate": c["name"], "notes": c["proposed_notes"]} for c in after["crates"] if c.get("proposed_notes")],
-           "added": [], "removed": [], "changed": []}
+           "added": [], "removed": [], "changed": [],
+           # Crates that are gone, not renamed (kkt-store, merged into kkt-rules).
+           "gone": sorted({c["name"] for c in before["crates"]} - {c["name"] for c in after["crates"]}
+                          - {c.get("renamed_from") for c in after["crates"]})}
     for k, e in a.items():
         if k not in b:
             e["proposed"] = "new"
