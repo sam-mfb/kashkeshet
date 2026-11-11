@@ -2,7 +2,6 @@ use super::launchd::PrintedState;
 use super::*;
 use kkt_clock::testing::FixedClock;
 use kkt_clock::{Clock, Span};
-use kkt_config::{LAUNCHD_RELOAD_RETRY, LAUNCHD_REMOVAL_WAIT, SERVICE_START_CHECK};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::pin::Pin;
@@ -220,7 +219,7 @@ fn install(
     system: &dyn System,
     spec: &Spec,
 ) -> Result<Vec<String>, ServiceError> {
-    at_once(manager.install(system, &clock(), spec))
+    at_once(manager.install(system, &clock(), Settings::DEFAULT, spec))
 }
 
 fn mac() -> Manager {
@@ -468,15 +467,15 @@ fn launchd_install_tries_again_while_launchd_removes_the_old_service() {
         .then_answer(PRINT, NOT_FOUND, GONE);
     let clock = clock();
     let (manager, spec) = (mac(), mac_spec());
-    let mut future = std::pin::pin!(manager.install(&system, &clock, &spec));
+    let mut future = std::pin::pin!(manager.install(&system, &clock, Settings::DEFAULT, &spec));
     assert!(poll(future.as_mut()).is_pending());
     assert_eq!(system.ran(), [PRINT, BOOTOUT, &bootstrap, PRINT]);
     assert_eq!(clock.sleepers(), 1);
     // Not before the retry interval is up.
-    advance(&clock, LAUNCHD_RELOAD_RETRY / 2);
+    advance(&clock, Settings::DEFAULT.launchd_reload_retry / 2);
     assert!(poll(future.as_mut()).is_pending());
     assert_eq!(system.ran().len(), 4);
-    advance(&clock, LAUNCHD_RELOAD_RETRY / 2);
+    advance(&clock, Settings::DEFAULT.launchd_reload_retry / 2);
     // The second try fails too, but the old service is gone now: one more
     // try, without waiting, and it works.
     let Poll::Ready(said) = poll(future.as_mut()) else {
@@ -543,28 +542,30 @@ fn launchd_install_gives_up_when_the_old_service_is_still_there_after_the_wait()
     let clock = clock();
     let began = clock.now();
     let (manager, spec) = (mac(), mac_spec());
-    let mut future = std::pin::pin!(manager.install(&system, &clock, &spec));
+    let mut future = std::pin::pin!(manager.install(&system, &clock, Settings::DEFAULT, &spec));
     let err = loop {
         match poll(future.as_mut()) {
             Poll::Ready(result) => break result.expect_err("bootstrap never works"),
-            Poll::Pending => advance(&clock, LAUNCHD_RELOAD_RETRY),
+            Poll::Pending => advance(&clock, Settings::DEFAULT.launchd_reload_retry),
         }
     };
     // One try at the start, then one each interval, the last as the wait
     // runs out; the old service is looked for after each failed try.
-    let expected = (LAUNCHD_REMOVAL_WAIT.as_millis() / LAUNCHD_RELOAD_RETRY.as_millis()) + 1;
+    let expected = (Settings::DEFAULT.launchd_removal_wait.as_millis()
+        / Settings::DEFAULT.launchd_reload_retry.as_millis())
+        + 1;
     let ran = system.ran();
     let tries = ran.iter().filter(|c| **c == bootstrap).count();
     let looks = ran.iter().filter(|c| *c == PRINT).count();
     assert_eq!((tries as u128, looks as u128), (expected, expected + 1));
-    assert_eq!(clock.now(), began + LAUNCHD_REMOVAL_WAIT);
+    assert_eq!(clock.now(), began + Settings::DEFAULT.launchd_removal_wait);
     assert!(
         matches!(
             &err,
             ServiceError::ReloadFailed { command, tries, still_removing_for, .. }
                 if *command == bootstrap
                     && u128::from(*tries) == expected
-                    && *still_removing_for == Some(LAUNCHD_REMOVAL_WAIT)
+                    && *still_removing_for == Some(Settings::DEFAULT.launchd_removal_wait)
         ),
         "{err:?}"
     );
@@ -574,7 +575,7 @@ fn launchd_install_gives_up_when_the_old_service_is_still_there_after_the_wait()
             "`{bootstrap}` failed on each of {expected} tries over {} seconds, while launchd was \
              still removing the old service: Bootstrap failed: 5: Input/output error. kashkeshet \
              is stopped: ",
-            LAUNCHD_REMOVAL_WAIT.as_secs()
+            Settings::DEFAULT.launchd_removal_wait.as_secs()
         )),
         "{text}"
     );
@@ -736,15 +737,15 @@ fn systemd_install_writes_enables_and_restarts() {
 const IS_ACTIVE: &str = "systemctl --user is-active kashkeshet.service";
 
 /// Runs `check_started` with `manager` on `system`: it must wait for
-/// `SERVICE_START_CHECK` on the clock, asking nothing before then.
+/// `Settings::DEFAULT.service_start_check` on the clock, asking nothing before then.
 fn check_started(manager: &Manager, system: &Fake) -> Result<(), ServiceError> {
     let clock = clock();
-    let mut future = std::pin::pin!(manager.check_started(system, &clock));
+    let mut future = std::pin::pin!(manager.check_started(system, &clock, Settings::DEFAULT));
     assert!(poll(future.as_mut()).is_pending());
-    advance(&clock, SERVICE_START_CHECK / 2);
+    advance(&clock, Settings::DEFAULT.service_start_check / 2);
     assert!(poll(future.as_mut()).is_pending());
     assert!(system.ran().is_empty(), "nothing is asked before the wait");
-    advance(&clock, SERVICE_START_CHECK / 2);
+    advance(&clock, Settings::DEFAULT.service_start_check / 2);
     match poll(future.as_mut()) {
         Poll::Ready(result) => result,
         Poll::Pending => panic!("the check is made once the wait is over"),
@@ -780,7 +781,13 @@ fn systemd_stops_a_server_that_did_not_stay_up() {
         .answer(IS_ACTIVE, 3, "activating\n", "");
     let err = check_started(&linux(), &system).expect_err("not running");
     assert!(
-        matches!(err, ServiceError::DidNotStayUp { stop_failed: None }),
+        matches!(
+            err,
+            ServiceError::DidNotStayUp {
+                stop_failed: None,
+                ..
+            }
+        ),
         "{err:?}"
     );
     assert_eq!(
@@ -809,7 +816,13 @@ fn launchd_unloads_a_server_that_did_not_stay_up() {
     );
     let err = check_started(&mac(), &system).expect_err("not running");
     assert!(
-        matches!(err, ServiceError::DidNotStayUp { stop_failed: None }),
+        matches!(
+            err,
+            ServiceError::DidNotStayUp {
+                stop_failed: None,
+                ..
+            }
+        ),
         "{err:?}"
     );
     assert_eq!(system.ran(), [PRINT, PRINT, BOOTOUT]);

@@ -4,11 +4,15 @@
 //! unrecorded. Setup records such a server as it is ("adopts" it), without
 //! installing it again, once the person agrees.
 
+use super::SETUP_UNKNOWN_VERSION;
 use super::ask::{Ask, Question};
 use super::flow::{Answers, Purpose};
 use super::record::{Mode, Record};
-use kkt_config::{DEFAULT_SETUP_ADOPT, SETUP_UNKNOWN_VERSION};
 use std::path::PathBuf;
+
+/// Whether Enter records a found, unrecorded install during interactive
+/// setup.
+const DEFAULT_SETUP_ADOPT: bool = true;
 
 /// How setup finds a server to adopt: the part of [`super::Steps`] it uses.
 /// The real implementation is in the program's `src/commands/setup/steps.rs`.

@@ -23,13 +23,15 @@ dev-only = true
 kkt-admission = { path = "../../crates/kkt-admission" }
 kkt-clock = { path = "../../crates/kkt-clock" }
 kkt-clock-system = { path = "../../crates/kkt-clock-system", features = ["real"] }
-kkt-config = { path = "../../crates/kkt-config" }
+kkt-config-file = { path = "../../crates/kkt-config-file" }
+kkt-config-file-os = { path = "../../crates/kkt-config-file-os", features = ["real"] }
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
+kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
 kkt-events = { path = "../../crates/kkt-events" }
 kkt-mcp-formatter = { path = "../../crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
-kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
+kkt-logs = { path = "../../crates/kkt-logs" }
 kkt-mcp = { path = "../../crates/kkt-mcp" }
 kkt-provenance = { path = "../../crates/kkt-provenance" }
 kkt-rules = { path = "../../crates/kkt-rules" }

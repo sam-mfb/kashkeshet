@@ -2,8 +2,8 @@
 //! and its libraries' at their own levels.
 
 use kkt_clock_system::SystemClock;
-use kkt_config::{DEFAULT_LOG_LEVEL, LOG_OWN_TARGETS, LogLevel, LogPolicy};
-use kkt_logs::RotatingFile;
+use kkt_logs::{LogLevel, LogPolicy, RotatingFile};
+use kkt_settings::DEFAULT_LOG_LEVEL;
 use std::io::IsTerminal;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -11,6 +11,9 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter::Targets;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+
+/// The targets of kkt's own code: the library and the `kkt` binary.
+const LOG_OWN_TARGETS: &[&str] = &["kashkeshet", "kkt"];
 
 /// Sends the log to stdout, or to a log file kept within the policy given
 /// with it. kkt's own code logs at `own`, the libraries it uses at

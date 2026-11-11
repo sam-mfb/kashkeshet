@@ -148,7 +148,7 @@ file is renamed `<file>.1`, older ones move up to `<file>.5`, the oldest is
 deleted, and rolled files older than 30 days are deleted. That keeps it
 under about 60 MB. The age check runs at start, at each rollover, and on
 the first log line after each hour, so a server that logs nothing deletes
-nothing until it next logs. The limits are `LogPolicy` in `crates/kkt-config/src/lib.rs`,
+nothing until it next logs. The limits are `LogPolicy` in `crates/kkt-logs/src/lib.rs`,
 and the server run records them.
 
 ## Stopping

@@ -4,9 +4,10 @@ use super::compose::{compose, tailscale_status};
 use super::files::{ENV_FILE, embedded, set_version, version_in_env, write_embedded, write_env};
 use super::provision::{ServerKey, key_show, run, run_attached, save_keys, say_saved};
 use super::tailscale::parse_status;
-use super::{DockerError, Folder, Host};
+use super::{
+    ConfigReader, DOCKER_BACKUPS_MOUNT, DOCKER_PENDING_TAILNET, DockerError, Folder, Host, Settings,
+};
 use kkt_clock::Clock;
-use kkt_config::{DOCKER_BACKUPS_MOUNT, DOCKER_PENDING_TAILNET};
 use std::path::{Path, PathBuf};
 
 /// How kkt in Docker stands.
@@ -39,7 +40,15 @@ pub enum Login {
     Other(String),
 }
 
-pub fn status(host: &dyn Host, folder: &Folder) -> Result<State, DockerError> {
+/// `reader` parses the container's config file, for its name pack.
+/// `default_name_pack` is the name pack `kkt serve` uses when its settings
+/// name none; the caller gives it.
+pub fn status(
+    host: &dyn Host,
+    folder: &Folder,
+    reader: &dyn ConfigReader,
+    default_name_pack: &str,
+) -> Result<State, DockerError> {
     let env_path = folder.path().join(ENV_FILE);
     if !host.exists(&env_path) {
         return Ok(State {
@@ -73,7 +82,7 @@ pub fn status(host: &dyn Host, folder: &Folder) -> Result<State, DockerError> {
     };
     let running = done.stdout.lines().any(|l| l.trim() == "kkt");
     let name_pack = if running {
-        super::name_pack::selected(host, folder)
+        super::name_pack::selected(host, folder, reader, default_name_pack)
     } else {
         Err("container is not running".into())
     };
@@ -305,10 +314,12 @@ pub fn backup(
 /// `key_file`, saves the keys again as setup does, so the host has the web
 /// key a new version made, and the admin key if the server has one. kkt is
 /// running by then, so failing to save them
-/// is said, with how to get the keys, and does not fail the upgrade.
+/// is said, with how to get the keys, and does not fail the upgrade. It
+/// waits for the keys as `settings` say.
 pub async fn upgrade(
     host: &dyn Host,
     clock: &dyn Clock,
+    settings: Settings,
     folder: &Folder,
     new_version: &str,
     key_file: Option<&Path>,
@@ -337,7 +348,7 @@ pub async fn upgrade(
     let Some(key_file) = key_file else {
         return Ok(());
     };
-    match save_keys(host, clock, folder, key_file).await {
+    match save_keys(host, clock, settings, folder, key_file).await {
         Ok(saved) => say_saved(host, &saved),
         Err(e) => host.say(&format!(
             "kkt is running, but its keys could not be saved on this machine: {e}. \

@@ -333,7 +333,7 @@ pub(super) fn claude_entry(text: &str) -> Result<String, String> {
 mod tests {
     use super::*;
     use crate::Setup;
-    use kkt_settings::Env;
+    use kkt_machine::Env;
     use std::ffi::OsString;
     use std::os::unix::ffi::OsStringExt;
     use std::path::{Path, PathBuf};

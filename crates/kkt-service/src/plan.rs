@@ -12,9 +12,29 @@
 //! missing.
 
 use crate::Spec;
-use kkt_config::InvalidSetting;
-use kkt_settings::{AccessKey, ServeOptions};
+use kkt_admission::{AccessKey, web_key_path};
 use std::path::{Path, PathBuf};
+
+/// The settings the plan needs from one source, the command line or the
+/// config file, as that source gives them: each may be missing.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServiceSettings {
+    /// The database.
+    pub db: Option<PathBuf>,
+    /// The access key file.
+    pub access_key_file: Option<PathBuf>,
+    /// Whether to run with no access key.
+    pub no_access_key: Option<bool>,
+}
+
+impl ServiceSettings {
+    /// Nothing given.
+    pub const NONE: ServiceSettings = ServiceSettings {
+        db: None,
+        access_key_file: None,
+        no_access_key: None,
+    };
+}
 
 /// What the plan is worked out from.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -22,9 +42,9 @@ pub struct Request {
     /// The config file the server reads, as an absolute path, if any.
     pub config_file: Option<PathBuf>,
     /// What the command line gives, with absolute paths.
-    pub flags: ServeOptions,
+    pub flags: ServiceSettings,
     /// What the config file gives.
-    pub from_file: ServeOptions,
+    pub from_file: ServiceSettings,
     /// The per-user default database; `None` without a home directory.
     pub default_db: Option<PathBuf>,
     /// The per-user default access key file; `None` without a home
@@ -32,7 +52,8 @@ pub struct Request {
     pub default_key: Option<PathBuf>,
 }
 
-/// Why no plan could be made.
+/// Why no plan could be made. A bad setting is not one: the caller checks
+/// the settings, those of [`Plan::check`] among them.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum PlanError {
     /// No database is given and there is no home directory for the
@@ -43,9 +64,6 @@ pub enum PlanError {
     /// directory for the default one.
     #[error("no home directory to keep the access key in: set HOME or pass --access-key-file")]
     NoHomeForKey,
-    /// A setting is bad. The caller says where it was set.
-    #[error("invalid setting: {0}")]
-    Invalid(InvalidSetting),
     /// A path the service is given is not valid UTF-8.
     #[error("{} is not valid UTF-8", .0.display())]
     NotText(PathBuf),
@@ -58,11 +76,12 @@ pub struct Plan {
     pub new_key: Option<PathBuf>,
     /// The web key file to make before installing, if any.
     pub new_web_key: Option<PathBuf>,
-    /// The settings to check now, so a bad one fails at install rather
-    /// than in a loop of restarts. A key about to be made is good by
-    /// construction, so it is left out.
-    pub check: ServeOptions,
-    /// The web key to check, in place of the one `check` resolves to.
+    /// The settings to check now, in place of what the two sources give
+    /// together, so a bad one fails at install rather than in a loop of
+    /// restarts. A key about to be made is good by construction, so it is
+    /// left out.
+    pub check: ServiceSettings,
+    /// The web key to check, in place of the one `check` gives.
     pub check_web_key: AccessKey,
     config_file: Option<PathBuf>,
     db: Option<PathBuf>,
@@ -100,18 +119,27 @@ pub fn plan(request: Request, exists: &dyn Fn(&Path) -> bool) -> Result<Plan, Pl
             (Some(key), new)
         }
     };
-    let mut check = flags.clone().over(from_file.clone());
+    // Each setting from the command line if given there, else from the
+    // config file.
+    let mut check = ServiceSettings {
+        db: flags.db.clone().or(from_file.db),
+        access_key_file: flags.access_key_file.clone().or(from_file.access_key_file),
+        no_access_key: flags.no_access_key.or(from_file.no_access_key),
+    };
     // The database is the one passed or the config file's, so it is always
     // known here: a missing home directory was refused above.
     let db_in_effect = match check.db.clone().or(default_db) {
         Some(db) => db,
         None => return Err(PlanError::NoHomeForDb),
     };
-    let resolved = check
-        .clone()
-        .resolve(db_in_effect, default_key)
-        .map_err(PlanError::Invalid)?;
-    let new_web_key = match &resolved.web_key {
+    // The web key is beside the access key in effect, if there is one. A
+    // key file given with no key is refused by the check, so its web key
+    // is never made.
+    let web_key = match (key_off, check.access_key_file.clone().or(default_key)) {
+        (false, Some(access)) => AccessKey::Default(web_key_path(&access)),
+        _ => AccessKey::None,
+    };
+    let new_web_key = match &web_key {
         AccessKey::Default(path) if !exists(path) => Some(path.clone()),
         _ => None,
     };
@@ -125,12 +153,11 @@ pub fn plan(request: Request, exists: &dyn Fn(&Path) -> bool) -> Result<Plan, Pl
     let check_web_key = if new_web_key.is_some() {
         AccessKey::None
     } else {
-        resolved.web_key
+        web_key
     };
     // serve makes the database's folder only for the default database, so
     // make it here for whichever one the service will use.
-    let dirs = resolved
-        .db
+    let dirs = db_in_effect
         .parent()
         .map(Path::to_path_buf)
         .into_iter()
@@ -197,8 +224,8 @@ mod tests {
     fn request() -> Request {
         Request {
             config_file: None,
-            flags: ServeOptions::NONE,
-            from_file: ServeOptions::NONE,
+            flags: ServiceSettings::NONE,
+            from_file: ServiceSettings::NONE,
             default_db: Some(path(DEFAULT_DB)),
             default_key: Some(path(DEFAULT_KEY)),
         }
@@ -289,10 +316,10 @@ mod tests {
     #[test]
     fn a_given_database_and_key_are_passed_and_the_key_never_made() {
         let request = Request {
-            flags: ServeOptions {
+            flags: ServiceSettings {
                 db: Some(path("/srv/kkt/my.db")),
                 access_key_file: Some(path("/srv/keys/key")),
-                ..ServeOptions::NONE
+                ..ServiceSettings::NONE
             },
             ..request()
         };
@@ -321,10 +348,10 @@ mod tests {
     fn what_the_config_file_gives_is_not_passed() {
         let request = Request {
             config_file: Some(path("/home/u/config/kkt/config.toml")),
-            from_file: ServeOptions {
+            from_file: ServiceSettings {
                 db: Some(path("/data/file.db")),
                 access_key_file: Some(path("/keys/key")),
-                ..ServeOptions::NONE
+                ..ServiceSettings::NONE
             },
             ..request()
         };
@@ -353,9 +380,9 @@ mod tests {
     #[test]
     fn no_access_key_from_the_flags_is_passed_and_from_the_file_is_not() {
         let flags = Request {
-            flags: ServeOptions {
+            flags: ServiceSettings {
                 no_access_key: Some(true),
-                ..ServeOptions::NONE
+                ..ServiceSettings::NONE
             },
             ..request()
         };
@@ -375,9 +402,9 @@ mod tests {
 
         let file = Request {
             config_file: Some(path("/c.toml")),
-            from_file: ServeOptions {
+            from_file: ServiceSettings {
                 no_access_key: Some(true),
-                ..ServeOptions::NONE
+                ..ServiceSettings::NONE
             },
             ..request()
         };
@@ -412,9 +439,9 @@ mod tests {
 
     #[test]
     fn without_a_home_the_key_must_be_given_or_turned_off() {
-        let given_db = ServeOptions {
+        let given_db = ServiceSettings {
             db: Some(path("/srv/kkt.db")),
-            ..ServeOptions::NONE
+            ..ServiceSettings::NONE
         };
         let request = Request {
             flags: given_db.clone(),
@@ -431,7 +458,7 @@ mod tests {
             "no home directory to keep the access key in: set HOME or pass --access-key-file"
         );
         let off = Request {
-            flags: ServeOptions {
+            flags: ServiceSettings {
                 no_access_key: Some(true),
                 ..given_db
             },
@@ -450,47 +477,16 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_bad_setting_is_refused_with_its_name() {
-        let bad_pack = Request {
-            from_file: ServeOptions {
-                name_pack: Some("missing".into()),
-                ..ServeOptions::NONE
-            },
-            ..request()
-        };
-        match plan(bad_pack, &none_exist) {
-            Err(PlanError::Invalid(e)) => assert_eq!(e.name, "name_pack"),
-            other => panic!("{other:?}"),
-        }
-        // A key file given with no key is refused by the check, not here.
-        let both = Request {
-            flags: ServeOptions {
-                no_access_key: Some(true),
-                ..ServeOptions::NONE
-            },
-            from_file: ServeOptions {
-                access_key_file: Some(path("/keys/key")),
-                ..ServeOptions::NONE
-            },
-            ..request()
-        };
-        match plan(both, &none_exist) {
-            Err(PlanError::Invalid(e)) => assert_eq!(e.name, "no_access_key"),
-            other => panic!("{other:?}"),
-        }
-    }
-
     #[cfg(unix)]
     #[test]
     fn a_path_that_is_not_text_is_refused_when_written_out() {
         use std::os::unix::ffi::OsStrExt;
         let db = PathBuf::from(std::ffi::OsStr::from_bytes(b"/srv/\xff.db"));
         let request = Request {
-            flags: ServeOptions {
+            flags: ServiceSettings {
                 db: Some(db.clone()),
                 no_access_key: Some(true),
-                ..ServeOptions::NONE
+                ..ServiceSettings::NONE
             },
             ..request()
         };

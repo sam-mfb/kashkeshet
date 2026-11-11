@@ -1,0 +1,17 @@
+[package]
+name = "kkt-config-file-os"
+description = "kkt's config file and instructions file on disk: reading and writing them whole"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }
+
+[features]
+# `read`, `write` and `read_instructions`: they read and write files.
+real = []

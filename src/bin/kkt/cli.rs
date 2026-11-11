@@ -8,14 +8,21 @@ use crate::{
 };
 use clap::{Args, Parser, Subcommand};
 use kkt_client_config::Client;
-use kkt_config::{self as config, DEFAULT_BIND, LogLevel};
+use kkt_logs::LogLevel;
 use kkt_provenance::Build;
+use kkt_settings::DEFAULT_BIND;
 use kkt_settings::Limits;
 use kkt_settings::ServeOptions;
 use kkt_setup as setup;
 use kkt_watch as watch;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+
+/// The Compose project name for kkt in Docker, so the containers and volumes
+/// are named the same whatever the folder holding the Compose files is called.
+const DOCKER_PROJECT: &str = "kkt";
+/// Log lines `kkt service logs` shows when not told how many.
+const DEFAULT_LOG_LINES: usize = 100;
 
 /// This run's command, from the command line, with its flags as plain
 /// values. Exits, as clap does, on a command line it cannot parse or on
@@ -521,7 +528,7 @@ struct SetupFlags {
     #[arg(long, hide = true, default_value = Build::CURRENT.version)]
     kkt_version: String,
     /// For testing beside a real setup: the Compose project name.
-    #[arg(long, hide = true, default_value = config::DOCKER_PROJECT)]
+    #[arg(long, hide = true, default_value = DOCKER_PROJECT)]
     docker_project: String,
     /// For testing beside a real setup: the port on 127.0.0.1 Docker
     /// publishes kkt on.
@@ -747,7 +754,7 @@ enum ServiceCommand {
     /// Show the service's log.
     Logs {
         /// How many of the last lines to show.
-        #[arg(long, default_value_t = config::DEFAULT_LOG_LINES)]
+        #[arg(long, default_value_t = DEFAULT_LOG_LINES)]
         lines: usize,
         /// Keep showing new lines as they come.
         #[arg(long, short)]

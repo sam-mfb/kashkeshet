@@ -124,8 +124,8 @@ impl setup::Ask for TerminalAsk {
 #[cfg(test)]
 mod terminal_ask_tests {
     use super::*;
-    use kkt_config as config;
     use kkt_setup::Ask;
+    use kkt_setup::testing as defaults;
 
     fn question(default: Option<bool>) -> setup::Question<'static> {
         setup::Question {
@@ -147,7 +147,7 @@ mod terminal_ask_tests {
 
     #[test]
     fn text_defaults_are_shown_and_enter_accepts_them() {
-        for default in [config::DEFAULT_SETUP_URL, config::DEFAULT_SETUP_KEY] {
+        for default in [defaults::DEFAULT_SETUP_URL, defaults::DEFAULT_SETUP_KEY] {
             for answer in ["", "  ", "explicit answer"] {
                 let result = TerminalAsk::text_with(question(None), default, |prompt| {
                     let shown = if default.is_empty() { "none" } else { default };
