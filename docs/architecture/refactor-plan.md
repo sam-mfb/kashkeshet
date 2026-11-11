@@ -137,6 +137,11 @@ this list; one that is not on it blocks.
 | kkt-rules' tests depend on kkt-db-sqlite, an effect crate (its in-memory `MemoryPlace`, in two test helpers) | 5.2a | 5.3b, where the two helpers use kkt-db's `MemoryPlace` as kkt-rules' `testing` does; kkt-db's conformance checks keep SQLite covered |
 | kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
 | The preview has its own copy of the access-key check and the session ID length (kkt-web may not depend on kkt-admission) | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
+| `kashkeshet` does machine work in `src/commands/lifecycle.rs`, `src/commands/service.rs`, `src/commands/setup/steps.rs`, `src/machine/record.rs`, `src/machine/settings.rs` and `src/process.rs` | before the refactor | 7.3a, 7.3b |
+| `kashkeshet` does machine work in `src/machine/connection.rs` and `src/machine/credentials.rs`, with `libc` | before the refactor | 7.4 (connection.rs reads the client's key file, which the proposal gives kkt-admission-os, and 7.2 left it) |
+| `kashkeshet` does machine work in `src/machine/service.rs` | 2.2 (#427), whose program adapter writes the service file and sets its mode itself | a follow-up that moves those file writes into kkt-service-os |
+| `kkt-fake-product` does machine work in `src/lib.rs` and `src/main.rs`, with `reqwest` | before the refactor | 7.5 |
+| `kkt-keymode` does machine work in `src/main.rs` | before the refactor | 7.5 |
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.

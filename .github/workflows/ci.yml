@@ -129,6 +129,33 @@ jobs:
   # map in docs/architecture must be current. Pull requests into next and
   # pushes do not run it, so a change to public items there does not wait
   # on the map; regenerate it on next before the release.
+  # Step 8.2: the programs do no machine work themselves (the audit's F1).
+  # Builds the crate map from the code into target/tmp and fails on machine
+  # work in a composition crate's own code that the refactor plan's
+  # temporary breaks do not list. Runs on every pull request and push the
+  # workflow covers.
+  programs-do-no-machine-work:
+    name: The programs do no machine work beyond the plan's temporary breaks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        run: rustc --version
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - name: Test the check
+        run: python3 -m unittest discover -s docs/architecture -p 'test_check_programs.py'
+
+      - name: Build the crate map from the code and check the programs
+        run: python3 docs/architecture/check-programs.py
+
   crate-map:
     name: The crate map in docs/architecture is current
     if: github.event_name == 'pull_request' && github.base_ref == 'main'

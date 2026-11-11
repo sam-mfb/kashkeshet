@@ -29,14 +29,30 @@
 # 5. Every package's name starts with `kkt-`, so its code logs under a
 #    `kkt_` path, which the log filter keeps at kkt's own level. A package
 #    with a binary target is a program and is not held to this.
+# 6. A crate docs/architecture/concerns.json marks as a contract has no
+#    `real` feature and no item behind one (CLAUDE.md's C5).
 #
-# Checks 2 to 5 are in check-crates.jq, tested by test_check_crates.py.
+# Checks 2 to 6 are in check-crates.jq, tested by test_check_crates.py,
+# except check 6's search of a contract crate's sources for items behind
+# `real`, which is below.
 set -euo pipefail
 scripts=$(dirname "$0")
 
 metadata=$(cargo metadata --locked --no-deps --format-version 1)
 
-problems=$(jq -r -f "$scripts/check-crates.jq" <<< "$metadata")
+root=$(dirname "$(cargo locate-project --workspace --message-format plain)")
+contracts=$(jq -c '[.crates | to_entries[] | select(.value.kind == "contract") | .key]' \
+    "$root/docs/architecture/concerns.json")
+problems=$(jq -r --argjson contracts "$contracts" -f "$scripts/check-crates.jq" <<< "$metadata")
+# Check 6, the sources: no item behind `real` in a contract crate.
+for name in $(jq -r '.[]' <<< "$contracts"); do
+    dir=$(jq -r --arg name "$name" '.packages[] | select(.name == $name) | .manifest_path' \
+        <<< "$metadata" | xargs -r dirname)
+    if [ -n "$dir" ] && grep -rlq 'feature *= *"real"' "$dir/src"; then
+        problems+=$'\n'"$name: it is a contract crate and has an item behind \`real\`; a contract may not touch the machine"
+    fi
+done
+problems=$(sed '/^$/d' <<< "$problems")
 if [ -n "$problems" ]; then
     echo "check-crates: the workspace's manifests break the feature or name rules:" >&2
     echo "$problems" >&2

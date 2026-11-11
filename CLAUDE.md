@@ -262,6 +262,11 @@ a sign the crate lines are wrong.
   build scripts, by git at the commit under test, as kkt-pro will
   (`.github/scripts/build-outside-crate.sh`): a shared crate must build
   when used that way.
+- CI also checks two of the refactor's rules. check-crates.sh fails on a
+  `real` feature, or an item behind one, in a crate concerns.json marks as a
+  contract. `docs/architecture/check-programs.py` builds the map from the
+  code and fails on machine work in a program's own code that the refactor
+  plan's temporary breaks do not list.
 - A bug fix, a robustness change or a performance claim comes with a test
   that fails without it.
 - Every pull request says whether it can affect an existing install, and how
