@@ -572,6 +572,7 @@
       el("div", { class: "actions" },
         el("button", { class: "action", type: "button", onclick: showTable }, `Every trait and the rule's result (${proposed.table.length})`),
         el("button", { class: "action", type: "button", onclick: showChanges }, "What changed"),
+        el("button", { class: "action", type: "button", onclick: showCensus }, `Adapters, measured (${proposed.adapter_census.before_totals.forward} → ${proposed.adapter_census.after_totals.forward} forwarding methods)`),
         el("button", { class: "action", type: "button", onclick: () => showConflicts() }, `Conflicts (${proposed.conflicts.filter((c) => c.resolved !== false).length} resolved, ${proposed.conflicts.filter((c) => c.resolved === false).length} open)`),
         el("button", { class: "action", type: "button", onclick: showConfigTable }, `Item 7: kkt-config, item by item (${proposed.config_split.table.length})`)),
       shown.violations.length
@@ -585,7 +586,7 @@
 
   function openDialog(title, ...body) {
     const dialog = $("assembly");
-    dialog.classList.toggle("wide", title.startsWith("Every trait") || title.startsWith("Item 7"));
+    dialog.classList.toggle("wide", title.startsWith("Every trait") || title.startsWith("Item 7") || title.startsWith("Adapters"));
     dialog.replaceChildren(...[
       el("div", { class: "dialog-head" }, el("h2", {}, title),
         el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
@@ -632,6 +633,22 @@
         el("span", { class: "muted" }, `${a.kind}: ${a.roles_before.join(", ")} → ${a.roles_after.join(", ")}`), tags(a),
         a.items_gone.length ? el("div", { class: "muted" }, `no longer: ${a.items_gone.join(", ")}`) : null,
         a.items_new.length ? el("div", { class: "muted" }, `new: ${a.items_new.join(", ")}`) : null))));
+  }
+
+  function showCensus() {
+    const c = proposed.adapter_census;
+    const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+    const totals = (t) => el("p", {}, `${plural(t.adapters, "adapter")}, ${plural(t.methods, "method")}: ${t.forward} forwarding, ${t.translate} translating. Written out ${t.written} times across the programs, ${t.forward_written} of them forwarding.`);
+    const table = (rows) => el("div", { class: "table-wrap" }, el("table", { class: "rule-table census" },
+      el("thead", {}, el("tr", {}, ["Adapter", "Meets", "Written in", "Methods", "F", "T", "Copies", "What the methods do"].map((h) => el("th", {}, h)))),
+      el("tbody", {}, rows.map((r) => el("tr", {},
+        el("td", {}, el("code", {}, r.adapter)), el("td", {}, r.to), el("td", {}, r.where),
+        el("td", {}, String(r.methods)), el("td", {}, String(r.forward)), el("td", {}, String(r.translate)),
+        el("td", {}, String(r.copies)), el("td", {}, prose(r.why)))))));
+    openDialog("Adapters, measured",
+      el("p", { class: "muted" }, prose(c.about), " ", source("proposal")),
+      el("h3", {}, "Before the reshape"), el("p", { class: "muted" }, prose(c.before_note)), totals(c.before_totals), table(c.before),
+      el("h3", {}, "After the reshape"), el("p", { class: "muted" }, prose(c.after_note)), totals(c.after_totals), table(c.after));
   }
 
   function showConflicts(focus) {

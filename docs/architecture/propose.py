@@ -172,6 +172,25 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                                      status=add["status"])
         note(crate, f"{path} gains {', '.join(add['methods'])}: {add['note']}", add["status"])
 
+    # A free function that becomes a provided method of a trait in its
+    # crate (random_chars on Entropy, msg 2011): the function, and the slot
+    # its parameter made, go; users of it use the trait.
+    folded = {}
+    for fold in spec.get("fold_into_trait", []):
+        crate, path = split(fold["item"])
+        crate = home.get((crate, path), crate)
+        trait = items_of.get(crate, {}).get(fold["trait"])
+        if items_of.get(crate, {}).pop(path, None) is None or not trait or trait["kind"] != "trait":
+            problems.append(f"fold_into_trait: no function {path} and trait {fold['trait']} in {crate}")
+            continue
+        items_of[crate][fold["trait"]] = dict(trait, methods=sorted(set(trait.get("methods", [])) | {path}),
+                                              provided=sorted(set(trait.get("provided", [])) | {path}),
+                                              status=fold["status"])
+        crates[crate]["slots"] = [sl for sl in crates[crate]["slots"] if sl["at"] != path]
+        folded[(crate, path)] = fold["trait"]
+        item_status[(crate, fold["trait"])] = fold["status"]
+        note(crate, f"{path} becomes a provided method of {fold['trait']}: {fold['note']}", fold["status"])
+
     for edit in spec.get("doc_edits", []):
         crate, path = split(edit["item"])
         item = items_of.get(crate, {}).get(path)
@@ -314,6 +333,24 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             if user not in programs:
                 problems.append(f"shared_adapters: {user} is not a program")
             shared_by.setdefault(user, []).append(sa)
+    # Implementations that stay, now that their crate is the adapter: a
+    # composition or a program may implement another crate's contract
+    # (msg 2009). Each is named, so none stays by accident.
+    for d in spec.get("direct", []):
+        # A private type is named by its crate alone ("a type of its own").
+        crate, path = split(d["type"]) if "::" in d["type"] else (d["type"], None)
+        crate = where(crate, path) if path else crate
+        for target in d["to"]:
+            tc, tp = split(target)
+            hit = [r for r in records if r["crate"] == crate and r["type"] == path
+                   and r["trait_crate"] == tc and r["trait"] == tp]
+            if not hit:
+                problems.append(f"direct: {crate}'s {path or 'own type'} does not implement {target}")
+            for r in hit:
+                r["status"] = d["status"]
+        if kinds.get(crate) != "composition" and crate not in programs:
+            problems.append(f"direct: {crate} is neither a composition nor a program")
+        note(crate, f"{path or 'its own type'} implements {' and '.join(d['to'])} itself: {d['note']}", d["status"])
     unique = {}
     for r in records:
         unique.setdefault((r["crate"], r["trait_crate"], r["trait"], r["type"] or "", r.get("adapts", "")), r)
@@ -401,6 +438,18 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 dst["third_party"] = sorted(set(dst["third_party"]) | {dep})
         note(fm["from"], f"its {fm['feature']} feature moves to {fm['to']}", fm["status"])
         note(fm["to"], f"takes the {fm['feature']} feature from {fm['from']}", fm["status"])
+
+    # Third-party crates that move with code a ruling moves (tokio, from
+    # kkt-db to kkt-db-sqlite, msg 2012).
+    for tp in spec.get("third_party_edits", []):
+        if tp["crate"] not in crates:
+            problems.append(f"third_party_edits: no crate {tp['crate']}")
+            continue
+        have = set(crates[tp["crate"]]["third_party"])
+        if set(tp.get("remove", [])) - have:
+            problems.append(f"third_party_edits: {tp['crate']} has no {', '.join(sorted(set(tp['remove']) - have))}")
+        crates[tp["crate"]]["third_party"] = sorted((have - set(tp.get("remove", []))) | set(tp.get("add", [])))
+        note(tp["crate"], tp["note"], tp["status"])
 
     # Arrows, item by item.
     old_implemented = {(c["name"], i["trait_crate"], i["trait"]) for c in graph["crates"] for i in c["implements"]}
@@ -494,8 +543,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             entry["items"][sa["as"]] = "wires"
             entry["had_items"] = True
             entry["statuses"].add(sa["status"])
-        note(sa["crate"], f"{sa['as']} adapts {sa['adapts']} to {' and '.join(sa['to'])}, for " +
-             ", ".join(sa["used_by"]) + "; and the tests of " + ", ".join(sa["tests"]), sa["status"])
+        users = ", ".join(sa["used_by"]) or f"{sa['crate']} itself"
+        tests = f"; and the tests of {', '.join(sa['tests'])}" if sa["tests"] else ""
+        note(sa["crate"], f"{sa['as']} adapts {sa['adapts']} to {' and '.join(sa['to'])}, for {users}{tests}", sa["status"])
         for t in sa["tests"]:
             note(t, f"its tests wire {sa['crate']}'s {sa['as']} instead of an adapter of their own (item 8)", sa["status"])
         if sa.get("caveat"):
@@ -524,6 +574,18 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 entry["had_items"] = True
         entry["statuses"].add(edit["status"])
         note(edit["from"], edit["note"], edit["status"])
+
+    for (frm, to, kind), entry in grouped.items():
+        for (crate, path), trait in folded.items():
+            if to == crate and path in entry["items"]:
+                entry["items"].pop(path)
+                entry["items"].setdefault(trait, "uses")
+                entry.setdefault("item_statuses", {})[trait] = item_status[(crate, trait)]
+    for (frm, to, kind), paths in test_uses.items():
+        for (crate, path), trait in folded.items():
+            if to == crate and path in paths:
+                paths.discard(path)
+                paths.add(trait)
 
     # A test-only use rides on the normal arrow when the code uses that
     # crate too; otherwise only the tests need it, as a dev-dependency.
@@ -647,7 +709,10 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             size = 0
             for target in (a["to"] if isinstance(a["to"], list) else [a["to"]]):
                 tc, tp = split(target)
-                size += len(items_of.get(tc, {}).get(tp, {}).get("methods", []))
+                # A provided method is the contract's own: the adapter
+                # does not write it.
+                trait = items_of.get(tc, {}).get(tp, {})
+                size += len(set(trait.get("methods", [])) - set(trait.get("provided", [])))
             flow["adapters"].append(dict(a, methods=size, large=a.get("large", False) or size >= 20))
         adapted = {a["adapts"]: a for a in flow["adapters"]}
         for w in flow.get("wiring", []):
@@ -730,10 +795,10 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     violations = [f"{e['from']} depends on the effect crate {e['to']}" for e in edges
                   if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]
     # The strict rule: only programs and compositions implement another
-    # crate's contract.
+    # crate's contract; a composition that does is an adapter (A6).
     for c in crates.values():
         for r in c["implements"]:
-            if r["trait_crate"] != c["name"] and not r.get("adapts") and c["name"] not in programs:
+            if r["trait_crate"] != c["name"] and not r.get("adapts") and c["name"] not in allowed:
                 violations.append(f"{c['name']}'s {r['type'] or 'own type'} implements {r['trait_crate']}::{r['trait']}")
 
     for name, c in crates.items():
@@ -892,7 +957,7 @@ def main():
                          "status": split_spec["status"]},
         "statuses": spec["statuses"], "status_legend": spec["status_legend"], "rule": spec["rule"],
         "strict": spec["strict"], "rejected": spec.get("rejected", []),
-        "decided_items": spec["decided_items"], "open_questions": spec["open_questions"], "conflicts": spec["conflicts"],
+        "decided_items": spec["decided_items"], "open_questions": spec["open_questions"], "adapter_census": spec["adapter_census"], "conflicts": spec["conflicts"],
         "withdrawn": spec.get("withdrawn", []), "assumptions": spec["assumptions"],
         "not_traits": spec["not_traits"], "stop_implementing": spec["stop_implementing"],
     }
