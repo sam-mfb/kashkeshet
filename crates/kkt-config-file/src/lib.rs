@@ -51,10 +51,11 @@ impl ConfigError {
 }
 
 /// What a config file says, in the file's own terms: each setting it gives,
-/// or `None`. Paths are resolved as the file says to; the log levels are as
-/// written.
+/// or `None`. Paths are resolved as the file says to. The log levels are
+/// `L`, whatever the caller's level check in [`parse_file`] makes of them:
+/// which levels there are is not this crate's to say.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Config {
+pub struct Config<L> {
     pub name_pack: Option<String>,
     pub db: Option<PathBuf>,
     pub bind: Option<SocketAddr>,
@@ -74,15 +75,13 @@ pub struct Config {
     pub access_key_file: Option<PathBuf>,
     pub no_access_key: Option<bool>,
     pub log_file: Option<PathBuf>,
-    /// As written, such as `"info"`.
-    pub log_level: Option<String>,
-    /// As written, such as `"warn"`.
-    pub dependency_log_level: Option<String>,
+    pub log_level: Option<L>,
+    pub dependency_log_level: Option<L>,
 }
 
-impl Config {
+impl<L> Config<L> {
     /// A file that says nothing.
-    pub const NONE: Config = Config {
+    pub const NONE: Config<L> = Config {
         name_pack: None,
         db: None,
         bind: None,
@@ -109,8 +108,15 @@ impl Config {
 
 /// The settings in a config file's `text`. `dir` is the directory the file
 /// is in, for relative paths; `home` is the home folder, for `~/` paths,
-/// if there is one.
-pub fn parse_file(text: &str, dir: &Path, home: Option<&Path>) -> Result<Config, ConfigError> {
+/// if there is one. `level` checks a log level as written, given the
+/// setting's name, and says what is wrong with it if it is not one. Settings
+/// are checked in the order of their names, so the first bad one is named.
+pub fn parse_file<L>(
+    text: &str,
+    dir: &Path,
+    home: Option<&Path>,
+    level: impl Fn(&'static str, &str) -> Result<L, String>,
+) -> Result<Config<L>, ConfigError> {
     let table: toml::Table = text.parse().map_err(|e: toml::de::Error| {
         ConfigError::new(
             "config",
@@ -156,9 +162,9 @@ pub fn parse_file(text: &str, dir: &Path, home: Option<&Path>) -> Result<Config,
             }
             "no_access_key" => config.no_access_key = Some(value.boolean("no_access_key")?),
             "log_file" => config.log_file = Some(value.path("log_file", dir, home)?),
-            "log_level" => config.log_level = Some(value.log_level("log_level")?),
+            "log_level" => config.log_level = Some(value.log_level("log_level", &level)?),
             "dependency_log_level" => {
-                config.dependency_log_level = Some(value.log_level("dependency_log_level")?)
+                config.dependency_log_level = Some(value.log_level("dependency_log_level", &level)?)
             }
             _ => {
                 return Err(ConfigError::new(
@@ -229,12 +235,17 @@ impl Value {
         Ok(dir.join(text))
     }
 
-    /// A log level as written: which levels there are is not this crate's
-    /// to say, so the reader of [`Config`] checks it.
-    fn log_level(&self, name: &'static str) -> Result<String, ConfigError> {
-        Ok(self
-            .string(name, "a level in quotes, such as \"info\"")?
-            .to_owned())
+    /// A log level, as the caller's `level` reads it.
+    fn log_level<L>(
+        &self,
+        name: &'static str,
+        level: impl Fn(&'static str, &str) -> Result<L, String>,
+    ) -> Result<L, ConfigError> {
+        level(
+            name,
+            self.string(name, "a level in quotes, such as \"info\"")?,
+        )
+        .map_err(|rule| ConfigError::new(name, rule))
     }
 
     fn boolean(&self, name: &'static str) -> Result<bool, ConfigError> {
@@ -280,8 +291,14 @@ impl Value {
 mod tests {
     use super::*;
 
-    fn parse(text: &str) -> Result<Config, ConfigError> {
-        parse_file(text, Path::new("/etc/kkt"), Some(Path::new("/home/sam")))
+    /// Any level is taken as written.
+    fn parse(text: &str) -> Result<Config<String>, ConfigError> {
+        parse_file(
+            text,
+            Path::new("/etc/kkt"),
+            Some(Path::new("/home/sam")),
+            |_, text| Ok(text.to_owned()),
+        )
     }
 
     #[test]
@@ -381,9 +398,30 @@ mod tests {
     }
 
     #[test]
-    fn log_levels_are_kept_as_written_for_the_reader_to_check() {
+    fn log_levels_are_what_the_callers_check_makes_of_them() {
         let config = parse("log_level = \"loud\"").expect("a string");
         assert_eq!(config.log_level, Some("loud".into()));
+        let refuse = |_, text: &str| Err::<(), _>(format!("is not a level: {text}"));
+        let err =
+            parse_file("log_level = \"loud\"", Path::new("/"), None, refuse).expect_err("refused");
+        assert_eq!(err.name, "log_level");
+        assert_eq!(err.to_string(), "log_level is not a level: loud");
+    }
+
+    #[test]
+    fn of_two_bad_settings_the_first_by_name_is_named() {
+        let refuse = |_, _: &str| Err::<(), _>("is not a level".to_string());
+        let parse = |text| parse_file(text, Path::new("/"), None, refuse).expect_err(text);
+        // Whichever comes first in the file, the first by name is named,
+        // log levels included.
+        assert_eq!(parse("max_limit = -1\nlog_level = \"x\"").name, "log_level");
+        assert_eq!(parse("log_level = \"x\"\nmax_limit = -1").name, "log_level");
+        assert_eq!(parse("bind = 1\nlog_level = \"x\"").name, "bind");
+        assert_eq!(parse("dependency_log_level = \"x\"\nbind = 1").name, "bind");
+        assert_eq!(
+            parse("log_level = \"x\"\ndependency_log_level = \"y\"").name,
+            "dependency_log_level"
+        );
     }
 
     #[test]
@@ -394,7 +432,13 @@ mod tests {
 
     #[test]
     fn home_paths_need_a_home() {
-        let err = parse_file("db = \"~/x.db\"", Path::new("/etc/kkt"), None).expect_err("no home");
+        let err = parse_file(
+            "db = \"~/x.db\"",
+            Path::new("/etc/kkt"),
+            None,
+            |_, _| Ok(()),
+        )
+        .expect_err("no home");
         assert_eq!(err.name, "db");
     }
 

@@ -206,7 +206,7 @@ pub fn read_config(
             Some((path, text))
         }
         None => match env.config_file() {
-            Some(path) => config_file_os::read(&path)
+            Some(path) => config_file_os::read_default(&path)
                 .map_err(unreadable)?
                 .map(|text| (path, text)),
             None => None,
@@ -224,27 +224,23 @@ pub fn read_config(
 }
 
 /// The settings in a config file's `text`, as kkt-settings takes them: the
-/// file parsed by kkt-config-file, with its log levels checked here.
+/// file parsed by kkt-config-file, with kkt-logs' log levels.
 pub(crate) fn parse_config(
     text: &str,
     dir: &Path,
     home: Option<&Path>,
 ) -> Result<ServeOptions, InvalidSetting> {
-    let config = kkt_config_file::parse_file(text, dir, home)
+    let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
+    let config = kkt_config_file::parse_file(text, dir, home, level)
         .map_err(|e| InvalidSetting::new(e.name, e.rule))?;
-    serve_options(config)
+    Ok(serve_options(config))
 }
 
 /// What a parsed config file says, as kkt-settings' options.
-fn serve_options(config: Config) -> Result<ServeOptions, InvalidSetting> {
-    let level = |name: &'static str, text: Option<String>| {
-        text.map(|text| LogLevel::parse(name, &text))
-            .transpose()
-            .map_err(|e| InvalidSetting::new(e.name, e.rule))
-    };
-    Ok(ServeOptions {
-        log_level: level("log_level", config.log_level)?,
-        dependency_log_level: level("dependency_log_level", config.dependency_log_level)?,
+fn serve_options(config: Config<LogLevel>) -> ServeOptions {
+    ServeOptions {
+        log_level: config.log_level,
+        dependency_log_level: config.dependency_log_level,
         name_pack: config.name_pack,
         db: config.db,
         bind: config.bind,
@@ -264,7 +260,7 @@ fn serve_options(config: Config) -> Result<ServeOptions, InvalidSetting> {
         access_key_file: config.access_key_file,
         no_access_key: config.no_access_key,
         log_file: config.log_file,
-    })
+    }
 }
 
 /// Parses the kkt container's config file for kkt-container, as `kkt serve`
@@ -604,6 +600,18 @@ mod tests {
             parse("log_level = \"loud\"").unwrap_err().to_string(),
             format!("{} {}", loud.name, loud.rule)
         );
+        // Of two bad settings, the first by name is named, as before
+        // kkt-config-file: a log level is checked in its turn.
+        for (text, name) in [
+            ("max_limit = -1\nlog_level = \"loud\"", "log_level"),
+            ("dependency_log_level = \"loud\"\nbind = 1", "bind"),
+            (
+                "log_level = \"loud\"\ndependency_log_level = \"quiet\"",
+                "dependency_log_level",
+            ),
+        ] {
+            assert_eq!(parse(text).map_err(|e| e.name), Err(name), "{text}");
+        }
     }
 
     #[test]

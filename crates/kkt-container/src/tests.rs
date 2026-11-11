@@ -180,7 +180,7 @@ impl LoginLink for FakeLogin {
 const KEY: &str = "0123456789abcdef0123456789abcdef0123456789abcdef";
 
 /// Parses a container's config text with kkt-config-file, as the program
-/// does.
+/// does, but taking any log level.
 struct Reader;
 
 impl ConfigReader for Reader {
@@ -190,7 +190,8 @@ impl ConfigReader for Reader {
         dir: &Path,
         home: Option<&Path>,
     ) -> Result<ContainerConfig, String> {
-        let config = kkt_config_file::parse_file(text, dir, home).map_err(|e| e.to_string())?;
+        let config = kkt_config_file::parse_file(text, dir, home, |_, _| Ok(()))
+            .map_err(|e| e.to_string())?;
         Ok(ContainerConfig {
             name_pack: config.name_pack,
             max_lane_chars: config.max_lane_chars,

@@ -211,19 +211,15 @@ fn settings(args: &Args) -> Result<ServeSettings, String> {
 }
 
 /// The settings in the config file's `text`, as kkt-settings takes them:
-/// the file parsed by kkt-config-file, with its log levels checked here.
+/// the file parsed by kkt-config-file, with kkt-logs' log levels.
 /// There is no home folder, so a `~/` path is refused.
 fn parse_config(text: &str, dir: &Path) -> Result<ServeOptions, InvalidSetting> {
-    let config = kkt_config_file::parse_file(text, dir, None)
+    let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
+    let config = kkt_config_file::parse_file(text, dir, None, level)
         .map_err(|e| InvalidSetting::new(e.name, e.rule))?;
-    let level = |name: &'static str, text: Option<String>| {
-        text.map(|text| LogLevel::parse(name, &text))
-            .transpose()
-            .map_err(|e| InvalidSetting::new(e.name, e.rule))
-    };
     Ok(ServeOptions {
-        log_level: level("log_level", config.log_level)?,
-        dependency_log_level: level("dependency_log_level", config.dependency_log_level)?,
+        log_level: config.log_level,
+        dependency_log_level: config.dependency_log_level,
         name_pack: config.name_pack,
         db: config.db,
         bind: config.bind,

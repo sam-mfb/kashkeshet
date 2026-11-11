@@ -77,6 +77,18 @@ pub fn read(path: &Path) -> Result<Option<String>, ReadError> {
     }
 }
 
+/// The default config file's text, if one can be seen at `path`: `None`
+/// when [`Path::exists`] says there is none, which includes a file in a
+/// folder that cannot be searched. `kkt serve` has always skipped a default
+/// file it cannot see; one it can see but not read is an error.
+#[cfg(any(test, feature = "real"))]
+pub fn read_default(path: &Path) -> Result<Option<String>, ReadError> {
+    match path.exists() {
+        true => read_whole(path).map(Some),
+        false => Ok(None),
+    }
+}
+
 /// The config file's text at `path`, which must be there: a file someone
 /// named, for whom a missing file is an error like any other.
 #[cfg(any(test, feature = "real"))]
@@ -132,6 +144,31 @@ mod tests {
             "{err}"
         );
         assert!(read_instructions(&path).is_err());
+    }
+
+    #[test]
+    fn a_default_file_in_a_folder_that_cannot_be_searched_is_skipped() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = scratch::Dir::new("config-file-os-locked");
+        let locked = dir.join("locked");
+        let path = locked.join("config.toml");
+        write(&path, "bind = 1\n").expect("written");
+        assert_eq!(
+            read_default(&path).expect("read").as_deref(),
+            Some("bind = 1\n")
+        );
+        let mode = |m| std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(m));
+        mode(0o000).expect("locked");
+        // Root searches any folder; the check means something only when the
+        // lock holds.
+        let holds = std::fs::metadata(&path).is_err();
+        let default = read_default(&path);
+        let plain = read(&path);
+        mode(0o755).expect("unlocked");
+        if holds {
+            assert!(default.expect("skipped, not an error").is_none());
+            assert!(plain.is_err(), "read reports what it cannot see");
+        }
     }
 
     #[test]
