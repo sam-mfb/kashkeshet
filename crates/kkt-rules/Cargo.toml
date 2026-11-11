@@ -29,5 +29,6 @@ tokio = { workspace = true, features = ["time"] }
 
 [features]
 # `testing`: `testing::swarms_stay_apart`, the check that a store keeps
-# swarms apart.
-testing = []
+# swarms apart; `testing::memory`, a store over kkt-db's in-memory database;
+# and `testing::fail_next_write`.
+testing = ["kkt-db/testing"]

@@ -15,7 +15,6 @@ use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_mcp_formatter::Formatter;
-use kkt_rules::Db;
 use kkt_rules::Settings;
 use kkt_rules::{Agent, Audit, Operator, Rules, SwarmId};
 use kkt_rules::{Code, Deps, OperatorWording, RuleError};
@@ -86,14 +85,7 @@ async fn rules() -> Rules {
     let clock = Arc::new(FixedClock::new(
         Time::from_parts(2026, 11, 9, 0, 0, 0).unwrap(),
     ));
-    let db = {
-        let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
-        Db::new(
-            place
-                .open(&[kkt_rules::schema()])
-                .expect("the core's tables"),
-        )
-    };
+    let db = { kkt_rules::testing::memory().expect("an in-memory store") };
     let run_id = db
         .write(|w| {
             let run_id = w.insert_server_run(&kkt_rules::NewServerRunRecord {

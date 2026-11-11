@@ -49,9 +49,9 @@ serde_json.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+# The tests' store, in memory.
+kkt-rules = { path = "../../crates/kkt-rules", features = ["testing"] }
 # Seeded randomness, so two runs can be compared.
 kkt-entropy = { path = "../../crates/kkt-entropy", features = ["testing"] }
-# The tests' database, in memory.
-kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["testing"] }
 # A clock that stays put, so two runs can be compared.
 kkt-clock = { path = "../../crates/kkt-clock", features = ["testing"] }

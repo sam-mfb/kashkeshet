@@ -19,13 +19,12 @@ real = []
 [dev-dependencies]
 kkt-admission = { path = "../kkt-admission" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-db = { path = "../kkt-db", features = ["testing"] }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
 kkt-events = { path = "../kkt-events" }
 kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity-keymode = { path = "../kkt-identity-keymode" }
 kkt-mcp = { path = "../kkt-mcp" }
-kkt-rules = { path = "../kkt-rules" }
+kkt-rules = { path = "../kkt-rules", features = ["testing"] }
 kkt-shutdown = { path = "../kkt-shutdown" }
 kkt-web = { path = "../kkt-web", features = ["testing"] }

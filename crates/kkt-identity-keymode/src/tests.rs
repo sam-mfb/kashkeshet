@@ -111,12 +111,7 @@ async fn rules() -> Rules {
         }
     }
 
-    let db = kkt_rules::Db::new(
-        kkt_db_sqlite::MemoryPlace::new()
-            .expect("an in-memory database")
-            .open(&[kkt_rules::schema()])
-            .expect("the core's tables"),
-    );
+    let db = kkt_rules::testing::memory().expect("an in-memory store");
     let run_id = db
         .write(|w| {
             w.insert_server_run(&kkt_rules::NewServerRunRecord {
