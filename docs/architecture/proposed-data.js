@@ -413,10 +413,11 @@ window.KKT_PROPOSED = {
      {
       "items": [
        "kkt-provenance::ServerRun",
-       "kkt-server::record_run"
+       "kkt-rules::start",
+       "kkt-rules::NewServerRun"
       ],
       "proposed_step": true,
-      "text": "What produced this run is stored through kkt-rules' Db, and new rows carry its ID.",
+      "text": "kkt-rules' start records what produced this run in the Db, then builds the Rules with its ID, which new rows carry (msg 2042).",
       "title": "Run record"
      },
      {
@@ -476,20 +477,6 @@ window.KKT_PROPOSED = {
        {
         "at": "SharedKey::generate",
         "param": "entropy"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-server",
-      "impl": "kkt-rules::Db",
-      "to": [
-       {
-        "at": "Parts::new",
-        "param": "db"
-       },
-       {
-        "at": "record_run",
-        "param": "db"
        }
       ]
      },
@@ -983,6 +970,18 @@ window.KKT_PROPOSED = {
         "param": "web_identify"
        }
       ]
+     },
+     {
+      "crate": "kkt-server",
+      "impl": "kkt-rules::Rules",
+      "note": "the Rules kkt-rules' start built (msg 2042)",
+      "status": "decided",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "rules"
+       }
+      ]
      }
     ]
    },
@@ -1082,24 +1081,6 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-server",
-      "own": "the database, clock and entropy Product::start was given",
-      "to": [
-       {
-        "at": "Parts::new",
-        "param": "db"
-       },
-       {
-        "at": "Parts::new",
-        "param": "clock"
-       },
-       {
-        "at": "Parts::new",
-        "param": "entropy"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-server",
       "impl": "kkt-fake-product::FakeIdentify",
       "through_adapter": [
        "kkt-mcp::Identify",
@@ -1149,6 +1130,34 @@ window.KKT_PROPOSED = {
         "param": "web_identify"
        }
       ]
+     },
+     {
+      "crate": "kkt-server",
+      "note": "the clock and entropy Product::start was given",
+      "own": "the clock and entropy Product::start was given",
+      "status": "decided",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "clock"
+       },
+       {
+        "at": "Parts::new",
+        "param": "entropy"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-server",
+      "impl": "kkt-rules::Rules",
+      "note": "the Rules kkt-rules' start built (msg 2042)",
+      "status": "decided",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "rules"
+       }
+      ]
      }
     ]
    },
@@ -1196,9 +1205,11 @@ window.KKT_PROPOSED = {
      {
       "items": [
        "kkt-provenance::ServerRun",
-       "kkt-server::record_run"
+       "kkt-rules::start",
+       "kkt-rules::NewServerRun"
       ],
-      "text": "The run is recorded as kkt serve's is.",
+      "proposed_step": true,
+      "text": "As kkt serve's: kkt-rules' start records the run, then builds the Rules (msg 2042).",
       "title": "Run record"
      },
      {
@@ -1237,20 +1248,6 @@ window.KKT_PROPOSED = {
        {
         "at": "server_keys::check",
         "param": "texts"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-server",
-      "impl": "kkt-rules::Db",
-      "to": [
-       {
-        "at": "Parts::new",
-        "param": "db"
-       },
-       {
-        "at": "record_run",
-        "param": "db"
        }
       ]
      },
@@ -1318,6 +1315,18 @@ window.KKT_PROPOSED = {
        {
         "at": "Parts::new",
         "param": "web_identify"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-server",
+      "impl": "kkt-rules::Rules",
+      "note": "the Rules kkt-rules' start built (msg 2042)",
+      "status": "decided",
+      "to": [
+       {
+        "at": "Parts::new",
+        "param": "rules"
        }
       ]
      }
@@ -1469,23 +1478,23 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "A9",
-   "text": "kkt-search sits in Foundations: it is pure text that the data crates build on and knows nothing of them, as kkt-clock and kkt-entropy sit under the crates that use them (msg 2014 left the layer to us)."
+   "text": "Accepted by Sam (msg 2042): kkt-search sits in Foundations: it is pure text that the data crates build on and knows nothing of them, as kkt-clock and kkt-entropy sit under the crates that use them (msg 2014 left the layer to us)."
   },
   {
    "id": "A10",
-   "text": "Excerpt stays in kkt-db as a plain value: it is part of what a caller asks for in a Search, and msg 2014 has kkt-store's code (now kkt-rules') use only Search and Hit. kkt-search's excerpt takes the marks and window as arguments, so kkt-db needs kkt-search only under `testing`, for its in-memory backend, and kkt-rules does not name kkt-search. Recommended by kkt-review-373 (msg 2018); msg 2014 listed Excerpt among what moves, so this is for Sam."
+   "text": "Accepted by Sam (msg 2042): Excerpt stays in kkt-db as a plain value: it is part of what a caller asks for in a Search, and msg 2014 has kkt-store's code (now kkt-rules') use only Search and Hit. kkt-search's excerpt takes the marks and window as arguments, so kkt-db needs kkt-search only under `testing`, for its in-memory backend, and kkt-rules does not name kkt-search. Recommended by kkt-review-373 (msg 2018); msg 2014 listed Excerpt among what moves, so this is for Sam."
   },
   {
    "id": "A11",
-   "text": "Whether a message's author, or a channel's last speaker, is the operator is part of kkt-api's records (Message, ChannelActivity), filled by kkt-rules, which makes the operator an actor and names it. With kkt-web rendering kkt-api's records directly (msg 2031), the flag belongs with the record, not with each surface. kkt-web's live notices, which come from kkt-events, still work it out with kkt-names' is_operator."
+   "text": "Accepted by Sam (msg 2042): Whether a message's author, or a channel's last speaker, is the operator is part of kkt-api's records (Message, ChannelActivity), filled by kkt-rules, which makes the operator an actor and names it. With kkt-web rendering kkt-api's records directly (msg 2031), the flag belongs with the record, not with each surface. kkt-web's live notices, which come from kkt-events, still work it out with kkt-names' is_operator."
   },
   {
    "id": "A13",
-   "text": "kkt-api's traits are split by area as listed, shaped from what kkt-rules' Rules offers and what kkt-mcp, kkt-web (through kkt-server's former RulesSource), KeyMode and the fake product call. Operator holds what only the web page's operator does, and Admin what /mcp-admin reads, so the page and the preview need only Api, Operator, Lanes, Server and Channels. subscribe returns kkt-events' subscription, so kkt-api names that type. The plain register and reclaim, which only tests call, are left out."
+   "text": "Changed by Sam (msg 2042): the Admin trait moves to its own crate, kkt-api-admin. The rest stands as charted, pending Sam, and the Operator trait's side is on hold. kkt-api's traits are split by area as listed, shaped from what kkt-rules' Rules offers and what kkt-mcp, kkt-web (through kkt-server's former RulesSource), KeyMode and the fake product call. Operator holds what only the web page's operator does, and Admin what /mcp-admin reads, so the page and the preview need only Api, Operator, Lanes, Server and Channels. subscribe returns kkt-events' subscription, so kkt-api names that type. The plain register and reclaim, which only tests call, are left out."
   },
   {
    "id": "A14",
-   "text": "Recording a run and adding a swarm are assembly, done over the Db before the Rules exist, so they are kkt-rules functions (record_run, create_swarm) outside kkt-api. Msg 2032 put record_run in kkt-api, but the run is recorded first (serve.rs:128, kkt-fake-product/src/lib.rs:190) and its run_id goes into Deps, which builds the Rules: as an Api operation it would need the Rules it helps build (kkt-review-373, msg 2036). The fake product's second swarm (lib.rs:199) is the same kind of setup. The other choice: Rules::new records the run itself, and Deps takes the run's description in place of its run_id."
+   "text": "Decided for record_run (msg 2042, option (a)): kkt-rules' start records the run in the Db, then builds and returns the Rules; the programs call it and pass the Rules into kkt-server's Parts. record_run is not in kkt-api, since the run_id goes into the Deps that build the Rules (kkt-review-373, msg 2036). Still pending Sam: the fake product's second swarm, charted as kkt-rules' create_swarm, an assembly function over the Db."
   }
  ],
  "changes": {
@@ -1660,6 +1669,15 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
+    "from": "kkt-api-admin",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api"
+   },
+   {
     "from": "kkt-backup-os",
     "kind": "normal",
     "role": "uses",
@@ -1832,6 +1850,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-api"
+   },
+   {
+    "from": "kkt-mcp-formatter",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-admin"
    },
    {
     "from": "kkt-mcp-formatter",
@@ -2012,6 +2039,15 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-mcp",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-admin"
+   },
+   {
+    "from": "kkt-mcp",
     "kind": "dev",
     "role": "wires",
     "statuses": [
@@ -2075,6 +2111,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-api"
+   },
+   {
+    "from": "kkt-rules",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-admin"
    },
    {
     "from": "kkt-rules",
@@ -2640,8 +2685,11 @@ window.KKT_PROPOSED = {
     "items_new": [
      "CORE",
      "Db",
+     "Deps",
+     "NewServerRun",
      "legacy",
-     "schema"
+     "schema",
+     "start"
     ],
     "kind": "normal",
     "roles_after": [
@@ -2660,7 +2708,8 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "items_gone": [
-     "listen"
+     "listen",
+     "record_run"
     ],
     "items_new": [],
     "kind": "normal",
@@ -3055,10 +3104,11 @@ window.KKT_PROPOSED = {
     ],
     "items_new": [
      "Db",
+     "Deps",
      "NewServerRun",
      "create_swarm",
-     "record_run",
-     "schema"
+     "schema",
+     "start"
     ],
     "kind": "normal",
     "roles_after": [
@@ -3069,8 +3119,7 @@ window.KKT_PROPOSED = {
      "uses"
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "to": "kkt-rules"
    },
@@ -3185,7 +3234,8 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "items_gone": [
-     "listen"
+     "listen",
+     "record_run"
     ],
     "items_new": [],
     "kind": "normal",
@@ -3428,6 +3478,7 @@ window.KKT_PROPOSED = {
      "ChannelInfo",
      "ChannelRef",
      "Code",
+     "Deps",
      "KeptReason",
      "LaneRetired",
      "LaneSave",
@@ -3437,27 +3488,21 @@ window.KKT_PROPOSED = {
      "Operator",
      "Refusal",
      "RuleError",
+     "Rules",
      "ServerRunInfo",
      "SwarmId"
     ],
-    "items_new": [
-     "Db",
-     "NewServerRun",
-     "record_run"
-    ],
+    "items_new": [],
     "kind": "normal",
     "roles_after": [
-     "implements",
-     "uses",
-     "wires"
+     "implements"
     ],
     "roles_before": [
      "uses",
      "wires"
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "to": "kkt-rules"
    },
@@ -3837,6 +3882,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program binds admin names to keys through kkt-admission (item 2)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt serve records its run and builds the Rules through start (msg 2042)"
      }
     ]
    },
@@ -3952,10 +4001,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Actor comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "AdminChannel comes here from kkt-rules"
      },
      {
       "status": "decided",
@@ -4206,16 +4251,33 @@ window.KKT_PROPOSED = {
       "text": "new trait Operator"
      },
      {
-      "status": "recommended",
-      "text": "new trait Admin"
-     },
-     {
       "status": "decided",
       "text": "Settings comes here from kkt-rules"
      },
      {
       "status": "decided",
       "text": "MAX_LANE_DESCRIPTION_CHARS comes here from kkt-rules"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-api-admin",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "AdminChannel comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Admin"
+     },
+     {
+      "status": "decided",
+      "text": "the admin reads take and return kkt-api's shared records (msg 2042)"
      }
     ]
    },
@@ -5431,8 +5493,8 @@ window.KKT_PROPOSED = {
       "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
-      "status": "recommended",
-      "text": "it records its run and adds its second swarm through kkt-rules' assembly functions, not the store (A14)"
+      "status": "decided",
+      "text": "it records its run and builds the Rules through start; its second swarm through create_swarm, pending Sam (msg 2042)"
      }
     ]
    },
@@ -5467,6 +5529,15 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "renamed from kkt-identity: Key mode's identity: `KeyMode`, a plain type that implements nothing; it decides who a caller is from the key that let it in and the avatar's token, and kkt and kkt-keymode adapt it to kkt-mcp's `Identify` and kkt-server's `WebIdentify` (msg 2025)."
+     }
+    ]
+   },
+   {
+    "crate": "kkt-keymode",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "as kkt serve (msg 2042)"
      }
     ]
    },
@@ -5731,7 +5802,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "AdminChannel moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "AdminChannel moves to kkt-api-admin: an admin-only record (msg 2042)"
      },
      {
       "status": "decided",
@@ -5990,16 +6061,16 @@ window.KKT_PROPOSED = {
       "text": "new fn testing::fail_next_write"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new struct NewServerRun"
      },
      {
       "status": "recommended",
-      "text": "new fn record_run"
+      "text": "new fn create_swarm"
      },
      {
-      "status": "recommended",
-      "text": "new fn create_swarm"
+      "status": "decided",
+      "text": "new fn start"
      },
      {
       "status": "decided",
@@ -6015,7 +6086,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Rules implements kkt-api::Api, kkt-api::Agents, kkt-api::Channels, kkt-api::Messages, kkt-api::Memory, kkt-api::Lanes, kkt-api::Server, kkt-api::Operator, kkt-api::Admin: kkt-rules implements the shared contract kkt-api, as msg 2020 allows (msg 2031)"
+      "text": "Rules implements kkt-api::Api, kkt-api::Agents, kkt-api::Channels, kkt-api::Messages, kkt-api::Memory, kkt-api::Lanes, kkt-api::Server, kkt-api::Operator, kkt-api-admin::Admin: kkt-rules implements the shared contracts kkt-api and kkt-api-admin, as msg 2020 allows (msgs 2031 and 2042)"
      },
      {
       "status": "decided",
@@ -6052,6 +6123,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its operations take and return kkt-api's records (msg 2031)"
+     },
+     {
+      "status": "decided",
+      "text": "its admin reads return kkt-api-admin's records (msg 2042)"
      }
     ]
    },
@@ -6097,11 +6172,23 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Parts::new no longer takes db: kkt-server is given the Rules that kkt-rules' start built, not the Db (msg 2042)"
+     },
+     {
+      "status": "decided",
+      "text": "Parts no longer takes db: as Parts::new (msg 2042)"
+     },
+     {
+      "status": "decided",
       "text": "RulesSource is no longer public: kkt-web calls kkt-api directly, so there is nothing to adapt (msg 2031)"
      },
      {
       "status": "decided",
       "text": "RulesSources is no longer public: kkt-web calls kkt-api directly, so there is nothing to adapt (msg 2031)"
+     },
+     {
+      "status": "decided",
+      "text": "record_run is no longer public: the programs record the run through kkt-rules' start, which builds the Rules (msg 2042)"
      },
      {
       "status": "decided",
@@ -6140,6 +6227,14 @@ window.KKT_PROPOSED = {
       "text": "Parts takes web_identify: as Parts::new (msg 2025)"
      },
      {
+      "status": "decided",
+      "text": "Parts::new takes rules: the Rules kkt-rules' start built, which kkt-server hands to /mcp, /mcp-admin and the page (msg 2042)"
+     },
+     {
+      "status": "decided",
+      "text": "Parts takes rules: as Parts::new (msg 2042)"
+     },
+     {
       "status": "follows",
       "text": "its real feature moves to kkt-server-listen"
      },
@@ -6168,8 +6263,8 @@ window.KKT_PROPOSED = {
       "text": "kkt-server builds the page's sessions and page-only limits when it mounts the page (msgs 2019, 2021 and 2031)"
      },
      {
-      "status": "recommended",
-      "text": "its record_run calls kkt-rules' record_run over the Db before the Rules are built (A14)"
+      "status": "decided",
+      "text": "it is given the Rules as kkt-api's Api, and the programs build the Deps for kkt-rules' start (msg 2042)"
      }
     ]
    },
@@ -7232,6 +7327,12 @@ window.KKT_PROPOSED = {
    },
    "kkt-api": {
     "concern": "The application's operations, as a shared contract: the heart of kkt, which the web page and the MCP endpoints are today's protocols over (a REST or GraphQL surface could follow). Its traits by area (Api, Agents, Channels, Messages, Memory, Lanes, Server, Operator, Admin), the records and queries they use, and the errors they return. kkt-rules implements it; kkt-mcp, kkt-mcp-formatter, kkt-web and kkt-identity-keymode use it and depend on no kkt-rules type; the preview implements it with simulated data (msg 2031). Test doubles go behind `testing` where a user's tests need the API without the rules; today's tests use kkt-rules' testing::memory, so none is charted yet.",
+    "kind": "contract",
+    "layer": "core",
+    "status": "decided"
+   },
+   "kkt-api-admin": {
+    "concern": "The admin side of the application's operations, kept apart from the rest: the Admin trait, the 12 admin_* reads that /mcp-admin serves, and AdminChannel. kkt-rules implements it beside kkt-api; only the crates that serve admin depend on it (kkt-mcp for /mcp-admin, and kkt-mcp-formatter, which writes the admin results) (msg 2042).",
     "kind": "contract",
     "layer": "core",
     "status": "decided"
@@ -9710,7 +9811,7 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "10",
-   "text": "kkt-server's Parts::new and Parts.db, its record_run, and the fake product's Product::start take kkt-rules' Db (since msg 2017; before, a store meeting kkt-rules' Reads and Writes). kkt-server no longer names a kkt-store type."
+   "text": "(Changed by msgs 2032 and 2042.) kkt-server's Parts took a store; since msg 2042 they take the Rules that kkt-rules' start built, as kkt-api's Api, and kkt-server names no kkt-rules type but OperatorWording, which its Wording implements. The fake product's Product::start keeps kkt-rules' Db, to call start."
   },
   {
    "id": "11",
@@ -9786,11 +9887,15 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "29",
-   "text": "kkt-rules' operations become a shared contract crate, kkt-api (contract, Core), the heart of the application, which web and MCP are today's protocols over (msg 2031). Its traits by area (A13): Api 3, Agents 6, Channels 12, Messages 6, Memory 4, Lanes 11, Server 4, Operator 10 and Admin 12 methods, 68 in all, with the records, queries and errors they use. kkt-rules implements it; kkt-mcp, kkt-mcp-formatter, kkt-web and kkt-identity-keymode use it and depend on no kkt-rules type. kkt-web's copied records, Source, Sources and SameSource go, and kkt-server's RulesSource and RulesSources. The preview implements the parts of kkt-api the page uses. The msg 2019 reshapes land in kkt-api: Api::limits, Lanes' create_lane and update_lane, and the operator flag in its records (A11). CLAUDE.md's kkt-rules, kkt-web and kkt-mcp rows change with the refactor, not in #409."
+   "text": "kkt-rules' operations become a shared contract crate, kkt-api (contract, Core), the heart of the application, which web and MCP are today's protocols over (msg 2031). Its traits by area (A13): Api 3, Agents 6, Channels 12, Messages 6, Memory 4, Lanes 11, Server 4 and Operator 10 methods, 56 in all; Admin's 12 are in kkt-api-admin (msg 2042), with the records, queries and errors they use. kkt-rules implements it; kkt-mcp, kkt-mcp-formatter, kkt-web and kkt-identity-keymode use it and depend on no kkt-rules type. kkt-web's copied records, Source, Sources and SameSource go, and kkt-server's RulesSource and RulesSources. The preview implements the parts of kkt-api the page uses. The msg 2019 reshapes land in kkt-api: Api::limits, Lanes' create_lane and update_lane, and the operator flag in its records (A11). CLAUDE.md's kkt-rules, kkt-web and kkt-mcp rows change with the refactor, not in #409."
   },
   {
    "id": "30",
-   "text": "Option (b) for the store (msg 2032): the database stays private to kkt-rules. record_run, which msg 2032 put in kkt-api, is a kkt-rules assembly function instead, with create_swarm, since the run is recorded before the Rules exist (A14, msg 2036). tests/migrations/v0_10_0.rs moves into kkt-rules' tests; other crates' test setup goes through kkt-api, or a kkt-rules helper behind testing. A12 is withdrawn."
+   "text": "Option (b) for the store (msg 2032): the database stays private to kkt-rules. Recording a run is kkt-rules' start, which builds the Rules (msg 2042). tests/migrations/v0_10_0.rs moves into kkt-rules' tests; other crates' test setup goes through kkt-api, or a kkt-rules helper behind testing. A12 is withdrawn."
+  },
+  {
+   "id": "31",
+   "text": "Msg 2042: kkt-rules' start records the run and builds the Rules, which the programs pass into kkt-server's Parts; record_run leaves kkt-api. A9, A10 and A11 are accepted. The Admin trait (12 admin_* reads) and AdminChannel move to their own contract crate, kkt-api-admin, which kkt-rules implements and only the crates that serve admin use. The Operator trait's side is on hold, as is the fake product's second swarm."
   }
  ],
  "graph": {
@@ -10547,6 +10652,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program binds admin names to keys through kkt-admission (item 2)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt serve records its run and builds the Rules through start (msg 2042)"
      }
     ],
     "released_program": true,
@@ -11153,15 +11262,6 @@ window.KKT_PROPOSED = {
         "type": "Rules"
        }
       ],
-      "trait": "Admin"
-     },
-     {
-      "implementors": [
-       {
-        "crate": "kkt-rules",
-        "type": "Rules"
-       }
-      ],
       "trait": "Agents"
      },
      {
@@ -11277,38 +11377,6 @@ window.KKT_PROPOSED = {
        "Avatar",
        "Operator"
       ]
-     },
-     {
-      "doc": "What /mcp-admin reads, across every channel of the swarm: activity, agents, channels, members, memories, messages and notes. (A13)",
-      "kind": "trait",
-      "methods": [
-       "admin_activity",
-       "admin_agent",
-       "admin_channel",
-       "admin_list_agents",
-       "admin_list_channels",
-       "admin_list_members",
-       "admin_list_memories",
-       "admin_message",
-       "admin_new_messages",
-       "admin_note",
-       "admin_read",
-       "admin_recall"
-      ],
-      "path": "Admin",
-      "proposed_item": true,
-      "status": "recommended"
-     },
-     {
-      "doc": "A channel as the admin agent sees it.",
-      "fields": [
-       "info",
-       "hidden"
-      ],
-      "kind": "struct",
-      "moved_from": "kkt-rules",
-      "path": "AdminChannel",
-      "status": "decided"
      },
      {
       "doc": "An agent that has proven which avatar it holds on this call.",
@@ -12176,10 +12244,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "AdminChannel comes here from kkt-rules"
-     },
-     {
-      "status": "decided",
       "text": "Agent comes here from kkt-rules"
      },
      {
@@ -12427,16 +12491,92 @@ window.KKT_PROPOSED = {
       "text": "new trait Operator"
      },
      {
-      "status": "recommended",
-      "text": "new trait Admin"
-     },
-     {
       "status": "decided",
       "text": "Settings comes here from kkt-rules"
      },
      {
       "status": "decided",
       "text": "MAX_LANE_DESCRIPTION_CHARS comes here from kkt-rules"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [
+     {
+      "implementors": [
+       {
+        "crate": "kkt-rules",
+        "type": "Rules"
+       }
+      ],
+      "trait": "Admin"
+     }
+    ],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {},
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "What /mcp-admin reads, across every channel of the swarm: activity, agents, channels, members, memories, messages and notes. In its own crate, so the line between admin and the rest stays sharp (msg 2042).",
+      "kind": "trait",
+      "methods": [
+       "admin_activity",
+       "admin_agent",
+       "admin_channel",
+       "admin_list_agents",
+       "admin_list_channels",
+       "admin_list_members",
+       "admin_list_memories",
+       "admin_message",
+       "admin_new_messages",
+       "admin_note",
+       "admin_read",
+       "admin_recall"
+      ],
+      "path": "Admin",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A channel as the admin agent sees it.",
+      "fields": [
+       "info",
+       "hidden"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-rules",
+      "path": "AdminChannel",
+      "status": "decided"
+     }
+    ],
+    "kind": "contract",
+    "lib": "kkt_api_admin",
+    "name": "kkt-api-admin",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "AdminChannel comes here from kkt-rules"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Admin"
+     },
+     {
+      "status": "decided",
+      "text": "the admin reads take and return kkt-api's shared records (msg 2042)"
      }
     ],
     "released_program": false,
@@ -16290,8 +16430,8 @@ window.KKT_PROPOSED = {
       "text": "item 4 (kkt-store merged into kkt-rules, msg 2017)"
      },
      {
-      "status": "recommended",
-      "text": "it records its run and adds its second swarm through kkt-rules' assembly functions, not the store (A14)"
+      "status": "decided",
+      "text": "it records its run and builds the Rules through start; its second swarm through create_swarm, pending Sam (msg 2042)"
      }
     ],
     "released_program": false,
@@ -16480,7 +16620,13 @@ window.KKT_PROPOSED = {
     "lib": null,
     "name": "kkt-keymode",
     "path": "programs/kkt-keymode",
-    "proposed_notes": [],
+    "proposed": "changed",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "as kkt serve (msg 2042)"
+     }
+    ],
     "released_program": false,
     "slots": [],
     "third_party": [
@@ -17747,13 +17893,6 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-rules",
       "status": "decided",
-      "trait": "Admin",
-      "trait_crate": "kkt-api",
-      "type": "Rules"
-     },
-     {
-      "crate": "kkt-rules",
-      "status": "decided",
       "trait": "Agents",
       "trait_crate": "kkt-api",
       "type": "Rules"
@@ -17805,6 +17944,13 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "trait": "Server",
       "trait_crate": "kkt-api",
+      "type": "Rules"
+     },
+     {
+      "crate": "kkt-rules",
+      "status": "decided",
+      "trait": "Admin",
+      "trait_crate": "kkt-api-admin",
       "type": "Rules"
      }
     ],
@@ -17900,11 +18046,11 @@ window.KKT_PROPOSED = {
       "path": "LaneSource"
      },
      {
-      "doc": "What produced a server run, as kkt-rules' record_run takes it (A14).",
+      "doc": "What produced a server run, as kkt-rules' start takes it (msg 2042).",
       "kind": "struct",
       "path": "NewServerRun",
       "proposed_item": true,
-      "status": "recommended"
+      "status": "decided"
      },
      {
       "doc": "The words a notice uses for an operator, such as \"The operator\" or \"The operator (via sentinel)\".",
@@ -18012,7 +18158,7 @@ window.KKT_PROPOSED = {
       "path": "check_retire_missing"
      },
      {
-      "doc": "Adds a swarm to the Db, as a product's assembly does before serving it (the fake product's second swarm, kkt-fake-product/src/lib.rs:199) (A14).",
+      "doc": "Adds a swarm to the Db, as a product's assembly does before serving it (the fake product's second swarm, kkt-fake-product/src/lib.rs:199). Pending Sam (msg 2042).",
       "kind": "fn",
       "path": "create_swarm",
       "proposed_item": true,
@@ -18026,17 +18172,17 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Records a server run in the Db and returns its run_id, before the Rules are built: the run_id goes into Deps, so this cannot be an operation of the Rules (A14; kkt-review-373, msg 2036).",
-      "kind": "fn",
-      "path": "record_run",
-      "proposed_item": true,
-      "status": "recommended"
-     },
-     {
       "doc": "The core's tables, at every version.",
       "kind": "fn",
       "moved_from": "kkt-store",
       "path": "schema",
+      "status": "decided"
+     },
+     {
+      "doc": "kkt-rules' startup: records the server run in the Db, then builds and returns the Rules with that run_id in their Deps. The programs call it, so recording a run is not an operation of the Rules it helps build (msg 2042).",
+      "kind": "fn",
+      "path": "start",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -18086,7 +18232,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "AdminChannel moves to kkt-api: a record, query or error of the application's operations (msg 2031)"
+      "text": "AdminChannel moves to kkt-api-admin: an admin-only record (msg 2042)"
      },
      {
       "status": "decided",
@@ -18345,16 +18491,16 @@ window.KKT_PROPOSED = {
       "text": "new fn testing::fail_next_write"
      },
      {
-      "status": "recommended",
+      "status": "decided",
       "text": "new struct NewServerRun"
      },
      {
       "status": "recommended",
-      "text": "new fn record_run"
+      "text": "new fn create_swarm"
      },
      {
-      "status": "recommended",
-      "text": "new fn create_swarm"
+      "status": "decided",
+      "text": "new fn start"
      },
      {
       "status": "decided",
@@ -18370,7 +18516,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Rules implements kkt-api::Api, kkt-api::Agents, kkt-api::Channels, kkt-api::Messages, kkt-api::Memory, kkt-api::Lanes, kkt-api::Server, kkt-api::Operator, kkt-api::Admin: kkt-rules implements the shared contract kkt-api, as msg 2020 allows (msg 2031)"
+      "text": "Rules implements kkt-api::Api, kkt-api::Agents, kkt-api::Channels, kkt-api::Messages, kkt-api::Memory, kkt-api::Lanes, kkt-api::Server, kkt-api::Operator, kkt-api-admin::Admin: kkt-rules implements the shared contracts kkt-api and kkt-api-admin, as msg 2020 allows (msgs 2031 and 2042)"
      },
      {
       "status": "decided",
@@ -18407,6 +18553,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its operations take and return kkt-api's records (msg 2031)"
+     },
+     {
+      "status": "decided",
+      "text": "its admin reads return kkt-api-admin's records (msg 2042)"
      }
     ],
     "released_program": false,
@@ -18827,11 +18977,6 @@ window.KKT_PROPOSED = {
       "doc": "The server assembled from `parts` and `config`, to run with `listen`.",
       "kind": "fn",
       "path": "build"
-     },
-     {
-      "doc": "Stores `run` in `db` as a new server run that started at `started_at`, and returns its ID.",
-      "kind": "fn",
-      "path": "record_run"
      }
     ],
     "kind": "composition",
@@ -18850,11 +18995,23 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Parts::new no longer takes db: kkt-server is given the Rules that kkt-rules' start built, not the Db (msg 2042)"
+     },
+     {
+      "status": "decided",
+      "text": "Parts no longer takes db: as Parts::new (msg 2042)"
+     },
+     {
+      "status": "decided",
       "text": "RulesSource is no longer public: kkt-web calls kkt-api directly, so there is nothing to adapt (msg 2031)"
      },
      {
       "status": "decided",
       "text": "RulesSources is no longer public: kkt-web calls kkt-api directly, so there is nothing to adapt (msg 2031)"
+     },
+     {
+      "status": "decided",
+      "text": "record_run is no longer public: the programs record the run through kkt-rules' start, which builds the Rules (msg 2042)"
      },
      {
       "status": "decided",
@@ -18893,6 +19050,14 @@ window.KKT_PROPOSED = {
       "text": "Parts takes web_identify: as Parts::new (msg 2025)"
      },
      {
+      "status": "decided",
+      "text": "Parts::new takes rules: the Rules kkt-rules' start built, which kkt-server hands to /mcp, /mcp-admin and the page (msg 2042)"
+     },
+     {
+      "status": "decided",
+      "text": "Parts takes rules: as Parts::new (msg 2042)"
+     },
+     {
       "status": "follows",
       "text": "its real feature moves to kkt-server-listen"
      },
@@ -18921,8 +19086,8 @@ window.KKT_PROPOSED = {
       "text": "kkt-server builds the page's sessions and page-only limits when it mounts the page (msgs 2019, 2021 and 2031)"
      },
      {
-      "status": "recommended",
-      "text": "its record_run calls kkt-rules' record_run over the Db before the Rules are built (A14)"
+      "status": "decided",
+      "text": "it is given the Rules as kkt-api's Api, and the programs build the Deps for kkt-rules' start (msg 2042)"
      }
     ],
     "released_program": false,
@@ -18976,24 +19141,6 @@ window.KKT_PROPOSED = {
      },
      {
       "at": "Parts",
-      "holds": [
-       {
-        "crate": "kkt-rules",
-        "traits": [
-         {
-          "crate": "kkt-db",
-          "trait": "Backend"
-         }
-        ],
-        "type": "Db"
-       }
-      ],
-      "kind": "field",
-      "name": "db",
-      "traits": []
-     },
-     {
-      "at": "Parts",
       "kind": "field",
       "name": "entropy",
       "traits": [
@@ -19027,24 +19174,6 @@ window.KKT_PROPOSED = {
         "trait": "Clock"
        }
       ]
-     },
-     {
-      "at": "Parts::new",
-      "holds": [
-       {
-        "crate": "kkt-rules",
-        "traits": [
-         {
-          "crate": "kkt-db",
-          "trait": "Backend"
-         }
-        ],
-        "type": "Db"
-       }
-      ],
-      "kind": "param",
-      "name": "db",
-      "traits": []
      },
      {
       "at": "Parts::new",
@@ -19102,24 +19231,6 @@ window.KKT_PROPOSED = {
       "traits": []
      },
      {
-      "at": "record_run",
-      "holds": [
-       {
-        "crate": "kkt-rules",
-        "traits": [
-         {
-          "crate": "kkt-db",
-          "trait": "Backend"
-         }
-        ],
-        "type": "Db"
-       }
-      ],
-      "kind": "param",
-      "name": "db",
-      "traits": []
-     },
-     {
       "at": "Parts::new",
       "kind": "param",
       "name": "web_identify",
@@ -19144,6 +19255,34 @@ window.KKT_PROPOSED = {
        {
         "crate": "kkt-server",
         "trait": "WebIdentify"
+       }
+      ]
+     },
+     {
+      "at": "Parts::new",
+      "kind": "param",
+      "name": "rules",
+      "note": "the Rules kkt-rules' start built, which kkt-server hands to /mcp, /mcp-admin and the page (msg 2042)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-api",
+        "trait": "Api"
+       }
+      ]
+     },
+     {
+      "at": "Parts",
+      "kind": "param",
+      "name": "rules",
+      "note": "as Parts::new (msg 2042)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-api",
+        "trait": "Api"
        }
       ]
      }
@@ -23548,15 +23687,18 @@ window.KKT_PROPOSED = {
      "CORE",
      "CommandLine",
      "Db",
+     "Deps",
      "ImportedLane",
      "LaneImport",
      "LaneOutcome",
      "LaneSource",
+     "NewServerRun",
      "Revoked",
      "check_lane_import",
      "check_retire_missing",
      "legacy",
-     "schema"
+     "schema",
+     "start"
     ],
     "kind": "normal",
     "optional": false,
@@ -23566,14 +23708,17 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "CORE",
+       "Deps",
        "ImportedLane",
        "LaneImport",
        "LaneOutcome",
        "LaneSource",
+       "NewServerRun",
        "Revoked",
        "check_lane_import",
        "check_retire_missing",
-       "schema"
+       "schema",
+       "start"
       ],
       "role": "uses"
      },
@@ -23622,8 +23767,7 @@ window.KKT_PROPOSED = {
     "items": [
      "AppConfig",
      "Parts",
-     "build",
-     "record_run"
+     "build"
     ],
     "kind": "normal",
     "optional": false,
@@ -23639,8 +23783,7 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "AppConfig",
-       "build",
-       "record_run"
+       "build"
       ],
       "role": "uses"
      },
@@ -24223,6 +24366,61 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-admin",
+    "items": [
+     "ActivityRow",
+     "AgentInfo",
+     "AgentView",
+     "ChannelInfo",
+     "ChannelNote",
+     "Members",
+     "MemoryEntry",
+     "MemoryList",
+     "Message",
+     "MessagePage",
+     "Operator",
+     "Page",
+     "Position",
+     "Result",
+     "RuleError",
+     "SwarmId"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "ActivityRow",
+       "AgentInfo",
+       "AgentView",
+       "ChannelInfo",
+       "ChannelNote",
+       "Members",
+       "MemoryEntry",
+       "MemoryList",
+       "Message",
+       "MessagePage",
+       "Operator",
+       "Page",
+       "Position",
+       "Result",
+       "RuleError",
+       "SwarmId"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api"
    },
    {
     "features": [
@@ -25458,10 +25656,11 @@ window.KKT_PROPOSED = {
     "from": "kkt-fake-product",
     "items": [
      "Db",
+     "Deps",
      "NewServerRun",
      "create_swarm",
-     "record_run",
-     "schema"
+     "schema",
+     "start"
     ],
     "kind": "normal",
     "optional": false,
@@ -25470,10 +25669,11 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Deps",
        "NewServerRun",
        "create_swarm",
-       "record_run",
-       "schema"
+       "schema",
+       "start"
       ],
       "role": "uses"
      },
@@ -25485,8 +25685,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -25642,7 +25841,6 @@ window.KKT_PROPOSED = {
     "from": "kkt-mcp-formatter",
     "items": [
      "ActivityRow",
-     "AdminChannel",
      "AgentInfo",
      "AgentLane",
      "AgentView",
@@ -25683,7 +25881,6 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "ActivityRow",
-       "AdminChannel",
        "AgentInfo",
        "AgentLane",
        "AgentView",
@@ -25730,6 +25927,31 @@ window.KKT_PROPOSED = {
      "MAX_LANE_DESCRIPTION_CHARS"
     ],
     "to": "kkt-api"
+   },
+   {
+    "features": [],
+    "from": "kkt-mcp-formatter",
+    "items": [
+     "AdminChannel"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "AdminChannel"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-admin"
    },
    {
     "features": [
@@ -26373,7 +26595,10 @@ window.KKT_PROPOSED = {
     "from": "kkt-keymode",
     "items": [
      "Db",
-     "schema"
+     "Deps",
+     "NewServerRun",
+     "schema",
+     "start"
     ],
     "kind": "normal",
     "optional": false,
@@ -26382,7 +26607,10 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "schema"
+       "Deps",
+       "NewServerRun",
+       "schema",
+       "start"
       ],
       "role": "uses"
      },
@@ -26408,8 +26636,7 @@ window.KKT_PROPOSED = {
     "items": [
      "AppConfig",
      "Parts",
-     "build",
-     "record_run"
+     "build"
     ],
     "kind": "normal",
     "optional": false,
@@ -26425,8 +26652,7 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "AppConfig",
-       "build",
-       "record_run"
+       "build"
       ],
       "role": "uses"
      },
@@ -26683,7 +26909,6 @@ window.KKT_PROPOSED = {
     "from": "kkt-mcp",
     "items": [
      "Actor",
-     "Admin",
      "Agent",
      "Agents",
      "Api",
@@ -26719,7 +26944,6 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "Actor",
-       "Admin",
        "Agent",
        "Agents",
        "Api",
@@ -26759,6 +26983,31 @@ window.KKT_PROPOSED = {
      "SwarmId"
     ],
     "to": "kkt-api"
+   },
+   {
+    "features": [],
+    "from": "kkt-mcp",
+    "items": [
+     "Admin"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Admin"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-admin"
    },
    {
     "features": [
@@ -27132,7 +27381,6 @@ window.KKT_PROPOSED = {
     "items": [
      "ActivityRow",
      "Actor",
-     "AdminChannel",
      "Agent",
      "AgentInfo",
      "AgentLane",
@@ -27196,7 +27444,6 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Rules implements Admin",
        "Rules implements Agents",
        "Rules implements Api",
        "Rules implements Channels",
@@ -27212,7 +27459,6 @@ window.KKT_PROPOSED = {
       "detail": [
        "ActivityRow",
        "Actor",
-       "AdminChannel",
        "Agent",
        "AgentInfo",
        "AgentLane",
@@ -27277,6 +27523,37 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-api"
+   },
+   {
+    "features": [],
+    "from": "kkt-rules",
+    "items": [
+     "AdminChannel"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "Rules implements Admin"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "AdminChannel"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-admin"
    },
    {
     "features": [
@@ -28121,7 +28398,10 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-server",
     "items": [
+     "CommandLine",
      "Db",
+     "LaneImport",
+     "LaneSource",
      "schema",
      "testing::memory"
     ],
@@ -28132,6 +28412,9 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "CommandLine",
+       "LaneImport",
+       "LaneSource",
        "schema",
        "testing::memory"
       ],
@@ -28154,13 +28437,7 @@ window.KKT_PROPOSED = {
    {
     "features": [],
     "from": "kkt-server",
-    "items": [
-     "Db",
-     "Deps",
-     "NewServerRun",
-     "Rules",
-     "record_run"
-    ],
+    "items": [],
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
@@ -28171,34 +28448,13 @@ window.KKT_PROPOSED = {
        "Wording implements OperatorWording"
       ],
       "role": "implements"
-     },
-     {
-      "detail": [
-       "Db",
-       "Deps",
-       "NewServerRun",
-       "record_run"
-      ],
-      "role": "uses"
-     },
-     {
-      "detail": [
-       "Rules"
-      ],
-      "role": "wires"
      }
     ],
     "statuses": [
-     "decided",
-     "recommended"
+     "decided"
     ],
     "target": null,
-    "test_items": [
-     "CommandLine",
-     "LaneImport",
-     "LaneSource",
-     "schema"
-    ],
+    "test_items": [],
     "to": "kkt-rules"
    },
    {
