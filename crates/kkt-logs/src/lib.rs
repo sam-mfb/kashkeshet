@@ -1,17 +1,8 @@
-//! The server's log: how much is logged ([`LogLevel`]), and a log file the
-//! server writes itself, kept within a [`LogPolicy`]: rolled over by size,
-//! with a bounded number of rolled files, none kept longer than the
-//! policy's age. Used where nothing else bounds the log, such as a launchd
-//! service on macOS.
-//!
-//! The levels, the policy and their checks are plain values, for any crate.
-//! [`RotatingFile`], which touches the machine, is behind `real`.
+//! Log levels, their checks, and pure rollover and age-pruning rules.
+//! The native writer applies these plans to the files on disk.
 
-#[cfg(any(test, feature = "real"))]
-mod file;
-
-#[cfg(any(test, feature = "real"))]
-pub use file::RotatingFile;
+mod policy;
+pub use policy::{Pruning, Rotation, prune_due, pruning, rotation, should_roll};
 
 use std::time::Duration;
 
