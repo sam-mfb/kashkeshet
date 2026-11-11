@@ -26,7 +26,8 @@ Where each part of the map comes from:
   `examples/`, `*tests.rs`, `#[cfg(test)]` modules and files) count for
   the dev arrow, uses in `build.rs` for the build arrow. A crate that is
   only a dev-dependency can only be used in test code, so its arrow takes
-  every use. This reads names, not
+  every use. For a normal dependency, what only the crate's own tests
+  name is kept apart, as the arrow's test-only items. This reads names, not
   types: an item used only through a method call, a trait's methods or a
   derive does not show.
 - Contracts, slots and the role of each arrow (implements, uses, wires):
@@ -34,8 +35,10 @@ Where each part of the map comes from:
   items, so an impl by a private type counts; the page names such a type
   only as "a type of its own". Slots are public parameters and fields
   typed as a workspace trait, or as a type that holds one. See the README.
-- Each crate's concern, its layer and what it must not do: written by
-  hand in `concerns.json`, from CLAUDE.md and the crates' own docs.
+- Each crate's concern, its layer, its kind and what it must not do:
+  written by hand in `concerns.json`, from CLAUDE.md and the crates' own
+  docs. `kinds.py` checks each kind against what the map shows of the
+  crate, and the mismatches are reported on the page, not corrected.
 - How each program assembles the server: written by hand in
   `assembly.json`, whose every item is checked against the public items.
 """
@@ -49,6 +52,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
+# kinds.py sits beside this script; `python3 -I` leaves this folder off the
+# path, so it is put there by name.
+sys.path.insert(0, str(HERE))
+import kinds  # noqa: E402
 TARGET = ROOT / "target" / "architecture-map"
 ITEM_KINDS = {
     "struct": "struct",
@@ -595,6 +602,7 @@ def main():
         })
 
     edges = []
+    crate_of_name = {c["name"]: c for c in crates}
     for name in sorted(packages):
         p = packages[name]
         package_dir = member_dirs[name]
@@ -603,13 +611,20 @@ def main():
         texts = {"normal": "", "dev": "", "build": ""}
         files = list(rust_files(package_dir, nested))
         test_files = test_module_files(package_dir, files)
+        machine_work = {}
         for path in files:
             text = strip_comments(path.read_text())
             kind = file_kind(package_dir, path, test_files)
             if kind == "normal":
                 text, tests = split_test_modules(text)
                 texts["dev"] += tests
+                # The machine work the file's own code does (kinds.py).
+                work = sorted(p for p in uses_in(text, "std") if kinds.is_std_io(p))
+                work += sorted(f"{m}!" for m in set(re.findall(r"\b(\w+)!", text)) if m in kinds.PRINT_MACROS)
+                if work:
+                    machine_work[str(path.relative_to(package_dir))] = work
             texts[kind] += text
+        crate_of_name[name]["machine_work"] = machine_work
         normal_deps = {d["name"] for d in p["dependencies"] if d["kind"] is None}
         for dep in p["dependencies"]:
             if dep["name"] not in packages:
@@ -626,6 +641,13 @@ def main():
             if dep.get("rename"):
                 ident = dep["rename"].replace("-", "_")
             used = uses_in(text, ident)
+            # For a normal dependency, what only the crate's own tests (and
+            # examples) name: a test-only use, which no dev arrow shows.
+            test_items = []
+            if kind == "normal":
+                # With the main code's text too, for aliases it declares.
+                in_tests = match_items(uses_in(texts["normal"] + texts["dev"], ident), set(items_of[dep["name"]]))
+                test_items = sorted(set(in_tests) - set(match_items(used, set(items_of[dep["name"]]))))
             edges.append({
                 "from": name,
                 "to": dep["name"],
@@ -634,6 +656,7 @@ def main():
                 "optional": dep["optional"],
                 "target": dep.get("target"),
                 "items": match_items(used, set(items_of[dep["name"]])),
+                "test_items": test_items,
                 # Every path the consumer names, for which constructors it
                 # calls (see add_contracts).
                 "_paths": sorted(used),
@@ -646,14 +669,27 @@ def main():
     if stale:
         sys.exit(f"concerns.json names crates that are not in the workspace: {', '.join(stale)}")
 
+    layers = {layer["id"] for layer in concerns["layers"]}
+    bad_layers = sorted(n for n, c in concerns["crates"].items() if c["layer"] not in layers)
+    if bad_layers:
+        sys.exit(f"concerns.json gives a layer that is not in its layers to: {', '.join(bad_layers)}")
+    kind_of = {n: c.get("kind") for n, c in concerns["crates"].items()}
+    no_kind = kinds.unknown(crates, kind_of)
+    if no_kind:
+        sys.exit(f"concerns.json gives no kind, or one kinds.py does not know, to: {', '.join(no_kind)}")
+
     package_of_lib = {lib: name for name, lib in lib_names.items()}
     add_contracts(crates, edges, items_of, contracts_raw, package_of_lib)
     assembly = json.loads((HERE / "assembly.json").read_text())
     check_assembly(assembly, items_of, packages, {c["name"]: c["slots"] for c in crates})
 
+    mismatches, _ = kinds.check(crates, edges, kind_of, mixed_allowed=True)
+    for m in mismatches:
+        print(f"kind: {m}", file=sys.stderr)
+
     commit = run(["git", "rev-parse", "--short", "HEAD"]).strip()
     out = HERE / "map-data.js"
-    text = render(commit, crates, edges, concerns, assembly)
+    text = render(commit, crates, edges, concerns, assembly, mismatches)
     if "--check" in sys.argv[1:]:
         current = out.read_text() if out.exists() else ""
         if without_commit(current) != without_commit(text):
@@ -666,8 +702,8 @@ def main():
           f"{sum(len(c['items']) for c in crates)} public items, at {commit}", file=sys.stderr)
 
 
-def render(commit, crates, edges, concerns, assembly):
-    graph = {"commit": commit, "crates": crates, "edges": edges}
+def render(commit, crates, edges, concerns, assembly, kind_mismatches):
+    graph = {"commit": commit, "crates": crates, "edges": edges, "kind_mismatches": kind_mismatches}
     return (
         "// Generated by docs/architecture/generate.py from cargo metadata, rustdoc's\n"
         "// JSON and the crates' sources; the concerns come from concerns.json and the\n"
@@ -873,7 +909,11 @@ def check_assembly(assembly, items_of, packages, slots_of):
     """Fails if assembly.json names a program, an item or a slot that is not
     there."""
     problems = []
-    for program, flow in assembly["programs"].items():
+    # The programs' wiring, and that of a shared crate that assembles
+    # (kkt-server, under "injectors").
+    for program, flow in list(assembly["programs"].items()) + list(assembly.get("injectors", {}).items()):
+        if program not in packages:
+            problems.append(f"no package {program}")
         for wire in flow.get("wiring", []):
             impl = wire.get("impl")
             if impl:

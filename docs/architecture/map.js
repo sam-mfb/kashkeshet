@@ -4,15 +4,27 @@
 "use strict";
 
 (function () {
-  const graph = window.KKT_GRAPH;
-  const concerns = window.KKT_CONCERNS;
-  const assembly = window.KKT_ASSEMBLY;
-  // The roles an arrow can play, strongest first.
+  // The map shown: the current one (generate.py), or the proposed one
+  // (propose.py), switched by the toggle in the header.
+  const proposed = window.KKT_PROPOSED;
+  let graph = window.KKT_GRAPH;
+  let concerns = window.KKT_CONCERNS;
+  let assembly = window.KKT_ASSEMBLY;
+  // The roles an arrow can play.
   const ROLES = {
     implements: "implements a contract of",
     uses: "uses",
     wires: "wires",
   };
+  const ROLE_ABOUT = {
+    implements: "implements a trait the other crate defines",
+    uses: "calls or reads the other crate's items",
+    wires: "builds the other crate's implementations or holders to hand on",
+  };
+  // How far apart the parallel strokes of an arrow with several roles are.
+  const STROKE_GAP = 3.2;
+  // How many straight pieces an offset stroke is drawn with.
+  const EDGE_STEPS = 32;
   const SVG = "http://www.w3.org/2000/svg";
   const BOX_W = 156;
   const BOX_H = 42;
@@ -20,13 +32,21 @@
   const PAD_X = 16;
   const PAD_Y = 14;
 
-  const crates = new Map(graph.crates.map((c) => [c.name, c]));
+  let crates = new Map(graph.crates.map((c) => [c.name, c]));
   const state = {
+    mode: "current",
     selected: null,
-    hovered: null,
+    // The crates whose checkbox is ticked, by name: they light up their
+    // arrows, neighbours and delivery lines. `selected` is the crate the
+    // panel shows; clicking a box sets it and highlights nothing. Both are
+    // kept by name whatever the filters draw, and the map is drawn from them.
+    checked: new Set(),
+    hiddenPrograms: new Set(),
     showDevCrates: true,
     kinds: { normal: true, dev: false, build: false },
-    featureItems: true,
+    hiddenKinds: new Set(),
+    hiddenRoles: new Set(),
+    hiddenLayers: new Set(),
     query: "",
   };
 
@@ -38,7 +58,7 @@
       else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
       else node.setAttribute(k, v);
     }
-    for (const child of children.flat()) {
+    for (const child of children.flat(Infinity)) {
       if (child == null || child === false) continue;
       node.append(child instanceof Node ? child : document.createTextNode(String(child)));
     }
@@ -56,10 +76,35 @@
   };
 
   const concernOf = (name) => concerns.crates[name] || {};
+  const kindSlug = (kind) => String(kind || "").replace(/ /g, "-");
+  const kindAbout = (kind) => ((concerns.kinds || []).find((k) => k.id === kind) || {}).about || "";
   const titleOf = (name) => concernOf(name).title || name;
-  const visibleCrate = (name) => state.showDevCrates || !crates.get(name).dev_only;
-  const visibleEdge = (e) => state.kinds[e.kind] && visibleCrate(e.from) && visibleCrate(e.to);
-  const itemVisible = (item) => state.featureItems || !item.feature;
+  // Whether a crate is drawn. Every crate keeps its place whatever is drawn
+  // (see layout), so hiding dev-only crates or a kind leaves empty slots.
+  const placedCrate = (name) => state.showDevCrates || !crates.get(name).dev_only;
+  const crateKind = (name) => concernOf(name).kind || "";
+  const kindShown = (name) => !state.hiddenKinds.has(crateKind(name));
+  // A crate in a hidden layer keeps its place and is drawn faded, and
+  // still opens its panel; no arrow or delivery line goes to or from it.
+  const crateLayer = (name) => concernOf(name).layer || "";
+  const layerShown = (name) => !state.hiddenLayers.has(crateLayer(name));
+  const drawnCrate = (name) => placedCrate(name) && kindShown(name);
+  // A program hidden by the eye on its box is faded like a hidden layer's
+  // crates, with no arrow or delivery line from it.
+  const programShown = (name) => !state.hiddenPrograms.has(name);
+  const visibleCrate = (name) => drawnCrate(name) && layerShown(name) && programShown(name);
+  // An arrow's roles; one used only by tests or build scripts only uses.
+  const edgeRoles = (e) => (e.kind === "normal" ? e.roles.map((r) => r.role) : ["uses"]);
+  const shownRoles = (e) => edgeRoles(e).filter((r) => !state.hiddenRoles.has(r));
+  const visibleEdge = (e) => state.kinds[e.kind] && visibleCrate(e.from) && visibleCrate(e.to) && shownRoles(e).length > 0;
+  // Cargo's dependency kinds, in plain words; the tooltips give Cargo's terms.
+  const DEP_WORDS = { normal: "used in code", dev: "used by tests", build: "used by build scripts" };
+  const DEP_CARGO = { normal: "dependencies", dev: "dev-dependencies", build: "build-dependencies" };
+  // An item that exists only with the real or testing feature is always
+  // listed, marked with what it is there for.
+  const FEATURE_MARK = { real: "real only", testing: "tests only" };
+  const featureMark = (feature) => FEATURE_MARK[feature] || `${feature} only`;
+  const featureBadge = (feature) => el("span", { class: "badge feature", title: `Exists only with the ${feature} feature` }, featureMark(feature));
 
   // ---- Layout: one band per layer, each band ordered to cut crossings ----
   // A band holds up to PER_LINE crates on a line, and wraps onto more.
@@ -68,12 +113,21 @@
   const TITLE_H = 24;
   const LINE_H = BOX_H + 30;
 
+  // Every box's place is worked out once per map, from all its crates,
+  // dev-only ones included, and never again: a filter only stops drawing a
+  // crate, leaving its slot empty, so no box moves.
+  const layouts = {};
   function layout() {
+    if (!layouts[state.mode]) layouts[state.mode] = computeLayout();
+    return layouts[state.mode];
+  }
+
+  function computeLayout() {
     const rows = concerns.layers
       .map((layer) => ({
         layer,
         names: Object.entries(concerns.crates)
-          .filter(([name, c]) => c.layer === layer.id && crates.has(name) && visibleCrate(name))
+          .filter(([name, c]) => c.layer === layer.id && crates.has(name))
           .map(([name]) => name),
       }))
       .filter((row) => row.names.length);
@@ -128,7 +182,94 @@
 
   let view = null;
 
-  function draw() {
+  // The filters in the header: each checkbox carries its colour key and
+  // explains itself in its tooltip.
+  function roleFilters() {
+    $("role-filters").replaceChildren(...Object.entries(ROLE_ABOUT).map(([role, about]) =>
+      el("label", { class: "role-toggle", title: `${ROLES[role]}: ${about}` },
+        el("input", { type: "checkbox", "data-key": `role:${role}`, "data-default": "checked", ...(state.hiddenRoles.has(role) ? {} : { checked: "" }),
+          onchange: (ev) => {
+            if (ev.target.checked) state.hiddenRoles.delete(role); else state.hiddenRoles.add(role);
+            draw();
+            renderPanel();
+          } }),
+        el("span", { class: `role-key role-${role}` }), role)));
+  }
+
+  // A layer's name on the map is its toggle: a hidden layer's crates are
+  // faded and its arrows are not drawn.
+  function toggleLayer(id) {
+    const hidden = new Set(state.hiddenLayers);
+    if (hidden.has(id)) hidden.delete(id); else hidden.add(id);
+    state.hiddenLayers = hidden;
+    draw();
+    renderPanel();
+    renderResults();
+  }
+
+  // Redrawing replaces the filters and the map, so the element with
+  // keyboard focus is found again by its data-key and refocused.
+  function keepFocus(rebuild) {
+    const active = document.activeElement;
+    const key = active && active.getAttribute && active.getAttribute("data-key");
+    rebuild();
+    if (!key) return;
+    const again = document.querySelector(`[data-key="${CSS.escape(key)}"]`);
+    if (again && again !== active) again.focus();
+  }
+
+  // The Crates and Arrows buttons say how many of their boxes are ticked
+  // once any box differs from how the page starts: every crate shown, and
+  // arrows used in code (not those only tests or build scripts use).
+  function menuCounts() {
+    for (const [id, word] of [["crates", "Crates"], ["arrows", "Arrows"]]) {
+      const boxes = [...$(`${id}-panel`).querySelectorAll('input[type="checkbox"]')];
+      const ticked = boxes.filter((b) => b.checked).length;
+      // The boxes built from the state say their start in data-default;
+      // the fixed ones in the page, in their checked attribute.
+      const start = (b) => (b.dataset.default ? b.dataset.default === "checked" : b.defaultChecked);
+      const changed = boxes.some((b) => b.checked !== start(b));
+      $(`${id}-button`).textContent = changed ? `${word} (${ticked} of ${boxes.length}) ▾` : `${word} ▾`;
+    }
+  }
+
+  function kindFilters() {
+    const setKinds = (hidden) => {
+      state.hiddenKinds = new Set(hidden);
+      draw();
+      renderPanel();
+      renderResults();
+    };
+    const kinds = (concerns.kinds || []).filter((k) => graph.crates.some((c) => crateKind(c.name) === k.id));
+    $("kind-filters").replaceChildren(
+      ...kinds.map((k) => el("label", { class: `kind-toggle kind-${kindSlug(k.id)}`, title: `${k.title}: ${k.about}` },
+        el("input", { type: "checkbox", "data-key": `kind:${k.id}`, "data-default": "checked", ...(state.hiddenKinds.has(k.id) ? {} : { checked: "" }),
+          onchange: (ev) => {
+            const hidden = new Set(state.hiddenKinds);
+            if (ev.target.checked) hidden.delete(k.id); else hidden.add(k.id);
+            setKinds(hidden);
+          } }),
+        el("span", { class: "kind-key" }), k.title)));
+  }
+
+  // The key under the map: colours and drawing conventions only.
+  function keyLegend() {
+    const kinds = (concerns.kinds || []).filter((k) => graph.crates.some((c) => crateKind(c.name) === k.id));
+    $("key").replaceChildren(
+      el("span", {}, el("strong", {}, "Kinds: "), kinds.map((k) =>
+        el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
+      el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
+        el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
+      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, for the highlighted crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
+  }
+
+  function draw() { keepFocus(drawNow); }
+
+  function drawNow() {
+    roleFilters();
+    kindFilters();
+    menuCounts();
+    keyLegend();
     const root = $("graph");
     while (root.childNodes.length > 1) root.removeChild(root.lastChild);
     view = layout();
@@ -138,10 +279,30 @@
 
     view.rows.forEach((row) => {
       const y = row.top;
-      root.append(svg("rect", { x: 0, y, width: view.width, height: row.height, rx: 10, class: "band" }));
-      const label = svg("text", { x: 12, y: y + 17, class: "band-title" });
-      label.textContent = row.layer.title;
-      root.append(label);
+      const id = row.layer.id;
+      const off = state.hiddenLayers.has(id);
+      root.append(svg("rect", { x: 0, y, width: view.width, height: row.height, rx: 10, class: "band" + (off ? " layer-off" : "") }));
+      // The layer's name, with an eye that is struck through while the
+      // layer is hidden.
+      const toggle = svg("g", {
+        class: "band-toggle" + (off ? " off" : ""), tabindex: "0", role: "switch", "data-key": `layer:${id}`,
+        "aria-checked": off ? "false" : "true", "aria-label": `${row.layer.title} layer's arrows`,
+      });
+      const tipText = svg("title");
+      tipText.textContent = `${row.layer.title}: ${off ? "hidden. Click to show its arrows" : "click to fade its crates and hide their arrows"}`;
+      const eye = svg("g", { class: "eye", transform: `translate(12,${y + 7})` });
+      eye.append(svg("path", { d: "M0,6 Q7,-1 14,6 Q7,13 0,6 z" }), svg("circle", { cx: 7, cy: 6, r: 2.2 }));
+      if (off) eye.append(svg("path", { d: "M1,12 L13,0", class: "slash" }));
+      const label = svg("text", { x: 31, y: y + 17, class: "band-title" });
+      label.textContent = row.layer.title + (off ? " (hidden)" : "");
+      const box = svg("rect", { x: 6, y: y + 3, width: 0, height: 20, rx: 5, class: "band-hit" });
+      toggle.append(tipText, box, eye, label);
+      toggle.addEventListener("click", (ev) => { ev.stopPropagation(); toggleLayer(id); });
+      toggle.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggleLayer(id); }
+      });
+      root.append(toggle);
+      view.bandToggles = (view.bandToggles || []).concat([[box, label]]);
     });
 
     const edgeLayer = svg("g");
@@ -150,29 +311,49 @@
     // box always takes the click.
     root.append(edgeLayer, hitLayer);
     view.edgeNodes = [];
+    view.hitNodes = [];
     for (const e of graph.edges) {
       if (!visibleEdge(e)) continue;
       const a = view.position.get(e.from);
       const b = view.position.get(e.to);
       if (!a || !b) continue;
-      const d = edgePath(a, b);
-      const role = e.kind === "normal" ? e.role : "uses";
-      const path = svg("path", { d, class: `edge kind-${e.kind} role-${role}`, "marker-end": `url(#head-${role})` });
-      const hit = svg("path", { d, class: "edge-hit" });
-      hit.addEventListener("mousemove", (ev) => showTip(ev, e));
+      // One stroke per shown role, side by side, each in its role's colour.
+      // One head, on the middle stroke, in the first role's shape: a head
+      // per stroke crowds where arrows meet a box.
+      const roles = shownRoles(e);
+      roles.forEach((role, i) => {
+        const path = svg("path", {
+          d: edgePath(a, b, (i - (roles.length - 1) / 2) * STROKE_GAP),
+          class: `edge kind-${e.kind} role-${role}${e.proposed ? ` proposed-${e.proposed}` : ""}`,
+          "data-edge": `${e.from}>${e.to}>${e.kind}`,
+          ...(i === Math.floor((roles.length - 1) / 2) ? { "marker-end": `url(#head-${roles[0]})` } : {}),
+        });
+        edgeLayer.append(path);
+        view.edgeNodes.push({ edge: e, path });
+      });
+      const hit = svg("path", { d: edgePath(a, b), class: "edge-hit" });
+      hit.addEventListener("mousemove", (ev) => {
+        showTip(ev, e);
+      });
       hit.addEventListener("mouseleave", hideTip);
       hit.addEventListener("click", () => select(e.from));
-      edgeLayer.append(path);
       hitLayer.append(hit);
-      view.edgeNodes.push({ edge: e, path });
+      view.hitNodes.push({ edge: e, hit });
     }
 
+    // Where wired things go, drawn on demand (paintDeliveries), under the
+    // boxes.
+    view.deliveryLayer = svg("g", { class: "deliveries" });
+    root.append(view.deliveryLayer);
     view.nodes = new Map();
     const nodeLayer = svg("g");
     for (const [name, p] of view.position) {
+      if (!drawnCrate(name)) continue;
       const c = crates.get(name);
       const g = svg("g", {
-        class: "node" + (c.dev_only ? " dev-only" : ""),
+        class: "node" + (c.dev_only ? " dev-only" : "") + (c.proposed ? ` proposed-${c.proposed}` : "") +
+          (layerShown(name) ? "" : " layer-off") + (programShown(name) ? "" : " program-off") +
+          ` kind-${kindSlug(concernOf(name).kind)}`,
         transform: `translate(${p.x},${p.y})`,
         tabindex: "0",
         role: "button",
@@ -184,8 +365,14 @@
       const sub = svg("text", { x: 9, y: 32, class: "sub" });
       sub.textContent = subtitle(c);
       g.append(label, sub);
-      g.addEventListener("mouseenter", () => { state.hovered = name; paint(); });
-      g.addEventListener("mouseleave", () => { state.hovered = null; paint(); });
+      const program = c.bins.length > 0;
+      if (c.proposed) {
+        const tag = svg("text", { x: BOX_W - (program ? 13 : 7), y: 32, class: "ptag" });
+        tag.textContent = c.proposed;
+        g.append(tag);
+      }
+      g.append(pickBox(name));
+      if (program) g.append(programEye(name));
       g.addEventListener("click", () => select(name));
       g.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(name); }
@@ -194,6 +381,11 @@
       view.nodes.set(name, g);
     }
     root.append(nodeLayer);
+    // The delivery lines' slot names, above the boxes so none is hidden.
+    view.deliveryLabels = svg("g", { class: "delivery-labels" });
+    root.append(view.deliveryLabels);
+    // Each layer name's focus and hover box fits its text.
+    for (const [box, label] of view.bandToggles || []) box.setAttribute("width", label.getBBox().width + 31);
     paint();
   }
 
@@ -217,18 +409,47 @@
     return defs;
   }
 
-  function edgePath(a, b) {
+  // The cubic curve an arrow follows: start, two control points, end.
+  function edgeCurve(a, b) {
     const ax = a.x + BOX_W / 2;
     const bx = b.x + BOX_W / 2;
     if (a.line === b.line) {
       const lift = 30 + Math.min(40, Math.abs(ax - bx) / 8);
-      return `M${ax},${a.y} C${ax},${a.y - lift} ${bx},${b.y - lift} ${bx},${b.y}`;
+      return [[ax, a.y], [ax, a.y - lift], [bx, b.y - lift], [bx, b.y]];
     }
     const down = b.line > a.line;
     const y1 = down ? a.y + BOX_H : a.y;
     const y2 = down ? b.y : b.y + BOX_H;
     const bend = (y2 - y1) / 2;
-    return `M${ax},${y1} C${ax},${y1 + bend} ${bx},${y2 - bend} ${bx},${y2}`;
+    return [[ax, y1], [ax, y1 + bend], [bx, y2 - bend], [bx, y2]];
+  }
+
+  // The arrow's path. With `off`, the path runs parallel to the curve at
+  // that distance, measured along the curve's own perpendicular at every
+  // point, so the strokes of an arrow with several roles stay apart on
+  // shallow arrows and arcs too.
+  function edgePath(a, b, off = 0) {
+    const [p0, p1, p2, p3] = edgeCurve(a, b);
+    if (!off) return `M${p0[0]},${p0[1]} C${p1[0]},${p1[1]} ${p2[0]},${p2[1]} ${p3[0]},${p3[1]}`;
+    const at = (t, i) => {
+      const u = 1 - t;
+      return u * u * u * p0[i] + 3 * u * u * t * p1[i] + 3 * u * t * t * p2[i] + t * t * t * p3[i];
+    };
+    const slope = (t, i) => {
+      const u = 1 - t;
+      return 3 * u * u * (p1[i] - p0[i]) + 6 * u * t * (p2[i] - p1[i]) + 3 * t * t * (p3[i] - p2[i]);
+    };
+    const points = [];
+    let normal = [1, 0];
+    for (let k = 0; k <= EDGE_STEPS; k++) {
+      const t = k / EDGE_STEPS;
+      const dx = slope(t, 0);
+      const dy = slope(t, 1);
+      const len = Math.hypot(dx, dy);
+      if (len > 1e-6) normal = [-dy / len, dx / len];
+      points.push(`${(at(t, 0) + normal[0] * off).toFixed(1)},${(at(t, 1) + normal[1] * off).toFixed(1)}`);
+    }
+    return `M${points.join(" L")}`;
   }
 
   function subtitle(c) {
@@ -241,51 +462,297 @@
     return parts.join(" · ");
   }
 
-  // Classes for the focus crate's neighbourhood and the search hits.
+  // The checkbox in a box's top corner: adds the crate to the selection,
+  // or takes it out. Its hit area is larger than the box it draws, for a
+  // finger at phone width.
+  function pickBox(name) {
+    const box = svg("g", { class: "pick", role: "checkbox", tabindex: "0", "data-key": `pick:${name}`,
+      "aria-checked": state.checked.has(name) ? "true" : "false", "aria-label": `Highlight ${name}` });
+    const tip = svg("title");
+    tip.textContent = `Light up ${name}'s arrows and neighbours, with any other ticked crate's`;
+    // Centred on the box's top right corner, clear of its name.
+    box.append(tip, svg("rect", { class: "pick-hit", x: BOX_W - 20, y: -17, width: 34, height: 34 }),
+      svg("rect", { class: "pick-box", x: BOX_W - 6, y: -6, width: 12, height: 12, rx: 2 }),
+      svg("path", { class: "pick-tick", d: `M${BOX_W - 3.5},0 l2.5,2.5 l4.5,-5` }));
+    const toggle = (ev) => { ev.stopPropagation(); ev.preventDefault(); togglePick(name); };
+    box.addEventListener("click", toggle);
+    box.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") toggle(ev); });
+    return box;
+  }
+
+  // The eye in a program box's bottom corner: hides or shows the program.
+  function programEye(name) {
+    const off = state.hiddenPrograms.has(name);
+    const eye = svg("g", { class: "prog-eye" + (off ? " off" : ""), role: "switch", tabindex: "0", "data-key": `eye:${name}`,
+      "aria-checked": off ? "false" : "true", "aria-label": `${name} shown` });
+    const tip = svg("title");
+    tip.textContent = off ? `${name} is hidden: show it` : `Hide ${name}: fade it and hide its arrows`;
+    // Centred on the box's bottom right corner, on a disc of its own.
+    const x = BOX_W - 7;
+    const y = BOX_H;
+    eye.append(tip, svg("rect", { class: "eye-hit", x: BOX_W - 20, y: BOX_H - 17, width: 34, height: 34 }),
+      svg("circle", { class: "eye-back", cx: BOX_W, cy: y, r: 9 }),
+      svg("path", { class: "eye-shape", d: `M${x},${y} Q${x + 7},${y - 6} ${x + 14},${y} Q${x + 7},${y + 6} ${x},${y} z` }),
+      svg("circle", { class: "eye-pupil", cx: BOX_W, cy: y, r: 1.8 }));
+    if (off) eye.append(svg("path", { class: "eye-slash", d: `M${x + 1},${y + 6} L${x + 13},${y - 6}` }));
+    const toggle = (ev) => { ev.stopPropagation(); ev.preventDefault(); toggleProgram(name); };
+    eye.addEventListener("click", toggle);
+    eye.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") toggle(ev); });
+    return eye;
+  }
+
+  // Ticking highlights; it leaves the panel as it is, apart from the list
+  // of ticked crates.
+  function togglePick(name) {
+    if (state.checked.has(name)) state.checked.delete(name); else state.checked.add(name);
+    paint();
+    renderPanel();
+  }
+
+  function toggleProgram(name) {
+    if (state.hiddenPrograms.has(name)) state.hiddenPrograms.delete(name); else state.hiddenPrograms.add(name);
+    draw();
+    renderPanel();
+    renderResults();
+  }
+
+  // Classes for the ticked crates' neighbourhood, the panel's crate and the
+  // search hits. The highlight is the union over the ticked crates; with none
+  // ticked, every arrow is faint.
   function paint() {
     if (!view) return;
-    const focus = state.hovered || state.selected;
+    const focus = state.checked;
     const deps = new Set();
     const users = new Set();
     for (const { edge, path } of view.edgeNodes) {
       path.classList.remove("focus", "faint");
-      if (!focus) continue;
-      if (edge.from === focus) {
+      if (focus.has(edge.from) || focus.has(edge.to)) {
         path.classList.add("focus");
-        deps.add(edge.to);
-      } else if (edge.to === focus) {
-        path.classList.add("focus");
-        users.add(edge.from);
+        if (focus.has(edge.from)) deps.add(edge.to);
+        if (focus.has(edge.to)) users.add(edge.from);
       } else {
         path.classList.add("faint");
       }
     }
+    // A faded arrow's hover area takes no pointer: no tooltip, and it does
+    // not cover the full-strength arrows and boxes under it.
+    for (const { edge, hit } of view.hitNodes) {
+      hit.classList.toggle("faint", !(focus.has(edge.from) || focus.has(edge.to)));
+    }
     const hits = searchHits();
     for (const [name, node] of view.nodes) {
-      node.classList.toggle("selected", name === state.selected);
+      node.classList.toggle("checked", focus.has(name));
+      node.classList.toggle("current", name === state.selected);
       node.classList.toggle("dep", deps.has(name));
       node.classList.toggle("user", users.has(name));
       node.classList.toggle("hit", hits.crates.has(name));
-      const dim = (focus && name !== focus && !deps.has(name) && !users.has(name)) ||
-        (!focus && state.query && !hits.crates.has(name));
+      const dim = (focus.size && !focus.has(name) && !deps.has(name) && !users.has(name)) ||
+        (!focus.size && state.query && !hits.crates.has(name));
       node.classList.toggle("dim", Boolean(dim));
+      const pick = node.querySelector(".pick");
+      if (pick) pick.setAttribute("aria-checked", focus.has(name) ? "true" : "false");
     }
+    paintDeliveries();
+  }
+
+  // ---- Where wired things go ----
+  // From the programs' assembly: each thing a program builds, the crate
+  // whose type it is, and the slot of another crate it goes into.
+  // The injector is a program, or a shared crate that does wiring of its
+  // own (kkt-server, under "injectors"). An entry that passes on what the
+  // injector was given names its supplier instead of a crate.
+  function deliveries() {
+    const out = [];
+    const injectors = Object.entries(assembly.programs || {}).concat(Object.entries(assembly.injectors || {}));
+    for (const [program, flow] of injectors) {
+      for (const w of flow.wiring || []) {
+        if (w.impl) {
+          const [builder, ...rest] = w.impl.split("::");
+          out.push({ program, builder, item: rest.join("::"), receiver: w.crate, slots: w.to, via: w.through_adapter || [] });
+        } else if (w.own && w.supplier) {
+          out.push({ program, builder: w.supplier, item: w.own, receiver: w.crate, slots: w.to, via: [], passed: true });
+        }
+      }
+    }
+    return out;
+  }
+
+  // The contracts a slot takes, as "crate::Trait".
+  function slotTraits(receiver, slot) {
+    const c = crates.get(receiver);
+    const found = c && c.slots.find((s) => s.at === slot.at && s.name === slot.param);
+    return found ? found.traits.map((t) => `${t.crate}::${t.trait}`) : [];
+  }
+
+  // One injection in words: what the program injects, from which crate,
+  // and each slot of the receiving crate it fills, with the contract the
+  // slot takes and the program's adapter where there is one.
+  function deliveryWords(d) {
+    return el("div", { class: "delivery-words" },
+      d.passed
+        ? [`${d.program} passes on ${d.item} into `]
+        : [`${d.program} injects `, roleItem(d.item, ["wires"], `from ${d.builder}`), ` (from ${d.builder}) into `],
+      // Slots that take the same contracts through the same adapter are
+      // named together.
+      [...d.slots.reduce((groups, slot) => {
+        const traits = slotTraits(d.receiver, slot);
+        const via = d.via.filter((v) => traits.includes(v));
+        const key = `${traits.join(",")}|${via.join(",")}`;
+        if (!groups.has(key)) groups.set(key, { traits, via, slots: [] });
+        groups.get(key).slots.push(`${slot.at} (${slot.param})`);
+        return groups;
+      }, new Map()).values()].map((g, i) => [i ? "; and into " : "",
+        `${d.receiver}'s ${g.slots.join(", ")}`,
+        g.traits.length ? [", meeting ", g.traits.map((t, j) => [j ? " + " : "",
+          roleItem(t.split("::").pop(), ["implements"], t)])] : "",
+        g.via.length ? `, through the program's adapter to ${g.via.join(", ")}` : ""]));
+  }
+
+  // The injections a wires arrow carries: what its program builds of the
+  // other crate's, and where it puts it.
+  const arrowDeliveries = (e) => (e.kind === "normal" && edgeRoles(e).includes("wires")
+    ? deliveries().filter((d) => d.program === e.from && d.builder === e.to) : []);
+
+  // A label naming several supplying crates is shortened; hovering shows
+  // them all.
+  const shortLabel = (names) => (names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", "));
+
+  // Dotted lines from the injecting program to each crate it injects
+  // things into, labelled with the crates that supply them; hovering a
+  // line or its label shows each injection. Drawn for the selected crates,
+  // each as injector, supplier or
+  // receiver.
+  function paintDeliveries() {
+    if (!view || !view.deliveryLayer) return;
+    const layer = view.deliveryLayer;
+    const labelLayer = view.deliveryLabels || layer;
+    while (layer.firstChild) layer.removeChild(layer.firstChild);
+    while (labelLayer.firstChild) labelLayer.removeChild(labelLayer.firstChild);
+    if (state.hiddenRoles.has("wires") || !state.kinds.normal) return;
+    const focus = state.checked;
+    const shown = focus.size
+      ? deliveries().filter((d) => focus.has(d.program) || focus.has(d.builder) || focus.has(d.receiver)) : [];
+    // One line per injector and receiver, carrying every injection between
+    // them.
+    const lines = new Map();
+    for (const d of shown) {
+      if (d.program === d.receiver || !visibleCrate(d.program) || !visibleCrate(d.receiver)) continue;
+      const key = `${d.program}>${d.receiver}`;
+      if (!lines.has(key)) lines.set(key, { program: d.program, receiver: d.receiver, all: [] });
+      lines.get(key).all.push(d);
+    }
+    // Labels keep off the boxes as well as off each other, so no crate's
+    // name is covered.
+    const placed = [...view.nodes.keys()].map((n) => view.position.get(n)).filter(Boolean)
+      .map((q) => ({ x: q.x, y: q.y, w: BOX_W, h: BOX_H }));
+    const overlaps = (r) => placed.some((q) => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h);
+    for (const line of lines.values()) {
+      const a = view.position.get(line.program);
+      const b = view.position.get(line.receiver);
+      if (!a || !b) continue;
+      const tip = (ev) => showDeliveryTip(ev, line);
+      const path = svg("path", { d: edgePath(a, b), class: "delivery", "data-from": line.program, "data-to": line.receiver });
+      path.addEventListener("mousemove", tip);
+      path.addEventListener("mouseleave", hideTip);
+      layer.append(path);
+      const suppliers = [...new Set(line.all.map((d) => d.builder))].sort();
+      const label = svg("text", { class: "delivery-label" });
+      label.textContent = shortLabel(suppliers);
+      label.addEventListener("mousemove", tip);
+      label.addEventListener("mouseleave", hideTip);
+      labelLayer.append(label);
+      // Along the line, then nudged up or down, the first spot where the
+      // label overlaps no other; failing that, the middle.
+      const len = path.getTotalLength();
+      const spots = [];
+      for (const f of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.15, 0.85]) {
+        for (const dy of [0, -13, 13, -26, 26, -39, 39, -52, 52]) spots.push([f, dy]);
+      }
+      let done = false;
+      for (const [f, dy] of spots) {
+        const pt = path.getPointAtLength(len * f);
+        label.setAttribute("x", pt.x + 4);
+        label.setAttribute("y", pt.y - 3 + dy);
+        const box = label.getBBox();
+        const r = { x: box.x - 2, y: box.y - 1, w: box.width + 4, h: box.height + 2 };
+        if (!overlaps(r)) { placed.push(r); done = true; break; }
+      }
+      if (!done) {
+        const pt = path.getPointAtLength(len / 2);
+        label.setAttribute("x", pt.x + 4);
+        label.setAttribute("y", pt.y - 3);
+        const box = label.getBBox();
+        placed.push({ x: box.x - 2, y: box.y - 1, w: box.width + 4, h: box.height + 2 });
+      }
+    }
+  }
+
+  // The details of a delivery line: each injection it carries.
+  function showDeliveryTip(ev, line) {
+    const tip = $("tip");
+    tip.replaceChildren(...[
+      el("strong", {}, `${line.program} ⋯ ${line.receiver}`),
+      el("div", { class: "muted" }, `what ${line.program} injects (not a dependency)`),
+      line.all.map(deliveryWords),
+    ].flat().filter(Boolean));
+    tip.hidden = false;
+    const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+    const y = Math.min(ev.clientY + 14, window.innerHeight - tip.offsetHeight - 8);
+    tip.style.left = `${Math.max(8, x)}px`;
+    tip.style.top = `${Math.max(8, y)}px`;
   }
 
   // ---- Tooltip for an arrow ----
 
+  // What flows along an arrow, by role: the traits it implements, and the
+  // items it uses and wires. An arrow used only by tests or build scripts
+  // only uses.
+  function flowsByRole(e) {
+    const by = new Map(Object.keys(ROLES).map((r) => [r, []]));
+    if (e.kind !== "normal") {
+      by.set("uses", e.items.slice());
+      return by;
+    }
+    for (const r of e.roles) {
+      const names = r.role === "implements"
+        ? r.detail.map((d) => d.split(" implements ").pop())
+        : r.detail;
+      for (const n of names) if (!by.get(r.role).includes(n)) by.get(r.role).push(n);
+    }
+    return by;
+  }
+
+  // The roles an item plays on an arrow, in role order.
+  function itemRoles(by, path) {
+    const roles = [...by].filter(([, names]) => names.includes(path)).map(([role]) => role);
+    return roles.length ? roles : ["uses"];
+  }
+
+  // An item in its role's colour; a second role underlines it in that
+  // role's colour. Its title names the roles.
+  function roleItem(path, roles, extra) {
+    return el("code", {
+      class: `chip role-text role-text-${roles[0]}${roles[1] ? ` role-second-${roles[1]}` : ""}`,
+      title: `${roles.map((r) => ROLES[r]).join(" and ")}${extra ? `: ${extra}` : ""}`,
+    }, path);
+  }
+
   function showTip(ev, e) {
     const tip = $("tip");
     const list = (xs) => xs.slice(0, 10).join(", ") + (xs.length > 10 ? `, and ${xs.length - 10} more` : "");
-    tip.replaceChildren(
+    const by = flowsByRole(e);
+    const shown = (names) => names.slice(0, 10).map((n, i) => [i ? ", " : "", n])
+      .concat(names.length > 10 ? [`, +${names.length - 10}`] : []);
+    tip.replaceChildren(...[
       el("strong", {}, `${e.from} → ${e.to}`),
-      el("div", { class: "muted" }, edgeLabel(e)),
-      e.kind === "normal"
-        ? e.roles.map((r) => el("div", { class: "tip-role" },
-          el("span", { class: `role-key role-${r.role}` }), " ", el("strong", {}, ROLES[r.role]),
-          r.detail.length ? `: ${list(r.detail)}` : ": no item is named in the code"))
-        : (e.items.length ? el("div", {}, list(e.items)) : el("div", { class: "empty" }, "No item is named in the code.")),
-    );
+      el("div", { class: "muted" }, DEP_WORDS[e.kind] || e.kind),
+      [...by].filter(([, names]) => names.length).map(([role, names]) => el("div", { class: "tip-role" },
+        el("span", { class: `role-key role-${role}` }), " ", el("strong", { class: `role-text-${role}` }, `${role}: `),
+        el("span", { class: `role-text-${role}` }, shown(names)))),
+      [...by].every(([, names]) => !names.length) ? el("div", { class: "empty" }, "no items named") : null,
+      (e.test_items || []).length ? el("div", { class: "muted" }, `tests only: ${list(e.test_items)}`) : null,
+      arrowDeliveries(e).map(deliveryWords),
+    ].flat().filter(Boolean));
     tip.hidden = false;
     const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
     const y = Math.min(ev.clientY + 14, window.innerHeight - tip.offsetHeight - 8);
@@ -295,7 +762,7 @@
   function hideTip() { $("tip").hidden = true; }
 
   function edgeLabel(e) {
-    const parts = [`${e.kind} dependency`];
+    const parts = [`${DEP_WORDS[e.kind] || e.kind} (Cargo's ${DEP_CARGO[e.kind] || e.kind})`];
     if (e.features.length) parts.push(`turns on ${e.features.join(", ")}`);
     if (e.optional) parts.push("optional");
     if (e.target) parts.push(`only for ${e.target}`);
@@ -304,6 +771,8 @@
 
   // ---- The panel ----
 
+  // Clicking a box shows that crate in the panel; null shows the overview.
+  // It highlights nothing and ticks nothing.
   function select(name) {
     state.selected = name;
     paint();
@@ -311,26 +780,55 @@
     try { history.replaceState(null, "", name ? `#${name}` : "#"); } catch (_) { /* file:// may refuse */ }
   }
 
+  // The ticked crates, at the top of the panel: each opens its own panel,
+  // and one button clears them.
+  function selectionList() {
+    if (!state.checked.size) return null;
+    return el("div", { class: "selection-list" },
+      el("strong", {}, `Highlighted (${state.checked.size}): `),
+      // A crate ticked in the other map stays ticked, but this map has no
+      // panel for it.
+      [...state.checked].map((n, i) => [i ? ", " : "", crates.has(n)
+        ? el("button", { class: "crate-link", type: "button", "aria-current": n === state.selected ? "true" : "false",
+          onclick: () => { state.selected = n; paint(); renderPanel(); } }, n)
+        : el("span", { class: "muted" }, `${n} (not in this map)`)]),
+      " ", el("button", { class: "clear-selection", type: "button", onclick: () => { state.checked = new Set(); paint(); renderPanel(); } }, "Clear"));
+  }
+
   function renderPanel(focusItem) {
     const panel = $("panel");
     if (!state.selected) {
-      panel.replaceChildren(...overview());
+      panel.replaceChildren(...[selectionList(), ...overview().flat()].filter(Boolean));
       return;
     }
     const c = crates.get(state.selected);
+    if (!c) {
+      state.selected = null;
+      return renderPanel(focusItem);
+    }
     const info = concernOf(c.name);
     const badges = el("div", { class: "badges" },
       el("span", { class: "badge" }, c.bins.length ? `program: ${c.bins.join(", ")}` : "library"),
       c.lib && c.bins.length ? el("span", { class: "badge" }, "and a library") : null,
       c.dev_only ? el("span", { class: "badge" }, "dev-only, never released") : null,
+      info.kind ? el("span", { class: `badge kind-badge kind-${kindSlug(info.kind)}`, title: kindAbout(info.kind) }, `kind: ${info.kind}`) : null,
+      c.proposed ? el("span", { class: "badge proposed-badge" }, c.proposed === "new" ? "proposed: new crate" : "proposed: changed") : null,
       ...Object.entries(c.features).map(([f, turnsOn]) =>
         el("span", { class: "badge feature", title: turnsOn.length ? `turns on ${turnsOn.join(", ")}` : "" }, `feature ${f}`)),
     );
     const nodes = [
       el("h2", {}, titleOf(c.name)),
+      hiddenWhy(c.name) ? el("p", { class: "hidden-kind" }, `This crate is not drawn: ${hiddenWhy(c.name)}. Tick it in the Crates menu above the map to show it.`) : null,
+      !hiddenWhy(c.name) && !layerShown(c.name) ? el("p", { class: "hidden-kind" }, `Its layer, ${layerTitle(crateLayer(c.name))}, is hidden, so its arrows are not drawn. Click the layer's name on the map to show them.`) : null,
+      !programShown(c.name) ? el("p", { class: "hidden-kind" }, "This program is hidden, so its arrows are not drawn. Click the eye on its box to show it.") : null,
+      selectionList(),
       el("div", { class: "muted mono" }, c.path),
       badges,
-      el("p", {}, prose(info.concern), " ", source("concerns")),
+      el("p", {}, prose(info.concern), " ", source(c.proposed === "new" ? "proposal" : "concerns")),
+      c.proposed_notes && c.proposed_notes.length
+        ? el("div", { class: "proposed-notes" }, el("strong", {}, "In the proposal: "),
+          el("ul", {}, c.proposed_notes.map((n) => el("li", {}, statusChip(n.status), " ", prose(n.text)))))
+        : null,
       info.must_not ? el("p", { class: "must" }, el("strong", {}, "Must not: "), prose(info.must_not)) : null,
       c.crate_doc ? el("p", { class: "muted" }, "From its docs: ", prose(c.crate_doc)) : null,
       assembly.programs[c.name]
@@ -346,9 +844,9 @@
 
     nodes.push(...contractSections(c));
 
-    const items = c.items.filter(itemVisible);
+    const items = c.items;
     nodes.push(el("h3", {}, `Provides (${items.length} public items) `, source("rustdoc")));
-    nodes.push(items.length ? itemList(items, focusItem) : el("p", { class: "empty" },
+    nodes.push(items.length ? itemList(items, focusItem, c) : el("p", { class: "empty" },
       c.lib ? "No public items." : "A program: it has no library for others to use."));
 
     if (c.third_party.length) {
@@ -366,6 +864,7 @@
 
   // A tag saying where a section's content comes from.
   const SOURCES = {
+    proposal: [false, "proposed (proposed.json)"],
     rustdoc: [true, "generated from rustdoc"],
     code: [true, "generated from cargo metadata and the code"],
     assembly: [false, "hand-written (assembly.json)"],
@@ -381,6 +880,18 @@
     class: "chip chip-link mono", type: "button", title: `${crate}`, onclick: () => { select(crate); renderPanel(path); },
   }, crate === state.selected ? path : `${crate}::${path}`);
 
+  // In the proposed map, what the rule decides for a trait.
+  function decisionFor(c, path) {
+    if (state.mode !== "proposed") return null;
+    const item = c.items.find((i) => i.path === path) || {};
+    const from = item.moved_from || item.declared_from || c.name;
+    const row = proposed.table.find((r) => r.path === path && r.crate === from);
+    if (!row) return null;
+    return el("div", { class: "decision" },
+      el("span", { class: "badge proposed-badge" }, `${row.consumers.length} consumer${row.consumers.length === 1 ? "" : "s"}: ${row.rule}`), " ",
+      prose(row.result));
+  }
+
   // The crate's contracts: the traits it defines and who implements each,
   // the traits of other crates it implements, and its slots.
   function contractSections(c) {
@@ -389,6 +900,7 @@
     out.push(c.contracts.length
       ? el("ul", { class: "flows" }, c.contracts.map((t) => el("li", {},
         el("code", {}, t.trait),
+        decisionFor(c, t.trait),
         el("div", { class: "chips" }, t.implementors.length
           ? t.implementors.map((i) => i.type ? itemRef(i.crate, i.type)
             : el("span", { class: "chip" }, `${i.crate}: a type of its own`))
@@ -414,7 +926,8 @@
         el("code", {}, sl.name), ": ",
         sl.traits.map((t) => itemRef(t.crate, t.trait)),
         (sl.holds || []).map((h) => el("span", {}, itemRef(h.crate, h.type),
-          el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))))))
+          el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))),
+        sl.note ? el("div", { class: "muted" }, sl.note, " ", sl.status ? statusChip(sl.status) : source("proposal")) : null)))
       : el("p", { class: "empty" }, "None: nothing it takes is a contract to fill."));
     return out;
   }
@@ -427,23 +940,22 @@
       .sort((a, b) => a[end].localeCompare(b[end]) || a.kind.localeCompare(b.kind))
       .map((e) => {
         const provider = items.get(e.to);
-        const shown = e.items.filter((path) => {
-          const item = provider.get(path);
-          return !item || itemVisible(item);
-        });
+        const by = flowsByRole(e);
+        // The traits it implements are listed too, though the arrow's items
+        // may not name them.
+        const listed = e.items.concat(by.get("implements").filter((t) => !e.items.includes(t)));
+        const shown = listed;
         return el("li", {},
           el("button", { class: "crate-link", type: "button", onclick: () => select(e[end]) }, e[end]),
           " ", el("span", { class: "muted" }, edgeLabel(e)),
-          e.kind === "normal"
-            ? el("div", { class: "badges" }, e.roles.map((r) => el("span", { class: `badge role-badge role-${r.role}`,
-              title: r.detail.join(", ") }, ROLES[r.role])))
-            : null,
           shown.length
             ? el("div", { class: "chips" }, shown.map((path) => {
               const item = provider.get(path);
-              return el("code", { class: "chip", title: item ? item.doc : "" },
-                path + (item && item.feature ? ` [${item.feature}]` : ""));
+              return roleItem(path + (item && item.feature ? ` (${featureMark(item.feature)})` : ""), itemRoles(by, path), item ? item.doc : "");
             }))
+            : null,
+          arrowDeliveries(e).length ? el("div", { class: "deliveries-words" }, arrowDeliveries(e).map(deliveryWords)) : null,
+          shown.length ? null
             : el("div", { class: "empty" }, e.kind === "normal"
               ? "No item is named in the code. It may be used only through another crate's types, or in tests."
               : "No item is named in the code; it may be here for the features it turns on."),
@@ -451,32 +963,166 @@
       }));
   }
 
-  function itemList(items, focusItem) {
+  // A type's methods: first those of each contract it implements, then its
+  // own (item 8).
+  function itemList(items, focusItem, c) {
     const order = ["mod", "trait", "struct", "enum", "type", "fn", "const", "static", "macro"];
     const sorted = items.slice().sort((a, b) =>
       (order.indexOf(a.kind) - order.indexOf(b.kind)) || a.path.localeCompare(b.path));
+    const traitMethods = (crate, path) => {
+      const owner = crates.get(crate);
+      const t = owner && owner.items.find((i) => i.path === path);
+      return (t && t.methods) || [];
+    };
     return el("ul", { class: "items" }, sorted.map((item) => {
+      const contracts = (c ? c.implements : []).filter((r) => r.type === item.path);
       const extra = [];
       for (const part of ["fields", "methods", "variants"]) {
-        if (item[part] && item[part].length) extra.push([part, item[part], null]);
+        if (item[part] && item[part].length) extra.push([part === "methods" && contracts.length ? "own methods" : part, item[part], null]);
         // What a feature adds to an item that is there without it.
         for (const [feature, names] of Object.entries(item[`feature_${part}`] || {})) {
-          if (state.featureItems) extra.push([part, names, feature]);
+          extra.push([part, names, feature]);
         }
       }
       return el("li", { "data-item": item.path, class: item.path === focusItem ? "hit-item" : "" },
         el("div", { class: "item-head" },
           el("span", { class: "kind" }, item.kind),
           el("code", {}, item.path),
-          item.feature ? el("span", { class: "badge feature" }, item.feature) : null,
+          item.feature ? featureBadge(item.feature) : null,
+          item.status ? statusChip(item.status) : null,
+          item.moved_from ? el("span", { class: "muted" }, `from ${item.moved_from}`) : null,
+          item.declared_from ? el("span", { class: "muted" }, `declared here, was ${item.declared_from}'s`) : null,
           item.from ? el("span", { class: "muted" }, `re-exported from ${item.from}`) : null),
         item.doc ? el("div", { class: "item-doc" }, prose(item.doc)) : null,
+        contracts.map((r) => {
+          const names = traitMethods(r.trait_crate, r.trait);
+          return el("div", { class: "item-contract" }, "implements ", el("code", {}, `${r.trait_crate}::${r.trait}`),
+            names.length ? el("span", { class: "mono" }, `: ${names.join(", ")}`) : null,
+            r.status ? [" ", statusChip(r.status)] : null);
+        }),
         extra.map(([label, names, feature]) => el("details", { class: "item-more" },
           el("summary", {}, `${names.length} ${label}`, feature ? " " : null,
-            feature ? el("span", { class: "badge feature" }, `with ${feature}`) : null),
+            feature ? featureBadge(feature) : null),
           el("div", { class: "mono" }, names.join(", ")))),
       );
     }));
+  }
+
+  // ---- The proposal ----
+
+  const shownProposal = () => proposed;
+
+  // The page states what is or is proposed; statuses and decisions are in
+  // decisions.md, so nothing is tagged with them here.
+  function statusChip() {
+    return null;
+  }
+
+  function proposedOverview() {
+    const shown = shownProposal();
+    const ch = shown.changes;
+    const newCrates = graph.crates.filter((c) => c.proposed === "new").length;
+    return [
+      el("h2", {}, "The proposed map"),
+      el("p", {}, "The workspace as it is proposed, for planning the refactor. A crate that is new or changes carries a small tag in its box, and new or changed arrows are drawn thicker, so the map shows how the proposal differs from today's code; outlines show each crate's kind. ", source("proposal")),
+      el("h3", {}, "The rules it follows"),
+      el("ol", {}, proposed.rule.map((r) => el("li", {}, prose(r)))),
+      el("p", {}, `${newCrates} new crates, ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`),
+      el("div", { class: "actions" },
+        el("button", { class: "action", type: "button", onclick: showTable }, `Every trait (${proposed.table.length})`),
+        el("button", { class: "action", type: "button", onclick: showChanges }, "How it differs from today"),
+        el("button", { class: "action", type: "button", onclick: showCensus }, `Adapters (${proposed.adapters.after_totals.methods} methods)`),
+        el("button", { class: "action", type: "button", onclick: showConfigTable }, `kkt-config, item by item (${proposed.config_split.table.length})`)),
+      shown.violations.length
+        ? el("p", { class: "must" }, `The rules are broken in ${shown.violations.length} places: `, shown.violations.join("; "))
+        : el("p", { class: "muted" }, "Checked: no crate but a program or a composition depends on an effect crate or implements a contract that another crate declares for itself, and no crate mixes logic or a contract with an effect."),
+      kindChecks(graph.kind_mismatches),
+      el("h3", {}, "Where this comes from"),
+      el("p", { class: "muted" }, "The consumer counts, the proposed arrows and the differences from today are derived (propose.py) from the generated current map. How the rules apply is written by hand in proposed.json, and the kkt-config breakdown in config-split.json."),
+    ];
+  }
+
+  function openDialog(title, ...body) {
+    const dialog = $("assembly");
+    dialog.classList.toggle("wide", title.startsWith("Every trait") || title.startsWith("kkt-config") || title.startsWith("Adapters"));
+    dialog.replaceChildren(...[
+      el("div", { class: "dialog-head" }, el("h2", {}, title),
+        el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
+      ...body,
+    ].flat(3).filter(Boolean));
+    if (!dialog.open) dialog.showModal();
+    dialog.scrollTop = 0;
+  }
+
+  const crateLink = (name) => el("button", { class: "crate-link", type: "button",
+    onclick: () => { $("assembly").close(); select(name); } }, name);
+
+  function showTable() {
+    openDialog("Every trait, by the rule",
+      el("p", { class: "muted" }, "Consumers: crates other than the definer and the implementers that call the trait's methods in their code (not their tests). Derived from the public slots and the names their code uses, less the crates that only wire an implementation in, which are read from the code by hand. Where each trait lives in the proposal is written by hand (proposed.json)."),
+      el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
+        el("thead", {}, el("tr", {}, ["Trait", "Consumers", "Test-only", "Implementations", "Rule", "In the proposal"].map((h) => el("th", {}, h)))),
+        el("tbody", {}, proposed.table.map((r) => el("tr", {},
+          el("td", {}, el("code", {}, r.trait), r.feature ? [" ", featureBadge(r.feature)] : null),
+          el("td", {}, el("strong", {}, String(r.consumers.length)), " ", r.consumers.join(", "),
+            /declared by its consumers/.test(r.rule) ? el("div", { class: "muted" }, `and its declarer, ${r.crate}, which calls it`) : null,
+            (r.wires_only || []).length ? el("div", { class: "muted" }, `only wire it in: ${r.wires_only.join(", ")}`) : null),
+          el("td", {}, r.test_only.join(", ")),
+          el("td", {}, r.implementations.map((i) => `${i.crate}: ${i.type || "a type of its own"}`).join("; ")),
+          el("td", {}, r.rule),
+          el("td", {}, prose(r.result), (r.new || []).length ? el("div", { class: "muted" }, `new: ${r.new.join(", ")}`) : null)))))),
+      el("h3", {}, "Not traits"),
+      el("ul", {}, proposed.not_traits.map((n) => el("li", {}, el("code", {}, n.items), ": ", prose(n.note)))));
+  }
+
+  function showChanges() {
+    const ch = shownProposal().changes;
+    const tags = (a) => (a.statuses || []).map((s) => [" ", statusChip(s)]);
+    const arrow = (a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ", el("span", { class: "muted", title: `Cargo's ${DEP_CARGO[a.kind]}` }, `${DEP_WORDS[a.kind] || a.kind}, ${a.role || ""}`), tags(a));
+    openDialog("How it differs from today",
+      el("p", { class: "muted" }, "Compared with the current map, derived by comparing the two."),
+      (ch.gone || []).length ? [el("h3", {}, `Crates gone (${ch.gone.length})`), el("p", {}, ch.gone.join(", "), el("span", { class: "muted" }, ": see the notes of the crate each merged into."))] : null,
+      el("h3", {}, `Crates (${ch.crates.length})`),
+      el("ul", { class: "flows" }, ch.crates.map((c) => el("li", {}, crateLink(c.crate),
+        el("ul", {}, c.notes.map((n) => el("li", {}, statusChip(n.status), " ", prose(n.text))))))),
+      el("h3", {}, `Arrows added (${ch.added.length})`), el("ul", { class: "flows" }, ch.added.map(arrow)),
+      el("h3", {}, `Arrows removed (${ch.removed.length})`), el("ul", { class: "flows" }, ch.removed.map(arrow)),
+      el("h3", {}, `Arrows changed (${ch.changed.length})`),
+      el("ul", { class: "flows" }, ch.changed.map((a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ",
+        el("span", { class: "muted", title: `Cargo's ${DEP_CARGO[a.kind]}` }, `${DEP_WORDS[a.kind] || a.kind}: ${a.roles_before.join(", ")} → ${a.roles_after.join(", ")}`), tags(a),
+        a.items_gone.length ? el("div", { class: "muted" }, `no longer: ${a.items_gone.join(", ")}`) : null,
+        a.items_new.length ? el("div", { class: "muted" }, `new: ${a.items_new.join(", ")}`) : null))));
+  }
+
+  function showCensus() {
+    const c = proposed.adapters;
+    const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+    const t = c.after_totals;
+    openDialog("Adapters",
+      el("p", { class: "muted" }, prose(c.about), " ", source("proposal")),
+      el("p", {}, `${plural(t.adapters, "adapter")}, ${plural(t.methods, "method")}: ${t.forward} forwarding, ${t.translate} translating. Written out ${t.written} times across the programs.`),
+      el("div", { class: "table-wrap" }, el("table", { class: "rule-table census" },
+        el("thead", {}, el("tr", {}, ["Adapter", "Meets", "Written in", "Methods", "F", "T", "Copies", "What the methods do"].map((h) => el("th", {}, h)))),
+        el("tbody", {}, c.after.map((r) => el("tr", {},
+          el("td", {}, el("code", {}, r.adapter)), el("td", {}, r.to), el("td", {}, r.where),
+          el("td", {}, String(r.methods)), el("td", {}, String(r.forward)), el("td", {}, String(r.translate)),
+          el("td", {}, String(r.copies)), el("td", {}, prose(r.why))))))));
+  }
+
+  function showConfigTable() {
+    const i7 = proposed.config_split;
+    openDialog("kkt-config, item by item",
+      el("p", {}, prose(i7.about)),
+      el("p", {}, el("strong", {}, "Limits: "), prose(i7.limits.note), "."),
+      el("ul", {}, i7.limits.parts.map((p) => el("li", {}, el("code", {}, `${p.crate}::${p.path}`), ": ", prose(p.doc)))),
+      el("p", { class: "muted" }, "Where each item of today's kkt-config lives in the proposed map. Used by: derived from the current map; the rest is written by hand (config-split.json)."),
+      el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
+        el("thead", {}, el("tr", {}, ["Item", "Kind", "Used by", "Test-only", "Goes to", "Constant or injected", "Why"].map((h) => el("th", {}, h)))),
+        el("tbody", {}, i7.table.map((r) => el("tr", {},
+          el("td", {}, el("code", {}, r.item)), el("td", {}, r.kind), el("td", {}, r.used_by.join(", ")),
+          el("td", {}, r.test_only.join(", ")),
+          el("td", {}, r.to === "kkt-config" ? "stays in kkt-config" : r.to === "split" ? "split (see above)" : r.to),
+          el("td", {}, r.how), el("td", {}, prose(r.note))))))));
   }
 
   // ---- A program's assembly ----
@@ -540,6 +1186,7 @@
   function showAssembly(program) {
     const flow = assembly.programs[program];
     const dialog = $("assembly");
+    dialog.classList.remove("wide");
     const ref = (text) => {
       const [crate, ...rest] = text.split("::");
       return itemRefAt(crate, rest.join("::"), dialog);
@@ -547,24 +1194,35 @@
     const stepList = (steps) => el("ol", { class: "steps" }, steps.map((step) => el("li", {},
       el("strong", {}, step.title), el("p", {}, prose(step.text)),
       el("div", { class: "chips" }, step.items.map(ref)),
-      step.fills ? el("div", { class: "fills" }, "fills ", el("code", {}, step.fills)) : null)));
+      step.fills ? el("div", { class: "fills" }, "fills ", el("code", {}, step.fills)) : null,
+      step.proposed_step ? el("div", { class: "muted" }, "proposed") : null)));
     const pairs = pairings(program);
     dialog.replaceChildren(...[
       el("div", { class: "dialog-head" },
         el("h2", {}, `How ${flow.title} is assembled`),
         el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
       el("p", { class: "muted" }, "The flow and what the program passes to which slot are written by hand, from the code; every item and slot they name is checked to exist when the map is generated. Where pairs are shown below them, folded, they are inferred by matching names."),
-      el("h3", {}, "The flow ", source("assembly")),
+      el("h3", {}, "The flow ", source(state.mode === "proposed" ? "proposal" : "assembly")),
+      state.mode === "proposed" ? el("p", { class: "muted" }, "Steps marked proposed are rewritten for the proposal; the others describe today's assembly, with each item in its proposed crate. Each implementation reaches its slot through an adapter listed below: the program's own, or one shared from a composition crate.") : null,
       stepList(flow.steps),
       flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
-      el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
+      (flow.adapters || []).length
+        ? [el("h3", {}, `Adapters the rule needs (${flow.adapters.length}) `, source("proposal")),
+          el("ul", { class: "flows" }, flow.adapters.map((a) => el("li", {}, ref(a.adapts), " adapted to ",
+            (Array.isArray(a.to) ? a.to : [a.to]).flatMap((t, i) => (i ? [" and ", ref(t)] : [ref(t)])),
+            " ", el("span", { class: a.large ? "badge large" : "badge" }, `${a.methods} method${a.methods === 1 ? "" : "s"}${a.large ? ", large" : ""}`),
+            a.in ? el("span", { class: "muted" }, `  shared, in ${a.in}`) : null,
+            a.note ? el("span", { class: "muted" }, `  (${a.note})`) : null, " ", statusChip(a.status))))]
+        : null,
+      el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source(state.mode === "proposed" ? "proposal" : "assembly")),
       el("p", { class: "muted" }, "Read from the program's code by hand: every implementation the program passes to a slot of the shared crates, for the server and each of its commands. When the map is generated, every implementation and slot named here is checked to exist."),
       el("ul", { class: "flows" }, (flow.wiring || []).map((w) => el("li", {},
         w.impl ? ref(w.impl) : el("span", { class: "chip" }, `${program}: ${w.own}`),
         ` → ${w.crate}'s `,
         el("span", { class: "chips inline" }, w.to.map((t) => el("span", {},
           itemRefAt(w.crate, t.at, dialog), " ", el("code", {}, t.param)))),
-        w.note ? el("div", { class: "muted" }, w.note) : null))),
+        w.through_adapter ? el("div", { class: "muted" }, "through the program's adapter to ", w.through_adapter.join(" and ")) : null,
+        w.note ? el("div", { class: "muted" }, w.note, " ", statusChip(w.status)) : (w.status ? statusChip(w.status) : null)))),
       flow.inferred === false ? null : el("details", { class: "inferred" },
         el("summary", {}, `Pairs inferred by matching names (${pairs.length}) `, source("inferred")),
         el("p", { class: "muted" }, "Each pair is a guess from names: the program builds the implementation (or has its own), names the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there; the list above is what the code passes."),
@@ -584,7 +1242,20 @@
     onclick: () => { dialog.close(); select(crate); renderPanel(path); },
   }, `${crate}::${path}`);
 
+  // Where a crate's hand-written kind and what the map shows of it disagree.
+  function kindChecks(mismatches) {
+    const list = mismatches || [];
+    return [
+      el("h3", {}, `Kind checks (${list.length} to look at) `, source(state.mode === "proposed" ? "proposal" : "concerns")),
+      list.length
+        ? el("ul", {}, list.map((m) => el("li", {}, prose(m))))
+        : el("p", { class: "muted" }, "Every kind fits what the map shows."),
+      el("p", { class: "muted" }, "Reported, not corrected: a contract that does more than compute on its own values (behaviour through an injected dependency, wiring, or an effect), a logic crate that turns on real, an effect crate with no real feature or I/O dependency, a composition other than a program with a real feature of its own."),
+    ];
+  }
+
   function overview() {
+    if (state.mode === "proposed") return proposedOverview();
     const counts = new Map();
     for (const c of graph.crates) {
       const layer = concernOf(c.name).layer;
@@ -593,16 +1264,17 @@
     const normal = graph.edges.filter((e) => e.kind === "normal").length;
     return [
       el("h2", {}, "The workspace"),
-      el("p", {}, `${graph.crates.length} packages and ${normal} normal dependencies between them. `,
+      el("p", {}, `${graph.crates.length} packages and ${normal} dependencies between them that their code uses. `,
         "Arrows point from a crate to what it depends on, drawn by their role: implementing a contract the other crate defines, using its items, or wiring its implementations into a slot. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
       el("ul", { class: "overview" }, concerns.layers.map((layer) =>
         el("li", {}, el("strong", {}, `${layer.title} (${counts.get(layer.id) || 0}). `), prose(layer.about)))),
+      kindChecks(graph.kind_mismatches),
       el("h3", {}, "Where this comes from"),
       el("p", { class: "muted" },
         "Crates and arrows: ", el("code", {}, "cargo metadata"), ". Public items: rustdoc's JSON of each library, with each feature on in turn. ",
         "What flows along an arrow: the paths each crate's code names in the other, matched to its public items. ",
         "Contracts, slots and arrow roles: rustdoc's JSON (trait impls, including private types' impls, named only as \"a type of its own\"; public signatures). ",
-        "Concerns and the programs' assembly flows: written by hand. Each section on the page says which. Regenerate with ",
+        "Concerns, layers, kinds and the programs' assembly flows: written by hand; kinds.py checks each kind against the map. Each section on the page says which. Regenerate with ",
         el("code", {}, "python3 docs/architecture/generate.py"), "."),
     ];
   }
@@ -614,13 +1286,12 @@
     const result = { crates: new Set(), items: [] };
     if (!q) return result;
     for (const c of graph.crates) {
-      if (!visibleCrate(c.name)) continue;
+      if (!placedCrate(c.name)) continue;
       const info = concernOf(c.name);
       if (c.name.toLowerCase().includes(q) || (info.concern || "").toLowerCase().includes(q)) {
         result.crates.add(c.name);
       }
       for (const item of c.items) {
-        if (!itemVisible(item)) continue;
         if (item.path.toLowerCase().includes(q)) {
           result.crates.add(c.name);
           result.items.push([c.name, item]);
@@ -638,15 +1309,31 @@
       (concernOf(n).concern || "").toLowerCase().includes(state.query));
     const rows = [
       ...crateHits.map((name) => el("button", { type: "button", onclick: () => { select(name); clearSearch(); } },
-        el("strong", {}, name), " ", el("span", { class: "muted" }, "crate"))),
+        el("strong", {}, name), " ", el("span", { class: "muted" }, "crate"), hiddenNote(name))),
       ...hits.items.slice(0, 80).map(([name, item]) => el("button", {
-        type: "button", onclick: () => { state.selected = name; paint(); renderPanel(item.path); clearSearch(); },
+        type: "button", onclick: () => { select(name); renderPanel(item.path); clearSearch(); },
       }, el("span", { class: "crate-name" }, `${name} › `), el("code", {}, item.path), " ",
-      el("span", { class: "muted" }, item.kind))),
+      el("span", { class: "muted" }, item.kind), item.feature ? [" ", featureBadge(item.feature)] : null, hiddenNote(name))),
     ];
     if (hits.items.length > 80) rows.push(el("div", { class: "muted" }, `and ${hits.items.length - 80} more items`));
     box.replaceChildren(...(rows.length ? rows : [el("div", { class: "empty" }, "Nothing matches.")]));
     box.hidden = false;
+  }
+
+  // A search hit or a selected crate whose kind is filtered out says so,
+  // rather than pointing at nothing on the map.
+  // Why a crate is not drawn, if a filter hides it.
+  function hiddenWhy(name) {
+    const why = [];
+    if (!kindShown(name)) why.push(`its kind, ${crateKind(name)}, is hidden`);
+    return why.join(", and ");
+  }
+  const layerTitle = (id) => (concerns.layers.find((l) => l.id === id) || {}).title || id;
+
+  function hiddenNote(name) {
+    const why = hiddenWhy(name);
+    if (why) return el("span", { class: "hidden-kind" }, ` (not drawn: ${why})`);
+    return layerShown(name) ? null : el("span", { class: "hidden-kind" }, ` (layer hidden: no arrows)`);
   }
 
   function clearSearch() {
@@ -658,7 +1345,35 @@
 
   // ---- Controls ----
 
-  $("meta").textContent = `Generated from the code at commit ${graph.commit}.`;
+  function setMeta() {
+    $("meta").textContent = state.mode === "proposed"
+      ? `Proposed: the map at commit ${graph.commit}, reorganized by one dependency-injection rule. A chart for planning, not the code.`
+      : `Generated from the code at commit ${graph.commit}.`;
+  }
+  setMeta();
+
+  // Switches between the current map and the proposed one.
+  function setMode(mode) {
+    state.mode = mode;
+    const p = mode === "proposed" ? proposed : null;
+    graph = p ? p.graph : window.KKT_GRAPH;
+    concerns = p ? p.concerns : window.KKT_CONCERNS;
+    assembly = p ? p.assembly : window.KKT_ASSEMBLY;
+    crates = new Map(graph.crates.map((c) => [c.name, c]));
+    // A crate the other map does not have is not drawn there, but stays
+    // ticked or shown for when it comes back.
+    if (state.selected && !crates.has(state.selected)) state.selected = null;
+    document.body.classList.toggle("mode-proposed", mode === "proposed");
+    setMeta();
+    draw();
+    renderPanel();
+    renderResults();
+  }
+  for (const input of document.querySelectorAll('input[name="mode"]')) {
+    input.addEventListener("change", (ev) => { if (ev.target.checked) setMode(ev.target.value); });
+  }
+  if (!proposed) for (const input of document.querySelectorAll('input[name="mode"]')) input.disabled = true;
+
   $("search").addEventListener("input", (ev) => {
     state.query = ev.target.value.trim().toLowerCase();
     renderResults();
@@ -667,7 +1382,12 @@
   $("search").addEventListener("keydown", (ev) => { if (ev.key === "Escape") clearSearch(); });
   $("show-dev-crates").addEventListener("change", (ev) => {
     state.showDevCrates = ev.target.checked;
-    if (state.selected && !visibleCrate(state.selected)) state.selected = null;
+    // The dev programs' eyes follow: hidden with the dev-only crates, shown
+    // with them.
+    for (const c of graph.crates) {
+      if (!c.dev_only || !c.bins.length) continue;
+      if (state.showDevCrates) state.hiddenPrograms.delete(c.name); else state.hiddenPrograms.add(c.name);
+    }
     draw();
     renderPanel();
   });
@@ -678,11 +1398,97 @@
       renderPanel();
     });
   }
-  $("show-feature-items").addEventListener("change", (ev) => {
-    state.featureItems = ev.target.checked;
+  // The Crates and Arrows menus: a button opens its list; Escape, a click
+  // outside, or focus leaving it closes it. One is open at a time.
+  const menus = ["crates", "arrows"];
+  let pointerDown = false;
+  document.addEventListener("pointerdown", () => { pointerDown = true; }, true);
+  document.addEventListener("pointerup", () => { setTimeout(() => { pointerDown = false; }, 0); }, true);
+  function setMenu(id, open, focusInside) {
+    const button = $(`${id}-button`);
+    $(`${id}-panel`).hidden = !open;
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) {
+      for (const other of menus) if (other !== id) setMenu(other, false);
+      if (focusInside) { const first = $(`${id}-panel`).querySelector("input, button"); if (first) first.focus(); }
+    }
+  }
+  for (const id of menus) {
+    const button = $(`${id}-button`);
+    const menu = $(`${id}-menu`);
+    button.addEventListener("click", (ev) => setMenu(id, $(`${id}-panel`).hidden, ev.detail === 0));
+    menu.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && !$(`${id}-panel`).hidden) { ev.preventDefault(); setMenu(id, false); button.focus(); }
+    });
+    // Only keyboard focus leaving closes it here. A press of the mouse
+    // closes it through the click instead: closing on the press would move
+    // the other menu's button on a phone, where the list pushes it down,
+    // before the click lands.
+    menu.addEventListener("focusout", (ev) => {
+      if (!pointerDown && ev.relatedTarget && !menu.contains(ev.relatedTarget)) setMenu(id, false);
+    });
+    $(`${id}-panel`).addEventListener("change", menuCounts);
+  }
+  // All and None at the top of each menu tick or untick every box in it.
+  const shownKinds = () => (concerns.kinds || []).filter((k) => graph.crates.some((c) => crateKind(c.name) === k.id)).map((k) => k.id);
+  function redrawAll() {
+    draw();
     renderPanel();
     renderResults();
+  }
+  function setCrates(all) {
+    state.hiddenKinds = new Set(all ? [] : shownKinds());
+    state.showDevCrates = all;
+    $("show-dev-crates").checked = all;
+    redrawAll();
+  }
+  function setArrows(all) {
+    state.hiddenRoles = new Set(all ? [] : Object.keys(ROLE_ABOUT));
+    for (const kind of ["normal", "dev", "build"]) {
+      state.kinds[kind] = all;
+      $(`show-${kind}`).checked = all;
+    }
+    redrawAll();
+  }
+  $("crates-all").addEventListener("click", () => setCrates(true));
+  $("crates-none").addEventListener("click", () => setCrates(false));
+  $("arrows-all").addEventListener("click", () => setArrows(true));
+  $("arrows-none").addEventListener("click", () => setArrows(false));
+  // Every layer at once; one layer's name still toggles just that layer.
+  function setLayers(shown) {
+    state.hiddenLayers = new Set(shown ? [] : concerns.layers.map((l) => l.id));
+    // Show all brings hidden programs back too.
+    if (shown) state.hiddenPrograms = new Set();
+    redrawAll();
+  }
+  $("layers-show").addEventListener("click", () => setLayers(true));
+  $("layers-hide").addEventListener("click", () => setLayers(false));
+  // Reset view: every filter, menu and layer as the page starts, the search
+  // cleared and no crate selected. The map shown stays.
+  $("reset-view").addEventListener("click", () => {
+    state.hiddenKinds = new Set();
+    state.hiddenRoles = new Set();
+    state.hiddenLayers = new Set();
+    state.hiddenPrograms = new Set();
+    state.showDevCrates = true;
+    state.kinds = { normal: true, dev: false, build: false };
+    for (const box of document.querySelectorAll(".menu-panel input[type=checkbox]")) box.checked = box.defaultChecked;
+    for (const id of menus) setMenu(id, false);
+    $("search").value = "";
+    state.query = "";
+    draw();
+    renderResults();
+    state.checked = new Set();
+    select(null);
   });
+
+  // The path is taken at the click, since a redraw may already have
+  // replaced the element clicked.
+  document.addEventListener("click", (ev) => {
+    const path = ev.composedPath();
+    for (const id of menus) if (!path.includes($(`${id}-menu`))) setMenu(id, false);
+  });
+
   $("graph").addEventListener("click", (ev) => {
     if (ev.target === $("graph") || ev.target.classList.contains("band")) select(null);
   });

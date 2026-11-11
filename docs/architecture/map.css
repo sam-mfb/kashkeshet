@@ -68,8 +68,6 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
   width: min(360px, 80vw); padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px;
   background: var(--bg); color: var(--fg); font: inherit;
 }
-.toggles { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
-.toggles label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
 .key { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--muted); }
 .key-normal { border-top-style: solid; }
 .key-dev { border-top: 2px dashed var(--dev); }
@@ -95,24 +93,51 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 
 .band { fill: var(--band); }
 .band-title { fill: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .02em; }
-.node rect { fill: var(--box); stroke: var(--box-line); stroke-width: 1; rx: 7; }
+.node > rect { fill: var(--box); stroke: var(--box-line); stroke-width: 1; rx: 7; }
 .node text { fill: var(--fg); font-size: 12.5px; pointer-events: none; }
 .node .sub { fill: var(--muted); font-size: 10.5px; }
 .node { cursor: pointer; }
-.node.dev-only rect { stroke-dasharray: 4 3; }
-.node.selected rect { stroke: var(--accent); stroke-width: 2.2; }
-.node.hit rect { fill: var(--hit); }
+.node.dev-only > rect { stroke-dasharray: 4 3; }
+.node.hit > rect { fill: var(--hit); }
 .node.dim { opacity: .28; }
-.node.dep rect { stroke: var(--out); stroke-width: 1.8; }
-.node.user rect { stroke: var(--in); stroke-width: 1.8; }
+.node .ptag { font-size: 9.5px; font-weight: 600; fill: var(--muted); text-anchor: end; letter-spacing: .03em; }
+
+/* Kinds: what sort of crate each is (msg 1981). A palette apart from the
+   arrows' green, grey and amber. */
+:root {
+  --k-contract: #2563eb; --k-logic: #7c3aed; --k-effect: #dc2626; --k-composition: #27272a;
+  --k-configuration: #0891b2; --k-test-support: #65731b; --k-mixed: #db2777;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --k-contract: #7ea2ff; --k-logic: #b794f6; --k-effect: #f87171; --k-composition: #e4e4e7;
+    --k-configuration: #22d3ee; --k-test-support: #bfcf5a; --k-mixed: #f472b6;
+  }
+}
+:root[data-theme="dark"] {
+  --k-contract: #7ea2ff; --k-logic: #b794f6; --k-effect: #f87171; --k-composition: #e4e4e7;
+  --k-configuration: #22d3ee; --k-test-support: #bfcf5a; --k-mixed: #f472b6;
+}
+.node > rect { stroke: var(--kind, var(--box-line)); stroke-width: 1.6; }
+.node.checked > rect { stroke-width: 2.6; }
+.kind-contract { --kind: var(--k-contract); }
+.kind-logic { --kind: var(--k-logic); }
+.kind-effect { --kind: var(--k-effect); }
+.kind-composition { --kind: var(--k-composition); }
+.kind-configuration { --kind: var(--k-configuration); }
+.kind-test-support { --kind: var(--k-test-support); }
+.kind-mixed { --kind: var(--k-mixed); }
+.kind-key { display: inline-block; width: 14px; height: 10px; border: 2px solid var(--kind); border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+.badge.kind-badge { background: none; border: 1.5px solid var(--kind); }
 
 .edge { fill: none; stroke: var(--muted); stroke-width: 1.1; opacity: .22; }
 .edge.kind-dev { stroke: var(--dev); stroke-dasharray: 5 4; }
 .edge.kind-build { stroke: var(--build); stroke-dasharray: 2 3; }
 .edge.out { stroke: var(--out); opacity: .95; stroke-width: 1.8; }
 .edge.in { stroke: var(--in); opacity: .95; stroke-width: 1.8; }
-.edge.faint { opacity: .05; }
+.edge.faint { opacity: .12; }
 .edge-hit { fill: none; stroke: transparent; stroke-width: 9; cursor: help; }
+.edge-hit.faint, .edge.faint { pointer-events: none; }
 .arrow-head { fill: var(--muted); }
 .arrow-out { fill: var(--out); }
 .arrow-in { fill: var(--in); }
@@ -217,3 +242,153 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .inferred { margin-top: 16px; }
 .inferred > summary { cursor: pointer; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
 .chips.inline { display: inline-flex; }
+
+/* The proposed map */
+:root { --proposed: #b03aa8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --proposed: #e48ad9; } }
+:root[data-theme="dark"] { --proposed: #e48ad9; }
+.mode { border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; margin: 0; display: inline-flex; gap: 10px; font-size: 13px; }
+.mode label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
+.node.proposed-new .ptag, .node.proposed-changed .ptag { fill: var(--proposed); }
+.edge.proposed-new, .edge.proposed-changed { stroke-width: 2.2; opacity: .6; }
+.edge.proposed-new.faint, .edge.proposed-changed.faint { opacity: .16; }
+.proposed-badge { background: none; border: 1px solid var(--proposed); color: var(--proposed); }
+.proposed-notes { border-left: 3px solid var(--proposed); padding-left: 8px; margin: 8px 0; }
+.proposed-notes ul { margin: 4px 0; padding-left: 18px; }
+.decision { margin: 4px 0; font-size: 12.5px; }
+.conflict-link { color: var(--in); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.table-wrap { overflow-x: auto; }
+.rule-table { border-collapse: collapse; font-size: 12.5px; width: 100%; }
+.rule-table th, .rule-table td { border-bottom: 1px solid var(--line); padding: 6px; text-align: left; vertical-align: top; }
+.rule-table th { color: var(--muted); font-weight: 600; }
+.conflicts > li { margin-bottom: 10px; }
+.assembly.wide { width: min(1400px, calc(100vw - 32px)); }
+.rule-table td:nth-child(1) { min-width: 180px; }
+.rule-table td:nth-child(2) { min-width: 200px; }
+.rule-table td:nth-child(4) { min-width: 180px; }
+.rule-table td:nth-child(6) { min-width: 300px; }
+.status { background: none; }
+.status-decided { border: 1px solid var(--implements); color: var(--implements); }
+.status-recommended { border: 1px solid var(--wires); color: var(--wires); }
+.status-follows { border: 1px dashed var(--implements); color: var(--implements); }
+.status-open { border: 1px solid var(--k-mixed); color: var(--k-mixed); }
+.item-contract { margin: 2px 0 0 40px; font-size: 12.5px; }
+.decided > li { margin: 3px 0; }
+.badge.large { border: 1px solid var(--in); color: var(--in); background: none; }
+.census td:nth-child(n+4):nth-child(-n+7), .census th:nth-child(n+4):nth-child(-n+7) { width: 1%; white-space: nowrap; text-align: right; }
+/* A box takes focus when clicked (it is focusable for the keyboard). The
+   browser's focus ring would change its outline colour, so it is hidden:
+   keyboard focus gets the selection's thicker stroke in the kind colour
+   instead, and a click shows only the selection. */
+.node:focus { outline: none; }
+.node:focus-visible > rect { stroke-width: 3.4; }
+/* The kind filter: each kind in the legend is a checkbox. */
+.kind-toggle { cursor: pointer; }
+.kind-toggle input { margin: 0 4px 0 0; vertical-align: middle; }
+.hidden-kind { color: var(--muted); font-style: italic; }
+/* The role filter, as the kind filter. */
+.role-toggle { cursor: pointer; }
+.role-toggle input { margin: 0 4px 0 0; vertical-align: middle; }
+/* The filters in the header: the Crates and Arrows menus, wrapping on
+   narrow screens. */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; width: 100%; }
+.toggle-set { display: contents; }
+/* The key under the map: colours and conventions only. */
+.key-legend { gap: 4px 20px; }
+.key-item { display: inline-flex; align-items: center; margin-right: 10px; }
+/* On a phone the filters make the header tall, so it scrolls away with the
+   page instead of covering half the map. */
+@media (max-width: 600px) { .bar { position: static; } }
+/* An item in its role's colour, matching the arrows; a second role
+   underlines it in that role's colour. */
+.role-text-implements { color: var(--implements-text, var(--implements)); }
+.role-text-uses { color: var(--uses-text, var(--fg)); }
+.role-text-wires { color: var(--wires-text, var(--wires)); }
+.chip.role-text { border-left: 3px solid currentColor; }
+.chip.role-second-implements { text-decoration: underline 2px var(--implements); text-underline-offset: 3px; }
+.chip.role-second-uses { text-decoration: underline 2px var(--uses); text-underline-offset: 3px; }
+.chip.role-second-wires { text-decoration: underline 2px var(--wires); text-underline-offset: 3px; }
+/* Darker text shades of the role colours, for contrast on light chips. */
+:root { --implements-text: #17705b; --wires-text: #8f5a00; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --implements-text: #4fd1a8; --wires-text: #f0b54a; } }
+:root[data-theme="dark"] { --implements-text: #4fd1a8; --wires-text: #f0b54a; }
+/* A role's row in the arrow tooltip: key, role and items on one line. */
+.tip .tip-role strong { display: inline; margin: 0; }
+.tip .tip-role .role-key { display: inline-block; vertical-align: middle; }
+/* Where a wired thing goes: thin dotted amber lines, no head, shown on
+   hover or selection only; not dependencies. */
+.delivery { fill: none; stroke: var(--wires); stroke-width: 1.3; stroke-dasharray: 1.2 3; stroke-linecap: round; pointer-events: stroke; }
+.delivery-label { font-size: 10.5px; fill: var(--wires-text, var(--wires)); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; cursor: help; }
+.delivery-words { font-size: 12px; margin-top: 3px; }
+.deliveries-words { margin-top: 2px; }
+/* Each chip's left mark is its role's arrow colour, whatever its text colour. */
+.chip.role-text-implements { border-left-color: var(--implements); }
+.chip.role-text-uses { border-left-color: var(--uses); }
+.chip.role-text-wires { border-left-color: var(--wires); }
+/* The Crates and Arrows menus: a button in the header opens a list of
+   checkboxes under it. On a phone the list opens in the header's flow. */
+.menu { position: relative; }
+.menu-button {
+  font: inherit; font-size: 12.5px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px;
+  background: var(--bg); color: var(--fg); cursor: pointer; white-space: nowrap;
+}
+.menu-button[aria-expanded="true"] { border-color: var(--accent); }
+.menu-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.menu-panel {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; min-width: 220px;
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; font-size: 12.5px;
+  background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow);
+}
+.menu-panel[hidden] { display: none; }
+.menu-panel label { display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+.menu-panel input { margin: 0 4px 0 0; }
+.menu-list { display: contents; }
+@media (max-width: 600px) {
+  .menu { width: 100%; }
+  .menu-panel { position: static; margin-top: 4px; box-shadow: none; min-width: 0; }
+}
+/* A layer's name on the map is its toggle. */
+.band-toggle { cursor: pointer; }
+.band-toggle .band-hit { fill: transparent; }
+.band-toggle:hover .band-hit { fill: var(--line); }
+.band-toggle:focus { outline: none; }
+.band-toggle:focus-visible .band-hit { stroke: var(--accent); stroke-width: 2; }
+.band-toggle .eye path, .band-toggle .eye circle { fill: none; stroke: var(--muted); stroke-width: 1.3; }
+.band-toggle .eye circle { fill: var(--muted); stroke: none; }
+.band-toggle.off .band-title { text-decoration: line-through; }
+.band-toggle .band-title { pointer-events: none; }
+.node.layer-off { opacity: .28; }
+
+/* All and None at the top of each menu. */
+.menu-all { display: flex; gap: 6px; padding-bottom: 6px; margin-bottom: 2px; border-bottom: 1px solid var(--line); }
+.menu-all button, .reset-view {
+  font: inherit; font-size: 12.5px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--bg); color: var(--fg); cursor: pointer;
+}
+.menu-all button:hover, .reset-view:hover { border-color: var(--accent); }
+.menu-all button:focus-visible, .reset-view:focus-visible, .linkish-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Every layer at once, above the map. */
+.layers-all { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); margin: 0 0 6px; }
+.linkish-button { background: none; border: 0; padding: 2px 0; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; }
+
+/* No highlight on hover, only a light outline; the selection highlights. */
+.node:hover > rect { stroke-width: 2.4; }
+.node.current > rect { stroke-width: 3.4; }
+/* The selection checkbox and a program's eye, in the box's corners. */
+.pick, .prog-eye { cursor: pointer; }
+.pick-hit, .eye-hit { fill: transparent; }
+.pick-box { fill: var(--box); stroke: var(--muted); stroke-width: 1.3; }
+.eye-back { fill: var(--box); stroke: var(--box-line); stroke-width: 1; }
+.pick-tick { fill: none; stroke: var(--box); stroke-width: 1.8; visibility: hidden; }
+.pick[aria-checked="true"] .pick-box { fill: var(--accent); stroke: var(--accent); }
+.pick[aria-checked="true"] .pick-tick { visibility: visible; }
+.pick:focus, .prog-eye:focus { outline: none; }
+.pick:focus-visible .pick-box, .prog-eye:focus-visible .eye-back { stroke: var(--accent); stroke-width: 2; }
+.prog-eye .eye-shape, .prog-eye .eye-slash { fill: none; stroke: var(--muted); stroke-width: 1.3; }
+.prog-eye .eye-pupil { fill: var(--muted); }
+.prog-eye:hover .eye-shape { stroke: var(--accent); }
+.node.program-off { opacity: .28; }
+.selection-list { margin: 6px 0 10px; font-size: 13px; }
+.clear-selection { font: inherit; font-size: 12px; padding: 2px 10px; margin-left: 4px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); cursor: pointer; }

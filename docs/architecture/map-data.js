@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "59214d3",
+ "commit": "27f1d11",
  "crates": [
   {
    "bins": [
@@ -610,6 +610,132 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kashkeshet",
+   "machine_work": {
+    "src/bin/kkt/main.rs": [
+     "eprintln!"
+    ],
+    "src/commands/agent.rs": [
+     "println!"
+    ],
+    "src/commands/connect.rs": [
+     "println!"
+    ],
+    "src/commands/doctor.rs": [
+     "print!",
+     "println!"
+    ],
+    "src/commands/key.rs": [
+     "fs::read_to_string",
+     "eprintln!",
+     "println!"
+    ],
+    "src/commands/lanes.rs": [
+     "eprintln!",
+     "print!",
+     "println!"
+    ],
+    "src/commands/lifecycle.rs": [
+     "fs::read_to_string",
+     "fs::remove_file",
+     "println!"
+    ],
+    "src/commands/serve.rs": [
+     "eprintln!"
+    ],
+    "src/commands/service.rs": [
+     "net::TcpListener",
+     "net::TcpListener::bind",
+     "println!"
+    ],
+    "src/commands/setup.rs": [
+     "io::IsTerminal",
+     "io::stdin"
+    ],
+    "src/commands/setup/steps.rs": [
+     "env::split_paths",
+     "env::var_os",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::write",
+     "println!"
+    ],
+    "src/commands/watch.rs": [
+     "io::stdout",
+     "eprintln!"
+    ],
+    "src/logging.rs": [
+     "io::IsTerminal",
+     "io::stderr",
+     "io::stdout"
+    ],
+    "src/machine/connection.rs": [
+     "fs::read_to_string"
+    ],
+    "src/machine/credentials.rs": [
+     "env::var",
+     "fs::File",
+     "fs::File::open",
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::TryLockError::Error",
+     "fs::TryLockError::WouldBlock",
+     "fs::metadata",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::write",
+     "os::unix::fs",
+     "os::unix::fs::MetadataExt",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "eprintln!"
+    ],
+    "src/machine/keys.rs": [
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::write",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "eprintln!"
+    ],
+    "src/machine/record.rs": [
+     "fs::read_to_string",
+     "eprintln!"
+    ],
+    "src/machine/settings.rs": [
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::write"
+    ],
+    "src/process.rs": [
+     "env::current_exe",
+     "env::var_os",
+     "fs::create_dir_all",
+     "fs::rename",
+     "fs::write",
+     "eprintln!"
+    ],
+    "src/terminal/ask.rs": [
+     "io::stdin",
+     "io::stdout",
+     "print!",
+     "println!"
+    ],
+    "src/terminal/browser_login.rs": [
+     "io::IsTerminal",
+     "io::stdin",
+     "io::stdout",
+     "process::Command::new",
+     "process::Stdio",
+     "process::Stdio::null",
+     "println!"
+    ]
+   },
    "name": "kashkeshet",
    "path": ".",
    "released_program": true,
@@ -918,6 +1044,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_admission",
+   "machine_work": {},
    "name": "kkt-admission",
    "path": "crates/kkt-admission",
    "released_program": false,
@@ -1095,6 +1222,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_agent_client",
+   "machine_work": {},
    "name": "kkt-agent-client",
    "path": "crates/kkt-agent-client",
    "released_program": false,
@@ -1168,6 +1296,24 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_backup",
+   "machine_work": {
+    "src/lib.rs": [
+     "fs",
+     "fs::DirBuilder",
+     "fs::DirBuilder::new",
+     "fs::OpenOptions",
+     "fs::OpenOptions::new",
+     "fs::copy",
+     "fs::create_dir_all",
+     "fs::read",
+     "fs::read_dir",
+     "fs::remove_dir_all",
+     "fs::rename",
+     "fs::write",
+     "os::unix::fs::DirBuilderExt",
+     "os::unix::fs::OpenOptionsExt"
+    ]
+   },
    "name": "kkt-backup",
    "path": "crates/kkt-backup",
    "released_program": false,
@@ -1291,6 +1437,24 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_client_config",
+   "machine_work": {
+    "src/host.rs": [
+     "fs",
+     "fs::OpenOptions",
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::set_permissions",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "process::Command",
+     "process::Command::new",
+     "process::id"
+    ]
+   },
    "name": "kkt-client-config",
    "path": "crates/kkt-client-config",
    "released_program": false,
@@ -1504,6 +1668,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_clock",
+   "machine_work": {},
    "name": "kkt-clock",
    "path": "crates/kkt-clock",
    "released_program": false,
@@ -2410,6 +2575,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_config",
+   "machine_work": {},
    "name": "kkt-config",
    "path": "crates/kkt-config",
    "released_program": false,
@@ -2696,6 +2862,24 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_container",
+   "machine_work": {
+    "src/os.rs": [
+     "env::current_dir",
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::write",
+     "os::unix::fs",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "process::Command",
+     "process::Command::new",
+     "process::Stdio",
+     "process::Stdio::null",
+     "println!"
+    ]
+   },
    "name": "kkt-container",
    "path": "crates/kkt-container",
    "released_program": false,
@@ -3604,6 +3788,11 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_db",
+   "machine_work": {
+    "src/testing/conformance.rs": [
+     "thread::sleep"
+    ]
+   },
    "name": "kkt-db",
    "path": "crates/kkt-db",
    "released_program": false,
@@ -3756,6 +3945,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_db_sqlite",
+   "machine_work": {},
    "name": "kkt-db-sqlite",
    "path": "crates/kkt-db-sqlite",
    "released_program": false,
@@ -4000,6 +4190,14 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_diagnostics",
+   "machine_work": {
+    "src/probe.rs": [
+     "fs::Metadata",
+     "fs::metadata",
+     "fs::read_to_string",
+     "os::unix::fs::PermissionsExt"
+    ]
+   },
    "name": "kkt-diagnostics",
    "path": "crates/kkt-diagnostics",
    "released_program": false,
@@ -4250,6 +4448,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_events",
+   "machine_work": {},
    "name": "kkt-events",
    "path": "crates/kkt-events",
    "released_program": false,
@@ -4396,6 +4595,15 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_fake_product",
+   "machine_work": {
+    "src/lib.rs": [
+     "eprintln!"
+    ],
+    "src/main.rs": [
+     "eprintln!",
+     "println!"
+    ]
+   },
    "name": "kkt-fake-product",
    "path": "programs/kkt-fake-product",
    "released_program": false,
@@ -4531,6 +4739,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_format",
+   "machine_work": {},
    "name": "kkt-format",
    "path": "crates/kkt-format",
    "released_program": false,
@@ -4582,6 +4791,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_hosts",
+   "machine_work": {},
    "name": "kkt-hosts",
    "path": "crates/kkt-hosts",
    "released_program": false,
@@ -4654,6 +4864,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_identity",
+   "machine_work": {},
    "name": "kkt-identity",
    "path": "crates/kkt-identity",
    "released_program": false,
@@ -4680,6 +4891,13 @@ window.KKT_GRAPH = {
    ],
    "items": [],
    "lib": null,
+   "machine_work": {
+    "src/main.rs": [
+     "fs::read_to_string",
+     "eprintln!",
+     "println!"
+    ]
+   },
    "name": "kkt-keymode",
    "path": "programs/kkt-keymode",
    "released_program": false,
@@ -4811,6 +5029,16 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_lane_files",
+   "machine_work": {
+    "src/os.rs": [
+     "fs::create_dir_all",
+     "fs::read_dir",
+     "fs::read_to_string",
+     "fs::write",
+     "process::Command",
+     "process::Command::new"
+    ]
+   },
    "name": "kkt-lane-files",
    "path": "crates/kkt-lane-files",
    "released_program": false,
@@ -4863,6 +5091,18 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_logs",
+   "machine_work": {
+    "src/lib.rs": [
+     "fs",
+     "fs::File",
+     "fs::OpenOptions",
+     "fs::OpenOptions::new",
+     "fs::create_dir_all",
+     "fs::metadata",
+     "fs::remove_file",
+     "fs::rename"
+    ]
+   },
    "name": "kkt-logs",
    "path": "crates/kkt-logs",
    "released_program": false,
@@ -4926,6 +5166,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_mcp",
+   "machine_work": {},
    "name": "kkt-mcp",
    "path": "crates/kkt-mcp",
    "released_program": false,
@@ -5258,6 +5499,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_names",
+   "machine_work": {},
    "name": "kkt-names",
    "path": "crates/kkt-names",
    "released_program": false,
@@ -5368,6 +5610,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_provenance",
+   "machine_work": {},
    "name": "kkt-provenance",
    "path": "crates/kkt-provenance",
    "released_program": false,
@@ -5459,6 +5702,13 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_remote_access",
+   "machine_work": {
+    "src/os.rs": [
+     "process::Command::new",
+     "process::Stdio",
+     "process::Stdio::null"
+    ]
+   },
    "name": "kkt-remote-access",
    "path": "crates/kkt-remote-access",
    "released_program": false,
@@ -6402,6 +6652,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_rules",
+   "machine_work": {},
    "name": "kkt-rules",
    "path": "crates/kkt-rules",
    "released_program": false,
@@ -6550,6 +6801,15 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_scratch",
+   "machine_work": {
+    "src/lib.rs": [
+     "env::current_exe",
+     "fs::create_dir_all",
+     "fs::remove_dir_all",
+     "process::id",
+     "eprintln!"
+    ]
+   },
    "name": "kkt-scratch",
    "path": "crates/kkt-scratch",
    "released_program": false,
@@ -6768,6 +7028,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_server",
+   "machine_work": {},
    "name": "kkt-server",
    "path": "crates/kkt-server",
    "released_program": false,
@@ -7230,6 +7491,17 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_service",
+   "machine_work": {
+    "src/os.rs": [
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::write",
+     "process::Command::new",
+     "process::Stdio",
+     "process::Stdio::null"
+    ]
+   },
    "name": "kkt-service",
    "path": "crates/kkt-service",
    "released_program": false,
@@ -7513,6 +7785,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_settings",
+   "machine_work": {},
    "name": "kkt-settings",
    "path": "crates/kkt-settings",
    "released_program": false,
@@ -8133,6 +8406,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_setup",
+   "machine_work": {},
    "name": "kkt-setup",
    "path": "crates/kkt-setup",
    "released_program": false,
@@ -8226,6 +8500,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_shutdown",
+   "machine_work": {},
    "name": "kkt-shutdown",
    "path": "crates/kkt-shutdown",
    "released_program": false,
@@ -8843,6 +9118,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_store",
+   "machine_work": {},
    "name": "kkt-store",
    "path": "crates/kkt-store",
    "released_program": false,
@@ -9039,6 +9315,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_watch",
+   "machine_work": {},
    "name": "kkt-watch",
    "path": "crates/kkt-watch",
    "released_program": false,
@@ -9924,6 +10201,7 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_web",
+   "machine_work": {},
    "name": "kkt-web",
    "path": "crates/kkt-web",
    "released_program": false,
@@ -10402,6 +10680,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Admission"
+   ],
    "to": "kkt-admission"
   },
   {
@@ -10435,6 +10716,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-agent-client"
   },
   {
@@ -10461,6 +10743,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-backup"
   },
   {
@@ -10499,6 +10782,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "KKT_AGENT_TOOLS"
+   ],
    "to": "kkt-client-config"
   },
   {
@@ -10522,6 +10808,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Span",
+    "Time"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -10596,6 +10886,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "DEFAULT_SETUP_KEY",
+    "DEFAULT_SETUP_URL",
+    "MIN_RESPONSE_BYTES"
+   ],
    "to": "kkt-config"
   },
   {
@@ -10668,6 +10963,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-container"
   },
   {
@@ -10688,6 +10984,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db"
   },
   {
@@ -10719,6 +11016,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MANAGED",
+    "MemoryPlace"
+   ],
    "to": "kkt-db-sqlite"
   },
   {
@@ -10779,6 +11080,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "inspect_admin_key"
+   ],
    "to": "kkt-diagnostics"
   },
   {
@@ -10799,6 +11103,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -10819,6 +11124,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-identity"
   },
   {
@@ -10856,6 +11162,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-lane-files"
   },
   {
@@ -10878,6 +11185,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-logs"
   },
   {
@@ -10911,6 +11219,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -10935,6 +11244,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-provenance"
   },
   {
@@ -10970,6 +11280,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-remote-access"
   },
   {
@@ -11007,6 +11318,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Code"
+   ],
    "to": "kkt-rules"
   },
   {
@@ -11042,6 +11356,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-server"
   },
   {
@@ -11081,6 +11396,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-service"
   },
   {
@@ -11119,6 +11435,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -11264,6 +11581,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-setup"
   },
   {
@@ -11288,6 +11606,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -11319,6 +11638,21 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "ChannelFilter",
+    "ChannelKind",
+    "ChannelScope",
+    "MessageRange",
+    "NewAgentRecord",
+    "NewChannelRecord",
+    "NewMessageRecord",
+    "NewServerRunRecord",
+    "NewerFilter",
+    "Reads",
+    "SearchFilter",
+    "SentFilter",
+    "StoreError"
+   ],
    "to": "kkt-store"
   },
   {
@@ -11354,6 +11688,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-watch"
   },
   {
@@ -11383,6 +11718,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -11403,6 +11739,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -11452,6 +11789,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -11474,6 +11812,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Span",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -11502,6 +11844,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -11526,6 +11869,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -11557,6 +11903,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -11579,6 +11926,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -11601,6 +11949,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -11625,6 +11974,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -11661,6 +12011,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-watch"
   },
   {
@@ -11681,6 +12032,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Span",
+    "to_text"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -11703,6 +12058,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -11727,6 +12083,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -11747,6 +12104,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -11803,6 +12161,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -11823,6 +12182,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -11843,6 +12203,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -11865,6 +12226,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "AdminName"
+   ],
    "to": "kkt-names"
   },
   {
@@ -11887,6 +12251,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Time",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -11945,6 +12313,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-config"
   },
   {
@@ -11965,6 +12336,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -11987,6 +12359,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -12018,6 +12391,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -12038,6 +12412,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -12162,6 +12537,13 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "search::Excerpt",
+    "search::matches",
+    "testing",
+    "testing::Place",
+    "testing::conformance"
+   ],
    "to": "kkt-db"
   },
   {
@@ -12224,6 +12606,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db"
   },
   {
@@ -12244,6 +12627,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -12264,6 +12648,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "from_text",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -12296,6 +12684,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MIN_ACCESS_KEY_BYTES"
+   ],
    "to": "kkt-config"
   },
   {
@@ -12326,6 +12717,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -12346,6 +12738,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -12366,6 +12759,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -12390,6 +12784,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-admission"
   },
   {
@@ -12420,6 +12815,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Time",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -12446,6 +12845,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "EVENT_BUFFER"
+   ],
    "to": "kkt-config"
   },
   {
@@ -12469,6 +12871,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MemoryPlace"
+   ],
    "to": "kkt-db-sqlite"
   },
   {
@@ -12489,6 +12894,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -12520,6 +12926,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-identity"
   },
   {
@@ -12550,6 +12957,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "SeededEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -12588,6 +12998,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-rules"
   },
   {
@@ -12621,6 +13032,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-server"
   },
   {
@@ -12645,6 +13057,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -12675,6 +13088,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -12707,6 +13121,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -12729,6 +13144,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -12753,6 +13169,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -12777,6 +13196,12 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Limits",
+    "MAX_ADMIN_NAME_CHARS",
+    "MAX_LANE_DESCRIPTION_CHARS",
+    "MIN_RESPONSE_BYTES"
+   ],
    "to": "kkt-config"
   },
   {
@@ -12868,6 +13293,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Kept",
+    "LaneRetired",
+    "LaneVersion"
+   ],
    "to": "kkt-rules"
   },
   {
@@ -12897,6 +13327,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -12917,6 +13348,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -12939,6 +13371,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -12961,6 +13394,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "BearerToken"
+   ],
    "to": "kkt-admission"
   },
   {
@@ -12981,6 +13417,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -13019,6 +13458,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Deps",
+    "OperatorWording"
+   ],
    "to": "kkt-rules"
   },
   {
@@ -13048,6 +13491,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -13070,6 +13514,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -13092,6 +13537,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -13112,6 +13558,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-events"
   },
   {
@@ -13134,6 +13581,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -13164,6 +13612,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -13201,6 +13650,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-admission"
   },
   {
@@ -13224,6 +13674,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -13252,6 +13703,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -13275,6 +13727,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -13295,6 +13748,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -13315,6 +13769,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-identity"
   },
   {
@@ -13337,6 +13792,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -13361,6 +13817,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-provenance"
   },
   {
@@ -13396,6 +13853,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-server"
   },
   {
@@ -13424,6 +13882,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -13448,6 +13907,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -13475,6 +13935,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -13499,6 +13960,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -13521,6 +13985,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -13543,6 +14008,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -13563,6 +14029,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -13583,6 +14050,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "ServerKey"
+   ],
    "to": "kkt-admission"
   },
   {
@@ -13619,6 +14089,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-config"
   },
   {
@@ -13641,6 +14114,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-format"
   },
   {
@@ -13661,6 +14135,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -13681,6 +14156,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Identified",
+    "Identifying",
+    "KeyMode"
+   ],
    "to": "kkt-identity"
   },
   {
@@ -13697,6 +14177,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "AdminName",
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -13753,6 +14237,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Deps",
+    "OperatorWording",
+    "SwarmId"
+   ],
    "to": "kkt-rules"
   },
   {
@@ -13773,6 +14262,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -13802,6 +14292,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -13824,6 +14315,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -13844,6 +14336,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-events"
   },
   {
@@ -13873,6 +14366,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -13905,6 +14399,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -13929,6 +14424,12 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "DEFAULT_ALLOW_ANY_BIND",
+    "DEFAULT_DEPENDENCY_LOG_LEVEL",
+    "DEFAULT_LOG_LEVEL",
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-config"
   },
   {
@@ -13949,6 +14450,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -13969,6 +14471,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "DEFAULT_BIND"
+   ],
    "to": "kkt-config"
   },
   {
@@ -13999,6 +14504,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -14043,6 +14551,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-config"
   },
   {
@@ -14085,6 +14596,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-events"
   },
   {
@@ -14123,6 +14635,12 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "NamePack",
+    "testing",
+    "testing::SameHandleEntropy",
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -14209,6 +14727,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "NewServerRunRecord",
+    "schema"
+   ],
    "to": "kkt-store"
   },
   {
@@ -14238,6 +14760,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -14256,6 +14779,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db"
   },
   {
@@ -14278,6 +14802,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -14311,6 +14836,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -14343,6 +14869,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -14380,6 +14907,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Principal",
+    "ServerKey",
+    "SharedKey"
+   ],
    "to": "kkt-admission"
   },
   {
@@ -14404,6 +14936,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Span",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -14428,6 +14964,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-config"
   },
   {
@@ -14448,6 +14987,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-events"
   },
   {
@@ -14470,6 +15010,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-format"
   },
   {
@@ -14490,6 +15031,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -14510,6 +15052,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Identified",
+    "Identifying",
+    "KeyMode"
+   ],
    "to": "kkt-identity"
   },
   {
@@ -14538,6 +15085,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-mcp"
   },
   {
@@ -14560,6 +15108,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "AdminName",
+    "OPERATOR",
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -14582,6 +15135,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-provenance"
   },
   {
@@ -14634,6 +15188,15 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Agent",
+    "Audit",
+    "CommandLine",
+    "LaneImport",
+    "LaneSource",
+    "Permission",
+    "Permissions"
+   ],
    "to": "kkt-rules"
   },
   {
@@ -14654,6 +15217,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   },
   {
@@ -14680,6 +15244,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "StoreError",
+    "schema"
+   ],
    "to": "kkt-store"
   },
   {
@@ -14777,6 +15345,39 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Left",
+    "testing",
+    "testing::ChannelHidden",
+    "testing::administration_works",
+    "testing::agent_row",
+    "testing::announcement_editor_works",
+    "testing::changes_work",
+    "testing::channel_creation_works",
+    "testing::channel_row",
+    "testing::earlier_pages_work",
+    "testing::form_token_in",
+    "testing::get",
+    "testing::handoff_works",
+    "testing::hidden_channels_show_only_on_request",
+    "testing::history_works",
+    "testing::lanes_pages_work",
+    "testing::lists_channel",
+    "testing::member_lists_show_lanes_and_latest_messages",
+    "testing::members_shown",
+    "testing::next_change",
+    "testing::operator_changes_are_live",
+    "testing::page_script_works",
+    "testing::pages_work",
+    "testing::post",
+    "testing::post_for_page",
+    "testing::site",
+    "testing::stale_agents_work",
+    "testing::start_time",
+    "testing::summaries_agree_with_the_pages",
+    "testing::toast",
+    "testing::toast::of"
+   ],
    "to": "kkt-web"
   },
   {
@@ -14806,6 +15407,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -14828,6 +15430,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -14859,6 +15462,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -14893,6 +15497,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-store"
   },
   {
@@ -14990,6 +15595,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-web"
   },
   {
@@ -15010,6 +15616,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "Span",
+    "from_text",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -15054,6 +15665,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -15078,6 +15690,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -15110,6 +15723,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -15130,6 +15744,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-scratch"
   },
   {
@@ -15188,6 +15803,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -15210,6 +15826,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -15230,6 +15847,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-client-config"
   },
   {
@@ -15292,6 +15910,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -15312,6 +15931,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -15338,6 +15958,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-settings"
   },
   {
@@ -15410,6 +16031,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db"
   },
   {
@@ -15432,6 +16054,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-db-sqlite"
   },
   {
@@ -15456,6 +16079,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -15484,6 +16110,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-config"
   },
   {
@@ -15506,6 +16133,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -15536,6 +16164,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "SystemClock",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -15612,6 +16244,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "PREVIEW_BIND",
+    "PREVIEW_SEED"
+   ],
    "to": "kkt-config"
   },
   {
@@ -15652,6 +16288,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-events"
   },
   {
@@ -15674,6 +16311,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-hosts"
   },
   {
@@ -15708,6 +16346,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "OsEntropy",
+    "SeededEntropy",
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-names"
   },
   {
@@ -15728,6 +16371,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [
+    "StopSignals"
+   ],
    "to": "kkt-shutdown"
   },
   {
@@ -15762,6 +16408,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -15789,6 +16436,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -15813,177 +16461,250 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
    "to": "kkt-shutdown"
   }
+ ],
+ "kind_mismatches": [
+  "kashkeshet is marked composition but does machine work itself: in src/bin/kkt/main.rs, src/commands/agent.rs, src/commands/connect.rs, src/commands/doctor.rs, src/commands/key.rs, src/commands/lanes.rs, src/commands/lifecycle.rs, src/commands/serve.rs, src/commands/service.rs, src/commands/setup.rs, src/commands/setup/steps.rs, src/commands/watch.rs, src/logging.rs, src/machine/connection.rs, src/machine/credentials.rs, src/machine/keys.rs, src/machine/record.rs, src/machine/settings.rs, src/process.rs, src/terminal/ask.rs, src/terminal/browser_login.rs; with libc, tracing-subscriber",
+  "kkt-db is marked contract but does more than compute on its own values: Database::new takes backend (Backend); migrate takes target (Evolve); pending takes target (Evolve)",
+  "kkt-fake-product is marked composition but does machine work itself: in src/lib.rs, src/main.rs; with reqwest",
+  "kkt-keymode is marked composition but does machine work itself: in src/main.rs",
+  "kkt-server is marked composition but its own `real` feature touches the machine"
  ]
 };
 window.KKT_CONCERNS = {
- "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry and that no entry names a package that is gone. layers: the rows of the map, top to bottom. Each crate: its layer, its concern in plain words, and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
+ "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry, with a layer that exists and a kind it knows, and that no entry names a package that is gone. layers: the rows of the map, top to bottom: where in the system a crate sits. Each crate: its layer; its kind, what sort of crate it is, checked by kinds.py; its concern in plain words; and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
  "crates": {
   "kashkeshet": {
    "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs.",
+   "kind": "composition",
    "layer": "programs",
    "must_not": "Hold a clap type outside `cli.rs`, or let a command take one.",
    "title": "kkt (package kashkeshet)"
   },
   "kkt-admission": {
    "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also web sessions, and the checks on the server's keys.",
-   "layer": "identity",
+   "kind": "logic",
+   "layer": "access",
    "must_not": "Know about agent tokens or channel access."
   },
   "kkt-agent-client": {
    "concern": "The shared MCP client for agent commands and watching: avatar credentials, and reaching the server as an agent or admin.",
+   "kind": "effect",
    "layer": "clients"
   },
   "kkt-backup": {
    "concern": "Backup folders: their names, contents, file modes, and pruning.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Read the clock or copy the database itself: the caller passes both."
   },
   "kkt-client-config": {
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Touch the machine except through `Host`."
   },
   "kkt-clock": {
    "concern": "Time: the `Clock` contract, and kkt's time types `Time` and `Span`. The only crate that uses chrono.",
+   "kind": "mixed",
    "layer": "foundations",
    "must_not": "Let a chrono type into its public surface."
   },
   "kkt-config": {
    "concern": "Every limit, fixed setting and default, and their checks.",
+   "kind": "contract",
    "layer": "foundations",
    "must_not": "Read files or the environment."
   },
   "kkt-container": {
    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`."
   },
   "kkt-db": {
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the traits a backend implements.",
-   "layer": "rules",
+   "kind": "contract",
+   "layer": "data",
    "must_not": "Know a product's tables, name a database, or use a database library."
   },
   "kkt-db-sqlite": {
    "concern": "kkt-db over SQLite, the only crate that knows SQLite: it opens a SQLite database, in a file or in memory, as a kkt-db `Database`, adopts a database from before kkt-db as the caller's `Legacy` describes, and copies a database for backups.",
-   "layer": "rules",
+   "kind": "effect",
+   "layer": "data",
    "must_not": "Know a product's tables, or let a rusqlite type out of the crate."
   },
   "kkt-diagnostics": {
    "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Change anything, or touch the machine except through `Prober`."
   },
   "kkt-events": {
    "concern": "Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while it has a subscriber.",
-   "layer": "rules",
+   "kind": "logic",
+   "layer": "core",
    "must_not": "Let a tokio type out of the crate."
   },
   "kkt-fake-product": {
    "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and a fake `Identify` mapping made-up bearers to (swarm, role). Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
+   "kind": "composition",
    "layer": "programs",
    "must_not": "Be released."
   },
   "kkt-format": {
    "concern": "Turning rule results into text or JSON, within the response size cap.",
-   "layer": "rules",
+   "kind": "logic",
+   "layer": "surfaces",
    "must_not": "Decide permissions or read the database."
   },
   "kkt-hosts": {
    "concern": "Which host names the server answers to.",
-   "layer": "identity"
+   "kind": "logic",
+   "layer": "access"
   },
   "kkt-identity": {
    "concern": "Who a caller is: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. `KeyMode` is kkt's implementation. The one place that decides who someone is and what they may do.",
-   "layer": "identity",
+   "kind": "logic",
+   "layer": "access",
    "must_not": "Touch HTTP: each surface reads the principal off its own requests."
   },
   "kkt-keymode": {
    "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, to show the crates are a core and `kkt` one product on it. The HTTP-only end-to-end tests run against it in CI. Dev-only, never released.",
+   "kind": "composition",
    "layer": "programs",
    "must_not": "Be released, or share code with the `kkt` program."
   },
   "kkt-lane-files": {
    "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Touch the disk except through `Disk`."
   },
   "kkt-logs": {
    "concern": "The log file the server writes itself, rolled over and pruned within its policy.",
+   "kind": "effect",
    "layer": "foundations"
   },
   "kkt-mcp": {
    "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool.",
-   "layer": "assembly",
+   "kind": "logic",
+   "layer": "surfaces",
    "must_not": "Touch the database except through the rules, hold tool text in Rust, or decide who a caller is except through `Identify`."
   },
   "kkt-names": {
    "concern": "Avatars' handles, channel IDs, the name packs, and the randomness behind them (`Entropy`).",
+   "kind": "mixed",
    "layer": "foundations",
    "must_not": "Draw randomness except through `Entropy`."
   },
   "kkt-provenance": {
    "concern": "What produced a server run: the build, its git commit, and the settings that shape the run.",
+   "kind": "logic",
    "layer": "foundations",
    "must_not": "Store the run record: kkt-server does."
   },
   "kkt-remote-access": {
    "concern": "Sharing a service-mode server over the machine's existing Tailscale login.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service."
   },
   "kkt-rules": {
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm.",
-   "layer": "rules",
+   "kind": "logic",
+   "layer": "core",
    "must_not": "Reach the database except through `Reads` and `Writes`, or format output."
   },
   "kkt-scratch": {
    "concern": "Tests' scratch folders under `target/tmp`, named for the test and removed when dropped.",
+   "kind": "test support",
    "layer": "dev",
    "must_not": "Be anything but a dev-dependency."
   },
   "kkt-server": {
    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapters from the rules to the web page's contract, public for a product that builds its own page.",
+   "kind": "composition",
    "layer": "assembly",
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in."
   },
   "kkt-service": {
    "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs.",
-   "layer": "machine",
+   "kind": "mixed",
+   "layer": "operations",
    "must_not": "Touch the machine except through its `System` contract."
   },
   "kkt-settings": {
    "concern": "Gathering a server's settings from flags, the config file and defaults, and the default paths.",
-   "layer": "machine",
+   "kind": "logic",
+   "layer": "operations",
    "must_not": "Read files or the environment: callers pass their text and values in."
   },
   "kkt-setup": {
    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do.",
-   "layer": "machine",
+   "kind": "logic",
+   "layer": "operations",
    "must_not": "Read files or run anything: the program does, and carries out what is decided here."
   },
   "kkt-shutdown": {
    "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server.",
+   "kind": "mixed",
    "layer": "foundations",
    "must_not": "Let a tokio-util type out of the crate."
   },
   "kkt-store": {
    "concern": "The core's data: the `Reads`/`Writes` contract the rules use, its implementation in kkt-db's terms, and the core's tables as migrations.",
-   "layer": "rules",
+   "kind": "logic",
+   "layer": "data",
    "must_not": "Decide permissions, contain SQL, or know a particular database."
   },
   "kkt-watch": {
    "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server, clock, saved place and output are injected.",
+   "kind": "logic",
    "layer": "clients",
    "must_not": "Reach the server, the time, its place or its output except through what is injected."
   },
   "kkt-web": {
    "concern": "The human's pages, through a contract of its own: `Gate` says who is viewing each request, `Sources` gives each viewer its `Source`, and every change is a checked form post.",
-   "layer": "assembly",
+   "kind": "logic",
+   "layer": "surfaces",
    "must_not": "Depend on the rules, the store, admission or identity: kkt-server adapts them to its contract."
   }
  },
+ "kinds": [
+  {
+   "about": "Traits and plain values, with pure behaviour on its own value types (such as Time arithmetic, query checks and search matching), and no effect or wiring.",
+   "id": "contract",
+   "title": "contract"
+  },
+  {
+   "about": "Behaviour, with every effect injected. Protocol translation counts as logic.",
+   "id": "logic",
+   "title": "logic"
+  },
+  {
+   "about": "Touches the operating system, disk, network, real time or real randomness directly.",
+   "id": "effect",
+   "title": "effect"
+  },
+  {
+   "about": "Wires others and decides nothing.",
+   "id": "composition",
+   "title": "composition"
+  },
+  {
+   "about": "For tests only.",
+   "id": "test support",
+   "title": "test support"
+  },
+  {
+   "about": "A contract or logic together with a real effect. The current map only: in the proposed map, a mixed crate is a violation.",
+   "id": "mixed",
+   "title": "mixed"
+  }
+ ],
  "layers": [
   {
    "about": "What runs: the kkt command, and the two dev-only programs that assemble the same crates another way.",
@@ -15991,24 +16712,34 @@ window.KKT_CONCERNS = {
    "title": "Programs"
   },
   {
-   "about": "Putting the server together, and what callers reach over HTTP: the MCP endpoints and the web page.",
+   "about": "Putting the server together from its parts.",
    "id": "assembly",
-   "title": "Assembly and surfaces"
+   "title": "Assembly"
   },
   {
-   "about": "Who is let in at all, and who a caller is once in.",
-   "id": "identity",
-   "title": "Admission and identity"
+   "about": "What callers reach over HTTP: the MCP endpoints, their text, and the web page.",
+   "id": "surfaces",
+   "title": "Surfaces"
   },
   {
-   "about": "Every decision and change, the notices they send, the text they turn into, and the store and database under them.",
-   "id": "rules",
-   "title": "Rules and data"
+   "about": "Who is let in at all, who a caller is once in, and which host names the server answers to.",
+   "id": "access",
+   "title": "Access"
   },
   {
-   "about": "Settings, setup, services, Docker, Tailscale, client configs, backups and lane files: running kkt on a machine.",
-   "id": "machine",
-   "title": "Machine and operations"
+   "about": "Every decision and change, and the notices they send.",
+   "id": "core",
+   "title": "Core"
+  },
+  {
+   "about": "The store and the database under it.",
+   "id": "data",
+   "title": "Data"
+  },
+  {
+   "about": "Settings, setup, services, Docker, Tailscale, client configs, diagnostics, backups and lane files: running kkt on a machine.",
+   "id": "operations",
+   "title": "Operations"
   },
   {
    "about": "kkt as a client of a server: the shared MCP client and `kkt watch`.",
@@ -16016,7 +16747,7 @@ window.KKT_CONCERNS = {
    "title": "Clients"
   },
   {
-   "about": "Limits, time, names and randomness, the stop signal, logs and provenance: what everything else is built on.",
+   "about": "Time, randomness, names, the stop signal, limits, provenance and logs: what everything else is built on.",
    "id": "foundations",
    "title": "Foundations"
   },
@@ -16028,7 +16759,120 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install).",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install). \"injectors\" lists the wiring that a shared crate does itself (kkt-server, which assembles the server), in the same form; an entry that passes on what it was given names it in \"own\" and its supplier in \"supplier\".",
+ "injectors": {
+  "kkt-server": {
+   "wiring": [
+    {
+     "crate": "kkt-web",
+     "impl": "kkt-server::RulesSources",
+     "to": [
+      {
+       "at": "router",
+       "param": "sources"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-web",
+     "impl": "kkt-server::AdmissionGate",
+     "to": [
+      {
+       "at": "router",
+       "param": "gate"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-mcp",
+     "impl": "kkt-rules::Rules",
+     "to": [
+      {
+       "at": "endpoint",
+       "param": "rules"
+      },
+      {
+       "at": "mcp_admin::endpoint",
+       "param": "rules"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-mcp",
+     "impl": "kkt-format::Formatter",
+     "to": [
+      {
+       "at": "endpoint",
+       "param": "fmt"
+      },
+      {
+       "at": "mcp_admin::endpoint",
+       "param": "fmt"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-mcp",
+     "own": "the identity the program gave Parts",
+     "supplier": "the program's identity",
+     "to": [
+      {
+       "at": "endpoint",
+       "param": "identify"
+      },
+      {
+       "at": "mcp_admin::endpoint",
+       "param": "identify"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-rules",
+     "impl": "kkt-format::NoticeWording",
+     "to": [
+      {
+       "at": "Deps",
+       "param": "wording"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-rules",
+     "own": "the clock, entropy and database the program gave Parts",
+     "supplier": "the program's clock, entropy and database",
+     "to": [
+      {
+       "at": "Deps",
+       "param": "clock"
+      },
+      {
+       "at": "Deps",
+       "param": "entropy"
+      },
+      {
+       "at": "Deps",
+       "param": "db"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-admission",
+     "own": "the clock and entropy the program gave Parts",
+     "supplier": "the program's clock and entropy",
+     "to": [
+      {
+       "at": "Sessions::new",
+       "param": "clock"
+      },
+      {
+       "at": "Sessions::new",
+       "param": "entropy"
+      }
+     ]
+    }
+   ]
+  }
+ },
  "programs": {
   "kashkeshet": {
    "also": [
