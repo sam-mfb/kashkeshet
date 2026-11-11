@@ -20,7 +20,7 @@
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
-      "kkt-db-sqlite::Legacy",
+      "kkt-db::Legacy",
       "kkt-store::schema",
       "kkt-db::Database",
       "kkt-store::Db"

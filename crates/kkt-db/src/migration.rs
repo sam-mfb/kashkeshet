@@ -7,7 +7,9 @@
 //! applied, and applying one is one transaction with its record.
 //!
 //! A backend implements [`Evolve`]; [`migrate`] brings a database up to
-//! date through it, and [`pending`] says what that would do.
+//! date through it, and [`pending`] says what that would do. A database
+//! made before migrations were tracked is described by [`Legacy`], for a
+//! backend to adopt.
 
 use crate::{Column, ColumnType, Connection, Constraint, DbError, Index, Schema, Table};
 
@@ -125,6 +127,24 @@ pub struct Upgrade {
     pub set: &'static str,
     pub from: u32,
     pub to: u32,
+}
+
+/// A database from before migrations were tracked: which tables it has, how
+/// it is adopted, what goes, and which ones are too old to adopt. No
+/// backend's terms; each backend reads its own marker of such a database
+/// (SQLite's `user_version` in kkt-db-sqlite).
+#[derive(Clone, Debug)]
+pub struct Legacy {
+    /// The set its tables become.
+    pub set: &'static str,
+    /// Each old schema number that is adopted, and the version of the set
+    /// its tables are.
+    pub adopted: Vec<(i64, u32)>,
+    /// Columns those databases have that the set leaves out on purpose:
+    /// `(table, column)`. Their values are not kept.
+    pub dropped: Vec<(&'static str, &'static str)>,
+    /// What a database older than any adopted is told when it is refused.
+    pub too_old: String,
 }
 
 /// What a backend does to run migrations.

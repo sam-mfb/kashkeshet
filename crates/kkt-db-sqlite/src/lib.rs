@@ -28,8 +28,6 @@ mod sql;
 #[cfg(test)]
 mod tests;
 
-#[cfg(any(test, feature = "real"))]
-pub use adopt::Legacy;
 #[cfg(any(test, feature = "testing"))]
 pub use open::MemoryPlace;
 #[cfg(any(test, feature = "real"))]
