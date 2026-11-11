@@ -249,8 +249,8 @@ Open pull requests against `next`, the integration branch; `main` only
 receives releases. For larger changes, open an issue first. Read
 [CLAUDE.md](CLAUDE.md) for the design principles (simple, not opinionated,
 existing installs keep working), where code lives, and the rules, and
-[PRINCIPLES.md](PRINCIPLES.md) for the coding principles and how code is
-organized. Each pull
+[principles/](principles/) for the general architecture, coding and Rust
+principles. Each pull
 request says whether it can affect an existing install and how that was
 checked.
 
