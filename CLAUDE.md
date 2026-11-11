@@ -252,8 +252,8 @@ a sign the crate lines are wrong.
 - Run `cargo test`, `cargo clippy --all-targets -- -D warnings` and
   `cargo fmt --check` before every commit. CI runs the same on Ubuntu and
   macOS, and a pull request merges only when they pass.
-- CI also builds a crate outside the workspace that depends on kkt-rules,
-  kkt-server and kkt-server-listen (with `real`), whose dependencies have
+- CI also builds a crate outside the workspace that depends on
+  kkt-api-agent, kkt-rules, kkt-server and kkt-server-listen (with `real`), whose dependencies have
   build scripts, by git at the commit under test, as kkt-pro will
   (`.github/scripts/build-outside-crate.sh`): a shared crate must build
   when used that way.
