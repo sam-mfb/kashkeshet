@@ -654,7 +654,7 @@
 
   function showTable() {
     openDialog("Every trait, by the rule",
-      el("p", { class: "muted" }, "Consumers: crates other than the definer and the implementers that call the trait's methods in normal code. Derived from the public slots and the names in normal code, less the crates that only wire an implementation in, which are read from the code by hand. Where each trait lives in the proposal is written by hand (proposed.json)."),
+      el("p", { class: "muted" }, "Consumers: crates other than the definer and the implementers that call the trait's methods in their code (not their tests). Derived from the public slots and the names their code uses, less the crates that only wire an implementation in, which are read from the code by hand. Where each trait lives in the proposal is written by hand (proposed.json)."),
       el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
         el("thead", {}, el("tr", {}, ["Trait", "Consumers", "Test-only", "Implementations", "Rule", "In the proposal"].map((h) => el("th", {}, h)))),
         el("tbody", {}, proposed.table.map((r) => el("tr", {},
