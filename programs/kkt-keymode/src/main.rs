@@ -102,11 +102,11 @@ async fn run(args: &[String]) -> Result<(), String> {
         web_admission,
         admin_key,
         admin_name,
-    } = server_keys::check(&mut KeyFiles {
-        access: &access_key,
-        web: &web_key,
-        admin: admin_key.as_deref(),
-    })
+    } = server_keys::check(&mut KeyFiles(kkt_admission_os::KeyFiles::new(
+        key_path(&access_key),
+        key_path(&web_key),
+        admin_key.as_deref(),
+    )))
     .map_err(refusal)?;
     let config = AppConfig {
         admission,
@@ -301,10 +301,6 @@ fn invalid(e: impl std::fmt::Display) -> String {
     format!("invalid setting: {e}")
 }
 
-fn read(path: &Path) -> Result<String, String> {
-    std::fs::read_to_string(path).map_err(|e| format!("could not read {}: {e}", path.display()))
-}
-
 /// Why the server's keys were refused, naming the setting. kkt-keymode
 /// words the web and admin keys' refusals its own way, without the config
 /// file's setting names; the rest are kkt-admission's wording.
@@ -322,63 +318,29 @@ fn refusal(refusal: KeyRefusal<String>) -> String {
     }
 }
 
-/// The server's key files, as kkt-admission asks for them.
-struct KeyFiles<'a> {
-    access: &'a AccessKey,
-    web: &'a AccessKey,
-    admin: Option<&'a Path>,
-}
-
-impl KeyFiles<'_> {
-    fn key(key: &AccessKey) -> Result<Option<KeyText>, String> {
-        match key {
-            AccessKey::None => Ok(None),
-            AccessKey::File(path) | AccessKey::Default(path) => Ok(Some(KeyText {
-                text: read(path)?,
-                source: path.display().to_string(),
-            })),
-        }
-    }
-
-    /// The file at `path` if it exists; `None` if it does not.
-    fn optional(path: &Path) -> Result<Option<String>, String> {
-        match std::fs::read_to_string(path) {
-            Ok(text) => Ok(Some(text)),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(format!("could not read {}: {e}", path.display())),
-        }
+/// The selected key path, if that key is on.
+fn key_path(key: &AccessKey) -> Option<&Path> {
+    match key {
+        AccessKey::None => None,
+        AccessKey::File(path) | AccessKey::Default(path) => Some(path),
     }
 }
 
+/// Adapts native key texts, preserving this program's refusal wording.
+struct KeyFiles<'a>(kkt_admission_os::KeyFiles<'a>);
 impl KeyTexts for KeyFiles<'_> {
     type Error = String;
-
     fn access(&mut self) -> Result<Option<KeyText>, String> {
-        KeyFiles::key(self.access)
+        self.0.access().map_err(|e| e.to_string())
     }
-
-    /// The web key file, beside the access key, must exist: `kkt serve`
-    /// makes one, and this program makes no key.
     fn web(&mut self) -> Result<Option<KeyText>, String> {
-        KeyFiles::key(self.web)
+        self.0.web().map_err(|e| e.to_string())
     }
-
-    /// The admin key is on only when its file exists.
     fn admin(&mut self) -> Result<Option<KeyText>, String> {
-        let Some(path) = self.admin else {
-            return Ok(None);
-        };
-        Ok(KeyFiles::optional(path)?.map(|text| KeyText {
-            text,
-            source: path.display().to_string(),
-        }))
+        self.0.admin().map_err(|e| e.to_string())
     }
-
     fn admin_names(&mut self) -> Result<Option<String>, String> {
-        match self.admin {
-            Some(path) => KeyFiles::optional(&kkt_admission::admin_name_path(path)),
-            None => Ok(None),
-        }
+        self.0.admin_names().map_err(|e| e.to_string())
     }
 }
 
