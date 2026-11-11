@@ -2,28 +2,18 @@
 //! would upgrade, and copying it. The file is SQLite's (`kkt-db-sqlite`);
 //! the store sees only the database it opens.
 
-use kkt_db::{Legacy, Upgrade};
+use kkt_db::Upgrade;
 use kkt_db_sqlite::{Options, SqlitePlace, copy_database};
 use kkt_rules::Db;
 use std::path::Path;
 
 fn place(path: &Path) -> SqlitePlace {
-    SqlitePlace::new(path, Options::DEFAULT).adopting(legacy())
+    SqlitePlace::new(path, Options::DEFAULT).adopting(kkt_rules::legacy(TOO_OLD.into()))
 }
 
-/// The databases kkt made before kkt-db, which counted their schema in
-/// SQLite's `user_version`: 0.10.0's (21) is the core's version 1, and
-/// `next`'s with swarms (22) its version 2. The two handoff-note columns,
-/// whose notes migration 0019 copied into memory entries, are left behind. Older
+/// What a database older than kkt-rules' history adopts is told: older
 /// databases upgrade through 0.10 first.
-fn legacy() -> Legacy {
-    Legacy {
-        set: kkt_rules::CORE,
-        adopted: vec![(21, 1), (22, 2)],
-        dropped: vec![("agents", "handoff_note"), ("agents", "handoff_note_set_at")],
-        too_old: "this database is from a kkt version older than 0.10.0; upgrade it with kkt 0.10 first, then with this version".into(),
-    }
-}
+const TOO_OLD: &str = "this database is from a kkt version older than 0.10.0; upgrade it with kkt 0.10 first, then with this version";
 
 /// An upgrade opening the file would make, for the log and the backup
 /// before it: from what, to what.

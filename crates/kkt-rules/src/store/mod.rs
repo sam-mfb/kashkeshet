@@ -32,7 +32,7 @@ mod tests;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
-pub use schema::{CORE, schema};
+pub use schema::{CORE, legacy, schema};
 
 use kkt_db::{Backend, BackendExt, DbError};
 use queries::Store;
