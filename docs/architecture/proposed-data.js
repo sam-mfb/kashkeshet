@@ -869,17 +869,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-logs",
-      "impl": "kkt-clock-system::SystemClock",
-      "note": "kkt serve --log-file",
-      "to": [
-       {
-        "at": "RotatingFile::open",
-        "param": "clock"
-       }
-      ]
-     },
-     {
       "crate": "kkt-rules",
       "impl": "kkt-db-sqlite::SqlitePlace",
       "note": "SqlitePlace is the kkt-db Backend the Db runs on, with no adapter",
@@ -1025,6 +1014,18 @@ window.KKT_PROPOSED = {
        {
         "at": "provision",
         "param": "login"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-logs-os",
+      "impl": "kkt-clock-system::SystemClock",
+      "note": "kkt serve --log-file",
+      "status": "decided",
+      "to": [
+       {
+        "at": "RotatingFile::open",
+        "param": "clock"
        }
       ]
      }
@@ -1608,6 +1609,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-lane-files-os"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-logs-os"
    },
    {
     "from": "kashkeshet",
@@ -2289,6 +2299,42 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-terminal-os"
+   },
+   {
+    "from": "kkt-logs-os",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-logs-os",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-logs-os",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-logs"
+   },
+   {
+    "from": "kkt-logs-os",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-scratch"
    },
    {
     "from": "kkt-machine-os",
@@ -3007,13 +3053,13 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kashkeshet",
-    "items_gone": [],
+    "items_gone": [
+     "RotatingFile"
+    ],
     "items_new": [
      "LogLevel",
      "LogPolicy",
-     "check_dependency_log_level",
-     "start",
-     "start_stderr"
+     "check_dependency_log_level"
     ],
     "kind": "normal",
     "roles_after": [
@@ -3644,6 +3690,22 @@ window.KKT_PROPOSED = {
     "to": "kkt-shutdown"
    },
    {
+    "from": "kkt-logs",
+    "items_gone": [
+     "Clock"
+    ],
+    "items_new": [],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [],
+    "to": "kkt-clock"
+   },
+   {
     "from": "kkt-mcp",
     "items_gone": [
      "testing::SeqEntropy"
@@ -4014,11 +4076,11 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "logging::init_logging moves to kkt-logs: starting the log, to the terminal or the log file, with its filters"
+      "text": "logging::init_logging moves to kkt-logs-os: starting the log, to the terminal or the log file, with its filters"
      },
      {
       "status": "decided",
-      "text": "logging::init_stderr_logging moves to kkt-logs: kkt's own log lines, to standard error"
+      "text": "logging::init_stderr_logging moves to kkt-logs-os: kkt's own log lines, to standard error"
      },
      {
       "status": "decided",
@@ -4242,7 +4304,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-logs and kkt-machine-os. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
+      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-logs-os and kkt-machine-os. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
      },
      {
       "status": "decided",
@@ -4270,7 +4332,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/serve.rs: its machine work (errors before the log starts, starting the log) moves to kkt-terminal-os and kkt-logs. It keeps kkt serve's wiring and its banner."
+      "text": "src/commands/serve.rs: its machine work (errors before the log starts, starting the log) moves to kkt-terminal-os and kkt-logs-os. It keeps kkt serve's wiring and its banner."
      },
      {
       "status": "decided",
@@ -4290,7 +4352,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/logging.rs: its machine work (starting the log, whether output is a terminal) moves to kkt-logs. The file goes."
+      "text": "src/logging.rs: its machine work (starting the log, whether output is a terminal) moves to kkt-logs-os. The file goes."
      },
      {
       "status": "decided",
@@ -5935,11 +5997,7 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "logging::init_logging comes here from kashkeshet as start"
-     },
-     {
-      "status": "decided",
-      "text": "logging::init_stderr_logging comes here from kashkeshet as start_stderr"
+      "text": "RotatingFile moves to kkt-logs-os: writing, renaming and deleting the files, as kkt-logs' rules say"
      },
      {
       "status": "decided",
@@ -5963,7 +6021,64 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new fn rolls_over"
+     },
+     {
+      "status": "decided",
+      "text": "new fn rolled_name"
+     },
+     {
+      "status": "decided",
+      "text": "new fn prune_due"
+     },
+     {
+      "status": "decided",
+      "text": "new fn expired"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-logs-os"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-scratch in its tests: its file tests move to kkt-logs-os; the rules' tests need no files"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-logs-os",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-logs"
+     },
+     {
+      "status": "decided",
+      "text": "logging::init_logging comes here from kashkeshet as start"
+     },
+     {
+      "status": "decided",
+      "text": "logging::init_stderr_logging comes here from kashkeshet as start_stderr"
+     },
+     {
+      "status": "decided",
+      "text": "RotatingFile comes here from kkt-logs"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-logs"
+     },
+     {
+      "status": "decided",
       "text": "starting the log"
+     },
+     {
+      "status": "decided",
+      "text": "it writes the files as kkt-logs' rules say"
+     },
+     {
+      "status": "decided",
+      "text": "the file tests, moved from kkt-logs"
      }
     ]
    },
@@ -7873,6 +7988,12 @@ window.KKT_PROPOSED = {
     "to": "kkt-config"
    },
    {
+    "from": "kkt-logs",
+    "kind": "dev",
+    "role": "uses",
+    "to": "kkt-scratch"
+   },
+   {
     "from": "kkt-mcp",
     "kind": "normal",
     "role": "uses",
@@ -8270,7 +8391,13 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-logs": {
-    "concern": "The server's log: its own settings (`LogLevel`, `LogPolicy` and their checks), starting it, on the terminal or in its file, rolled over within its policy.",
+    "concern": "The log's rules and settings: `LogLevel` and `LogPolicy` with their checks, and when the file rolls over, what the rolled files are called and when one is old enough to delete. It touches no file: kkt-logs-os does, as these rules say.",
+    "kind": "logic",
+    "layer": "foundations",
+    "status": "decided"
+   },
+   "kkt-logs-os": {
+    "concern": "The log's files and its start: `RotatingFile` writes the log file, rolls it over and deletes old ones as kkt-logs' rules say; `start` and `start_stderr` start tracing, on the terminal or in the file. kkt-logs' `real` feature moves here, with tracing-subscriber.",
     "kind": "effect",
     "layer": "foundations",
     "status": "decided"
@@ -11133,11 +11260,11 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "logging::init_logging moves to kkt-logs: starting the log, to the terminal or the log file, with its filters"
+      "text": "logging::init_logging moves to kkt-logs-os: starting the log, to the terminal or the log file, with its filters"
      },
      {
       "status": "decided",
-      "text": "logging::init_stderr_logging moves to kkt-logs: kkt's own log lines, to standard error"
+      "text": "logging::init_stderr_logging moves to kkt-logs-os: kkt's own log lines, to standard error"
      },
      {
       "status": "decided",
@@ -11361,7 +11488,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-logs and kkt-machine-os. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
+      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-logs-os and kkt-machine-os. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
      },
      {
       "status": "decided",
@@ -11389,7 +11516,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/serve.rs: its machine work (errors before the log starts, starting the log) moves to kkt-terminal-os and kkt-logs. It keeps kkt serve's wiring and its banner."
+      "text": "src/commands/serve.rs: its machine work (errors before the log starts, starting the log) moves to kkt-terminal-os and kkt-logs-os. It keeps kkt serve's wiring and its banner."
      },
      {
       "status": "decided",
@@ -11409,7 +11536,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/logging.rs: its machine work (starting the log, whether output is a terminal) moves to kkt-logs. The file goes."
+      "text": "src/logging.rs: its machine work (starting the log, whether output is a terminal) moves to kkt-logs-os. The file goes."
      },
      {
       "status": "decided",
@@ -18255,9 +18382,7 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "A log file the server writes itself, kept within a `LogPolicy`: rolled over by size, with a bounded number of rolled files, none kept longer than the policy's age.",
     "dev_only": false,
-    "features": {
-     "real": []
-    },
+    "features": {},
     "holders": [],
     "implements": [],
     "items": [
@@ -18302,15 +18427,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The log file at `path`, appended to, and rolled over by its policy.",
-      "feature": "real",
-      "kind": "struct",
-      "methods": [
-       "open"
-      ],
-      "path": "RotatingFile"
-     },
-     {
       "doc": "Checks `dependency_log_level`.",
       "kind": "fn",
       "moved_from": "kkt-config",
@@ -18318,23 +18434,35 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Starts the server's log: to the terminal, with colour when it is one, or to the rolling log file.",
-      "feature": "real",
+      "doc": "Whether a rolled file last written at a time is past the policy's age.",
       "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "start",
+      "path": "expired",
+      "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "Starts a command's log: kkt's own lines only, to standard error.",
-      "feature": "real",
+      "doc": "Whether it is time to look for old rolled files: at most once per LOG_PRUNE_INTERVAL.",
       "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "start_stderr",
+      "path": "prune_due",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The name of the nth rolled file: the log file's name with .n after it.",
+      "kind": "fn",
+      "path": "rolled_name",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Whether a write rolls the file over first: when it would take a file that is not empty past the policy's size. One write larger than the limit still lands whole.",
+      "kind": "fn",
+      "path": "rolls_over",
+      "proposed_item": true,
       "status": "decided"
      }
     ],
-    "kind": "effect",
+    "kind": "logic",
     "lib": "kkt_logs",
     "machine_work": {
      "src/lib.rs": [
@@ -18354,11 +18482,7 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "logging::init_logging comes here from kashkeshet as start"
-     },
-     {
-      "status": "decided",
-      "text": "logging::init_stderr_logging comes here from kashkeshet as start_stderr"
+      "text": "RotatingFile moves to kkt-logs-os: writing, renaming and deleting the files, as kkt-logs' rules say"
      },
      {
       "status": "decided",
@@ -18382,7 +18506,110 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new fn rolls_over"
+     },
+     {
+      "status": "decided",
+      "text": "new fn rolled_name"
+     },
+     {
+      "status": "decided",
+      "text": "new fn prune_due"
+     },
+     {
+      "status": "decided",
+      "text": "new fn expired"
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-logs-os"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-scratch in its tests: its file tests move to kkt-logs-os; the rules' tests need no files"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "real": []
+    },
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "The log file at `path`, appended to, and rolled over by its policy.",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "open"
+      ],
+      "moved_from": "kkt-logs",
+      "path": "RotatingFile",
+      "status": "decided"
+     },
+     {
+      "doc": "Starts the server's log: to the terminal, with colour when it is one, or to the rolling log file.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "start",
+      "status": "decided"
+     },
+     {
+      "doc": "Starts a command's log: kkt's own lines only, to standard error.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "start_stderr",
+      "status": "decided"
+     }
+    ],
+    "kind": "effect",
+    "lib": "kkt_logs_os",
+    "name": "kkt-logs-os",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-logs"
+     },
+     {
+      "status": "decided",
+      "text": "logging::init_logging comes here from kashkeshet as start"
+     },
+     {
+      "status": "decided",
+      "text": "logging::init_stderr_logging comes here from kashkeshet as start_stderr"
+     },
+     {
+      "status": "decided",
+      "text": "RotatingFile comes here from kkt-logs"
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-logs"
+     },
+     {
+      "status": "decided",
       "text": "starting the log"
+     },
+     {
+      "status": "decided",
+      "text": "it writes the files as kkt-logs' rules say"
+     },
+     {
+      "status": "decided",
+      "text": "the file tests, moved from kkt-logs"
      }
     ],
     "released_program": false,
@@ -25669,10 +25896,7 @@ window.KKT_PROPOSED = {
     "items": [
      "LogLevel",
      "LogPolicy",
-     "RotatingFile",
-     "check_dependency_log_level",
-     "start",
-     "start_stderr"
+     "check_dependency_log_level"
     ],
     "kind": "normal",
     "optional": false,
@@ -25683,8 +25907,36 @@ window.KKT_PROPOSED = {
       "detail": [
        "LogLevel",
        "LogPolicy",
+       "check_dependency_log_level"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-logs"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kashkeshet",
+    "items": [
+     "RotatingFile",
+     "start",
+     "start_stderr"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
        "RotatingFile",
-       "check_dependency_log_level",
        "start",
        "start_stderr"
       ],
@@ -25696,7 +25948,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-logs"
+    "to": "kkt-logs-os"
    },
    {
     "features": [],
@@ -29687,17 +29939,16 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-logs",
     "items": [
-     "Clock",
      "Span",
      "Time"
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Clock",
        "Span",
        "Time"
       ],
@@ -29711,13 +29962,103 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-logs-os",
+    "items": [
+     "testing::FixedClock"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "testing::FixedClock"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-clock"
+   },
+   {
     "features": [],
-    "from": "kkt-logs",
+    "from": "kkt-logs-os",
+    "items": [
+     "Clock"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Clock"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-logs-os",
+    "items": [
+     "LOG_PRUNE_INTERVAL",
+     "LogLevel",
+     "LogPolicy",
+     "expired",
+     "prune_due",
+     "rolled_name",
+     "rolls_over"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "LOG_PRUNE_INTERVAL",
+       "LogLevel",
+       "LogPolicy",
+       "expired",
+       "prune_due",
+       "rolled_name",
+       "rolls_over"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-logs"
+   },
+   {
+    "features": [],
+    "from": "kkt-logs-os",
     "items": [
      "Dir"
     ],
     "kind": "dev",
     "optional": false,
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
@@ -29726,6 +30067,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],

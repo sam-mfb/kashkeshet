@@ -267,6 +267,16 @@ Message numbers are given only where they help to find a discussion in
 - **The fake product's HTTP client moves into its tests.** Only its tests use
   it, so reqwest, serde_json and futures become dev-dependencies.
 
+## Logging
+
+- **kkt-logs is split as kkt-backup is** (msg 2147, the audit's F7). It holds
+  real decisions, not just file work: when a write rolls the file over (past
+  the size, never while the file is empty), which rolled file goes, how rolled
+  files are named, when to look for old ones and which are past their age.
+  kkt-logs (logic) holds those rules and the log's settings; kkt-logs-os
+  (effect) writes, renames and deletes the files as the rules say, and starts
+  tracing.
+
 ## Third-party libraries
 
 - **Hide them, consolidating where reasonable** (msg 2141, the audit's F6;

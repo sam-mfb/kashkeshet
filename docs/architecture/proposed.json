@@ -273,6 +273,14 @@
     "sha2"
    ],
    "concern": "Hashing: `sha256`, the SHA-256 digest of some bytes. The one crate that uses sha2; its users call it."
+  },
+  {
+   "name": "kkt-logs-os",
+   "layer": "foundations",
+   "kind": "effect",
+   "from": "kkt-logs",
+   "status": "decided",
+   "concern": "The log's files and its start: `RotatingFile` writes the log file, rolls it over and deletes old ones as kkt-logs' rules say; `start` and `start_stderr` start tracing, on the terminal or in the file. kkt-logs' `real` feature moves here, with tracing-subscriber."
   }
  ],
  "moves": [
@@ -800,7 +808,7 @@
   },
   {
    "item": "kashkeshet::logging::init_logging",
-   "to": "kkt-logs",
+   "to": "kkt-logs-os",
    "status": "decided",
    "as": "start",
    "note": "starting the log, to the terminal or the log file, with its filters",
@@ -808,7 +816,7 @@
   },
   {
    "item": "kashkeshet::logging::init_stderr_logging",
-   "to": "kkt-logs",
+   "to": "kkt-logs-os",
    "status": "decided",
    "as": "start_stderr",
    "note": "kkt's own log lines, to standard error",
@@ -1053,6 +1061,12 @@
    "item": "kkt-settings::web_key_path",
    "to": "kkt-admission",
    "status": "decided"
+  },
+  {
+   "item": "kkt-logs::RotatingFile",
+   "to": "kkt-logs-os",
+   "status": "decided",
+   "note": "writing, renaming and deleting the files, as kkt-logs' rules say"
   }
  ],
  "remove_items": [
@@ -2042,6 +2056,34 @@
    "status": "decided",
    "feature": "real",
    "doc": "Takes group and other access off an agent credential file."
+  },
+  {
+   "crate": "kkt-logs",
+   "path": "rolls_over",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Whether a write rolls the file over first: when it would take a file that is not empty past the policy's size. One write larger than the limit still lands whole."
+  },
+  {
+   "crate": "kkt-logs",
+   "path": "rolled_name",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The name of the nth rolled file: the log file's name with .n after it."
+  },
+  {
+   "crate": "kkt-logs",
+   "path": "prune_due",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Whether it is time to look for old rolled files: at most once per LOG_PRUNE_INTERVAL."
+  },
+  {
+   "crate": "kkt-logs",
+   "path": "expired",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Whether a rolled file last written at a time is past the policy's age."
   }
  ],
  "declared": [],
@@ -3248,7 +3290,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-logs",
+   "to": "kkt-logs-os",
    "kind": "normal",
    "add": {
     "uses": [
@@ -3933,6 +3975,59 @@
    },
    "status": "decided",
    "note": "tightening a credential file, when kkt-setup's rule says so"
+  },
+  {
+   "from": "kkt-logs-os",
+   "to": "kkt-logs",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "LogPolicy",
+     "LogLevel",
+     "LOG_PRUNE_INTERVAL",
+     "rolls_over",
+     "rolled_name",
+     "prune_due",
+     "expired"
+    ]
+   },
+   "status": "decided",
+   "note": "it writes the files as kkt-logs' rules say"
+  },
+  {
+   "from": "kkt-logs",
+   "to": "kkt-scratch",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "its file tests move to kkt-logs-os; the rules' tests need no files"
+  },
+  {
+   "from": "kkt-logs-os",
+   "to": "kkt-scratch",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Dir"
+    ]
+   },
+   "status": "decided",
+   "note": "the file tests, moved from kkt-logs"
+  },
+  {
+   "from": "kkt-logs-os",
+   "to": "kkt-clock",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::FixedClock"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "testing"
+   ],
+   "note": "the file tests, moved from kkt-logs"
   }
  ],
  "decisions": {
@@ -4333,6 +4428,10 @@
   {
    "id": "45",
    "text": "From review of F1 (msg 2144): kkt-setup-os keeps only setup's files (the record, its note, the data folder), this program's path and PATH, rather than general file functions; the Docker folder's .env and the Tailscale auth key file are read through kkt-container's Host (kkt-container-os), staged keys and whether key files are there through kkt-admission-os, and whether a database is there through kkt-db-sqlite. The rule for agent credential files (refuse another user's, tighten a readable one, and the advice) is kkt-setup's; kkt-agent-client reads the owner and mode and tightens. write_record's doc no longer repeats the wrong text from the code."
+  },
+  {
+   "id": "46",
+   "text": "Msg 2147 (audit F7): kkt-logs is split as kkt-backup is, since it holds real decisions: when a write rolls the file over (past the size, never while empty), which rolled file goes, how rolled files are named, when to look for old ones and which are past their age. kkt-logs (logic) holds those rules and the log's settings; kkt-logs-os (effect) writes, renames and deletes the files as the rules say, and starts tracing."
   }
  ],
  "not_traits": [
@@ -4554,6 +4653,17 @@
      "check_access_key"
     ]
    }
+  },
+  {
+   "by": "kkt-logs",
+   "to": "kkt-logs-os",
+   "status": "decided",
+   "note": "the file writing takes the clock along",
+   "uses": {
+    "kkt-clock": [
+     "Clock"
+    ]
+   }
   }
  ],
  "method_adds": [
@@ -4668,14 +4778,6 @@
    "doc": "Shows a login link, opens it in the browser and waits for Enter. The program adapts it to kkt-container's LoginLink."
   },
   {
-   "item": "kkt-logs::start",
-   "doc": "Starts the server's log: to the terminal, with colour when it is one, or to the rolling log file."
-  },
-  {
-   "item": "kkt-logs::start_stderr",
-   "doc": "Starts a command's log: kkt's own lines only, to standard error."
-  },
-  {
    "item": "kkt-db::Legacy",
    "doc": "A database from before migrations were tracked: which tables it has, how it is adopted, what goes, and which ones are too old to adopt. No backend's terms; each backend reads its own marker of such a database (SQLite's user_version in kkt-db-sqlite)."
   },
@@ -4694,6 +4796,14 @@
   {
    "item": "kkt-setup-os::write_record",
    "doc": "Writes the setup record whole, where kkt-setup says it is."
+  },
+  {
+   "item": "kkt-logs-os::start",
+   "doc": "Starts the server's log: to the terminal, with colour when it is one, or to the rolling log file."
+  },
+  {
+   "item": "kkt-logs-os::start_stderr",
+   "doc": "Starts a command's log: kkt's own lines only, to standard error."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -4898,7 +5008,7 @@
   },
   "kkt-logs": {
    "status": "decided",
-   "concern": "The server's log: its own settings (`LogLevel`, `LogPolicy` and their checks), starting it, on the terminal or in its file, rolled over within its policy."
+   "concern": "The log's rules and settings: `LogLevel` and `LogPolicy` with their checks, and when the file rolls over, what the rolled files are called and when one is old enough to delete. It touches no file: kkt-logs-os does, as these rules say."
   },
   "kkt-setup": {
    "status": "decided",
@@ -4985,6 +5095,12 @@
    "to": "kkt-shutdown-os",
    "feature": "real",
    "status": "follows"
+  },
+  {
+   "from": "kkt-logs",
+   "to": "kkt-logs-os",
+   "feature": "real",
+   "status": "decided"
   }
  ],
  "rejected": [
@@ -5085,6 +5201,10 @@
      {
       "impl": "kashkeshet::terminal::browser_login::TerminalLink",
       "crate": "kkt-container"
+     },
+     {
+      "impl": "kkt-clock::SystemClock",
+      "crate": "kkt-logs"
      }
     ],
     "wiring_add": [
@@ -5215,6 +5335,18 @@
       ],
       "status": "decided",
       "note": "kkt setup for Docker, with Tailscale"
+     },
+     {
+      "impl": "kkt-clock-system::SystemClock",
+      "crate": "kkt-logs-os",
+      "to": [
+       {
+        "at": "RotatingFile::open",
+        "param": "clock"
+       }
+      ],
+      "status": "decided",
+      "note": "kkt serve --log-file"
      }
     ]
    },
@@ -5637,7 +5769,8 @@
   "kkt-lane-files": "logic",
   "kkt-backup": "logic",
   "kkt-shutdown": "logic",
-  "kkt-identity": "contract"
+  "kkt-identity": "contract",
+  "kkt-logs": "logic"
  },
  "open_questions": [
   {
@@ -6125,7 +6258,7 @@
    "note": "the owner check on agent credential files"
   },
   {
-   "crate": "kkt-logs",
+   "crate": "kkt-logs-os",
    "add": [
     "tracing",
     "tracing-subscriber"
@@ -6538,7 +6671,7 @@
     "what": "errors on standard error, the closed-pipe default, starting the log, the environment",
     "to": [
      "kkt-terminal-os",
-     "kkt-logs",
+     "kkt-logs-os",
      "kkt-machine-os"
     ],
     "status": "decided",
@@ -6628,7 +6761,7 @@
     "what": "errors before the log starts, starting the log",
     "to": [
      "kkt-terminal-os",
-     "kkt-logs"
+     "kkt-logs-os"
     ],
     "status": "decided",
     "keeps": "kkt serve's wiring and its banner"
@@ -6687,7 +6820,7 @@
     "file": "src/logging.rs",
     "what": "starting the log, whether output is a terminal",
     "to": [
-     "kkt-logs"
+     "kkt-logs-os"
     ],
     "status": "decided"
    },
