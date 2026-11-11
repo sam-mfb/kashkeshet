@@ -141,6 +141,14 @@
    "third_party": [
     "tokio"
    ]
+  },
+  {
+   "name": "kkt-search",
+   "layer": "foundations",
+   "kind": "logic",
+   "from": "kkt-db",
+   "status": "decided",
+   "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule), a search's terms, whether a text matches them, and an excerpt around the matches, with `Word` and `Excerpt` (how an excerpt is drawn). Pure text: it knows no database. kkt-db-sqlite and kkt-db's in-memory backend use it; kkt-db's `Search` names its `Excerpt` (msg 2014)."
   }
  ],
  "moves": [
@@ -275,6 +283,48 @@
    "to": "kkt-shutdown-os",
    "status": "follows",
    "note": "an effect, split out so no crate is mixed (msg 1992)"
+  },
+  {
+   "item": "kkt-db::search::words",
+   "to": "kkt-search",
+   "as": "words",
+   "status": "decided",
+   "note": "pure text, in a crate of its own (msg 2014)"
+  },
+  {
+   "item": "kkt-db::search::terms",
+   "to": "kkt-search",
+   "as": "terms",
+   "status": "decided",
+   "note": "pure text, in a crate of its own (msg 2014)"
+  },
+  {
+   "item": "kkt-db::search::matches",
+   "to": "kkt-search",
+   "as": "matches",
+   "status": "decided",
+   "note": "pure text, in a crate of its own (msg 2014)"
+  },
+  {
+   "item": "kkt-db::search::excerpt",
+   "to": "kkt-search",
+   "as": "excerpt",
+   "status": "decided",
+   "note": "pure text, in a crate of its own (msg 2014)"
+  },
+  {
+   "item": "kkt-db::search::Word",
+   "to": "kkt-search",
+   "as": "Word",
+   "status": "decided",
+   "note": "pure text, in a crate of its own (msg 2014)"
+  },
+  {
+   "item": "kkt-db::search::Excerpt",
+   "to": "kkt-search",
+   "as": "Excerpt",
+   "status": "decided",
+   "note": "pure text, in a crate of its own (msg 2014)"
   }
  ],
  "remove_items": [
@@ -282,6 +332,16 @@
    "item": "kkt-names::ALPHABET",
    "status": "decided",
    "note": "private to kkt-rules, for both making and spotting tokens (item 1)"
+  },
+  {
+   "item": "kkt-db::Database",
+   "status": "decided",
+   "note": "its typed read and write become BackendExt's provided methods, and its test hook a test backend (msg 2014)"
+  },
+  {
+   "item": "kkt-db::check",
+   "status": "decided",
+   "note": "its checks are Schema's methods (msg 2014)"
   }
  ],
  "method_moves": [
@@ -330,7 +390,7 @@
    "path": "testing::fail_next_write",
    "kind": "fn",
    "status": "decided",
-   "doc": "Makes the next write to a test store fail, for tests of what a failed write leaves (item 4)."
+   "doc": "Makes the next write to a test store fail, for tests of what a failed write leaves (item 4). It wraps the test store's backend in kkt-db's testing::FaultyBackend (msg 2014)."
   },
   {
    "crate": "kkt-agent-client",
@@ -365,7 +425,7 @@
    "path": "SqliteBackend",
    "kind": "struct",
    "status": "decided",
-   "doc": "A SQLite place, file or memory, meeting kkt-db's Backend, Connection and Evolve; it gives a kkt-db Database."
+   "doc": "A SQLite place, file or memory, meeting kkt-db's Backend, Connection and Evolve; kkt-store's Db is given it."
   },
   {
    "crate": "kkt-server",
@@ -373,6 +433,33 @@
    "kind": "struct",
    "status": "recommended",
    "doc": "kkt-names' NoticeWording, meeting kkt-rules' OperatorWording: it maps Audit to the admin key's name, or none. kkt-server builds it and hands it to the rules (A6)."
+  },
+  {
+   "crate": "kkt-db",
+   "path": "BackendExt",
+   "kind": "trait",
+   "status": "decided",
+   "methods": [
+    "read",
+    "write"
+   ],
+   "provided": [
+    "read",
+    "write"
+   ],
+   "doc": "The typed read and write a store calls, written once in terms of Backend's async read and write: the caller's own result and error types, the closure's error rolling a write back, and the guard that the work runs once. A blanket implementation over every Backend, ?Sized included, so they work through dyn Backend (msg 2014)."
+  },
+  {
+   "crate": "kkt-db",
+   "path": "testing::FaultyBackend",
+   "kind": "struct",
+   "status": "decided",
+   "methods": [
+    "new",
+    "fail_next_change_to"
+   ],
+   "feature": "testing",
+   "doc": "A backend that wraps another and fails the next change to a table on cue, in place of Database::fail_next_change_to. kkt-store's testing::fail_next_write uses it (msg 2014)."
   }
  ],
  "declared": [
@@ -719,6 +806,15 @@
    ],
    "status": "decided",
    "note": "as kkt-server's Parts::new: the fake product passes kkt-store's Db"
+  },
+  {
+   "slot": "kkt-store::Db::new",
+   "param": "database",
+   "traits": [
+    "kkt-db::Backend"
+   ],
+   "status": "decided",
+   "note": "a backend, which the store runs its work on through BackendExt; there is no Database to build (msg 2014)"
   }
  ],
  "edge_edits": [
@@ -977,52 +1073,6 @@
    ],
    "status": "decided",
    "note": "kkt-rules takes its store through its own Reads and Writes, which kkt-store's Db implements (C3; A5; A6)"
-  },
-  {
-   "from": "kkt-db-sqlite",
-   "to": "kkt-db",
-   "kind": "normal",
-   "drop": [
-    "Database"
-   ],
-   "status": "decided",
-   "note": "SqlitePlace no longer builds a kkt-db Database: the program builds one around its adapter (C6)"
-  },
-  {
-   "from": "kashkeshet",
-   "to": "kkt-db",
-   "kind": "normal",
-   "add": {
-    "wires": [
-     "Database"
-    ]
-   },
-   "status": "decided",
-   "note": "the program builds kkt-db's Database around its adapter over SqlitePlace (C6)"
-  },
-  {
-   "from": "kkt-keymode",
-   "to": "kkt-db",
-   "kind": "normal",
-   "add": {
-    "wires": [
-     "Database"
-    ]
-   },
-   "status": "decided",
-   "note": "as kkt (C6)"
-  },
-  {
-   "from": "kkt-fake-product",
-   "to": "kkt-db",
-   "kind": "normal",
-   "add": {
-    "wires": [
-     "Database"
-    ]
-   },
-   "status": "decided",
-   "note": "as kkt (C6)"
   },
   {
    "from": "kkt-clock-system",
@@ -1340,6 +1390,32 @@
    },
    "status": "recommended",
    "note": "its store works in kkt-rules' record and filter types, so there are no copies to map (A6)"
+  },
+  {
+   "from": "kkt-db",
+   "to": "kkt-search",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Excerpt",
+     "excerpt",
+     "matches",
+     "terms",
+     "words"
+    ]
+   },
+   "status": "decided",
+   "note": "Search holds an Excerpt, and the in-memory backend behind testing matches and draws excerpts as kkt-db-sqlite does (A10) (msg 2014)"
+  },
+  {
+   "from": "kkt-db-sqlite",
+   "to": "kkt-db",
+   "kind": "normal",
+   "drop": [
+    "check"
+   ],
+   "status": "decided",
+   "note": "its SQL is checked through Schema's check_ methods, not the check module (msg 2014)"
   }
  ],
  "decisions": {
@@ -1389,21 +1465,21 @@
   },
   "kkt-db::Backend": {
    "status": "decided",
-   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; each program adapts SqlitePlace to Backend, Connection and Evolve, a large adapter (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. Its read and write become async, and the blocking pool moves to kkt-db-sqlite (msg 2012). All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4).",
+   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; SqlitePlace is adapted to Backend, Connection and Evolve once, in kkt-db-sqlite-db (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. Its read and write become async, and the blocking pool moves to kkt-db-sqlite (msg 2012). All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4). Database is gone: BackendExt provides the typed read and write over any Backend (msg 2014).",
    "conflicts": [
     "C6"
    ]
   },
   "kkt-db::Connection": {
    "status": "decided",
-   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; each program adapts SqlitePlace to Backend, Connection and Evolve, a large adapter (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4).",
+   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; SqlitePlace is adapted to Backend, Connection and Evolve once, in kkt-db-sqlite-db (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4).",
    "conflicts": [
     "C6"
    ]
   },
   "kkt-db::Evolve": {
    "status": "decided",
-   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; each program adapts SqlitePlace to Backend, Connection and Evolve, a large adapter (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4).",
+   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; SqlitePlace is adapted to Backend, Connection and Evolve once, in kkt-db-sqlite-db (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4). migrate and pending are Evolve's provided methods, so the adapter writes only version and apply (msg 2014).",
    "conflicts": [
     "C6"
    ]
@@ -1660,6 +1736,10 @@
   {
    "id": "21",
    "text": "Database's thread pool (spawn_blocking in Database::run) moves into kkt-db-sqlite. Backend's read and write become async, so kkt-db no longer needs tokio (msg 2012). Shown on Backend's and Database's docs and on both crates' third-party lists."
+  },
+  {
+   "id": "22",
+   "text": "kkt-db is contract-only, with no logic crate beside it (msg 2014, replacing msg 2012's). Database disappears: its typed read and write become BackendExt's provided methods, over Backend's async read and write, with a blanket implementation that works through dyn Backend; its fault hook becomes testing::FaultyBackend, a backend that wraps another. migrate and pending become provided methods of Evolve, schema and schema_at Schema's latest and at, and the query checks Schema's check_ methods and operand_type; Step::apply_to stays. Search's text functions, Word and Excerpt move to a new crate, kkt-search (logic, A9, A10); Search and Hit stay in kkt-db."
   }
  ],
  "not_traits": [
@@ -1756,6 +1836,14 @@
   {
    "id": "A8",
    "text": "kkt-server's use of Identify (its web gate asks who the operator is, and it hands the same value to /mcp and /mcp-admin) is kkt-mcp's question, so kkt-server takes kkt-mcp's Identify. Two copies of one contract meant one adapter meeting both."
+  },
+  {
+   "id": "A9",
+   "text": "kkt-search sits in Foundations: it is pure text that the data crates build on and knows nothing of them, as kkt-clock and kkt-entropy sit under the crates that use them (msg 2014 left the layer to us)."
+  },
+  {
+   "id": "A10",
+   "text": "Search (which stays in kkt-db) holds an Excerpt, the style of its excerpts, and Excerpt moves to kkt-search with the text functions (msg 2014). So kkt-db depends on kkt-search for that value type, and kkt-store, which states its excerpt style, uses kkt-search's Excerpt beside kkt-db's Search and Hit. The other choice keeps Excerpt in kkt-db as a plain value and has kkt-search's excerpt take its marks and window as arguments; then neither kkt-db's Search nor kkt-store names kkt-search."
   }
  ],
  "code_moves": [
@@ -1865,11 +1953,7 @@
   },
   {
    "item": "kkt-db::Backend",
-   "doc": "A database a `crate::Database` can run work on. `read` and `write` are async: a backend that blocks, as SQLite does, runs the work on a thread pool of its own (msg 2012)."
-  },
-  {
-   "item": "kkt-db::Database",
-   "doc": "A database, as a store is given it. It awaits its backend's read and write, and knows no runtime (msg 2012)."
+   "doc": "A database a store can run work on, through BackendExt. `read` and `write` are async: a backend that blocks, as SQLite does, runs the work on a thread pool of its own (msgs 2012 and 2014)."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves the move that rests on A1 and the adapter reshape of msg 2009, which rests on A6, A7 and A8. \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -1919,7 +2003,7 @@
   },
   "kkt-db": {
    "status": "decided",
-   "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the shape of a database from before kkt-db; the traits a backend meets, and its own in-memory backend behind `testing`. kkt-db-sqlite meets them through an adapter."
+   "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL), with Schema's checks of which are valid; transactions, through Backend and the typed read and write BackendExt provides; search's Search and Hit; migrations as additions, run by Evolve's provided migrate and pending; the shape of a database from before kkt-db; and its own in-memory backend and fault-injecting backend behind `testing`. Every behaviour is a method of its own traits and types (msg 2014). kkt-db-sqlite meets it through an adapter."
   },
   "kkt-server": {
    "status": "recommended",
@@ -2160,12 +2244,11 @@
    "kashkeshet": {
     "steps": {
      "Database": {
-      "text": "A SqlitePlace for the database file goes into kkt-db-sqlite-db's SqliteBackend, which gives the kkt-db Database; kkt-store's Db opens it with the core's tables, adopting a database from before kkt-db as kkt-store's history describes it in kkt-db's Legacy shape. The Db meets kkt-rules' Reads and Writes itself (A6).",
+      "text": "A SqlitePlace for the database file goes into kkt-db-sqlite-db's SqliteBackend, a kkt-db Backend; kkt-store's Db runs on it with the core's tables, adopting a database from before kkt-db as kkt-store's history describes it in kkt-db's Legacy shape. The Db meets kkt-rules' Reads and Writes itself (A6).",
       "items": [
        "kkt-db-sqlite::SqlitePlace",
        "kkt-db-sqlite::Options",
        "kkt-db-sqlite-db::SqliteBackend",
-       "kkt-db::Database",
        "kkt-db::Legacy",
        "kkt-store::legacy",
        "kkt-store::schema",
@@ -2210,7 +2293,7 @@
        }
       ],
       "status": "decided",
-      "note": "SqliteBackend over the SqlitePlace gives the kkt-db Database (item 8)"
+      "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)"
      }
     ]
    },
@@ -2260,7 +2343,7 @@
        }
       ],
       "status": "decided",
-      "note": "SqliteBackend over the SqlitePlace gives the kkt-db Database (item 8)"
+      "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)"
      }
     ]
    },
@@ -2304,7 +2387,7 @@
        }
       ],
       "status": "decided",
-      "note": "SqliteBackend over the SqlitePlace gives the kkt-db Database (item 8)"
+      "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)"
      }
     ]
    }
@@ -2867,7 +2950,7 @@
     "tokio"
    ],
    "status": "decided",
-   "note": "no longer uses tokio: Database awaits the backend's async read and write, and the thread pool is the backend's (msg 2012)"
+   "note": "no longer uses tokio: BackendExt awaits the backend's async read and write, and the thread pool is the backend's (msgs 2012 and 2014)"
   },
   {
    "crate": "kkt-db-sqlite",
@@ -2875,7 +2958,114 @@
     "tokio"
    ],
    "status": "decided",
-   "note": "runs SQLite's blocking work on tokio's blocking pool (spawn_blocking), which moves here from kkt-db's Database::run; SqlitePlace's read and write are async (msg 2012)"
+   "note": "runs SQLite's blocking work on tokio's blocking pool (spawn_blocking), which moves here from kkt-db's Database::run, which is gone (msg 2014); SqlitePlace's read and write are async (msg 2012)"
+  }
+ ],
+ "replace_items": [
+  {
+   "item": "kkt-db::Database",
+   "status": "decided",
+   "users": {
+    "kkt-store": [
+     "kkt-db::Backend",
+     "kkt-db::BackendExt"
+    ],
+    "kkt-db-sqlite": [],
+    "kashkeshet": [],
+    "kkt-keymode": [],
+    "kkt-fake-product": []
+   }
+  }
+ ],
+ "fold_into": [
+  {
+   "item": "kkt-db::migrate",
+   "into": "Evolve",
+   "status": "decided",
+   "note": "brings the database up to date through the backend's own version and apply (msg 2014)"
+  },
+  {
+   "item": "kkt-db::pending",
+   "into": "Evolve",
+   "status": "decided",
+   "note": "the upgrades migrate would make (msg 2014)"
+  },
+  {
+   "item": "kkt-db::schema",
+   "into": "Schema",
+   "as": "latest",
+   "status": "decided",
+   "note": "the schema the sets declare at their latest versions (msg 2014)"
+  },
+  {
+   "item": "kkt-db::schema_at",
+   "into": "Schema",
+   "as": "at",
+   "status": "decided",
+   "note": "the schema the sets declare at the versions given (msg 2014)"
+  },
+  {
+   "item": "kkt-db::check::select",
+   "into": "Schema",
+   "as": "check_select",
+   "status": "decided",
+   "note": "which queries are valid is part of the contract every backend honours (msg 2014)"
+  },
+  {
+   "item": "kkt-db::check::count",
+   "into": "Schema",
+   "as": "check_count",
+   "status": "decided",
+   "note": "which queries are valid is part of the contract every backend honours (msg 2014)"
+  },
+  {
+   "item": "kkt-db::check::group",
+   "into": "Schema",
+   "as": "check_group",
+   "status": "decided",
+   "note": "which queries are valid is part of the contract every backend honours (msg 2014)"
+  },
+  {
+   "item": "kkt-db::check::search",
+   "into": "Schema",
+   "as": "check_search",
+   "status": "decided",
+   "note": "which queries are valid is part of the contract every backend honours (msg 2014)"
+  },
+  {
+   "item": "kkt-db::check::insert",
+   "into": "Schema",
+   "as": "check_insert",
+   "status": "decided",
+   "note": "which queries are valid is part of the contract every backend honours (msg 2014)"
+  },
+  {
+   "item": "kkt-db::check::update",
+   "into": "Schema",
+   "as": "check_update",
+   "status": "decided",
+   "note": "which queries are valid is part of the contract every backend honours (msg 2014)"
+  },
+  {
+   "item": "kkt-db::check::delete",
+   "into": "Schema",
+   "as": "check_delete",
+   "status": "decided",
+   "note": "which queries are valid is part of the contract every backend honours (msg 2014)"
+  },
+  {
+   "item": "kkt-db::check::condition",
+   "into": "Schema",
+   "as": "check_condition",
+   "status": "decided",
+   "note": "which queries are valid is part of the contract every backend honours (msg 2014)"
+  },
+  {
+   "item": "kkt-db::check::operand_type",
+   "into": "Schema",
+   "as": "operand_type",
+   "status": "decided",
+   "note": "as the checks (msg 2014)"
   }
  ]
 }

@@ -484,14 +484,13 @@ window.KKT_PROPOSED = {
        "kkt-db-sqlite::SqlitePlace",
        "kkt-db-sqlite::Options",
        "kkt-db-sqlite-db::SqliteBackend",
-       "kkt-db::Database",
        "kkt-db::Legacy",
        "kkt-store::legacy",
        "kkt-store::schema",
        "kkt-store::Db"
       ],
       "proposed_step": true,
-      "text": "A SqlitePlace for the database file goes into kkt-db-sqlite-db's SqliteBackend, which gives the kkt-db Database; kkt-store's Db opens it with the core's tables, adopting a database from before kkt-db as kkt-store's history describes it in kkt-db's Legacy shape. The Db meets kkt-rules' Reads and Writes itself (A6).",
+      "text": "A SqlitePlace for the database file goes into kkt-db-sqlite-db's SqliteBackend, a kkt-db Backend; kkt-store's Db runs on it with the core's tables, adopting a database from before kkt-db as kkt-store's history describes it in kkt-db's Legacy shape. The Db meets kkt-rules' Reads and Writes itself (A6).",
       "title": "Database"
      },
      {
@@ -1078,7 +1077,7 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-store",
       "impl": "kkt-db-sqlite-db::SqliteBackend",
-      "note": "SqliteBackend over the SqlitePlace gives the kkt-db Database (item 8)",
+      "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)",
       "status": "decided",
       "to": [
        {
@@ -1272,7 +1271,7 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-store",
       "impl": "kkt-db-sqlite-db::SqliteBackend",
-      "note": "SqliteBackend over the SqlitePlace gives the kkt-db Database (item 8)",
+      "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)",
       "status": "decided",
       "to": [
        {
@@ -1471,7 +1470,7 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-store",
       "impl": "kkt-db-sqlite-db::SqliteBackend",
-      "note": "SqliteBackend over the SqlitePlace gives the kkt-db Database (item 8)",
+      "note": "SqliteBackend over the SqlitePlace is the kkt-db Backend the store runs on (item 8; msg 2014)",
       "status": "decided",
       "to": [
        {
@@ -1665,6 +1664,14 @@ window.KKT_PROPOSED = {
   {
    "id": "A8",
    "text": "kkt-server's use of Identify (its web gate asks who the operator is, and it hands the same value to /mcp and /mcp-admin) is kkt-mcp's question, so kkt-server takes kkt-mcp's Identify. Two copies of one contract meant one adapter meeting both."
+  },
+  {
+   "id": "A9",
+   "text": "kkt-search sits in Foundations: it is pure text that the data crates build on and knows nothing of them, as kkt-clock and kkt-entropy sit under the crates that use them (msg 2014 left the layer to us)."
+  },
+  {
+   "id": "A10",
+   "text": "Search (which stays in kkt-db) holds an Excerpt, the style of its excerpts, and Excerpt moves to kkt-search with the text functions (msg 2014). So kkt-db depends on kkt-search for that value type, and kkt-store, which states its excerpt style, uses kkt-search's Excerpt beside kkt-db's Search and Hit. The other choice keeps Excerpt in kkt-db as a plain value and has kkt-search's excerpt take its marks and window as arguments; then neither kkt-db's Search nor kkt-store names kkt-search."
   }
  ],
  "changes": {
@@ -1876,6 +1883,29 @@ window.KKT_PROPOSED = {
     "to": "kkt-rules"
    },
    {
+    "from": "kkt-db",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-search"
+   },
+   {
+    "from": "kkt-db-sqlite",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-search"
+   },
+   {
+    "from": "kkt-db-sqlite",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-search"
+   },
+   {
     "from": "kkt-db-sqlite-db",
     "kind": "normal",
     "role": "implements",
@@ -1910,15 +1940,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-clock-system"
-   },
-   {
-    "from": "kkt-fake-product",
-    "kind": "normal",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-db"
    },
    {
     "from": "kkt-fake-product",
@@ -2113,15 +2134,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-clock-system"
-   },
-   {
-    "from": "kkt-keymode",
-    "kind": "normal",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-db"
    },
    {
     "from": "kkt-keymode",
@@ -2384,6 +2396,13 @@ window.KKT_PROPOSED = {
      "recommended"
     ],
     "to": "kkt-rules"
+   },
+   {
+    "from": "kkt-store",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-search"
    },
    {
     "from": "kkt-web",
@@ -2696,25 +2715,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-container"
-   },
-   {
-    "from": "kashkeshet",
-    "items_gone": [],
-    "items_new": [
-     "Database"
-    ],
-    "kind": "normal",
-    "roles_after": [
-     "uses",
-     "wires"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-db"
    },
    {
     "from": "kashkeshet",
@@ -3118,10 +3118,46 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-db-sqlite",
     "items_gone": [
+     "Database",
+     "search::Excerpt",
+     "search::excerpt",
+     "search::matches",
+     "search::terms",
+     "search::words"
+    ],
+    "items_new": [],
+    "kind": "dev",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [],
+    "to": "kkt-db"
+   },
+   {
+    "from": "kkt-db-sqlite",
+    "items_gone": [
      "Backend",
      "Connection",
      "Database",
-     "Evolve"
+     "check",
+     "check::count",
+     "check::delete",
+     "check::group",
+     "check::insert",
+     "check::operand_type",
+     "check::search",
+     "check::select",
+     "check::update",
+     "migrate",
+     "pending",
+     "schema",
+     "schema_at",
+     "search::excerpt",
+     "search::terms",
+     "search::words"
     ],
     "items_new": [
      "Legacy"
@@ -3890,8 +3926,13 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-store",
-    "items_gone": [],
+    "items_gone": [
+     "Database",
+     "search::Excerpt"
+    ],
     "items_new": [
+     "Backend",
+     "BackendExt",
      "Legacy",
      "testing::MemoryPlace"
     ],
@@ -4079,10 +4120,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program binds admin names to keys through kkt-admission (item 2)"
-     },
-     {
-      "status": "decided",
-      "text": "the program builds kkt-db's Database around its adapter over SqlitePlace (C6)"
      }
     ]
    },
@@ -5098,7 +5135,103 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses tokio: Database awaits the backend's async read and write, and the thread pool is the backend's (msg 2012)"
+      "text": "search::words moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "search::terms moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "search::matches moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "search::excerpt moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "search::Word moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "search::Excerpt moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "migrate becomes a provided method of Evolve: brings the database up to date through the backend's own version and apply (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "pending becomes a provided method of Evolve: the upgrades migrate would make (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "schema becomes Schema's method latest: the schema the sets declare at their latest versions (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "schema_at becomes Schema's method at: the schema the sets declare at the versions given (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::select becomes Schema's method check_select: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::count becomes Schema's method check_count: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::group becomes Schema's method check_group: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::search becomes Schema's method check_search: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::insert becomes Schema's method check_insert: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::update becomes Schema's method check_update: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::delete becomes Schema's method check_delete: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::condition becomes Schema's method check_condition: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::operand_type becomes Schema's method operand_type: as the checks (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "Database is no longer public: its typed read and write become BackendExt's provided methods, and its test hook a test backend (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check is no longer public: its checks are Schema's methods (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "new trait BackendExt"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::FaultyBackend"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses tokio: BackendExt awaits the backend's async read and write, and the thread pool is the backend's (msgs 2012 and 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "Search holds an Excerpt, and the in-memory backend behind testing matches and draws excerpts as kkt-db-sqlite does (A10) (msg 2014)"
      }
     ]
    },
@@ -5139,7 +5272,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "runs SQLite's blocking work on tokio's blocking pool (spawn_blocking), which moves here from kkt-db's Database::run; SqlitePlace's read and write are async (msg 2012)"
+      "text": "runs SQLite's blocking work on tokio's blocking pool (spawn_blocking), which moves here from kkt-db's Database::run, which is gone (msg 2014); SqlitePlace's read and write are async (msg 2012)"
      },
      {
       "status": "decided",
@@ -5147,7 +5280,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "SqlitePlace no longer builds a kkt-db Database: the program builds one around its adapter (C6)"
+      "text": "its SQL is checked through Schema's check_ methods, not the check module (msg 2014)"
      }
     ]
    },
@@ -5311,10 +5444,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4"
-     },
-     {
-      "status": "decided",
-      "text": "as kkt (C6)"
      }
     ]
    },
@@ -5349,15 +5478,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "renamed from kkt-identity: Key mode's identity: `KeyMode`, a plain type that implements nothing; it decides who a caller is from the key that let it in and the avatar's token, and kkt and kkt-keymode each adapt it to kkt-mcp's `Identify` (A8)."
-     }
-    ]
-   },
-   {
-    "crate": "kkt-keymode",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "as kkt (C6)"
      }
     ]
    },
@@ -5675,6 +5795,39 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "kkt-rules takes its store through its own Reads and Writes, which kkt-store's Db implements (C3; A5; A6)"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-search",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new logic crate, from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::words comes here from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::terms comes here from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::matches comes here from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::excerpt comes here from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::Word comes here from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::Excerpt comes here from kkt-db"
      }
     ]
    },
@@ -6096,6 +6249,10 @@ window.KKT_PROPOSED = {
      {
       "status": "recommended",
       "text": "its own type implements kkt-rules::Reads and kkt-rules::Writes itself: its private store type, reached through Db, is the adapter between kkt-db and kkt-rules: each of the 73 methods turns one of the rules' questions or changes into kkt-db operations, so none only forwards (A6)"
+     },
+     {
+      "status": "decided",
+      "text": "Db::new takes one database value meeting kkt-db::Backend"
      },
      {
       "status": "decided",
@@ -6688,7 +6845,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-db": {
-    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; search; migrations as additions; the shape of a database from before kkt-db; the traits a backend meets, and its own in-memory backend behind `testing`. kkt-db-sqlite meets them through an adapter.",
+    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL), with Schema's checks of which are valid; transactions, through Backend and the typed read and write BackendExt provides; search's Search and Hit; migrations as additions, run by Evolve's provided migrate and pending; the shape of a database from before kkt-db; and its own in-memory backend and fault-injecting backend behind `testing`. Every behaviour is a method of its own traits and types (msg 2014). kkt-db-sqlite meets it through an adapter.",
     "kind": "contract",
     "layer": "data",
     "must_not": "Know a product's tables, name a database, or use a database library.",
@@ -6837,6 +6994,12 @@ window.KKT_PROPOSED = {
     "kind": "test support",
     "layer": "dev",
     "must_not": "Be anything but a dev-dependency."
+   },
+   "kkt-search": {
+    "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule), a search's terms, whether a text matches them, and an excerpt around the matches, with `Word` and `Excerpt` (how an excerpt is drawn). Pure text: it knows no database. kkt-db-sqlite and kkt-db's in-memory backend use it; kkt-db's `Search` names its `Excerpt` (msg 2014).",
+    "kind": "logic",
+    "layer": "foundations",
+    "status": "decided"
    },
    "kkt-server": {
     "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take a store meeting kkt-rules' `Reads` and `Writes`, and an identity meeting kkt-mcp's `Identify`; it names none of kkt-store's types. As a composition it adapts what it builds itself (A6): RulesSource, RulesSources and AdmissionGate implement kkt-web's contract, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. Binding the socket is in kkt-server-listen.",
@@ -9154,6 +9317,10 @@ window.KKT_PROPOSED = {
   {
    "id": "21",
    "text": "Database's thread pool (spawn_blocking in Database::run) moves into kkt-db-sqlite. Backend's read and write become async, so kkt-db no longer needs tokio (msg 2012). Shown on Backend's and Database's docs and on both crates' third-party lists."
+  },
+  {
+   "id": "22",
+   "text": "kkt-db is contract-only, with no logic crate beside it (msg 2014, replacing msg 2012's). Database disappears: its typed read and write become BackendExt's provided methods, over Backend's async read and write, with a blanket implementation that works through dyn Backend; its fault hook becomes testing::FaultyBackend, a backend that wraps another. migrate and pending become provided methods of Evolve, schema and schema_at Schema's latest and at, and the query checks Schema's check_ methods and operand_type; Step::apply_to stays. Search's text functions, Word and Excerpt move to a new crate, kkt-search (logic, A9, A10); Search and Hit stay in kkt-db."
   }
  ],
  "graph": {
@@ -9923,10 +10090,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program binds admin names to keys through kkt-admission (item 2)"
-     },
-     {
-      "status": "decided",
-      "text": "the program builds kkt-db's Database around its adapter over SqlitePlace (C6)"
      }
     ],
     "released_program": true,
@@ -12545,6 +12708,10 @@ window.KKT_PROPOSED = {
       "trait": "Backend"
      },
      {
+      "implementors": [],
+      "trait": "BackendExt"
+     },
+     {
       "implementors": [
        {
         "crate": "kkt-db",
@@ -12594,17 +12761,7 @@ window.KKT_PROPOSED = {
     "features": {
      "testing": []
     },
-    "holders": [
-     {
-      "holds": [
-       {
-        "crate": "kkt-db",
-        "trait": "Backend"
-       }
-      ],
-      "type": "Database"
-     }
-    ],
+    "holders": [],
     "implements": [
      {
       "crate": "kkt-db",
@@ -12620,6 +12777,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-db",
+      "status": "decided",
       "trait": "Evolve",
       "trait_crate": "kkt-db",
       "type": "testing::MemoryPlace"
@@ -12648,13 +12806,28 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "doc": "A database a `crate::Database` can run work on. `read` and `write` are async: a backend that blocks, as SQLite does, runs the work on a thread pool of its own (msg 2012).",
+      "doc": "A database a store can run work on, through BackendExt. `read` and `write` are async: a backend that blocks, as SQLite does, runs the work on a thread pool of its own (msgs 2012 and 2014).",
       "kind": "trait",
       "methods": [
        "read",
        "write"
       ],
       "path": "Backend"
+     },
+     {
+      "doc": "The typed read and write a store calls, written once in terms of Backend's async read and write: the caller's own result and error types, the closure's error rolling a write back, and the guard that the work runs once. A blanket implementation over every Backend, ?Sized included, so they work through dyn Backend (msg 2014).",
+      "kind": "trait",
+      "methods": [
+       "read",
+       "write"
+      ],
+      "path": "BackendExt",
+      "proposed_item": true,
+      "provided": [
+       "read",
+       "write"
+      ],
+      "status": "decided"
      },
      {
       "doc": "",
@@ -12775,21 +12948,6 @@ window.KKT_PROPOSED = {
       "path": "Count"
      },
      {
-      "doc": "A database, as a store is given it. It awaits its backend's read and write, and knows no runtime (msg 2012).",
-      "feature_methods": {
-       "testing": [
-        "fail_next_change_to"
-       ]
-      },
-      "kind": "struct",
-      "methods": [
-       "new",
-       "read",
-       "write"
-      ],
-      "path": "Database"
-     },
-     {
       "doc": "",
       "kind": "enum",
       "path": "DbError",
@@ -12820,9 +12978,16 @@ window.KKT_PROPOSED = {
       "kind": "trait",
       "methods": [
        "apply",
+       "migrate",
+       "pending",
        "version"
       ],
-      "path": "Evolve"
+      "path": "Evolve",
+      "provided": [
+       "migrate",
+       "pending"
+      ],
+      "status": "decided"
      },
      {
       "doc": "A value a `Select` returns for each row.",
@@ -12950,11 +13115,23 @@ window.KKT_PROPOSED = {
       "doc": "Every table a database holds, as its migrations declared them.",
       "kind": "struct",
       "methods": [
+       "at",
+       "check_condition",
+       "check_count",
+       "check_delete",
+       "check_group",
+       "check_insert",
+       "check_search",
+       "check_select",
+       "check_update",
+       "latest",
+       "operand_type",
        "require",
        "table",
        "tables"
       ],
-      "path": "Schema"
+      "path": "Schema",
+      "status": "decided"
      },
      {
       "doc": "Rows of one table: for each row that meets `filter`, the `fields`.",
@@ -13085,95 +13262,14 @@ window.KKT_PROPOSED = {
       "path": "Work"
      },
      {
-      "doc": "Checks that a question or change fits the schema: its tables and columns exist, references are followed only through reference columns, and values are of their columns' types.",
-      "kind": "mod",
-      "path": "check"
-     },
-     {
-      "doc": "Checks a condition on rows of `table`.",
-      "kind": "fn",
-      "path": "check::condition"
-     },
-     {
-      "doc": "",
-      "kind": "fn",
-      "path": "check::count"
-     },
-     {
-      "doc": "",
-      "kind": "fn",
-      "path": "check::delete"
-     },
-     {
-      "doc": "",
-      "kind": "fn",
-      "path": "check::group"
-     },
-     {
-      "doc": "",
-      "kind": "fn",
-      "path": "check::insert"
-     },
-     {
-      "doc": "The type of `operand` read from a row of `table`.",
-      "kind": "fn",
-      "path": "check::operand_type"
-     },
-     {
-      "doc": "",
-      "kind": "fn",
-      "path": "check::search"
-     },
-     {
-      "doc": "",
-      "kind": "fn",
-      "path": "check::select"
-     },
-     {
-      "doc": "",
-      "kind": "fn",
-      "path": "check::update"
-     },
-     {
       "doc": "Shorthand for `Operand::Column`.",
       "kind": "fn",
       "path": "col"
      },
      {
-      "doc": "Brings the database up to date: applies each set's missing migrations, one transaction each, sets in the order given.",
-      "kind": "fn",
-      "path": "migrate"
-     },
-     {
-      "doc": "The upgrades `migrate` would make, without making them.",
-      "kind": "fn",
-      "path": "pending"
-     },
-     {
-      "doc": "The schema `sets` declare at their latest versions.",
-      "kind": "fn",
-      "path": "schema"
-     },
-     {
-      "doc": "The schema `sets` declare, each at the version given beside it, in the order given.",
-      "kind": "fn",
-      "path": "schema_at"
-     },
-     {
       "doc": "Search: words, terms, matching and excerpts, the same for every backend.",
       "kind": "mod",
       "path": "search"
-     },
-     {
-      "doc": "How an excerpt is drawn: the marks around each match, the mark where the window cuts the text, and how many words the window holds.",
-      "fields": [
-       "open",
-       "close",
-       "ellipsis",
-       "words"
-      ],
-      "kind": "struct",
-      "path": "search::Excerpt"
      },
      {
       "doc": "One row a search found.",
@@ -13195,40 +13291,22 @@ window.KKT_PROPOSED = {
       "path": "search::Search"
      },
      {
-      "doc": "One word of a text: its folded form, and where it stands in the text (byte offsets, `start..end`).",
-      "fields": [
-       "text",
-       "start",
-       "end"
-      ],
-      "kind": "struct",
-      "path": "search::Word"
-     },
-     {
-      "doc": "An excerpt of `text` around the places `terms` (as `terms` gives them) appear: FTS5's `snippet`, rewritten.",
-      "kind": "fn",
-      "path": "search::excerpt"
-     },
-     {
-      "doc": "Whether `text` matches every one of `terms` (as `terms` gives them).",
-      "kind": "fn",
-      "path": "search::matches"
-     },
-     {
-      "doc": "The terms of a search, each as its words: terms with no words dropped.",
-      "kind": "fn",
-      "path": "search::terms"
-     },
-     {
-      "doc": "The words of `text`, in order.",
-      "kind": "fn",
-      "path": "search::words"
-     },
-     {
       "doc": "For tests: `MemoryPlace`, a database held in memory that keeps the contract; `conformance`, the checks every backend must pass; and `Database::fail_next_change_to`, which makes a change fail on purpose.",
       "feature": "testing",
       "kind": "mod",
       "path": "testing"
+     },
+     {
+      "doc": "A backend that wraps another and fails the next change to a table on cue, in place of Database::fail_next_change_to. kkt-store's testing::fail_next_write uses it (msg 2014).",
+      "feature": "testing",
+      "kind": "struct",
+      "methods": [
+       "new",
+       "fail_next_change_to"
+      ],
+      "path": "testing::FaultyBackend",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "Where an in-memory database lives.",
@@ -13274,45 +13352,107 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses tokio: Database awaits the backend's async read and write, and the thread pool is the backend's (msg 2012)"
+      "text": "search::words moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "search::terms moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "search::matches moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "search::excerpt moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "search::Word moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "search::Excerpt moves to kkt-search: pure text, in a crate of its own (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "migrate becomes a provided method of Evolve: brings the database up to date through the backend's own version and apply (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "pending becomes a provided method of Evolve: the upgrades migrate would make (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "schema becomes Schema's method latest: the schema the sets declare at their latest versions (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "schema_at becomes Schema's method at: the schema the sets declare at the versions given (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::select becomes Schema's method check_select: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::count becomes Schema's method check_count: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::group becomes Schema's method check_group: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::search becomes Schema's method check_search: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::insert becomes Schema's method check_insert: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::update becomes Schema's method check_update: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::delete becomes Schema's method check_delete: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::condition becomes Schema's method check_condition: which queries are valid is part of the contract every backend honours (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check::operand_type becomes Schema's method operand_type: as the checks (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "Database is no longer public: its typed read and write become BackendExt's provided methods, and its test hook a test backend (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "check is no longer public: its checks are Schema's methods (msg 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "new trait BackendExt"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::FaultyBackend"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses tokio: BackendExt awaits the backend's async read and write, and the thread pool is the backend's (msgs 2012 and 2014)"
+     },
+     {
+      "status": "decided",
+      "text": "Search holds an Excerpt, and the in-memory backend behind testing matches and draws excerpts as kkt-db-sqlite does (A10) (msg 2014)"
      }
     ],
     "released_program": false,
-    "slots": [
-     {
-      "at": "Database::new",
-      "kind": "param",
-      "name": "backend",
-      "traits": [
-       {
-        "crate": "kkt-db",
-        "trait": "Backend"
-       }
-      ]
-     },
-     {
-      "at": "migrate",
-      "kind": "param",
-      "name": "target",
-      "traits": [
-       {
-        "crate": "kkt-db",
-        "trait": "Evolve"
-       }
-      ]
-     },
-     {
-      "at": "pending",
-      "kind": "param",
-      "name": "target",
-      "traits": [
-       {
-        "crate": "kkt-db",
-        "trait": "Evolve"
-       }
-      ]
-     }
-    ],
+    "slots": [],
     "third_party": [
      "thiserror"
     ]
@@ -13429,7 +13569,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "runs SQLite's blocking work on tokio's blocking pool (spawn_blocking), which moves here from kkt-db's Database::run; SqlitePlace's read and write are async (msg 2012)"
+      "text": "runs SQLite's blocking work on tokio's blocking pool (spawn_blocking), which moves here from kkt-db's Database::run, which is gone (msg 2014); SqlitePlace's read and write are async (msg 2012)"
      },
      {
       "status": "decided",
@@ -13437,7 +13577,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "SqlitePlace no longer builds a kkt-db Database: the program builds one around its adapter (C6)"
+      "text": "its SQL is checked through Schema's check_ methods, not the check module (msg 2014)"
      }
     ],
     "released_program": false,
@@ -13483,7 +13623,7 @@ window.KKT_PROPOSED = {
     ],
     "items": [
      {
-      "doc": "A SQLite place, file or memory, meeting kkt-db's Backend, Connection and Evolve; it gives a kkt-db Database.",
+      "doc": "A SQLite place, file or memory, meeting kkt-db's Backend, Connection and Evolve; kkt-store's Db is given it.",
       "kind": "struct",
       "path": "SqliteBackend",
       "proposed_item": true,
@@ -14508,10 +14648,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "item 4"
-     },
-     {
-      "status": "decided",
-      "text": "as kkt (C6)"
      }
     ],
     "released_program": false,
@@ -14709,13 +14845,7 @@ window.KKT_PROPOSED = {
     "lib": null,
     "name": "kkt-keymode",
     "path": "programs/kkt-keymode",
-    "proposed": "changed",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "as kkt (C6)"
-     }
-    ],
+    "proposed_notes": [],
     "released_program": false,
     "slots": [],
     "third_party": [
@@ -17685,6 +17815,109 @@ window.KKT_PROPOSED = {
     "bins": [],
     "builds": [],
     "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {},
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "How an excerpt is drawn: the marks around each match, the mark where the window cuts the text, and how many words the window holds.",
+      "fields": [
+       "open",
+       "close",
+       "ellipsis",
+       "words"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-db",
+      "path": "Excerpt",
+      "status": "decided"
+     },
+     {
+      "doc": "One word of a text: its folded form, and where it stands in the text (byte offsets, `start..end`).",
+      "fields": [
+       "text",
+       "start",
+       "end"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-db",
+      "path": "Word",
+      "status": "decided"
+     },
+     {
+      "doc": "An excerpt of `text` around the places `terms` (as `terms` gives them) appear: FTS5's `snippet`, rewritten.",
+      "kind": "fn",
+      "moved_from": "kkt-db",
+      "path": "excerpt",
+      "status": "decided"
+     },
+     {
+      "doc": "Whether `text` matches every one of `terms` (as `terms` gives them).",
+      "kind": "fn",
+      "moved_from": "kkt-db",
+      "path": "matches",
+      "status": "decided"
+     },
+     {
+      "doc": "The terms of a search, each as its words: terms with no words dropped.",
+      "kind": "fn",
+      "moved_from": "kkt-db",
+      "path": "terms",
+      "status": "decided"
+     },
+     {
+      "doc": "The words of `text`, in order.",
+      "kind": "fn",
+      "moved_from": "kkt-db",
+      "path": "words",
+      "status": "decided"
+     }
+    ],
+    "kind": "logic",
+    "lib": "kkt_search",
+    "name": "kkt-search",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new logic crate, from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::words comes here from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::terms comes here from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::matches comes here from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::excerpt comes here from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::Word comes here from kkt-db"
+     },
+     {
+      "status": "decided",
+      "text": "search::Excerpt comes here from kkt-db"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
     "crate_doc": "Puts the parts together: the rules, the MCP endpoint at `/mcp`, the admin endpoint at `/mcp-admin` when there is an admin key, and the web page at `/`.",
     "dev_only": false,
     "features": {},
@@ -20100,7 +20333,7 @@ window.KKT_PROPOSED = {
       "path": "testing"
      },
      {
-      "doc": "Makes the next write to a test store fail, for tests of what a failed write leaves (item 4).",
+      "doc": "Makes the next write to a test store fail, for tests of what a failed write leaves (item 4). It wraps the test store's backend in kkt-db's testing::FaultyBackend (msg 2014).",
       "kind": "fn",
       "path": "testing::fail_next_write",
       "proposed_item": true,
@@ -20150,6 +20383,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Db::new takes one database value meeting kkt-db::Backend"
+     },
+     {
+      "status": "decided",
       "text": "its tests wire kkt-db-sqlite-db's SqliteBackend instead of an adapter of their own (item 8)"
      },
      {
@@ -20177,21 +20414,17 @@ window.KKT_PROPOSED = {
     "slots": [
      {
       "at": "Db::new",
-      "holds": [
-       {
-        "crate": "kkt-db",
-        "traits": [
-         {
-          "crate": "kkt-db",
-          "trait": "Backend"
-         }
-        ],
-        "type": "Database"
-       }
-      ],
+      "holds": [],
       "kind": "param",
       "name": "database",
-      "traits": []
+      "note": "a backend, which the store runs its work on through BackendExt; there is no Database to build (msg 2014)",
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-db",
+        "trait": "Backend"
+       }
+      ]
      }
     ],
     "third_party": [
@@ -22392,12 +22625,10 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "Database",
      "Upgrade"
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
@@ -22405,12 +22636,6 @@ window.KKT_PROPOSED = {
        "Upgrade"
       ],
       "role": "uses"
-     },
-     {
-      "detail": [
-       "Database"
-      ],
-      "role": "wires"
      }
     ],
     "statuses": [
@@ -24239,6 +24464,39 @@ window.KKT_PROPOSED = {
     "to": "kkt-settings"
    },
    {
+    "features": [],
+    "from": "kkt-db",
+    "items": [
+     "Excerpt",
+     "excerpt",
+     "matches",
+     "terms",
+     "words"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Excerpt",
+       "excerpt",
+       "matches",
+       "terms",
+       "words"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-search"
+   },
+   {
     "features": [
      "testing"
     ],
@@ -24247,7 +24505,6 @@ window.KKT_PROPOSED = {
      "Column",
      "Condition",
      "Count",
-     "Database",
      "DbError",
      "Delete",
      "Insert",
@@ -24257,17 +24514,13 @@ window.KKT_PROPOSED = {
      "Upgrade",
      "col",
      "search",
-     "search::Excerpt",
-     "search::excerpt",
-     "search::matches",
-     "search::terms",
-     "search::words",
      "testing",
      "testing::Place",
      "testing::conformance"
     ],
     "kind": "dev",
     "optional": false,
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
@@ -24275,7 +24528,6 @@ window.KKT_PROPOSED = {
        "Column",
        "Condition",
        "Count",
-       "Database",
        "DbError",
        "Delete",
        "Insert",
@@ -24285,11 +24537,6 @@ window.KKT_PROPOSED = {
        "Upgrade",
        "col",
        "search",
-       "search::Excerpt",
-       "search::excerpt",
-       "search::matches",
-       "search::terms",
-       "search::words",
        "testing",
        "testing::Place",
        "testing::conformance"
@@ -24314,6 +24561,7 @@ window.KKT_PROPOSED = {
      "Count",
      "DbError",
      "Delete",
+     "Evolve",
      "Field",
      "Group",
      "Insert",
@@ -24333,26 +24581,10 @@ window.KKT_PROPOSED = {
      "Upgrade",
      "Value",
      "Work",
-     "check",
-     "check::count",
-     "check::delete",
-     "check::group",
-     "check::insert",
-     "check::operand_type",
-     "check::search",
-     "check::select",
-     "check::update",
      "col",
-     "migrate",
-     "pending",
-     "schema",
-     "schema_at",
      "search",
      "search::Hit",
-     "search::Search",
-     "search::excerpt",
-     "search::terms",
-     "search::words"
+     "search::Search"
     ],
     "kind": "normal",
     "optional": false,
@@ -24370,6 +24602,7 @@ window.KKT_PROPOSED = {
        "Count",
        "DbError",
        "Delete",
+       "Evolve",
        "Field",
        "Group",
        "Insert",
@@ -24389,26 +24622,10 @@ window.KKT_PROPOSED = {
        "Upgrade",
        "Value",
        "Work",
-       "check",
-       "check::count",
-       "check::delete",
-       "check::group",
-       "check::insert",
-       "check::operand_type",
-       "check::search",
-       "check::select",
-       "check::update",
        "col",
-       "migrate",
-       "pending",
-       "schema",
-       "schema_at",
        "search",
        "search::Hit",
-       "search::Search",
-       "search::excerpt",
-       "search::terms",
-       "search::words"
+       "search::Search"
       ],
       "role": "uses"
      }
@@ -24418,8 +24635,6 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [
-     "search::Excerpt",
-     "search::matches",
      "testing",
      "testing::Place",
      "testing::conformance"
@@ -24446,6 +24661,67 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-scratch"
+   },
+   {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-db-sqlite",
+    "items": [
+     "Excerpt",
+     "excerpt",
+     "matches",
+     "terms",
+     "words"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Excerpt",
+       "excerpt",
+       "matches",
+       "terms",
+       "words"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-search"
+   },
+   {
+    "features": [],
+    "from": "kkt-db-sqlite",
+    "items": [
+     "excerpt",
+     "terms",
+     "words"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "excerpt",
+       "terms",
+       "words"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [
+     "Excerpt",
+     "matches"
+    ],
+    "to": "kkt-search"
    },
    {
     "features": [],
@@ -24748,31 +25024,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-clock-system"
-   },
-   {
-    "features": [],
-    "from": "kkt-fake-product",
-    "items": [
-     "Database"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "Database"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db"
    },
    {
     "features": [],
@@ -25827,31 +26078,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-config"
-   },
-   {
-    "features": [],
-    "from": "kkt-keymode",
-    "items": [
-     "Database"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "Database"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-db"
    },
    {
     "features": [],
@@ -28278,12 +28504,13 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-store",
     "items": [
+     "Backend",
+     "BackendExt",
      "Column",
      "Condition",
      "Connection",
      "Constraint",
      "Count",
-     "Database",
      "DbError",
      "Delete",
      "Field",
@@ -28303,7 +28530,6 @@ window.KKT_PROPOSED = {
      "Value",
      "col",
      "search",
-     "search::Excerpt",
      "search::Search",
      "testing::MemoryPlace",
      "through"
@@ -28315,12 +28541,13 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Backend",
+       "BackendExt",
        "Column",
        "Condition",
        "Connection",
        "Constraint",
        "Count",
-       "Database",
        "DbError",
        "Delete",
        "Field",
@@ -28340,7 +28567,6 @@ window.KKT_PROPOSED = {
        "Value",
        "col",
        "search",
-       "search::Excerpt",
        "search::Search",
        "testing::MemoryPlace",
        "through"
@@ -28554,6 +28780,28 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-rules"
+   },
+   {
+    "features": [],
+    "from": "kkt-store",
+    "items": [
+     "Excerpt"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Excerpt"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-search"
    },
    {
     "features": [
@@ -29388,9 +29636,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-web"
    }
   ],
-  "kind_mismatches": [
-   "kkt-db is marked contract but does more than compute on its own values: Database::new takes backend (Backend); migrate takes target (Evolve); pending takes target (Evolve)"
-  ]
+  "kind_mismatches": []
  },
  "not_traits": [
   {
@@ -29677,7 +29923,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Backend",
-   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; each program adapts SqlitePlace to Backend, Connection and Evolve, a large adapter (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. Its read and write become async, and the blocking pool moves to kkt-db-sqlite (msg 2012). All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4).",
+   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; SqlitePlace is adapted to Backend, Connection and Evolve once, in kkt-db-sqlite-db (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. Its read and write become async, and the blocking pool moves to kkt-db-sqlite (msg 2012). All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4). Database is gone: BackendExt provides the typed read and write over any Backend (msg 2014).",
    "rule": "declared by its consumers",
    "status": "decided",
    "test_only": [],
@@ -29703,7 +29949,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Connection",
-   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; each program adapts SqlitePlace to Backend, Connection and Evolve, a large adapter (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4).",
+   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; SqlitePlace is adapted to Backend, Connection and Evolve once, in kkt-db-sqlite-db (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4).",
    "rule": "declared by its consumers",
    "status": "decided",
    "test_only": [],
@@ -29727,7 +29973,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Evolve",
-   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; each program adapts SqlitePlace to Backend, Connection and Evolve, a large adapter (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4).",
+   "result": "kkt-db keeps the contract. kkt-db-sqlite implements none of it; SqlitePlace is adapted to Backend, Connection and Evolve once, in kkt-db-sqlite-db (14 methods). This changes the model pair kkt-db and kkt-db-sqlite. All 14 methods forward: SqlitePlace exists only to meet kkt-db's contract (Q4). migrate and pending are Evolve's provided methods, so the adapter writes only version and apply (msg 2014).",
    "rule": "declared by its consumers",
    "status": "decided",
    "test_only": [],

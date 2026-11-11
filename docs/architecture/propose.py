@@ -94,6 +94,11 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     """The map `spec` makes of `graph`. `extra`, for the item 7 layer: more
     moves and items made private, and the parts Limits splits into."""
     extra = extra or {"moves": [], "private": [], "new_items": [], "replace": {}, "user_moves": {}}
+    # An item that disappears, and what each of its users takes instead
+    # (kkt-db's Database, msg 2014), works as item 7's split of Limits.
+    extra = dict(extra, replace=dict(extra["replace"]))
+    for ri in spec.get("replace_items", []):
+        extra["replace"][split(ri["item"])] = ri["users"]
     # Code that moves with a moved item takes the items only it uses along.
     from_moves = {}
     for cm in spec.get("code_moves", []):
@@ -131,6 +136,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         note(new["name"], f"new {new['kind']} crate, from {new['from']}", new["status"])
 
     home = {}
+    renamed_paths = {}
     for move in spec["moves"] + extra["moves"]:
         crate, path = split(move["item"])
         if path not in items_of.get(crate, {}):
@@ -142,9 +148,14 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         item = dict(items_of[crate].pop(path), moved_from=crate, status=move["status"])
         if move.get("feature"):
             item["feature"] = move["feature"]
-        items_of[move["to"]][path] = item
+        # A move may give the item a new path in its new crate (kkt-db's
+        # search::words becomes kkt-search's words, msg 2014).
+        if move.get("as"):
+            item["path"] = move["as"]
+            renamed_paths[(crate, path)] = move["as"]
+        items_of[move["to"]][move.get("as", path)] = item
         home[(crate, path)] = move["to"]
-        item_status[(move["to"], path)] = move["status"]
+        item_status[(move["to"], move.get("as", path))] = move["status"]
         note(crate, f"{path} moves to {move['to']}" + (f": {move['note']}" if move.get("note") else ""), move["status"])
         note(move["to"], f"{path} comes here from {crate}" + (", private" if move.get("private") else ""),
              move["status"])
@@ -176,20 +187,28 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     # crate (random_chars on Entropy, msg 2011): the function, and the slot
     # its parameter made, go; users of it use the trait.
     folded = {}
-    for fold in spec.get("fold_into_trait", []):
+    # The same for a function that becomes a method of one of its crate's
+    # own types (kkt-db's check functions on Schema, msg 2014), under a
+    # name of its own if `as` gives one.
+    for fold in spec.get("fold_into_trait", []) + spec.get("fold_into", []):
         crate, path = split(fold["item"])
         crate = home.get((crate, path), crate)
-        trait = items_of.get(crate, {}).get(fold["trait"])
-        if items_of.get(crate, {}).pop(path, None) is None or not trait or trait["kind"] != "trait":
-            problems.append(f"fold_into_trait: no function {path} and trait {fold['trait']} in {crate}")
+        into = fold.get("into") or fold["trait"]
+        target = items_of.get(crate, {}).get(into)
+        if items_of.get(crate, {}).pop(path, None) is None or not target:
+            problems.append(f"fold_into: no function {path} and item {into} in {crate}")
             continue
-        items_of[crate][fold["trait"]] = dict(trait, methods=sorted(set(trait.get("methods", [])) | {path}),
-                                              provided=sorted(set(trait.get("provided", [])) | {path}),
-                                              status=fold["status"])
+        method = fold.get("as", path.rsplit("::", 1)[-1])
+        provided = target["kind"] == "trait"
+        items_of[crate][into] = dict(target, methods=sorted(set(target.get("methods", [])) | {method}),
+                                     status=fold["status"])
+        if provided:
+            items_of[crate][into]["provided"] = sorted(set(target.get("provided", [])) | {method})
         crates[crate]["slots"] = [sl for sl in crates[crate]["slots"] if sl["at"] != path]
-        folded[(crate, path)] = fold["trait"]
-        item_status[(crate, fold["trait"])] = fold["status"]
-        note(crate, f"{path} becomes a provided method of {fold['trait']}: {fold['note']}", fold["status"])
+        folded[(crate, path)] = into
+        item_status[(crate, into)] = fold["status"]
+        kind = f"a provided method of {into}" if provided else f"{into}'s method {method}"
+        note(crate, f"{path} becomes {kind}: {fold['note']}", fold["status"])
 
     for edit in spec.get("doc_edits", []):
         crate, path = split(edit["item"])
@@ -204,6 +223,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         crate = home.get((crate, path), crate)
         if items_of.get(crate, {}).pop(path, None) is None:
             problems.append(f"remove_items: no item {path} in {crate}")
+        if crate in crates:
+            crates[crate]["slots"] = [sl for sl in crates[crate]["slots"]
+                                      if sl["at"] != path and not sl["at"].startswith(path + "::")]
         if rm.get("note"):
             note(crate, f"{path} is no longer public: {rm['note']}", rm["status"])
 
@@ -226,6 +248,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             continue
         items_of[new["crate"]][new["path"]] = {"path": new["path"], "kind": new["kind"], "doc": new["doc"],
                                                "status": new["status"], "proposed_item": True}
+        for key in ("methods", "provided", "feature"):
+            if new.get(key):
+                items_of[new["crate"]][new["path"]][key] = new[key]
         item_status[(new["crate"], new["path"])] = new["status"]
         note(new["crate"], f"new {new['kind']} {new['path']}", new["status"])
 
@@ -575,6 +600,17 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         entry["statuses"].add(edit["status"])
         note(edit["from"], edit["note"], edit["status"])
 
+    for (frm, to, kind), entry in grouped.items():
+        for (crate, path), new in renamed_paths.items():
+            if to == home[(crate, path)] and path in entry["items"]:
+                entry["items"][new] = entry["items"].pop(path)
+                if path in entry.get("item_statuses", {}):
+                    entry["item_statuses"][new] = entry["item_statuses"].pop(path)
+    for (frm, to, kind), paths in test_uses.items():
+        for (crate, path), new in renamed_paths.items():
+            if to == home[(crate, path)] and path in paths:
+                paths.discard(path)
+                paths.add(new)
     for (frm, to, kind), entry in grouped.items():
         for (crate, path), trait in folded.items():
             if to == crate and path in entry["items"]:
