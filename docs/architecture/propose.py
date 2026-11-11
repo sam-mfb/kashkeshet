@@ -188,7 +188,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 note(dst, f"{src}'s {path} goes: {mg['drop_note']}", mg["status"])
             elif path in items_of[dst]:
                 pass  # the same item, re-exported: one copy stays
-            elif mg.get("keep_public") or path in used_outside or path.split("::")[0] == "testing":
+            elif (path in mg["public"] if "public" in mg else (mg.get("keep_public") or path in used_outside)) \
+                    or path.split("::")[0] == "testing":
                 items_of[dst][path] = dict(item, moved_from=src, status=mg["status"])
                 item_status[(dst, path)] = mg["status"]
             else:
@@ -294,6 +295,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         crate = home.get((crate, path), crate)
         if items_of.get(crate, {}).pop(path, None) is None:
             problems.append(f"remove_items: no item {path} in {crate}")
+        gone.add((crate, path))
         if crate in crates:
             crates[crate]["slots"] = [sl for sl in crates[crate]["slots"]
                                       if sl["at"] != path and not sl["at"].startswith(path + "::")]
@@ -324,6 +326,20 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 items_of[new["crate"]][new["path"]][key] = new[key]
         item_status[(new["crate"], new["path"])] = new["status"]
         note(new["crate"], f"new {new['kind']} {new['path']}", new["status"])
+
+    # Moves of what item 7 puts in place, after it (kkt-rules' Settings, to
+    # kkt-api, msg 2031). An item item 7 adds keeps its users from item 7's
+    # table, so only `home` and the item move here.
+    for move in spec.get("late_moves", []):
+        crate, path = split(move["item"])
+        if path not in items_of.get(crate, {}):
+            problems.append(f"late_moves: no item {path} in {crate}")
+            continue
+        items_of[move["to"]][path] = dict(items_of[crate].pop(path), moved_from=crate, status=move["status"])
+        home[(crate, path)] = move["to"]
+        item_status[(move["to"], path)] = move["status"]
+        note(crate, f"{path} moves to {move['to']}: {move['note']}", move["status"])
+        note(move["to"], f"{path} comes here from {crate}", move["status"])
 
     table = {r["trait"]: r for r in trait_table(graph, spec.get("wires_only"))}
     declared = {}
@@ -361,13 +377,22 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             note(crate, f"no longer declares {path}" + (f" or the {len(moving) - 1} types that go with it" if len(moving) > 1 else ""),
                  decl["status"])
 
+    def chase(crate, path):
+        """Where an item ends up after every move, item 7's and then the
+        late ones (kkt-config to kkt-rules to kkt-api)."""
+        for _ in range(4):
+            if (crate, path) not in home:
+                break
+            crate = home[(crate, path)]
+        return crate
+
     def where(crate, path, consumer=None):
         """The crate the item `path` of `crate` lives in, as seen by `consumer`."""
         if consumer and (crate, path, consumer) in declared:
             return consumer
         if (crate, path) in redirect:
             return redirect[(crate, path)][0]
-        return home.get((crate, path), crate)
+        return chase(crate, path)
 
     def wheres(crate, path, consumer=None):
         """Every crate the item can be found in: a trait declared by two
@@ -376,7 +401,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             return [consumer]
         if (crate, path) in redirect:
             return redirect[(crate, path)]
-        return [home.get((crate, path), crate)]
+        return [chase(crate, path)]
 
     stop = {s["trait"]: s for s in spec["stop_implementing"]}
     records = []
@@ -414,6 +439,20 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             adapter_list.setdefault(program, []).append(a)
     shared_by = {}
     pending = []
+    # Implementations the proposal adds: kkt-rules' Rules implements
+    # kkt-api's traits, and the preview's Preview the ones kkt-web uses
+    # (msg 2031).
+    for ni in spec.get("new_implements", []):
+        ic, ip = split(ni["type"])
+        ic = where(ic, ip)
+        if ip not in items_of.get(ic, {}):
+            problems.append(f"new_implements: no item {ip} in {ic}")
+        for target in ni["to"]:
+            tc, tp = split(target)
+            if items_of.get(tc, {}).get(tp, {}).get("kind") != "trait":
+                problems.append(f"new_implements: {target} is not a trait in the proposed map")
+            records.append({"crate": ic, "type": ip, "trait_crate": tc, "trait": tp, "status": ni["status"]})
+        note(ic, f"{ip} implements {', '.join(ni['to'])}: {ni['note']}", ni["status"])
     for sa in spec.get("shared_adapters", []):
         if kinds.get(sa["crate"]) != "composition":
             problems.append(f"shared_adapters: {sa['crate']} is not a composition crate")
@@ -472,9 +511,15 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         for slot in c["slots"]:
             slot["traits"] = [{"crate": where(t["crate"], t["trait"], name), "trait": t["trait"]}
                               for t in slot["traits"]]
+            # A trait replaced by another crate's (kkt-web's Source by
+            # kkt-api's Api, msg 2031).
+            swapped = []
+            for t in slot["traits"]:
+                swap = next((sw for sw in spec.get("trait_swaps", []) if sw["from"] == f"{t['crate']}::{t['trait']}"), None)
+                swapped += [{"crate": split(x)[0], "trait": split(x)[1]} for x in swap["to"]] if swap else [t]
             # A trait that went with a merge leaves the slot taking the
             # merged crate's own type (swarms_stay_apart takes a Db).
-            slot["traits"] = [t for t in slot["traits"] if (t["crate"], t["trait"]) not in gone]
+            slot["traits"] = [t for t in swapped if (t["crate"], t["trait"]) not in gone]
             for h in slot.get("holds", []):
                 held = f"{h['crate']}::{h['type']}"
                 traits = []
@@ -581,7 +626,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             frm = merged.get(frm, frm)
             replaced = extra["replace"].get((e["to"], path))
             if replaced is not None:
-                targets = [split(r) for r in replaced.get(e["from"], [])]
+                targets = [(chase(*split(r)), split(r)[1]) for r in replaced.get(e["from"], [])]
             else:
                 targets = [(t, path) for t in wheres(e["to"], path, e["from"])]
             for target, p in targets:
@@ -602,6 +647,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             if replaced is not None:
                 for ref2 in replaced.get(e["from"], []):
                     rc, rp = split(ref2)
+                    rc = chase(rc, rp)
                     if rc != frm:
                         entry = entry_for((frm, rc, e["kind"]), e)
                         entry["items"][rp] = role_of.get(path, "uses")

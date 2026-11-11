@@ -100,7 +100,7 @@
    "kind": "logic",
    "from": "kkt-web",
    "status": "decided",
-   "concern": "The web page's preview over simulated data: `Preview` and `PreviewGate`, which implement kkt-web's `Source` and `Gate` themselves, as a program may (A7), with their settings; and the preview example, a dev-only program that serves the page. The preview's tests are here too. Its dev arrows to effect crates (kkt-clock-system, kkt-entropy-os) are the preview example's, which adapts them; the library depends on none.",
+   "concern": "The web page's preview over simulated data: `Preview`, which implements the parts of kkt-api the page uses (msg 2031), and `PreviewGate`, which implements kkt-web's `Gate` over kkt-web's sessions, as a program may (A7), with their settings; and the preview example, a dev-only program that serves the page. The preview's tests are here too. Its dev arrows to effect crates (kkt-clock-system, kkt-entropy-os) are the preview example's; the library depends on none.",
    "program": "web_preview (example)"
   },
   {
@@ -141,6 +141,14 @@
    "from": "kkt-db",
    "status": "decided",
    "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule, with its word table), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given; and `Word`. Pure text: it knows no database. kkt-db-sqlite and kkt-db's in-memory backend (behind `testing`) use it. kkt-db-sqlite's test that regenerates the word table writes to its path here, not kkt-db's search/table.rs (tests.rs:346) (msgs 2014 and 2018)."
+  },
+  {
+   "name": "kkt-api",
+   "layer": "core",
+   "kind": "contract",
+   "from": "kkt-rules",
+   "status": "decided",
+   "concern": "The application's operations, as a shared contract: the heart of kkt, which the web page and the MCP endpoints are today's protocols over (a REST or GraphQL surface could follow). Its traits by area (Api, Agents, Channels, Messages, Memory, Lanes, Server, Operator, Admin), the records and queries they use, and the errors they return. kkt-rules implements it; kkt-mcp, kkt-mcp-formatter, kkt-web and kkt-identity-keymode use it and depend on no kkt-rules type; the preview implements it with simulated data (msg 2031). Test doubles go behind `testing` where a user's tests need the API without the rules; today's tests use kkt-rules' testing::memory, so none is charted yet."
   }
  ],
  "moves": [
@@ -309,7 +317,349 @@
    "item": "kkt-admission::Sessions",
    "to": "kkt-web",
    "status": "decided",
-   "note": "kkt-web owns the sessions: IDs, hashing, expiry, sign-out and form tokens, with clock and entropy injected. The code moves unchanged, except that a session holds what the Gate's sign_in admitted instead of kkt-admission's Principal (msg 2021)"
+   "note": "kkt-web owns the sessions: IDs, hashing, expiry, sign-out and form tokens, with clock and entropy injected. The code moves as it is, except that a session holds the gate's own value instead of kkt_admission::Principal, which kkt-web cannot name (msgs 2021 and 2030)"
+  },
+  {
+   "item": "kkt-rules::ActivityRow",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Actor",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::AdminChannel",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Agent",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::AgentInfo",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::AgentLane",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::AgentStatus",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::AgentView",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Audit",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::ChannelActivity",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::ChannelChange",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::ChannelInfo",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::ChannelNote",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::ChannelQuery",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::ChannelRef",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::ClientInfo",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Code",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::HeldLane",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Kept",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::KeptReason",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Lane",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::LaneChange",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::LaneRetired",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::LaneSave",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::LaneTaking",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::LaneVersion",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Members",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::MemoryEntry",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::MemoryList",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::MemorySaved",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::MemorySummary",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Message",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::MessagePage",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::NewChannel",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Operator",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Page",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Permission",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Permissions",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Position",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::ReadQuery",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Reclaimed",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::RecordedClient",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Refusal",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Registration",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::Result",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::RuleError",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::SearchHit",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::SearchQuery",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::ServerAnnouncement",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::ServerRunInfo",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::StaleAgent",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::StaleHidden",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::SwarmId",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::WaitQuery",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::WaitResult",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-rules::channel_cursor",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a record, query or error of the application's operations (msg 2031)"
+  },
+  {
+   "item": "kkt-store::SwarmId",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "the swarm an operation acts in (msg 2031)"
   }
  ],
  "remove_items": [
@@ -327,6 +677,176 @@
    "item": "kkt-db::check",
    "status": "decided",
    "note": "its checks are Schema's methods (msg 2014)"
+  },
+  {
+   "item": "kkt-web::Source",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::Sources",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::SameSource",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::SourceError",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::ChannelAction",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::Channel",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::Agent",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::AgentLane",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::Message",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::ServerRun",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::Overview",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::ChannelSummary",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::ActivityCount",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::AgentSummary",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::ChannelLink",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::ChannelView",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::AgentView",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::MemoryEntry",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::StaleAgent",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::StaleHidden",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::KeptAgent",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::KeptReason",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::ServerAnnouncementVersion",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::ServerAnnouncementView",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::LaneSave",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::LaneLimits",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::LaneVersion",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::LaneSource",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::LaneRetired",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::LaneSummary",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::LanesView",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-web::LaneView",
+   "status": "decided",
+   "note": "kkt-web renders kkt-api's records and calls kkt-api directly; its contract keeps only the gate and live updates (msg 2031)"
+  },
+  {
+   "item": "kkt-server::RulesSource",
+   "status": "decided",
+   "note": "kkt-web calls kkt-api directly, so there is nothing to adapt (msg 2031)"
+  },
+  {
+   "item": "kkt-server::RulesSources",
+   "status": "decided",
+   "note": "kkt-web calls kkt-api directly, so there is nothing to adapt (msg 2031)"
   }
  ],
  "method_moves": [
@@ -368,7 +888,7 @@
    "path": "testing::memory",
    "kind": "fn",
    "status": "decided",
-   "doc": "A Db over kkt-db's in-memory database (testing::MemoryPlace) with the core's tables, for other crates' tests (item 4; in kkt-rules since msg 2017)."
+   "doc": "Rules over kkt-db's in-memory database with the core's tables, for other crates' tests, which set up their data through kkt-api's operations (item 4; msgs 2017 and 2032)."
   },
   {
    "crate": "kkt-rules",
@@ -444,89 +964,7 @@
    "path": "PageLimits",
    "kind": "struct",
    "status": "decided",
-   "doc": "The page's limits: messages per page, member excerpt length, the server announcement's and lanes' sizes. The router takes them once; kkt-server fills them from the rules' limits (msg 2019)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "Store",
-   "kind": "struct",
-   "status": "recommended",
-   "methods": [
-    "active_agent_count",
-    "activity",
-    "add_member",
-    "agent",
-    "agent_by_recovery_hash",
-    "agent_by_token_hash",
-    "agent_name_taken",
-    "agents",
-    "agents_by_last_seen",
-    "all_channel_ids",
-    "any_activity",
-    "any_channel",
-    "any_channel_ids",
-    "any_newer_messages",
-    "append_lane_version",
-    "append_server_announcement",
-    "channel",
-    "channel_id_taken",
-    "channel_ids",
-    "channel_messages",
-    "channel_summary",
-    "channel_use",
-    "count_any_newer_messages",
-    "count_newer_messages",
-    "current_server_announcement",
-    "delete_memory_entry",
-    "hidden_channel_ids",
-    "hidden_channel_summary",
-    "hide_agent",
-    "hide_channel",
-    "insert_agent",
-    "insert_channel",
-    "insert_lane",
-    "insert_message",
-    "insert_server_run",
-    "insert_swarm",
-    "is_member",
-    "lane",
-    "lane_history",
-    "lane_version",
-    "lanes",
-    "lanes_after",
-    "latest_message_from",
-    "member_count",
-    "members_by_join",
-    "members_by_name",
-    "memberships",
-    "memory_entries",
-    "memory_entry",
-    "message",
-    "message_count_from",
-    "message_times_since",
-    "newer_messages",
-    "owned_channel_ids",
-    "recent_messages",
-    "remove_member",
-    "retire_lane",
-    "save_memory_entry",
-    "search",
-    "server_announcement_history",
-    "server_runs",
-    "set_agent_client",
-    "set_agent_lane",
-    "set_channel_open",
-    "set_description",
-    "set_last_seen",
-    "set_note",
-    "set_owner",
-    "set_purpose",
-    "set_recovery_hash",
-    "set_revoked",
-    "set_token_hash",
-    "takeable_lanes_after"
-   ],
-   "doc": "The core's data as kkt-db operations: the 73 methods Reads and Writes had, now the store's own, with no trait and so no adapter. Db::read and Db::write hand it to their closure. Outside kkt-rules, normal code calls only insert_server_run (kkt-server's record_run, the fake product); tests/migrations/v0_10_0.rs pins every read on a 0.10.0 database, and other tests seed through insert_* (A12; kkt-review-373, msg 2026)."
+   "doc": "The limits only the page applies: messages per page and member excerpt length. The limits the rules enforce (the announcement's and lanes' sizes) come from kkt-api's Api::limits (msgs 2019 and 2031)."
   },
   {
    "crate": "kkt-server",
@@ -537,6 +975,163 @@
     "operator"
    ],
    "doc": "What kkt-server's web gate asks: which operator a principal is, and in which swarm. kkt-server's own contract; the program adapts its identity to it, as it adapts it to kkt-mcp's Identify (msg 2025)."
+  },
+  {
+   "crate": "kkt-api",
+   "path": "Api",
+   "kind": "trait",
+   "status": "recommended",
+   "methods": [
+    "in_swarm",
+    "limits",
+    "subscribe"
+   ],
+   "doc": "The application in one swarm: in_swarm gives the same operations in another swarm, limits reports the limits the rules enforce, and subscribe hears the swarm's notices. Every area below is a supertrait-free part of it, implemented by kkt-rules' Rules. (A13)"
+  },
+  {
+   "crate": "kkt-api",
+   "path": "Agents",
+   "kind": "trait",
+   "status": "recommended",
+   "methods": [
+    "authenticate",
+    "register_with_client",
+    "reclaim_with_client",
+    "unregister",
+    "set_description",
+    "list_agents"
+   ],
+   "doc": "Who an agent is and how it joins: authenticating a token, registering and reclaiming (with the client's name), unregistering, describing itself, and listing agents. (A13)"
+  },
+  {
+   "crate": "kkt-api",
+   "path": "Channels",
+   "kind": "trait",
+   "status": "recommended",
+   "methods": [
+    "create_channel",
+    "list_channels",
+    "join_channel",
+    "leave_channel",
+    "add_to_channel",
+    "remove_from_channel",
+    "transfer_owner",
+    "set_purpose",
+    "set_note",
+    "get_note",
+    "hide_channel",
+    "list_members"
+   ],
+   "doc": "Channels and membership, as agents and the operator change them: creating, listing, joining, leaving, adding and removing members, passing ownership, the purpose and note, hiding, and listing members. (A13)"
+  },
+  {
+   "crate": "kkt-api",
+   "path": "Messages",
+   "kind": "trait",
+   "status": "recommended",
+   "methods": [
+    "send",
+    "read",
+    "get_message",
+    "search",
+    "activity",
+    "wait_for_messages"
+   ],
+   "doc": "Messages: sending, reading, one message, searching, activity, and waiting for new ones. (A13)"
+  },
+  {
+   "crate": "kkt-api",
+   "path": "Memory",
+   "kind": "trait",
+   "status": "recommended",
+   "methods": [
+    "remember",
+    "recall",
+    "forget",
+    "list_memories"
+   ],
+   "doc": "An agent's memory: remember, recall, forget and list. (A13)"
+  },
+  {
+   "crate": "kkt-api",
+   "path": "Lanes",
+   "kind": "trait",
+   "status": "recommended",
+   "methods": [
+    "lanes",
+    "lanes_page",
+    "lane",
+    "lane_history",
+    "held_lane",
+    "take_lane",
+    "takeable_lanes_page",
+    "save_lane",
+    "create_lane",
+    "update_lane",
+    "retire_lane"
+   ],
+   "doc": "Lanes: listing (whole or by page), one lane and its history, the lane an agent holds, taking one, saving (create or update, for agents), creating and updating separately (for the page), and retiring. (A13)"
+  },
+  {
+   "crate": "kkt-api",
+   "path": "Server",
+   "kind": "trait",
+   "status": "recommended",
+   "methods": [
+    "current_server_announcement",
+    "server_announcement_history",
+    "save_server_announcement",
+    "server_runs",
+    "record_run"
+   ],
+   "doc": "The server's own records: the announcement and its history, saving it, the server runs, and recording a run (record_run, msg 2032). (A13)"
+  },
+  {
+   "crate": "kkt-api",
+   "path": "Operator",
+   "kind": "trait",
+   "status": "recommended",
+   "methods": [
+    "overview",
+    "hidden_channels",
+    "channel_view",
+    "agent_view",
+    "create_channel_as_operator",
+    "change_channel",
+    "hide_agent",
+    "stale_agents",
+    "hide_stale_agents",
+    "new_recovery_code"
+   ],
+   "doc": "What the operator sees and changes on the web page: the overview, hidden channels, one channel or agent in full, creating and changing channels as the operator, hiding agents and stale agents, and new recovery codes. (A13)"
+  },
+  {
+   "crate": "kkt-api",
+   "path": "Admin",
+   "kind": "trait",
+   "status": "recommended",
+   "methods": [
+    "admin_activity",
+    "admin_agent",
+    "admin_channel",
+    "admin_list_agents",
+    "admin_list_channels",
+    "admin_list_members",
+    "admin_list_memories",
+    "admin_message",
+    "admin_new_messages",
+    "admin_note",
+    "admin_read",
+    "admin_recall"
+   ],
+   "doc": "What /mcp-admin reads, across every channel of the swarm: activity, agents, channels, members, memories, messages and notes. (A13)"
+  },
+  {
+   "crate": "kkt-api",
+   "path": "NewServerRun",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What produced a server run, as Server::record_run takes it (msg 2032)."
   }
  ],
  "declared": [
@@ -725,6 +1320,33 @@
    ],
    "status": "decided",
    "note": "the web gate asks kkt-server's own WebIdentify, not kkt-mcp's Identify (msg 2025)"
+  },
+  {
+   "slot": "kkt-mcp::endpoint",
+   "param": "rules",
+   "traits": [
+    "kkt-api::Api"
+   ],
+   "status": "decided",
+   "note": "the agent endpoint calls kkt-api, not kkt-rules (msg 2031)"
+  },
+  {
+   "slot": "kkt-mcp::mcp_admin::endpoint",
+   "param": "rules",
+   "traits": [
+    "kkt-api::Api"
+   ],
+   "status": "decided",
+   "note": "as endpoint (msg 2031)"
+  },
+  {
+   "slot": "kkt-server::record_run",
+   "param": "db",
+   "traits": [
+    "kkt-api::Server"
+   ],
+   "status": "decided",
+   "note": "the run is recorded through kkt-api's Server::record_run, which kkt-rules implements (msg 2032)"
   }
  ],
  "edge_edits": [
@@ -971,41 +1593,14 @@
    "kind": "normal",
    "add": {
     "uses": [
-     "ActivityCount",
      "Admit",
-     "Agent",
-     "AgentLane",
-     "AgentSummary",
-     "AgentView",
-     "Channel",
-     "ChannelAction",
-     "ChannelLink",
-     "ChannelSummary",
-     "ChannelView",
-     "KeptAgent",
-     "KeptReason",
-     "LaneLimits",
-     "LaneRetired",
-     "LaneSave",
-     "LaneSource",
-     "LaneSummary",
-     "LaneVersion",
-     "LaneView",
-     "LanesView",
      "LiveEvent",
-     "MemoryEntry",
-     "Message",
-     "Overview",
-     "ServerRun",
      "SignIn",
-     "SourceError",
-     "StaleAgent",
-     "StaleHidden",
      "live_event"
     ]
    },
    "status": "decided",
-   "note": "the preview builds kkt-web's value types and implements none of its traits"
+   "note": "the preview builds kkt-web's live events and gate answers; its data are kkt-api's records (msg 2031)"
   },
   {
    "from": "kkt-web-preview",
@@ -1062,10 +1657,7 @@
    "add": {
     "uses": [
      "router",
-     "Source",
      "Gate",
-     "Sources",
-     "SameSource",
      "testing",
      "testing::site",
      "testing::get",
@@ -1230,7 +1822,7 @@
     "is_operator"
    ],
    "status": "recommended",
-   "note": "kkt-web works out the operator flag itself, as it does for live notices and toasts, so kkt-server decides nothing about it (A11)"
+   "note": "the operator flag is part of kkt-api's records, filled by kkt-rules (A11)"
   },
   {
    "from": "kkt-admission",
@@ -1290,6 +1882,140 @@
    "note": "PreviewGate reuses kkt-web's sessions instead of its own copy (msg 2021)"
   },
   {
+   "from": "kkt-rules",
+   "to": "kkt-api",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ActivityRow",
+     "Actor",
+     "AdminChannel",
+     "Agent",
+     "AgentInfo",
+     "AgentLane",
+     "AgentStatus",
+     "AgentView",
+     "Audit",
+     "ChannelActivity",
+     "ChannelChange",
+     "ChannelInfo",
+     "ChannelNote",
+     "ChannelQuery",
+     "ChannelRef",
+     "ClientInfo",
+     "Code",
+     "HeldLane",
+     "Kept",
+     "KeptReason",
+     "Lane",
+     "LaneChange",
+     "LaneRetired",
+     "LaneSave",
+     "LaneTaking",
+     "LaneVersion",
+     "Members",
+     "MemoryEntry",
+     "MemoryList",
+     "MemorySaved",
+     "MemorySummary",
+     "Message",
+     "MessagePage",
+     "NewChannel",
+     "NewServerRun",
+     "Operator",
+     "Page",
+     "Permission",
+     "Permissions",
+     "Position",
+     "ReadQuery",
+     "Reclaimed",
+     "RecordedClient",
+     "Refusal",
+     "Registration",
+     "Result",
+     "RuleError",
+     "SearchHit",
+     "SearchQuery",
+     "ServerAnnouncement",
+     "ServerRunInfo",
+     "Settings",
+     "StaleAgent",
+     "StaleHidden",
+     "SwarmId",
+     "WaitQuery",
+     "WaitResult",
+     "channel_cursor"
+    ]
+   },
+   "status": "decided",
+   "note": "its operations take and return kkt-api's records (msg 2031)"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-api",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Api",
+     "Operator",
+     "Lanes",
+     "Server",
+     "Channels",
+     "AgentInfo",
+     "AgentView",
+     "ChannelActivity",
+     "ChannelChange",
+     "ChannelInfo",
+     "ChannelRef",
+     "KeptReason",
+     "Lane",
+     "LaneRetired",
+     "LaneSave",
+     "LaneVersion",
+     "Message",
+     "NewChannel",
+     "Operator",
+     "RuleError",
+     "ServerAnnouncement",
+     "ServerRunInfo",
+     "StaleAgent",
+     "StaleHidden",
+     "SwarmId"
+    ]
+   },
+   "status": "decided",
+   "note": "the page calls kkt-api directly and renders its records; its own copies are gone (msg 2031)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-api",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "Api"
+    ],
+    "uses": [
+     "NewServerRun",
+     "Server"
+    ]
+   },
+   "status": "decided",
+   "note": "kkt-server hands the rules to kkt-mcp and kkt-web as kkt-api's Api, and records each run through Server::record_run (msgs 2031 and 2032)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-api",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "NewServerRun",
+     "Server"
+    ]
+   },
+   "status": "decided",
+   "note": "it records its run through kkt-api's Server::record_run (msg 2032)"
+  },
+  {
    "from": "kkt-server",
    "to": "kkt-web",
    "kind": "normal",
@@ -1300,31 +2026,43 @@
     ]
    },
    "status": "decided",
-   "note": "kkt-server builds the page's sessions and limits when it mounts the page (msgs 2019 and 2021)"
+   "note": "kkt-server builds the page's sessions and page-only limits when it mounts the page (msgs 2019, 2021 and 2031)"
   },
   {
-   "from": "kkt-server",
-   "to": "kkt-rules",
+   "from": "kkt-web-preview",
+   "to": "kkt-api",
    "kind": "normal",
    "add": {
     "uses": [
-     "Store"
+     "Api",
+     "Operator",
+     "Lanes",
+     "Server",
+     "Channels",
+     "AgentInfo",
+     "AgentView",
+     "ChannelActivity",
+     "ChannelChange",
+     "ChannelInfo",
+     "ChannelRef",
+     "KeptReason",
+     "Lane",
+     "LaneRetired",
+     "LaneSave",
+     "LaneVersion",
+     "Message",
+     "NewChannel",
+     "Operator",
+     "RuleError",
+     "ServerAnnouncement",
+     "ServerRunInfo",
+     "StaleAgent",
+     "StaleHidden",
+     "SwarmId"
     ]
    },
-   "status": "recommended",
-   "note": "record_run calls the Store's insert_server_run (A12)"
-  },
-  {
-   "from": "kkt-fake-product",
-   "to": "kkt-rules",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Store"
-    ]
-   },
-   "status": "recommended",
-   "note": "it records its run through the Store's insert_server_run (A12)"
+   "status": "decided",
+   "note": "Preview implements the parts of kkt-api the page uses, building kkt-api's records from its simulated world (msg 2031)"
   }
  ],
  "decisions": {
@@ -1408,7 +2146,7 @@
   },
   "kkt-web::Gate": {
    "status": "decided",
-   "result": "Declared by its consumer, kkt-web. kkt-server's AdmissionGate implements it as the programs' shared adapter (msg 2019): admits and sign_in, the two questions for kkt-admission, now that kkt-web keeps the sessions (msg 2021). The preview's PreviewGate implements it too, over kkt-web's sessions (A7).",
+   "result": "Declared by its consumer, kkt-web, the one web-specific contract left (msg 2031). kkt-server's AdmissionGate implements it as the programs' shared adapter (msg 2019): admits and sign_in, the two questions for kkt-admission, now that kkt-web keeps the sessions (msg 2021). The preview's PreviewGate implements it over kkt-web's sessions (A7).",
    "new": [
     "kkt-web-preview"
    ],
@@ -1421,29 +2159,25 @@
   },
   "kkt-web::Source": {
    "status": "decided",
-   "result": "As Gate: kkt-server's RulesSource (20 methods, all forwarding) and the preview's Preview implement it. Its limits come in at construction, and save_lane is split (msg 2019).",
+   "result": "Gone (msg 2031): kkt-web calls kkt-api directly. kkt-server's RulesSource goes; the preview implements kkt-api instead.",
    "new": [
     "kkt-web-preview"
    ],
    "conflicts": [
     "C4"
    ],
-   "assumptions": [
-    "A7"
-   ]
+   "assumptions": []
   },
   "kkt-web::Sources": {
    "status": "decided",
-   "result": "As Gate, for RulesSources and SameSource. No Parts slot or factory: kkt-server builds and mounts it (msg 2019).",
+   "result": "Gone (msg 2031), with SameSource: each viewer's swarm comes from Api::in_swarm.",
    "new": [
     "kkt-web-preview"
    ],
    "conflicts": [
     "C4"
    ],
-   "assumptions": [
-    "A7"
-   ]
+   "assumptions": []
   },
   "kkt-web::Viewer": {
    "status": "decided",
@@ -1584,7 +2318,7 @@
   },
   {
    "id": "9",
-   "text": "The strict rule covers only another crate's contract. A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, DryRun implements System, and SameSource stays in kkt-web and implements Sources (msg 1984)."
+   "text": "The strict rule covers only another crate's contract. A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, DryRun implements System, and SameSource stays in kkt-web and implements Sources (msg 1984). (Since msg 2031, SameSource is gone with Sources.)"
   },
   {
    "id": "10",
@@ -1640,11 +2374,11 @@
   },
   {
    "id": "23",
-   "text": "kkt-store merges into kkt-rules (msg 2017): its queries, its decisions, the core's tables and their history, and item 4's testing helpers. kkt-rules uses kkt-db directly. Reads, Writes and the copied record types go; the store's methods stay public on a concrete Store (A12). Q1 is resolved. CLAUDE.md's rule on where database access lives changes with the code refactor, not in #409."
+   "text": "kkt-store merges into kkt-rules (msg 2017): its queries, its decisions, the core's tables and their history, and item 4's testing helpers. kkt-rules uses kkt-db directly. Reads, Writes and the copied record types go; the database stays private to kkt-rules (msg 2032). Q1 is resolved. CLAUDE.md's rule on where database access lives changes with the code refactor, not in #409."
   },
   {
    "id": "24",
-   "text": "kkt-server implements kkt-web's Sources and Gate, and adapts the wording, as the adapter the three programs share: \"the program adapts\", written once in the shared assembly crate, on condition that kkt-server makes no decisions (msg 2019). The page's limits come in at construction (PageLimits), save_lane splits into create_lane and update_lane, and kkt-web works out the operator flag itself (A11). A6 is withdrawn."
+   "text": "kkt-server implements kkt-web's Sources and Gate, and adapts the wording, as the adapter the three programs share: \"the program adapts\", written once in the shared assembly crate, on condition that kkt-server makes no decisions (msg 2019). The page's limits come in at construction (PageLimits), save_lane splits into create_lane and update_lane, and kkt-web works out the operator flag itself (A11). A6 is withdrawn. Changed by msg 2031: kkt-web calls kkt-api directly, so of these only the Gate and the wording remain kkt-server's adapters."
   },
   {
    "id": "25",
@@ -1652,7 +2386,7 @@
   },
   {
    "id": "26",
-   "text": "Web sessions move into kkt-web (msg 2021): Sessions (IDs, hashing, expiry, sign-out, form tokens) with clock and entropy injected, the code unchanged. kkt-admission keeps the access decision. Gate shrinks to admits and sign_in, the two questions for kkt-admission. PreviewGate uses kkt-web's sessions instead of its own copy."
+   "text": "Web sessions move into kkt-web (msg 2021): Sessions (IDs, hashing, expiry, sign-out, form tokens) with clock and entropy injected. The code moves as it is, except that a session holds the gate's own value instead of kkt_admission::Principal, which kkt-web cannot name (kkt-review-373, msg 2030). kkt-admission keeps the access decision. Gate shrinks to admits and sign_in, the two questions for kkt-admission. PreviewGate uses kkt-web's sessions instead of its own copy."
   },
   {
    "id": "27",
@@ -1661,6 +2395,14 @@
   {
    "id": "28",
    "text": "A1 and A2 are accepted, A3 is changed and A4 and A5 are moot (msg 2027). A crate counts as a user of a contract only if its code calls the contract's methods; naming a trait to wire an implementation in, or to implement it in an adapter, is not use. No contract crosses the line of more than two users either way."
+  },
+  {
+   "id": "29",
+   "text": "kkt-rules' operations become a shared contract crate, kkt-api (contract, Core), the heart of the application, which web and MCP are today's protocols over (msg 2031). Its traits by area (A13): Api 3, Agents 6, Channels 12, Messages 6, Memory 4, Lanes 11, Server 5, Operator 10 and Admin 12 methods, 69 in all, with the records, queries and errors they use. kkt-rules implements it; kkt-mcp, kkt-mcp-formatter, kkt-web and kkt-identity-keymode use it and depend on no kkt-rules type. kkt-web's copied records, Source, Sources and SameSource go, and kkt-server's RulesSource and RulesSources. The preview implements the parts of kkt-api the page uses. The msg 2019 reshapes land in kkt-api: Api::limits, Lanes' create_lane and update_lane, and the operator flag in its records (A11). CLAUDE.md's kkt-rules, kkt-web and kkt-mcp rows change with the refactor, not in #409."
+  },
+  {
+   "id": "30",
+   "text": "Option (b) for the store (msg 2032): the database stays private to kkt-rules. record_run is kkt-api's Server::record_run, which kkt-server and the fake product call; tests/migrations/v0_10_0.rs moves into kkt-rules' tests; other crates' test setup goes through kkt-api, or a kkt-rules helper behind testing. A12 is withdrawn."
   }
  ],
  "not_traits": [
@@ -1692,7 +2434,7 @@
    "status": "decided",
    "resolved": true,
    "text": "Step 6 made kkt-server's adapters to kkt-web's contract public, for a product that builds its own page; the rule would have the programs adapt them.",
-   "resolution": "Decided by Sam (msg 2019): kkt-server implements kkt-web's Source, Sources and Gate as the adapter the three programs share. This is \"the program adapts\", written once in the shared assembly crate, on condition that kkt-server makes no decisions. Reshaped so it decides nothing: the page's limits come in at construction, save_lane is split into create_lane and update_lane, and kkt-web works out the operator flag itself (A11). The programs' copies, the sources and gate slots, and SourcesFactory and GateFactory are gone."
+   "resolution": "Decided by Sam (msg 2031, changing msg 2019): kkt-web calls kkt-api directly, so RulesSource and RulesSources go and the page's data needs no adapter. kkt-web's contract keeps only what is web-specific: the Gate, which kkt-server's AdmissionGate implements once for the three programs, deciding nothing (msg 2019), over kkt-web's own sessions (msg 2021). The msg 2019 reshapes land in kkt-api: the limits the rules enforce in Api::limits, create_lane and update_lane in Lanes, and the operator flag in its records (A11)."
   },
   {
    "id": "C5",
@@ -1727,6 +2469,10 @@
   {
    "id": "A6",
    "text": "Withdrawn entirely (msg 2019). It said an adapter that decides nothing is a composition. For kkt-store it failed, since kkt-store decides things (msg 2015), and kkt-store merged into kkt-rules (msg 2017). For kkt-server Sam ruled directly: implementing kkt-web's Sources and Gate is \"the program adapts\", written once in the assembly crate the three programs share, on condition that kkt-server makes no decisions."
+  },
+  {
+   "id": "A12",
+   "text": "Withdrawn (msg 2032): Sam chose option (b). The database stays private to kkt-rules; record_run is an operation in kkt-api, the 0.10.0 migration test moves into kkt-rules' tests, and other crates' test setup goes through kkt-api or a kkt-rules helper behind testing."
   }
  ],
  "assumptions": [
@@ -1752,7 +2498,7 @@
   },
   {
    "id": "A7",
-   "text": "Decided by Sam (msg 2022): kkt-web-preview counts as a program, like kkt-fake-product: a dev-only package whose library exists for its own example and tests. So Preview and PreviewGate implement kkt-web's Source and Gate themselves, and PreviewGate uses kkt-web's sessions (msg 2021)."
+   "text": "Decided by Sam (msg 2022): kkt-web-preview counts as a program, like kkt-fake-product: a dev-only package whose library exists for its own example and tests. So its Preview implements the parts of kkt-api the page uses (msg 2031), and its PreviewGate implements kkt-web's Gate over kkt-web's sessions (msg 2021)."
   },
   {
    "id": "A8",
@@ -1768,11 +2514,11 @@
   },
   {
    "id": "A11",
-   "text": "Whether a message's author, or a channel's last speaker, is the operator is worked out by kkt-web, not by the source. kkt-web already does this for live notices and toasts with kkt-names' is_operator (notice.rs:17, toast.rs:96), so every display uses one rule, and kkt-server decides nothing (msg 2019). kkt-rules' records stay as they are; kkt-web's Message and ChannelSummary fill their flags from the author's handle."
+   "text": "Whether a message's author, or a channel's last speaker, is the operator is part of kkt-api's records (Message, ChannelActivity), filled by kkt-rules, which makes the operator an actor and names it. With kkt-web rendering kkt-api's records directly (msg 2031), the flag belongs with the record, not with each surface. kkt-web's live notices, which come from kkt-events, still work it out with kkt-names' is_operator."
   },
   {
-   "id": "A12",
-   "text": "With Reads and Writes gone, the store's 73 methods stay public on a concrete Store in kkt-rules, with no trait and so no adapter (option (a) of kkt-review-373, msg 2026). Outside kkt-rules, normal code calls only insert_server_run (kkt-server's record_run, kkt-server/src/lib.rs:131; the fake product, kkt-fake-product/src/lib.rs:192). tests/migrations/v0_10_0.rs, CLAUDE.md's guard that a 0.10.0 database still answers every pinned read, keeps calling the reads where it is, and tests/database_files.rs and the tests of kkt-server, kkt-mcp and kkt-identity-keymode seed through insert_*. So the record types stay public, as the methods name them. Option (b) would move the pinned test into kkt-rules and make record_run a rules operation, so the store could be private; it moves the existing-installs guard, which CLAUDE.md names by path."
+   "id": "A13",
+   "text": "kkt-api's traits are split by area as listed, shaped from what kkt-rules' Rules offers and what kkt-mcp, kkt-web (through kkt-server's former RulesSource), KeyMode and the fake product call. Operator holds what only the web page's operator does, and Admin what /mcp-admin reads, so the page and the preview need only Api, Operator, Lanes, Server and Channels. subscribe returns kkt-events' subscription, so kkt-api names that type. The plain register and reclaim, which only tests call, are left out."
   }
  ],
  "code_moves": [
@@ -1872,15 +2618,6 @@
    "note": "its own method, taking the admin key's name or none, in place of OperatorWording's operator(&Audit) (msg 1986)"
   },
   {
-   "type": "kkt-web::Source",
-   "methods": [
-    "create_lane",
-    "update_lane"
-   ],
-   "status": "decided",
-   "note": "save_lane split, so the source no longer chooses (msg 2019)"
-  },
-  {
    "type": "kkt-web::Sessions",
    "methods": [
     "form_token",
@@ -1912,18 +2649,22 @@
    "doc": "Admission for the web page: whether sign-in is needed, whether a key is good and whom it admits, and the decision for an open page. The sessions are kkt-web's (msg 2021)."
   },
   {
-   "item": "kkt-rules::ChannelFilter",
-   "doc": "Which channels `Store::channel_ids` returns, in name order."
+   "item": "kkt-rules::testing",
+   "doc": "For other crates' tests: Rules over an in-memory database, the fail-a-write hook, and the check that two swarms stay apart (msgs 2017 and 2032)."
+  },
+  {
+   "item": "kkt-rules::testing::swarms_stay_apart",
+   "doc": "Checks that two swarms stay apart in a database that holds no avatars or channels yet: a swarm sees and changes nothing of another (msg 2017)."
   },
   {
    "item": "kkt-rules::Db",
-   "doc": "A database the rules read and change: Db::read and Db::write run their closure over the Store, on the kkt-db backend Db::new is given (msgs 2014, 2017)."
+   "doc": "The core's database, private to kkt-rules but for opening it: the program gives Db::new a kkt-db backend (msgs 2014, 2017 and 2032)."
   }
  ],
- "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves what rests on A9 (kkt-search's layer), A10 (Excerpt), A11 (the operator flag) and A12 (the public Store). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves what rests on A9 (kkt-search's layer), A10 (Excerpt), A11 (the operator flag) and A13 (kkt-api's traits). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
  "strict": {
   "status": "decided",
-  "text": "No implementation implements a contract that another crate declares for itself; the program adapts (Sam, msg 1978). Implementing a shared contract crate's contract is fine, just like consuming it: the strict rule covers only consumer-declared contracts (msg 2020). The shared assembly crate kkt-server writes the adapters the three programs share, as the program would, on condition that it decides nothing (msg 2019). A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, DryRun implements System, and SameSource implements Sources (msg 1984). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
+  "text": "No implementation implements a contract that another crate declares for itself; the program adapts (Sam, msg 1978). Implementing a shared contract crate's contract is fine, just like consuming it: the strict rule covers only consumer-declared contracts (msg 2020). The shared assembly crate kkt-server writes the adapters the three programs share, as the program would, on condition that it decides nothing (msg 2019). A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, and DryRun implements System (msg 1984; SameSource went with Sources in msg 2031). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
  },
  "new_slots": [
   {
@@ -1935,6 +2676,16 @@
    ],
    "status": "decided",
    "note": "the identity the web gate asks, meeting kkt-server's own WebIdentify; the program wires the same KeyMode here and into identify (msg 2025)"
+  },
+  {
+   "crate": "kkt-web",
+   "at": "router",
+   "name": "api",
+   "traits": [
+    "kkt-api::Api"
+   ],
+   "status": "decided",
+   "note": "the application, which the page calls directly; each viewer's swarm through Api::in_swarm (msg 2031)"
   }
  ],
  "renames": [
@@ -1966,7 +2717,7 @@
   },
   "kkt-rules": {
    "status": "decided",
-   "concern": "Every permission decision and every change, for agents and the operator, each in one swarm, and the core's data: a Store whose methods are the rules' questions and changes as kkt-db operations, on a Db it is given; the core's tables as migrations, with their history from before kkt-db; and the check that swarms stay apart. It uses kkt-db directly; kkt-store merged into it (msg 2017).",
+   "concern": "Every permission decision and every change, for agents and the operator, each in one swarm: Rules implements kkt-api, the application's shared contract (msg 2031). It holds the core's data privately: its queries as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. kkt-store merged into it (msg 2017); the database stays private (msg 2032).",
    "must_not": "Name a database or use a database library: it reaches the database through kkt-db's contract, which the program fills with the SQLite backend (msg 2017; CLAUDE.md's rule changes with the code refactor)."
   },
   "kkt-db-sqlite": {
@@ -1979,7 +2730,7 @@
   },
   "kkt-server": {
    "status": "decided",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take kkt-rules' `Db`, and the identity twice: meeting kkt-mcp's `Identify`, which it hands to the endpoints, and its own `WebIdentify`, which its web gate asks (msg 2025). It writes the adapters the three programs share, once, and decides nothing (msg 2019): RulesSource, RulesSources and AdmissionGate implement kkt-web's contract, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and limits. Binding the socket is in kkt-server-listen."
+   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page, each handed kkt-rules' Rules as kkt-api's Api; recording each server run through Server::record_run. Its parts take kkt-rules' `Db`, and the identity twice: meeting kkt-mcp's `Identify`, which it hands to the endpoints, and its own `WebIdentify`, which its web gate asks (msg 2025). It writes the adapters the three programs share, once, and decides nothing (msg 2019): AdmissionGate implements kkt-web's Gate, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen."
   },
   "kkt-agent-client": {
    "status": "decided",
@@ -1987,7 +2738,7 @@
   },
   "kkt-mcp": {
    "status": "decided",
-   "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It declares the `Identify` it asks; kkt-server hands it the program's adapter (msg 2025)."
+   "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It calls kkt-api directly and depends on no kkt-rules type (msg 2031). It declares the `Identify` it asks; kkt-server hands it the program's adapter (msg 2025)."
   },
   "kashkeshet": {
    "status": "decided",
@@ -2031,8 +2782,8 @@
   },
   "kkt-web": {
    "status": "decided",
-   "concern": "The human's pages, through a contract of its own: `Gate` says whether a key lets a viewer in and who a viewer is, `Sources` gives each viewer its `Source`, and every change is a checked form post. It keeps the sign-in sessions and form tokens itself (`Sessions`, msg 2021) and takes its limits once (`PageLimits`, msg 2019). `SameSource`, its own `Sources` for a page with one view, and the page scenarios every source must pass (`testing`).",
-   "must_not": "Depend on the rules, the store, admission or identity, or on an implementation crate: kkt-server and the preview implement kkt-web's contract."
+   "concern": "The human's pages, over the application's operations: it calls kkt-api directly and renders its records. Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is. It keeps the sign-in sessions and form tokens itself (`Sessions`, msg 2021), the page-only limits (`PageLimits`), and its live updates, which it draws from kkt-api's subscribe. The page scenarios every implementation must pass (`testing`) (msg 2031).",
+   "must_not": "Depend on the rules, the store, admission or identity, or on an implementation crate: it uses kkt-api's contract, and kkt-server implements its Gate (msg 2031)."
   },
   "kkt-events": {
    "status": "decided",
@@ -2193,13 +2944,12 @@
       ]
      },
      "Parts": {
-      "text": "kkt-rules' Db, the system clock and the operating system's randomness (which implement their shared contracts directly, msg 2020), and the program's adapter over key mode's identity go into the server's parts. kkt-server adapts the rest itself, once for the three programs: the web page's sources and gate, and the notices' wording (msg 2019).",
+      "text": "kkt-rules' Db, the system clock and the operating system's randomness (which implement their shared contracts directly, msg 2020), and the program's adapter over key mode's identity go into the server's parts. kkt-server hands the rules to /mcp, /mcp-admin and the web page as kkt-api's Api (msg 2031), and adapts the rest itself, once for the three programs: the web page's gate and the notices' wording (msg 2019).",
       "items": [
        "kkt-server::Parts",
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy",
        "kkt-identity-keymode::KeyMode",
-       "kkt-server::RulesSources",
        "kkt-server::AdmissionGate"
       ],
       "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
@@ -2257,7 +3007,6 @@
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy",
        "kkt-identity-keymode::KeyMode",
-       "kkt-server::RulesSources",
        "kkt-server::AdmissionGate",
        "kkt-server::AppConfig",
        "kkt-admission::AdminAdmission",
@@ -2315,7 +3064,6 @@
       "items": [
        "kkt-server::Parts",
        "kkt-fake-product::FakeIdentify",
-       "kkt-server::RulesSources",
        "kkt-server::AdmissionGate"
       ],
       "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
@@ -2379,11 +3127,10 @@
      },
      {
       "title": "World",
-      "text": "Preview simulates a swarm from SeededEntropy and the seed; it implements kkt-web's Source itself (A7), and kkt-web's SameSource gives every viewer that one source.",
+      "text": "Preview simulates a swarm from SeededEntropy and the seed, and implements the parts of kkt-api the page uses (msg 2031).",
       "items": [
        "kkt-web-preview::Preview",
-       "kkt-entropy::SeededEntropy",
-       "kkt-web::SameSource"
+       "kkt-entropy::SeededEntropy"
       ]
      },
      {
@@ -2445,28 +3192,6 @@
       "note": "the simulated world, repeatable from the seed (A1)"
      },
      {
-      "impl": "kkt-web-preview::Preview",
-      "crate": "kkt-web",
-      "to": [
-       {
-        "at": "SameSource::new",
-        "param": "source"
-       }
-      ],
-      "status": "decided"
-     },
-     {
-      "impl": "kkt-web::SameSource",
-      "crate": "kkt-web",
-      "to": [
-       {
-        "at": "router",
-        "param": "sources"
-       }
-      ],
-      "status": "decided"
-     },
-     {
       "impl": "kkt-web-preview::PreviewGate",
       "crate": "kkt-web",
       "to": [
@@ -2476,6 +3201,18 @@
        }
       ],
       "status": "decided"
+     },
+     {
+      "impl": "kkt-web-preview::Preview",
+      "crate": "kkt-web",
+      "to": [
+       {
+        "at": "router",
+        "param": "api"
+       }
+      ],
+      "status": "decided",
+      "note": "the simulated application, as kkt-api's Api (msg 2031)"
      }
     ]
    }
@@ -2520,27 +3257,11 @@
   },
   {
    "id": "Q6",
-   "text": "Resolved (msg 2019): the limits come in at construction, save_lane is split, and kkt-web works out the operator flag itself (A11); RulesSource now only forwards, as the programs' adapter written once.",
+   "text": "Resolved (msgs 2019 and 2031): kkt-web calls kkt-api directly, so RulesSource is gone. The limits the rules enforce come from Api::limits, create_lane and update_lane are Lanes' own, and the operator flag is in kkt-api's records (A11).",
    "resolved": true
   }
  ],
  "direct": [
-  {
-   "type": "kkt-server::RulesSource",
-   "to": [
-    "kkt-web::Source"
-   ],
-   "status": "decided",
-   "note": "the adapter the three programs share, written once in kkt-server (msg 2019): all 20 methods forward one rules call each, now that the limits come in at construction, save_lane is split, and kkt-web works out the operator flag itself (A11)"
-  },
-  {
-   "type": "kkt-server::RulesSources",
-   "to": [
-    "kkt-web::Sources"
-   ],
-   "status": "decided",
-   "note": "the programs' shared adapter (msg 2019): it binds the rules to each viewer's swarm"
-  },
   {
    "type": "kkt-server::AdmissionGate",
    "to": [
@@ -2548,14 +3269,6 @@
    ],
    "status": "decided",
    "note": "the programs' shared adapter (msg 2019): admits combines kkt-admission's decision with Identify; sign_in asks kkt-admission whether a key is good (msg 2021)"
-  },
-  {
-   "type": "kkt-web-preview::Preview",
-   "to": [
-    "kkt-web::Source"
-   ],
-   "status": "decided",
-   "note": "the preview is a program (A7, decided in msg 2022)"
   },
   {
    "type": "kkt-web-preview::PreviewGate",
@@ -2603,7 +3316,7 @@
  "adapter_census": {
   "about": "Every adapter in the proposal, measured against the code (msg 2009). Each method is forwarding (F): the same operation as a method of the provider, with at most a rename or a trivial conversion; or translating (T): it combines calls, reshapes records or holds logic. Copies: how many programs write it. Counted by hand from the code at the commit the map was generated from; the methods are each contract's.",
   "before_note": "As charted before msg 2009. Every provider kept its code in methods of the same name as the contract's, so every adapter method only forwarded; the column says where the translation stayed.",
-  "after_note": "After the reshape. kkt-store merged into kkt-rules, so the store needs no adapter (msg 2017). Shared contract crates are implemented directly: kkt-db by kkt-db-sqlite, Clock by the system clock, Entropy by OsEntropy (msg 2020). kkt-server writes the page's and the wording's adapters once for the three programs and decides nothing (msg 2019); kkt-web keeps the sessions (msg 2021). The preview implements kkt-web's contract itself (A7).",
+  "after_note": "After the reshape. kkt-store merged into kkt-rules (msg 2017), and kkt-rules implements kkt-api, the shared contract kkt-mcp and kkt-web call directly (msg 2031), so neither the store nor the page's data needs an adapter. Shared contract crates are implemented directly (msg 2020). kkt-server writes the web gate's and the wording's adapters once for the three programs and decides nothing (msg 2019); kkt-web keeps the sessions (msg 2021). The preview implements kkt-api and the Gate itself (A7).",
   "before": [
    {
     "adapter": "kkt-store-rules::RulesStore",
@@ -2798,26 +3511,6 @@
   ],
   "after": [
    {
-    "adapter": "kkt-server::RulesSource",
-    "to": "kkt-web: Source",
-    "where": "kkt-server, for the three programs",
-    "methods": 20,
-    "forward": 20,
-    "translate": 0,
-    "copies": 1,
-    "why": "All 20 forward one rules call each, copying the record field by field: the limits come in at construction, save_lane is split into create_lane and update_lane (msg 2019), and kkt-web works out the operator flag itself (A11). kkt-web's view types copy kkt-rules' records, and kkt-web may not depend on kkt-rules: this is the programs' adapter, written once (msg 2019)."
-   },
-   {
-    "adapter": "kkt-server::RulesSources",
-    "to": "kkt-web: Sources",
-    "where": "kkt-server, for the three programs",
-    "methods": 1,
-    "forward": 0,
-    "translate": 1,
-    "copies": 1,
-    "why": "source binds the rules to the viewer's swarm (msg 2019)."
-   },
-   {
     "adapter": "kkt-server::AdmissionGate",
     "to": "kkt-web: Gate",
     "where": "kkt-server, for the three programs",
@@ -2897,12 +3590,12 @@
    "forward_written": 271
   },
   "after_totals": {
-   "adapters": 14,
-   "methods": 74,
-   "forward": 72,
-   "translate": 2,
-   "written": 78,
-   "forward_written": 76
+   "adapters": 12,
+   "methods": 53,
+   "forward": 52,
+   "translate": 1,
+   "written": 57,
+   "forward_written": 56
   }
  },
  "third_party_edits": [
@@ -2944,6 +3637,40 @@
     "kashkeshet": [],
     "kkt-keymode": [],
     "kkt-fake-product": []
+   }
+  },
+  {
+   "item": "kkt-rules::Rules",
+   "status": "decided",
+   "users": {
+    "kkt-mcp": [
+     "kkt-api::Api",
+     "kkt-api::Agents",
+     "kkt-api::Channels",
+     "kkt-api::Messages",
+     "kkt-api::Memory",
+     "kkt-api::Lanes",
+     "kkt-api::Server",
+     "kkt-api::Operator",
+     "kkt-api::Admin"
+    ],
+    "kkt-identity": [
+     "kkt-api::Api",
+     "kkt-api::Agents"
+    ],
+    "kkt-fake-product": [
+     "kkt-api::Api",
+     "kkt-api::Agents"
+    ],
+    "kkt-server": [
+     "kkt-rules::Rules"
+    ],
+    "kashkeshet": [
+     "kkt-rules::Rules"
+    ],
+    "kkt-keymode": [
+     "kkt-rules::Rules"
+    ]
    }
   }
  ],
@@ -3048,21 +3775,15 @@
     "Writes"
    ],
    "drop_note": "kkt-rules reaches kkt-db directly, so there is no store contract to declare or implement (msg 2017)",
-   "note": "its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and item 4's testing helpers. kkt-rules uses kkt-db directly, as a consumer of a shared contract crate; the program gives it the SQLite backend as before. The store's methods stay public on a concrete Store, with no trait, so the callers outside keep them (A12) (msg 2017).",
-   "keep_public": true
+   "note": "its queries, its decisions (require_channel and require_agent's swarm checks, lane version numbering, ChannelScope's translation), the core's tables and their history from before kkt-db, and item 4's testing helpers. kkt-rules uses kkt-db directly. The database stays private to it: outside it, only the programs' Db, schema and CORE (to open the database) and the testing helpers are public. tests/migrations/v0_10_0.rs, the existing-installs guard, moves into kkt-rules' tests, which own the old-database history; other crates' test setup goes through kkt-api, or a kkt-rules helper behind testing (msgs 2017 and 2032).",
+   "public": [
+    "CORE",
+    "Db",
+    "schema"
+   ]
   }
  ],
  "method_removes": [
-  {
-   "type": "kkt-web::Source",
-   "methods": [
-    "page_messages",
-    "member_excerpt_chars",
-    "save_lane"
-   ],
-   "status": "decided",
-   "note": "the page's limits come in once, when the page is built (PageLimits), and save_lane splits into create_lane and update_lane (msg 2019)"
-  },
   {
    "type": "kkt-web::Gate",
    "methods": [
@@ -3091,6 +3812,12 @@
    "param": "sessions",
    "status": "decided",
    "note": "the sessions are kkt-web's (msg 2021)"
+  },
+  {
+   "slot": "kkt-web::router",
+   "param": "sources",
+   "status": "decided",
+   "note": "the router takes kkt-api's Api instead (msg 2031)"
   }
  ],
  "wires_only": {
@@ -3104,5 +3831,58 @@
   "kkt-watch::Server": {
    "kashkeshet": "names Box<dyn watch::Server> to pick Remote or AdminRemote"
   }
- }
+ },
+ "late_moves": [
+  {
+   "item": "kkt-rules::Settings",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "the limits the rules enforce, which Api::limits reports; the program still fills them through kkt-settings (msgs 2019 and 2031)"
+  },
+  {
+   "item": "kkt-rules::MAX_LANE_DESCRIPTION_CHARS",
+   "to": "kkt-api",
+   "status": "decided",
+   "note": "a limit the operations enforce, which kkt-mcp's tool text and the preview name (msg 2031)"
+  }
+ ],
+ "new_implements": [
+  {
+   "type": "kkt-rules::Rules",
+   "to": [
+    "kkt-api::Api",
+    "kkt-api::Agents",
+    "kkt-api::Channels",
+    "kkt-api::Messages",
+    "kkt-api::Memory",
+    "kkt-api::Lanes",
+    "kkt-api::Server",
+    "kkt-api::Operator",
+    "kkt-api::Admin"
+   ],
+   "status": "decided",
+   "note": "kkt-rules implements the shared contract kkt-api, as msg 2020 allows (msg 2031)"
+  },
+  {
+   "type": "kkt-web::Preview",
+   "to": [
+    "kkt-api::Api",
+    "kkt-api::Operator",
+    "kkt-api::Lanes",
+    "kkt-api::Server",
+    "kkt-api::Channels"
+   ],
+   "status": "decided",
+   "note": "the preview implements the parts of kkt-api the page uses, over simulated data; what the page never asks is refused (msg 2031)"
+  }
+ ],
+ "trait_swaps": [
+  {
+   "from": "kkt-web::Source",
+   "to": [
+    "kkt-api::Api"
+   ],
+   "status": "decided"
+  }
+ ]
 }
