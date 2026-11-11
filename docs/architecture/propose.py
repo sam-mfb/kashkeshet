@@ -392,7 +392,13 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         if not src or not dst or fm["feature"] not in src["features"]:
             problems.append(f"feature_moves: {fm['from']} has no feature {fm['feature']} to move to {fm['to']}")
             continue
-        dst["features"][fm["feature"]] = src["features"].pop(fm["feature"])
+        turns_on = src["features"].pop(fm["feature"])
+        dst["features"][fm["feature"]] = turns_on
+        # The optional libraries the feature turns on go with it.
+        for dep in (t[len("dep:"):] for t in turns_on if t.startswith("dep:")):
+            if dep in src["third_party"]:
+                src["third_party"] = [x for x in src["third_party"] if x != dep]
+                dst["third_party"] = sorted(set(dst["third_party"]) | {dep})
         note(fm["from"], f"its {fm['feature']} feature moves to {fm['to']}", fm["status"])
         note(fm["to"], f"takes the {fm['feature']} feature from {fm['from']}", fm["status"])
 

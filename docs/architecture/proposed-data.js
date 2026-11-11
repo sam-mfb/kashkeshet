@@ -14100,7 +14100,6 @@ window.KKT_PROPOSED = {
      }
     ],
     "third_party": [
-     "reqwest",
      "serde_json",
      "url"
     ]
@@ -16022,7 +16021,6 @@ window.KKT_PROPOSED = {
      }
     ],
     "third_party": [
-     "rand",
      "sha2"
     ]
    },
@@ -18710,8 +18708,7 @@ window.KKT_PROPOSED = {
     ],
     "third_party": [
      "axum",
-     "futures",
-     "tokio"
+     "futures"
     ]
    },
    {
@@ -20427,7 +20424,6 @@ window.KKT_PROPOSED = {
     "released_program": false,
     "slots": [],
     "third_party": [
-     "tokio",
      "tokio-util"
     ]
    },
