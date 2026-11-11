@@ -347,8 +347,8 @@
     "kkt-provenance"
    ],
    "to": "kkt-settings",
-   "how": "operator default, test-visible (behind testing)",
-   "note": "a default path or setting kkt-settings fills in; behind testing, since only kkt-provenance's tests read it",
+   "how": "operator default, private",
+   "note": "a default kkt-settings fills in; private, since kkt-settings words the run record's settings itself (step 3.5c)",
    "replace_users": {
     "kkt-settings": [
      "kkt-settings::DEFAULT_ALLOW_ANY_BIND"
@@ -1186,8 +1186,8 @@
    "used_by": [],
    "test_only": [],
    "to": "kkt-web",
-   "how": "constant, private",
-   "note": "the bound its page settings check"
+   "how": "constant, public",
+   "note": "the bound its page settings check, which kkt-settings' Limits::check reads too (step 3.1b)"
   },
   {
    "item": "MCP_ADMIN_PATH",
@@ -1263,8 +1263,8 @@
     "kkt-format"
    ],
    "to": "kkt-mcp-formatter",
-   "how": "constant, test-visible (behind testing)",
-   "note": "the bound its response-cap check uses; behind testing, since only kashkeshet's tests read it"
+   "how": "constant, public",
+   "note": "the bound its response-cap check uses, which kkt-settings' Limits::check reads too (step 3.1b)"
   },
   {
    "item": "MUSE_CONFIG",
