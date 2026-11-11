@@ -2210,6 +2210,15 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-server",
+    "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-admin"
+   },
+   {
+    "from": "kkt-server",
     "kind": "dev",
     "role": "uses",
     "statuses": [
@@ -2225,6 +2234,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-api-agent"
+   },
+   {
+    "from": "kkt-server",
+    "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-operator"
    },
    {
     "from": "kkt-server",
@@ -3559,7 +3577,9 @@ window.KKT_PROPOSED = {
      "ServerRunInfo",
      "SwarmId"
     ],
-    "items_new": [],
+    "items_new": [
+     "OperatorWording"
+    ],
     "kind": "normal",
     "roles_after": [
      "implements"
@@ -6328,11 +6348,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Parts::new takes rules: the Rules kkt-rules' start built, which kkt-server hands to /mcp, /mcp-admin and the page (msg 2042)"
+      "text": "Parts::new takes rules: one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin (msgs 2042, 2045; kkt-review-373, msg 2046)"
      },
      {
       "status": "decided",
-      "text": "Parts takes rules: as Parts::new (msg 2042)"
+      "text": "Parts takes rules: one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin (msgs 2042, 2045; kkt-review-373, msg 2046)"
      },
      {
       "status": "follows",
@@ -6372,7 +6392,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-api-operator (normal): RulesSource's uses of the operator records go with it (msgs 2031 and 2045)"
+      "text": "it hands the Rules to the page and /mcp-admin as the operator level (msg 2045)"
+     },
+     {
+      "status": "decided",
+      "text": "it hands the Rules to /mcp-admin as kkt-api-admin's Admin; kkt-server serves admin (msg 2046)"
+     },
+     {
+      "status": "decided",
+      "text": "its Wording implements kkt-rules' OperatorWording (msg 2019)"
+     },
+     {
+      "status": "decided",
+      "text": "RulesSource's uses of the operator records go with it (msgs 2031 and 2045)"
      }
     ]
    },
@@ -19198,13 +19230,13 @@ window.KKT_PROPOSED = {
       "path": "AppConfig"
      },
      {
-      "doc": "The parts the server is built from.",
+      "doc": "The parts the server is built from: the clock and entropy, the identity for the endpoints and for the web gate, and the Rules, as one value meeting the kkt-api contracts it hands on (msgs 2025, 2042 and 2045).",
       "fields": [
-       "db",
        "clock",
        "entropy",
        "identify",
-       "run_id"
+       "web_identify",
+       "rules"
       ],
       "kind": "struct",
       "methods": [
@@ -19316,11 +19348,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Parts::new takes rules: the Rules kkt-rules' start built, which kkt-server hands to /mcp, /mcp-admin and the page (msg 2042)"
+      "text": "Parts::new takes rules: one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin (msgs 2042, 2045; kkt-review-373, msg 2046)"
      },
      {
       "status": "decided",
-      "text": "Parts takes rules: as Parts::new (msg 2042)"
+      "text": "Parts takes rules: one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin (msgs 2042, 2045; kkt-review-373, msg 2046)"
      },
      {
       "status": "follows",
@@ -19360,7 +19392,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-api-operator (normal): RulesSource's uses of the operator records go with it (msgs 2031 and 2045)"
+      "text": "it hands the Rules to the page and /mcp-admin as the operator level (msg 2045)"
+     },
+     {
+      "status": "decided",
+      "text": "it hands the Rules to /mcp-admin as kkt-api-admin's Admin; kkt-server serves admin (msg 2046)"
+     },
+     {
+      "status": "decided",
+      "text": "its Wording implements kkt-rules' OperatorWording (msg 2019)"
+     },
+     {
+      "status": "decided",
+      "text": "RulesSource's uses of the operator records go with it (msgs 2031 and 2045)"
      }
     ],
     "released_program": false,
@@ -19535,13 +19579,53 @@ window.KKT_PROPOSED = {
       "at": "Parts::new",
       "kind": "param",
       "name": "rules",
-      "note": "the Rules kkt-rules' start built, which kkt-server hands to /mcp, /mcp-admin and the page (msg 2042)",
+      "note": "one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin (msgs 2042, 2045; kkt-review-373, msg 2046)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
        {
         "crate": "kkt-api-agent",
         "trait": "Api"
+       },
+       {
+        "crate": "kkt-api-agent",
+        "trait": "Agents"
+       },
+       {
+        "crate": "kkt-api-agent",
+        "trait": "Channels"
+       },
+       {
+        "crate": "kkt-api-agent",
+        "trait": "Messages"
+       },
+       {
+        "crate": "kkt-api-agent",
+        "trait": "Memory"
+       },
+       {
+        "crate": "kkt-api-agent",
+        "trait": "Lanes"
+       },
+       {
+        "crate": "kkt-api-operator",
+        "trait": "Views"
+       },
+       {
+        "crate": "kkt-api-operator",
+        "trait": "Changes"
+       },
+       {
+        "crate": "kkt-api-operator",
+        "trait": "Lanes"
+       },
+       {
+        "crate": "kkt-api-operator",
+        "trait": "Server"
+       },
+       {
+        "crate": "kkt-api-admin",
+        "trait": "Admin"
        }
       ]
      },
@@ -19549,13 +19633,53 @@ window.KKT_PROPOSED = {
       "at": "Parts",
       "kind": "param",
       "name": "rules",
-      "note": "as Parts::new (msg 2042)",
+      "note": "one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin (msgs 2042, 2045; kkt-review-373, msg 2046)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
        {
         "crate": "kkt-api-agent",
         "trait": "Api"
+       },
+       {
+        "crate": "kkt-api-agent",
+        "trait": "Agents"
+       },
+       {
+        "crate": "kkt-api-agent",
+        "trait": "Channels"
+       },
+       {
+        "crate": "kkt-api-agent",
+        "trait": "Messages"
+       },
+       {
+        "crate": "kkt-api-agent",
+        "trait": "Memory"
+       },
+       {
+        "crate": "kkt-api-agent",
+        "trait": "Lanes"
+       },
+       {
+        "crate": "kkt-api-operator",
+        "trait": "Views"
+       },
+       {
+        "crate": "kkt-api-operator",
+        "trait": "Changes"
+       },
+       {
+        "crate": "kkt-api-operator",
+        "trait": "Lanes"
+       },
+       {
+        "crate": "kkt-api-operator",
+        "trait": "Server"
+       },
+       {
+        "crate": "kkt-api-admin",
+        "trait": "Admin"
        }
       ]
      }
@@ -28424,6 +28548,31 @@ window.KKT_PROPOSED = {
     "to": "kkt-admission"
    },
    {
+    "features": [],
+    "from": "kkt-server",
+    "items": [
+     "Admin"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "Admin"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-admin"
+   },
+   {
     "features": [
      "testing"
     ],
@@ -28454,8 +28603,13 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-server",
     "items": [
+     "Agents",
      "Api",
+     "Channels",
      "Code",
+     "Lanes",
+     "Memory",
+     "Messages",
      "Operator",
      "Refusal",
      "RuleError",
@@ -28469,7 +28623,12 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Agents",
+       "Channels",
        "Code",
+       "Lanes",
+       "Memory",
+       "Messages",
        "Operator",
        "Refusal",
        "RuleError",
@@ -28496,6 +28655,37 @@ window.KKT_PROPOSED = {
      "Permissions"
     ],
     "to": "kkt-api-agent"
+   },
+   {
+    "features": [],
+    "from": "kkt-server",
+    "items": [
+     "Changes",
+     "Lanes",
+     "Server",
+     "Views"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "Changes",
+       "Lanes",
+       "Server",
+       "Views"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-operator"
    },
    {
     "features": [
@@ -28836,10 +29026,7 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-server",
     "items": [
-     "CommandLine",
      "Db",
-     "LaneImport",
-     "LaneSource",
      "schema",
      "testing::memory"
     ],
@@ -28850,9 +29037,6 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "CommandLine",
-       "LaneImport",
-       "LaneSource",
        "schema",
        "testing::memory"
       ],
@@ -28875,7 +29059,9 @@ window.KKT_PROPOSED = {
    {
     "features": [],
     "from": "kkt-server",
-    "items": [],
+    "items": [
+     "OperatorWording"
+    ],
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
@@ -28892,7 +29078,12 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
-    "test_items": [],
+    "test_items": [
+     "CommandLine",
+     "LaneImport",
+     "LaneSource",
+     "schema"
+    ],
     "to": "kkt-rules"
    },
    {

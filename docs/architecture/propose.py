@@ -288,7 +288,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         if not item:
             problems.append(f"doc_edits: no item {path} in {crate}")
             continue
-        items_of[crate][path] = dict(item, doc=edit["doc"])
+        # An edit may give the item's doc, its fields (Parts' web_identify
+        # and rules, msgs 2025 and 2042), or both.
+        items_of[crate][path] = dict(item, **{k: edit[k] for k in ("doc", "fields") if k in edit})
 
     for rm in spec.get("remove_items", []) + extra["private"]:
         crate, path = split(rm["item"])

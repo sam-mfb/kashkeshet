@@ -2295,7 +2295,52 @@
    "from": "kkt-server",
    "to": "kkt-api-operator",
    "kind": "normal",
-   "remove": true,
+   "add": {
+    "wires": [
+     "Views",
+     "Changes",
+     "Lanes",
+     "Server"
+    ]
+   },
+   "status": "decided",
+   "note": "it hands the Rules to the page and /mcp-admin as the operator level (msg 2045)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-api-admin",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "Admin"
+    ]
+   },
+   "status": "decided",
+   "note": "it hands the Rules to /mcp-admin as kkt-api-admin's Admin; kkt-server serves admin (msg 2046)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "OperatorWording"
+    ]
+   },
+   "status": "decided",
+   "note": "its Wording implements kkt-rules' OperatorWording (msg 2019)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-api-operator",
+   "kind": "normal",
+   "drop": [
+    "ChannelActivity",
+    "ChannelChange",
+    "KeptReason",
+    "LaneSave",
+    "ServerRunInfo"
+   ],
    "status": "decided",
    "note": "RulesSource's uses of the operator records go with it (msgs 2031 and 2045)"
   }
@@ -2906,6 +2951,17 @@
   {
    "item": "kkt-rules::Db",
    "doc": "The core's database, private to kkt-rules but for opening it: the program gives Db::new a kkt-db backend (msgs 2014, 2017 and 2032)."
+  },
+  {
+   "item": "kkt-server::Parts",
+   "fields": [
+    "clock",
+    "entropy",
+    "identify",
+    "web_identify",
+    "rules"
+   ],
+   "doc": "The parts the server is built from: the clock and entropy, the identity for the endpoints and for the web gate, and the Rules, as one value meeting the kkt-api contracts it hands on (msgs 2025, 2042 and 2045)."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves the sorting of operations by level where A13 lists it as uncertain (msg 2045). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -2949,20 +3005,40 @@
    "at": "Parts::new",
    "name": "rules",
    "traits": [
-    "kkt-api-agent::Api"
+    "kkt-api-agent::Api",
+    "kkt-api-agent::Agents",
+    "kkt-api-agent::Channels",
+    "kkt-api-agent::Messages",
+    "kkt-api-agent::Memory",
+    "kkt-api-agent::Lanes",
+    "kkt-api-operator::Views",
+    "kkt-api-operator::Changes",
+    "kkt-api-operator::Lanes",
+    "kkt-api-operator::Server",
+    "kkt-api-admin::Admin"
    ],
    "status": "decided",
-   "note": "the Rules kkt-rules' start built, which kkt-server hands to /mcp, /mcp-admin and the page (msg 2042)"
+   "note": "one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin (msgs 2042, 2045; kkt-review-373, msg 2046)"
   },
   {
    "crate": "kkt-server",
    "at": "Parts",
    "name": "rules",
    "traits": [
-    "kkt-api-agent::Api"
+    "kkt-api-agent::Api",
+    "kkt-api-agent::Agents",
+    "kkt-api-agent::Channels",
+    "kkt-api-agent::Messages",
+    "kkt-api-agent::Memory",
+    "kkt-api-agent::Lanes",
+    "kkt-api-operator::Views",
+    "kkt-api-operator::Changes",
+    "kkt-api-operator::Lanes",
+    "kkt-api-operator::Server",
+    "kkt-api-admin::Admin"
    ],
    "status": "decided",
-   "note": "as Parts::new (msg 2042)"
+   "note": "one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin (msgs 2042, 2045; kkt-review-373, msg 2046)"
   }
  ],
  "renames": [
