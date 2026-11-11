@@ -618,7 +618,7 @@ async fn nothing_of_one_swarm_reaches_the_other() {
         memory(),
         system_clock(),
         os_entropy(),
-        kkt_config::Limits::DEFAULT,
+        kkt_fake_product::Settings::DEFAULT,
     )
     .await;
     let client = Client::new(&product);
@@ -839,7 +839,7 @@ async fn run(
         memory(),
         fixed_clock(),
         std::sync::Arc::new(kkt_names::SeededEntropy::new(42)),
-        kkt_config::Limits::DEFAULT,
+        kkt_fake_product::Settings::DEFAULT,
     )
     .await;
     let client = Client::new(&product);

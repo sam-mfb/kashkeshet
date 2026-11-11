@@ -5,8 +5,8 @@ use crate::commands::lifecycle::backup_before_upgrade;
 use crate::logging::init_logging;
 use crate::machine::keys::make_default_key;
 use crate::machine::settings::{
-    Checked, DefaultDb, NO_HOME_TO_KEEP_DB, Report, Sources, check_settings, load_serve_options,
-    resolve,
+    Checked, DefaultDb, NO_HOME_TO_KEEP_DB, Report, Sources, check_settings, format_settings,
+    load_serve_options, resolve,
 };
 use kkt_clock::{Clock, SystemClock};
 use kkt_config::{self as config, LogPolicy};
@@ -63,6 +63,7 @@ async fn serve(
         db_path,
         bind,
         config,
+        limits,
         admin_name,
         allow_any_bind,
         config_file,
@@ -71,13 +72,13 @@ async fn serve(
         dependency_log_level,
     } = check_settings(settings, sources)?;
     let clock = Arc::new(SystemClock);
-    backup_before_upgrade(&db_path, config.limits.upgrade_backups_kept, clock.as_ref())?;
+    backup_before_upgrade(&db_path, limits.upgrade_backups_kept, clock.as_ref())?;
     let db = crate::machine::database::open(&db_path)?;
     let run = ServerRun::new(
         Build::CURRENT,
         &RunSettings {
             allow_any_bind,
-            limits: config.limits.clone(),
+            limits: limits.clone(),
             log_level,
             dependency_log_level,
             allowed_origins: config.allowed_origins.clone(),
@@ -138,7 +139,7 @@ async fn serve(
         clock,
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
-        &config.limits,
+        &format_settings(&limits),
         run_id,
     );
     let server = app::build(parts, config, shutdown.clone());

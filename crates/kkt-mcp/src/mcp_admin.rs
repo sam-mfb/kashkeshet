@@ -19,9 +19,10 @@ use crate::mcp_transport::Transport;
 use crate::principal;
 use crate::tool_text;
 use axum::Router;
-use kkt_config::{Limits, MCP_ADMIN_PATH};
+use kkt_config::MCP_ADMIN_PATH;
 use kkt_format::{Format, Formatter};
 use kkt_identity::Identify;
+use kkt_rules::Settings;
 use kkt_rules::{
     self as rules, Actor, Audit, ChannelChange, LaneSave, NewChannel, Operator, Permission,
     ReadQuery, Refusal, RuleError, Rules,
@@ -53,7 +54,7 @@ pub(crate) struct AdminServer {
 
 /// The admin tools, described by `admin-tools.toml` with every limit filled
 /// in from `limits`.
-pub(crate) fn tools(limits: &Limits) -> ToolRouter<AdminServer> {
+pub(crate) fn tools(limits: &Settings) -> ToolRouter<AdminServer> {
     with_limits(
         with_text(AdminServer::tool_router(), tool_text::ADMIN),
         limits,
@@ -73,7 +74,7 @@ pub fn endpoint(
     server_version: &'static str,
     transport: &Transport,
 ) -> Router {
-    let tools = tools(rules.limits());
+    let tools = tools(rules.settings());
     transport.serve(
         MCP_ADMIN_PATH,
         AdminServer::new(rules, identify, fmt, tools, server_version),
@@ -149,7 +150,7 @@ impl AdminServer {
     }
 
     fn limit(&self, requested: Option<u32>) -> usize {
-        self.rules.limits().limit(requested)
+        self.rules.settings().limit(requested)
     }
 }
 
@@ -399,7 +400,7 @@ impl AdminServer {
                 .await?;
             Ok(self
                 .fmt
-                .admin_channels(f, &page, call.rules.limits().purpose_preview_chars))
+                .admin_channels(f, &page, call.rules.settings().purpose_preview_chars))
         }
         .await;
         self.respond(f, &call, out)

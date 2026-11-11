@@ -11,6 +11,19 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
+/// The web sessions' own settings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// How long a web page sign-in lasts, when an access key is set.
+    pub web_session_lifetime: Duration,
+}
+
+impl Settings {
+    pub const DEFAULT: Settings = Settings {
+        web_session_lifetime: Duration::from_secs(12 * 60 * 60),
+    };
+}
+
 /// The sessions in effect. Only a hash of each session ID is kept.
 pub struct Sessions {
     clock: Arc<dyn Clock>,

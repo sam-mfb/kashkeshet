@@ -8,7 +8,6 @@ use axum::body::Body;
 use axum::http::{HeaderMap, Request, StatusCode};
 use kkt_admission::{AdminAdmission, Admission, Principal};
 use kkt_clock::testing::FixedClock;
-use kkt_config::Limits;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_names::testing::SeqEntropy;
@@ -62,14 +61,16 @@ fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Rout
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(1)),
         Arc::new(RefusesEveryone),
-        &Limits::DEFAULT,
+        &kkt_format::Settings::DEFAULT,
         1,
     );
     let config = AppConfig {
         admission: Admission::Open,
         web_admission: Admission::Open,
         admin_admission: admin,
-        limits: Limits::DEFAULT,
+        rules: kkt_rules::Settings::DEFAULT,
+        web: kkt_web::Settings::DEFAULT,
+        sessions: kkt_admission::Settings::DEFAULT,
         allowed_origins: Vec::new(),
         allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
         instructions: Some("test instructions".into()),

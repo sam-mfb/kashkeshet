@@ -151,6 +151,7 @@ kkt-container = { path = "crates/kkt-container", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
+kkt-format = { path = "crates/kkt-format" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity = { path = "crates/kkt-identity" }
 kkt-lane-files ={ path = "crates/kkt-lane-files", features = ["real"] }
@@ -166,6 +167,7 @@ kkt-setup = { path = "crates/kkt-setup" }
 kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
 kkt-store = { path = "crates/kkt-store" }
 kkt-watch = { path = "crates/kkt-watch" }
+kkt-web = { path = "crates/kkt-web" }
 sha2.workspace = true
 tokio.workspace = true
 tracing.workspace = true

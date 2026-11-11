@@ -8,7 +8,8 @@ mod commit;
 #[cfg(test)]
 mod golden;
 
-use kkt_config::{Limits, LogLevel, LogPolicy};
+use kkt_config::{LogLevel, LogPolicy};
+use kkt_settings::Limits;
 use sha2::{Digest, Sha256};
 
 /// The build the server is running.

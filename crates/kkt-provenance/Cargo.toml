@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 kkt-config = { path = "../kkt-config" }
+kkt-settings = { path = "../kkt-settings" }
 sha2.workspace = true
 
 [dev-dependencies]

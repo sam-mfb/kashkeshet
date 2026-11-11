@@ -9,7 +9,7 @@
      "text": "Flags, the config file and defaults become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "items": [
       "kkt-settings::ServeSettings",
-      "kkt-config::Limits",
+      "kkt-settings::Limits",
       "kkt-admission::server_keys::check",
       "kkt-admission::server_keys::ServerKeys"
      ]
@@ -54,7 +54,9 @@
       "kkt-admission::Admission",
       "kkt-admission::AdminAdmission",
       "kkt-hosts::AllowedHosts",
-      "kkt-config::Limits"
+      "kkt-rules::Settings",
+      "kkt-web::Settings",
+      "kkt-admission::Settings"
      ]
     },
     {

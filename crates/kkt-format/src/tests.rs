@@ -4,7 +4,6 @@ use super::fit::{cut_body, cut_bytes, short_time};
 use super::*;
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
-use kkt_config::Limits;
 use kkt_rules::{
     AgentInfo, AgentLane, Members, Message, MessagePage, Page, Position, RecordedClient, WaitResult,
 };
@@ -320,7 +319,7 @@ fn client_json_is_pinned() {
         total: 2,
         page: page.clone(),
     };
-    let fmt = formatter(Limits::DEFAULT.max_response_bytes);
+    let fmt = formatter(Settings::DEFAULT.max_response_bytes);
     let rows = "[{\"client\":{\"name\":\"Codex\",\"recorded_at\":\"2026-10-23T14:05:00Z\",\"run_id\":4,\"version\":\"1.2.3\"},\"description\":\"worker\",\"handle\":\"amber-falcon\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"last_sent\":\"2026-10-23T14:03:00Z\",\"listening\":false,\"waiting_channels\":[]},{\"client\":null,\"description\":null,\"handle\":\"brave-otter\",\"lane\":null,\"last_seen\":\"2026-10-23T14:05:00Z\",\"last_sent\":\"2026-10-23T14:03:00Z\",\"listening\":false,\"waiting_channels\":[]}]";
     assert_eq!(
         fmt.agents(Format::Json, &page),
@@ -456,7 +455,7 @@ fn agent_and_member_lists_show_descriptions() {
 #[test]
 fn the_longest_descriptions_fit_the_smallest_response_cap() {
     let cap = kkt_config::MIN_RESPONSE_BYTES;
-    let max_chars = Limits::DEFAULT.max_description_chars;
+    let max_chars = kkt_rules::Settings::DEFAULT.max_description_chars;
     // Four-byte characters, characters JSON must escape, and control
     // characters JSON writes as six bytes each.
     for long in [
@@ -502,7 +501,7 @@ fn the_longest_descriptions_fit_the_smallest_response_cap() {
 #[test]
 fn descriptions_are_whole_when_their_row_fits() {
     // 300 ASCII characters fit whole even at the smallest cap.
-    let long = "x".repeat(Limits::DEFAULT.max_description_chars);
+    let long = "x".repeat(kkt_rules::Settings::DEFAULT.max_description_chars);
     let agent = described("amber-falcon", Some(&long));
     let page = Page {
         items: vec![agent.clone()],
@@ -512,12 +511,12 @@ fn descriptions_are_whole_when_their_row_fits() {
     let json: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(json["agents"][0]["description"], long.as_str());
     // At the default cap, so do the longest four-byte descriptions.
-    let long = "😀".repeat(Limits::DEFAULT.max_description_chars);
+    let long = "😀".repeat(kkt_rules::Settings::DEFAULT.max_description_chars);
     let page = Page {
         items: vec![described("amber-falcon", Some(&long))],
         next_cursor: None,
     };
-    let out = formatter(Limits::DEFAULT.max_response_bytes).agents(Format::Json, &page);
+    let out = formatter(Settings::DEFAULT.max_response_bytes).agents(Format::Json, &page);
     let json: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(json["agents"][0]["description"], long.as_str());
 }
@@ -1177,7 +1176,7 @@ fn reclaim_names_the_memory_entries_up_to_a_bound() {
 fn current_server_announcement_text_and_version_are_returned_whole() {
     let instructions = kkt_rules::ServerAnnouncement {
         version: 7,
-        text: "\u{1}😀\n".repeat(Limits::DEFAULT.max_server_announcement_chars / 3),
+        text: "\u{1}😀\n".repeat(kkt_rules::Settings::DEFAULT.max_server_announcement_chars / 3),
         saved_at: "2026-10-27T00:00:00Z".into(),
         run_id: 3,
         saved_by_admin: None,

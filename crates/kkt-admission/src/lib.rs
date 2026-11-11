@@ -19,7 +19,7 @@ mod session;
 mod shared_key;
 
 pub use any_bearer::{AnyBearer, BearerToken};
-pub use session::Sessions;
+pub use session::{Sessions, Settings};
 pub use shared_key::SharedKey;
 
 mod open;

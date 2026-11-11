@@ -5,10 +5,10 @@
 use crate::machine::record::{docker_folder, read_setup};
 use crate::machine::settings::{DefaultDb, NO_HOME_TO_FIND_DB, database, read_config};
 use kkt_clock::SystemClock;
-use kkt_config::Limits;
 use kkt_lane_files as lane_files;
 use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome, LaneSave, LaneSource};
 use kkt_settings::Env;
+use kkt_settings::Limits;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

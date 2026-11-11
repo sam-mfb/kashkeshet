@@ -143,6 +143,7 @@ async fn each_request_reads_the_source_of_the_viewer_the_gate_names() {
         sources.clone(),
         AllowedHosts::new(&[]).expect("loopback hosts"),
         gate.clone(),
+        Settings::DEFAULT,
     );
 
     let (status, default_page) = get_as(&site, "/", None).await;
@@ -220,6 +221,7 @@ async fn a_refused_viewer_sees_no_page_and_is_told_why_unless_signing_in_helps()
                 asked: Mutex::new(0),
                 signed_out: Mutex::new(Vec::new()),
             }),
+            Settings::DEFAULT,
         );
         for (path, expected) in [("/", page), ("/events", feed)] {
             let (status, body) = get_as(&site, path, Some("someone")).await;
@@ -256,6 +258,7 @@ async fn signing_out_ends_the_session_of_any_viewer_let_in() {
             }),
             AllowedHosts::new(&[]).expect("loopback hosts"),
             gate.clone(),
+            Settings::DEFAULT,
         );
         let request = HttpRequest::builder()
             .method("POST")

@@ -88,6 +88,8 @@ mod operator;
 pub use announcement::ServerAnnouncement;
 pub use operator::{Audit, Operator, OperatorWording, Permission, Permissions};
 mod rate;
+mod settings;
+pub use settings::Settings;
 mod stale;
 pub use stale::{Kept, KeptReason, StaleAgent, StaleHidden};
 mod waiting;
@@ -113,7 +115,6 @@ use rate::{RegisterLimiter, SendLimiter};
 
 use access::{Decision, Need, Viewer, Who};
 use kkt_clock::{self as clock, Clock, Span, Time};
-use kkt_config::Limits;
 use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent,
     NewChannel as NewChannelEvent, Subscription, SwarmEvents,
@@ -151,7 +152,8 @@ pub struct Deps {
     /// This server run, from `provenance::record`. New agents and messages
     /// are stamped with it.
     pub run_id: i64,
-    pub limits: Limits,
+    /// What the rules enforce and fill in.
+    pub settings: Settings,
     /// How notices name the operator, from where it asked.
     pub wording: Arc<dyn OperatorWording>,
 }
@@ -170,25 +172,25 @@ pub struct Rules {
 }
 
 /// What [`Rules`] share in every swarm: the database, the clock, the
-/// limits, the bus, the record of waits and the rate limiters. Waits and
+/// settings, the bus, the record of waits and the rate limiters. Waits and
 /// sends are counted per agent, a handle in a swarm.
 struct Inner {
     deps: Deps,
     /// Who is waiting for messages now, and who stopped a moment ago.
     waiting: Waiting,
-    /// Counts each agent's sends against `limits.sends_per_minute`.
+    /// Counts each agent's sends against `settings.sends_per_minute`.
     sends: SendLimiter,
     /// Counts registrations, in every swarm together, against
-    /// `limits.registrations_per_minute`.
+    /// `settings.registrations_per_minute`.
     registrations: RegisterLimiter,
 }
 
 impl Rules {
     /// Rules over `deps`, acting in `deps.swarm`, with their own record of
-    /// waiting agents and their own rate limiters, made from `deps.limits`.
+    /// waiting agents and their own rate limiters, made from `deps.settings`.
     pub fn new(deps: Deps) -> Rules {
-        let sends = SendLimiter::new(deps.limits.sends_per_minute);
-        let registrations = RegisterLimiter::new(deps.limits.registrations_per_minute);
+        let sends = SendLimiter::new(deps.settings.sends_per_minute);
+        let registrations = RegisterLimiter::new(deps.settings.registrations_per_minute);
         let swarm = deps.swarm.clone();
         let inner = Arc::new(Inner {
             deps,
@@ -215,8 +217,9 @@ impl Rules {
         }
     }
 
-    pub fn limits(&self) -> &Limits {
-        &self.inner.deps.limits
+    /// What these rules enforce and fill in.
+    pub fn settings(&self) -> &Settings {
+        &self.inner.deps.settings
     }
 
     /// Hears what happens in this swarm from now on: new messages, agents

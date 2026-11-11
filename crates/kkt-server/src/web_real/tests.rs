@@ -8,7 +8,6 @@ use axum::http::StatusCode;
 use kkt_admission::{Admission, Principal, ServerKey, Sessions, SharedKey, WebAdmission};
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
-use kkt_config::Limits;
 use kkt_events::Events;
 use kkt_identity::{Identified, Identify, Identifying, KeyMode};
 use kkt_names as names;
@@ -22,8 +21,8 @@ use kkt_web::testing::{
     channel_creation_works, channel_row, earlier_pages_work, get, handoff_works,
     hidden_channels_show_only_on_request, history_works, lanes_pages_work, lists_channel,
     member_lists_show_lanes_and_latest_messages, members_shown, next_change,
-    operator_changes_are_live, page_script_works, pages_work, site, stale_agents_work, start_time,
-    summaries_agree_with_the_pages, toast,
+    operator_changes_are_live, page_script_works, pages_work, site, site_with, stale_agents_work,
+    start_time, summaries_agree_with_the_pages, toast,
 };
 use kkt_web::{Admit, ChannelAction, Gate, Left, LiveEvent, SignIn, Source};
 use std::sync::Arc;
@@ -40,7 +39,7 @@ fn gate(admission: Admission, identify: Arc<dyn Identify>) -> AdmissionGate {
     let sessions = Sessions::new(
         clock,
         Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
+        kkt_admission::Settings::DEFAULT.web_session_lifetime,
     );
     AdmissionGate::new(WebAdmission::new(Arc::new(admission), sessions), identify)
 }
@@ -65,12 +64,12 @@ async fn handoff_works_through_the_rules() {
 
 #[tokio::test]
 async fn earlier_pages_work_through_the_rules() {
-    let limits = Limits {
-        web_page_messages: 2,
-        ..Limits::DEFAULT
+    let source = rules_source().await;
+    let settings = kkt_web::Settings {
+        page_messages: 2,
+        ..kkt_web::Settings::DEFAULT
     };
-    let (_, source) = rules_world_with(limits).await;
-    assert!(earlier_pages_work(source, rules_gate()).await >= 2);
+    assert!(earlier_pages_work(source, rules_gate(), settings).await >= 2);
 }
 
 #[tokio::test]
@@ -86,24 +85,26 @@ async fn rules_source() -> Arc<dyn Source> {
 
 /// The rules behind `rules_source`, too, for checking what a change did.
 async fn rules_world() -> (Rules, Arc<dyn Source>) {
-    rules_world_with(Limits::DEFAULT).await
+    rules_world_with(kkt_rules::Settings::DEFAULT).await
 }
 
-async fn rules_world_with(limits: Limits) -> (Rules, Arc<dyn Source>) {
-    let (rules, source, _) = rules_world_and_clock(limits).await;
+async fn rules_world_with(settings: kkt_rules::Settings) -> (Rules, Arc<dyn Source>) {
+    let (rules, source, _) = rules_world_and_clock(settings).await;
     (rules, source)
 }
 
 /// `rules_world_with`, and the clock the rules read.
-async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<FixedClock>) {
-    let (rules, source, clock, _) = rules_world_and_db(limits).await;
+async fn rules_world_and_clock(
+    settings: kkt_rules::Settings,
+) -> (Rules, Arc<dyn Source>, Arc<FixedClock>) {
+    let (rules, source, clock, _) = rules_world_and_db(settings).await;
     (rules, source, clock)
 }
 
 /// `rules_world_and_clock`, and the operator's commands on the same
 /// database, as `kkt agent` and `kkt lanes` use them.
 async fn rules_world_and_db(
-    limits: Limits,
+    settings: kkt_rules::Settings,
 ) -> (
     Rules,
     Arc<dyn Source>,
@@ -153,7 +154,7 @@ async fn rules_world_and_db(
         clock: clock.clone(),
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
-        limits,
+        settings,
         wording: Arc::new(kkt_format::NoticeWording),
     });
     let mut agents = Vec::new();
@@ -215,7 +216,7 @@ async fn rules_world_and_db(
 
 #[tokio::test]
 async fn the_lane_page_says_where_an_imported_version_came_from() {
-    let (rules, source, _, operator) = rules_world_and_db(Limits::DEFAULT).await;
+    let (rules, source, _, operator) = rules_world_and_db(kkt_rules::Settings::DEFAULT).await;
     rules
         .save_lane(
             kkt_rules::Actor::Operator(web_operator().await),
@@ -240,7 +241,7 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
             },
             retire_missing: false,
             skipped_files: Vec::new(),
-            max_lane_chars: Limits::DEFAULT.max_lane_chars,
+            max_lane_chars: kkt_rules::Settings::DEFAULT.max_lane_chars,
         })
         .await
         .expect("import");
@@ -301,11 +302,11 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
 
 #[tokio::test]
 async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
-    let limits = Limits {
-        web_member_excerpt_chars: 12,
-        ..Limits::DEFAULT
+    let (rules, source) = rules_world().await;
+    let settings = kkt_web::Settings {
+        member_excerpt_chars: 12,
+        ..kkt_web::Settings::DEFAULT
     };
-    let (rules, source) = rules_world_with(limits).await;
     let open = source
         .overview()
         .await
@@ -337,7 +338,11 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
         .join_channel(&newcomer, open.clone())
         .await
         .expect("join");
-    let (_, page) = get(&rules_site(source.clone()), &format!("/channels/{open}")).await;
+    let (_, page) = get(
+        &rules_site(source.clone(), settings),
+        &format!("/channels/{open}"),
+    )
+    .await;
     let row = member_row(&page, &newcomer.handle);
     assert!(
         row.contains("lane <a href=\"/lanes/reviewer\">reviewer</a> version 1"),
@@ -353,7 +358,11 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
         )
         .await
         .expect("send");
-    let (_, page) = get(&rules_site(source.clone()), &format!("/channels/{open}")).await;
+    let (_, page) = get(
+        &rules_site(source.clone(), settings),
+        &format!("/channels/{open}"),
+    )
+    .await;
     let row = member_row(&page, &newcomer.handle);
     assert!(
         row.contains(&format!(
@@ -367,9 +376,9 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
     assert!(member_lists_show_lanes_and_latest_messages(source, rules_gate()).await >= 3);
 }
 
-/// The site over `source`, behind the open gate.
-fn rules_site(source: Arc<dyn Source>) -> axum::Router {
-    site(source, rules_gate())
+/// The site over `source`, behind the open gate, with `settings`.
+fn rules_site(source: Arc<dyn Source>, settings: kkt_web::Settings) -> axum::Router {
+    site_with(source, rules_gate(), settings)
 }
 
 /// The member list's row for `handle` on a channel page.
@@ -757,7 +766,7 @@ async fn channel_creation_through_rules() {
 
 #[tokio::test]
 async fn stale_agents_work_through_the_rules() {
-    let (rules, source, clock) = rules_world_and_clock(Limits::DEFAULT).await;
+    let (rules, source, clock) = rules_world_and_clock(kkt_rules::Settings::DEFAULT).await;
     // A third agent, in the open channel, so two non-owners are quiet.
     let third = rules.register().await.expect("register");
     let third = rules.authenticate(Some(&third.token)).await.expect("auth");
@@ -777,7 +786,7 @@ async fn stale_agents_work_through_the_rules() {
 
 #[tokio::test]
 async fn history_works_through_the_rules() {
-    let (_, source, clock) = rules_world_and_clock(Limits::DEFAULT).await;
+    let (_, source, clock) = rules_world_and_clock(kkt_rules::Settings::DEFAULT).await;
     history_works(source.clone(), rules_gate(), "less than a minute").await;
     clock.advance(Span::minutes(125));
     history_works(source.clone(), rules_gate(), "2 hours 5 minutes").await;

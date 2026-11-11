@@ -1048,6 +1048,7 @@ dependencies = [
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
+ "kkt-format",
  "kkt-hosts",
  "kkt-identity",
  "kkt-lane-files",
@@ -1064,6 +1065,7 @@ dependencies = [
  "kkt-shutdown",
  "kkt-store",
  "kkt-watch",
+ "kkt-web",
  "libc",
  "reqwest",
  "rmcp",
@@ -1202,6 +1204,7 @@ dependencies = [
  "kkt-clock",
  "kkt-config",
  "kkt-db-sqlite",
+ "kkt-format",
  "kkt-hosts",
  "kkt-identity",
  "kkt-names",
@@ -1209,6 +1212,7 @@ dependencies = [
  "kkt-server",
  "kkt-shutdown",
  "kkt-store",
+ "kkt-web",
  "reqwest",
  "serde_json",
  "tokio",
@@ -1257,14 +1261,17 @@ dependencies = [
  "kkt-clock",
  "kkt-config",
  "kkt-db-sqlite",
+ "kkt-format",
  "kkt-hosts",
  "kkt-identity",
  "kkt-names",
  "kkt-provenance",
+ "kkt-rules",
  "kkt-server",
  "kkt-settings",
  "kkt-shutdown",
  "kkt-store",
+ "kkt-web",
  "tokio",
 ]
 
@@ -1323,6 +1330,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-config",
  "kkt-names",
+ "kkt-settings",
  "sha2",
 ]
 

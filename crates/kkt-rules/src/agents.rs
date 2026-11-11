@@ -38,7 +38,7 @@ impl Rules {
                 Code::RateLimited,
                 format!(
                     "this server accepts at most {} registrations a minute; wait and try again",
-                    self.limits().registrations_per_minute
+                    self.settings().registrations_per_minute
                 ),
             ));
         }
@@ -55,11 +55,11 @@ impl Rules {
         proposed: Option<String>,
         lane: Option<String>,
     ) -> Result<Registration> {
-        let max_agents = self.limits().max_agents;
+        let max_agents = self.settings().max_agents;
         let entropy = self.inner.deps.entropy.clone();
         let wanted = match proposed {
             Some(handle) => Wanted::Proposed(handle),
-            None => Wanted::Drawn(self.limits().name_pack.agent_handle(entropy.as_ref())),
+            None => Wanted::Drawn(self.settings().name_pack.agent_handle(entropy.as_ref())),
         };
         let token = auth::token(entropy.as_ref());
         let hash = auth::hash_token(&token);
@@ -245,7 +245,7 @@ impl Rules {
     /// Replaces `me`'s description, which others see when they list agents
     /// or members. Empty text clears it.
     pub async fn set_description(&self, me: &Agent, text: String) -> Result<AgentInfo> {
-        let description = clean_description(&text, self.limits().max_description_chars)?;
+        let description = clean_description(&text, self.settings().max_description_chars)?;
         let me = me.handle.clone();
         self.db()
             .write(move |store, swarm| {

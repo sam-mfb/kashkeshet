@@ -29,6 +29,7 @@ kkt-clock = { path = "../../crates/kkt-clock", features = ["real"] }
 kkt-config = { path = "../../crates/kkt-config" }
 # The program's database file.
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
+kkt-format = { path = "../../crates/kkt-format" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }
 kkt-names = { path = "../../crates/kkt-names", features = ["real"] }
@@ -36,6 +37,7 @@ kkt-rules = { path = "../../crates/kkt-rules" }
 kkt-server = { path = "../../crates/kkt-server", features = ["real"] }
 kkt-shutdown = { path = "../../crates/kkt-shutdown", features = ["real"] }
 kkt-store = { path = "../../crates/kkt-store" }
+kkt-web = { path = "../../crates/kkt-web" }
 reqwest = { workspace = true, features = ["form", "stream"] }
 serde_json.workspace = true
 tokio.workspace = true
