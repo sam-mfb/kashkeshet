@@ -17,6 +17,7 @@ use kkt_provenance::Build;
 use kkt_service::Manager;
 use kkt_settings::Limits;
 use kkt_setup as setup;
+use kkt_terminal_os::Terminal;
 use std::path::Path;
 
 /// The name of the doctor line about the service on this machine.
@@ -135,13 +136,13 @@ pub async fn run(
         unrecorded: unrecorded_check(unrecorded),
     };
     let (report, all_ok) = diagnostics::report(plan.checks(inspector));
-    print!("{report}");
+    Terminal.output(format_args!("{report}"));
     match clients::codex_password_store_hint(env, &ClientHost) {
-        Ok(true) => println!(
-            "info: Codex: mcp_oauth_credentials_store is unset; a password-store timeout can prevent kkt from connecting. See https://github.com/sam-mfb/kashkeshet/blob/main/docs/clients.md#codex for the optional file-store setting and what it changes."
-        ),
+        Ok(true) => Terminal.output(format_args!(
+            "info: Codex: mcp_oauth_credentials_store is unset; a password-store timeout can prevent kkt from connecting. See https://github.com/sam-mfb/kashkeshet/blob/main/docs/clients.md#codex for the optional file-store setting and what it changes.\n"
+        )),
         Ok(false) => {}
-        Err(error) => println!("info: Codex config could not be checked: {error}"),
+        Err(error) => Terminal.output(format_args!("info: Codex config could not be checked: {error}\n")),
     }
     if all_ok {
         Ok(())

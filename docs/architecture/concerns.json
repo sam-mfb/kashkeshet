@@ -318,6 +318,12 @@
    "concern": "Structured log events: their level, target, message and named values.",
    "must_not": "Know a logging library or perform I/O."
   },
+  "kkt-terminal-os": {
+   "layer": "foundations",
+   "kind": "effect",
+   "concern": "Command output and errors, output-terminal detection, and the closed-output-pipe default.",
+   "must_not": "Decide command output or setup answers."
+  },
   "kkt-logs": {
    "layer": "foundations",
    "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans.",

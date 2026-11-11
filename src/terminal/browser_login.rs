@@ -3,6 +3,7 @@
 //! system opener. `kkt_container::provision` only knows [`LoginLink`].
 
 use kkt_container::LoginLink;
+use kkt_terminal_os::Terminal;
 use std::io::{self, IsTerminal};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -36,19 +37,23 @@ impl TerminalLink {
 
 impl LoginLink for TerminalLink {
     fn show(&self, url: &str) {
-        if !(io::stdin().is_terminal() && io::stdout().is_terminal()) {
-            println!("Log in to Tailscale by opening: {url}");
+        if !(io::stdin().is_terminal() && Terminal.output_is_terminal()) {
+            Terminal.output(format_args!("Log in to Tailscale by opening: {url}\n"));
             return;
         }
-        println!("Log in to Tailscale by opening this link:\n  {url}");
-        println!("Press Enter to open it in your browser (or open it yourself).");
+        Terminal.output(format_args!(
+            "Log in to Tailscale by opening this link:\n  {url}\n"
+        ));
+        Terminal.output(format_args!(
+            "Press Enter to open it in your browser (or open it yourself).\n"
+        ));
         // A key press is waited for on its own thread, so that setup goes on
         // watching for the login meanwhile. If the person logs in another
         // way, this thread is left waiting; it reads nothing else.
         let pressed = Arc::clone(&self.pressed);
         std::thread::spawn(move || {
             if let Some(message) = wait_for_enter(&mut io::stdin().lock(), &pressed) {
-                println!("{message}");
+                Terminal.output(format_args!("{message}\n"));
             }
         });
     }

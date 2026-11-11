@@ -87,7 +87,8 @@
       "kkt-agent-client::Remote",
       "kkt-agent-client::AdminRemote",
       "kkt-watch::run",
-      "kkt-clock-system::SystemClock"
+      "kkt-clock-system::SystemClock",
+      "kkt-terminal-os::Terminal"
      ]
     }
    ],
@@ -259,7 +260,8 @@
      "note": "kkt watch"
     },
     {
-     "own": "standard output and error (a type of its own)",
+     "own": "WatchOutput, adapting kkt-terminal-os::Terminal",
+     "supplier": "kkt-terminal-os::Terminal",
      "crate": "kkt-watch",
      "to": [
       {

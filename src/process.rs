@@ -1,26 +1,8 @@
-//! This process: what a closed standard output does to it, its program's
-//! path, and writing a file whole. Its environment is read by
-//! kkt-machine-os.
+//! This process: its program's path and writing a file whole. Its
+//! environment is read by kkt-machine-os; terminal behavior belongs to
+//! kkt-terminal-os.
 
 use std::path::{Path, PathBuf};
-
-/// Lets a closed standard output, as with `kkt status | head`, end the
-/// command the way it ends other Unix commands (SIGPIPE), where Rust would
-/// otherwise panic at the next print. Not for `kkt serve`: a server keeps
-/// running when whatever reads its output goes away, and systemd starts it
-/// with SIGPIPE ignored on purpose. Network writes are unaffected: Rust
-/// asks the system not to signal for those.
-pub fn end_on_closed_output() {
-    // SAFETY: this sets only what happens on SIGPIPE, to the system's
-    // default; no handler of ours runs, and nothing else in kkt sets it.
-    #[cfg(unix)]
-    if unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) } == libc::SIG_ERR {
-        eprintln!(
-            "warning: could not restore the default for a closed output: {}",
-            std::io::Error::last_os_error()
-        );
-    }
-}
 
 /// This program's absolute path, with links followed: the one place it is
 /// found. Each caller says in its own words why it could not be.

@@ -31,6 +31,7 @@ use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_service::Manager;
 use kkt_setup as setup;
+use kkt_terminal_os::Terminal;
 use std::path::{Path, PathBuf};
 
 /// Where `kkt setup` keeps a client-only machine's copy of its server's
@@ -97,10 +98,10 @@ impl setup::Steps for OsSteps<'_> {
             None => connection.url,
         };
         if let Some(access) = &connection.key_file {
-            println!(
-                "The web key is in {}. Read it with `kkt key show --web`.",
+            Terminal.output(format_args!(
+                "The web key is in {}. Read it with `kkt key show --web`.\n",
                 kkt_admission::web_key_path(access).display()
-            );
+            ));
         }
         Ok(setup::Installed {
             url,
@@ -230,7 +231,7 @@ impl setup::Steps for OsSteps<'_> {
                 &server.url,
                 server.key_file.as_deref(),
                 diagnostics::setup_wait(diagnostics::Settings::DEFAULT, kind),
-                &mut || println!("{note}"),
+                &mut || Terminal.output(format_args!("{note}\n")),
             ))?;
         if let Some(fix) = setup::server_fix(&mode) {
             point_server_fix_at(&mut checks, &server_fix(&fix));
@@ -292,11 +293,11 @@ impl setup::Steps for OsSteps<'_> {
                         })
                     })
                     .map_err(|e| e.to_string())?;
-                println!(
-                    "{} admin key for /mcp-admin is in {}, and the server was restarted to use it. Read it with `kkt key show --admin`.",
+                Terminal.output(format_args!(
+                    "{} admin key for /mcp-admin is in {}, and the server was restarted to use it. Read it with `kkt key show --admin`.\n",
                     if made { "A new" } else { "The" },
                     admin.display()
-                );
+                ));
                 Ok(admin)
             }
             setup::Mode::Client => Err("an admin key is made on the server's machine".into()),

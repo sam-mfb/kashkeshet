@@ -12,6 +12,7 @@ use kkt_clock_system::SystemClock;
 use kkt_machine::{Env, Platform};
 use kkt_service::{DryRun, Manager, Request, ServiceSettings, Spec, check_bind};
 use kkt_settings::ServeOptions;
+use kkt_terminal_os::Terminal;
 use std::io;
 use std::net::{SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
@@ -79,14 +80,17 @@ pub async fn run(env: &Env, platform: Platform, command: ServiceAction) -> Resul
                 // Said at once, so they are seen even if the start fails.
                 if let Some(key) = &plan.new_web_key {
                     new_key_file(key, false)?;
-                    println!(
-                        "Created a new web key at {}. Read it with `kkt key show --web`.",
+                    Terminal.output(format_args!(
+                        "Created a new web key at {}. Read it with `kkt key show --web`.\n",
                         key.display()
-                    );
+                    ));
                 }
                 if let Some(key) = &plan.new_key {
                     new_key_file(key, false)?;
-                    println!("Created a new access key at {}", key.display());
+                    Terminal.output(format_args!(
+                        "Created a new access key at {}\n",
+                        key.display()
+                    ));
                 }
                 match manager
                     .install(
@@ -115,7 +119,7 @@ pub async fn run(env: &Env, platform: Platform, command: ServiceAction) -> Resul
     }
     .map_err(|e| e.to_string())?;
     for line in said {
-        println!("{line}");
+        Terminal.output(format_args!("{line}\n"));
     }
     Ok(())
 }

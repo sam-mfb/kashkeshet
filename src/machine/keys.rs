@@ -9,6 +9,7 @@ use kkt_entropy_os::OsEntropy;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_setup as setup;
+use kkt_terminal_os::Terminal;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -230,7 +231,7 @@ pub(crate) fn unrecorded_for_keys(
     match read_unrecorded(env, platform, serve_args) {
         Ok(found) => found,
         Err((_, e)) => {
-            eprintln!("Unrecorded install: {e}");
+            Terminal.errors(format_args!("Unrecorded install: {e}\n"));
             None
         }
     }

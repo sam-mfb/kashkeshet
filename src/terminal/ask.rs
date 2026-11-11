@@ -1,7 +1,7 @@
 //! Asking setup's questions on the terminal.
 
 use kkt_setup as setup;
-use std::io::Write;
+use kkt_terminal_os::Terminal;
 
 /// Asks on the terminal, or, with none, refuses each question naming the
 /// flag that answers it.
@@ -28,7 +28,7 @@ impl TerminalAsk {
             }
             match answer.trim().parse::<usize>() {
                 Ok(n) if (1..=options.len()).contains(&n) => return Ok(n - 1),
-                _ => println!("Type a number from 1 to {}.", options.len()),
+                _ => Terminal.output(format_args!("Type a number from 1 to {}.\n", options.len())),
             }
         }
     }
@@ -52,9 +52,9 @@ impl TerminalAsk {
                     if let Some(default) = question.default {
                         return Ok(default);
                     }
-                    println!("Type y or n.");
+                    Terminal.output(format_args!("Type y or n.\n"));
                 }
-                _ => println!("Type y or n."),
+                _ => Terminal.output(format_args!("Type y or n.\n")),
             }
         }
     }
@@ -77,9 +77,9 @@ impl TerminalAsk {
         if !self.interactive {
             return Err(setup::unanswered(question));
         }
-        print!("{prompt}");
-        std::io::stdout()
-            .flush()
+        Terminal.output(format_args!("{prompt}"));
+        Terminal
+            .flush_output()
             .map_err(|e| format!("could not write to the terminal: {e}"))?;
         let mut line = String::new();
         let read = std::io::stdin()
@@ -117,7 +117,7 @@ impl setup::Ask for TerminalAsk {
     }
 
     fn tell(&self, text: &str) {
-        println!("{text}");
+        Terminal.output(format_args!("{text}\n"));
     }
 }
 
