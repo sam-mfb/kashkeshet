@@ -119,7 +119,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
   --k-configuration: #22d3ee; --k-test-support: #bfcf5a; --k-mixed: #f472b6;
 }
 .node > rect { stroke: var(--kind, var(--box-line)); stroke-width: 1.6; }
-.node.selected > rect { stroke-width: 3.4; }
+.node.checked > rect { stroke-width: 2.6; }
 .kind-contract { --kind: var(--k-contract); }
 .kind-logic { --kind: var(--k-logic); }
 .kind-effect { --kind: var(--k-effect); }

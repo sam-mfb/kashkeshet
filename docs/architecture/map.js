@@ -36,8 +36,11 @@
   const state = {
     mode: "current",
     selected: null,
-    // Every selected crate; the panel shows `selected`, the latest clicked.
-    picked: new Set(),
+    // The crates whose checkbox is ticked, by name: they light up their
+    // arrows, neighbours and delivery lines. `selected` is the crate the
+    // panel shows; clicking a box sets it and highlights nothing. Both are
+    // kept by name whatever the filters draw, and the map is drawn from them.
+    checked: new Set(),
     hiddenPrograms: new Set(),
     showDevCrates: true,
     kinds: { normal: true, dev: false, build: false },
@@ -249,7 +252,7 @@
         el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
       el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
-      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, for the selected crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: selected (tick a box's corner to select several). Eye: a program shown or hidden. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, for the highlighted crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -454,9 +457,9 @@
   // finger at phone width.
   function pickBox(name) {
     const box = svg("g", { class: "pick", role: "checkbox", tabindex: "0", "data-key": `pick:${name}`,
-      "aria-checked": state.picked.has(name) ? "true" : "false", "aria-label": `Select ${name} too` });
+      "aria-checked": state.checked.has(name) ? "true" : "false", "aria-label": `Highlight ${name}` });
     const tip = svg("title");
-    tip.textContent = `Add ${name} to the selection, or take it out`;
+    tip.textContent = `Light up ${name}'s arrows and neighbours, with any other ticked crate's`;
     // Centred on the box's top right corner, clear of its name.
     box.append(tip, svg("rect", { class: "pick-hit", x: BOX_W - 20, y: -17, width: 34, height: 34 }),
       svg("rect", { class: "pick-box", x: BOX_W - 6, y: -6, width: 12, height: 12, rx: 2 }),
@@ -488,14 +491,10 @@
     return eye;
   }
 
+  // Ticking highlights; it leaves the panel as it is, apart from the list
+  // of ticked crates.
   function togglePick(name) {
-    if (state.picked.has(name)) {
-      state.picked.delete(name);
-      if (state.selected === name) state.selected = [...state.picked].pop() || null;
-    } else {
-      state.picked.add(name);
-      state.selected = name;
-    }
+    if (state.checked.has(name)) state.checked.delete(name); else state.checked.add(name);
     paint();
     renderPanel();
   }
@@ -507,16 +506,16 @@
     renderResults();
   }
 
-  // Classes for the selection's neighbourhood and the search hits. With
-  // several crates selected, the highlight is the union of each one's.
+  // Classes for the ticked crates' neighbourhood, the panel's crate and the
+  // search hits. The highlight is the union over the ticked crates; with none
+  // ticked, every arrow is faint.
   function paint() {
     if (!view) return;
-    const focus = state.picked;
+    const focus = state.checked;
     const deps = new Set();
     const users = new Set();
     for (const { edge, path } of view.edgeNodes) {
       path.classList.remove("focus", "faint");
-      if (!focus.size) continue;
       if (focus.has(edge.from) || focus.has(edge.to)) {
         path.classList.add("focus");
         if (focus.has(edge.from)) deps.add(edge.to);
@@ -527,7 +526,7 @@
     }
     const hits = searchHits();
     for (const [name, node] of view.nodes) {
-      node.classList.toggle("selected", focus.has(name));
+      node.classList.toggle("checked", focus.has(name));
       node.classList.toggle("current", name === state.selected);
       node.classList.toggle("dep", deps.has(name));
       node.classList.toggle("user", users.has(name));
@@ -615,7 +614,7 @@
     while (layer.firstChild) layer.removeChild(layer.firstChild);
     while (labelLayer.firstChild) labelLayer.removeChild(labelLayer.firstChild);
     if (state.hiddenRoles.has("wires") || !state.kinds.normal) return;
-    const focus = state.picked;
+    const focus = state.checked;
     const shown = focus.size
       ? deliveries().filter((d) => focus.has(d.program) || focus.has(d.builder) || focus.has(d.receiver)) : [];
     // One line per injector and receiver, carrying every injection between
@@ -757,31 +756,31 @@
 
   // ---- The panel ----
 
-  // Clicking a box selects just that crate; null clears the selection.
+  // Clicking a box shows that crate in the panel; null shows the overview.
+  // It highlights nothing and ticks nothing.
   function select(name) {
     state.selected = name;
-    state.picked = new Set(name ? [name] : []);
     paint();
     renderPanel();
     try { history.replaceState(null, "", name ? `#${name}` : "#"); } catch (_) { /* file:// may refuse */ }
   }
 
-  // With several crates selected, the panel lists them all: each opens its
-  // own panel, and one button clears the selection.
+  // The ticked crates, at the top of the panel: each opens its own panel,
+  // and one button clears them.
   function selectionList() {
-    if (state.picked.size < 2) return null;
+    if (!state.checked.size) return null;
     return el("div", { class: "selection-list" },
-      el("strong", {}, `Selected (${state.picked.size}): `),
-      [...state.picked].map((n, i) => [i ? ", " : "",
+      el("strong", {}, `Highlighted (${state.checked.size}): `),
+      [...state.checked].map((n, i) => [i ? ", " : "",
         el("button", { class: "crate-link", type: "button", "aria-current": n === state.selected ? "true" : "false",
           onclick: () => { state.selected = n; paint(); renderPanel(); } }, n)]),
-      " ", el("button", { class: "clear-selection", type: "button", onclick: () => select(null) }, "Clear selection"));
+      " ", el("button", { class: "clear-selection", type: "button", onclick: () => { state.checked = new Set(); paint(); renderPanel(); } }, "Clear"));
   }
 
   function renderPanel(focusItem) {
     const panel = $("panel");
     if (!state.selected) {
-      panel.replaceChildren(...overview().flat().filter(Boolean));
+      panel.replaceChildren(...[selectionList(), ...overview().flat()].filter(Boolean));
       return;
     }
     const c = crates.get(state.selected);
@@ -1339,8 +1338,9 @@
     concerns = p ? p.concerns : window.KKT_CONCERNS;
     assembly = p ? p.assembly : window.KKT_ASSEMBLY;
     crates = new Map(graph.crates.map((c) => [c.name, c]));
-    for (const n of [...state.picked]) if (!crates.has(n)) state.picked.delete(n);
-    if (state.selected && !crates.has(state.selected)) state.selected = [...state.picked].pop() || null;
+    // A crate the other map does not have is not drawn there, but stays
+    // ticked or shown for when it comes back.
+    if (state.selected && !crates.has(state.selected)) state.selected = null;
     document.body.classList.toggle("mode-proposed", mode === "proposed");
     setMeta();
     draw();
@@ -1366,7 +1366,6 @@
       if (!c.dev_only || !c.bins.length) continue;
       if (state.showDevCrates) state.hiddenPrograms.delete(c.name); else state.hiddenPrograms.add(c.name);
     }
-    prunePicks();
     draw();
     renderPanel();
   });
@@ -1408,16 +1407,9 @@
     });
     $(`${id}-panel`).addEventListener("change", menuCounts);
   }
-  // Crates a filter stops drawing leave the selection.
-  function prunePicks() {
-    for (const n of [...state.picked]) if (!drawnCrate(n)) state.picked.delete(n);
-    if (state.selected && !drawnCrate(state.selected)) state.selected = [...state.picked].pop() || null;
-  }
-
   // All and None at the top of each menu tick or untick every box in it.
   const shownKinds = () => (concerns.kinds || []).filter((k) => graph.crates.some((c) => crateKind(c.name) === k.id)).map((k) => k.id);
   function redrawAll() {
-    prunePicks();
     draw();
     renderPanel();
     renderResults();
@@ -1464,6 +1456,7 @@
     state.query = "";
     draw();
     renderResults();
+    state.checked = new Set();
     select(null);
   });
 
