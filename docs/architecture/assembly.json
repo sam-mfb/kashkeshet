@@ -21,11 +21,11 @@
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
       "kkt-db::Legacy",
-      "kkt-store::schema",
+      "kkt-rules::schema",
       "kkt-db::Backend",
-      "kkt-store::Db"
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Run record",
@@ -106,7 +106,7 @@
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
@@ -116,7 +116,7 @@
      "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-server",
      "to": [
       {
@@ -170,7 +170,7 @@
      ]
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-rules",
      "to": [
       {
@@ -605,10 +605,10 @@
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
-      "kkt-store::schema",
-      "kkt-store::Db"
+      "kkt-rules::schema",
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Run record",
@@ -656,7 +656,7 @@
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
@@ -666,7 +666,7 @@
      "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-server",
      "to": [
       {
@@ -729,10 +729,10 @@
      "text": "A database with the core's tables: in memory in its tests, a SqlitePlace file for its program. The product makes the second swarm in it.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
-      "kkt-store::schema",
-      "kkt-store::Db"
+      "kkt-rules::schema",
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Parts",
@@ -768,7 +768,7 @@
    "wiring": [
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
@@ -778,7 +778,7 @@
      "note": "its program; its tests use an in-memory database"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Db",
      "crate": "kkt-fake-product",
      "to": [
       {

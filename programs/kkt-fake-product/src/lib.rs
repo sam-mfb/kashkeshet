@@ -24,9 +24,9 @@ use kkt_names::AdminName;
 use kkt_rules::{
     self as rules, Agent, Audit, Code, Operator, Permission, Permissions, RuleError, Rules, SwarmId,
 };
+use kkt_rules::{Db, NewServerRunRecord};
 use kkt_server::{AppConfig, Parts};
 use kkt_shutdown::Shutdown;
-use kkt_store::{Db, NewServerRunRecord};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -198,7 +198,7 @@ impl Product {
                     instructions_sha256: "fake".into(),
                 })?;
                 w.insert_swarm(&other(), &now, run_id)?;
-                Ok::<_, kkt_store::StoreError>(run_id)
+                Ok::<_, kkt_rules::StoreError>(run_id)
             })
             .await
             .expect("a server run and the second swarm");
