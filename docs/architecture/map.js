@@ -23,6 +23,8 @@
   };
   // How far apart the parallel strokes of an arrow with several roles are.
   const STROKE_GAP = 3.2;
+  // How many straight pieces an offset stroke is drawn with.
+  const EDGE_STEPS = 32;
   const SVG = "http://www.w3.org/2000/svg";
   const BOX_W = 156;
   const BOX_H = 42;
@@ -230,6 +232,7 @@
         const path = svg("path", {
           d: edgePath(a, b, (i - (roles.length - 1) / 2) * STROKE_GAP),
           class: `edge kind-${e.kind} role-${role}${e.proposed ? ` proposed-${e.proposed}` : ""}`,
+          "data-edge": `${e.from}>${e.to}>${e.kind}`,
           ...(i === Math.floor((roles.length - 1) / 2) ? { "marker-end": `url(#head-${roles[0]})` } : {}),
         });
         edgeLayer.append(path);
@@ -299,20 +302,47 @@
     return defs;
   }
 
-  // `off` shifts the path sideways, for the parallel strokes of an arrow
-  // with several roles.
-  function edgePath(a, b, off = 0) {
-    const ax = a.x + BOX_W / 2 + off;
-    const bx = b.x + BOX_W / 2 + off;
+  // The cubic curve an arrow follows: start, two control points, end.
+  function edgeCurve(a, b) {
+    const ax = a.x + BOX_W / 2;
+    const bx = b.x + BOX_W / 2;
     if (a.line === b.line) {
       const lift = 30 + Math.min(40, Math.abs(ax - bx) / 8);
-      return `M${ax},${a.y} C${ax},${a.y - lift} ${bx},${b.y - lift} ${bx},${b.y}`;
+      return [[ax, a.y], [ax, a.y - lift], [bx, b.y - lift], [bx, b.y]];
     }
     const down = b.line > a.line;
     const y1 = down ? a.y + BOX_H : a.y;
     const y2 = down ? b.y : b.y + BOX_H;
     const bend = (y2 - y1) / 2;
-    return `M${ax},${y1} C${ax},${y1 + bend} ${bx},${y2 - bend} ${bx},${y2}`;
+    return [[ax, y1], [ax, y1 + bend], [bx, y2 - bend], [bx, y2]];
+  }
+
+  // The arrow's path. With `off`, the path runs parallel to the curve at
+  // that distance, measured along the curve's own perpendicular at every
+  // point, so the strokes of an arrow with several roles stay apart on
+  // shallow arrows and arcs too.
+  function edgePath(a, b, off = 0) {
+    const [p0, p1, p2, p3] = edgeCurve(a, b);
+    if (!off) return `M${p0[0]},${p0[1]} C${p1[0]},${p1[1]} ${p2[0]},${p2[1]} ${p3[0]},${p3[1]}`;
+    const at = (t, i) => {
+      const u = 1 - t;
+      return u * u * u * p0[i] + 3 * u * u * t * p1[i] + 3 * u * t * t * p2[i] + t * t * t * p3[i];
+    };
+    const slope = (t, i) => {
+      const u = 1 - t;
+      return 3 * u * u * (p1[i] - p0[i]) + 6 * u * t * (p2[i] - p1[i]) + 3 * t * t * (p3[i] - p2[i]);
+    };
+    const points = [];
+    let normal = [1, 0];
+    for (let k = 0; k <= EDGE_STEPS; k++) {
+      const t = k / EDGE_STEPS;
+      const dx = slope(t, 0);
+      const dy = slope(t, 1);
+      const len = Math.hypot(dx, dy);
+      if (len > 1e-6) normal = [-dy / len, dx / len];
+      points.push(`${(at(t, 0) + normal[0] * off).toFixed(1)},${(at(t, 1) + normal[1] * off).toFixed(1)}`);
+    }
+    return `M${points.join(" L")}`;
   }
 
   function subtitle(c) {
