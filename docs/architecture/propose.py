@@ -405,7 +405,19 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             "items": {}, "features": like["features"] if like else [], "optional": like["optional"] if like else False,
             "target": like["target"] if like else None, "statuses": set(), "had_items": False})
 
+    test_uses = {}
     for e in graph["edges"]:
+        # What only the consumer's tests name follows its item as the
+        # items do, kept apart as the arrow's test-only uses.
+        for path in e.get("test_items", []):
+            replaced = extra["replace"].get((e["to"], path))
+            if replaced is not None:
+                targets = [split(r) for r in replaced.get(e["from"], [])]
+            else:
+                targets = [(t, path) for t in wheres(e["to"], path, e["from"])]
+            for target, p in targets:
+                if target != e["from"]:
+                    test_uses.setdefault((e["from"], target, e["kind"]), set()).add(p)
         role_of = {p: r["role"] for r in e.get("roles", []) for p in r["detail"]}
         if not e["items"]:
             entry_for((e["from"], e["to"], e["kind"]), e)
@@ -503,6 +515,18 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         entry["statuses"].add(edit["status"])
         note(edit["from"], edit["note"], edit["status"])
 
+    # A test-only use rides on the normal arrow when the code uses that
+    # crate too; otherwise only the tests need it, as a dev-dependency.
+    for (frm, to, kind), paths in test_uses.items():
+        entry = grouped.get((frm, to, kind))
+        if entry and entry["items"]:
+            entry["test_items"] = paths
+        else:
+            dev = entry_for((frm, to, "dev"))
+            for p in paths:
+                dev["items"].setdefault(p, "uses")
+            dev["had_items"] = True
+
     edges = []
     for (frm, to, kind), entry in sorted(grouped.items()):
         implemented_here = [r for r in records if r["crate"] == frm and r["trait_crate"] == to
@@ -523,7 +547,8 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             roles.append({"role": "uses", "detail": uses})
         roles.sort(key=lambda r: ROLE_ORDER.index(r["role"]))
         edge = {"from": frm, "to": to, "kind": kind, "features": entry["features"], "optional": entry["optional"],
-                "target": entry["target"], "items": sorted(entry["items"]), "roles": roles, "role": roles[0]["role"]}
+                "target": entry["target"], "items": sorted(entry["items"]), "roles": roles, "role": roles[0]["role"],
+                "test_items": sorted(entry.get("test_items", set()) - set(entry["items"]))}
         statuses = entry["statuses"] | {st for p, st in entry.get("item_statuses", {}).items() if p in entry["items"]}
         if statuses:
             edge["statuses"] = sorted(statuses)

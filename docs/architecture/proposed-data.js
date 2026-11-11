@@ -1763,6 +1763,13 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kashkeshet",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-mcp-formatter"
+   },
+   {
+    "from": "kashkeshet",
     "kind": "normal",
     "role": "wires",
     "statuses": [
@@ -1976,6 +1983,13 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-entropy-os"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-events"
    },
    {
     "from": "kkt-fake-product",
@@ -2300,6 +2314,13 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-mcp",
     "kind": "dev",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-identity-keymode"
+   },
+   {
+    "from": "kkt-mcp",
+    "kind": "dev",
     "role": "wires",
     "statuses": [
      "decided"
@@ -2322,6 +2343,13 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
+    "to": "kkt-settings"
+   },
+   {
+    "from": "kkt-remote-access",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [],
     "to": "kkt-settings"
    },
    {
@@ -2386,6 +2414,13 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-mcp-formatter"
+   },
+   {
+    "from": "kkt-server",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-identity-keymode"
    },
    {
     "from": "kkt-server",
@@ -2480,11 +2515,26 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-web",
     "kind": "dev",
-    "role": "wires",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-clock-system"
+   },
+   {
+    "from": "kkt-web",
+    "kind": "dev",
+    "role": "uses",
     "statuses": [
-     "decided"
+     "decided",
+     "recommended"
     ],
     "to": "kkt-entropy"
+   },
+   {
+    "from": "kkt-web",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-entropy-os"
    },
    {
     "from": "kkt-web",
@@ -2494,6 +2544,20 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-rules"
+   },
+   {
+    "from": "kkt-web",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-shutdown-os"
+   },
+   {
+    "from": "kkt-web",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-web-preview"
    },
    {
     "from": "kkt-web-preview",
@@ -3596,6 +3660,22 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-store"
+   },
+   {
+    "from": "kkt-provenance",
+    "items_gone": [],
+    "items_new": [
+     "MAX_ADMIN_NAME_CHARS"
+    ],
+    "kind": "dev",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [],
+    "to": "kkt-names"
    },
    {
     "from": "kkt-rules",
@@ -22929,6 +23009,9 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "Admission"
+    ],
     "to": "kkt-admission"
    },
    {
@@ -22965,6 +23048,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-agent-client"
    },
    {
@@ -22988,6 +23072,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-backup"
    },
    {
@@ -23016,6 +23101,7 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-backup-os"
    },
    {
@@ -23058,6 +23144,9 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "KKT_AGENT_TOOLS"
+    ],
     "to": "kkt-client-config"
    },
    {
@@ -23084,6 +23173,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-client-config-os"
    },
    {
@@ -23110,6 +23200,10 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "Span",
+     "Time"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -23136,6 +23230,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock-system"
    },
    {
@@ -23159,6 +23254,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-config"
    },
    {
@@ -23235,6 +23331,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-container"
    },
    {
@@ -23261,6 +23358,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-container-os"
    },
    {
@@ -23292,6 +23390,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db"
    },
    {
@@ -23321,6 +23420,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db-sqlite"
    },
    {
@@ -23358,6 +23458,10 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "MANAGED",
+     "MemoryPlace"
+    ],
     "to": "kkt-db-sqlite"
    },
    {
@@ -23382,6 +23486,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db-sqlite-db"
    },
    {
@@ -23406,6 +23511,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db-sqlite-db"
    },
    {
@@ -23475,6 +23581,9 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "inspect_admin_key"
+    ],
     "to": "kkt-diagnostics"
    },
    {
@@ -23501,6 +23610,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-diagnostics-os"
    },
    {
@@ -23523,6 +23633,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy"
    },
    {
@@ -23549,7 +23660,30 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy-os"
+   },
+   {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [
+     "MIN_RESPONSE_BYTES"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "MIN_RESPONSE_BYTES"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-mcp-formatter"
    },
    {
     "features": [],
@@ -23569,6 +23703,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-hosts"
    },
    {
@@ -23593,6 +23728,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-identity-keymode"
    },
    {
@@ -23635,6 +23771,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-lane-files"
    },
    {
@@ -23661,6 +23798,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-lane-files-os"
    },
    {
@@ -23683,6 +23821,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-logs"
    },
    {
@@ -23713,6 +23852,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-mcp"
    },
    {
@@ -23754,6 +23894,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -23778,6 +23919,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-provenance"
    },
    {
@@ -23816,6 +23958,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-remote-access"
    },
    {
@@ -23842,6 +23985,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-remote-access-os"
    },
    {
@@ -23868,6 +24012,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-rules"
    },
    {
@@ -23919,6 +24064,10 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "Code",
+     "Reads"
+    ],
     "to": "kkt-rules"
    },
    {
@@ -23939,6 +24088,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-scratch"
    },
    {
@@ -23988,6 +24138,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-server"
    },
    {
@@ -24014,6 +24165,7 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-server-listen"
    },
    {
@@ -24063,6 +24215,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-service"
    },
    {
@@ -24089,6 +24242,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-service-os"
    },
    {
@@ -24147,6 +24301,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-settings"
    },
    {
@@ -24292,6 +24447,10 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "DEFAULT_SETUP_KEY",
+     "DEFAULT_SETUP_URL"
+    ],
     "to": "kkt-setup"
    },
    {
@@ -24315,6 +24474,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown"
    },
    {
@@ -24341,6 +24501,7 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown-os"
    },
    {
@@ -24397,6 +24558,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store"
    },
    {
@@ -24434,6 +24596,20 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "ChannelFilter",
+     "ChannelKind",
+     "ChannelScope",
+     "MessageRange",
+     "NewAgentRecord",
+     "NewChannelRecord",
+     "NewMessageRecord",
+     "NewServerRunRecord",
+     "NewerFilter",
+     "SearchFilter",
+     "SentFilter",
+     "StoreError"
+    ],
     "to": "kkt-store"
    },
    {
@@ -24458,6 +24634,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store-rules"
    },
    {
@@ -24482,6 +24659,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store-rules"
    },
    {
@@ -24521,6 +24699,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-watch"
    },
    {
@@ -24545,6 +24724,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-web"
    },
    {
@@ -24576,6 +24756,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -24598,6 +24779,10 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "Span",
+     "testing::FixedClock"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -24623,6 +24808,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-config"
    },
    {
@@ -24649,6 +24835,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy"
    },
    {
@@ -24675,6 +24862,9 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "testing::SeqEntropy"
+    ],
     "to": "kkt-entropy"
    },
    {
@@ -24701,6 +24891,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -24723,6 +24914,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -24747,6 +24939,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -24767,6 +24960,10 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "Span",
+     "to_text"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -24788,6 +24985,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-config"
    },
    {
@@ -24808,6 +25006,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-scratch"
    },
    {
@@ -24836,6 +25035,7 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-backup"
    },
    {
@@ -24859,6 +25059,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-config"
    },
    {
@@ -24879,6 +25080,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-settings"
    },
    {
@@ -24903,6 +25105,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -24925,6 +25128,9 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "AdminName"
+    ],
     "to": "kkt-names"
    },
    {
@@ -24956,6 +25162,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -24978,6 +25185,10 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "Time",
+     "testing::FixedClock"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -24999,6 +25210,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-config"
    },
    {
@@ -25019,6 +25231,9 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "MAX_ADMIN_NAME_CHARS"
+    ],
     "to": "kkt-names"
    },
    {
@@ -25043,6 +25258,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-rules"
    },
    {
@@ -25063,6 +25279,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-scratch"
    },
    {
@@ -25095,6 +25312,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-settings"
    },
    {
@@ -25157,6 +25375,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db"
    },
    {
@@ -25275,6 +25494,13 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "search::Excerpt",
+     "search::matches",
+     "testing",
+     "testing::Place",
+     "testing::conformance"
+    ],
     "to": "kkt-db"
    },
    {
@@ -25295,6 +25521,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-scratch"
    },
    {
@@ -25319,6 +25546,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db"
    },
    {
@@ -25343,6 +25571,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db-sqlite"
    },
    {
@@ -25374,6 +25603,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -25394,6 +25624,10 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "from_text",
+     "testing::FixedClock"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -25417,6 +25651,9 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "MIN_ACCESS_KEY_BYTES"
+    ],
     "to": "kkt-config"
    },
    {
@@ -25437,6 +25674,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown"
    },
    {
@@ -25461,6 +25699,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-admission"
    },
    {
@@ -25493,6 +25732,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -25526,6 +25766,10 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "Time",
+     "testing::FixedClock"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -25552,6 +25796,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock-system"
    },
    {
@@ -25578,6 +25823,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock-system"
    },
    {
@@ -25602,6 +25848,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db"
    },
    {
@@ -25637,6 +25884,9 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "MemoryPlace"
+    ],
     "to": "kkt-db-sqlite"
    },
    {
@@ -25661,6 +25911,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db-sqlite-db"
    },
    {
@@ -25687,6 +25938,9 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "SeededEntropy"
+    ],
     "to": "kkt-entropy"
    },
    {
@@ -25713,7 +25967,30 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy-os"
+   },
+   {
+    "features": [],
+    "from": "kkt-fake-product",
+    "items": [
+     "EVENT_BUFFER"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "EVENT_BUFFER"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-events"
    },
    {
     "features": [],
@@ -25733,6 +26010,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-hosts"
    },
    {
@@ -25754,6 +26032,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-identity-keymode"
    },
    {
@@ -25786,6 +26065,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-mcp"
    },
    {
@@ -25819,6 +26099,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -25871,6 +26152,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-rules"
    },
    {
@@ -25920,6 +26202,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-server"
    },
    {
@@ -25946,6 +26229,7 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-server-listen"
    },
    {
@@ -25970,6 +26254,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-settings"
    },
    {
@@ -25993,6 +26278,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown"
    },
    {
@@ -26019,6 +26305,7 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown-os"
    },
    {
@@ -26043,6 +26330,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store"
    },
    {
@@ -26074,6 +26362,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store"
    },
    {
@@ -26098,6 +26387,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store-rules"
    },
    {
@@ -26122,6 +26412,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store-rules"
    },
    {
@@ -26146,6 +26437,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-web"
    },
    {
@@ -26176,6 +26468,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -26201,13 +26494,17 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "testing::FixedClock"
+    ],
     "to": "kkt-clock"
    },
    {
     "features": [],
     "from": "kkt-mcp-formatter",
     "items": [
-     "AdminName"
+     "AdminName",
+     "MAX_ADMIN_NAME_CHARS"
     ],
     "kind": "dev",
     "optional": false,
@@ -26216,12 +26513,14 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "AdminName"
+       "AdminName",
+       "MAX_ADMIN_NAME_CHARS"
       ],
       "role": "uses"
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -26307,6 +26606,12 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "Kept",
+     "LaneRetired",
+     "LaneVersion",
+     "MAX_LANE_DESCRIPTION_CHARS"
+    ],
     "to": "kkt-rules"
    },
    {
@@ -26328,6 +26633,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-config"
    },
    {
@@ -26351,6 +26657,9 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "BearerToken"
+    ],
     "to": "kkt-admission"
    },
    {
@@ -26381,6 +26690,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -26407,6 +26717,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy"
    },
    {
@@ -26428,6 +26739,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-events"
    },
    {
@@ -26452,6 +26764,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -26473,6 +26786,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -26497,6 +26811,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-rules"
    },
    {
@@ -26536,6 +26851,10 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "Deps",
+     "OperatorWording"
+    ],
     "to": "kkt-rules"
    },
    {
@@ -26573,6 +26892,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store"
    },
    {
@@ -26597,6 +26917,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store-rules"
    },
    {
@@ -26634,6 +26955,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-admission"
    },
    {
@@ -26660,6 +26982,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -26686,6 +27009,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock-system"
    },
    {
@@ -26707,6 +27031,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-config"
    },
    {
@@ -26731,6 +27056,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db"
    },
    {
@@ -26766,6 +27092,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db-sqlite"
    },
    {
@@ -26790,6 +27117,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db-sqlite-db"
    },
    {
@@ -26812,6 +27140,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy"
    },
    {
@@ -26838,6 +27167,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy-os"
    },
    {
@@ -26858,6 +27188,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-hosts"
    },
    {
@@ -26882,6 +27213,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-identity-keymode"
    },
    {
@@ -26904,6 +27236,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-mcp"
    },
    {
@@ -26928,6 +27261,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -26952,6 +27286,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-provenance"
    },
    {
@@ -26974,6 +27309,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-rules"
    },
    {
@@ -27023,6 +27359,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-server"
    },
    {
@@ -27049,6 +27386,7 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-server-listen"
    },
    {
@@ -27085,6 +27423,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-settings"
    },
    {
@@ -27108,6 +27447,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown"
    },
    {
@@ -27134,6 +27474,7 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown-os"
    },
    {
@@ -27161,6 +27502,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store"
    },
    {
@@ -27185,6 +27527,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store-rules"
    },
    {
@@ -27209,6 +27552,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-web"
    },
    {
@@ -27231,6 +27575,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -27255,6 +27600,9 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "testing::FixedClock"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -27275,6 +27623,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-scratch"
    },
    {
@@ -27299,6 +27648,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-settings"
    },
    {
@@ -27319,6 +27669,9 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "ServerKey"
+    ],
     "to": "kkt-admission"
    },
    {
@@ -27348,6 +27701,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -27374,6 +27728,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy"
    },
    {
@@ -27394,6 +27749,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-events"
    },
    {
@@ -27417,6 +27773,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-mcp-formatter"
    },
    {
@@ -27437,7 +27794,30 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-hosts"
+   },
+   {
+    "features": [],
+    "from": "kkt-mcp",
+    "items": [
+     "KeyMode"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "KeyMode"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-identity-keymode"
    },
    {
     "features": [
@@ -27460,6 +27840,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -27488,6 +27869,10 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "AdminName",
+     "MAX_ADMIN_NAME_CHARS"
+    ],
     "to": "kkt-names"
    },
    {
@@ -27552,6 +27937,11 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "Deps",
+     "OperatorWording",
+     "SwarmId"
+    ],
     "to": "kkt-rules"
    },
    {
@@ -27572,6 +27962,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown"
    },
    {
@@ -27611,6 +28002,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store"
    },
    {
@@ -27635,6 +28027,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store-rules"
    },
    {
@@ -27661,26 +28054,31 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy"
    },
    {
     "features": [],
     "from": "kkt-provenance",
     "items": [
-     "AdminName"
+     "AdminName",
+     "MAX_ADMIN_NAME_CHARS"
     ],
     "kind": "dev",
     "optional": false,
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "AdminName"
+       "AdminName",
+       "MAX_ADMIN_NAME_CHARS"
       ],
       "role": "uses"
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -27709,6 +28107,33 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "DEFAULT_ALLOW_ANY_BIND",
+     "DEFAULT_DEPENDENCY_LOG_LEVEL",
+     "DEFAULT_LOG_LEVEL"
+    ],
+    "to": "kkt-settings"
+   },
+   {
+    "features": [],
+    "from": "kkt-remote-access",
+    "items": [
+     "DEFAULT_BIND"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "DEFAULT_BIND"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
     "to": "kkt-settings"
    },
    {
@@ -27738,6 +28163,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -27768,6 +28194,9 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "testing::FixedClock"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -27803,6 +28232,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy"
    },
    {
@@ -27829,6 +28259,11 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "testing",
+     "testing::SameHandleEntropy",
+     "testing::SeqEntropy"
+    ],
     "to": "kkt-entropy"
    },
    {
@@ -27871,6 +28306,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-events"
    },
    {
@@ -27894,6 +28330,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -27940,6 +28377,10 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "MAX_ADMIN_NAME_CHARS",
+     "NamePack"
+    ],
     "to": "kkt-names"
    },
    {
@@ -27970,6 +28411,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store"
    },
    {
@@ -27994,6 +28436,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store-rules"
    },
    {
@@ -28020,6 +28463,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-web"
    },
    {
@@ -28063,6 +28507,11 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "Principal",
+     "ServerKey",
+     "SharedKey"
+    ],
     "to": "kkt-admission"
    },
    {
@@ -28092,6 +28541,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -28116,6 +28566,10 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "Span",
+     "testing::FixedClock"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -28142,6 +28596,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy"
    },
    {
@@ -28166,6 +28621,9 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "testing::SeqEntropy"
+    ],
     "to": "kkt-entropy"
    },
    {
@@ -28186,6 +28644,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-events"
    },
    {
@@ -28217,6 +28676,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-mcp-formatter"
    },
    {
@@ -28237,7 +28697,30 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-hosts"
+   },
+   {
+    "features": [],
+    "from": "kkt-server",
+    "items": [
+     "KeyMode"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "KeyMode"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-identity-keymode"
    },
    {
     "features": [],
@@ -28271,6 +28754,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-mcp"
    },
    {
@@ -28296,6 +28780,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -28322,6 +28807,11 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "AdminName",
+     "MAX_ADMIN_NAME_CHARS",
+     "OPERATOR"
+    ],
     "to": "kkt-names"
    },
    {
@@ -28344,6 +28834,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-provenance"
    },
    {
@@ -28425,6 +28916,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "Agent",
+     "Audit",
+     "CommandLine",
+     "LaneImport",
+     "LaneSource",
+     "Permission",
+     "Permissions"
+    ],
     "to": "kkt-rules"
    },
    {
@@ -28445,6 +28945,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown"
    },
    {
@@ -28486,6 +28987,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store"
    },
    {
@@ -28510,6 +29012,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store-rules"
    },
    {
@@ -28605,6 +29108,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-web"
    },
    {
@@ -28697,6 +29201,39 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [
+     "Left",
+     "testing",
+     "testing::ChannelHidden",
+     "testing::administration_works",
+     "testing::agent_row",
+     "testing::announcement_editor_works",
+     "testing::changes_work",
+     "testing::channel_creation_works",
+     "testing::channel_row",
+     "testing::earlier_pages_work",
+     "testing::form_token_in",
+     "testing::get",
+     "testing::handoff_works",
+     "testing::hidden_channels_show_only_on_request",
+     "testing::history_works",
+     "testing::lanes_pages_work",
+     "testing::lists_channel",
+     "testing::member_lists_show_lanes_and_latest_messages",
+     "testing::members_shown",
+     "testing::next_change",
+     "testing::operator_changes_are_live",
+     "testing::page_script_works",
+     "testing::pages_work",
+     "testing::post",
+     "testing::post_for_page",
+     "testing::site",
+     "testing::stale_agents_work",
+     "testing::start_time",
+     "testing::summaries_agree_with_the_pages",
+     "testing::toast",
+     "testing::toast::of"
+    ],
     "to": "kkt-web"
    },
    {
@@ -28721,6 +29258,7 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-server"
    },
    {
@@ -28754,6 +29292,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -28774,6 +29313,11 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "Span",
+     "from_text",
+     "testing::FixedClock"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -28795,6 +29339,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-config"
    },
    {
@@ -28815,6 +29360,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-scratch"
    },
    {
@@ -28839,6 +29385,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-settings"
    },
    {
@@ -28860,6 +29407,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-config"
    },
    {
@@ -28882,6 +29430,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -28902,6 +29451,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-client-config"
    },
    {
@@ -28923,6 +29473,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-config"
    },
    {
@@ -28949,6 +29500,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-container"
    },
    {
@@ -28975,6 +29527,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -29007,6 +29560,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-settings"
    },
    {
@@ -29031,6 +29585,7 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown"
    },
    {
@@ -29111,6 +29666,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db"
    },
    {
@@ -29133,6 +29689,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db-sqlite"
    },
    {
@@ -29157,6 +29714,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-db-sqlite-db"
    },
    {
@@ -29181,6 +29739,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -29205,6 +29764,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-rules"
    },
    {
@@ -29228,6 +29788,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-rules"
    },
    {
@@ -29252,6 +29813,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store"
    },
    {
@@ -29276,6 +29838,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-store"
    },
    {
@@ -29298,6 +29861,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -29322,6 +29886,9 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "testing::FixedClock"
+    ],
     "to": "kkt-clock"
    },
    {
@@ -29355,6 +29922,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -29385,7 +29953,32 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [
+     "testing::FixedClock"
+    ],
     "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-web",
+    "items": [
+     "SystemClock"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "SystemClock"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-clock-system"
    },
    {
     "features": [],
@@ -29410,6 +30003,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-config"
    },
    {
@@ -29419,13 +30013,20 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-web",
     "items": [
+     "SeededEntropy",
      "testing::SeqEntropy"
     ],
     "kind": "dev",
     "optional": false,
     "proposed": "new",
-    "role": "wires",
+    "role": "uses",
     "roles": [
+     {
+      "detail": [
+       "SeededEntropy"
+      ],
+      "role": "uses"
+     },
      {
       "detail": [
        "testing::SeqEntropy"
@@ -29434,10 +30035,34 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided"
+     "decided",
+     "recommended"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy"
+   },
+   {
+    "features": [],
+    "from": "kkt-web",
+    "items": [
+     "OsEntropy"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "OsEntropy"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-entropy-os"
    },
    {
     "features": [],
@@ -29458,6 +30083,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-events"
    },
    {
@@ -29480,6 +30106,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-hosts"
    },
    {
@@ -29510,6 +30137,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -29534,7 +30162,54 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-rules"
+   },
+   {
+    "features": [],
+    "from": "kkt-web",
+    "items": [
+     "StopSignals"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "StopSignals"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-shutdown-os"
+   },
+   {
+    "features": [],
+    "from": "kkt-web",
+    "items": [
+     "PREVIEW_BIND",
+     "PREVIEW_SEED"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "PREVIEW_BIND",
+       "PREVIEW_SEED"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-web-preview"
    },
    {
     "features": [],
@@ -29564,6 +30239,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -29592,6 +30268,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock"
    },
    {
@@ -29616,6 +30293,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-clock-system"
    },
    {
@@ -29648,6 +30326,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy"
    },
    {
@@ -29674,6 +30353,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy"
    },
    {
@@ -29698,6 +30378,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-entropy-os"
    },
    {
@@ -29740,6 +30421,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-events"
    },
    {
@@ -29764,6 +30446,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-hosts"
    },
    {
@@ -29796,6 +30479,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-names"
    },
    {
@@ -29822,6 +30506,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown"
    },
    {
@@ -29846,6 +30531,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown"
    },
    {
@@ -29870,6 +30556,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-shutdown-os"
    },
    {
@@ -29921,6 +30608,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-web"
    },
    {
@@ -30005,6 +30693,7 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "target": null,
+    "test_items": [],
     "to": "kkt-web"
    }
   ],

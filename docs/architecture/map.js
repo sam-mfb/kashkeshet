@@ -309,6 +309,7 @@
           el("span", { class: `role-key role-${r.role}` }), " ", el("strong", {}, ROLES[r.role]),
           r.detail.length ? `: ${list(r.detail)}` : ": no item is named in the code"))
         : (e.items.length ? el("div", {}, list(e.items)) : el("div", { class: "empty" }, "No item is named in the code.")),
+      (e.test_items || []).length ? el("div", { class: "muted" }, `Only its tests use: ${list(e.test_items)}`) : null,
     );
     tip.hidden = false;
     const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
