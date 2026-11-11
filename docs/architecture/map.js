@@ -41,6 +41,7 @@
     kinds: { normal: true, dev: false, build: false },
     hiddenKinds: new Set(),
     hiddenRoles: new Set(),
+    hoveredEdge: null,
     featureItems: true,
     query: "",
   };
@@ -201,7 +202,7 @@
         el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
       el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
-      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles. Thick outline: selected. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line with a slot name, on hover or selection: where a wired thing goes (not a dependency). Thick outline: selected. Dashed box: dev-only."));
   }
 
   function draw() {
@@ -249,12 +250,19 @@
         view.edgeNodes.push({ edge: e, path });
       });
       const hit = svg("path", { d: edgePath(a, b), class: "edge-hit" });
-      hit.addEventListener("mousemove", (ev) => showTip(ev, e));
-      hit.addEventListener("mouseleave", hideTip);
+      hit.addEventListener("mousemove", (ev) => {
+        showTip(ev, e);
+        if (state.hoveredEdge !== e) { state.hoveredEdge = e; paintDeliveries(); }
+      });
+      hit.addEventListener("mouseleave", () => { hideTip(); state.hoveredEdge = null; paintDeliveries(); });
       hit.addEventListener("click", () => select(e.from));
       hitLayer.append(hit);
     }
 
+    // Where wired things go, drawn on demand (paintDeliveries), under the
+    // boxes.
+    view.deliveryLayer = svg("g", { class: "deliveries" });
+    root.append(view.deliveryLayer);
     view.nodes = new Map();
     const nodeLayer = svg("g");
     for (const [name, p] of view.position) {
@@ -289,6 +297,9 @@
       view.nodes.set(name, g);
     }
     root.append(nodeLayer);
+    // The delivery lines' slot names, above the boxes so none is hidden.
+    view.deliveryLabels = svg("g", { class: "delivery-labels" });
+    root.append(view.deliveryLabels);
     paint();
   }
 
@@ -394,6 +405,91 @@
         (!focus && state.query && !hits.crates.has(name));
       node.classList.toggle("dim", Boolean(dim));
     }
+    paintDeliveries();
+  }
+
+  // ---- Where wired things go ----
+  // From the programs' assembly: each thing a program builds, the crate
+  // whose type it is, and the slot of another crate it goes into.
+  function deliveries() {
+    const out = [];
+    for (const [program, flow] of Object.entries(assembly.programs || {})) {
+      for (const w of flow.wiring || []) {
+        if (!w.impl) continue;
+        const [builder, ...rest] = w.impl.split("::");
+        out.push({ program, builder, item: rest.join("::"), receiver: w.crate, slots: w.to, via: w.through_adapter || [] });
+      }
+    }
+    return out;
+  }
+
+  // The contracts a slot takes, as "crate::Trait".
+  function slotTraits(receiver, slot) {
+    const c = crates.get(receiver);
+    const found = c && c.slots.find((s) => s.at === slot.at && s.name === slot.param);
+    return found ? found.traits.map((t) => `${t.crate}::${t.trait}`) : [];
+  }
+
+  // One delivery in words: what is built, and each slot it goes into.
+  function deliveryWords(d) {
+    return el("div", { class: "delivery-words" },
+      "builds ", el("code", { class: "role-text-wires" }, d.item), " → ",
+      // Slots that take the same contracts through the same adapter are
+      // named together.
+      [...d.slots.reduce((groups, slot) => {
+        const traits = slotTraits(d.receiver, slot);
+        const via = d.via.filter((v) => traits.includes(v));
+        const key = `${traits.join(",")}|${via.join(",")}`;
+        if (!groups.has(key)) groups.set(key, { traits, via, slots: [] });
+        groups.get(key).slots.push(`${slot.at} (${slot.param})`);
+        return groups;
+      }, new Map()).values()].map((g, i) => [i ? "; " : "",
+        `into ${d.receiver}'s ${g.slots.join(", ")}`,
+        g.traits.length ? ` for ${g.traits.map((t) => t.split("::").pop()).join(" + ")}` : "",
+        g.via.length ? `, through the program's adapter to ${g.via.join(", ")}` : ""]));
+  }
+
+  // The deliveries a wires arrow carries: what its program builds of the
+  // other crate's.
+  const arrowDeliveries = (e) => (e.kind === "normal" && edgeRoles(e).includes("wires")
+    ? deliveries().filter((d) => d.program === e.from && d.builder === e.to) : []);
+
+  // Dotted lines from the crate whose thing is built to each crate that
+  // receives it, labelled with the slot: for the hovered wires arrow, or
+  // for the hovered or selected crate as program, builder or receiver.
+  function paintDeliveries() {
+    if (!view || !view.deliveryLayer) return;
+    const layer = view.deliveryLayer;
+    const labelLayer = view.deliveryLabels || layer;
+    while (layer.firstChild) layer.removeChild(layer.firstChild);
+    while (labelLayer.firstChild) labelLayer.removeChild(labelLayer.firstChild);
+    if (state.hiddenRoles.has("wires") || !state.kinds.normal) return;
+    const focus = state.hovered || state.selected;
+    let shown = [];
+    if (state.hoveredEdge) shown = arrowDeliveries(state.hoveredEdge);
+    else if (focus) shown = deliveries().filter((d) => d.program === focus || d.builder === focus || d.receiver === focus);
+    const lines = new Map();
+    for (const d of shown) {
+      if (d.builder === d.receiver || !visibleCrate(d.builder) || !visibleCrate(d.receiver)) continue;
+      const key = `${d.builder}>${d.receiver}`;
+      if (!lines.has(key)) lines.set(key, { d, labels: new Set() });
+      for (const slot of d.slots) lines.get(key).labels.add(slot.param);
+    }
+    for (const { d, labels } of lines.values()) {
+      const a = view.position.get(d.builder);
+      const b = view.position.get(d.receiver);
+      if (!a || !b) continue;
+      const path = svg("path", { d: edgePath(a, b), class: "delivery" });
+      const title = svg("title");
+      title.textContent = `${d.builder} → ${d.receiver}: ${[...labels].join(", ")} (where the wired thing goes; not a dependency)`;
+      path.append(title);
+      layer.append(path);
+      const len = path.getTotalLength ? path.getTotalLength() : 0;
+      const mid = len ? path.getPointAtLength(len / 2) : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const label = svg("text", { x: mid.x + 4, y: mid.y - 3, class: "delivery-label" });
+      label.textContent = [...labels].join(", ");
+      labelLayer.append(label);
+    }
   }
 
   // ---- Tooltip for an arrow ----
@@ -445,6 +541,7 @@
         el("span", { class: `role-text-${role}` }, shown(names)))),
       [...by].every(([, names]) => !names.length) ? el("div", { class: "empty" }, "no items named") : null,
       (e.test_items || []).length ? el("div", { class: "muted" }, `tests only: ${list(e.test_items)}`) : null,
+      arrowDeliveries(e).map(deliveryWords),
     ].flat().filter(Boolean));
     tip.hidden = false;
     const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
@@ -625,6 +722,9 @@
               const item = provider.get(path);
               return roleItem(path + (item && item.feature ? ` [${item.feature}]` : ""), itemRoles(by, path), item ? item.doc : "");
             }))
+            : null,
+          arrowDeliveries(e).length ? el("div", { class: "deliveries-words" }, arrowDeliveries(e).map(deliveryWords)) : null,
+          shown.length ? null
             : el("div", { class: "empty" }, e.kind === "normal"
               ? "No item is named in the code. It may be used only through another crate's types, or in tests."
               : "No item is named in the code; it may be here for the features it turns on."),

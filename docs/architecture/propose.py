@@ -896,11 +896,20 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 trait = items_of.get(tc, {}).get(tp, {})
                 size += len(set(trait.get("methods", [])) - set(trait.get("provided", [])))
             flow["adapters"].append(dict(a, methods=size, large=a.get("large", False) or size >= 20))
-        adapted = {a["adapts"]: a for a in flow["adapters"]}
+        # An implementation the program adapts to several contracts (KeyMode,
+        # to kkt-mcp's Identify and kkt-server's WebIdentify) goes through
+        # each of those adapters.
+        adapted = {}
+        renamed_to = {rn["from"]: rn["to"] for rn in spec.get("renames", [])}
+        for a in flow["adapters"]:
+            targets = a["to"] if isinstance(a["to"], list) else [a["to"]]
+            ac, ap = split(a["adapts"])
+            # Wiring added by the proposal names the crate as renamed.
+            for name in {a["adapts"], f"{renamed_to.get(ac, ac)}::{ap}"}:
+                adapted.setdefault(name, []).extend(targets)
         for w in flow.get("wiring", []):
-            a = adapted.get(w.get("impl"))
-            if a:
-                w["through_adapter"] = a["to"] if isinstance(a["to"], list) else [a["to"]]
+            if w.get("impl") in adapted:
+                w["through_adapter"] = sorted(set(adapted[w["impl"]]))
         flow["inferred"] = False
 
     # Renames: the crate and every mention of it.

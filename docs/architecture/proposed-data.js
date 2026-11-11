@@ -302,6 +302,7 @@ window.KKT_PROPOSED = {
       "crate": "kkt-server",
       "impl": "kkt-identity-keymode::KeyMode",
       "through_adapter": [
+       "kkt-mcp::Identify",
        "kkt-server::WebIdentify"
       ],
       "to": [
@@ -762,6 +763,10 @@ window.KKT_PROPOSED = {
       "impl": "kkt-identity-keymode::KeyMode",
       "note": "the same identity, for the web gate, through kkt-server's own WebIdentify",
       "status": "decided",
+      "through_adapter": [
+       "kkt-mcp::Identify",
+       "kkt-server::WebIdentify"
+      ],
       "to": [
        {
         "at": "Parts::new",
@@ -1073,6 +1078,7 @@ window.KKT_PROPOSED = {
       "crate": "kkt-server",
       "impl": "kkt-identity-keymode::KeyMode",
       "through_adapter": [
+       "kkt-mcp::Identify",
        "kkt-server::WebIdentify"
       ],
       "to": [
@@ -1109,6 +1115,10 @@ window.KKT_PROPOSED = {
       "impl": "kkt-identity-keymode::KeyMode",
       "note": "the same identity, for the web gate, through kkt-server's own WebIdentify",
       "status": "decided",
+      "through_adapter": [
+       "kkt-mcp::Identify",
+       "kkt-server::WebIdentify"
+      ],
       "to": [
        {
         "at": "Parts::new",

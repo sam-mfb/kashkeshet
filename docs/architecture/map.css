@@ -326,3 +326,9 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 /* A role's row in the arrow tooltip: key, role and items on one line. */
 .tip .tip-role strong { display: inline; margin: 0; }
 .tip .tip-role .role-key { display: inline-block; vertical-align: middle; }
+/* Where a wired thing goes: thin dotted amber lines, no head, shown on
+   hover or selection only; not dependencies. */
+.delivery { fill: none; stroke: var(--wires); stroke-width: 1.3; stroke-dasharray: 1.2 3; stroke-linecap: round; pointer-events: stroke; }
+.delivery-label { font-size: 10.5px; fill: var(--wires-text, var(--wires)); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.delivery-words { font-size: 12px; margin-top: 3px; }
+.deliveries-words { margin-top: 2px; }
