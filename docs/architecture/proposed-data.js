@@ -170,6 +170,23 @@ window.KKT_PROPOSED = {
         "param": "identify"
        }
       ]
+     },
+     {
+      "crate": "kkt-web",
+      "note": "the page's sessions, which kkt-server builds when it mounts the page",
+      "own": "the clock and entropy the program gave Parts",
+      "status": "decided",
+      "supplier": "the program's clock and entropy",
+      "to": [
+       {
+        "at": "Sessions::new",
+        "param": "clock"
+       },
+       {
+        "at": "Sessions::new",
+        "param": "entropy"
+       }
+      ]
      }
     ]
    }
@@ -9751,7 +9768,7 @@ window.KKT_PROPOSED = {
   ]
  },
  "graph": {
-  "commit": "fcd1a48",
+  "commit": "078f2d9",
   "crates": [
    {
     "bins": [

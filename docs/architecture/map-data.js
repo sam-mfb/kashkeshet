@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "fcd1a48",
+ "commit": "078f2d9",
  "crates": [
   {
    "bins": [
@@ -16576,6 +16576,21 @@ window.KKT_ASSEMBLY = {
       {
        "at": "Deps",
        "param": "db"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-admission",
+     "own": "the clock and entropy the program gave Parts",
+     "supplier": "the program's clock and entropy",
+     "to": [
+      {
+       "at": "Sessions::new",
+       "param": "clock"
+      },
+      {
+       "at": "Sessions::new",
+       "param": "entropy"
       }
      ]
     }

@@ -3774,6 +3774,23 @@
        }
       ],
       "status": "decided"
+     },
+     {
+      "own": "the clock and entropy the program gave Parts",
+      "supplier": "the program's clock and entropy",
+      "crate": "kkt-web",
+      "to": [
+       {
+        "at": "Sessions::new",
+        "param": "clock"
+       },
+       {
+        "at": "Sessions::new",
+        "param": "entropy"
+       }
+      ],
+      "status": "decided",
+      "note": "the page's sessions, which kkt-server builds when it mounts the page"
      }
     ]
    }
