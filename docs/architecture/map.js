@@ -422,8 +422,7 @@
     if (!row) return null;
     return el("div", { class: "decision" },
       el("span", { class: "badge proposed-badge" }, `${row.consumers.length} consumer${row.consumers.length === 1 ? "" : "s"}: ${row.rule}`), " ",
-      statusChip(row.status), " ", prose(row.result),
-      (row.conflicts || []).map((id) => el("button", { class: "chip chip-link conflict-link", type: "button", onclick: () => showConflicts(id) }, `conflict ${id}`)));
+      prose(row.result));
   }
 
   // The crate's contracts: the traits it defines and who implements each,
@@ -547,9 +546,10 @@
 
   const shownProposal = () => proposed;
 
-  function statusChip(status) {
-    if (!status || !proposed) return null;
-    return el("span", { class: `badge status status-${status}` }, proposed.statuses[status] || status);
+  // The page states what is or is proposed; statuses and decisions are in
+  // decisions.md, so nothing is tagged with them here.
+  function statusChip() {
+    return null;
   }
 
   function proposedOverview() {
@@ -558,38 +558,27 @@
     const newCrates = graph.crates.filter((c) => c.proposed === "new").length;
     return [
       el("h2", {}, "The proposed map"),
-      el("p", {}, "The current map reorganized by one rule, for planning, with kkt-config broken up by domain (item 7). A new or changed crate carries a small tag in its box, and new or changed arrows are drawn thicker; outlines show each crate's kind. Every change says whether Sam decided it, or it is recommended pending Sam. ", source("proposal")),
-      el("p", { class: "muted" }, statusChip("decided"), " ", statusChip("follows"), " ", statusChip("recommended"), " ", prose(proposed.status_legend)),
+      el("p", {}, "The workspace as it is proposed, for planning the refactor. A crate that is new or changes carries a small tag in its box, and new or changed arrows are drawn thicker, so the map shows how the proposal differs from today's code; outlines show each crate's kind. ", source("proposal")),
+      el("h3", {}, "The rules it follows"),
       el("ol", {}, proposed.rule.map((r) => el("li", {}, prose(r)))),
-      el("p", {}, el("strong", {}, "The strict rule: "), prose(proposed.strict.text), " ", statusChip(proposed.strict.status)),
-      el("h3", {}, "Decided by Sam"),
-      el("ol", { class: "decided" }, proposed.decided_items.map((d) => el("li", { value: d.id }, prose(d.text)))),
-      proposed.open_questions.length
-        ? [el("h3", {}, "Open questions for Sam"),
-          el("ul", { class: "decided" }, proposed.open_questions.map((d) => el("li", {}, el("strong", {}, `${d.id}. `), prose(d.text))))]
-        : null,
       el("p", {}, `${newCrates} new crates, ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`),
       el("div", { class: "actions" },
-        el("button", { class: "action", type: "button", onclick: showTable }, `Every trait and the rule's result (${proposed.table.length})`),
-        el("button", { class: "action", type: "button", onclick: showChanges }, "What changed"),
-        el("button", { class: "action", type: "button", onclick: showCensus }, `Adapters, measured (${proposed.adapter_census.before_totals.forward} → ${proposed.adapter_census.after_totals.forward} forwarding methods)`),
-        el("button", { class: "action", type: "button", onclick: () => showConflicts() }, `Conflicts (${proposed.conflicts.filter((c) => c.resolved !== false).length} resolved, ${proposed.conflicts.filter((c) => c.resolved === false).length} open)`),
-        el("button", { class: "action", type: "button", onclick: showConfigTable }, `Item 7: kkt-config, item by item (${proposed.config_split.table.length})`)),
+        el("button", { class: "action", type: "button", onclick: showTable }, `Every trait (${proposed.table.length})`),
+        el("button", { class: "action", type: "button", onclick: showChanges }, "How it differs from today"),
+        el("button", { class: "action", type: "button", onclick: showCensus }, `Adapters (${proposed.adapters.after_totals.methods} methods)`),
+        el("button", { class: "action", type: "button", onclick: showConfigTable }, `kkt-config, item by item (${proposed.config_split.table.length})`)),
       shown.violations.length
-        ? el("p", { class: "must" }, `The rule is broken in ${shown.violations.length} places: `, shown.violations.join("; "))
-        : el("p", { class: "muted" }, "Checked: no crate but a program or a composition depends on an effect crate or implements a contract that another crate declares for itself, and no crate is still mixed. Any crate may implement a shared contract crate's contract (msg 2020)."),
-      (graph.pending || []).length
-        ? el("p", {}, statusChip("recommended"), ` ${graph.pending.length} implementations are allowed only if an assumption holds, so they are pending Sam: `, graph.pending.join("; "), ".")
-        : null,
+        ? el("p", { class: "must" }, `The rules are broken in ${shown.violations.length} places: `, shown.violations.join("; "))
+        : el("p", { class: "muted" }, "Checked: no crate but a program or a composition depends on an effect crate or implements a contract that another crate declares for itself, and no crate mixes logic or a contract with an effect."),
       kindChecks(graph.kind_mismatches),
       el("h3", {}, "Where this comes from"),
-      el("p", { class: "muted" }, "The consumer counts, the proposed arrows and what changed are derived (propose.py) from the generated current map. How the rule applies, each trait's result, the conflicts, the assumptions and every status are written by hand in proposed.json; item 7 in config-split.json."),
+      el("p", { class: "muted" }, "The consumer counts, the proposed arrows and the differences from today are derived (propose.py) from the generated current map. How the rules apply is written by hand in proposed.json, and the kkt-config breakdown in config-split.json."),
     ];
   }
 
   function openDialog(title, ...body) {
     const dialog = $("assembly");
-    dialog.classList.toggle("wide", title.startsWith("Every trait") || title.startsWith("Item 7") || title.startsWith("Adapters"));
+    dialog.classList.toggle("wide", title.startsWith("Every trait") || title.startsWith("kkt-config") || title.startsWith("Adapters"));
     dialog.replaceChildren(...[
       el("div", { class: "dialog-head" }, el("h2", {}, title),
         el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
@@ -604,9 +593,9 @@
 
   function showTable() {
     openDialog("Every trait, by the rule",
-      el("p", { class: "muted" }, "Consumers: crates other than the definer and the implementers that call the trait's methods in normal code (A3, msg 2027). Derived from the public slots and the names in normal code, less the crates that only wire an implementation in, which are read from the code by hand. The result and its status are written by hand (proposed.json)."),
+      el("p", { class: "muted" }, "Consumers: crates other than the definer and the implementers that call the trait's methods in normal code. Derived from the public slots and the names in normal code, less the crates that only wire an implementation in, which are read from the code by hand. Where each trait lives in the proposal is written by hand (proposed.json)."),
       el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
-        el("thead", {}, el("tr", {}, ["Trait", "Consumers", "Test-only", "Implementations", "Rule", "Result"].map((h) => el("th", {}, h)))),
+        el("thead", {}, el("tr", {}, ["Trait", "Consumers", "Test-only", "Implementations", "Rule", "In the proposal"].map((h) => el("th", {}, h)))),
         el("tbody", {}, proposed.table.map((r) => el("tr", {},
           el("td", {}, el("code", {}, r.trait), r.feature ? el("span", { class: "badge feature" }, r.feature) : null),
           el("td", {}, el("strong", {}, String(r.consumers.length)), " ", r.consumers.join(", "),
@@ -615,9 +604,7 @@
           el("td", {}, r.test_only.join(", ")),
           el("td", {}, r.implementations.map((i) => `${i.crate}: ${i.type || "a type of its own"}`).join("; ")),
           el("td", {}, r.rule),
-          el("td", {}, statusChip(r.status), " ", prose(r.result), (r.new || []).length ? el("div", { class: "muted" }, `new: ${r.new.join(", ")}`) : null,
-            (r.conflicts || []).map((id) => el("button", { class: "chip chip-link conflict-link", type: "button", onclick: () => showConflicts(id) }, `conflict ${id}`)),
-            (r.assumptions || []).map((id) => el("span", { class: "chip" }, `assumption ${id}`)))))))),
+          el("td", {}, prose(r.result), (r.new || []).length ? el("div", { class: "muted" }, `new: ${r.new.join(", ")}`) : null)))))),
       el("h3", {}, "Not traits"),
       el("ul", {}, proposed.not_traits.map((n) => el("li", {}, el("code", {}, n.items), ": ", prose(n.note)))));
   }
@@ -626,8 +613,8 @@
     const ch = shownProposal().changes;
     const tags = (a) => (a.statuses || []).map((s) => [" ", statusChip(s)]);
     const arrow = (a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ", el("span", { class: "muted" }, `${a.kind}, ${a.role || ""}`), tags(a));
-    openDialog("What changed",
-      el("p", { class: "muted" }, "Compared with the current map. Derived by comparing the two maps; each note and arrow carries the status of the change behind it."),
+    openDialog("How it differs from today",
+      el("p", { class: "muted" }, "Compared with the current map, derived by comparing the two."),
       (ch.gone || []).length ? [el("h3", {}, `Crates gone (${ch.gone.length})`), el("p", {}, ch.gone.join(", "), el("span", { class: "muted" }, ": see the notes of the crate each merged into."))] : null,
       el("h3", {}, `Crates (${ch.crates.length})`),
       el("ul", { class: "flows" }, ch.crates.map((c) => el("li", {}, crateLink(c.crate),
@@ -642,53 +629,27 @@
   }
 
   function showCensus() {
-    const c = proposed.adapter_census;
+    const c = proposed.adapters;
     const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-    const totals = (t) => el("p", {}, `${plural(t.adapters, "adapter")}, ${plural(t.methods, "method")}: ${t.forward} forwarding, ${t.translate} translating. Written out ${t.written} times across the programs, ${t.forward_written} of them forwarding.`);
-    const table = (rows) => el("div", { class: "table-wrap" }, el("table", { class: "rule-table census" },
-      el("thead", {}, el("tr", {}, ["Adapter", "Meets", "Written in", "Methods", "F", "T", "Copies", "What the methods do"].map((h) => el("th", {}, h)))),
-      el("tbody", {}, rows.map((r) => el("tr", {},
-        el("td", {}, el("code", {}, r.adapter)), el("td", {}, r.to), el("td", {}, r.where),
-        el("td", {}, String(r.methods)), el("td", {}, String(r.forward)), el("td", {}, String(r.translate)),
-        el("td", {}, String(r.copies)), el("td", {}, prose(r.why)))))));
-    openDialog("Adapters, measured",
+    const t = c.after_totals;
+    openDialog("Adapters",
       el("p", { class: "muted" }, prose(c.about), " ", source("proposal")),
-      el("h3", {}, "Before the reshape"), el("p", { class: "muted" }, prose(c.before_note)), totals(c.before_totals), table(c.before),
-      el("h3", {}, "After the reshape"), el("p", { class: "muted" }, prose(c.after_note)), totals(c.after_totals), table(c.after));
-  }
-
-  function showConflicts(focus) {
-    openDialog("Conflicts",
-      el("p", { class: "muted" }, "Where the rule's outcome conflicts with an existing requirement: how Sam's strict rule resolves each, or, for one still open, the options for Sam. Written by hand (proposed.json)."),
-      el("p", {}, el("strong", {}, "The strict rule: "), prose(proposed.strict.text), " ", statusChip(proposed.strict.status)),
-      el("ol", { class: "conflicts" }, proposed.conflicts.map((c) => el("li", { id: `conflict-${c.id}`, class: c.id === focus ? "hit-item" : "" },
-        el("strong", {}, `${c.id}. ${c.title}`), " ", c.resolved === false
-          ? el("span", { class: "badge status status-open" }, "open, for Sam")
-          : c.pending
-            ? el("span", { class: "badge status status-recommended" }, `resolved by the strict rule; the reshape rests on ${c.pending}, pending Sam`)
-            : el("span", { class: "badge status status-decided" }, "resolved: decided by Sam, strict rule"),
-        el("p", {}, prose(c.text)), el("p", {}, el("strong", {}, c.resolved === false ? "Options: " : "Resolution: "), prose(c.resolution))))),
-      (proposed.withdrawn || []).length
-        ? [el("h3", {}, "Withdrawn"), el("ul", {}, proposed.withdrawn.map((w) => el("li", {}, el("strong", {}, `${w.id}. `), prose(w.text))))]
-        : null,
-      (proposed.rejected || []).length
-        ? [el("h3", {}, "Rejected by Sam"), el("ul", {}, proposed.rejected.map((r) => el("li", {}, prose(r.text))))]
-        : null,
-      el("h3", {}, "Assumptions"),
-      el("ul", {}, proposed.assumptions.map((a) => el("li", {}, el("strong", {}, `${a.id}. `), prose(a.text)))));
-    if (focus) {
-      const target = document.getElementById(`conflict-${focus}`);
-      if (target) target.scrollIntoView({ block: "center" });
-    }
+      el("p", {}, `${plural(t.adapters, "adapter")}, ${plural(t.methods, "method")}: ${t.forward} forwarding, ${t.translate} translating. Written out ${t.written} times across the programs.`),
+      el("div", { class: "table-wrap" }, el("table", { class: "rule-table census" },
+        el("thead", {}, el("tr", {}, ["Adapter", "Meets", "Written in", "Methods", "F", "T", "Copies", "What the methods do"].map((h) => el("th", {}, h)))),
+        el("tbody", {}, c.after.map((r) => el("tr", {},
+          el("td", {}, el("code", {}, r.adapter)), el("td", {}, r.to), el("td", {}, r.where),
+          el("td", {}, String(r.methods)), el("td", {}, String(r.forward)), el("td", {}, String(r.translate)),
+          el("td", {}, String(r.copies)), el("td", {}, prose(r.why))))))));
   }
 
   function showConfigTable() {
     const i7 = proposed.config_split;
-    openDialog("Item 7: kkt-config, item by item",
-      el("p", {}, statusChip(i7.status), " ", prose(i7.about)),
+    openDialog("kkt-config, item by item",
+      el("p", {}, prose(i7.about)),
       el("p", {}, el("strong", {}, "Limits: "), prose(i7.limits.note), "."),
       el("ul", {}, i7.limits.parts.map((p) => el("li", {}, el("code", {}, `${p.crate}::${p.path}`), ": ", prose(p.doc)))),
-      el("p", { class: "muted" }, "These moves are part of the proposed map. Used by: derived from the current map; the rest is written by hand (config-split.json)."),
+      el("p", { class: "muted" }, "Where each item of today's kkt-config lives in the proposed map. Used by: derived from the current map; the rest is written by hand (config-split.json)."),
       el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
         el("thead", {}, el("tr", {}, ["Item", "Kind", "Used by", "Test-only", "Goes to", "Constant or injected", "Why"].map((h) => el("th", {}, h)))),
         el("tbody", {}, i7.table.map((r) => el("tr", {},

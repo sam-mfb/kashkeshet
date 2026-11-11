@@ -164,7 +164,7 @@
    "kind": "contract",
    "from": "kkt-rules",
    "status": "decided",
-   "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (ChannelActivity, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange). It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it (msg 2045). To revisit (Q7): its Lanes and Server traits change what is server-wide, which in kkt-pro one swarm's operator could change for every swarm; changing them may move to kkt-api-admin."
+   "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (ChannelActivity, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange). It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it (msg 2045). Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here."
   }
  ],
  "moves": [
@@ -2378,14 +2378,14 @@
   },
   "kkt-store::Reads": {
    "status": "decided",
-   "result": "Gone: kkt-store merges into kkt-rules, which uses kkt-db directly, so there is no store contract and no copies of the record types. Its one implementation had one consumer, and its queries hold decisions of the rules' own (msgs 2015 and 2017).",
+   "result": "Gone: kkt-store merges into kkt-rules, which uses kkt-db directly, so there is no store contract and no copies of the record types.",
    "conflicts": [
     "C3"
    ]
   },
   "kkt-store::Writes": {
    "status": "decided",
-   "result": "Gone: kkt-store merges into kkt-rules, which uses kkt-db directly, so there is no store contract and no copies of the record types. Its one implementation had one consumer, and its queries hold decisions of the rules' own (msgs 2015 and 2017).",
+   "result": "As Reads.",
    "conflicts": [
     "C3"
    ]
@@ -2433,7 +2433,7 @@
   },
   "kkt-web::Gate": {
    "status": "decided",
-   "result": "Declared by its consumer, kkt-web, the one web-specific contract left (msg 2031). kkt-server's AdmissionGate implements it as the programs' shared adapter (msg 2019): admits and sign_in, the two questions for kkt-admission, now that kkt-web keeps the sessions (msg 2021). The preview's PreviewGate implements it over kkt-web's sessions (A7).",
+   "result": "Declared by its consumer, kkt-web: the one web-specific contract. kkt-server's AdmissionGate implements it as the programs' shared adapter, with admits and sign_in, the two questions for kkt-admission; kkt-web keeps the sessions. The preview's PreviewGate implements it over kkt-web's sessions.",
    "new": [
     "kkt-web-preview"
    ],
@@ -3094,7 +3094,7 @@
   },
   "kkt-server": {
    "status": "decided",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page, each handed kkt-rules' Rules, which implements the kkt-api crates; recording each server run through Server::record_run. Its parts take kkt-rules' `Db`, and the identity twice: meeting kkt-mcp's `Identify`, which it hands to the endpoints, and its own `WebIdentify`, which its web gate asks (msg 2025). It writes the adapters the three programs share, once, and decides nothing (msg 2019): AdmissionGate implements kkt-web's Gate, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen."
+   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and the identity twice: meeting kkt-mcp's `Identify`, which it hands to the endpoints, and its own `WebIdentify`, which its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate, and Wording adapts kkt-names' NoticeWording to kkt-rules' OperatorWording. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen."
   },
   "kkt-agent-client": {
    "status": "decided",
@@ -3146,7 +3146,7 @@
   },
   "kkt-web": {
    "status": "decided",
-   "concern": "The human's pages, over the application's operations: it calls kkt-api-agent and kkt-api-operator directly and renders their records (msg 2045). Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is. It keeps the sign-in sessions and form tokens itself (`Sessions`, msg 2021), the page-only limits (`PageLimits`), and its live updates, which it draws from kkt-api-agent's subscribe. The page scenarios every implementation must pass (`testing`) (msg 2031).",
+   "concern": "The human's pages, over the application's operations: it calls kkt-api-agent and kkt-api-operator directly and renders their records (msg 2045). Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is. It keeps the sign-in sessions and form tokens itself (`Sessions`, msg 2021), the page-only limits (`PageLimits`), and its live updates, which it draws from kkt-api-operator's subscribe. The page scenarios every implementation must pass (`testing`) (msg 2031).",
    "must_not": "Depend on the rules, the store, admission or identity, or on an implementation crate: it uses the agent and operator levels' contracts, and kkt-server implements its Gate (msg 2031)."
   },
   "kkt-events": {
@@ -4038,7 +4038,8 @@
    "translate": 1,
    "written": 57,
    "forward_written": 56
-  }
+  },
+  "page_about": "Every adapter in the proposed map, with its methods: forwarding (F), the same operation as a method of the provider with at most a rename or a trivial conversion, or translating (T), which combines calls, reshapes records or holds logic. Copies: how many programs write it."
  },
  "third_party_edits": [
   {
@@ -4344,5 +4345,13 @@
    ],
    "status": "decided"
   }
+ ],
+ "page_rules": [
+  "Every trait a crate depends on is a contract, declared by the crates that use it, not by the crate that implements it. A crate uses a contract when its code calls the contract's methods; naming a trait only to wire an implementation in, or to implement it, is not use.",
+  "A contract used by more than two crates lives in a contract-only crate of its own (traits, plain value types with pure behaviour on them, and test doubles behind `testing`). Any crate may implement a shared contract crate's contract directly. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
+  "A contract used by two crates or fewer is declared by each of them. No implementation implements a contract another crate declares for itself: the program adapts the implementation to it. kkt-server, the assembly the three server programs share, writes the adapters they would each write, once, and decides nothing.",
+  "A crate may implement its own traits (FixedClock implements Clock, DryRun implements System).",
+  "Each crate is one kind: contract, logic, effect, composition, configuration or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect.",
+  "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three."
  ]
 }

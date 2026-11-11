@@ -1111,6 +1111,42 @@ def renamed_rows(rows, renames):
     return out
 
 
+# The page states what is, or what is proposed; the decisions and how
+# they were reached are in decisions.md. So every description written for
+# the page loses its references to them: discussion numbers, the ids of
+# assumptions, conflicts and questions, and who decided.
+REFERENCE = (r"(?:\bmsgs?\s+\d|\bitems?\s+\d|\b[ACQ]\d+\b|\bR[12]\b|\bSam\b|kkt-review-373|"
+             r"\bsuperseded\b|\bwithdrawn\b|\brecommended\b|\bdecided\b|\bassumption\b)")
+TEXT_KEYS = {"text", "note", "doc", "concern", "result", "about", "why", "after_note", "must_not", "how", "rule"}
+
+
+def plain(text):
+    """`text` without its references to decisions and discussions: a
+    parenthesis that holds one goes, and so does a sentence that still
+    does."""
+    text = re.sub(r"^(?:Decided|Accepted|Changed|Replaced|Resolved)\b[^:]{0,80}:\s*", "", text)
+    for _ in range(3):
+        text = re.sub(r"\s*\((?=[^()]*" + REFERENCE + r")[^()]*\)", "", text)
+    text = re.sub(r",?\s*as msgs? [\d, and]+ allows?", "", text)
+    sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z`(])", text)
+    kept = [x for x in sentences if not re.search(REFERENCE, x)]
+    text = " ".join(kept)
+    text = re.sub(r"\s+([,.;:])", r"\1", text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    return text
+
+
+def plain_all(value, key=None):
+    """`plain` on every description in `value`, leaving names and ids."""
+    if isinstance(value, dict):
+        return {k: plain_all(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        return [plain_all(v, key) for v in value]
+    if isinstance(value, str) and key in TEXT_KEYS:
+        return plain(value)
+    return value
+
+
 def main():
     graph, concerns, assembly = load_current()
     spec = json.loads((HERE / "proposed.json").read_text())
@@ -1135,18 +1171,22 @@ def main():
     for row in table:
         row.update(spec["decisions"][row["trait"]])
         row["rule"] = "shared contract crate" if len(row["consumers"]) > 2 else "declared by its consumers"
-    return {
+    for row in table:
+        for k in ("status", "conflicts", "assumptions"):
+            row.pop(k, None)
+    census = {k: spec["adapter_census"][k] for k in ("after", "after_totals")}
+    census["about"] = spec["adapter_census"]["page_about"]
+    # What the page shows: the maps, the rules, the adapters and the
+    # kkt-config table. Statuses and the record of decisions stay in
+    # proposed.json and decisions.md.
+    return plain_all({
         "graph": proposed, "concerns": p_concerns, "assembly": p_assembly,
         "table": table, "changes": changes, "violations": violations,
         "config_split": {"table": renamed_rows(split_spec["items"], spec.get("renames", [])), "about": split_spec["about"],
-                         "limits": renamed_limits(split_spec["limits"], spec.get("renames", [])),
-                         "status": split_spec["status"]},
-        "statuses": spec["statuses"], "status_legend": spec["status_legend"], "rule": spec["rule"],
-        "strict": spec["strict"], "rejected": spec.get("rejected", []),
-        "decided_items": spec["decided_items"], "open_questions": spec["open_questions"], "adapter_census": spec["adapter_census"], "conflicts": spec["conflicts"],
-        "withdrawn": spec.get("withdrawn", []), "assumptions": spec["assumptions"],
-        "not_traits": spec["not_traits"], "stop_implementing": spec["stop_implementing"],
-    }
+                         "limits": renamed_limits(split_spec["limits"], spec.get("renames", []))},
+        "rule": spec["page_rules"], "adapters": census,
+        "not_traits": spec["not_traits"],
+    })
 
 
 if __name__ == "__main__":
