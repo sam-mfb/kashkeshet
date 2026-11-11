@@ -5,7 +5,6 @@
 
 use super::change::{Change, NoFields};
 use super::page;
-use super::source::SignIn;
 use super::viewing::Forms;
 use askama::Template;
 use axum::Form;
@@ -64,10 +63,7 @@ pub async fn login(
         return cross_site();
     }
     match gate.sign_in(&form.key) {
-        SignIn::Started {
-            session_id,
-            lifetime,
-        } => (
+        Ok((session_id, lifetime)) => (
             StatusCode::SEE_OTHER,
             [
                 (LOCATION, "/".to_string()),
@@ -75,7 +71,7 @@ pub async fn login(
             ],
         )
             .into_response(),
-        SignIn::Refused(reason) => (
+        Err(reason) => (
             StatusCode::UNAUTHORIZED,
             page(
                 log.as_ref(),

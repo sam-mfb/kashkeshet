@@ -418,7 +418,6 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         rules: rules_settings(&limits),
         web: web_settings(&limits),
         mcp: kkt_mcp::Settings::DEFAULT,
-        sessions: session_settings(&limits),
         allowed_origins: allow_origins,
         allowed_hosts,
         instructions,
@@ -478,13 +477,7 @@ pub fn web_settings(limits: &Limits) -> kkt_web::Settings {
         page_messages: limits.web_page_messages,
         member_excerpt_chars: limits.web_member_excerpt_chars,
         keep_alive: kkt_web::Settings::DEFAULT.keep_alive,
-    }
-}
-
-/// The web sessions' share of `limits`.
-pub fn session_settings(limits: &Limits) -> kkt_admission::Settings {
-    kkt_admission::Settings {
-        web_session_lifetime: limits.web_session_lifetime,
+        session_lifetime: limits.web_session_lifetime,
     }
 }
 
@@ -534,10 +527,6 @@ mod tests {
             kkt_mcp_formatter::Settings::DEFAULT
         );
         assert_eq!(web_settings(&Limits::DEFAULT), kkt_web::Settings::DEFAULT);
-        assert_eq!(
-            session_settings(&Limits::DEFAULT),
-            kkt_admission::Settings::DEFAULT
-        );
     }
 
     #[test]

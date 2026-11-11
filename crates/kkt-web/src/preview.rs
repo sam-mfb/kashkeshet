@@ -11,6 +11,7 @@
 //! no admission either.
 
 use super::notice::live_event;
+use super::sessions::{Access, Session};
 use super::settings::MAX_WEB_PAGE_MESSAGES;
 use super::settings::SettingError;
 use super::source::{
@@ -30,13 +31,12 @@ use kkt_events::{
 };
 use kkt_names::{self as names, CHANNEL_RANDOM_LEN, MAX_LANE_NAME_CHARS};
 use kkt_shutdown::Shutdown;
-use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
-/// The characters the preview's session IDs, form tokens and recovery codes
-/// are drawn from: the same 36 the server uses.
+/// The characters the preview's recovery codes are drawn from: the same 36
+/// the server uses.
 const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
 // The preview's fixed settings: how big its simulated world is and how it
@@ -82,9 +82,6 @@ const PREVIEW_RECOVERY_CODE_CHARS: usize = 26;
 /// How long a sign-in to the preview lasts, as the server's default
 /// `web_session_lifetime`.
 pub const PREVIEW_SESSION_LIFETIME: Duration = Duration::from_secs(12 * 60 * 60);
-/// Characters in a simulated session ID or form token, as in the server's
-/// (`kkt_admission::PREVIEW_SESSION_ID_CHARS`, which kkt-web may not use).
-const PREVIEW_SESSION_ID_CHARS: usize = 32;
 /// Shortest key the preview's gate takes, in bytes, as the server's
 /// (`kkt_admission::check_access_key`).
 const PREVIEW_MIN_KEY_BYTES: usize = 32;
@@ -286,150 +283,62 @@ const PARAGRAPHS: &[&str] = &[
 
 /// A simulated [`Gate`] for the preview and the page tests, so they need no
 /// admission. It holds one key, fixed when it is made, or none for an open
-/// page. Sessions live in memory for a fixed lifetime, timed by the injected
-/// clock; session IDs and form tokens come from the injected entropy.
+/// page. The page keeps the sessions ([`Sessions`](crate::Sessions)), with
+/// the access [`PreviewGate::access`] gives.
 ///
-/// It behaves like the server's gate for an open page, a wrong key, session
-/// lifetime, form tokens and signing out, with the same refusal texts. It is
-/// not a security boundary: it compares keys and tokens plainly and keeps
-/// session IDs as they are.
+/// It answers like the server's gate for an open page, a wrong key and a
+/// missing or ended session, with the same refusal texts. It is not a
+/// security boundary: it compares keys plainly.
 pub struct PreviewGate {
     key: Option<String>,
-    clock: Arc<dyn Clock>,
-    entropy: Arc<dyn Entropy>,
-    lifetime: Duration,
-    /// The form token when there is no key, so no sessions to tie one to.
-    /// Drawn when the gate is made.
-    open_form_token: String,
-    /// Live sessions by ID.
-    sessions: Mutex<HashMap<String, PreviewSession>>,
-}
-
-struct PreviewSession {
-    started: Time,
-    form_token: String,
 }
 
 impl PreviewGate {
     /// A gate with no key: every page is open, with no login form.
-    pub fn open(
-        clock: Arc<dyn Clock>,
-        entropy: Arc<dyn Entropy>,
-        lifetime: Duration,
-    ) -> PreviewGate {
-        PreviewGate {
-            key: None,
-            open_form_token: entropy.random_chars(RANDOM_CHARS, PREVIEW_SESSION_ID_CHARS),
-            clock,
-            entropy,
-            lifetime,
-            sessions: Mutex::new(HashMap::new()),
-        }
+    pub fn open() -> PreviewGate {
+        PreviewGate { key: None }
     }
 
     /// A gate that lets in viewers who sign in with the key in `text`,
-    /// without surrounding whitespace, for sessions lasting `lifetime`.
-    /// Fails, as the server does, if the key is not one the server's check
-    /// accepts (`check_preview_key`).
-    pub fn with_key(
-        text: &str,
-        clock: Arc<dyn Clock>,
-        entropy: Arc<dyn Entropy>,
-        lifetime: Duration,
-    ) -> Result<PreviewGate, SettingError> {
+    /// without surrounding whitespace. Fails, as the server does, if the key
+    /// is not one the server's check accepts (`check_preview_key`).
+    pub fn with_key(text: &str) -> Result<PreviewGate, SettingError> {
         let key = text.trim();
         check_preview_key(key)?;
         Ok(PreviewGate {
             key: Some(key.to_string()),
-            ..PreviewGate::open(clock, entropy, lifetime)
         })
     }
 
-    /// The form token of the live session with ID `id`, if there is one. An
-    /// expired session is dropped.
-    fn live_form_token(&self, id: &str) -> Option<String> {
-        let now = self.clock.now();
-        let mut sessions = self.sessions();
-        match sessions.get(id) {
-            Some(s) if self.within_lifetime(s, now) => Some(s.form_token.clone()),
-            Some(_) => {
-                sessions.remove(id);
-                None
-            }
-            None => None,
+    /// Whether viewers sign in: with a key they do.
+    pub fn access(&self) -> Access {
+        match self.key {
+            Some(_) => Access::SignIn,
+            None => Access::Open,
         }
-    }
-
-    fn within_lifetime(&self, session: &PreviewSession, now: Time) -> bool {
-        // A clock that moved backwards gives a negative age, counted as zero.
-        let age = (now - session.started).to_std().unwrap_or(Duration::ZERO);
-        age < self.lifetime
-    }
-
-    /// The session table. Each change to it is a single insert or removal,
-    /// so it stays usable after a panic elsewhere.
-    fn sessions(&self) -> MutexGuard<'_, HashMap<String, PreviewSession>> {
-        self.sessions.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
-/// The preview has one view, so its viewers are all the same: `()`.
+/// The preview has one view, so its viewers are all the same: `()`, and so
+/// is what their sessions hold.
 impl Gate for PreviewGate {
     type Viewer = ();
+    type SignedIn = ();
 
-    fn sign_in_required(&self) -> bool {
-        self.key.is_some()
-    }
-
-    fn admits<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, Admit<()>> {
-        let admit = if !self.sign_in_required() {
-            Admit::Yes(())
-        } else {
-            match session_id.map(|id| self.live_form_token(id)) {
-                None => Admit::No("sign in first".into()),
-                Some(Some(_)) => Admit::Yes(()),
-                Some(None) => Admit::No("the session has ended; sign in again".into()),
-            }
+    fn admits(&self, session: Session<()>) -> BoxFuture<'_, Admit<()>> {
+        let admit = match (&self.key, session) {
+            (None, _) | (Some(_), Session::Live(())) => Admit::Yes(()),
+            (Some(_), Session::Absent) => Admit::No("sign in first".into()),
+            (Some(_), Session::Ended) => Admit::No("the session has ended; sign in again".into()),
         };
         Box::pin(std::future::ready(admit))
     }
 
-    fn sign_in(&self, key: &str) -> SignIn {
+    fn sign_in(&self, key: &str) -> SignIn<()> {
         if self.key.as_deref().is_some_and(|k| k != key.trim()) {
             return SignIn::Refused("the access key is wrong".into());
         }
-        let session_id = self
-            .entropy
-            .random_chars(RANDOM_CHARS, PREVIEW_SESSION_ID_CHARS);
-        let session = PreviewSession {
-            started: self.clock.now(),
-            form_token: self
-                .entropy
-                .random_chars(RANDOM_CHARS, PREVIEW_SESSION_ID_CHARS),
-        };
-        let now = session.started;
-        let mut sessions = self.sessions();
-        sessions.retain(|_, s| self.within_lifetime(s, now));
-        sessions.insert(session_id.clone(), session);
-        SignIn::Started {
-            session_id,
-            lifetime: self.lifetime,
-        }
-    }
-
-    fn sign_out(&self, session_id: &str) {
-        self.sessions().remove(session_id);
-    }
-
-    fn form_token(&self, session_id: Option<&str>) -> Option<String> {
-        if !self.sign_in_required() {
-            return Some(self.open_form_token.clone());
-        }
-        self.live_form_token(session_id?)
-    }
-
-    fn form_token_matches(&self, session_id: Option<&str>, presented: &str) -> bool {
-        self.form_token(session_id).as_deref() == Some(presented)
+        SignIn::Admitted(())
     }
 }
 

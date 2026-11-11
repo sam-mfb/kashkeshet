@@ -14,6 +14,7 @@ axum.workspace = true
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
 kkt-events = { path = "../kkt-events" }
+kkt-hash = { path = "../kkt-hash" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-names = { path = "../kkt-names" }

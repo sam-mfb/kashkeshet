@@ -6,7 +6,7 @@
 //! the same for both until orgs arrive (phase 2).
 
 use super::{AdmissionGate, RulesSources, WebViewer};
-use kkt_admission::{Admission, Principal, Sessions, WebAdmission};
+use kkt_admission::{Admission, Principal, WebAdmission};
 use kkt_api_agent::{Actor, Agent, NewChannel, Operator, SwarmId};
 use kkt_api_operator::LaneSave;
 use kkt_clock::Span;
@@ -278,19 +278,21 @@ async fn viewer(principal: Principal, identify: &dyn Identify) -> WebViewer {
 
 /// The server's web page, with every viewer put in `sw_other`.
 fn other_site(world: &World) -> axum::Router {
-    let sessions = Sessions::new(
+    let sessions = kkt_web::Sessions::new(
         world.clock.clone(),
         Arc::new(SeqEntropy::new(9)),
-        kkt_admission::Settings::DEFAULT.web_session_lifetime,
+        kkt_web::Settings::DEFAULT.session_lifetime,
+        kkt_web::Access::Open,
     );
     let gate = AdmissionGate::new(
-        WebAdmission::new(Arc::new(Admission::Open), sessions),
+        WebAdmission::new(Arc::new(Admission::Open)),
         Arc::new(InOther),
     );
     kkt_web::router(
         world.sources.clone(),
         AllowedHosts::new(&[]).expect("loopback hosts"),
         Arc::new(gate),
+        Arc::new(sessions),
         Arc::new(kkt_log::testing::CapturedLog::default()),
         kkt_web::Settings::DEFAULT,
     )

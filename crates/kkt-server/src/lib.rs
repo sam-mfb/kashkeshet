@@ -21,7 +21,7 @@ use axum::http::StatusCode;
 use axum::http::header::{AUTHORIZATION, WWW_AUTHENTICATE};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use kkt_admission::{AdminAdmission, Admission, Credentials, Decision, Sessions, WebAdmission};
+use kkt_admission::{AdminAdmission, Admission, Credentials, Decision, WebAdmission};
 use kkt_api_agent::SwarmId;
 use kkt_clock::{self as clock, Clock, Time};
 use kkt_entropy::Entropy;
@@ -51,14 +51,12 @@ pub struct AppConfig {
     pub admin_admission: Option<AdminAdmission>,
     /// What the rules enforce and fill in, for every swarm.
     pub rules: kkt_rules::Settings,
-    /// How much the web page shows at once, and how it keeps its event
-    /// stream open.
+    /// How much the web page shows at once, how it keeps its event stream
+    /// open, and how long a sign-in lasts.
     pub web: web::Settings,
     /// How the MCP endpoints' event streams keep in touch with their
     /// clients.
     pub mcp: mcp::Settings,
-    /// How long a web page sign-in lasts.
-    pub sessions: kkt_admission::Settings,
     /// Browser origins allowed to call `/mcp`. Requests with any other
     /// `Origin` header are refused; requests without one (agents) pass.
     pub allowed_origins: Vec<String>,
@@ -173,11 +171,8 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let fmt = parts.fmt;
     let instructions: Arc<str> = config.agent_instructions().into();
     let admission = Arc::new(config.admission);
-    let sessions = Sessions::new(
-        parts.clock.clone(),
-        parts.entropy.clone(),
-        config.sessions.web_session_lifetime,
-    );
+    // The web page's sessions are timed and drawn as the rules are.
+    let (web_clock, web_entropy) = (parts.clock.clone(), parts.entropy.clone());
     let identify = parts.identify;
     let log = parts.log;
     let rules = Rules::new(Deps {
@@ -204,10 +199,18 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     );
     // The web page asks `identify` too: who a viewer is, and what they may
     // do, is decided there alone.
-    let web_gate = Arc::new(AdmissionGate::new(
-        WebAdmission::new(Arc::new(config.web_admission), sessions),
-        identify.clone(),
+    let web_admission = WebAdmission::new(Arc::new(config.web_admission));
+    // The page keeps its own sessions, for as long as its settings say.
+    let web_sessions = Arc::new(web::Sessions::new(
+        web_clock,
+        web_entropy,
+        config.web.session_lifetime,
+        match web_admission.sign_in_required() {
+            true => web::Access::SignIn,
+            false => web::Access::Open,
+        },
     ));
+    let web_gate = Arc::new(AdmissionGate::new(web_admission, identify.clone()));
     let mcp = mcp::endpoint(
         Arc::new(rules.clone()),
         identify.clone(),
@@ -235,6 +238,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         Arc::new(RulesSources::new(rules)),
         config.allowed_hosts.clone(),
         web_gate,
+        web_sessions,
         log,
         config.web,
     )
