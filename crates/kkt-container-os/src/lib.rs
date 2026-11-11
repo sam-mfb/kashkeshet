@@ -1,12 +1,13 @@
 //! The machine Docker runs on: files, commands and terminal lines.
 //! Plain OsHost methods are adapted by the program to the container logic.
 
-#![cfg(any(test, feature = "real"))]
-
+#[cfg(any(test, feature = "real"))]
 use std::io;
 use std::path::Path;
+#[cfg(any(test, feature = "real"))]
 use std::process::Stdio;
 
+#[cfg(any(test, feature = "real"))]
 pub struct OsHost;
 
 /// A raw command and the environment and directory it runs with.
@@ -26,9 +27,10 @@ pub struct Finished {
 }
 
 /// The mode of private files written by this crate.
-#[cfg(unix)]
+#[cfg(all(unix, any(test, feature = "real")))]
 const PRIVATE_FILE_MODE: u32 = 0o600;
 
+#[cfg(any(test, feature = "real"))]
 impl OsHost {
     pub fn run(&self, command: &Command<'_>) -> io::Result<Finished> {
         let output = process(command).stdin(Stdio::null()).output()?;
@@ -74,6 +76,7 @@ impl OsHost {
 
 /// The process for `command`: in its folder, without the variables it must
 /// not see.
+#[cfg(any(test, feature = "real"))]
 fn process(command: &Command<'_>) -> std::process::Command {
     let mut process = std::process::Command::new(command.program);
     process.args(command.args);
@@ -87,6 +90,7 @@ fn process(command: &Command<'_>) -> std::process::Command {
 }
 
 #[cfg(unix)]
+#[cfg(any(test, feature = "real"))]
 fn write(path: &Path, contents: &str, private: bool) -> io::Result<()> {
     use std::io::Write;
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
@@ -106,6 +110,7 @@ fn write(path: &Path, contents: &str, private: bool) -> io::Result<()> {
 }
 
 #[cfg(not(unix))]
+#[cfg(any(test, feature = "real"))]
 fn write(path: &Path, contents: &str, _private: bool) -> io::Result<()> {
     std::fs::write(path, contents)
 }
