@@ -8,7 +8,7 @@
 //! with its name, so two sessions saving different entries keep both.
 
 use super::*;
-use kkt_config::MAX_MEMORY_NAME_CHARS;
+use kkt_names::MAX_MEMORY_NAME_CHARS;
 
 impl Rules {
     /// Saves `text` as `me`'s entry named `name`, replacing any with that
@@ -24,14 +24,14 @@ impl Rules {
             ));
         }
         let chars = text.chars().count();
-        let max_entry = self.limits().max_memory_entry_chars;
+        let max_entry = self.settings().max_memory_entry_chars;
         if chars > max_entry {
             return Err(RuleError::invalid(format!(
                 "the entry is {chars} characters; an entry may have at most {max_entry} \
                  (max_memory_entry_chars). Nothing was saved."
             )));
         }
-        let max_chars = self.limits().max_memory_chars;
+        let max_chars = self.settings().max_memory_chars;
         let handle = me.handle.clone();
         let entry = MemoryEntryRecord {
             name,
@@ -89,7 +89,7 @@ impl Rules {
         cursor: Option<String>,
     ) -> Result<MemoryList> {
         let handle = me.handle.clone();
-        let max_chars = self.limits().max_memory_chars;
+        let max_chars = self.settings().max_memory_chars;
         self.db()
             .read(move |store, swarm| {
                 memory_list(store, swarm, &handle, limit, cursor.as_deref(), max_chars)
@@ -120,7 +120,7 @@ impl Rules {
         limit: usize,
         cursor: Option<String>,
     ) -> Result<MemoryList> {
-        let max_chars = self.limits().max_memory_chars;
+        let max_chars = self.settings().max_memory_chars;
         self.db()
             .read(move |store, swarm| {
                 if store.agent(swarm, &handle)?.is_none() {

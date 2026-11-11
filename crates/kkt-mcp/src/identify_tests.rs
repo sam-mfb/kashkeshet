@@ -9,16 +9,16 @@ use axum::http::{Request, StatusCode};
 use kkt_admission::{Principal, ServerKey};
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
-use kkt_config::Limits;
 use kkt_entropy::testing::SeqEntropy;
 use kkt_events::Events;
 use kkt_format::Formatter;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying, KeyMode};
+use kkt_rules::Db;
+use kkt_rules::Settings;
 use kkt_rules::{Agent, Audit, Operator, Rules, SwarmId};
 use kkt_rules::{Code, Deps, OperatorWording, RuleError};
 use kkt_shutdown::Shutdown;
-use kkt_store::Db;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -89,13 +89,13 @@ async fn rules() -> Rules {
         let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
         Db::new(
             place
-                .open(&[kkt_store::schema()])
+                .open(&[kkt_rules::schema()])
                 .expect("the core's tables"),
         )
     };
     let run_id = db
         .write(|w| {
-            let run_id = w.insert_server_run(&kkt_store::NewServerRunRecord {
+            let run_id = w.insert_server_run(&kkt_rules::NewServerRunRecord {
                 started_at: "2026-11-09T00:00:00Z".into(),
                 version: "test".into(),
                 git_commit: "test".into(),
@@ -103,18 +103,18 @@ async fn rules() -> Rules {
                 instructions_sha256: "test".into(),
             })?;
             w.insert_swarm(&SwarmId::new("sw_other"), "2026-11-09T00:00:00Z", run_id)?;
-            Ok::<_, kkt_store::StoreError>(run_id)
+            Ok::<_, kkt_rules::StoreError>(run_id)
         })
         .await
         .expect("a server run and a second swarm");
     Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock,
         entropy: Arc::new(SeqEntropy::new(1)),
         run_id,
-        limits: Limits::DEFAULT,
+        settings: Settings::DEFAULT,
         wording: Arc::new(Plain),
     })
 }
@@ -123,7 +123,12 @@ async fn rules() -> Rules {
 /// `principal` left on every request as admission would.
 fn endpoints(rules: &Rules, identify: Arc<dyn Identify>, principal: Option<Principal>) -> Router {
     let fmt = Formatter::new(100_000, Arc::new(FixedClock::new(Time::UNIX_EPOCH)), "test");
-    let transport = Transport::new(Vec::new(), &AllowedHosts::any(), &Shutdown::new());
+    let transport = Transport::new(
+        Vec::new(),
+        &AllowedHosts::any(),
+        crate::Settings::DEFAULT,
+        &Shutdown::new(),
+    );
     let router = crate::endpoint(
         rules.clone(),
         identify.clone(),

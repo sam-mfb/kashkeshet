@@ -11,6 +11,7 @@ members = [
     "crates/kkt-clock-system",
     "crates/kkt-config",
     "crates/kkt-container",
+    "crates/kkt-container-os",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
     "crates/kkt-entropy",
@@ -39,7 +40,6 @@ members = [
     "crates/kkt-setup",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
-    "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
     "programs/kkt-fake-product",
@@ -55,6 +55,7 @@ default-members = [
     "crates/kkt-clock-system",
     "crates/kkt-config",
     "crates/kkt-container",
+    "crates/kkt-container-os",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
     "crates/kkt-entropy",
@@ -83,7 +84,6 @@ default-members = [
     "crates/kkt-setup",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
-    "crates/kkt-store",
     "crates/kkt-watch",
     "crates/kkt-web",
     "programs/kkt-fake-product",
@@ -167,10 +167,13 @@ kkt-client-config = { path = "crates/kkt-client-config", features = ["real"] }
 kkt-clock = { path = "crates/kkt-clock" }
 kkt-clock-system = { path = "crates/kkt-clock-system", features = ["real"] }
 kkt-config = { path = "crates/kkt-config" }
-kkt-container = { path = "crates/kkt-container", features = ["real"] }
+kkt-container = { path = "crates/kkt-container" }
+kkt-container-os = { path = "crates/kkt-container-os", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
+kkt-events = { path = "crates/kkt-events" }
+kkt-format = { path = "crates/kkt-format" }
 kkt-hash = { path = "crates/kkt-hash" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity = { path = "crates/kkt-identity" }
@@ -178,6 +181,7 @@ kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
 kkt-entropy-os = { path = "crates/kkt-entropy-os", features = ["real"] }
+kkt-mcp = { path = "crates/kkt-mcp" }
 kkt-names = { path = "crates/kkt-names" }
 kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
@@ -190,8 +194,8 @@ kkt-settings = { path = "crates/kkt-settings" }
 kkt-setup = { path = "crates/kkt-setup" }
 kkt-shutdown = { path = "crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "crates/kkt-shutdown-os", features = ["real"] }
-kkt-store = { path = "crates/kkt-store" }
 kkt-watch = { path = "crates/kkt-watch" }
+kkt-web = { path = "crates/kkt-web" }
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
@@ -206,7 +210,7 @@ libc.workspace = true
 [dev-dependencies]
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["testing"] }
-kkt-store = { path = "crates/kkt-store", features = ["testing"] }
+kkt-rules = { path = "crates/kkt-rules", features = ["testing"] }
 reqwest.workspace = true
 # The end-to-end tests reach the server with rmcp's client.
 rmcp = { workspace = true, features = ["client", "transport-streamable-http-client-reqwest"] }

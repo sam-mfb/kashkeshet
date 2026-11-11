@@ -4,6 +4,7 @@
 use super::*;
 use kkt_clock::Clock;
 use kkt_clock::testing::FixedClock;
+use kkt_config as config;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -70,7 +71,7 @@ fn at_once<F: Future>(future: F) -> F::Output {
 }
 
 fn valid_key() -> String {
-    "k".repeat(config::MIN_ACCESS_KEY_BYTES)
+    "k".repeat(kkt_admission::testing::MIN_ACCESS_KEY_BYTES)
 }
 
 fn key(mode: Option<u32>, text: Result<String, String>) -> KeyFile {

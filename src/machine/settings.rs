@@ -1,6 +1,6 @@
 //! The settings `kkt serve` would run with: reading the config file, where
 //! each setting came from, the one place they are resolved ([`resolve`]),
-//! and the startup checks.
+//! the startup checks, and each part's own settings filled from them.
 
 use crate::machine::keys::read_server_keys;
 use kkt_admission::AdminAdmission;
@@ -9,7 +9,9 @@ use kkt_config::{self as config, InvalidSetting, LogLevel};
 use kkt_hosts::AllowedHosts;
 use kkt_names::AdminName;
 use kkt_server::AppConfig;
-use kkt_settings::{self as settings, AccessKey, Env, Platform, ServeOptions, ServeSettings};
+use kkt_settings::{
+    self as settings, AccessKey, Env, Limits, Platform, ServeOptions, ServeSettings,
+};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -237,6 +239,10 @@ pub struct Checked {
     pub db_path: PathBuf,
     pub bind: SocketAddr,
     pub config: AppConfig,
+    /// Every limit, as gathered: for the formatter, the backups before an
+    /// upgrade and the record of the server run. `config` holds the rest's
+    /// share.
+    pub limits: Limits,
     /// The name tied to the admin key, under which the admin agent's changes
     /// are made and announced. `None`: the admin key may only read.
     pub admin_name: Option<AdminName>,
@@ -267,7 +273,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         log_level,
         dependency_log_level,
     } = settings;
-    config::check_bind(bind, allow_any_bind, access_key != AccessKey::None)
+    kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None)
         .map_err(|e| sources.invalid(e))?;
     config::check_dependency_log_level(dependency_log_level).map_err(|e| sources.invalid(e))?;
     limits.check().map_err(|e| sources.invalid(e))?;
@@ -291,7 +297,10 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         web_admission,
         // kkt's admin endpoint takes its admin key, as before.
         admin_admission: admin_key.map(AdminAdmission::SharedKey),
-        limits,
+        rules: rules_settings(&limits),
+        web: web_settings(&limits),
+        mcp: kkt_mcp::Settings::DEFAULT,
+        sessions: session_settings(&limits),
         allowed_origins: allow_origins,
         allowed_hosts,
         instructions,
@@ -300,6 +309,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         db_path,
         bind,
         config,
+        limits,
         admin_name,
         allow_any_bind,
         config_file: sources.file.as_ref().map(|(p, _)| p.display().to_string()),
@@ -307,6 +317,57 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         log_level,
         dependency_log_level,
     })
+}
+
+/// The rules' share of `limits`. The longest lane description is not an
+/// operator setting, so it keeps the rules' default.
+pub fn rules_settings(limits: &Limits) -> kkt_rules::Settings {
+    kkt_rules::Settings {
+        name_pack: limits.name_pack,
+        default_limit: limits.default_limit,
+        max_limit: limits.max_limit,
+        max_body_bytes: limits.max_body_bytes,
+        max_channel_name_chars: limits.max_channel_name_chars,
+        max_purpose_chars: limits.max_purpose_chars,
+        max_description_chars: limits.max_description_chars,
+        max_note_chars: limits.max_note_chars,
+        max_server_announcement_chars: limits.max_server_announcement_chars,
+        max_memory_entry_chars: limits.max_memory_entry_chars,
+        max_memory_chars: limits.max_memory_chars,
+        max_lane_chars: limits.max_lane_chars,
+        max_lane_description_chars: kkt_rules::Settings::DEFAULT.max_lane_description_chars,
+        sends_per_minute: limits.sends_per_minute,
+        registrations_per_minute: limits.registrations_per_minute,
+        max_agents: limits.max_agents,
+        default_wait: limits.default_wait,
+        max_wait: limits.max_wait,
+        waiting_grace: limits.waiting_grace,
+        member_preview: limits.member_preview,
+        purpose_preview_chars: limits.purpose_preview_chars,
+    }
+}
+
+/// The formatter's share of `limits`.
+pub fn format_settings(limits: &Limits) -> kkt_format::Settings {
+    kkt_format::Settings {
+        max_response_bytes: limits.max_response_bytes,
+    }
+}
+
+/// The web page's share of `limits`.
+pub fn web_settings(limits: &Limits) -> kkt_web::Settings {
+    kkt_web::Settings {
+        page_messages: limits.web_page_messages,
+        member_excerpt_chars: limits.web_member_excerpt_chars,
+        keep_alive: kkt_web::Settings::DEFAULT.keep_alive,
+    }
+}
+
+/// The web sessions' share of `limits`.
+pub fn session_settings(limits: &Limits) -> kkt_admission::Settings {
+    kkt_admission::Settings {
+        web_session_lifetime: limits.web_session_lifetime,
+    }
 }
 
 /// An environment with only `home` set, for tests.
@@ -335,6 +396,26 @@ pub(crate) fn write_default_config(home: &Path, text: &str) -> PathBuf {
 mod tests {
     use super::*;
     use crate::scratch;
+
+    #[test]
+    fn each_parts_defaults_are_the_gathered_defaults() {
+        // Two sets of defaults: kkt-settings' and each part's own. Filling
+        // each part's settings from the gathered defaults must give exactly
+        // that part's defaults, so the two cannot drift apart.
+        assert_eq!(
+            rules_settings(&Limits::DEFAULT),
+            kkt_rules::Settings::DEFAULT
+        );
+        assert_eq!(
+            format_settings(&Limits::DEFAULT),
+            kkt_format::Settings::DEFAULT
+        );
+        assert_eq!(web_settings(&Limits::DEFAULT), kkt_web::Settings::DEFAULT);
+        assert_eq!(
+            session_settings(&Limits::DEFAULT),
+            kkt_admission::Settings::DEFAULT
+        );
+    }
 
     const NO_HOME_KEY: &str = "invalid setting: access_key_file has no default without a home \
          directory: set HOME, or give access_key_file or no_access_key";

@@ -619,7 +619,7 @@ async fn nothing_of_one_swarm_reaches_the_other() {
         memory(),
         system_clock(),
         os_entropy(),
-        kkt_config::Limits::DEFAULT,
+        kkt_fake_product::Settings::DEFAULT,
     )
     .await;
     let client = Client::new(&product);
@@ -794,11 +794,11 @@ fn assert_feed(own: &Seeded, foreign: &Seeded, events: &[Event]) {
 }
 
 /// A new database in memory, with the core's tables.
-fn memory() -> kkt_store::Db {
-    kkt_store::Db::new(
+fn memory() -> kkt_rules::Db {
+    kkt_rules::Db::new(
         kkt_db_sqlite::MemoryPlace::new()
             .expect("an in-memory database")
-            .open(&[kkt_store::schema()])
+            .open(&[kkt_rules::schema()])
             .expect("the core's tables"),
     )
 }
@@ -840,7 +840,7 @@ async fn run(
         memory(),
         fixed_clock(),
         std::sync::Arc::new(kkt_entropy::SeededEntropy::new(42)),
-        kkt_config::Limits::DEFAULT,
+        kkt_fake_product::Settings::DEFAULT,
     )
     .await;
     let client = Client::new(&product);

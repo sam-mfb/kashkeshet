@@ -16,7 +16,6 @@ pub mod client;
 
 use kkt_admission::{AdminAdmission, Admission, Principal};
 use kkt_clock::Clock;
-use kkt_config::Limits;
 use kkt_entropy::Entropy;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying, KeyMode};
@@ -24,9 +23,9 @@ use kkt_names::AdminName;
 use kkt_rules::{
     self as rules, Agent, Audit, Code, Operator, Permission, Permissions, RuleError, Rules, SwarmId,
 };
+use kkt_rules::{Db, NewServerRunRecord};
 use kkt_server::{AppConfig, Parts};
 use kkt_shutdown::Shutdown;
-use kkt_store::{Db, NewServerRunRecord};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -154,7 +153,7 @@ impl Identify for FakeIdentify {
                     ),
                 }),
                 (swarm, Role::Admin) => {
-                    let name = AdminName::new(ADMIN_NAME, kkt_config::MAX_ADMIN_NAME_CHARS)
+                    let name = AdminName::new(ADMIN_NAME, kkt_names::MAX_ADMIN_NAME_CHARS)
                         .map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
                     Ok(Identified {
                         swarm,
@@ -170,6 +169,35 @@ impl Identify for FakeIdentify {
     }
 }
 
+/// Each part's settings, as the product gives them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// What the rules enforce and fill in.
+    pub rules: kkt_rules::Settings,
+    /// How large a response may be.
+    pub fmt: kkt_format::Settings,
+    /// How much the web page shows at once.
+    pub web: kkt_web::Settings,
+    /// How the MCP endpoints' event streams keep in touch with clients.
+    pub mcp: kkt_mcp::Settings,
+    /// How long a web page sign-in lasts.
+    pub sessions: kkt_admission::Settings,
+    /// How many notices the events bus keeps for a slow subscriber.
+    pub events: kkt_events::Settings,
+}
+
+impl Settings {
+    /// Every part's defaults.
+    pub const DEFAULT: Settings = Settings {
+        rules: kkt_rules::Settings::DEFAULT,
+        fmt: kkt_format::Settings::DEFAULT,
+        web: kkt_web::Settings::DEFAULT,
+        mcp: kkt_mcp::Settings::DEFAULT,
+        sessions: kkt_admission::Settings::DEFAULT,
+        events: kkt_events::Settings::DEFAULT,
+    };
+}
+
 /// The fake product, serving on a loopback port until dropped or stopped.
 pub struct Product {
     pub address: SocketAddr,
@@ -177,7 +205,7 @@ pub struct Product {
 }
 
 impl Product {
-    /// Starts the product with `limits`, over `db`, a new database with
+    /// Starts the product with `settings`, over `db`, a new database with
     /// the core's tables, in which it makes the second swarm. Its time comes
     /// from `clock` and its randomness from `entropy`: the system's, or a
     /// test's fixed clock and seeded entropy, so two runs can be compared.
@@ -185,7 +213,7 @@ impl Product {
         db: Db,
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
-        limits: Limits,
+        settings: Settings,
     ) -> Product {
         let now = kkt_clock::to_text(clock.now());
         let run_id = db
@@ -198,16 +226,27 @@ impl Product {
                     instructions_sha256: "fake".into(),
                 })?;
                 w.insert_swarm(&other(), &now, run_id)?;
-                Ok::<_, kkt_store::StoreError>(run_id)
+                Ok::<_, kkt_rules::StoreError>(run_id)
             })
             .await
             .expect("a server run and the second swarm");
-        let parts = Parts::new(db, clock, entropy, Arc::new(FakeIdentify), &limits, run_id);
+        let parts = Parts::new(
+            db,
+            clock,
+            entropy,
+            Arc::new(FakeIdentify),
+            &settings.fmt,
+            &settings.events,
+            run_id,
+        );
         let config = AppConfig {
             admission: Admission::Bearer,
             web_admission: Admission::Bearer,
             admin_admission: Some(AdminAdmission::Bearer),
-            limits,
+            rules: settings.rules,
+            web: settings.web,
+            mcp: settings.mcp,
+            sessions: settings.sessions,
             allowed_origins: Vec::new(),
             allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
             instructions: None,

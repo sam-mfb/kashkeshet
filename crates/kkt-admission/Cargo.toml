@@ -15,6 +15,10 @@ kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
 thiserror.workspace = true
 
+[features]
+# `testing::MIN_ACCESS_KEY_BYTES`, the shortest key, for other crates' tests.
+testing = []
+
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }

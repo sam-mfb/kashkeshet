@@ -23,7 +23,7 @@ async fn an_unknown_bearer_gets_nothing() {
         memory(),
         system_clock(),
         os_entropy(),
-        kkt_config::Limits::DEFAULT,
+        kkt_fake_product::Settings::DEFAULT,
     )
     .await;
     let client = Client::new(&product);
@@ -105,7 +105,7 @@ async fn a_handle_taken_in_the_other_swarm_is_taken_and_nothing_more() {
         memory(),
         system_clock(),
         os_entropy(),
-        kkt_config::Limits::DEFAULT,
+        kkt_fake_product::Settings::DEFAULT,
     )
     .await;
     let client = Client::new(&product);
@@ -142,11 +142,11 @@ async fn a_handle_taken_in_the_other_swarm_is_taken_and_nothing_more() {
 }
 
 /// A new database in memory, with the core's tables.
-fn memory() -> kkt_store::Db {
-    kkt_store::Db::new(
+fn memory() -> kkt_rules::Db {
+    kkt_rules::Db::new(
         kkt_db_sqlite::MemoryPlace::new()
             .expect("an in-memory database")
-            .open(&[kkt_store::schema()])
+            .open(&[kkt_rules::schema()])
             .expect("the core's tables"),
     )
 }

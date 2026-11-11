@@ -7,6 +7,13 @@ use kkt_entropy::testing::{SameHandleEntropy, SeqEntropy};
 use kkt_events::Notice;
 use std::time::Duration;
 
+/// The web page's page size, as kkt-web's default.
+const PAGE_MESSAGES: usize = 50;
+/// The activity window the web page asks the overview for, as kkt-web's.
+const ACTIVITY_WINDOW: Duration = Duration::from_secs(5 * 60);
+/// The activity bucket the web page asks the overview for, as kkt-web's.
+const ACTIVITY_BUCKET: Duration = Duration::from_secs(10);
+
 /// The web page's operator: every permission.
 fn web_page() -> Operator {
     Operator::new(
@@ -73,12 +80,10 @@ fn memory_db() -> Db {
 
 fn memory_backend() -> Arc<dyn kkt_db::Backend> {
     let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
-    place
-        .open(&[kkt_store::schema()])
-        .expect("the core's tables")
+    place.open(&[crate::schema()]).expect("the core's tables")
 }
 
-async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
+async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) -> World {
     let clock = Arc::new(FixedClock::new(
         Time::from_parts(2026, 10, 23, 14, 0, 0).unwrap(),
     ));
@@ -86,7 +91,7 @@ async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
     let db = Db::new(Arc::new(faults.clone()));
     let run_id = db
         .write(|w| {
-            w.insert_server_run(&kkt_store::NewServerRunRecord {
+            w.insert_server_run(&crate::NewServerRunRecord {
                 started_at: "2026-10-23T14:00:00Z".into(),
                 version: TEST_RUN.into(),
                 git_commit: TEST_RUN.into(),
@@ -100,11 +105,11 @@ async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
     let rules = Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: clock.clone(),
         entropy,
         run_id,
-        limits,
+        settings,
         wording: Arc::new(TestWording),
     });
     World {
@@ -117,16 +122,16 @@ async fn world_with(limits: Limits, entropy: Arc<dyn Entropy>) -> World {
 }
 
 async fn world() -> World {
-    world_with(Limits::DEFAULT, Arc::new(SeqEntropy::new(42))).await
+    world_with(Settings::DEFAULT, Arc::new(SeqEntropy::new(42))).await
 }
 
 #[tokio::test]
 async fn registration_uses_the_selected_pack() {
     for (pack, expected) in [("animals", "amber-badger"), ("garden", "airy-acorn")] {
         let w = world_with(
-            Limits {
+            Settings {
                 name_pack: kkt_names::NamePack::find(pack).unwrap(),
-                ..Limits::DEFAULT
+                ..Settings::DEFAULT
             },
             Arc::new(SameHandleEntropy(SeqEntropy::new(42))),
         )
@@ -139,7 +144,7 @@ async fn registration_uses_the_selected_pack() {
 #[tokio::test]
 async fn changing_packs_keeps_existing_handles_and_credentials() {
     let mut w = world_with(
-        Limits::DEFAULT,
+        Settings::DEFAULT,
         Arc::new(SameHandleEntropy(SeqEntropy::new(42))),
     )
     .await;
@@ -147,7 +152,7 @@ async fn changing_packs_keeps_existing_handles_and_credentials() {
     Arc::get_mut(&mut w.rules.inner)
         .unwrap()
         .deps
-        .limits
+        .settings
         .name_pack = kkt_names::NamePack::find("garden").unwrap();
     let new = w.rules.register().await.unwrap();
     assert_eq!(new.handle, "airy-acorn");
@@ -310,7 +315,7 @@ async fn bad_or_missing_tokens_are_unauthenticated_with_instructions() {
 #[tokio::test]
 async fn name_clashes_get_a_number() {
     let w = world_with(
-        Limits::DEFAULT,
+        Settings::DEFAULT,
         Arc::new(SameHandleEntropy(SeqEntropy::new(3))),
     )
     .await;
@@ -465,12 +470,12 @@ async fn a_proposed_name_any_agent_has_or_had_is_taken_whatever_its_case() {
 
 #[tokio::test]
 async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
-    let limits = Limits {
+    let settings = Settings {
         registrations_per_minute: 1,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
-    let too_long = "a".repeat(kkt_config::MAX_HANDLE_CHARS + 1);
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
+    let too_long = "a".repeat(kkt_names::MAX_HANDLE_CHARS + 1);
     for bad in [
         "",
         "api.reviewer",
@@ -500,11 +505,11 @@ async fn a_badly_shaped_or_reserved_name_is_refused_and_registers_nothing() {
 
 #[tokio::test]
 async fn a_taken_name_gives_back_its_use_of_the_rate_limit() {
-    let limits = Limits {
+    let settings = Settings {
         registrations_per_minute: 2,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
     register_as(&w, "first").await.unwrap();
     let err = register_as(&w, "first").await.expect_err("taken");
     assert_eq!(err.code, Code::HandleTaken);
@@ -591,7 +596,11 @@ async fn descriptions_are_set_replaced_and_cleared() {
         described(&members.page.items).as_deref(),
         Some("Claude Code")
     );
-    let view = w.rules.channel_view(&web_page(), ch, None).await.unwrap();
+    let view = w
+        .rules
+        .channel_view(&web_page(), ch, None, PAGE_MESSAGES)
+        .await
+        .unwrap();
     assert_eq!(described(&view.members).as_deref(), Some("Claude Code"));
     let page = w
         .rules
@@ -608,11 +617,11 @@ async fn descriptions_are_set_replaced_and_cleared() {
 
 #[tokio::test]
 async fn descriptions_over_the_limit_are_refused() {
-    let limits = Limits {
+    let settings = Settings {
         max_description_chars: 5,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
     let a = w.agent().await;
     // The cap counts characters, not bytes.
     let fits = w.rules.set_description(&a, "héllo".into()).await.unwrap();
@@ -892,7 +901,7 @@ async fn the_operator_is_not_an_agent_and_no_agent_can_become_it() {
     assert!(agents.items.iter().all(|i| i.handle != names::OPERATOR));
     // Registering, even when every name draw is the same, never gives it.
     let w = world_with(
-        Limits::DEFAULT,
+        Settings::DEFAULT,
         Arc::new(SameHandleEntropy(SeqEntropy::new(5))),
     )
     .await;
@@ -920,7 +929,7 @@ async fn the_human_gets_not_found_for_a_missing_channel_and_bad_input_changes_no
         ),
         Code::NotFound
     );
-    let too_long = "x".repeat(Limits::DEFAULT.max_purpose_chars + 1);
+    let too_long = "x".repeat(Settings::DEFAULT.max_purpose_chars + 1);
     assert_eq!(
         code(
             w.rules
@@ -1305,7 +1314,7 @@ async fn the_owner_hides_its_channel_says_so_and_it_vanishes_for_every_agent() {
         }
         assert!(
             w.rules
-                .overview(&web_page(),)
+                .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
                 .await
                 .unwrap()
                 .channels
@@ -1471,7 +1480,7 @@ async fn the_human_cannot_hide_a_channel_owner_by_either_route() {
     for (ch, owner) in [(&room, &a), (&left, &c)] {
         let view = w
             .rules
-            .channel_view(&web_page(), ch.clone(), None)
+            .channel_view(&web_page(), ch.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap();
         assert_eq!(view.channel.owner.as_deref(), Some(owner.handle.as_str()));
@@ -1540,7 +1549,7 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
         .unwrap();
     let view = w
         .rules
-        .channel_view(&web_page(), passed.clone(), None)
+        .channel_view(&web_page(), passed.clone(), None, PAGE_MESSAGES)
         .await
         .unwrap();
     assert!(view.messages.iter().all(|m| m.agent != names::OPERATOR));
@@ -1589,7 +1598,7 @@ async fn the_human_passes_or_clears_the_ownership_and_can_then_hide() {
     ] {
         let view = w
             .rules
-            .channel_view(&web_page(), ch.clone(), None)
+            .channel_view(&web_page(), ch.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap();
         assert_eq!(view.channel.owner.as_deref(), owner);
@@ -1781,18 +1790,18 @@ async fn a_closed_channel_with_no_members_is_unreachable_but_the_human_sees_it()
             Code::NotFound
         );
     }
-    let view = w.rules.channel_view(&web_page(), ch, None).await.unwrap();
+    let view = w
+        .rules
+        .channel_view(&web_page(), ch, None, PAGE_MESSAGES)
+        .await
+        .unwrap();
     assert_eq!(view.messages.len(), 1);
     assert!(view.members.is_empty());
 }
 
 #[tokio::test]
 async fn the_web_channel_page_holds_web_page_messages_and_pages_back() {
-    let limits = Limits {
-        web_page_messages: 3,
-        ..Limits::DEFAULT
-    };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world().await;
     let a = w.agent().await;
     let ch = w.channel(&a, "busy", true, &[]).await;
     let mut ids = Vec::new();
@@ -1804,7 +1813,7 @@ async fn the_web_channel_page_holds_web_page_messages_and_pages_back() {
 
     let latest = w
         .rules
-        .channel_view(&web_page(), ch.clone(), None)
+        .channel_view(&web_page(), ch.clone(), None, 3)
         .await
         .unwrap();
     assert_eq!(shown(&latest), ids[4..7]);
@@ -1812,7 +1821,7 @@ async fn the_web_channel_page_holds_web_page_messages_and_pages_back() {
 
     let older = w
         .rules
-        .channel_view(&web_page(), ch.clone(), Some(ids[4]))
+        .channel_view(&web_page(), ch.clone(), Some(ids[4]), 3)
         .await
         .unwrap();
     assert_eq!(shown(&older), ids[1..4]);
@@ -1820,7 +1829,7 @@ async fn the_web_channel_page_holds_web_page_messages_and_pages_back() {
 
     let oldest = w
         .rules
-        .channel_view(&web_page(), ch, Some(ids[1]))
+        .channel_view(&web_page(), ch, Some(ids[1]), 3)
         .await
         .unwrap();
     assert_eq!(shown(&oldest), ids[0..1]);
@@ -1841,7 +1850,11 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
         .await
         .unwrap();
 
-    let o = w.rules.overview(&web_page()).await.unwrap();
+    let o = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert_eq!(o.now, clock::to_text(w.clock.now()));
     let row = |id: &str| o.channels.iter().find(|c| c.info.id == id).unwrap();
     let busy_row = row(&busy);
@@ -1880,18 +1893,22 @@ async fn the_front_page_summarizes_each_channel_and_agent() {
 
     // Later, nothing is recent.
     w.clock.advance(Span::minutes(6));
-    let later = w.rules.overview(&web_page()).await.unwrap();
+    let later = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert!(later.channels.iter().all(|c| c.recent_activity.is_empty()));
 }
 
 /// A busy channel does not crowd a quiet one's recent count out.
 #[tokio::test]
 async fn recent_counts_are_exact_for_every_channel() {
-    let limits = Limits {
+    let settings = Settings {
         sends_per_minute: 100_000,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
     let a = w.agent().await;
     let quiet = w.channel(&a, "quiet", true, &[]).await;
     let busy = w.channel(&a, "busy", true, &[]).await;
@@ -1905,7 +1922,11 @@ async fn recent_counts_are_exact_for_every_channel() {
             .await
             .unwrap();
     }
-    let o = w.rules.overview(&web_page()).await.unwrap();
+    let o = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let recent = |id: &str| {
         o.channels
             .iter()
@@ -1924,11 +1945,11 @@ async fn recent_counts_are_exact_for_every_channel() {
 /// not hide the recent ones.
 #[tokio::test]
 async fn recent_counts_do_not_assume_times_follow_message_order() {
-    let limits = Limits {
+    let settings = Settings {
         sends_per_minute: 100_000,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
     let a = w.agent().await;
     let busy = w.channel(&a, "busy", true, &[]).await;
     for i in 0..1001 {
@@ -1943,7 +1964,11 @@ async fn recent_counts_do_not_assume_times_follow_message_order() {
         .await
         .unwrap();
     w.clock.advance(Span::hours(1));
-    let o = w.rules.overview(&web_page()).await.unwrap();
+    let o = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let row = o.channels.iter().find(|c| c.info.id == busy).unwrap();
     assert_eq!(
         row.recent_activity.iter().map(|a| a.count).sum::<i64>(),
@@ -2178,11 +2203,11 @@ async fn send_checks_body() {
 
 #[tokio::test]
 async fn send_is_rate_limited() {
-    let limits = Limits {
+    let settings = Settings {
         sends_per_minute: 2,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(1))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(1))).await;
     let a = w.agent().await;
     let ch = w.channel(&a, "general", true, &[]).await;
     w.rules.send(&a, ch.clone(), "1".into()).await.unwrap();
@@ -2197,11 +2222,11 @@ async fn send_is_rate_limited() {
 
 #[tokio::test]
 async fn a_failed_send_does_not_use_up_the_allowance() {
-    let limits = Limits {
+    let settings = Settings {
         sends_per_minute: 1,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(1))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(1))).await;
     let a = w.agent().await;
     let ch = w.channel(&a, "general", true, &[]).await;
     // The database fails the next insert of a message, once.
@@ -2699,12 +2724,12 @@ async fn wait_ignores_channels_i_am_not_in_and_times_out() {
     reason = "a short real wait shows the spawned wait has not ended; a longer one bounds it"
 )]
 async fn wait_lasts(timeout: Option<Duration>, lasts: i64) {
-    let limits = Limits {
+    let settings = Settings {
         default_wait: Duration::from_secs(5),
         max_wait: Duration::from_secs(9),
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
     let a = w.agent().await;
     let mut waiter = {
         let rules = w.rules.clone();
@@ -3155,7 +3180,11 @@ async fn new_agents_and_messages_record_the_server_run() {
     let sent = w.rules.send(&a, ch, "hello".into()).await.unwrap();
     assert_eq!(sent.run_id, Some(w.run_id));
 
-    let overview = w.rules.overview(&web_page()).await.unwrap();
+    let overview = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert_eq!(overview.agents[0].info.run_id, Some(w.run_id));
     let current = overview.current_run.expect("the current run");
     assert_eq!((current.id, current.version.as_str()), (w.run_id, TEST_RUN));
@@ -3174,11 +3203,11 @@ async fn new_agents_and_messages_record_the_server_run() {
 
 #[tokio::test]
 async fn registration_is_rate_limited_across_the_server() {
-    let limits = Limits {
+    let settings = Settings {
         registrations_per_minute: 2,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
     w.rules.register().await.expect("first");
     w.rules.register().await.expect("second");
     let err = w.rules.register().await.expect_err("third");
@@ -3189,12 +3218,12 @@ async fn registration_is_rate_limited_across_the_server() {
 
 #[tokio::test]
 async fn registration_stops_at_the_agent_cap_and_revoking_frees_room() {
-    let limits = Limits {
+    let settings = Settings {
         max_agents: 2,
         registrations_per_minute: 3,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
     let a = w.agent().await;
     w.agent().await;
     let err = w.rules.register().await.expect_err("over the cap");
@@ -3471,9 +3500,9 @@ async fn legacy_agents_keep_their_token_but_have_no_recovery_code() {
 #[tokio::test]
 async fn channel_notes_are_replaced_cleared_and_attributed_to_the_last_editor() {
     let w = world_with(
-        Limits {
+        Settings {
             max_note_chars: 4,
-            ..Limits::DEFAULT
+            ..Settings::DEFAULT
         },
         Arc::new(SeqEntropy::new(42)),
     )
@@ -3524,7 +3553,7 @@ async fn channel_notes_are_replaced_cleared_and_attributed_to_the_last_editor() 
     assert_eq!(listed.items[0].note.text, "next");
     assert_eq!(
         w.rules
-            .channel_view(&web_page(), ch.clone(), None)
+            .channel_view(&web_page(), ch.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap()
             .channel
@@ -3654,7 +3683,7 @@ async fn listening_covers_selected_channels_and_hides_closed_channels() {
     assert_eq!(human.agent.waiting_channels.len(), 2);
     assert!(
         w.rules
-            .overview(&web_page(),)
+            .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
             .await
             .unwrap()
             .agents
@@ -3897,7 +3926,7 @@ async fn hiding_a_channel_prevents_all_agent_reads_and_keeps_stored_messages() {
     );
     assert!(
         w.rules
-            .overview(&web_page(),)
+            .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
             .await
             .unwrap()
             .channels
@@ -3951,7 +3980,7 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
     // The front page leaves it out; the hidden list has only it.
     let listed: Vec<String> = w
         .rules
-        .overview(&web_page())
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
         .await
         .unwrap()
         .channels
@@ -3959,7 +3988,11 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
         .map(|c| c.info.id)
         .collect();
     assert_eq!(listed, vec![kept.clone()]);
-    let hidden = w.rules.hidden_channels(&web_page()).await.unwrap();
+    let hidden = w
+        .rules
+        .hidden_channels(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     assert_eq!(hidden.len(), 1);
     assert_eq!(hidden[0].info.id, gone);
     assert_eq!(hidden[0].message_count, 2);
@@ -3969,7 +4002,7 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
     // The human reads it: messages, note and owner kept, members gone.
     let view = w
         .rules
-        .channel_view(&web_page(), gone.clone(), None)
+        .channel_view(&web_page(), gone.clone(), None, PAGE_MESSAGES)
         .await
         .unwrap();
     assert!(view.hidden);
@@ -3986,7 +4019,7 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
     );
     assert!(
         !w.rules
-            .channel_view(&web_page(), kept, None)
+            .channel_view(&web_page(), kept, None, PAGE_MESSAGES)
             .await
             .unwrap()
             .hidden
@@ -3994,7 +4027,7 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
     assert_eq!(
         code(
             w.rules
-                .channel_view(&web_page(), "ch_missing".into(), None)
+                .channel_view(&web_page(), "ch_missing".into(), None, PAGE_MESSAGES)
                 .await
         ),
         Code::NotFound
@@ -4003,13 +4036,17 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
     // A channel its owner hid is listed and read the same way, in name order.
     let owned = w.channel(&b, "owned", true, &[]).await;
     w.rules.hide_channel(&b, owned.clone()).await.unwrap();
-    let hidden = w.rules.hidden_channels(&web_page()).await.unwrap();
+    let hidden = w
+        .rules
+        .hidden_channels(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
     let ids: Vec<&str> = hidden.iter().map(|c| c.info.id.as_str()).collect();
     assert_eq!(ids, vec![gone.as_str(), owned.as_str()]);
     assert_eq!(hidden[1].last_speaker.as_deref(), Some(b.handle.as_str()));
     assert!(
         w.rules
-            .channel_view(&web_page(), owned, None)
+            .channel_view(&web_page(), owned, None, PAGE_MESSAGES)
             .await
             .unwrap()
             .hidden
@@ -4037,7 +4074,7 @@ async fn the_human_can_list_and_read_hidden_channels_that_agents_cannot() {
 #[tokio::test]
 async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name_reserved() {
     let w = world_with(
-        Limits::DEFAULT,
+        Settings::DEFAULT,
         Arc::new(SameHandleEntropy(SeqEntropy::new(5))),
     )
     .await;
@@ -4099,7 +4136,7 @@ async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name
     for id in [first, second] {
         let view = w
             .rules
-            .channel_view(&web_page(), id.clone(), None)
+            .channel_view(&web_page(), id.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap();
         assert!(!view.members.iter().any(|m| m.handle == a.handle));
@@ -4176,7 +4213,7 @@ async fn an_agent_unregisters_itself_as_the_operator_would_hide_it() {
     for id in [&first, &second] {
         let view = w
             .rules
-            .channel_view(&web_page(), id.clone(), None)
+            .channel_view(&web_page(), id.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap();
         assert!(!view.members.iter().any(|m| m.handle == a.handle));
@@ -4194,7 +4231,7 @@ async fn an_agent_unregisters_itself_as_the_operator_would_hide_it() {
     // A channel it was not in hears nothing.
     let view = w
         .rules
-        .channel_view(&web_page(), elsewhere, None)
+        .channel_view(&web_page(), elsewhere, None, PAGE_MESSAGES)
         .await
         .unwrap();
     assert!(view.messages.iter().all(|m| m.agent != a.handle));
@@ -4235,11 +4272,11 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     let broken = Rules::new(Deps {
         db: w.rules.unbound_db().clone(),
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,
-        limits: Limits::DEFAULT,
+        settings: Settings::DEFAULT,
         wording: Arc::new(TestWording),
     });
     for change in [
@@ -4258,7 +4295,7 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
         );
         let view = w
             .rules
-            .channel_view(&web_page(), id.clone(), None)
+            .channel_view(&web_page(), id.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap();
         assert!(view.channel.open);
@@ -4273,7 +4310,7 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     );
     let view = w
         .rules
-        .channel_view(&web_page(), id.clone(), None)
+        .channel_view(&web_page(), id.clone(), None, PAGE_MESSAGES)
         .await
         .unwrap();
     assert_eq!(view.members.len(), 1);
@@ -4295,7 +4332,7 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     );
     assert_eq!(
         w.rules
-            .channel_view(&web_page(), other, None)
+            .channel_view(&web_page(), other, None, PAGE_MESSAGES)
             .await
             .unwrap()
             .members
@@ -4310,11 +4347,11 @@ async fn a_hidden_channel_id_is_skipped_when_entropy_draws_it_again() {
     struct RepeatFirstId(AtomicUsize);
     impl Entropy for RepeatFirstId {
         fn below(&self, n: usize) -> usize {
-            usize::from(self.0.fetch_add(1, Ordering::SeqCst) >= kkt_config::CHANNEL_RANDOM_LEN) % n
+            usize::from(self.0.fetch_add(1, Ordering::SeqCst) >= kkt_names::CHANNEL_RANDOM_LEN) % n
         }
     }
     let entropy = Arc::new(RepeatFirstId(AtomicUsize::new(0)));
-    let w = world_with(Limits::DEFAULT, entropy.clone()).await;
+    let w = world_with(Settings::DEFAULT, entropy.clone()).await;
     let a = w.agent().await;
     entropy.0.store(0, Ordering::SeqCst);
     let first = w.channel(&a, "first", true, &[]).await;
@@ -4350,7 +4387,7 @@ async fn an_entry_is_remembered_recalled_replaced_and_forgotten_by_its_avatar() 
         .unwrap();
     assert!(!saved.replaced);
     assert_eq!((saved.entries, saved.chars), (1, 20));
-    assert_eq!(saved.max_chars, Limits::DEFAULT.max_memory_chars);
+    assert_eq!(saved.max_chars, Settings::DEFAULT.max_memory_chars);
     let entry = w.rules.recall(&a, "handoff".into()).await.unwrap();
     // Kept exactly as written; kkt doesn't define what goes in it.
     assert_eq!(entry.text, "  Next: the parser.\n");
@@ -4403,7 +4440,7 @@ async fn an_entry_is_remembered_recalled_replaced_and_forgotten_by_its_avatar() 
 async fn entry_names_follow_the_naming_rules_and_text_is_not_empty() {
     let w = world().await;
     let a = w.agent().await;
-    let long = "a".repeat(kkt_config::MAX_MEMORY_NAME_CHARS + 1);
+    let long = "a".repeat(kkt_names::MAX_MEMORY_NAME_CHARS + 1);
     for bad in [
         "",
         "Handoff",
@@ -4430,7 +4467,7 @@ async fn entry_names_follow_the_naming_rules_and_text_is_not_empty() {
         code(w.rules.remember(&a, "empty".into(), String::new()).await),
         Code::InvalidArgument
     );
-    let longest = "a".repeat(kkt_config::MAX_MEMORY_NAME_CHARS);
+    let longest = "a".repeat(kkt_names::MAX_MEMORY_NAME_CHARS);
     w.rules
         .remember(&a, longest.clone(), "x".into())
         .await
@@ -4454,11 +4491,11 @@ async fn entry_names_follow_the_naming_rules_and_text_is_not_empty() {
 
 #[tokio::test]
 async fn an_entry_over_the_entry_cap_is_refused_and_the_old_one_kept() {
-    let limits = Limits {
+    let settings = Settings {
         max_memory_entry_chars: 5,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
     let a = w.agent().await;
     w.rules
         .remember(&a, "note".into(), "héllo".into())
@@ -4483,12 +4520,12 @@ async fn an_entry_over_the_entry_cap_is_refused_and_the_old_one_kept() {
 
 #[tokio::test]
 async fn a_memory_over_the_avatar_cap_is_refused_counting_a_replaced_entry_once() {
-    let limits = Limits {
+    let settings = Settings {
         max_memory_entry_chars: 6,
         max_memory_chars: 10,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
     let (a, b) = (w.agent().await, w.agent().await);
     w.rules
         .remember(&a, "one".into(), "123456".into())
@@ -4717,11 +4754,11 @@ async fn server_announcement_saves_are_immutable_versions_with_clock_and_run() {
 }
 #[tokio::test]
 async fn only_the_human_can_save_and_the_character_limit_is_enforced() {
-    let limits = Limits {
+    let settings = Settings {
         max_server_announcement_chars: 2,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
     let agent = w.agent().await;
     assert!(
         w.rules
@@ -4797,7 +4834,7 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
     assert_eq!(created.created_by, names::OPERATOR);
     let view = w
         .rules
-        .channel_view(&web_page(), created.id.clone(), None)
+        .channel_view(&web_page(), created.id.clone(), None, PAGE_MESSAGES)
         .await
         .unwrap();
     assert_eq!(view.members.len(), 1);
@@ -4806,15 +4843,21 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
     assert_eq!(view.messages[0].run_id, Some(w.run_id));
     assert!(w.visible_ids(&a).await.contains(&created.id));
     assert!(!w.visible_ids(&b).await.contains(&created.id));
-    let before = w.rules.overview(&web_page()).await.unwrap().channels.len();
+    let before = w
+        .rules
+        .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap()
+        .channels
+        .len();
     let broken = Rules::new(Deps {
         db: w.rules.unbound_db().clone(),
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,
-        limits: Limits::DEFAULT,
+        settings: Settings::DEFAULT,
         wording: Arc::new(TestWording),
     });
     assert_eq!(
@@ -4836,7 +4879,12 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
         Code::NotFound
     );
     assert_eq!(
-        w.rules.overview(&web_page(),).await.unwrap().channels.len(),
+        w.rules
+            .overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .unwrap()
+            .channels
+            .len(),
         before
     );
 }
@@ -5040,7 +5088,7 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
     for id in [&room, &other] {
         let view = w
             .rules
-            .channel_view(&web_page(), id.clone(), None)
+            .channel_view(&web_page(), id.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap();
         assert!(!view.members.iter().any(|m| m.handle == quiet_agent.handle));
@@ -5064,7 +5112,7 @@ async fn hiding_stale_agents_hides_the_chosen_and_keeps_owners_and_the_active() 
     // The others are untouched: the owner still owns the channel.
     let view = w
         .rules
-        .channel_view(&web_page(), room.clone(), None)
+        .channel_view(&web_page(), room.clone(), None, PAGE_MESSAGES)
         .await
         .unwrap();
     assert_eq!(view.channel.owner.as_deref(), Some(owner.handle.as_str()));
@@ -5419,7 +5467,7 @@ async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
 /// The admin agent named `admin-sentinel`.
 fn sentinel() -> Actor {
     Actor::Operator(admin_named(
-        names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap(),
+        names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap(),
     ))
 }
 
@@ -5620,7 +5668,7 @@ async fn an_admin_key_without_a_name_is_refused_every_change_and_may_read() {
 async fn last_said(w: &World, id: &str) -> Message {
     let view = w
         .rules
-        .channel_view(&web_page(), id.to_string(), None)
+        .channel_view(&web_page(), id.to_string(), None, PAGE_MESSAGES)
         .await
         .unwrap();
     view.messages.last().cloned().expect("a message")
@@ -5684,7 +5732,7 @@ async fn an_admin_agent_changes_channels_by_the_humans_rules_announced_via_its_n
     }
     let view = w
         .rules
-        .channel_view(&web_page(), room.clone(), None)
+        .channel_view(&web_page(), room.clone(), None, PAGE_MESSAGES)
         .await
         .unwrap();
     assert!(view.channel.open);
@@ -6049,12 +6097,12 @@ async fn lane_names_follow_the_handle_rules_and_are_separate_from_handles() {
 
 #[tokio::test]
 async fn a_lane_needs_a_one_line_description_and_instructions_within_the_limits() {
-    let limits = Limits {
+    let settings = Settings {
         max_lane_chars: 3,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
-    let long_description = "d".repeat(kkt_config::MAX_LANE_DESCRIPTION_CHARS + 1);
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
+    let long_description = "d".repeat(Settings::DEFAULT.max_lane_description_chars + 1);
     for (description, text) in [
         ("", "abc"),
         ("   ", "abc"),
@@ -6080,7 +6128,7 @@ async fn a_lane_needs_a_one_line_description_and_instructions_within_the_limits(
     }
     assert!(w.rules.lanes(&web_page(),).await.unwrap().is_empty());
     // The limit counts characters, not bytes.
-    let max_description = "😀".repeat(kkt_config::MAX_LANE_DESCRIPTION_CHARS);
+    let max_description = "😀".repeat(Settings::DEFAULT.max_lane_description_chars);
     w.rules
         .save_lane(
             Actor::Operator(web_page()),
@@ -6256,7 +6304,7 @@ async fn concurrent_lane_saves_get_distinct_increasing_versions() {
 async fn said(w: &World, id: &str) -> Vec<(String, String)> {
     let view = w
         .rules
-        .channel_view(&web_page(), id.to_string(), None)
+        .channel_view(&web_page(), id.to_string(), None, PAGE_MESSAGES)
         .await
         .unwrap();
     view.messages
@@ -6483,11 +6531,11 @@ async fn a_wait_says_when_the_lane_it_holds_has_a_newer_version() {
 
 #[tokio::test]
 async fn an_unknown_or_retired_lane_is_refused_and_changes_nothing() {
-    let limits = Limits {
+    let settings = Settings {
         registrations_per_minute: 1,
-        ..Limits::DEFAULT
+        ..Settings::DEFAULT
     };
-    let w = world_with(limits, Arc::new(SeqEntropy::new(42))).await;
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
     w.rules
         .save_lane(
             Actor::Operator(web_page()),
@@ -6655,7 +6703,7 @@ fn import(lanes: Vec<LaneSave>, retire_missing: bool) -> LaneImport {
         },
         retire_missing,
         skipped_files: Vec::new(),
-        max_lane_chars: Limits::DEFAULT.max_lane_chars,
+        max_lane_chars: Settings::DEFAULT.max_lane_chars,
     }
 }
 
@@ -6910,7 +6958,7 @@ async fn an_import_retiring_with_no_lanes_but_skipped_files_changes_nothing() {
 #[tokio::test]
 async fn one_bad_lane_or_a_lane_given_twice_stops_the_import_with_nothing_changed() {
     let w = world().await;
-    let limits_text = "x".repeat(Limits::DEFAULT.max_lane_chars + 1);
+    let limits_text = "x".repeat(Settings::DEFAULT.max_lane_chars + 1);
     let cases = [
         (lane("Reviewer", "d", "t"), "lane Reviewer:"),
         (lane("reviewer", "", "t"), "needs a description"),
@@ -6924,7 +6972,7 @@ async fn one_bad_lane_or_a_lane_given_twice_stops_the_import_with_nothing_change
     for (bad, says) in cases {
         let lanes = vec![lane("writer", "d", "t"), bad];
         // The check `kkt setup` makes first refuses it the same way.
-        let checked = check_lane_import(&lanes, Limits::DEFAULT.max_lane_chars).expect_err(says);
+        let checked = check_lane_import(&lanes, Settings::DEFAULT.max_lane_chars).expect_err(says);
         let error = w
             .operator
             .import_lanes(import(lanes, true))
@@ -6941,7 +6989,7 @@ async fn one_bad_lane_or_a_lane_given_twice_stops_the_import_with_nothing_change
     assert_eq!(
         check_lane_import(
             &[lane("writer", "d", "t"), lane("reviewer", "d", "t")],
-            Limits::DEFAULT.max_lane_chars
+            Settings::DEFAULT.max_lane_chars
         ),
         Ok(())
     );
@@ -7004,8 +7052,8 @@ async fn export_reads_every_lane_that_is_not_retired() {
 /// `decide` allows.
 #[tokio::test]
 async fn the_stores_channel_filters_agree_with_decide() {
+    use crate::{NewerFilter, SearchFilter, SentFilter};
     use access::{Channel, Decision, Need, Viewer, Who, decide};
-    use kkt_store::{NewerFilter, SearchFilter, SentFilter};
     use std::collections::BTreeSet;
     const ME: &str = "me-agent";
     const OTHER: &str = "other-agent";
@@ -7029,7 +7077,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
     let db = memory_db();
     let setup = kinds.clone();
     db.write(move |w| {
-        let run_id = w.insert_server_run(&kkt_store::NewServerRunRecord {
+        let run_id = w.insert_server_run(&crate::NewServerRunRecord {
             started_at: AT.into(),
             version: TEST_RUN.into(),
             git_commit: TEST_RUN.into(),
@@ -7084,7 +7132,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
             }
             w.set_owner(&SwarmId::main(), id, Some(if *owner { ME } else { OTHER }))?;
         }
-        Ok::<_, kkt_store::StoreError>(())
+        Ok::<_, crate::StoreError>(())
     })
     .await
     .unwrap();
@@ -7173,7 +7221,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
                         channel_id: None,
                         scope,
                     })?;
-                    Ok::<_, kkt_store::StoreError>((
+                    Ok::<_, crate::StoreError>((
                         listed,
                         waited,
                         counted,
@@ -7310,7 +7358,7 @@ async fn last_sent_counts_only_messages_the_viewer_can_see() {
     assert_eq!(page.agent.last_sent, Some(in_secret.clone()));
     let view = w
         .rules
-        .channel_view(&web_page(), public.clone(), None)
+        .channel_view(&web_page(), public.clone(), None, PAGE_MESSAGES)
         .await
         .unwrap();
     assert_eq!(sent(&view.members, &a), Some(in_public));
@@ -7446,11 +7494,11 @@ async fn the_human_of_another_swarm_finds_a_hidden_channel_as_missing() {
     };
     same_refusal(
         other
-            .channel_view(&web_page(), hidden.clone(), None)
+            .channel_view(&web_page(), hidden.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap_err(),
         other
-            .channel_view(&web_page(), missing.clone(), None)
+            .channel_view(&web_page(), missing.clone(), None, PAGE_MESSAGES)
             .await
             .unwrap_err(),
     );
@@ -7467,7 +7515,7 @@ async fn the_human_of_another_swarm_finds_a_hidden_channel_as_missing() {
     // In its own swarm the human tells it apart: it can read it.
     assert!(
         w.rules
-            .channel_view(&web_page(), hidden, None)
+            .channel_view(&web_page(), hidden, None, PAGE_MESSAGES)
             .await
             .is_ok()
     );
@@ -7504,10 +7552,16 @@ async fn an_operator_without_read_is_refused_every_operator_read() {
         limit: 10,
     };
     let refused: Vec<Result<()>> = vec![
-        r.overview(o).await.map(drop),
-        r.hidden_channels(o).await.map(drop),
+        r.overview(o, ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .map(drop),
+        r.hidden_channels(o, ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .map(drop),
         r.server_runs(o).await.map(drop),
-        r.channel_view(o, room.clone(), None).await.map(drop),
+        r.channel_view(o, room.clone(), None, PAGE_MESSAGES)
+            .await
+            .map(drop),
         r.agent_view(o, a.handle.clone()).await.map(drop),
         r.stale_agents(o, Duration::from_secs(3600)).await.map(drop),
         r.lanes(o).await.map(drop),
@@ -7532,7 +7586,11 @@ async fn an_operator_without_read_is_refused_every_operator_read() {
         lacks(result, Permission::Read);
     }
     // With read, the same operator sees.
-    assert!(r.overview(&web_page()).await.is_ok());
+    assert!(
+        r.overview(&web_page(), ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+            .await
+            .is_ok()
+    );
 }
 
 #[tokio::test]
@@ -7540,7 +7598,7 @@ async fn only_an_operator_that_may_issue_recovery_codes_issues_one() {
     let w = world().await;
     let a = w.agent().await;
     let named =
-        admin_named(names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap());
+        admin_named(names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap());
     lacks(
         w.rules
             .new_recovery_code(&named, a.handle.clone())

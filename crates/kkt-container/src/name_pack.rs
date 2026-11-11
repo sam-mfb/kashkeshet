@@ -7,8 +7,7 @@
 
 use super::compose::compose;
 use super::{Command, Folder, Host};
-use kkt_config::Limits;
-use kkt_settings::{self as settings, Env};
+use kkt_settings::{self as settings, Env, Limits};
 use std::path::{Path, PathBuf};
 
 pub(super) fn selected(host: &dyn Host, folder: &Folder) -> Result<String, String> {

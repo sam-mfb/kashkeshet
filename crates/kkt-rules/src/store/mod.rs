@@ -23,8 +23,8 @@
 //! together, or not at all. [`schema`] gives the core's tables as kkt-db
 //! migrations, to open a database with.
 
+mod queries;
 mod schema;
-mod store;
 
 #[cfg(test)]
 mod tests;
@@ -35,8 +35,8 @@ pub mod testing;
 pub use schema::{CORE, schema};
 
 use kkt_db::{Backend, BackendExt, DbError};
+use queries::Store;
 use std::sync::Arc;
-use store::Store;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {

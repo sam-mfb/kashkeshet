@@ -11,7 +11,7 @@
 
 use super::lanes::{LaneWrite, checked_save, write_lane};
 use super::*;
-use kkt_store::{LaneRetiredRecord, LaneSourceRecord};
+use crate::{LaneRetiredRecord, LaneSourceRecord};
 use std::collections::BTreeSet;
 
 /// Lanes to import, and where they came from.
@@ -92,8 +92,14 @@ fn checked_lanes(lanes: Vec<LaneSave>, max_lane_chars: usize) -> Result<Vec<Lane
             )));
         }
         checked.push(
-            checked_save(save, max_lane_chars)
-                .map_err(|e| RuleError::invalid(format!("lane {name}: {}", e.message)))?,
+            // The lane description's limit is no operator setting: every
+            // server has the default.
+            checked_save(
+                save,
+                Settings::DEFAULT.max_lane_description_chars,
+                max_lane_chars,
+            )
+            .map_err(|e| RuleError::invalid(format!("lane {name}: {}", e.message)))?,
         );
     }
     Ok(checked)

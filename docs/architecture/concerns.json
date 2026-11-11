@@ -78,6 +78,12 @@
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
    "kind": "composition"
   },
+  "kkt-server-listen": {
+   "layer": "assembly",
+   "kind": "effect",
+   "concern": "Binding the server's assembled App to its socket and serving it.",
+   "must_not": "Decide how the server is assembled."
+  },
   "kkt-mcp": {
    "layer": "surfaces",
    "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool.",
@@ -125,12 +131,6 @@
    "must_not": "Let a tokio type out of the crate.",
    "kind": "logic"
   },
-  "kkt-store": {
-   "layer": "data",
-   "concern": "The core's data: the `Reads`/`Writes` contract the rules use, its implementation in kkt-db's terms, and the core's tables as migrations.",
-   "must_not": "Decide permissions, contain SQL, or know a particular database.",
-   "kind": "logic"
-  },
   "kkt-db": {
    "layer": "data",
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
@@ -165,7 +165,13 @@
    "layer": "operations",
    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-container-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's Docker commands, files and terminal: plain OsHost methods, adapted by the program.",
+   "must_not": "Decide what Docker setup does."
   },
   "kkt-remote-access": {
    "layer": "operations",
@@ -294,12 +300,6 @@
    "kind": "effect",
    "concern": "The machine's service files and commands: plain OsSystem methods, adapted by the program.",
    "must_not": "Decide what a service command does."
-  },
-  "kkt-server-listen": {
-   "layer": "assembly",
-   "kind": "effect",
-   "concern": "Binding the server's assembled App to its socket and serving it.",
-   "must_not": "Decide how the server is assembled."
   }
  },
  "kinds": [

@@ -1,8 +1,8 @@
 //! Every permission check and database change.
 //!
 //! Both the MCP tools and the web page go through this module. Nothing else
-//! touches the database, and this module reaches it only through the
-//! [`kkt_store`] contract.
+//! touches the database, and the rules reach it only through the
+//! [`Reads`] and [`Writes`] contract of their own storage module.
 //!
 //! The rules:
 //!
@@ -88,6 +88,8 @@ mod operator;
 pub use announcement::ServerAnnouncement;
 pub use operator::{Audit, Operator, OperatorWording, Permission, Permissions};
 mod rate;
+mod settings;
+pub use settings::Settings;
 mod stale;
 pub use stale::{Kept, KeptReason, StaleAgent, StaleHidden};
 mod waiting;
@@ -103,29 +105,35 @@ pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, 
 pub use command_line::{AgentStatus, CommandLine, Revoked};
 pub use error::{Code, Refusal, RuleError};
 pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};
-/// The swarm rules act in: [`Rules::in_swarm`].
-pub use kkt_store::SwarmId;
+/// Storage: the [`Reads`] and [`Writes`] contract, its implementation in
+/// kkt-db's terms, and the core's tables ([`schema`]).
+mod store;
 pub use messages::{
     ActivityRow, Message, MessagePage, Position, ReadQuery, SearchHit, SearchQuery, WaitQuery,
     WaitResult,
 };
 use rate::{RegisterLimiter, SendLimiter};
+#[cfg(any(test, feature = "testing"))]
+pub use store::testing;
+pub use store::{
+    ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, CORE,
+    ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary,
+    ChannelUseRecord, Db, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord,
+    MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord,
+    NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord,
+    NewerFilter, NoteEditRecord, Reads, SearchFilter, SearchHitRecord, SentFilter,
+    ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, SwarmId, TakenLaneRecord,
+    Writes, schema,
+};
 
 use access::{Decision, Need, Viewer, Who};
 use kkt_clock::{self as clock, Clock, Span, Time};
-use kkt_config::Limits;
 use kkt_entropy::Entropy;
 use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent,
     NewChannel as NewChannelEvent, Subscription, SwarmEvents,
 };
 use kkt_names as names;
-use kkt_store::{
-    ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db,
-    MemoryEntryRecord, MessageRange, MessageRecord, NewAgentRecord, NewChannelRecord,
-    NewMessageRecord, NewerFilter, NoteEditRecord, Reads, SearchFilter, SearchHitRecord,
-    SentFilter, ServerRunRecord, StoreError, Writes,
-};
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -152,7 +160,8 @@ pub struct Deps {
     /// This server run, from `provenance::record`. New agents and messages
     /// are stamped with it.
     pub run_id: i64,
-    pub limits: Limits,
+    /// What the rules enforce and fill in.
+    pub settings: Settings,
     /// How notices name the operator, from where it asked.
     pub wording: Arc<dyn OperatorWording>,
 }
@@ -171,25 +180,25 @@ pub struct Rules {
 }
 
 /// What [`Rules`] share in every swarm: the database, the clock, the
-/// limits, the bus, the record of waits and the rate limiters. Waits and
+/// settings, the bus, the record of waits and the rate limiters. Waits and
 /// sends are counted per agent, a handle in a swarm.
 struct Inner {
     deps: Deps,
     /// Who is waiting for messages now, and who stopped a moment ago.
     waiting: Waiting,
-    /// Counts each agent's sends against `limits.sends_per_minute`.
+    /// Counts each agent's sends against `settings.sends_per_minute`.
     sends: SendLimiter,
     /// Counts registrations, in every swarm together, against
-    /// `limits.registrations_per_minute`.
+    /// `settings.registrations_per_minute`.
     registrations: RegisterLimiter,
 }
 
 impl Rules {
     /// Rules over `deps`, acting in `deps.swarm`, with their own record of
-    /// waiting agents and their own rate limiters, made from `deps.limits`.
+    /// waiting agents and their own rate limiters, made from `deps.settings`.
     pub fn new(deps: Deps) -> Rules {
-        let sends = SendLimiter::new(deps.limits.sends_per_minute);
-        let registrations = RegisterLimiter::new(deps.limits.registrations_per_minute);
+        let sends = SendLimiter::new(deps.settings.sends_per_minute);
+        let registrations = RegisterLimiter::new(deps.settings.registrations_per_minute);
         let swarm = deps.swarm.clone();
         let inner = Arc::new(Inner {
             deps,
@@ -216,8 +225,9 @@ impl Rules {
         }
     }
 
-    pub fn limits(&self) -> &Limits {
-        &self.inner.deps.limits
+    /// What these rules enforce and fill in.
+    pub fn settings(&self) -> &Settings {
+        &self.inner.deps.settings
     }
 
     /// Hears what happens in this swarm from now on: new messages, agents
@@ -457,7 +467,7 @@ fn info_from_summary(
     store: &dyn Reads,
     swarm: &SwarmId,
     id: &str,
-    summary: kkt_store::ChannelSummary,
+    summary: crate::ChannelSummary,
     preview: usize,
 ) -> Result<ChannelInfo> {
     Ok(ChannelInfo {

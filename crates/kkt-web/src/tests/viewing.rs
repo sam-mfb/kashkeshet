@@ -7,7 +7,6 @@ use axum::body::Body;
 use axum::http::Request as HttpRequest;
 use futures::future::BoxFuture;
 use kkt_clock::testing::FixedClock;
-use kkt_config::PreviewSettings;
 use kkt_entropy::SeededEntropy;
 use kkt_shutdown::Shutdown;
 use std::sync::Mutex;
@@ -124,7 +123,10 @@ async fn get_as(site: &Router, path: &str, session: Option<&str>) -> (StatusCode
 
 /// The ID of each channel `source`'s front page lists.
 async fn channel_ids(source: &Preview) -> Vec<String> {
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     overview
         .channels
         .into_iter()
@@ -143,6 +145,7 @@ async fn each_request_reads_the_source_of_the_viewer_the_gate_names() {
         sources.clone(),
         AllowedHosts::new(&[]).expect("loopback hosts"),
         gate.clone(),
+        Settings::DEFAULT,
     );
 
     let (status, default_page) = get_as(&site, "/", None).await;
@@ -220,6 +223,7 @@ async fn a_refused_viewer_sees_no_page_and_is_told_why_unless_signing_in_helps()
                 asked: Mutex::new(0),
                 signed_out: Mutex::new(Vec::new()),
             }),
+            Settings::DEFAULT,
         );
         for (path, expected) in [("/", page), ("/events", feed)] {
             let (status, body) = get_as(&site, path, Some("someone")).await;
@@ -256,6 +260,7 @@ async fn signing_out_ends_the_session_of_any_viewer_let_in() {
             }),
             AllowedHosts::new(&[]).expect("loopback hosts"),
             gate.clone(),
+            Settings::DEFAULT,
         );
         let request = HttpRequest::builder()
             .method("POST")

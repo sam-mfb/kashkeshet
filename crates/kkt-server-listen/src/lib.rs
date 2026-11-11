@@ -72,13 +72,12 @@ mod tests {
     use super::*;
     use kkt_admission::Admission;
     use kkt_clock::testing::FixedClock;
-    use kkt_config::Limits;
     use kkt_entropy::testing::SeqEntropy;
     use kkt_hosts::AllowedHosts;
     use kkt_identity::KeyMode;
+    use kkt_rules::Db;
     use kkt_server::{AppConfig, Parts, build};
     use kkt_shutdown::Shutdown;
-    use kkt_store::Db;
     use kkt_web::testing::start_time;
     use std::sync::Arc;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -90,21 +89,25 @@ mod tests {
                 let place = kkt_db::testing::MemoryPlace::new();
                 Db::new(
                     place
-                        .open(&[kkt_store::schema()])
+                        .open(&[kkt_rules::schema()])
                         .expect("the core's tables"),
                 )
             },
             Arc::new(FixedClock::new(start_time())),
             Arc::new(SeqEntropy::new(1)),
             Arc::new(KeyMode::new(None)),
-            &Limits::DEFAULT,
+            &kkt_format::Settings::DEFAULT,
+            &kkt_events::Settings::DEFAULT,
             1,
         );
         let config = AppConfig {
             admission: Admission::Open,
             web_admission: Admission::Open,
             admin_admission: None,
-            limits: Limits::DEFAULT,
+            rules: kkt_rules::Settings::DEFAULT,
+            web: kkt_web::Settings::DEFAULT,
+            mcp: kkt_mcp::Settings::DEFAULT,
+            sessions: kkt_admission::Settings::DEFAULT,
             allowed_origins: Vec::new(),
             allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
             instructions: Some("test instructions".into()),

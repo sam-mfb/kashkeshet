@@ -20,7 +20,6 @@
 //! Tokio's broadcast channel does the work, but stays inside this module.
 
 use futures::Stream;
-use kkt_config::EVENT_BUFFER;
 use kkt_shutdown::Shutdown;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -165,17 +164,25 @@ impl Bus {
     }
 }
 
-impl Events {
-    pub fn new() -> Events {
-        Events::with_buffer(EVENT_BUFFER)
-    }
+/// The bus's own settings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// Notices kept for each swarm for a slow subscriber before it starts
+    /// missing them.
+    pub buffer: usize,
+}
 
-    /// Keeps `buffer` notices of each swarm for a slow subscriber before it
-    /// starts missing them.
-    pub fn with_buffer(buffer: usize) -> Events {
+impl Settings {
+    /// 1024 notices per swarm.
+    pub const DEFAULT: Settings = Settings { buffer: 1024 };
+}
+
+impl Events {
+    /// A bus with `settings`.
+    pub fn new(settings: Settings) -> Events {
         Events {
             bus: Arc::new(Bus {
-                buffer,
+                buffer: settings.buffer,
                 swarms: Mutex::new(HashMap::new()),
             }),
             shutdown: None,
@@ -416,12 +423,6 @@ impl Drop for Subscription {
     }
 }
 
-impl Default for Events {
-    fn default() -> Self {
-        Events::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -430,7 +431,7 @@ mod tests {
     #[tokio::test]
     async fn shutdown_ends_pending_and_new_subscriptions_with_publishers_alive() {
         let shutdown = Shutdown::new();
-        let events = Events::new().until_stopped(shutdown.clone());
+        let events = Events::new(Settings::DEFAULT).until_stopped(shutdown.clone());
         let swarm = events.in_swarm("sw_a");
         let mut sub = swarm.subscribe();
         let next = sub.next();
@@ -463,7 +464,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_subscriber_hears_every_kind_in_order() {
-        let events = Events::new();
+        let events = Events::new(Settings::DEFAULT);
         let swarm = events.in_swarm("sw_a");
         let mut sub = swarm.subscribe();
         swarm.publish_agent(NewAgent {
@@ -522,7 +523,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_subscriber_hears_messages_in_order() {
-        let events = Events::new();
+        let events = Events::new(Settings::DEFAULT);
         let swarm = events.in_swarm("sw_a");
         let mut sub = swarm.subscribe();
         swarm.publish(message(1));
@@ -533,7 +534,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_slow_subscriber_is_told_it_missed_some() {
-        let events = Events::with_buffer(2);
+        let events = Events::new(Settings { buffer: 2 });
         let swarm = events.in_swarm("sw_a");
         let mut sub = swarm.subscribe();
         for i in 1..=5 {
@@ -545,7 +546,7 @@ mod tests {
 
     #[tokio::test]
     async fn the_subscription_ends_when_events_are_gone() {
-        let events = Events::new();
+        let events = Events::new(Settings::DEFAULT);
         let swarm = events.in_swarm("sw_a");
         let mut sub = swarm.subscribe();
         swarm.publish(message(1));
@@ -556,7 +557,7 @@ mod tests {
 
     #[tokio::test]
     async fn the_stream_gives_the_same_notices_and_then_ends() {
-        let events = Events::new();
+        let events = Events::new(Settings::DEFAULT);
         let swarm = events.in_swarm("sw_a");
         let stream = swarm.subscribe().into_stream();
         swarm.publish(message(1));
@@ -574,7 +575,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_subscriber_hears_only_its_own_swarm() {
-        let events = Events::new();
+        let events = Events::new(Settings::DEFAULT);
         let (a, b) = (events.in_swarm("sw_a"), events.in_swarm("sw_b"));
         let mut hears_a = a.subscribe();
         let mut hears_b = b.subscribe();
@@ -591,7 +592,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_flood_in_another_swarm_does_not_make_a_subscriber_fall_behind() {
-        let events = Events::with_buffer(2);
+        let events = Events::new(Settings { buffer: 2 });
         let (mine, theirs) = (events.in_swarm("sw_a"), events.in_swarm("sw_b"));
         let mut sub = mine.subscribe();
         let mut flooded = theirs.subscribe();
@@ -608,7 +609,7 @@ mod tests {
 
     #[tokio::test]
     async fn publishing_in_a_swarm_nobody_watches_keeps_nothing() {
-        let events = Events::new();
+        let events = Events::new(Settings::DEFAULT);
         let swarm = events.in_swarm("sw_a");
         for i in 1..=5 {
             swarm.publish(message(i));
@@ -622,7 +623,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_swarms_buffer_goes_with_its_last_subscriber() {
-        let events = Events::new();
+        let events = Events::new(Settings::DEFAULT);
         let (a, b) = (events.in_swarm("sw_a"), events.in_swarm("sw_b"));
         let first = a.subscribe();
         let second = a.subscribe();
@@ -650,7 +651,7 @@ mod tests {
     fn a_subscriber_arriving_as_the_last_leaves_hears_what_follows() {
         use futures::FutureExt;
         use std::sync::atomic::{AtomicBool, Ordering};
-        let events = Events::new();
+        let events = Events::new(Settings::DEFAULT);
         let swarm = events.in_swarm("sw_a");
         let done = Arc::new(AtomicBool::new(false));
         let churn = {
@@ -695,7 +696,7 @@ mod tests {
     /// drop has let go of the lock.
     #[test]
     fn the_last_two_subscribers_leaving_at_once_leave_no_buffer() {
-        let events = Events::new();
+        let events = Events::new(Settings::DEFAULT);
         let swarm = events.in_swarm("sw_a");
         for round in 0..20 {
             let start = Arc::new(std::sync::Barrier::new(2));
@@ -719,7 +720,7 @@ mod tests {
 
     #[tokio::test]
     async fn closing_ends_a_subscription_waiting_or_not() {
-        let events = Events::new();
+        let events = Events::new(Settings::DEFAULT);
         let swarm = events.in_swarm("sw_a");
         let mut sub = swarm.subscribe();
         let other = swarm.subscribe();

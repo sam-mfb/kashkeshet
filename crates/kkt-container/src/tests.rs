@@ -1087,7 +1087,7 @@ fn the_lane_limit_is_the_containers_own_setting_or_the_default() {
         let host = with_container_config(config);
         assert_eq!(
             lane_limit(&host, &folder()).unwrap(),
-            kkt_config::Limits::DEFAULT.max_lane_chars
+            kkt_settings::Limits::DEFAULT.max_lane_chars
         );
     }
 }
@@ -1801,7 +1801,7 @@ async fn a_restart_that_fails_after_making_the_admin_key_is_done_on_the_next_try
 }
 
 fn sentinel() -> kkt_names::AdminName {
-    kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap()
+    kkt_names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap()
 }
 
 /// A kkt container whose admin key exists but cannot be read.
@@ -1950,23 +1950,6 @@ fn down_keeps_the_data_unless_asked_to_remove_it() {
     assert!(ran[1].ends_with(" down --volumes"), "{ran:?}");
 }
 
-#[cfg(unix)]
-#[test]
-fn a_private_file_is_made_private_even_over_a_looser_one() {
-    use std::os::unix::fs::PermissionsExt;
-    let dir = crate::scratch::Dir::new("kkt-docker-host");
-    let path = dir.join("key");
-    std::fs::write(&path, "old").unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
-    OsHost.write_file(&path, "new", true).unwrap();
-    let mode = |p: &Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
-    assert_eq!(std::fs::read_to_string(&path).unwrap(), "new");
-    assert_eq!(mode(&path), 0o600);
-    let fresh = dir.join("fresh");
-    OsHost.write_file(&fresh, "x", true).unwrap();
-    assert_eq!(mode(&fresh), 0o600);
-}
-
 #[test]
 fn a_test_setup_can_use_its_own_project_name_and_port() {
     let beside = Inputs {
@@ -2020,28 +2003,6 @@ fn commands_run_without_the_variables_that_would_override_the_settings_file() {
             .iter()
             .any(|v| v == "COMPOSE_FILE")
     );
-}
-
-#[cfg(unix)]
-#[test]
-fn the_real_host_leaves_unset_variables_out_of_a_commands_environment() {
-    // Cargo sets CARGO_MANIFEST_DIR for every test run.
-    let print = |unset: Vec<String>| {
-        OsHost
-            .run(&Command {
-                program: "sh",
-                args: vec![
-                    "-c".into(),
-                    "printf %s \"${CARGO_MANIFEST_DIR-unset}\"".into(),
-                ],
-                unset,
-                current_dir: None,
-            })
-            .unwrap()
-            .stdout
-    };
-    assert_ne!(print(vec![]), "unset");
-    assert_eq!(print(vec!["CARGO_MANIFEST_DIR".into()]), "unset");
 }
 
 #[test]
@@ -2099,25 +2060,6 @@ fn compose_commands_run_in_the_managed_folder() {
     let command = super::compose::compose(&folder(), &["up", "-d"]);
     assert_eq!(command.current_dir, Some(PathBuf::from("/data/docker")));
     assert_eq!(super::compose::version().current_dir, None);
-}
-
-#[cfg(unix)]
-#[test]
-fn the_real_host_runs_a_command_in_the_folder_it_names() {
-    let dir = crate::scratch::Dir::new("kkt-docker-cwd");
-    let here = OsHost
-        .run(&Command {
-            program: "pwd",
-            args: vec!["-P".into()],
-            unset: Vec::new(),
-            current_dir: Some(dir.to_path_buf()),
-        })
-        .unwrap()
-        .stdout;
-    assert_eq!(
-        Path::new(here.trim()),
-        std::fs::canonicalize(&dir).unwrap().as_path()
-    );
 }
 
 #[test]

@@ -1,7 +1,7 @@
 //! The server announcement: immutable versions of the text every agent is
 //! given, saved by the operator (the human, or an admin agent).
 use super::*;
-use kkt_store::ServerAnnouncementRecord;
+use crate::ServerAnnouncementRecord;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ServerAnnouncement {
@@ -62,10 +62,10 @@ impl Rules {
                 return Err(RuleError::operator_only("save the server announcement"));
             }
         };
-        if text.chars().count() > self.limits().max_server_announcement_chars {
+        if text.chars().count() > self.settings().max_server_announcement_chars {
             return Err(RuleError::invalid(format!(
                 "the server announcement must be at most {} characters",
-                self.limits().max_server_announcement_chars
+                self.settings().max_server_announcement_chars
             )));
         }
         let at = self.now_text();

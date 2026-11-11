@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 impl Rules {
     /// Posts a message to a channel `me` is in. Returns the stored message.
     pub async fn send(&self, me: &Agent, channel_id: String, body: String) -> Result<Message> {
-        let max = self.limits().max_body_bytes;
+        let max = self.settings().max_body_bytes;
         if body.trim().is_empty() {
             return Err(RuleError::invalid("message body must not be empty"));
         }
@@ -40,7 +40,7 @@ impl Rules {
                         Code::RateLimited,
                         format!(
                             "you can send at most {} messages a minute; wait and try again",
-                            rules.limits().sends_per_minute
+                            rules.settings().sends_per_minute
                         ),
                     ));
                 }
@@ -246,9 +246,9 @@ impl Rules {
 
     /// Returns messages newer than `after_id` in `me`'s channels (or the listed
     /// ones). If there are none, waits until one arrives or the time runs out:
-    /// `q.timeout` cut to `limits.max_wait`, or `limits.default_wait` if none.
+    /// `q.timeout` cut to `settings.max_wait`, or `settings.default_wait` if none.
     pub async fn wait_for_messages(&self, me: &Agent, q: WaitQuery) -> Result<WaitResult> {
-        let timeout = wait_timeout(self.limits(), q.timeout);
+        let timeout = wait_timeout(self.settings(), q.timeout);
         let filter = match &q.channel_ids {
             None => None,
             Some(ids) if ids.is_empty() => {
@@ -271,7 +271,7 @@ impl Rules {
             }
         };
 
-        let grace = Span::from_std(self.limits().waiting_grace)
+        let grace = Span::from_std(self.settings().waiting_grace)
             .map_err(|e| RuleError::invalid(e.to_string()))?;
         let guard = self.inner.waiting.start(
             &self.swarm,
@@ -492,12 +492,12 @@ pub struct ActivityRow {
     pub latest_id: i64,
 }
 
-/// How long a wait lasts: `asked` cut to `limits.max_wait`, or
-/// `limits.default_wait` when nothing was asked.
-fn wait_timeout(limits: &Limits, asked: Option<std::time::Duration>) -> std::time::Duration {
+/// How long a wait lasts: `asked` cut to `settings.max_wait`, or
+/// `settings.default_wait` when nothing was asked.
+fn wait_timeout(settings: &Settings, asked: Option<std::time::Duration>) -> std::time::Duration {
     match asked {
-        Some(t) => t.min(limits.max_wait),
-        None => limits.default_wait,
+        Some(t) => t.min(settings.max_wait),
+        None => settings.default_wait,
     }
 }
 
@@ -505,8 +505,8 @@ fn wait_timeout(limits: &Limits, asked: Option<std::time::Duration>) -> std::tim
 pub struct WaitQuery {
     pub after_id: i64,
     pub channel_ids: Option<Vec<String>>,
-    /// How long to wait, cut to `limits.max_wait`. `None` waits
-    /// `limits.default_wait`.
+    /// How long to wait, cut to `settings.max_wait`. `None` waits
+    /// `settings.default_wait`.
     pub timeout: Option<std::time::Duration>,
     pub limit: usize,
 }

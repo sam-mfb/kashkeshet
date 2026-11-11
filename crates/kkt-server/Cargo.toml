@@ -12,7 +12,6 @@ axum.workspace = true
 futures.workspace = true
 kkt-admission = { path = "../kkt-admission" }
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
 kkt-events = { path = "../kkt-events" }
 kkt-format = { path = "../kkt-format" }
 kkt-hosts = { path = "../kkt-hosts" }
@@ -23,7 +22,6 @@ kkt-names = { path = "../kkt-names" }
 kkt-provenance = { path = "../kkt-provenance" }
 kkt-rules = { path = "../kkt-rules" }
 kkt-shutdown = { path = "../kkt-shutdown" }
-kkt-store = { path = "../kkt-store" }
 kkt-web = { path = "../kkt-web" }
 
 [dev-dependencies]
@@ -32,7 +30,7 @@ kkt-web = { path = "../kkt-web" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
-kkt-store = { path = "../kkt-store", features = ["testing"] }
+kkt-rules = { path = "../kkt-rules", features = ["testing"] }
 kkt-web = { path = "../kkt-web", features = ["testing"] }
 serde_json.workspace = true
 tokio.workspace = true
