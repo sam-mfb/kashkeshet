@@ -3,9 +3,10 @@
 
 #[cfg(any(test, feature = "real"))]
 use crate::Options;
-use crate::adopt::{Legacy, adopt};
+use crate::adopt::adopt;
 use crate::conn::{SqliteConnection, db_error, index_words};
 use crate::{MANAGED, ddl, sql};
+use kkt_db::Legacy;
 use kkt_db::{
     Backend, Database, DbError, Evolve, Schema, Set, Step, Upgrade, Work, migrate, pending,
 };

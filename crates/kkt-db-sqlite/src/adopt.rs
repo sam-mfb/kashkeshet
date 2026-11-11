@@ -11,33 +11,17 @@
 //! database adopted at a version and one made new at that version have the
 //! same tables, indexes and triggers, byte for byte.
 //!
-//! Adopting knows no product: the caller says, in [`Legacy`], which old
-//! numbers map to which versions and which old columns are left behind on
-//! purpose. Anything else that does not match the declarations refuses
-//! the file, unchanged.
+//! Adopting knows no product: the caller says, in kkt-db's [`Legacy`],
+//! which old `user_version` numbers map to which versions and which old
+//! columns are left behind on purpose. Anything else that does not match
+//! the declarations refuses the file, unchanged.
 
 use crate::conn::index_words;
 use crate::open::{dangling, make, record};
 use crate::sql::q;
-use kkt_db::{ColumnType, DbError, Set, Step, schema_at};
+use kkt_db::{ColumnType, DbError, Legacy, Set, Step, schema_at};
 use rusqlite::{Connection, TransactionBehavior};
 use std::collections::BTreeMap;
-
-/// A database an older store made, before kkt-db, which counted its
-/// schema in `user_version`.
-#[derive(Clone, Debug)]
-pub struct Legacy {
-    /// The set its tables become.
-    pub set: &'static str,
-    /// Each `user_version` that is adopted, and the version of the set its
-    /// tables are.
-    pub adopted: Vec<(i64, u32)>,
-    /// Columns those databases have that the set leaves out on purpose:
-    /// `(table, column)`. Their values are not kept.
-    pub dropped: Vec<(&'static str, &'static str)>,
-    /// What a database older than any adopted is told when it is refused.
-    pub too_old: String,
-}
 
 /// The name a declared table has while its rows are copied out.
 fn aside(table: &str) -> String {
