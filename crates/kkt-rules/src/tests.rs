@@ -7845,9 +7845,9 @@ async fn the_admin_contract_is_the_rules_own_operations() {
         agents
             .items
             .iter()
-            .map(|a| a.handle.clone())
+            .map(|a| a.handle.as_str())
             .collect::<Vec<_>>(),
-        [reg.handle.clone()]
+        [reg.handle.as_str()]
     );
     let home: &dyn Admin = &w.rules;
     let own = home
