@@ -10,7 +10,8 @@ use super::fit::{Row, cut_body, one_line, short_time};
 use super::{Format, Formatter};
 use crate::NOTE_PREVIEW_CHARS;
 use kkt_api_agent::{AgentView, ChannelRef, Page, RecordedClient, ServerAnnouncement};
-use kkt_rules::{AdminChannel, KeptReason, StaleAgent, StaleHidden};
+use kkt_api_operator::{KeptReason, StaleAgent, StaleHidden};
+use kkt_rules::AdminChannel;
 use serde_json::{Value, json};
 
 impl Formatter {

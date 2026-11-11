@@ -213,7 +213,7 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
     rules
         .save_lane(
             kkt_api_agent::Actor::Operator(web_operator().await),
-            kkt_rules::LaneSave {
+            kkt_api_operator::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
                 text: "Read.".into(),
@@ -223,7 +223,7 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
         .expect("lane");
     operator
         .import_lanes(kkt_rules::LaneImport {
-            lanes: vec![kkt_rules::LaneSave {
+            lanes: vec![kkt_api_operator::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
                 text: "Read twice.".into(),
@@ -250,7 +250,7 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
 #[tokio::test]
 async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
     let (rules, source) = rules_world().await;
-    let save = |text: &str| kkt_rules::LaneSave {
+    let save = |text: &str| kkt_api_operator::LaneSave {
         name: "reviewer".into(),
         description: "Reviews.".into(),
         text: text.into(),
@@ -313,7 +313,7 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
     rules
         .save_lane(
             kkt_api_agent::Actor::Operator(web_operator().await),
-            kkt_rules::LaneSave {
+            kkt_api_operator::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
                 text: "Read.".into(),
@@ -735,7 +735,7 @@ async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
     rules
         .save_lane(
             admin(),
-            kkt_rules::LaneSave {
+            kkt_api_operator::LaneSave {
                 name: "reviewer".into(),
                 description: "d".into(),
                 text: "t".into(),

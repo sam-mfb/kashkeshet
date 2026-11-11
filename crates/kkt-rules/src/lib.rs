@@ -76,19 +76,20 @@ mod lanes;
 pub use lane_import::{
     ImportedLane, LaneImport, LaneOutcome, check_lane_import, check_retire_missing,
 };
-pub use lanes::LaneSave;
+
 mod memory;
 
 mod command_line;
 mod messages;
 mod operator;
+mod operator_api;
 
 pub use operator::OperatorWording;
 mod rate;
 mod settings;
 pub use settings::Settings;
 mod stale;
-pub use stale::{Kept, KeptReason, StaleAgent, StaleHidden};
+
 mod waiting;
 use waiting::Waiting;
 
@@ -96,11 +97,9 @@ use waiting::Waiting;
 mod tests;
 
 pub use admin::AdminChannel;
-pub use administration::ChannelChange;
 
 pub use command_line::{CommandLine, Revoked};
 
-pub use human::{ChannelActivity, ServerRunInfo};
 /// Storage: the [`Reader`] and [`Writer`] contract, its implementation in
 /// kkt-db's terms, and the core's tables ([`schema`]).
 mod store;
@@ -120,6 +119,7 @@ pub use store::{
 use access::{Decision, Need, Viewer, Who};
 use agents::may_change;
 use kkt_api_agent::*;
+use kkt_api_operator::*;
 use kkt_clock::{self as clock, Clock, Span, Time};
 use kkt_entropy::Entropy;
 use kkt_events::{

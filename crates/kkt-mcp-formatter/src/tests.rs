@@ -245,7 +245,7 @@ fn described(name: &str, description: Option<&str>) -> AgentInfo {
 #[test]
 fn stale_agents_show_what_they_own_and_hiding_says_who_was_kept_and_why() {
     use kkt_api_agent::ChannelRef;
-    use kkt_rules::{KeptReason, StaleAgent, StaleHidden};
+    use kkt_api_operator::{KeptReason, StaleAgent, StaleHidden};
     let room = ChannelRef {
         id: "ch_room".into(),
         name: "room".into(),
@@ -283,7 +283,7 @@ fn stale_agents_show_what_they_own_and_hiding_says_who_was_kept_and_why() {
 
     let outcome = StaleHidden {
         hidden: vec!["brave-otter".into()],
-        kept: vec![kkt_rules::Kept {
+        kept: vec![kkt_api_operator::Kept {
             handle: "amber-falcon".into(),
             reason: KeptReason::Owner,
         }],

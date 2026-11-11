@@ -124,6 +124,11 @@
    "concern": "What any registered agent may do, and the records every level shares: the agents, channels, messages, memory and lanes the operations take and give back, the queries they take, who acts, and the errors they return.",
    "kind": "contract"
   },
+  "kkt-api-operator": {
+   "layer": "core",
+   "concern": "What the human who runs the server may do, by area (Views, Changes, Lanes, Server), with the records only they use. It depends on kkt-api-agent for the shared records.",
+   "kind": "contract"
+  },
   "kkt-rules": {
    "layer": "core",
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm.",
@@ -319,7 +324,7 @@
    "must_not": "Know a logging library or perform I/O."
   },
   "kkt-terminal-os": {
-   "layer": "foundations",
+   "layer": "operations",
    "kind": "effect",
    "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the browser login link.",
    "must_not": "Decide setup answers or depend on setup/container logic."

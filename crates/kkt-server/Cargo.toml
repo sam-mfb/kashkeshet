@@ -12,6 +12,7 @@ axum.workspace = true
 futures.workspace = true
 kkt-admission = { path = "../kkt-admission" }
 kkt-api-agent = { path = "../kkt-api-agent" }
+kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-events = { path = "../kkt-events" }
 kkt-log = { path = "../kkt-log" }

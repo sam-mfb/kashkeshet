@@ -1041,6 +1041,7 @@ dependencies = [
  "kkt-admission",
  "kkt-agent-client",
  "kkt-api-agent",
+ "kkt-api-operator",
  "kkt-backup",
  "kkt-backup-os",
  "kkt-client-config",
@@ -1124,6 +1125,14 @@ version = "0.10.0"
 dependencies = [
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "kkt-api-operator"
+version = "0.10.0"
+dependencies = [
+ "kkt-api-agent",
+ "serde",
 ]
 
 [[package]]
@@ -1417,6 +1426,7 @@ dependencies = [
  "axum",
  "kkt-admission",
  "kkt-api-agent",
+ "kkt-api-operator",
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",
@@ -1443,6 +1453,7 @@ name = "kkt-mcp-formatter"
 version = "0.10.0"
 dependencies = [
  "kkt-api-agent",
+ "kkt-api-operator",
  "kkt-clock",
  "kkt-names",
  "kkt-rules",
@@ -1484,6 +1495,7 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-api-agent",
+ "kkt-api-operator",
  "kkt-clock",
  "kkt-db",
  "kkt-db-sqlite",
@@ -1512,6 +1524,7 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-api-agent",
+ "kkt-api-operator",
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",
