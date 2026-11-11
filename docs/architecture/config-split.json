@@ -1,5 +1,5 @@
 {
- "about": "Written by hand (drafted from the current map's users of each kkt-config item, then decided one by one where an item has several users or none): item 7, accepted by Sam as proposed (msg 1979). For each public item of kkt-config, where it goes and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts move into the crate that owns them, private there or public when others use them; tuning values become settings fields; operator settings and defaults go to kkt-settings or the program; kkt-config keeps only what is truly cross-domain. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. propose.py applies it as the item 7 layer and checks every item is listed.",
+ "about": "Written by hand (drafted from the current map's users of each kkt-config item, then decided one by one where an item has several users or none): item 7, accepted by Sam as proposed (msg 1979). For each public item of kkt-config, where it goes and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts move into the crate that owns them, private there or public when others use them; tuning values become settings fields; operator settings and defaults go to kkt-settings or the program; kkt-config keeps only what is truly cross-domain. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. propose.py applies it as the item 7 layer and checks every item is listed. Crates are named as the proposed map names them (kkt-format is kkt-mcp-formatter, msg 1986); used_by and test_only name today's users.",
  "status": "decided",
  "concern_edits": {
   "kkt-config": {
@@ -806,7 +806,7 @@
     "kkt-format"
    ],
    "test_only": [],
-   "to": "kkt-format",
+   "to": "kkt-mcp-formatter",
    "how": "constant, private",
    "note": "a fixed fact of the one crate that uses it"
   },
@@ -896,7 +896,7 @@
    ],
    "to": "split",
    "how": "injected",
-   "note": "split into per-crate settings structs (kkt-rules' limits, kkt-format's response cap, kkt-web's page sizes, kkt-admission's session lifetime), each with its own check; kkt-settings gathers them and the program fills them"
+   "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes, kkt-admission's session lifetime), each with its own check; kkt-settings gathers them and the program fills them"
   },
   {
    "item": "LogLevel",
@@ -1152,7 +1152,7 @@
     "kashkeshet",
     "kkt-format"
    ],
-   "to": "kkt-format",
+   "to": "kkt-mcp-formatter",
    "how": "constant, test-visible (behind testing)",
    "note": "the bound its response-cap check uses; behind testing, since only kashkeshet's tests read it"
   },
@@ -1207,7 +1207,7 @@
     "kkt-format"
    ],
    "test_only": [],
-   "to": "kkt-format",
+   "to": "kkt-mcp-formatter",
    "how": "constant, private",
    "note": "a fixed fact of the one crate that uses it"
   },
@@ -1487,7 +1487,7 @@
     "kkt-format"
    ],
    "test_only": [],
-   "to": "kkt-format",
+   "to": "kkt-mcp-formatter",
    "how": "constant, private",
    "note": "a fixed fact of the one crate that uses it"
   },
@@ -1966,7 +1966,7 @@
    ],
    "kkt-server": [
     "kkt-rules::Settings",
-    "kkt-format::Settings",
+    "kkt-mcp-formatter::Settings",
     "kkt-web::Settings",
     "kkt-admission::Settings"
    ],
@@ -1998,10 +1998,10 @@
     "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars (item 7)."
    },
    {
-    "crate": "kkt-format",
+    "crate": "kkt-mcp-formatter",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-format's share of today's Limits: max_response_bytes (item 7)."
+    "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes (item 7)."
    },
    {
     "crate": "kkt-web",

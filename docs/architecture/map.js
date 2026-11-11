@@ -422,7 +422,7 @@
     return el("div", { class: "decision" },
       el("span", { class: "badge proposed-badge" }, `${row.consumers.length} consumer${row.consumers.length === 1 ? "" : "s"}: ${row.rule}`), " ",
       statusChip(row.status), " ", prose(row.result),
-      (row.conflicts || []).map((id) => el("button", { class: "chip chip-link conflict-link", type: "button", onclick: () => showConflicts(id) }, `conflict ${id}, resolved`)));
+      (row.conflicts || []).map((id) => el("button", { class: "chip chip-link conflict-link", type: "button", onclick: () => showConflicts(id) }, `conflict ${id}`)));
   }
 
   // The crate's contracts: the traits it defines and who implements each,
@@ -558,7 +558,7 @@
     return [
       el("h2", {}, "The proposed map"),
       el("p", {}, "The current map reorganized by one rule, for planning, with kkt-config broken up by domain (item 7). A new or changed crate carries a small tag in its box, and new or changed arrows are drawn thicker; outlines show each crate's kind. Every change says whether Sam decided it, or it is recommended pending Sam. ", source("proposal")),
-      el("p", { class: "muted" }, statusChip("decided"), " ", statusChip("recommended"), " ", prose(proposed.status_legend)),
+      el("p", { class: "muted" }, statusChip("decided"), " ", statusChip("follows"), " ", statusChip("recommended"), " ", prose(proposed.status_legend)),
       el("ol", {}, proposed.rule.map((r) => el("li", {}, prose(r)))),
       el("p", {}, el("strong", {}, "The strict rule: "), prose(proposed.strict.text), " ", statusChip(proposed.strict.status)),
       el("h3", {}, "Decided by Sam"),
@@ -571,7 +571,7 @@
       el("div", { class: "actions" },
         el("button", { class: "action", type: "button", onclick: showTable }, `Every trait and the rule's result (${proposed.table.length})`),
         el("button", { class: "action", type: "button", onclick: showChanges }, "What changed"),
-        el("button", { class: "action", type: "button", onclick: () => showConflicts() }, `Conflicts, resolved (${proposed.conflicts.length})`),
+        el("button", { class: "action", type: "button", onclick: () => showConflicts() }, `Conflicts (${proposed.conflicts.filter((c) => c.resolved !== false).length} resolved, ${proposed.conflicts.filter((c) => c.resolved === false).length} open)`),
         el("button", { class: "action", type: "button", onclick: showConfigTable }, `Item 7: kkt-config, item by item (${proposed.config_split.table.length})`)),
       shown.violations.length
         ? el("p", { class: "must" }, `The rule is broken in ${shown.violations.length} places: `, shown.violations.join("; "))
@@ -609,7 +609,7 @@
           el("td", {}, r.implementations.map((i) => `${i.crate}: ${i.type || "a type of its own"}`).join("; ")),
           el("td", {}, r.rule),
           el("td", {}, statusChip(r.status), " ", prose(r.result), (r.new || []).length ? el("div", { class: "muted" }, `new: ${r.new.join(", ")}`) : null,
-            (r.conflicts || []).map((id) => el("button", { class: "chip chip-link conflict-link", type: "button", onclick: () => showConflicts(id) }, `conflict ${id}, resolved`)),
+            (r.conflicts || []).map((id) => el("button", { class: "chip chip-link conflict-link", type: "button", onclick: () => showConflicts(id) }, `conflict ${id}`)),
             (r.assumptions || []).map((id) => el("span", { class: "chip" }, `assumption ${id}`)))))))),
       el("h3", {}, "Not traits"),
       el("ul", {}, proposed.not_traits.map((n) => el("li", {}, el("code", {}, n.items), ": ", prose(n.note)))));
@@ -634,12 +634,14 @@
   }
 
   function showConflicts(focus) {
-    openDialog("Conflicts, resolved",
-      el("p", { class: "muted" }, "Where the rule's first outcome conflicted with an existing requirement, and how Sam's strict rule resolves each. Written by hand (proposed.json)."),
+    openDialog("Conflicts",
+      el("p", { class: "muted" }, "Where the rule's outcome conflicts with an existing requirement: how Sam's strict rule resolves each, or, for one still open, the options for Sam. Written by hand (proposed.json)."),
       el("p", {}, el("strong", {}, "The strict rule: "), prose(proposed.strict.text), " ", statusChip(proposed.strict.status)),
       el("ol", { class: "conflicts" }, proposed.conflicts.map((c) => el("li", { id: `conflict-${c.id}`, class: c.id === focus ? "hit-item" : "" },
-        el("strong", {}, `${c.id}. ${c.title}`), " ", el("span", { class: "badge status status-decided" }, "resolved: decided by Sam, strict rule"),
-        el("p", {}, prose(c.text)), el("p", {}, el("strong", {}, "Resolution: "), prose(c.resolution))))),
+        el("strong", {}, `${c.id}. ${c.title}`), " ", c.resolved === false
+          ? el("span", { class: "badge status status-open" }, "open, for Sam")
+          : el("span", { class: "badge status status-decided" }, "resolved: decided by Sam, strict rule"),
+        el("p", {}, prose(c.text)), el("p", {}, el("strong", {}, c.resolved === false ? "Options: " : "Resolution: "), prose(c.resolution))))),
       (proposed.withdrawn || []).length
         ? [el("h3", {}, "Withdrawn"), el("ul", {}, proposed.withdrawn.map((w) => el("li", {}, el("strong", {}, `${w.id}. `), prose(w.text))))]
         : null,

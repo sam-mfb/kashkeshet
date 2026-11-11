@@ -266,9 +266,9 @@ window.KKT_PROPOSED = {
       "items": [
        "kkt-server::build",
        "kkt-shutdown::Shutdown",
-       "kkt-server::listen",
-       "kkt-server::Listening",
-       "kkt-shutdown::StopSignals"
+       "kkt-server-listen::listen",
+       "kkt-server-listen::Listening",
+       "kkt-shutdown-os::StopSignals"
       ],
       "text": "build assembles the server from the parts and config; listen binds it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
       "title": "Build and run"
@@ -772,20 +772,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-logs",
-      "impl": "kkt-clock-system::SystemClock",
-      "note": "kkt serve --log-file",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
-      "to": [
-       {
-        "at": "RotatingFile::open",
-        "param": "clock"
-       }
-      ]
-     },
-     {
       "crate": "kkt-store",
       "impl": "kkt-db-sqlite-db::SqliteBackend",
       "note": "SqliteBackend over the SqlitePlace gives the kkt-db Database (item 8)",
@@ -861,6 +847,21 @@ window.KKT_PROPOSED = {
        {
         "at": "CommandLine::new",
         "param": "db"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-logs-os",
+      "impl": "kkt-clock-system::SystemClock",
+      "note": "kkt serve --log-file; through the program's Clock adapter",
+      "status": "follows",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
+      "to": [
+       {
+        "at": "RotatingFile::open",
+        "param": "clock"
        }
       ]
      }
@@ -1025,8 +1026,8 @@ window.KKT_PROPOSED = {
      {
       "items": [
        "kkt-server::build",
-       "kkt-server::listen",
-       "kkt-server::Listening",
+       "kkt-server-listen::listen",
+       "kkt-server-listen::Listening",
        "kkt-shutdown::Shutdown",
        "kkt-fake-product::Product"
       ],
@@ -1342,9 +1343,9 @@ window.KKT_PROPOSED = {
      {
       "items": [
        "kkt-server::build",
-       "kkt-server::listen",
-       "kkt-server::Listening",
-       "kkt-shutdown::StopSignals"
+       "kkt-server-listen::listen",
+       "kkt-server-listen::Listening",
+       "kkt-shutdown-os::StopSignals"
       ],
       "text": "build, listen, and serve_until a stop signal.",
       "title": "Build and run"
@@ -1552,7 +1553,7 @@ window.KKT_PROPOSED = {
       "items": [
        "kkt-web::router",
        "kkt-shutdown::Shutdown",
-       "kkt-shutdown::StopSignals"
+       "kkt-shutdown-os::StopSignals"
       ],
       "text": "kkt-web's router serves the page until a stop signal.",
       "title": "Serve"
@@ -1683,6 +1684,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "follows"
+    ],
+    "to": "kkt-backup-os"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
@@ -1773,6 +1783,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "follows"
+    ],
+    "to": "kkt-logs-os"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
     "role": "implements",
     "statuses": [
      "decided"
@@ -1800,11 +1819,29 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "follows"
+    ],
+    "to": "kkt-server-listen"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
     ],
     "to": "kkt-service-os"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "follows"
+    ],
+    "to": "kkt-shutdown-os"
    },
    {
     "from": "kashkeshet",
@@ -1850,6 +1887,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-entropy"
+   },
+   {
+    "from": "kkt-backup-os",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "follows"
+    ],
+    "to": "kkt-backup"
    },
    {
     "from": "kkt-clock-system",
@@ -1962,9 +2008,27 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "uses",
     "statuses": [
+     "follows"
+    ],
+    "to": "kkt-server-listen"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
      "decided"
     ],
     "to": "kkt-settings"
+   },
+   {
+    "from": "kkt-fake-product",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "follows"
+    ],
+    "to": "kkt-shutdown-os"
    },
    {
     "from": "kkt-fake-product",
@@ -2194,6 +2258,24 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "follows"
+    ],
+    "to": "kkt-server-listen"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "follows"
+    ],
+    "to": "kkt-shutdown-os"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
@@ -2208,6 +2290,22 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-web"
+   },
+   {
+    "from": "kkt-logs-os",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [],
+    "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-logs-os",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "follows"
+    ],
+    "to": "kkt-logs"
    },
    {
     "from": "kkt-mcp",
@@ -2334,6 +2432,15 @@ window.KKT_PROPOSED = {
     "to": "kkt-store-rules"
    },
    {
+    "from": "kkt-server-listen",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "follows"
+    ],
+    "to": "kkt-server"
+   },
+   {
     "from": "kkt-setup",
     "kind": "normal",
     "role": "uses",
@@ -2341,6 +2448,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-container"
+   },
+   {
+    "from": "kkt-shutdown-os",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "follows"
+    ],
+    "to": "kkt-shutdown"
    },
    {
     "from": "kkt-store",
@@ -2516,6 +2632,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-web-preview",
     "kind": "dev",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-shutdown-os"
+   },
+   {
+    "from": "kkt-web-preview",
+    "kind": "dev",
     "role": "implements",
     "statuses": [
      "decided"
@@ -2555,6 +2680,23 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-admission"
+   },
+   {
+    "from": "kashkeshet",
+    "items_gone": [
+     "prune",
+     "write"
+    ],
+    "items_new": [],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [],
+    "to": "kkt-backup"
    },
    {
     "from": "kashkeshet",
@@ -2744,7 +2886,9 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kashkeshet",
-    "items_gone": [],
+    "items_gone": [
+     "RotatingFile"
+    ],
     "items_new": [
      "LogPolicy"
     ],
@@ -2826,7 +2970,9 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kashkeshet",
-    "items_gone": [],
+    "items_gone": [
+     "listen"
+    ],
     "items_new": [
      "AdmissionGate",
      "RulesSource",
@@ -2891,6 +3037,22 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-settings"
+   },
+   {
+    "from": "kashkeshet",
+    "items_gone": [
+     "StopSignals"
+    ],
+    "items_new": [],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [],
+    "to": "kkt-shutdown"
    },
    {
     "from": "kashkeshet",
@@ -3219,7 +3381,9 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-fake-product",
-    "items_gone": [],
+    "items_gone": [
+     "listen"
+    ],
     "items_new": [
      "AdmissionGate",
      "Identified",
@@ -3241,6 +3405,22 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-server"
+   },
+   {
+    "from": "kkt-fake-product",
+    "items_gone": [
+     "StopSignals"
+    ],
+    "items_new": [],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [],
+    "to": "kkt-shutdown"
    },
    {
     "from": "kkt-hosts",
@@ -3337,7 +3517,9 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-keymode",
-    "items_gone": [],
+    "items_gone": [
+     "listen"
+    ],
     "items_new": [
      "AdmissionGate",
      "RulesSource",
@@ -3375,6 +3557,22 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-settings"
+   },
+   {
+    "from": "kkt-keymode",
+    "items_gone": [
+     "StopSignals"
+    ],
+    "items_new": [],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [],
+    "to": "kkt-shutdown"
    },
    {
     "from": "kkt-mcp",
@@ -4101,8 +4299,45 @@ window.KKT_PROPOSED = {
     "crate": "kkt-backup",
     "notes": [
      {
+      "status": "follows",
+      "text": "write moves to kkt-backup-os: an effect, split out so no crate is mixed (msg 1992)"
+     },
+     {
+      "status": "follows",
+      "text": "prune moves to kkt-backup-os: an effect, split out so no crate is mixed (msg 1992)"
+     },
+     {
       "status": "decided",
       "text": "BACKUP_FOLDER_MODE comes here from kkt-config, private"
+     },
+     {
+      "status": "follows",
+      "text": "its real feature moves to kkt-backup-os"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-backup-os",
+    "notes": [
+     {
+      "status": "follows",
+      "text": "new effect crate, from kkt-backup"
+     },
+     {
+      "status": "follows",
+      "text": "write comes here from kkt-backup"
+     },
+     {
+      "status": "follows",
+      "text": "prune comes here from kkt-backup"
+     },
+     {
+      "status": "follows",
+      "text": "takes the real feature from kkt-backup"
+     },
+     {
+      "status": "follows",
+      "text": "it writes the folder kkt-backup describes"
      }
     ]
    },
@@ -5287,6 +5522,10 @@ window.KKT_PROPOSED = {
     "crate": "kkt-logs",
     "notes": [
      {
+      "status": "follows",
+      "text": "RotatingFile moves to kkt-logs-os: an effect, split out so no crate is mixed (msg 1992)"
+     },
+     {
       "status": "decided",
       "text": "LOG_PRUNE_INTERVAL comes here from kkt-config"
      },
@@ -5297,6 +5536,31 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "MIN_LOG_FILE_BYTES comes here from kkt-config, private"
+     },
+     {
+      "status": "follows",
+      "text": "its real feature moves to kkt-logs-os"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-logs-os",
+    "notes": [
+     {
+      "status": "follows",
+      "text": "new effect crate, from kkt-logs"
+     },
+     {
+      "status": "follows",
+      "text": "RotatingFile comes here from kkt-logs"
+     },
+     {
+      "status": "follows",
+      "text": "takes the real feature from kkt-logs"
+     },
+     {
+      "status": "follows",
+      "text": "it rolls the file over by kkt-logs' policy"
      }
     ]
    },
@@ -5586,6 +5850,14 @@ window.KKT_PROPOSED = {
     "crate": "kkt-server",
     "notes": [
      {
+      "status": "follows",
+      "text": "listen moves to kkt-server-listen: an effect, split out so no crate is mixed (msg 1992)"
+     },
+     {
+      "status": "follows",
+      "text": "Listening moves to kkt-server-listen: an effect, split out so no crate is mixed (msg 1992)"
+     },
+     {
       "status": "decided",
       "text": "new trait SourcesFactory"
      },
@@ -5650,6 +5922,10 @@ window.KKT_PROPOSED = {
       "text": "Parts::new takes wording: the notices' wording, from the program's adapter over NoticeWording, which kkt-server hands to the rules (C5). The program can build it first, so it needs no factory"
      },
      {
+      "status": "follows",
+      "text": "its real feature moves to kkt-server-listen"
+     },
+     {
       "status": "decided",
       "text": "its tests wire kkt-store-rules's RulesStore instead of an adapter of their own (item 8)"
      },
@@ -5672,6 +5948,31 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "uses kkt-rules' copies of the record types it passes to Writes (C3)"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-server-listen",
+    "notes": [
+     {
+      "status": "follows",
+      "text": "new effect crate, from kkt-server"
+     },
+     {
+      "status": "follows",
+      "text": "listen comes here from kkt-server"
+     },
+     {
+      "status": "follows",
+      "text": "Listening comes here from kkt-server"
+     },
+     {
+      "status": "follows",
+      "text": "takes the real feature from kkt-server"
+     },
+     {
+      "status": "follows",
+      "text": "it binds and serves the App kkt-server builds"
      }
     ]
    },
@@ -5920,6 +6221,40 @@ window.KKT_PROPOSED = {
     ]
    },
    {
+    "crate": "kkt-shutdown",
+    "notes": [
+     {
+      "status": "follows",
+      "text": "StopSignals moves to kkt-shutdown-os: an effect, split out so no crate is mixed (msg 1992)"
+     },
+     {
+      "status": "follows",
+      "text": "its real feature moves to kkt-shutdown-os"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-shutdown-os",
+    "notes": [
+     {
+      "status": "follows",
+      "text": "new effect crate, from kkt-shutdown"
+     },
+     {
+      "status": "follows",
+      "text": "StopSignals comes here from kkt-shutdown"
+     },
+     {
+      "status": "follows",
+      "text": "takes the real feature from kkt-shutdown"
+     },
+     {
+      "status": "follows",
+      "text": "a stop signal stops kkt-shutdown's Shutdown"
+     }
+    ]
+   },
+   {
     "crate": "kkt-store",
     "notes": [
      {
@@ -6075,7 +6410,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-shutdown (dev): StopSignals was the preview example's"
+      "text": "no longer depends on kkt-shutdown-os (dev): StopSignals was the preview example's"
      },
      {
       "status": "decided",
@@ -6497,10 +6832,17 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-backup": {
-    "concern": "Backup folders: their names, contents, file modes, and pruning.",
-    "kind": "mixed",
+    "concern": "Backup folders: their names, what goes in them and their file modes, and which to prune; the disk work is in kkt-backup-os.",
+    "kind": "logic",
     "layer": "operations",
-    "must_not": "Read the clock or copy the database itself: the caller passes both."
+    "must_not": "Read the clock or copy the database itself: the caller passes both.",
+    "status": "follows"
+   },
+   "kkt-backup-os": {
+    "concern": "Writing and pruning backup folders on disk: `write` and `prune`, which the program calls. kkt-backup's `real` feature moves here.",
+    "kind": "effect",
+    "layer": "operations",
+    "status": "follows"
    },
    "kkt-client-config": {
     "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client. It declares the `Host` it works through; the real one is in kkt-client-config-os, adapted by the program.",
@@ -6641,10 +6983,16 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-logs": {
-    "concern": "The log file the server writes itself, rolled over and pruned within its `LogPolicy`, which it now owns and the program fills (item 7).",
+    "concern": "How the server's own log file is kept bounded: `LogPolicy` and its check, and `LOG_PRUNE_INTERVAL`. The file itself is in kkt-logs-os.",
+    "kind": "logic",
+    "layer": "foundations",
+    "status": "follows"
+   },
+   "kkt-logs-os": {
+    "concern": "The server's own log file on disk: `RotatingFile`, rolled over by kkt-logs' `LogPolicy`, with the time from an injected `Clock`. kkt-logs' `real` feature moves here.",
     "kind": "effect",
     "layer": "foundations",
-    "status": "decided"
+    "status": "follows"
    },
    "kkt-mcp": {
     "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It declares the `Identify` it asks.",
@@ -6701,11 +7049,17 @@ window.KKT_PROPOSED = {
     "must_not": "Be anything but a dev-dependency."
    },
    "kkt-server": {
-    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take a store meeting kkt-rules' `Reads` and `Writes`, the identity, the web page's sources and gate, and the notices' wording, each adapted by the program; it names none of kkt-store's types. RulesSource, RulesSources and AdmissionGate stay public, implementing nothing.",
+    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run. Its parts take a store meeting kkt-rules' `Reads` and `Writes`, the identity, the web page's sources and gate, and the notices' wording, each adapted by the program; it names none of kkt-store's types. RulesSource, RulesSources and AdmissionGate stay public, implementing nothing. Binding the socket is in kkt-server-listen.",
     "kind": "composition",
     "layer": "assembly",
     "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
     "status": "decided"
+   },
+   "kkt-server-listen": {
+    "concern": "Binding the server to its socket and serving it: `listen` and `Listening`, which only the programs use. kkt-server's `real` feature moves here. It serves kkt-server's built `App`, so it needs axum (C7).",
+    "kind": "effect",
+    "layer": "assembly",
+    "status": "follows"
    },
    "kkt-service": {
     "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs. It declares the `System` it works through, and keeps `DryRun`; the real one is in kkt-service-os, adapted by the program.",
@@ -6734,10 +7088,17 @@ window.KKT_PROPOSED = {
     "must_not": "Read files or run anything: the program does, and carries out what is decided here."
    },
    "kkt-shutdown": {
-    "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server.",
-    "kind": "mixed",
+    "concern": "The stop signal: `Shutdown`, whose clones share one signal. The operating system's signals are in kkt-shutdown-os.",
+    "kind": "logic",
     "layer": "foundations",
-    "must_not": "Let a tokio-util type out of the crate."
+    "must_not": "Let a tokio-util type out of the crate.",
+    "status": "follows"
+   },
+   "kkt-shutdown-os": {
+    "concern": "The operating system's stop signals: `StopSignals`, which the programs install and which stop kkt-shutdown's `Shutdown`. kkt-shutdown's `real` feature moves here.",
+    "kind": "effect",
+    "layer": "foundations",
+    "status": "follows"
    },
    "kkt-store": {
     "concern": "The core's data: a store over kkt-db, with its own methods and record types, and the core's tables as migrations and their history from before kkt-db. It implements no trait; kkt-store-rules adapts it to kkt-rules' `Reads` and `Writes`. Its SQLite tests use kkt-db-sqlite-db.",
@@ -6864,7 +7225,7 @@ window.KKT_PROPOSED = {
   ]
  },
  "config_split": {
-  "about": "Written by hand (drafted from the current map's users of each kkt-config item, then decided one by one where an item has several users or none): item 7, accepted by Sam as proposed (msg 1979). For each public item of kkt-config, where it goes and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts move into the crate that owns them, private there or public when others use them; tuning values become settings fields; operator settings and defaults go to kkt-settings or the program; kkt-config keeps only what is truly cross-domain. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. propose.py applies it as the item 7 layer and checks every item is listed.",
+  "about": "Written by hand (drafted from the current map's users of each kkt-config item, then decided one by one where an item has several users or none): item 7, accepted by Sam as proposed (msg 1979). For each public item of kkt-config, where it goes and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts move into the crate that owns them, private there or public when others use them; tuning values become settings fields; operator settings and defaults go to kkt-settings or the program; kkt-config keeps only what is truly cross-domain. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. propose.py applies it as the item 7 layer and checks every item is listed. Crates are named as the proposed map names them (kkt-format is kkt-mcp-formatter, msg 1986); used_by and test_only name today's users.",
   "limits": {
    "gathered_in": "kkt-settings",
    "note": "Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor). upgrade_backups_kept stays with what kkt-settings gathers: kkt-backup's prune already takes the count as an argument, which the program passes",
@@ -8915,6 +9276,14 @@ window.KKT_PROPOSED = {
    "status": "decided",
    "text": "Counted by the rule, kkt-db's Backend and Evolve have no consumer besides kkt-db itself, and Connection one, so they would not get a contract crate.",
    "title": "The model's own traits fall below the threshold"
+  },
+  {
+   "id": "C7",
+   "resolution": "For Sam: either CLAUDE.md names kkt-server-listen as a fourth axum crate, or kkt-server keeps the serving loop and takes an already-bound socket from kkt-server-listen, which then holds only the bind. The map shows the split as the rule asks, with this open.",
+   "resolved": false,
+   "status": "follows",
+   "text": "CLAUDE.md: axum is the HTTP framework of kkt-web, kkt-mcp and kkt-server only, and its types do not leave those three. kkt-server-listen serves the App kkt-server builds, which holds an axum Router, so it needs axum and the Router.",
+   "title": "axum outside the three crates CLAUDE.md allows"
   }
  ],
  "decided_items": [
@@ -8989,10 +9358,14 @@ window.KKT_PROPOSED = {
   {
    "id": "18",
    "text": "Each crate has a kind, written by hand: contract, logic, effect, composition, configuration or test support, and in the current map mixed. Boxes are outlined in their kind's colour. The generator checks what it can and reports mismatches; in the proposed map a mixed crate is a violation (msg 1981)."
+  },
+  {
+   "id": "19",
+   "text": "No crate in the proposed map is mixed, compositions included (msg 1992): kkt-server's listen and Listening go to kkt-server-listen, kkt-backup's write and prune to kkt-backup-os, kkt-shutdown's StopSignals to kkt-shutdown-os, and kkt-logs' RotatingFile to kkt-logs-os, which the check also found (kkt-provenance read LogPolicy from an effect crate). Only the programs use them. Tagged \"follows from Sam's rule\"; C7 is open."
   }
  ],
  "graph": {
-  "commit": "c79368d",
+  "commit": "3945cbc",
   "crates": [
    {
     "bins": [
@@ -10464,9 +10837,7 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "Backups: a folder holding a consistent copy of the database, the config file and both keys, named so that backups sort by time and say which kkt version wrote them; and pruning the backups the server keeps before it upgrades a database, ...",
     "dev_only": false,
-    "features": {
-     "real": []
-    },
+    "features": {},
     "holders": [],
     "implements": [],
     "items": [
@@ -10492,29 +10863,89 @@ window.KKT_PROPOSED = {
       "doc": "The name of a backup made at `at` by kkt `version`, such as `kkt-20261028T131500.123Z-v0.3.0`.",
       "kind": "fn",
       "path": "name"
-     },
-     {
-      "doc": "Removes all but the newest `keep` backups in `folder`, judged by their names, and returns the ones removed.",
-      "feature": "real",
-      "kind": "fn",
-      "path": "prune"
-     },
-     {
-      "doc": "Writes a backup of `contents` made at `at` by kkt `version` to a new folder in `folder`, creating `folder` if needed, and returns the new folder.",
-      "feature": "real",
-      "kind": "fn",
-      "path": "write"
      }
     ],
-    "kind": "mixed",
+    "kind": "logic",
     "lib": "kkt_backup",
     "name": "kkt-backup",
     "path": "crates/kkt-backup",
     "proposed": "changed",
     "proposed_notes": [
      {
+      "status": "follows",
+      "text": "write moves to kkt-backup-os: an effect, split out so no crate is mixed (msg 1992)"
+     },
+     {
+      "status": "follows",
+      "text": "prune moves to kkt-backup-os: an effect, split out so no crate is mixed (msg 1992)"
+     },
+     {
       "status": "decided",
       "text": "BACKUP_FOLDER_MODE comes here from kkt-config, private"
+     },
+     {
+      "status": "follows",
+      "text": "its real feature moves to kkt-backup-os"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "real": []
+    },
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "Removes all but the newest `keep` backups in `folder`, judged by their names, and returns the ones removed.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kkt-backup",
+      "path": "prune",
+      "status": "follows"
+     },
+     {
+      "doc": "Writes a backup of `contents` made at `at` by kkt `version` to a new folder in `folder`, creating `folder` if needed, and returns the new folder.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kkt-backup",
+      "path": "write",
+      "status": "follows"
+     }
+    ],
+    "kind": "effect",
+    "lib": "kkt_backup_os",
+    "name": "kkt-backup-os",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "follows",
+      "text": "new effect crate, from kkt-backup"
+     },
+     {
+      "status": "follows",
+      "text": "write comes here from kkt-backup"
+     },
+     {
+      "status": "follows",
+      "text": "prune comes here from kkt-backup"
+     },
+     {
+      "status": "follows",
+      "text": "takes the real feature from kkt-backup"
+     },
+     {
+      "status": "follows",
+      "text": "it writes the folder kkt-backup describes"
      }
     ],
     "released_program": false,
@@ -14842,9 +15273,7 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "A log file the server writes itself, kept within a `LogPolicy`: rolled over by size, with a bounded number of rolled files, none kept longer than the policy's age.",
     "dev_only": false,
-    "features": {
-     "real": []
-    },
+    "features": {},
     "holders": [],
     "implements": [],
     "items": [
@@ -14869,23 +15298,18 @@ window.KKT_PROPOSED = {
       "moved_from": "kkt-config",
       "path": "LogPolicy",
       "status": "decided"
-     },
-     {
-      "doc": "The log file at `path`, appended to, and rolled over by its policy.",
-      "feature": "real",
-      "kind": "struct",
-      "methods": [
-       "open"
-      ],
-      "path": "RotatingFile"
      }
     ],
-    "kind": "effect",
+    "kind": "logic",
     "lib": "kkt_logs",
     "name": "kkt-logs",
     "path": "crates/kkt-logs",
     "proposed": "changed",
     "proposed_notes": [
+     {
+      "status": "follows",
+      "text": "RotatingFile moves to kkt-logs-os: an effect, split out so no crate is mixed (msg 1992)"
+     },
      {
       "status": "decided",
       "text": "LOG_PRUNE_INTERVAL comes here from kkt-config"
@@ -14897,6 +15321,61 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "MIN_LOG_FILE_BYTES comes here from kkt-config, private"
+     },
+     {
+      "status": "follows",
+      "text": "its real feature moves to kkt-logs-os"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "real": []
+    },
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "The log file at `path`, appended to, and rolled over by its policy.",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "open"
+      ],
+      "moved_from": "kkt-logs",
+      "path": "RotatingFile",
+      "status": "follows"
+     }
+    ],
+    "kind": "effect",
+    "lib": "kkt_logs_os",
+    "name": "kkt-logs-os",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "follows",
+      "text": "new effect crate, from kkt-logs"
+     },
+     {
+      "status": "follows",
+      "text": "RotatingFile comes here from kkt-logs"
+     },
+     {
+      "status": "follows",
+      "text": "takes the real feature from kkt-logs"
+     },
+     {
+      "status": "follows",
+      "text": "it rolls the file over by kkt-logs' policy"
      }
     ],
     "released_program": false,
@@ -17670,11 +18149,7 @@ window.KKT_PROPOSED = {
     ],
     "crate_doc": "Puts the parts together: the rules, the MCP endpoint at `/mcp`, the admin endpoint at `/mcp-admin` when there is an admin key, and the web page at `/`.",
     "dev_only": false,
-    "features": {
-     "real": [
-      "dep:tokio"
-     ]
-    },
+    "features": {},
     "holders": [
      {
       "holds": [
@@ -17827,16 +18302,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The server bound to its address, not yet answering.",
-      "feature": "real",
-      "kind": "struct",
-      "methods": [
-       "address",
-       "serve_until"
-      ],
-      "path": "Listening"
-     },
-     {
       "doc": "The parts the server is built from.",
       "fields": [
        "db",
@@ -17889,12 +18354,6 @@ window.KKT_PROPOSED = {
       "path": "build"
      },
      {
-      "doc": "Binds `app` to `address`.",
-      "feature": "real",
-      "kind": "fn",
-      "path": "listen"
-     },
-     {
       "doc": "Stores `run` in `db` as a new server run that started at `started_at`, and returns its ID.",
       "kind": "fn",
       "path": "record_run"
@@ -17906,6 +18365,14 @@ window.KKT_PROPOSED = {
     "path": "crates/kkt-server",
     "proposed": "changed",
     "proposed_notes": [
+     {
+      "status": "follows",
+      "text": "listen moves to kkt-server-listen: an effect, split out so no crate is mixed (msg 1992)"
+     },
+     {
+      "status": "follows",
+      "text": "Listening moves to kkt-server-listen: an effect, split out so no crate is mixed (msg 1992)"
+     },
      {
       "status": "decided",
       "text": "new trait SourcesFactory"
@@ -17969,6 +18436,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Parts::new takes wording: the notices' wording, from the program's adapter over NoticeWording, which kkt-server hands to the rules (C5). The program can build it first, so it needs no factory"
+     },
+     {
+      "status": "follows",
+      "text": "its real feature moves to kkt-server-listen"
      },
      {
       "status": "decided",
@@ -18318,6 +18789,72 @@ window.KKT_PROPOSED = {
      "futures",
      "tokio"
     ]
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "real": [
+      "dep:tokio"
+     ]
+    },
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "The server bound to its address, not yet answering.",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "address",
+       "serve_until"
+      ],
+      "moved_from": "kkt-server",
+      "path": "Listening",
+      "status": "follows"
+     },
+     {
+      "doc": "Binds `app` to `address`.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kkt-server",
+      "path": "listen",
+      "status": "follows"
+     }
+    ],
+    "kind": "effect",
+    "lib": "kkt_server_listen",
+    "name": "kkt-server-listen",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "follows",
+      "text": "new effect crate, from kkt-server"
+     },
+     {
+      "status": "follows",
+      "text": "listen comes here from kkt-server"
+     },
+     {
+      "status": "follows",
+      "text": "Listening comes here from kkt-server"
+     },
+     {
+      "status": "follows",
+      "text": "takes the real feature from kkt-server"
+     },
+     {
+      "status": "follows",
+      "text": "it binds and serves the App kkt-server builds"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
    },
    {
     "bins": [],
@@ -19909,11 +20446,7 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "A signal that the server is stopping.",
     "dev_only": false,
-    "features": {
-     "real": [
-      "dep:tokio"
-     ]
-    },
+    "features": {},
     "holders": [],
     "implements": [],
     "items": [
@@ -19928,7 +20461,44 @@ window.KKT_PROPOSED = {
        "stopped"
       ],
       "path": "Shutdown"
+     }
+    ],
+    "kind": "logic",
+    "lib": "kkt_shutdown",
+    "name": "kkt-shutdown",
+    "path": "crates/kkt-shutdown",
+    "proposed": "changed",
+    "proposed_notes": [
+     {
+      "status": "follows",
+      "text": "StopSignals moves to kkt-shutdown-os: an effect, split out so no crate is mixed (msg 1992)"
      },
+     {
+      "status": "follows",
+      "text": "its real feature moves to kkt-shutdown-os"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": [
+     "tokio",
+     "tokio-util"
+    ]
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "real": [
+      "dep:tokio"
+     ]
+    },
+    "holders": [],
+    "implements": [],
+    "items": [
      {
       "doc": "OS stop signals, installed before the server announces it is ready.",
       "feature": "real",
@@ -19937,20 +20507,37 @@ window.KKT_PROPOSED = {
        "listen",
        "stop_on_signal"
       ],
-      "path": "StopSignals"
+      "moved_from": "kkt-shutdown",
+      "path": "StopSignals",
+      "status": "follows"
      }
     ],
-    "kind": "mixed",
-    "lib": "kkt_shutdown",
-    "name": "kkt-shutdown",
-    "path": "crates/kkt-shutdown",
-    "proposed_notes": [],
+    "kind": "effect",
+    "lib": "kkt_shutdown_os",
+    "name": "kkt-shutdown-os",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "follows",
+      "text": "new effect crate, from kkt-shutdown"
+     },
+     {
+      "status": "follows",
+      "text": "StopSignals comes here from kkt-shutdown"
+     },
+     {
+      "status": "follows",
+      "text": "takes the real feature from kkt-shutdown"
+     },
+     {
+      "status": "follows",
+      "text": "a stop signal stops kkt-shutdown's Shutdown"
+     }
+    ],
     "released_program": false,
     "slots": [],
-    "third_party": [
-     "tokio",
-     "tokio-util"
-    ]
+    "third_party": []
    },
    {
     "bins": [],
@@ -21759,7 +22346,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer depends on kkt-shutdown (dev): StopSignals was the preview example's"
+      "text": "no longer depends on kkt-shutdown-os (dev): StopSignals was the preview example's"
      },
      {
       "status": "decided",
@@ -22511,25 +23098,50 @@ window.KKT_PROPOSED = {
     ],
     "from": "kashkeshet",
     "items": [
-     "Contents",
-     "prune",
-     "write"
+     "Contents"
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Contents",
-       "prune",
-       "write"
+       "Contents"
       ],
       "role": "uses"
      }
     ],
     "target": null,
     "to": "kkt-backup"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kashkeshet",
+    "items": [
+     "prune",
+     "write"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "prune",
+       "write"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-backup-os"
    },
    {
     "features": [
@@ -23180,8 +23792,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "LogPolicy",
-     "RotatingFile"
+     "LogPolicy"
     ],
     "kind": "normal",
     "optional": false,
@@ -23190,8 +23801,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "LogPolicy",
-       "RotatingFile"
+       "LogPolicy"
       ],
       "role": "uses"
      }
@@ -23201,6 +23811,32 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-logs"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kashkeshet",
+    "items": [
+     "RotatingFile"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "RotatingFile"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-logs-os"
    },
    {
     "features": [],
@@ -23470,7 +24106,6 @@ window.KKT_PROPOSED = {
      "RulesSource",
      "RulesSources",
      "build",
-     "listen",
      "record_run"
     ],
     "kind": "normal",
@@ -23488,7 +24123,6 @@ window.KKT_PROPOSED = {
       "detail": [
        "AppConfig",
        "build",
-       "listen",
        "record_run"
       ],
       "role": "uses"
@@ -23508,6 +24142,32 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-server"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kashkeshet",
+    "items": [
+     "listen"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "listen"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-server-listen"
    },
    {
     "features": [
@@ -23791,23 +24451,48 @@ window.KKT_PROPOSED = {
     ],
     "from": "kashkeshet",
     "items": [
-     "Shutdown",
-     "StopSignals"
+     "Shutdown"
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Shutdown",
-       "StopSignals"
+       "Shutdown"
       ],
       "role": "uses"
      }
     ],
     "target": null,
     "to": "kkt-shutdown"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kashkeshet",
+    "items": [
+     "StopSignals"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "StopSignals"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-shutdown-os"
    },
    {
     "features": [
@@ -24275,6 +24960,34 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-scratch"
+   },
+   {
+    "features": [],
+    "from": "kkt-backup-os",
+    "items": [
+     "Contents",
+     "DATABASE_FILE",
+     "name"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Contents",
+       "DATABASE_FILE",
+       "name"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-backup"
    },
    {
     "features": [],
@@ -25322,8 +26035,7 @@ window.KKT_PROPOSED = {
      "Parts",
      "RulesSource",
      "RulesSources",
-     "build",
-     "listen"
+     "build"
     ],
     "kind": "normal",
     "optional": false,
@@ -25341,8 +26053,7 @@ window.KKT_PROPOSED = {
        "AppConfig",
        "Identified",
        "Identifying",
-       "build",
-       "listen"
+       "build"
       ],
       "role": "uses"
      },
@@ -25361,6 +26072,32 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-server"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-fake-product",
+    "items": [
+     "listen"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "listen"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-server-listen"
    },
    {
     "features": [],
@@ -25392,23 +26129,48 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-fake-product",
     "items": [
-     "Shutdown",
-     "StopSignals"
+     "Shutdown"
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Shutdown",
-       "StopSignals"
+       "Shutdown"
       ],
       "role": "uses"
      }
     ],
     "target": null,
     "to": "kkt-shutdown"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-fake-product",
+    "items": [
+     "StopSignals"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "StopSignals"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-shutdown-os"
    },
    {
     "features": [],
@@ -26401,7 +27163,6 @@ window.KKT_PROPOSED = {
      "RulesSource",
      "RulesSources",
      "build",
-     "listen",
      "record_run"
     ],
     "kind": "normal",
@@ -26419,7 +27180,6 @@ window.KKT_PROPOSED = {
       "detail": [
        "AppConfig",
        "build",
-       "listen",
        "record_run"
       ],
       "role": "uses"
@@ -26439,6 +27199,32 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-server"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-keymode",
+    "items": [
+     "listen"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "listen"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-server-listen"
    },
    {
     "features": [],
@@ -26480,23 +27266,48 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-keymode",
     "items": [
-     "Shutdown",
-     "StopSignals"
+     "Shutdown"
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Shutdown",
-       "StopSignals"
+       "Shutdown"
       ],
       "role": "uses"
      }
     ],
     "target": null,
     "to": "kkt-shutdown"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-keymode",
+    "items": [
+     "StopSignals"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "StopSignals"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-shutdown-os"
    },
    {
     "features": [],
@@ -26638,6 +27449,53 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-scratch"
+   },
+   {
+    "features": [],
+    "from": "kkt-logs-os",
+    "items": [
+     "Clock"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Clock"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-logs-os",
+    "items": [
+     "LOG_PRUNE_INTERVAL",
+     "LogPolicy"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "LOG_PRUNE_INTERVAL",
+       "LogPolicy"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-logs"
    },
    {
     "features": [],
@@ -28060,6 +28918,30 @@ window.KKT_PROPOSED = {
     "to": "kkt-web"
    },
    {
+    "features": [],
+    "from": "kkt-server-listen",
+    "items": [
+     "App"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "App"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-server"
+   },
+   {
     "features": [
      "testing"
     ],
@@ -28344,6 +29226,30 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-settings"
+   },
+   {
+    "features": [],
+    "from": "kkt-shutdown-os",
+    "items": [
+     "Shutdown"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Shutdown"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "follows"
+    ],
+    "target": null,
+    "to": "kkt-shutdown"
    },
    {
     "features": [],
@@ -29116,8 +30022,7 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-web-preview",
     "items": [
-     "Shutdown",
-     "StopSignals"
+     "Shutdown"
     ],
     "kind": "dev",
     "optional": false,
@@ -29126,8 +30031,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Shutdown",
-       "StopSignals"
+       "Shutdown"
       ],
       "role": "uses"
      }
@@ -29161,6 +30065,30 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "to": "kkt-shutdown"
+   },
+   {
+    "features": [],
+    "from": "kkt-web-preview",
+    "items": [
+     "StopSignals"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "StopSignals"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "to": "kkt-shutdown-os"
    },
    {
     "features": [],
@@ -29301,7 +30229,6 @@ window.KKT_PROPOSED = {
   "kind_mismatches": [
    "kkt-clock is marked contract but has behaviour: Span (9 methods), Time (12 methods), floor_text, from_text, and 1 more",
    "kkt-db is marked contract but has behaviour: Column (10 methods), Condition (3 methods), Database (3 methods), Delete (1 method), and 30 more",
-   "kkt-server is marked composition but its own `real` feature touches the machine",
    "kkt-entropy is marked contract but has behaviour: SeededEntropy (1 method), random_chars"
   ]
  },
@@ -29333,9 +30260,10 @@ window.KKT_PROPOSED = {
   "If it is used by two crates or fewer, each consumer declares its own contract, and the program adapts the implementation to it.",
   "Used by: crates other than the definer and the implementers that take the trait in a public slot or call through it, in normal dependencies. Test-only use is listed separately."
  ],
- "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves only the move that rests on A1.",
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves only the move that rests on A1. \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup, kkt-shutdown and kkt-logs.",
  "statuses": {
   "decided": "decided by Sam",
+  "follows": "follows from Sam's rule",
   "recommended": "recommended, pending Sam"
  },
  "stop_implementing": [
@@ -30160,11 +31088,7 @@ window.KKT_PROPOSED = {
    "trait": "kkt-web::Viewer"
   }
  ],
- "violations": [
-  "kkt-provenance depends on the effect crate kkt-logs",
-  "kkt-backup is still mixed: a contract or logic together with a real effect",
-  "kkt-shutdown is still mixed: a contract or logic together with a real effect"
- ],
+ "violations": [],
  "withdrawn": [
   {
    "id": "C1",

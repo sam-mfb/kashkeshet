@@ -778,6 +778,19 @@ def item7(graph, split_spec, problems):
             "replace": {("kkt-config", "Limits"): split_spec["limits"]["users"]}}
 
 
+def before_renames(split_spec, renames):
+    """config-split.json with each renamed crate under its old name."""
+    old_name = {rn["to"]: rn["from"] for rn in renames}
+    out = copy.deepcopy(split_spec)
+    for r in out["items"]:
+        r["to"] = old_name.get(r["to"], r["to"])
+    for part in out["limits"]["parts"]:
+        part["crate"] = old_name.get(part["crate"], part["crate"])
+    out["limits"]["users"] = {k: [f"{old_name.get(v.split('::')[0], v.split('::')[0])}::{v.split('::', 1)[1]}" for v in vs]
+                              for k, vs in out["limits"]["users"].items()}
+    return out
+
+
 def renamed_text(text, renames):
     for rn in renames:
         old, new = rn["from"], rn["to"]
@@ -822,9 +835,12 @@ def main():
     for name in spec["decisions"]:
         if name not in {r["trait"] for r in table}:
             problems.append(f"a decision for {name}, which is not a trait in the map")
-    # Item 7 is part of the proposal (Sam accepted it, msg 1979).
+    # Item 7 is part of the proposal (Sam accepted it, msg 1979). Its file
+    # names crates as the proposed map does; the moves run before the
+    # renames, so they take the old names.
     proposed, p_concerns, p_assembly, violations = build(graph, concerns, assembly, spec, problems,
-                                                         item7(graph, split_spec, problems))
+                                                         item7(graph, before_renames(split_spec, spec.get("renames", [])),
+                                                               problems))
     changes = diff(graph, proposed)
     if problems:
         sys.exit("proposed.json or config-split.json does not fit the map:\n  " + "\n  ".join(sorted(set(problems))))

@@ -50,7 +50,8 @@ Each box is outlined in its kind's colour, written by hand per crate:
 `kinds.py` checks what it can: a contract with behaviour (functions, or
 types with methods, outside `testing`), a logic crate that turns on `real`,
 an effect crate with no `real` feature and no I/O dependency, and a composition
-crate other than a program with a `real` feature of its own. It reports
+crate other than a program with a `real` feature of its own. In the proposed map
+that last one, like a mixed crate, is a violation. It reports
 a mismatch on the page and does not change the kind.
 
 ## Roles, contracts and slots

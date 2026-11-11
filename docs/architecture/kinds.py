@@ -59,7 +59,8 @@ def check(crates, edges, kind_of, mixed_allowed):
         if kind == "effect" and not turns_on_real(c, edges) and not IO_CRATES & set(c["third_party"]):
             mismatches.append(f"{c['name']} is marked effect but has no `real` feature and no I/O dependency")
         if kind == "composition" and not c["bins"] and "real" in c["features"]:
-            mismatches.append(f"{c['name']} is marked composition but its own `real` feature touches the machine")
+            text = f"{c['name']} is marked composition but its own `real` feature touches the machine"
+            (mismatches if mixed_allowed else violations).append(text)
         if kind == "mixed" and not mixed_allowed:
             violations.append(f"{c['name']} is still mixed: a contract or logic together with a real effect")
     return mismatches, violations
