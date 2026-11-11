@@ -26,9 +26,9 @@ kkt-clock-system = { path = "../../crates/kkt-clock-system", features = ["real"]
 kkt-config = { path = "../../crates/kkt-config" }
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
 kkt-events = { path = "../../crates/kkt-events" }
-kkt-format = { path = "../../crates/kkt-format" }
+kkt-mcp-formatter = { path = "../../crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
-kkt-identity = { path = "../../crates/kkt-identity" }
+kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
 kkt-mcp = { path = "../../crates/kkt-mcp" }
 kkt-provenance = { path = "../../crates/kkt-provenance" }

@@ -16,9 +16,40 @@
 //! sequence for the server, so the second swarm's messages leave gaps in
 //! the first's; the check seeds the first swarm completely before the
 //! second, so its IDs are the same in both rounds.
+//!
+//! For other crates' tests, [`memory`] gives a store over kkt-db's
+//! in-memory database with the core's tables, and [`fail_next_write`]
+//! makes a change to it fail on cue.
 
 use super::*;
+use kkt_db::testing::{FaultyBackend, MemoryPlace};
 use std::fmt::Debug;
+
+/// A store over kkt-db's in-memory database, with the core's tables, for
+/// other crates' tests. It becomes Rules over the same database when the
+/// operations move to kkt-api-agent (step 5.3).
+pub fn memory() -> Result<Db, StoreError> {
+    let backend = MemoryPlace::new().open(&[schema()])?;
+    let faults = FaultyBackend::new(backend);
+    let mut db = Db::new(Arc::new(faults.clone()));
+    db.faults = Some(faults);
+    Ok(db)
+}
+
+/// Makes the next change to `table` through `db`, a store [`memory`] made,
+/// fail, for tests of what a failed write leaves. Fails for a store
+/// [`memory`] did not make.
+pub fn fail_next_write(db: &Db, table: &'static str) -> Result<(), StoreError> {
+    match &db.faults {
+        Some(faults) => {
+            faults.fail_next_change_to(table);
+            Ok(())
+        }
+        None => Err(StoreError::Database(
+            "fail_next_write takes a store testing::memory made".into(),
+        )),
+    }
+}
 
 const AT: &str = "2026-11-08T12:00:00Z";
 

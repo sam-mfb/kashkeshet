@@ -74,8 +74,7 @@ mod tests {
     use kkt_clock::testing::FixedClock;
     use kkt_entropy::testing::SeqEntropy;
     use kkt_hosts::AllowedHosts;
-    use kkt_identity::KeyMode;
-    use kkt_rules::Db;
+    use kkt_identity_keymode::KeyMode;
     use kkt_server::{AppConfig, Parts, build};
     use kkt_shutdown::Shutdown;
     use kkt_web::testing::start_time;
@@ -85,18 +84,11 @@ mod tests {
 
     fn app(shutdown: &Shutdown) -> App {
         let parts = Parts::new(
-            {
-                let place = kkt_db::testing::MemoryPlace::new();
-                Db::new(
-                    place
-                        .open(&[kkt_rules::schema()])
-                        .expect("the core's tables"),
-                )
-            },
+            kkt_rules::testing::memory().expect("an in-memory store"),
             Arc::new(FixedClock::new(start_time())),
             Arc::new(SeqEntropy::new(1)),
             Arc::new(KeyMode::new(None)),
-            &kkt_format::Settings::DEFAULT,
+            &kkt_mcp_formatter::Settings::DEFAULT,
             &kkt_events::Settings::DEFAULT,
             1,
         );

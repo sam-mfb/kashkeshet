@@ -30,9 +30,10 @@ kkt-clock-system = { path = "../../crates/kkt-clock-system", features = ["real"]
 # The program's database file.
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
 kkt-events = { path = "../../crates/kkt-events" }
-kkt-format = { path = "../../crates/kkt-format" }
+kkt-mcp-formatter = { path = "../../crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }
+kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
 kkt-entropy = { path = "../../crates/kkt-entropy" }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
 kkt-mcp = { path = "../../crates/kkt-mcp" }
@@ -48,9 +49,9 @@ serde_json.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+# The tests' store, in memory.
+kkt-rules = { path = "../../crates/kkt-rules", features = ["testing"] }
 # Seeded randomness, so two runs can be compared.
 kkt-entropy = { path = "../../crates/kkt-entropy", features = ["testing"] }
-# The tests' database, in memory.
-kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["testing"] }
 # A clock that stays put, so two runs can be compared.
 kkt-clock = { path = "../../crates/kkt-clock", features = ["testing"] }

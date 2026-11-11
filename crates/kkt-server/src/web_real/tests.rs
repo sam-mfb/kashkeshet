@@ -10,12 +10,13 @@ use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::SeqEntropy;
 use kkt_events::Events;
-use kkt_identity::{Identified, Identify, Identifying, KeyMode};
+use kkt_identity::{Identified, Identify, Identifying};
+use kkt_identity_keymode::KeyMode;
 use kkt_names as names;
+use kkt_rules::NewServerRunRecord;
 use kkt_rules::{
     Agent, Audit, Code, Deps, NewChannel, Operator, Permission, RuleError, Rules, SwarmId,
 };
-use kkt_rules::{Db, NewServerRunRecord};
 use kkt_web::testing::{
     ACTIVITY_BUCKET, ACTIVITY_WINDOW, ChannelHidden, administration_works, agent_row,
     announcement_editor_works, changes_work, channel_creation_works, channel_row,
@@ -112,14 +113,7 @@ async fn rules_world_and_db(
     kkt_rules::CommandLine,
 ) {
     let clock = Arc::new(FixedClock::new(start_time()));
-    let db = {
-        let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
-        Db::new(
-            place
-                .open(&[kkt_rules::schema()])
-                .expect("the core's tables"),
-        )
-    };
+    let db = { kkt_rules::testing::memory().expect("an in-memory store") };
     // An earlier run, from before an upgrade, with values as long as real
     // ones, then this run.
     db.write(|w| {
@@ -155,7 +149,7 @@ async fn rules_world_and_db(
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
         settings,
-        wording: Arc::new(kkt_format::NoticeWording),
+        wording: Arc::new(kkt_mcp_formatter::NoticeWording),
     });
     let mut agents = Vec::new();
     for _ in 0..2 {

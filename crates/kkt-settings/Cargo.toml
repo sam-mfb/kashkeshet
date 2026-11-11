@@ -10,7 +10,7 @@ publish = false
 [dependencies]
 kkt-admission = { path = "../kkt-admission" }
 kkt-config = { path = "../kkt-config" }
-kkt-format = { path = "../kkt-format" }
+kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-names = { path = "../kkt-names" }
 kkt-web = { path = "../kkt-web" }
 toml.workspace = true

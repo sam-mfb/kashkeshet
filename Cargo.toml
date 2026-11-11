@@ -18,14 +18,15 @@ members = [
     "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
     "crates/kkt-events",
-    "crates/kkt-format",
     "crates/kkt-hash",
     "crates/kkt-hosts",
     "crates/kkt-identity",
+    "crates/kkt-identity-keymode",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-logs",
     "crates/kkt-mcp",
+    "crates/kkt-mcp-formatter",
     "crates/kkt-names",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
@@ -62,14 +63,15 @@ default-members = [
     "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
     "crates/kkt-events",
-    "crates/kkt-format",
     "crates/kkt-hash",
     "crates/kkt-hosts",
     "crates/kkt-identity",
+    "crates/kkt-identity-keymode",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-logs",
     "crates/kkt-mcp",
+    "crates/kkt-mcp-formatter",
     "crates/kkt-names",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
@@ -173,10 +175,10 @@ kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
 kkt-events = { path = "crates/kkt-events" }
-kkt-format = { path = "crates/kkt-format" }
+kkt-mcp-formatter = { path = "crates/kkt-mcp-formatter" }
 kkt-hash = { path = "crates/kkt-hash" }
 kkt-hosts = { path = "crates/kkt-hosts" }
-kkt-identity = { path = "crates/kkt-identity" }
+kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs", features = ["real"] }

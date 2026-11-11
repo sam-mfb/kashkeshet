@@ -1,0 +1,23 @@
+[package]
+name = "kkt-identity-keymode"
+description = "Key mode's identity: KeyMode, kkt-identity's Identify for a server let in by its keys"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-admission = { path = "../kkt-admission" }
+kkt-identity = { path = "../kkt-identity" }
+kkt-names = { path = "../kkt-names" }
+kkt-rules = { path = "../kkt-rules" }
+
+[dev-dependencies]
+# Rules over an in-memory database, to check that key mode refuses a bearer
+# even with a good agent token.
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-events = { path = "../kkt-events" }
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
+kkt-rules = { path = "../kkt-rules", features = ["testing"] }
+tokio = { workspace = true, features = ["macros", "rt"] }

@@ -21,7 +21,7 @@ use kkt_config::LogPolicy;
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
-use kkt_identity::KeyMode;
+use kkt_identity_keymode::KeyMode;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts};
@@ -157,7 +157,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         clock,
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
-        &kkt_format::Settings {
+        &kkt_mcp_formatter::Settings {
             max_response_bytes: limits.max_response_bytes,
         },
         &kkt_events::Settings::DEFAULT,

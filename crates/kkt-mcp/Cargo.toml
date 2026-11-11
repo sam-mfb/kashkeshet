@@ -10,7 +10,7 @@ publish = false
 [dependencies]
 axum.workspace = true
 kkt-admission = { path = "../kkt-admission" }
-kkt-format = { path = "../kkt-format" }
+kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity = { path = "../kkt-identity" }
 kkt-names = { path = "../kkt-names" }
@@ -25,8 +25,9 @@ tokio-util.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+# Key mode, the identity the tests run the surfaces with.
+kkt-identity-keymode = { path = "../kkt-identity-keymode" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-db-sqlite = { path = "../kkt-db-sqlite", features = ["testing"] }
 kkt-events = { path = "../kkt-events" }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
 kkt-rules = { path = "../kkt-rules", features = ["testing"] }

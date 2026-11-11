@@ -16,11 +16,12 @@
     },
     {
      "title": "Database",
-     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db, opens it with the core's tables; the kkt-db Backend its open gives is the store's database.",
+     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db as kkt-rules' history describes it in kkt-db's Legacy shape, with the program's too-old message, opens it with the core's tables; the kkt-db Backend its open gives is the store's database.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
       "kkt-db::Legacy",
+      "kkt-rules::legacy",
       "kkt-rules::schema",
       "kkt-db::Backend",
       "kkt-rules::Db"
@@ -42,7 +43,7 @@
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy",
-      "kkt-identity::KeyMode"
+      "kkt-identity-keymode::KeyMode"
      ],
      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
     },
@@ -153,7 +154,7 @@
      ]
     },
     {
-     "impl": "kkt-identity::KeyMode",
+     "impl": "kkt-identity-keymode::KeyMode",
      "crate": "kkt-server",
      "to": [
       {
@@ -629,7 +630,7 @@
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy",
-      "kkt-identity::KeyMode",
+      "kkt-identity-keymode::KeyMode",
       "kkt-server::AppConfig",
       "kkt-admission::AdminAdmission",
       "kkt-hosts::AllowedHosts"
@@ -704,7 +705,7 @@
      ]
     },
     {
-     "impl": "kkt-identity::KeyMode",
+     "impl": "kkt-identity-keymode::KeyMode",
      "crate": "kkt-server",
      "to": [
       {
@@ -892,7 +893,7 @@
      ]
     },
     {
-     "impl": "kkt-format::Formatter",
+     "impl": "kkt-mcp-formatter::Formatter",
      "crate": "kkt-mcp",
      "to": [
       {
@@ -921,7 +922,7 @@
      ]
     },
     {
-     "impl": "kkt-format::NoticeWording",
+     "impl": "kkt-mcp-formatter::NoticeWording",
      "crate": "kkt-rules",
      "to": [
       {

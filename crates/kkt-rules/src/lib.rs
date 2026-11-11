@@ -123,7 +123,7 @@ pub use store::{
     NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord,
     NewerFilter, NoteEditRecord, Reads, SearchFilter, SearchHitRecord, SentFilter,
     ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, SwarmId, TakenLaneRecord,
-    Writes, schema,
+    Writes, legacy, schema,
 };
 
 use access::{Decision, Need, Viewer, Who};

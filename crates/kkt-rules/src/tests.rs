@@ -44,8 +44,8 @@ fn unnamed_admin() -> Operator {
     )
 }
 
-/// The words the server gives the rules for the operator, as kkt-format's
-/// `NoticeWording` does; kkt-format depends on these rules, so the tests
+/// The words the server gives the rules for the operator, as kkt-mcp-formatter's
+/// `NoticeWording` does; kkt-mcp-formatter depends on these rules, so the tests
 /// keep their own copy.
 struct TestWording;
 

@@ -18,7 +18,8 @@ use kkt_admission::{AdminAdmission, Admission, Principal};
 use kkt_clock::Clock;
 use kkt_entropy::Entropy;
 use kkt_hosts::AllowedHosts;
-use kkt_identity::{Identified, Identify, Identifying, KeyMode};
+use kkt_identity::{Identified, Identify, Identifying};
+use kkt_identity_keymode::KeyMode;
 use kkt_names::AdminName;
 use kkt_rules::{
     self as rules, Agent, Audit, Code, Operator, Permission, Permissions, RuleError, Rules, SwarmId,
@@ -175,7 +176,7 @@ pub struct Settings {
     /// What the rules enforce and fill in.
     pub rules: kkt_rules::Settings,
     /// How large a response may be.
-    pub fmt: kkt_format::Settings,
+    pub fmt: kkt_mcp_formatter::Settings,
     /// How much the web page shows at once.
     pub web: kkt_web::Settings,
     /// How the MCP endpoints' event streams keep in touch with clients.
@@ -190,7 +191,7 @@ impl Settings {
     /// Every part's defaults.
     pub const DEFAULT: Settings = Settings {
         rules: kkt_rules::Settings::DEFAULT,
-        fmt: kkt_format::Settings::DEFAULT,
+        fmt: kkt_mcp_formatter::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
         mcp: kkt_mcp::Settings::DEFAULT,
         sessions: kkt_admission::Settings::DEFAULT,
