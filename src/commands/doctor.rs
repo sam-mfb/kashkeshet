@@ -4,12 +4,13 @@
 
 use crate::machine::client_config::ClientHost;
 use crate::machine::connection::{ConnectionOptions, client_connection, recorded_connection};
+use crate::machine::diagnostics::DiagnosticProber;
 use crate::machine::keys::{KeyKind, local_operator_key, local_web_key};
 use crate::machine::record::{read_setup, read_unfinished, read_unrecorded, unfinished_mode};
 use crate::machine::service::ServiceSystem;
 use crate::machine::settings::ServeArgs;
 use kkt_client_config as clients;
-use kkt_diagnostics::{self as diagnostics, OsProber, SETUP_CHECK};
+use kkt_diagnostics::{self as diagnostics, SETUP_CHECK};
 use kkt_provenance::Build;
 use kkt_service::Manager;
 use kkt_settings::Env;
@@ -34,7 +35,7 @@ pub async fn run(env: &Env, serve_args: ServeArgs, flags: ConnectionOptions) -> 
         Some(record) if flags.config.is_none() => recorded_connection(record.for_clients(), flags)?,
         _ => client_connection(env, flags, false)?,
     };
-    let inspector = diagnostics::Inspector::new(&OsProber);
+    let inspector = diagnostics::Inspector::new(&DiagnosticProber);
     let server = diagnostics::ServerLines::inspect(
         inspector,
         &connection.url,

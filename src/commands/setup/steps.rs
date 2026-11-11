@@ -10,6 +10,7 @@ use crate::commands::lanes::{
 use crate::commands::service::{self, ServiceAction, ServiceInstall};
 use crate::machine::client_config::ClientHost;
 use crate::machine::connection::{ConnectionOptions, serve_connection};
+use crate::machine::diagnostics::DiagnosticProber;
 use crate::machine::keys::{admin_key_collision, new_key_file, write_admin_name, write_key_file};
 use crate::machine::record::{
     docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded, write_setup_record,
@@ -22,7 +23,7 @@ use crate::terminal::browser_login;
 use kkt_client_config::{self as clients, Client, Setup};
 use kkt_clock_system::SystemClock;
 use kkt_config as config;
-use kkt_diagnostics::{self as diagnostics, Inspector, OsProber, point_server_fix_at};
+use kkt_diagnostics::{self as diagnostics, Inspector, point_server_fix_at};
 use kkt_lane_files as lane_files;
 use kkt_names::AdminName;
 use kkt_service::Manager;
@@ -227,7 +228,7 @@ impl setup::Steps for OsSteps<'_> {
         let note = waiting_note(&server.url, &mode);
         let mut checks =
             tokio::runtime::Handle::current().block_on(diagnostics::until_reachable(
-                Inspector::new(&OsProber),
+                Inspector::new(&DiagnosticProber),
                 &SystemClock,
                 &server.url,
                 server.key_file.as_deref(),
@@ -419,8 +420,8 @@ fn connect(env: &Env, client: Client, record: &setup::Record) -> Result<String, 
 /// Checks, changing nothing, that a server answers at `url` and accepts its
 /// host name.
 fn check_address(url: &str) -> Result<(), String> {
-    let mut checks =
-        tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(url))?;
+    let mut checks = tokio::runtime::Handle::current()
+        .block_on(diagnostics::inspect_address(&DiagnosticProber, url))?;
     point_server_fix_at(
         &mut checks,
         "check the address, and that the server is running on its machine",
@@ -432,11 +433,17 @@ fn check_address(url: &str) -> Result<(), String> {
 fn check_key(url: &str, key: &setup::ClientKey) -> Result<(), String> {
     let runtime = tokio::runtime::Handle::current();
     let checks = match key {
-        setup::ClientKey::None => runtime.block_on(diagnostics::inspect_with_key(url, None)),
-        setup::ClientKey::Typed(key) => {
-            runtime.block_on(diagnostics::inspect_with_key(url, Some(key)))
+        setup::ClientKey::None => {
+            runtime.block_on(diagnostics::inspect_with_key(&DiagnosticProber, url, None))
         }
-        setup::ClientKey::File(path) => runtime.block_on(diagnostics::inspect(url, Some(path))),
+        setup::ClientKey::Typed(key) => runtime.block_on(diagnostics::inspect_with_key(
+            &DiagnosticProber,
+            url,
+            Some(key),
+        )),
+        setup::ClientKey::File(path) => {
+            runtime.block_on(diagnostics::inspect(&DiagnosticProber, url, Some(path)))
+        }
     }?;
     only_problems(checks)
 }

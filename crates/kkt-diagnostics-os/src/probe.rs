@@ -1,17 +1,22 @@
 //! [`OsProber`]: what touches the machine, reading key files and probing a
 //! server over HTTP. reqwest's types stay in this file.
 
-use super::{Check, KEY_CHECK, KeyFile, Prober, Probing, SERVER_CHECK};
-use kkt_config::{DOCTOR_MAX_RESPONSE_BYTES, DOCTOR_PROTOCOL_VERSION, DOCTOR_TIMEOUT};
+use super::{Check, KeyFile, Probing, Settings};
 use reqwest::{Client, Response, Url, redirect::Policy};
 use serde_json::{Value, json};
 use std::path::Path;
 
-/// The real [`Prober`]: reads files with `std::fs` and probes over HTTP.
-pub struct OsProber;
+/// Reads files and probes HTTP, returning this effect's own records.
+pub struct OsProber {
+    settings: Settings,
+}
 
-impl Prober for OsProber {
-    fn key_file(&self, path: &Path) -> Result<KeyFile, String> {
+impl OsProber {
+    pub fn new(settings: Settings) -> Self {
+        Self { settings }
+    }
+
+    pub fn key_file(&self, path: &Path) -> Result<KeyFile, String> {
         let metadata = std::fs::metadata(path).map_err(|e| e.to_string())?;
         Ok(KeyFile {
             mode: mode(&metadata),
@@ -19,8 +24,8 @@ impl Prober for OsProber {
         })
     }
 
-    fn probe<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a> {
-        Box::pin(probe(url, key))
+    pub fn probe<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a> {
+        Box::pin(probe(url, key, self.settings))
     }
 }
 
@@ -46,14 +51,14 @@ fn initialized(text: &[u8]) -> Option<Value> {
         .find(|value| value.get("result").is_some() || value.get("error").is_some())
 }
 
-async fn initialize_response(mut response: Response) -> Result<Value, String> {
+async fn initialize_response(mut response: Response, settings: Settings) -> Result<Value, String> {
     let mut body = Vec::new();
     while let Some(chunk) = response
         .chunk()
         .await
         .map_err(|e| format!("could not read MCP response: {e}"))?
     {
-        if body.len() + chunk.len() > DOCTOR_MAX_RESPONSE_BYTES {
+        if body.len() + chunk.len() > settings.max_response_bytes {
             return Err("MCP response exceeded the diagnostic size limit".into());
         }
         body.extend_from_slice(&chunk);
@@ -64,10 +69,10 @@ async fn initialize_response(mut response: Response) -> Result<Value, String> {
     Err("the endpoint did not return an MCP initialize result".into())
 }
 
-fn http_client() -> Result<Client, String> {
+fn http_client(settings: Settings) -> Result<Client, String> {
     Client::builder()
-        .timeout(DOCTOR_TIMEOUT)
-        .connect_timeout(DOCTOR_TIMEOUT)
+        .timeout(settings.timeout)
+        .connect_timeout(settings.timeout)
         .redirect(Policy::none())
         .no_proxy()
         .https_only(false)
@@ -78,19 +83,22 @@ fn http_client() -> Result<Client, String> {
 
 /// Adds whether the server answers at `url` and accepts its host name to
 /// `checks`. Returns whether both did.
-async fn reach(client: &Client, url: &Url, checks: &mut Vec<Check>) -> bool {
+async fn reach(client: &Client, url: &Url, checks: &mut Vec<Check>, settings: Settings) -> bool {
     let response = match client.get(url.clone()).send().await {
         Ok(response) => response,
         Err(e) => {
             checks.push(Check::problem(
-                SERVER_CHECK,
+                settings.server_check,
                 e.to_string(),
                 "run `kkt service start` or `kkt serve`, and check --url and the bind setting",
             ));
             return false;
         }
     };
-    checks.push(Check::ok(SERVER_CHECK, format!("reachable at {url}")));
+    checks.push(Check::ok(
+        settings.server_check,
+        format!("reachable at {url}"),
+    ));
     if response.status().as_u16() == 403 {
         checks.push(Check::problem(
             "Host",
@@ -107,15 +115,15 @@ async fn reach(client: &Client, url: &Url, checks: &mut Vec<Check>) -> bool {
 }
 
 /// The server checks for `url`, using `key`.
-async fn probe(url: &str, key: Option<&str>) -> Result<Vec<Check>, String> {
+async fn probe(url: &str, key: Option<&str>, settings: Settings) -> Result<Vec<Check>, String> {
     let mut checks = Vec::new();
-    let client = http_client()?;
+    let client = http_client(settings)?;
     let url = Url::parse(url).map_err(|_| "invalid diagnostic URL")?;
-    if !reach(&client, &url, &mut checks).await {
+    if !reach(&client, &url, &mut checks, settings).await {
         return Ok(checks);
     }
     let request = json!({"jsonrpc":"2.0", "id":1, "method":"initialize", "params":{
-        "protocolVersion": DOCTOR_PROTOCOL_VERSION,
+        "protocolVersion": settings.protocol_version,
         "capabilities": {}, "clientInfo":{"name":"kkt-doctor", "version":env!("CARGO_PKG_VERSION")}
     }});
     let mut post = client
@@ -138,7 +146,7 @@ async fn probe(url: &str, key: Option<&str>) -> Result<Vec<Check>, String> {
         }
     };
     if response.status().as_u16() == 401 {
-        checks.push(Check::problem(KEY_CHECK, "server returned 401", "pass --key-file with the key used by the running server, or restart it after changing keys"));
+        checks.push(Check::problem(settings.key_check, "server returned 401", "pass --key-file with the key used by the running server, or restart it after changing keys"));
         return Ok(checks);
     }
     if response.status().as_u16() != 200 {
@@ -150,12 +158,12 @@ async fn probe(url: &str, key: Option<&str>) -> Result<Vec<Check>, String> {
         return Ok(checks);
     }
     let session = response.headers().get("mcp-session-id").cloned();
-    let initialized = initialize_response(response).await;
+    let initialized = initialize_response(response, settings).await;
     if let Some(session) = session {
         let mut delete = client
             .delete(url)
             .header("mcp-session-id", session)
-            .header("MCP-Protocol-Version", DOCTOR_PROTOCOL_VERSION);
+            .header("MCP-Protocol-Version", settings.protocol_version);
         if let Some(key) = key {
             delete = delete.bearer_auth(key);
         }
@@ -176,7 +184,7 @@ async fn probe(url: &str, key: Option<&str>) -> Result<Vec<Check>, String> {
     match initialized {
         Ok(value) => match value.get("result").and_then(|r| r.get("serverInfo")) {
             Some(info) => {
-                checks.push(Check::ok(KEY_CHECK, "MCP initialize returned 200"));
+                checks.push(Check::ok(settings.key_check, "MCP initialize returned 200"));
                 let version = info
                     .get("version")
                     .and_then(Value::as_str)

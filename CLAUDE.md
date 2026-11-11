@@ -97,7 +97,8 @@ has none.
 | `kkt-remote-access-os` | The machine's `tailscale` command, as plain `OsHost` methods | Decide how the server is shared | `real`: `OsHost` |
 | `kkt-client-config` | Client MCP configs and their file formats | Touch the machine except through `Host` | none |
 | `kkt-client-config-os` | The machine's client-config files and `claude` command, as plain `OsHost` methods | Decide a client config's content | `real`: `OsHost` |
-| `kkt-diagnostics` | `kkt doctor`'s checks and their plan; setup's wait for a new server | Change anything; touch the machine except through `Prober` | `real`: `OsProber`, the key file reads and probes (turns on `reqwest`) |
+| `kkt-diagnostics` | `kkt doctor`'s checks and their plan; setup's wait for a new server | Change anything; touch the machine except through `Prober` | none |
+| `kkt-diagnostics-os` | The machine's key files and HTTP probe, returning its own records | Let reqwest types out of the crate | `real`: `OsProber` |
 | `kkt-backup` | Backup folders: names, contents, file modes, pruning | Read the clock or copy the database itself: the caller passes both | `real`: `write`, `prune` |
 | `kkt-lane-files` | Lanes as files: the `<lane>.md` format and the folder's git commit | Touch the machine except through `Disk` and `git::Git` | none |
 | `kkt-lane-files-os` | The machine's files and git for lane folders, as plain `OsDisk` methods; the program adapts it to `kkt-lane-files` | Decide which lanes to import or export | `real`: `OsDisk` |

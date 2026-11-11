@@ -1050,6 +1050,7 @@ dependencies = [
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
+ "kkt-diagnostics-os",
  "kkt-entropy-os",
  "kkt-hash",
  "kkt-hosts",
@@ -1199,9 +1200,15 @@ version = "0.10.0"
 dependencies = [
  "kkt-clock",
  "kkt-config",
+ "url",
+]
+
+[[package]]
+name = "kkt-diagnostics-os"
+version = "0.10.0"
+dependencies = [
  "reqwest",
  "serde_json",
- "url",
 ]
 
 [[package]]

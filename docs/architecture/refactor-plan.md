@@ -141,6 +141,7 @@ adds a row in its own pull request.
 | kkt-remote-access-os returns its own output and I/O error, which the program maps to the remote-access host contract | 2.3 | The effect has no dependencies; the adapter preserves all output fields and launch-failure advice |
 | kkt-client-config-os states its own 0600 private-file mode beside the file operations | 2.4 | This is the same fixed value as before, placed with its writer early so the effect depends on neither client-config nor kkt-config |
 | kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter) and kkt-web, six arrows the proposal does not draw | 3.1d (#424) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server |
+| kkt-diagnostics-os still interprets server answers (status meanings and advice text) as it sends them | 2.5 | Mechanical move accepted by Sam, 2026-11-11. Moving the probe sequence into diagnostics for a deeper facts/logic split remains a candidate follow-up for 8.1 |
 
 ## The steps
 

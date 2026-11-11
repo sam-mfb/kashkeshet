@@ -17,6 +17,7 @@ members = [
     "crates/kkt-entropy",
     "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
+    "crates/kkt-diagnostics-os",
     "crates/kkt-events",
     "crates/kkt-format",
     "crates/kkt-hash",
@@ -62,6 +63,7 @@ default-members = [
     "crates/kkt-entropy",
     "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
+    "crates/kkt-diagnostics-os",
     "crates/kkt-events",
     "crates/kkt-format",
     "crates/kkt-hash",
@@ -173,7 +175,8 @@ kkt-config = { path = "crates/kkt-config" }
 kkt-container = { path = "crates/kkt-container", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
-kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
+kkt-diagnostics = { path = "crates/kkt-diagnostics" }
+kkt-diagnostics-os = { path = "crates/kkt-diagnostics-os", features = ["real"] }
 kkt-hash = { path = "crates/kkt-hash" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity = { path = "crates/kkt-identity" }

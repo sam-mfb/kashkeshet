@@ -195,7 +195,13 @@
    "layer": "operations",
    "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server.",
    "must_not": "Change anything, or touch the machine except through `Prober`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-diagnostics-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's key files and diagnostic HTTP probe, returning its own records.",
+   "must_not": "Let reqwest types out of the crate."
   },
   "kkt-backup": {
    "layer": "operations",

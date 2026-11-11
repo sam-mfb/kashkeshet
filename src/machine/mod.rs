@@ -6,6 +6,7 @@ pub mod client_config;
 pub mod connection;
 pub(crate) mod credentials;
 pub mod database;
+pub mod diagnostics;
 pub mod keys;
 pub mod record;
 pub(crate) mod remote_access;
