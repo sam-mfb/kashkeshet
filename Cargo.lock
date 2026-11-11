@@ -1087,7 +1087,6 @@ dependencies = [
  "kkt-terminal-os",
  "kkt-watch",
  "kkt-web",
- "libc",
  "reqwest",
  "rmcp",
  "rusqlite",
@@ -1121,6 +1120,8 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-clock",
+ "kkt-scratch",
+ "libc",
  "reqwest",
  "rmcp",
  "serde_json",

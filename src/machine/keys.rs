@@ -345,6 +345,7 @@ fn name_read_error(e: ReadError) -> String {
 }
 impl KeyTexts for ServerKeyFiles<'_> {
     type Error = String;
+    // Serve makes a missing default first; service installation only reads.
     fn access(&mut self) -> Result<Option<KeyText>, String> {
         self.0
             .access()
