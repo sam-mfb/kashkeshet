@@ -19,7 +19,10 @@
    "kind": "effect",
    "from": "kkt-clock",
    "status": "decided",
-   "concern": "The system clock and its sleep: `SystemClock`, a plain type that implements nothing; each program adapts it to kkt-clock's `Clock`. kkt-clock's `real` feature moves here."
+   "concern": "The system clock and its sleep: `SystemClock`, a plain type that implements nothing; each program adapts it to kkt-clock's `Clock`. kkt-clock's `real` feature moves here.",
+   "third_party": [
+    "tokio"
+   ]
   },
   {
    "name": "kkt-entropy",
@@ -35,7 +38,10 @@
    "kind": "effect",
    "from": "kkt-names",
    "status": "decided",
-   "concern": "Randomness from the operating system: `OsEntropy`, a plain type that implements nothing; each program adapts it to kkt-entropy's `Entropy`. kkt-names' `real` feature moves here."
+   "concern": "Randomness from the operating system: `OsEntropy`, a plain type that implements nothing; each program adapts it to kkt-entropy's `Entropy`. kkt-names' `real` feature moves here.",
+   "third_party": [
+    "rand"
+   ]
   },
   {
    "name": "kkt-container-os",
@@ -75,7 +81,10 @@
    "kind": "effect",
    "from": "kkt-diagnostics",
    "status": "decided",
-   "concern": "Key file reads and network probes: `OsProber`, a plain type that implements nothing; the program adapts it to kkt-diagnostics's `Prober`. kkt-diagnostics's `real` feature moves here."
+   "concern": "Key file reads and network probes: `OsProber`, a plain type that implements nothing; the program adapts it to kkt-diagnostics's `Prober`. kkt-diagnostics's `real` feature moves here.",
+   "third_party": [
+    "reqwest"
+   ]
   },
   {
    "name": "kkt-lane-files-os",
@@ -116,7 +125,11 @@
    "kind": "effect",
    "from": "kkt-server",
    "status": "follows",
-   "concern": "Binding the server to its socket and serving it: `listen` and `Listening`, which only the programs use. kkt-server's `real` feature moves here. It serves kkt-server's built `App`, so it needs axum (C7)."
+   "concern": "Binding the server to its socket and serving it: `listen` and `Listening`, which only the programs use. kkt-server's `real` feature moves here. It serves kkt-server's built `App`, so it needs axum (C7).",
+   "third_party": [
+    "axum",
+    "tokio"
+   ]
   },
   {
    "name": "kkt-backup-os",
@@ -132,7 +145,10 @@
    "kind": "effect",
    "from": "kkt-shutdown",
    "status": "follows",
-   "concern": "The operating system's stop signals: `StopSignals`, which the programs install and which stop kkt-shutdown's `Shutdown`. kkt-shutdown's `real` feature moves here."
+   "concern": "The operating system's stop signals: `StopSignals`, which the programs install and which stop kkt-shutdown's `Shutdown`. kkt-shutdown's `real` feature moves here.",
+   "third_party": [
+    "tokio"
+   ]
   }
  ],
  "moves": [

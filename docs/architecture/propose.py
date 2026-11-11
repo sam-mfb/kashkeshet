@@ -121,7 +121,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         crates[new["name"]] = {
             "name": new["name"], "lib": new["name"].replace("-", "_"), "bins": [], "path": "(proposed)",
             "dev_only": False, "released_program": False, "features": {}, "crate_doc": "",
-            "third_party": [], "items": [], "slots": [], "implements": [], "contracts": [],
+            "third_party": new.get("third_party", []), "items": [], "slots": [], "implements": [], "contracts": [],
             "builds": [], "holders": [], "proposed": "new", "kind": new["kind"],
         }
         if new.get("program"):

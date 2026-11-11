@@ -11381,7 +11381,9 @@ window.KKT_PROPOSED = {
     ],
     "released_program": false,
     "slots": [],
-    "third_party": []
+    "third_party": [
+     "tokio"
+    ]
    },
    {
     "bins": [],
@@ -14078,7 +14080,9 @@ window.KKT_PROPOSED = {
     ],
     "released_program": false,
     "slots": [],
-    "third_party": []
+    "third_party": [
+     "reqwest"
+    ]
    },
    {
     "bins": [],
@@ -14307,7 +14311,9 @@ window.KKT_PROPOSED = {
     ],
     "released_program": false,
     "slots": [],
-    "third_party": []
+    "third_party": [
+     "rand"
+    ]
    },
    {
     "bins": [],
@@ -18699,7 +18705,10 @@ window.KKT_PROPOSED = {
     ],
     "released_program": false,
     "slots": [],
-    "third_party": []
+    "third_party": [
+     "axum",
+     "tokio"
+    ]
    },
    {
     "bins": [],
@@ -20401,7 +20410,9 @@ window.KKT_PROPOSED = {
     ],
     "released_program": false,
     "slots": [],
-    "third_party": []
+    "third_party": [
+     "tokio"
+    ]
    },
    {
     "bins": [],
