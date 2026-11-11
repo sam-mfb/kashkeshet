@@ -336,3 +336,5 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 .chip.role-text-implements { border-left-color: var(--implements); }
 .chip.role-text-uses { border-left-color: var(--uses); }
 .chip.role-text-wires { border-left-color: var(--wires); }
+.layer-toggle { cursor: pointer; }
+.layer-toggle input { margin: 0 4px 0 0; vertical-align: middle; }

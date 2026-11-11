@@ -41,6 +41,7 @@
     kinds: { normal: true, dev: false, build: false },
     hiddenKinds: new Set(),
     hiddenRoles: new Set(),
+    hiddenLayers: new Set(),
     hoveredEdge: null,
     featureItems: true,
     query: "",
@@ -81,7 +82,10 @@
   const placedCrate = (name) => state.showDevCrates || !crates.get(name).dev_only;
   const crateKind = (name) => concernOf(name).kind || "";
   const kindShown = (name) => !state.hiddenKinds.has(crateKind(name));
-  const visibleCrate = (name) => placedCrate(name) && kindShown(name);
+  // A crate in a hidden layer is not drawn, and its band closes up.
+  const crateLayer = (name) => concernOf(name).layer || "";
+  const layerShown = (name) => !state.hiddenLayers.has(crateLayer(name));
+  const visibleCrate = (name) => placedCrate(name) && kindShown(name) && layerShown(name);
   // An arrow's roles; one used only by tests or build scripts only uses.
   const edgeRoles = (e) => (e.kind === "normal" ? e.roles.map((r) => r.role) : ["uses"]);
   const shownRoles = (e) => edgeRoles(e).filter((r) => !state.hiddenRoles.has(r));
@@ -151,6 +155,13 @@
       }
       height = place();
     }
+    // Hidden layers go after the ordering, so each layer keeps its order
+    // and the others close up.
+    if (state.hiddenLayers.size) {
+      for (let i = rows.length - 1; i >= 0; i--) if (state.hiddenLayers.has(rows[i].layer.id)) rows.splice(i, 1);
+      position.clear();
+      height = place();
+    }
     return { rows, position, width, height: height + PAD_Y };
   }
 
@@ -170,6 +181,28 @@
             renderPanel();
           } }),
         el("span", { class: `role-key role-${role}` }), role)));
+  }
+
+  function layerFilters() {
+    const setLayers = (hidden) => {
+      state.hiddenLayers = new Set(hidden);
+      draw();
+      renderPanel();
+      renderResults();
+    };
+    const layers = concerns.layers.filter((l) => graph.crates.some((c) => crateLayer(c.name) === l.id));
+    $("layer-filters").replaceChildren(
+      ...layers.map((l) => el("label", { class: "layer-toggle", title: `${l.title}: ${l.about || ""}` },
+        el("input", { type: "checkbox", ...(state.hiddenLayers.has(l.id) ? {} : { checked: "" }),
+          onchange: (ev) => {
+            const hidden = new Set(state.hiddenLayers);
+            if (ev.target.checked) hidden.delete(l.id); else hidden.add(l.id);
+            setLayers(hidden);
+          } }),
+        l.title)),
+      el("span", { class: "kind-all" },
+        el("button", { class: "linkish", type: "button", title: "Show every layer", onclick: () => setLayers([]) }, "all"), "/",
+        el("button", { class: "linkish", type: "button", title: "Hide every layer", onclick: () => setLayers(layers.map((l) => l.id)) }, "none")));
   }
 
   function kindFilters() {
@@ -207,6 +240,7 @@
 
   function draw() {
     roleFilters();
+    layerFilters();
     kindFilters();
     keyLegend();
     const root = $("graph");
@@ -587,7 +621,7 @@
     );
     const nodes = [
       el("h2", {}, titleOf(c.name)),
-      kindShown(c.name) ? null : el("p", { class: "hidden-kind" }, `This crate is not drawn: its kind, ${crateKind(c.name)}, is hidden. Tick it under the map to show it.`),
+      hiddenWhy(c.name) ? el("p", { class: "hidden-kind" }, `This crate is not drawn: ${hiddenWhy(c.name)}. Tick it in the filters above the map to show it.`) : null,
       el("div", { class: "muted mono" }, c.path),
       badges,
       el("p", {}, prose(info.concern), " ", source(c.proposed === "new" ? "proposal" : "concerns")),
@@ -1092,9 +1126,18 @@
 
   // A search hit or a selected crate whose kind is filtered out says so,
   // rather than pointing at nothing on the map.
+  // Why a crate is not drawn, if a filter hides it.
+  function hiddenWhy(name) {
+    const why = [];
+    if (!layerShown(name)) why.push(`its layer, ${layerTitle(crateLayer(name))}, is hidden`);
+    if (!kindShown(name)) why.push(`its kind, ${crateKind(name)}, is hidden`);
+    return why.join(", and ");
+  }
+  const layerTitle = (id) => (concerns.layers.find((l) => l.id === id) || {}).title || id;
+
   function hiddenNote(name) {
-    return kindShown(name) ? null
-      : el("span", { class: "hidden-kind" }, ` (not drawn: its kind, ${crateKind(name)}, is hidden)`);
+    const why = hiddenWhy(name);
+    return why ? el("span", { class: "hidden-kind" }, ` (not drawn: ${why})`) : null;
   }
 
   function clearSearch() {

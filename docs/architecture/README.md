@@ -6,8 +6,11 @@ on. Open it in a browser straight from the checkout; it loads nothing from
 the network. Hover a crate to light up its dependencies and the crates that
 use it, and click it for its concern, what it must not do, the public items
 it provides, and which of them flow along each arrow. Search finds crates
-and items; the switches show or hide dev-only crates, dev and build
-dependencies, and the items only the `real` or `testing` features make.
+and items. The filters above the map show or hide crates by kind and by
+layer (a hidden layer's band closes up; a hidden kind's crates keep their
+places), dev-only crates, arrows by role and by what uses them (code, tests
+or build scripts), and the items only the `real` or `testing` features
+make.
 
 It shows surfaces and flows only: public items, their documentation's
 first sentence, public fields, methods and variants, and what a feature adds
