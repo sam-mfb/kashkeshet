@@ -10,12 +10,19 @@
   let graph = window.KKT_GRAPH;
   let concerns = window.KKT_CONCERNS;
   let assembly = window.KKT_ASSEMBLY;
-  // The roles an arrow can play, strongest first.
+  // The roles an arrow can play.
   const ROLES = {
     implements: "implements a contract of",
     uses: "uses",
     wires: "wires",
   };
+  const ROLE_ABOUT = {
+    implements: "implements a trait the other crate defines",
+    uses: "calls or reads the other crate's items",
+    wires: "builds the other crate's implementations or holders to hand on",
+  };
+  // How far apart the parallel strokes of an arrow with several roles are.
+  const STROKE_GAP = 3.2;
   const SVG = "http://www.w3.org/2000/svg";
   const BOX_W = 156;
   const BOX_H = 42;
@@ -31,6 +38,7 @@
     showDevCrates: true,
     kinds: { normal: true, dev: false, build: false },
     hiddenKinds: new Set(),
+    hiddenRoles: new Set(),
     featureItems: true,
     query: "",
   };
@@ -71,7 +79,10 @@
   const crateKind = (name) => concernOf(name).kind || "";
   const kindShown = (name) => !state.hiddenKinds.has(crateKind(name));
   const visibleCrate = (name) => placedCrate(name) && kindShown(name);
-  const visibleEdge = (e) => state.kinds[e.kind] && visibleCrate(e.from) && visibleCrate(e.to);
+  // An arrow's roles; one used only by tests or build scripts only uses.
+  const edgeRoles = (e) => (e.kind === "normal" ? e.roles.map((r) => r.role) : ["uses"]);
+  const shownRoles = (e) => edgeRoles(e).filter((r) => !state.hiddenRoles.has(r));
+  const visibleEdge = (e) => state.kinds[e.kind] && visibleCrate(e.from) && visibleCrate(e.to) && shownRoles(e).length > 0;
   // Cargo's dependency kinds, in plain words; the tooltips give Cargo's terms.
   const DEP_WORDS = { normal: "used in code", dev: "used by tests", build: "used by build scripts" };
   const DEP_CARGO = { normal: "dependencies", dev: "dev-dependencies", build: "build-dependencies" };
@@ -144,6 +155,20 @@
 
   let view = null;
 
+  function roleLegend() {
+    $("role-legend").replaceChildren(
+      el("strong", {}, "Arrows, by role (untick to hide):"),
+      ...Object.entries(ROLE_ABOUT).map(([role, about]) => el("label", { class: "role-toggle", title: about },
+        el("input", { type: "checkbox", ...(state.hiddenRoles.has(role) ? {} : { checked: "" }),
+          onchange: (ev) => {
+            if (ev.target.checked) state.hiddenRoles.delete(role); else state.hiddenRoles.add(role);
+            draw();
+            renderPanel();
+          } }),
+        el("span", { class: `role-key role-${role}` }), el("strong", {}, ROLES[role]), `: ${about}`)),
+      el("span", { class: "muted" }, "An arrow with several roles is drawn as one stroke per role, side by side, with one head in the shape of its first role (implements, then uses, then wires); its tooltip lists them all. Arrows used only by tests are dashed, and those used by build scripts dotted."));
+  }
+
   function kindLegend() {
     const setKinds = (hidden) => {
       state.hiddenKinds = new Set(hidden);
@@ -169,6 +194,7 @@
   }
 
   function draw() {
+    roleLegend();
     kindLegend();
     const root = $("graph");
     while (root.childNodes.length > 1) root.removeChild(root.lastChild);
@@ -196,19 +222,24 @@
       const a = view.position.get(e.from);
       const b = view.position.get(e.to);
       if (!a || !b) continue;
-      const d = edgePath(a, b);
-      const role = e.kind === "normal" ? e.role : "uses";
-      const path = svg("path", {
-        d, class: `edge kind-${e.kind} role-${role}${e.proposed ? ` proposed-${e.proposed}` : ""}`,
-        "marker-end": `url(#head-${role})`,
+      // One stroke per shown role, side by side, each in its role's colour.
+      // One head, on the middle stroke, in the first role's shape: a head
+      // per stroke crowds where arrows meet a box.
+      const roles = shownRoles(e);
+      roles.forEach((role, i) => {
+        const path = svg("path", {
+          d: edgePath(a, b, (i - (roles.length - 1) / 2) * STROKE_GAP),
+          class: `edge kind-${e.kind} role-${role}${e.proposed ? ` proposed-${e.proposed}` : ""}`,
+          ...(i === Math.floor((roles.length - 1) / 2) ? { "marker-end": `url(#head-${roles[0]})` } : {}),
+        });
+        edgeLayer.append(path);
+        view.edgeNodes.push({ edge: e, path });
       });
-      const hit = svg("path", { d, class: "edge-hit" });
+      const hit = svg("path", { d: edgePath(a, b), class: "edge-hit" });
       hit.addEventListener("mousemove", (ev) => showTip(ev, e));
       hit.addEventListener("mouseleave", hideTip);
       hit.addEventListener("click", () => select(e.from));
-      edgeLayer.append(path);
       hitLayer.append(hit);
-      view.edgeNodes.push({ edge: e, path });
     }
 
     view.nodes = new Map();
@@ -268,9 +299,11 @@
     return defs;
   }
 
-  function edgePath(a, b) {
-    const ax = a.x + BOX_W / 2;
-    const bx = b.x + BOX_W / 2;
+  // `off` shifts the path sideways, for the parallel strokes of an arrow
+  // with several roles.
+  function edgePath(a, b, off = 0) {
+    const ax = a.x + BOX_W / 2 + off;
+    const bx = b.x + BOX_W / 2 + off;
     if (a.line === b.line) {
       const lift = 30 + Math.min(40, Math.abs(ax - bx) / 8);
       return `M${ax},${a.y} C${ax},${a.y - lift} ${bx},${b.y - lift} ${bx},${b.y}`;

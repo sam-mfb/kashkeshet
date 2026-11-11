@@ -290,3 +290,6 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 .kind-toggle input { margin: 0 4px 0 0; vertical-align: middle; }
 .kind-all .linkish { background: none; border: 0; padding: 0; color: var(--link, inherit); text-decoration: underline; cursor: pointer; font: inherit; }
 .hidden-kind { color: var(--muted); font-style: italic; }
+/* The role filter, as the kind filter. */
+.role-toggle { cursor: pointer; }
+.role-toggle input { margin: 0 4px 0 0; vertical-align: middle; }
