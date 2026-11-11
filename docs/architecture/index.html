@@ -22,22 +22,22 @@
       <label><input type="radio" name="mode" value="proposed"> Proposed</label>
     </fieldset>
     <div class="filters">
-      <fieldset class="toggles" aria-label="Which crates to show">
-        <span class="group-title">Crates:</span>
-        <span id="kind-filters" class="toggle-set"></span>
-        <label title="Packages never released, such as kkt-keymode and kkt-scratch"><input type="checkbox" id="show-dev-crates" checked> Dev-only</label>
-      </fieldset>
-      <fieldset class="toggles" aria-label="Which layers to show">
-        <span class="group-title">Layers:</span>
-        <span id="layer-filters" class="toggle-set"></span>
-      </fieldset>
-      <fieldset class="toggles" aria-label="Which arrows to show">
-        <span class="group-title">Arrows:</span>
-        <span id="role-filters" class="toggle-set"></span>
-        <label title="Cargo's dependencies: what a crate's own code uses"><input type="checkbox" id="show-normal" checked> <span class="key key-normal"></span>Used in code</label>
-        <label title="Cargo's dev-dependencies: what only its tests use"><input type="checkbox" id="show-dev"> <span class="key key-dev"></span>Used by tests</label>
-        <label title="Cargo's build-dependencies: what its build script uses"><input type="checkbox" id="show-build"> <span class="key key-build"></span>Used by build scripts</label>
-      </fieldset>
+      <div class="menu" id="crates-menu">
+        <button type="button" class="menu-button" id="crates-button" aria-expanded="false" aria-controls="crates-panel" title="Which crates to show">Crates</button>
+        <div class="menu-panel" id="crates-panel" role="group" aria-label="Which crates to show" hidden>
+          <span id="kind-filters" class="menu-list"></span>
+          <label title="Packages never released, such as kkt-keymode and kkt-scratch"><input type="checkbox" id="show-dev-crates" checked> Dev-only</label>
+        </div>
+      </div>
+      <div class="menu" id="arrows-menu">
+        <button type="button" class="menu-button" id="arrows-button" aria-expanded="false" aria-controls="arrows-panel" title="Which arrows to show">Arrows</button>
+        <div class="menu-panel" id="arrows-panel" role="group" aria-label="Which arrows to show" hidden>
+          <span id="role-filters" class="menu-list"></span>
+          <label title="Cargo's dependencies: what a crate's own code uses"><input type="checkbox" id="show-normal" checked> <span class="key key-normal"></span>Used in code</label>
+          <label title="Cargo's dev-dependencies: what only its tests use"><input type="checkbox" id="show-dev"> <span class="key key-dev"></span>Used by tests</label>
+          <label title="Cargo's build-dependencies: what its build script uses"><input type="checkbox" id="show-build"> <span class="key key-build"></span>Used by build scripts</label>
+        </div>
+      </div>
       <fieldset class="toggles" aria-label="What the panel lists">
         <span class="group-title">Panel:</span>
         <label title="Items that exist only with a crate's real or testing feature"><input type="checkbox" id="show-feature-items" checked> Items behind <code>real</code>/<code>testing</code></label>
@@ -52,7 +52,7 @@
       <title id="graph-title">The workspace's crates by layer, with arrows from each crate to its dependencies</title>
     </svg>
     <div class="legend key-legend" id="key" aria-label="Key"></div>
-    <p class="hint muted">Hover a crate to see its neighbours; click it for details. Arrows point from a crate to what it depends on. Hover an arrow for its roles and what flows along it.</p>
+    <p class="hint muted">Hover a crate to see its neighbours; click it for details. Click a layer's name to hide its arrows. Arrows point from a crate to what it depends on. Hover an arrow for its roles and what flows along it.</p>
   </section>
   <aside id="panel" class="panel" aria-live="polite"></aside>
 </main>

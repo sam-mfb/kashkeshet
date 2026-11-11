@@ -6,11 +6,13 @@ on. Open it in a browser straight from the checkout; it loads nothing from
 the network. Hover a crate to light up its dependencies and the crates that
 use it, and click it for its concern, what it must not do, the public items
 it provides, and which of them flow along each arrow. Search finds crates
-and items. The filters above the map show or hide crates by kind and by
-layer (a hidden layer's band closes up; a hidden kind's crates keep their
-places), dev-only crates, arrows by role and by what uses them (code, tests
-or build scripts), and the items only the `real` or `testing` features
-make.
+and items. Above the map, the Crates menu shows or hides crates by kind
+(a hidden kind's crates keep their places) and dev-only crates; the Arrows
+menu shows or hides arrows by role and by what uses them (code, tests or
+build scripts); and the Panel box shows or hides the items only the `real`
+or `testing` features make. Clicking a layer's name on the map hides that
+layer: its crates stay in place, faded and still clickable, and no arrow
+or delivery line goes to or from them.
 
 It shows surfaces and flows only: public items, their documentation's
 first sentence, public fields, methods and variants, and what a feature adds
@@ -58,7 +60,7 @@ a mismatch on the page and does not change the kind.
 
 ## Roles, contracts and slots
 
-Each arrow its code uses (Cargo's dependency) has one or more roles. It is drawn as one stroke per role, side by side in each role's colour, with one head in the shape of its first role in this order; the header's "Arrows:" checkboxes hide roles, and an arrow with none of its roles shown is not drawn:
+Each arrow its code uses (Cargo's dependency) has one or more roles. It is drawn as one stroke per role, side by side in each role's colour, with one head in the shape of its first role in this order; the header's Arrows menu hides roles, and an arrow with none of its roles shown is not drawn:
 
 | Role | Drawn as | Means | Derived from |
 |---|---|---|---|

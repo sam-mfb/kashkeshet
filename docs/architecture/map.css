@@ -293,9 +293,9 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 /* The role filter, as the kind filter. */
 .role-toggle { cursor: pointer; }
 .role-toggle input { margin: 0 4px 0 0; vertical-align: middle; }
-/* The filters in the header: one row per group, wrapping on narrow
-   screens. */
-.filters { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+/* The filters in the header: the Crates and Arrows menus and the Panel
+   box, wrapping on narrow screens. */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; width: 100%; }
 .filters .toggles { align-items: center; gap: 3px 12px; font-size: 12.5px; }
 .toggle-set { display: contents; }
 .group-title { font-weight: 600; color: var(--muted); min-width: 52px; }
@@ -336,5 +336,36 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 .chip.role-text-implements { border-left-color: var(--implements); }
 .chip.role-text-uses { border-left-color: var(--uses); }
 .chip.role-text-wires { border-left-color: var(--wires); }
-.layer-toggle { cursor: pointer; }
-.layer-toggle input { margin: 0 4px 0 0; vertical-align: middle; }
+/* The Crates and Arrows menus: a button in the header opens a list of
+   checkboxes under it. On a phone the list opens in the header's flow. */
+.menu { position: relative; }
+.menu-button {
+  font: inherit; font-size: 12.5px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px;
+  background: var(--bg); color: var(--fg); cursor: pointer; white-space: nowrap;
+}
+.menu-button[aria-expanded="true"] { border-color: var(--accent); }
+.menu-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.menu-panel {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; min-width: 220px;
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; font-size: 12.5px;
+  background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow);
+}
+.menu-panel[hidden] { display: none; }
+.menu-panel label { display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+.menu-panel input { margin: 0 4px 0 0; }
+.menu-list { display: contents; }
+@media (max-width: 600px) {
+  .menu { width: 100%; }
+  .menu-panel { position: static; margin-top: 4px; box-shadow: none; min-width: 0; }
+}
+/* A layer's name on the map is its toggle. */
+.band-toggle { cursor: pointer; }
+.band-toggle .band-hit { fill: transparent; }
+.band-toggle:hover .band-hit { fill: var(--line); }
+.band-toggle:focus { outline: none; }
+.band-toggle:focus-visible .band-hit { stroke: var(--accent); stroke-width: 2; }
+.band-toggle .eye path, .band-toggle .eye circle { fill: none; stroke: var(--muted); stroke-width: 1.3; }
+.band-toggle .eye circle { fill: var(--muted); stroke: none; }
+.band-toggle.off .band-title { text-decoration: line-through; }
+.band-toggle .band-title { pointer-events: none; }
+.node.layer-off { opacity: .28; }

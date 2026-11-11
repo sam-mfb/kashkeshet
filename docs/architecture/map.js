@@ -82,10 +82,12 @@
   const placedCrate = (name) => state.showDevCrates || !crates.get(name).dev_only;
   const crateKind = (name) => concernOf(name).kind || "";
   const kindShown = (name) => !state.hiddenKinds.has(crateKind(name));
-  // A crate in a hidden layer is not drawn, and its band closes up.
+  // A crate in a hidden layer keeps its place and is drawn faded, and
+  // still opens its panel; no arrow or delivery line goes to or from it.
   const crateLayer = (name) => concernOf(name).layer || "";
   const layerShown = (name) => !state.hiddenLayers.has(crateLayer(name));
-  const visibleCrate = (name) => placedCrate(name) && kindShown(name) && layerShown(name);
+  const drawnCrate = (name) => placedCrate(name) && kindShown(name);
+  const visibleCrate = (name) => drawnCrate(name) && layerShown(name);
   // An arrow's roles; one used only by tests or build scripts only uses.
   const edgeRoles = (e) => (e.kind === "normal" ? e.roles.map((r) => r.role) : ["uses"]);
   const shownRoles = (e) => edgeRoles(e).filter((r) => !state.hiddenRoles.has(r));
@@ -155,13 +157,6 @@
       }
       height = place();
     }
-    // Hidden layers go after the ordering, so each layer keeps its order
-    // and the others close up.
-    if (state.hiddenLayers.size) {
-      for (let i = rows.length - 1; i >= 0; i--) if (state.hiddenLayers.has(rows[i].layer.id)) rows.splice(i, 1);
-      position.clear();
-      height = place();
-    }
     return { rows, position, width, height: height + PAD_Y };
   }
 
@@ -174,7 +169,7 @@
   function roleFilters() {
     $("role-filters").replaceChildren(...Object.entries(ROLE_ABOUT).map(([role, about]) =>
       el("label", { class: "role-toggle", title: `${ROLES[role]}: ${about}` },
-        el("input", { type: "checkbox", ...(state.hiddenRoles.has(role) ? {} : { checked: "" }),
+        el("input", { type: "checkbox", "data-key": `role:${role}`, ...(state.hiddenRoles.has(role) ? {} : { checked: "" }),
           onchange: (ev) => {
             if (ev.target.checked) state.hiddenRoles.delete(role); else state.hiddenRoles.add(role);
             draw();
@@ -183,26 +178,36 @@
         el("span", { class: `role-key role-${role}` }), role)));
   }
 
-  function layerFilters() {
-    const setLayers = (hidden) => {
-      state.hiddenLayers = new Set(hidden);
-      draw();
-      renderPanel();
-      renderResults();
-    };
-    const layers = concerns.layers.filter((l) => graph.crates.some((c) => crateLayer(c.name) === l.id));
-    $("layer-filters").replaceChildren(
-      ...layers.map((l) => el("label", { class: "layer-toggle", title: `${l.title}: ${l.about || ""}` },
-        el("input", { type: "checkbox", ...(state.hiddenLayers.has(l.id) ? {} : { checked: "" }),
-          onchange: (ev) => {
-            const hidden = new Set(state.hiddenLayers);
-            if (ev.target.checked) hidden.delete(l.id); else hidden.add(l.id);
-            setLayers(hidden);
-          } }),
-        l.title)),
-      el("span", { class: "kind-all" },
-        el("button", { class: "linkish", type: "button", title: "Show every layer", onclick: () => setLayers([]) }, "all"), "/",
-        el("button", { class: "linkish", type: "button", title: "Hide every layer", onclick: () => setLayers(layers.map((l) => l.id)) }, "none")));
+  // A layer's name on the map is its toggle: a hidden layer's crates are
+  // faded and its arrows are not drawn.
+  function toggleLayer(id) {
+    const hidden = new Set(state.hiddenLayers);
+    if (hidden.has(id)) hidden.delete(id); else hidden.add(id);
+    state.hiddenLayers = hidden;
+    draw();
+    renderPanel();
+    renderResults();
+  }
+
+  // Redrawing replaces the filters and the map, so the element with
+  // keyboard focus is found again by its data-key and refocused.
+  function keepFocus(rebuild) {
+    const active = document.activeElement;
+    const key = active && active.getAttribute && active.getAttribute("data-key");
+    rebuild();
+    if (!key) return;
+    const again = document.querySelector(`[data-key="${CSS.escape(key)}"]`);
+    if (again && again !== active) again.focus();
+  }
+
+  // The Crates and Arrows buttons say how many of their boxes are ticked
+  // when not all are.
+  function menuCounts() {
+    for (const [id, word] of [["crates", "Crates"], ["arrows", "Arrows"]]) {
+      const boxes = [...$(`${id}-panel`).querySelectorAll('input[type="checkbox"]')];
+      const ticked = boxes.filter((b) => b.checked).length;
+      $(`${id}-button`).textContent = ticked === boxes.length ? `${word} ▾` : `${word} (${ticked} of ${boxes.length}) ▾`;
+    }
   }
 
   function kindFilters() {
@@ -215,7 +220,7 @@
     const kinds = (concerns.kinds || []).filter((k) => graph.crates.some((c) => crateKind(c.name) === k.id));
     $("kind-filters").replaceChildren(
       ...kinds.map((k) => el("label", { class: `kind-toggle kind-${kindSlug(k.id)}`, title: `${k.title}: ${k.about}` },
-        el("input", { type: "checkbox", ...(state.hiddenKinds.has(k.id) ? {} : { checked: "" }),
+        el("input", { type: "checkbox", "data-key": `kind:${k.id}`, ...(state.hiddenKinds.has(k.id) ? {} : { checked: "" }),
           onchange: (ev) => {
             const hidden = new Set(state.hiddenKinds);
             if (ev.target.checked) hidden.delete(k.id); else hidden.add(k.id);
@@ -223,8 +228,8 @@
           } }),
         el("span", { class: "kind-key" }), k.title)),
       el("span", { class: "kind-all" },
-        el("button", { class: "linkish", type: "button", title: "Show every kind", onclick: () => setKinds([]) }, "all"), "/",
-        el("button", { class: "linkish", type: "button", title: "Hide every kind", onclick: () => setKinds(kinds.map((k) => k.id)) }, "none")));
+        el("button", { class: "linkish", type: "button", "data-key": "kind:all", title: "Show every kind", onclick: () => setKinds([]) }, "all"), "/",
+        el("button", { class: "linkish", type: "button", "data-key": "kind:none", title: "Hide every kind", onclick: () => setKinds(kinds.map((k) => k.id)) }, "none")));
   }
 
   // The key under the map: colours and drawing conventions only.
@@ -238,10 +243,12 @@
       el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, on hover or selection: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: selected. Dashed box: dev-only."));
   }
 
-  function draw() {
+  function draw() { keepFocus(drawNow); }
+
+  function drawNow() {
     roleFilters();
-    layerFilters();
     kindFilters();
+    menuCounts();
     keyLegend();
     const root = $("graph");
     while (root.childNodes.length > 1) root.removeChild(root.lastChild);
@@ -252,10 +259,30 @@
 
     view.rows.forEach((row) => {
       const y = row.top;
-      root.append(svg("rect", { x: 0, y, width: view.width, height: row.height, rx: 10, class: "band" }));
-      const label = svg("text", { x: 12, y: y + 17, class: "band-title" });
-      label.textContent = row.layer.title;
-      root.append(label);
+      const id = row.layer.id;
+      const off = state.hiddenLayers.has(id);
+      root.append(svg("rect", { x: 0, y, width: view.width, height: row.height, rx: 10, class: "band" + (off ? " layer-off" : "") }));
+      // The layer's name, with an eye that is struck through while the
+      // layer is hidden.
+      const toggle = svg("g", {
+        class: "band-toggle" + (off ? " off" : ""), tabindex: "0", role: "switch", "data-key": `layer:${id}`,
+        "aria-checked": off ? "false" : "true", "aria-label": `Show the ${row.layer.title} layer's arrows`,
+      });
+      const tipText = svg("title");
+      tipText.textContent = `${row.layer.title}: ${off ? "hidden. Click to show its arrows" : "click to fade its crates and hide their arrows"}`;
+      const eye = svg("g", { class: "eye", transform: `translate(12,${y + 7})` });
+      eye.append(svg("path", { d: "M0,6 Q7,-1 14,6 Q7,13 0,6 z" }), svg("circle", { cx: 7, cy: 6, r: 2.2 }));
+      if (off) eye.append(svg("path", { d: "M1,12 L13,0", class: "slash" }));
+      const label = svg("text", { x: 31, y: y + 17, class: "band-title" });
+      label.textContent = row.layer.title + (off ? " (hidden)" : "");
+      const box = svg("rect", { x: 6, y: y + 3, width: 0, height: 20, rx: 5, class: "band-hit" });
+      toggle.append(tipText, box, eye, label);
+      toggle.addEventListener("click", (ev) => { ev.stopPropagation(); toggleLayer(id); });
+      toggle.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggleLayer(id); }
+      });
+      root.append(toggle);
+      view.bandToggles = (view.bandToggles || []).concat([[box, label]]);
     });
 
     const edgeLayer = svg("g");
@@ -304,6 +331,7 @@
       const c = crates.get(name);
       const g = svg("g", {
         class: "node" + (c.dev_only ? " dev-only" : "") + (c.proposed ? ` proposed-${c.proposed}` : "") +
+          (layerShown(name) ? "" : " layer-off") +
           ` kind-${kindSlug(concernOf(name).kind)}`,
         transform: `translate(${p.x},${p.y})`,
         tabindex: "0",
@@ -334,6 +362,8 @@
     // The delivery lines' slot names, above the boxes so none is hidden.
     view.deliveryLabels = svg("g", { class: "delivery-labels" });
     root.append(view.deliveryLabels);
+    // Each layer name's focus and hover box fits its text.
+    for (const [box, label] of view.bandToggles || []) box.setAttribute("width", label.getBBox().width + 31);
     paint();
   }
 
@@ -685,7 +715,8 @@
     );
     const nodes = [
       el("h2", {}, titleOf(c.name)),
-      hiddenWhy(c.name) ? el("p", { class: "hidden-kind" }, `This crate is not drawn: ${hiddenWhy(c.name)}. Tick it in the filters above the map to show it.`) : null,
+      hiddenWhy(c.name) ? el("p", { class: "hidden-kind" }, `This crate is not drawn: ${hiddenWhy(c.name)}. Tick it in the Crates menu above the map to show it.`) : null,
+      !hiddenWhy(c.name) && !layerShown(c.name) ? el("p", { class: "hidden-kind" }, `Its layer, ${layerTitle(crateLayer(c.name))}, is hidden, so its arrows are not drawn. Click the layer's name on the map to show them.`) : null,
       el("div", { class: "muted mono" }, c.path),
       badges,
       el("p", {}, prose(info.concern), " ", source(c.proposed === "new" ? "proposal" : "concerns")),
@@ -1193,7 +1224,6 @@
   // Why a crate is not drawn, if a filter hides it.
   function hiddenWhy(name) {
     const why = [];
-    if (!layerShown(name)) why.push(`its layer, ${layerTitle(crateLayer(name))}, is hidden`);
     if (!kindShown(name)) why.push(`its kind, ${crateKind(name)}, is hidden`);
     return why.join(", and ");
   }
@@ -1201,7 +1231,8 @@
 
   function hiddenNote(name) {
     const why = hiddenWhy(name);
-    return why ? el("span", { class: "hidden-kind" }, ` (not drawn: ${why})`) : null;
+    if (why) return el("span", { class: "hidden-kind" }, ` (not drawn: ${why})`);
+    return layerShown(name) ? null : el("span", { class: "hidden-kind" }, ` (layer hidden: no arrows)`);
   }
 
   function clearSearch() {
@@ -1248,7 +1279,7 @@
   $("search").addEventListener("keydown", (ev) => { if (ev.key === "Escape") clearSearch(); });
   $("show-dev-crates").addEventListener("change", (ev) => {
     state.showDevCrates = ev.target.checked;
-    if (state.selected && !visibleCrate(state.selected)) state.selected = null;
+    if (state.selected && !drawnCrate(state.selected)) state.selected = null;
     draw();
     renderPanel();
   });
@@ -1259,6 +1290,44 @@
       renderPanel();
     });
   }
+  // The Crates and Arrows menus: a button opens its list; Escape, a click
+  // outside, or focus leaving it closes it. One is open at a time.
+  const menus = ["crates", "arrows"];
+  let pointerDown = false;
+  document.addEventListener("pointerdown", () => { pointerDown = true; }, true);
+  document.addEventListener("pointerup", () => { setTimeout(() => { pointerDown = false; }, 0); }, true);
+  function setMenu(id, open, focusInside) {
+    const button = $(`${id}-button`);
+    $(`${id}-panel`).hidden = !open;
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) {
+      for (const other of menus) if (other !== id) setMenu(other, false);
+      if (focusInside) { const first = $(`${id}-panel`).querySelector("input, button"); if (first) first.focus(); }
+    }
+  }
+  for (const id of menus) {
+    const button = $(`${id}-button`);
+    const menu = $(`${id}-menu`);
+    button.addEventListener("click", (ev) => setMenu(id, $(`${id}-panel`).hidden, ev.detail === 0));
+    menu.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && !$(`${id}-panel`).hidden) { ev.preventDefault(); setMenu(id, false); button.focus(); }
+    });
+    // Only keyboard focus leaving closes it here. A press of the mouse
+    // closes it through the click instead: closing on the press would move
+    // the other menu's button on a phone, where the list pushes it down,
+    // before the click lands.
+    menu.addEventListener("focusout", (ev) => {
+      if (!pointerDown && ev.relatedTarget && !menu.contains(ev.relatedTarget)) setMenu(id, false);
+    });
+    $(`${id}-panel`).addEventListener("change", menuCounts);
+  }
+  // The path is taken at the click, since a redraw may already have
+  // replaced the element clicked.
+  document.addEventListener("click", (ev) => {
+    const path = ev.composedPath();
+    for (const id of menus) if (!path.includes($(`${id}-menu`))) setMenu(id, false);
+  });
+
   $("show-feature-items").addEventListener("change", (ev) => {
     state.featureItems = ev.target.checked;
     renderPanel();
