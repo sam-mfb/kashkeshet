@@ -2,29 +2,25 @@
 //! them whole. Plain functions the program calls; it knows nothing of the
 //! files' format, which is kkt-config-file's.
 
-#[cfg(any(test, feature = "real"))]
 use std::fmt;
-#[cfg(any(test, feature = "real"))]
 use std::io;
 #[cfg(any(test, feature = "real"))]
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
 /// A file that could not be read: its path and why.
-#[cfg(any(test, feature = "real"))]
 #[derive(Debug)]
 pub struct ReadError {
     pub path: PathBuf,
     pub cause: io::Error,
 }
 
-#[cfg(any(test, feature = "real"))]
 impl fmt::Display for ReadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "could not read {}: {}", self.path.display(), self.cause)
     }
 }
 
-#[cfg(any(test, feature = "real"))]
 impl std::error::Error for ReadError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(&self.cause)
@@ -32,7 +28,6 @@ impl std::error::Error for ReadError {
 }
 
 /// A file that could not be written: the step that failed, its path and why.
-#[cfg(any(test, feature = "real"))]
 #[derive(Debug)]
 pub enum WriteError {
     /// The folder the file goes in could not be made.
@@ -41,7 +36,6 @@ pub enum WriteError {
     File { path: PathBuf, cause: io::Error },
 }
 
-#[cfg(any(test, feature = "real"))]
 impl fmt::Display for WriteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -55,7 +49,6 @@ impl fmt::Display for WriteError {
     }
 }
 
-#[cfg(any(test, feature = "real"))]
 impl std::error::Error for WriteError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -147,6 +140,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn a_default_file_in_a_folder_that_cannot_be_searched_is_skipped() {
         use std::os::unix::fs::PermissionsExt;
         let dir = scratch::Dir::new("config-file-os-locked");
