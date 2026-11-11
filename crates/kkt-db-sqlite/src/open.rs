@@ -7,9 +7,7 @@ use crate::adopt::adopt;
 use crate::conn::{SqliteConnection, db_error, index_words};
 use crate::{MANAGED, ddl, sql};
 use kkt_db::Legacy;
-use kkt_db::{
-    Backend, Database, DbError, Evolve, Schema, Set, Step, Upgrade, Work, migrate, pending,
-};
+use kkt_db::{Backend, Database, DbError, Evolve, Schema, Set, Step, Upgrade, Work};
 use rusqlite::{Connection, TransactionBehavior};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -343,8 +341,8 @@ fn open_with(
             .pragma_update(None, "journal_mode", "WAL")
             .map_err(failed)?;
     }
-    migrate(&Evolver { conn: &writer }, sets)?;
-    let schema = kkt_db::schema(sets)?;
+    Evolver { conn: &writer }.migrate(sets)?;
+    let schema = Schema::latest(sets)?;
     Ok(Database::new(Store {
         writer,
         readers: readers()?,
@@ -424,7 +422,7 @@ impl SqlitePlace {
     /// nothing; a file that is not there would be made from nothing.
     pub fn pending(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
         if !self.path.exists() {
-            return pending(&Empty, sets);
+            return Empty.pending(sets);
         }
         let conn = read_only(&self.path)?;
         if let Found::Adopt(version) = found(&conn, self.legacy.as_ref())? {
@@ -446,12 +444,10 @@ impl SqlitePlace {
                 .filter(|u| u.from < u.to)
                 .collect());
         }
-        pending(
-            &Evolver {
-                conn: &Mutex::new(conn),
-            },
-            sets,
-        )
+        Evolver {
+            conn: &Mutex::new(conn),
+        }
+        .pending(sets)
     }
 }
 
@@ -512,7 +508,7 @@ impl MemoryPlace {
     }
 
     pub fn pending(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
-        pending(&Evolver { conn: &self.conn }, sets)
+        Evolver { conn: &self.conn }.pending(sets)
     }
 }
 

@@ -10,7 +10,7 @@
 use kkt_db::search::Search;
 use kkt_db::{
     Assign, ColumnType, Condition, Count, DbError, Delete, Field, Group, Insert, Operand, OrderBy,
-    Related, Schema, Select, Sort, Table, Update, Value, check,
+    Related, Schema, Select, Sort, Table, Update, Value,
 };
 use rusqlite::types::Value as SqlValue;
 
@@ -234,7 +234,7 @@ impl<'s> Statement<'s> {
         Ok(match field {
             Field::Value(o) => (
                 self.operand(table, alias, o)?,
-                check::operand_type(self.schema, table, o)?,
+                self.schema.operand_type(table, o)?,
             ),
             Field::Count(r) => {
                 let (_, from) = self.related(table, alias, r)?;
@@ -362,7 +362,7 @@ impl<'s> Statement<'s> {
     }
 
     pub(crate) fn select(mut self, select: &Select) -> Result<Sql, DbError> {
-        check::select(self.schema, select)?;
+        self.schema.check_select(select)?;
         let (text, types) = self.select_text(select)?;
         Ok(Sql {
             text,
@@ -374,7 +374,7 @@ impl<'s> Statement<'s> {
     /// A search's select: its fields, then the searchable column, over the
     /// rows whose words match `query` (an FTS5 query of quoted words).
     pub(crate) fn search(mut self, search: &Search, query: String) -> Result<Sql, DbError> {
-        check::search(self.schema, search)?;
+        self.schema.check_search(search)?;
         let select = &search.select;
         let table = self.schema.require(select.table)?;
         let Some(column) = table.search else {
@@ -410,7 +410,7 @@ impl<'s> Statement<'s> {
     }
 
     pub(crate) fn count(mut self, count: &Count) -> Result<Sql, DbError> {
-        check::count(self.schema, count)?;
+        self.schema.check_count(count)?;
         let table = self.schema.require(count.table)?;
         let alias = self.alias();
         let filter = self.condition(table, &alias, &count.filter)?;
@@ -425,15 +425,15 @@ impl<'s> Statement<'s> {
     }
 
     pub(crate) fn group(mut self, group: &Group) -> Result<Sql, DbError> {
-        check::group(self.schema, group)?;
+        self.schema.check_group(group)?;
         let table = self.schema.require(group.table)?;
         let alias = self.alias();
         let by = self.operand(table, &alias, &group.by)?;
         let mut fields = vec![by.clone()];
-        let mut types = vec![check::operand_type(self.schema, table, &group.by)?];
+        let mut types = vec![self.schema.operand_type(table, &group.by)?];
         for o in &group.also {
             fields.push(self.operand(table, &alias, o)?);
-            types.push(check::operand_type(self.schema, table, o)?);
+            types.push(self.schema.operand_type(table, o)?);
         }
         let max = format!("max({alias}.{})", q(group.max));
         fields.push("count(*)".into());
@@ -459,7 +459,7 @@ impl<'s> Statement<'s> {
         insert: &Insert,
         on_conflict: OnConflict,
     ) -> Result<Sql, DbError> {
-        check::insert(self.schema, insert)?;
+        self.schema.check_insert(insert)?;
         let table = self.schema.require(insert.table)?;
         let mut text = if insert.values.is_empty() {
             format!("INSERT INTO {} DEFAULT VALUES", q(table.name))
@@ -517,7 +517,7 @@ impl<'s> Statement<'s> {
     }
 
     pub(crate) fn update(mut self, update: &Update) -> Result<Sql, DbError> {
-        check::update(self.schema, update)?;
+        self.schema.check_update(update)?;
         let table = self.schema.require(update.table)?;
         // SQLite's UPDATE takes no alias: the table's own name serves.
         let alias = q(table.name);
@@ -538,7 +538,7 @@ impl<'s> Statement<'s> {
     }
 
     pub(crate) fn delete(mut self, delete: &Delete) -> Result<Sql, DbError> {
-        check::delete(self.schema, delete)?;
+        self.schema.check_delete(delete)?;
         let table = self.schema.require(delete.table)?;
         let alias = q(table.name);
         let filter = self.condition(table, &alias, &delete.filter)?;
