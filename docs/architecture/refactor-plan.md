@@ -146,7 +146,7 @@ the last column says so.
 | kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | awaiting Sam | yes |
 | One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | awaiting Sam | yes |
 | kkt-service-os reports with its own `Finished`, which the program translates to kkt-service's in `run` and `run_attached` | 2.2 (#427) | So kkt-service-os depends on neither kkt-service nor kkt-config; two adapter methods translate | awaiting Sam | yes |
-| kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding | awaiting Sam | after it merges |
+| kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding | awaiting Sam | yes |
 | kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter), kkt-web, kkt-events and kkt-mcp, arrows the proposal does not draw | 3.1d (#424), 3.1a (#429), 3.1b (#431) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server | accepted by Sam, 2026-11-11 | 3.1d's yes; the rest after they merge |
 | The 0.10.0 migration test stays in the program's tests; only `legacy()`'s facts move into kkt-rules | 5.2b-1 | It builds real SQLite files, and F16 keeps effect crates out of kkt-rules' tests | accepted by Sam, 2026-11-11 | after it merges |
 | kkt-diagnostics-os' probe still interprets the server's answers (status meanings, advice text) as it sends them | 2.5 | Splitting it needs the probe's sequence to move into kkt-diagnostics; a candidate follow-up | accepted by Sam, 2026-11-11 | after it merges |
@@ -284,8 +284,18 @@ constant, setting, injected or check. All of them come out of one file,
   `WEB_ACTIVITY_*`. kkt-rules uses them today (`human.rs`), so moving them to
   kkt-web without this would add an arrow from kkt-rules to kkt-web that F4
   removes. M.
-- **3.1c** operations (kkt-container, kkt-service, kkt-setup, kkt-backup,
-  kkt-logs, kkt-lane-files, kkt-diagnostics, kkt-client-config): M.
+- **3.1c** is split in two, in order:
+  - **3.1c-1** the operations crates (kkt-clock-system, kkt-backup,
+    kkt-container, kkt-diagnostics, kkt-setup, kkt-remote-access,
+    kkt-client-config, kkt-service, kkt-watch, kkt-agent-client and the
+    program). Their injected tuning values become fields of each crate's own
+    `Settings`, which the programs fill. M.
+  - **3.1c-2** the rest: the server defaults, and for now the config and
+    data paths, to kkt-settings; `LogLevel`, `LogPolicy`, their check and
+    the log constants to kkt-logs, outside its `real` feature; and
+    `InvalidSetting` to kkt-settings. kkt-web, kkt-admission, kkt-hosts and
+    kkt-service cannot use kkt-settings' error, so each gets its own
+    `SettingError` here: that part of 3.5a comes forward. M.
 
 Depends on phases 1 and 2 only where an owner crate was split there (for
 example, kkt-backup's constants go to kkt-backup, not kkt-backup-os). Not
@@ -320,12 +330,14 @@ environment, replacing `src/process.rs`'s `process_env`. Depends on 3.3.
 **3.5 kkt-settings only combines its sources** (F2). L, split in three, in
 order:
 
-- **3.5a** Each crate's own `SettingError`: kkt-admission, kkt-hosts,
-  kkt-service and kkt-web-preview's code (still in kkt-web until 6.3).
-  kkt-settings' `InvalidSetting` stays its own. M.
+- **3.5a** Each crate's own `SettingError`. 3.1c-2 already gives kkt-web
+  (with the preview's code, until 6.3), kkt-admission, kkt-hosts and
+  kkt-service theirs; what is left is any other crate that still checks a
+  setting with kkt-settings' error. S.
 - **3.5b** Types and checks to their owners: `AccessKey` and `key_refusal` to
-  kkt-admission, `LogLevel`, `LogPolicy` and `check_dependency_log_level` to
-  kkt-logs, `check_bind` and `serve_bind` to kkt-hosts. M.
+  kkt-admission, `check_bind` and `serve_bind` to kkt-hosts. (`LogLevel`,
+  `LogPolicy` and `check_dependency_log_level` reach kkt-logs earlier, in
+  3.1c-2.) M.
 - **3.5c** The program turns kkt-settings' raw values into each crate's
   settings and calls each owner's check, so `check_settings` goes from the
   program and kkt-keymode stops copying it. kkt-provenance records the run's
@@ -334,9 +346,9 @@ order:
 ### Phase 4: logging (sequential)
 
 **4.1 kkt-logs and kkt-logs-os** (F7). M. The rollover and pruning rules stay
-in kkt-logs, as logic, with the log's settings from 3.5b. `RotatingFile`,
+in kkt-logs, as logic, with the log's settings from 3.1c-2. `RotatingFile`,
 the `real` feature, tracing-subscriber and the program's `src/logging.rs`
-(starting the log) move to kkt-logs-os. Depends on 3.5b. Log files and lines
+(starting the log) move to kkt-logs-os. Depends on 3.1c-2. Log files and lines
 stay exactly as they are.
 
 **4.2 kkt-log** (F5). M. A new contract crate with `Log`, `Level` and
@@ -507,8 +519,8 @@ It runs on pull requests into `refactor`, `next` and `main`. Depends on 8.1.
 0.1, 0.2
 lane A: 1.3 → 1.1 → 1.6 → 1.7    lane B: 1.2 → 1.4 → 1.5 → 1.9    and 1.8
 2.1 … 2.7                     two at a time
-3.1d → 3.1a → 3.1b → 3.1c → 3.2 → 3.3 → 3.4 → 3.5a → 3.5b → 3.5c
-4.1 → 4.2                     after 3.5b
+3.1d → 3.1a → 3.1b → 3.1c-1 → 3.1c-2 → 3.2 → 3.3 → 3.4 → 3.5a → 3.5b → 3.5c
+4.1 → 4.2                     after 3.1c-2
 1.8 → 5.1a → 5.1b → 5.2a → 5.2b → 5.3a → 5.3b → 5.4a → 5.4b
 5.5                           after 1.6, beside 5.1 and 5.2
 6.1 (after 3.1b) → 6.2 (after 5.4) → 6.3

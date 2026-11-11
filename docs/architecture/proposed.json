@@ -2168,6 +2168,20 @@
    "kind": "struct",
    "status": "decided",
    "doc": "How a command ended, in kkt-service-os' own terms; the program translates it to kkt-service's Finished."
+  },
+  {
+   "crate": "kkt-container-os",
+   "path": "Command",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A command to run, in kkt-container-os' own terms; the program translates kkt-container's Command into it (step 2.1)."
+  },
+  {
+   "crate": "kkt-container-os",
+   "path": "Finished",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How a command ended, in kkt-container-os' own terms; the program translates it to kkt-container's Finished (step 2.1)."
   }
  ],
  "declared": [],
@@ -2246,7 +2260,7 @@
     "adapts": "kkt-container-os::OsHost",
     "to": "kkt-container::Host",
     "status": "decided",
-    "note": "the OS implementation, adapted to the contract its consumer declares"
+    "note": "8 methods; run and run_attached translate kkt-container's Command and Finished to and from kkt-container-os' own (step 2.1)"
    },
    {
     "adapts": "kkt-service-os::OsSystem",
@@ -6516,10 +6530,10 @@
     "to": "their consumers' Host, System, Prober and Disk",
     "where": "kkt",
     "methods": 36,
-    "forward": 34,
-    "translate": 2,
+    "forward": 32,
+    "translate": 4,
     "copies": 1,
-    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2)."
+    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1)."
    },
    {
     "adapter": "kkt-config-file::parse_file, with kkt-config-file-os::read",
@@ -6613,10 +6627,10 @@
   "after_totals": {
    "adapters": 16,
    "methods": 61,
-   "forward": 56,
-   "translate": 5,
+   "forward": 54,
+   "translate": 7,
    "written": 66,
-   "forward_written": 60
+   "forward_written": 58
   },
   "page_about": "Every adapter in the proposed map, with its methods: forwarding (F), the same operation as a method of the provider with at most a rename or a trivial conversion, or translating (T), which combines calls, reshapes records or holds logic. Copies: how many programs write it."
  },
