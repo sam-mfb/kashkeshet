@@ -15,6 +15,7 @@
 pub mod client;
 
 use kkt_admission::{AdminAdmission, Admission, Principal};
+use kkt_api_agent::Api;
 use kkt_api_agent::{Agent, Audit, Code, Operator, Permission, Permissions, RuleError, SwarmId};
 use kkt_clock::Clock;
 use kkt_entropy::Entropy;
@@ -22,7 +23,6 @@ use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_names::AdminName;
-use kkt_rules::Rules;
 use kkt_rules::{Db, NewServerRunRecord};
 use kkt_server::{AppConfig, Parts};
 use kkt_shutdown::Shutdown;
@@ -123,13 +123,13 @@ impl FakeIdentify {
 impl Identify for FakeIdentify {
     fn avatar<'a>(
         &'a self,
-        rules: &'a Rules,
+        api: &'a dyn Api,
         principal: &'a Principal,
         token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {
         Box::pin(async move {
             let swarm = FakeIdentify::agents_swarm(principal)?;
-            let actor = rules.in_swarm(swarm.clone()).authenticate(token).await?;
+            let actor = api.in_swarm(swarm.clone()).authenticate(token).await?;
             Ok(Identified { swarm, actor })
         })
     }
@@ -236,6 +236,7 @@ impl Product {
             entropy,
             Arc::new(FakeIdentify),
             Arc::new(kkt_logs_os::TracingLog),
+            Arc::new(kkt_rules::DefaultWording),
             &settings.fmt,
             &settings.events,
             run_id,

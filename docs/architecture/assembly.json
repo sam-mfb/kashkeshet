@@ -250,7 +250,8 @@
      "note": "kkt watch --admin"
     },
     {
-     "own": "the --state-file (a type of its own)",
+     "own": "StateFile, adapting kkt-agent-client::StateFile",
+     "supplier": "kkt-agent-client::StateFile",
      "crate": "kkt-watch",
      "to": [
       {
@@ -940,7 +941,7 @@
      "to": [
       {
        "at": "endpoint",
-       "param": "rules"
+       "param": "api"
       },
       {
        "at": "mcp_admin::endpoint",
@@ -978,7 +979,7 @@
      ]
     },
     {
-     "impl": "kkt-mcp-formatter::NoticeWording",
+     "impl": "kkt-rules::DefaultWording",
      "crate": "kkt-rules",
      "to": [
       {

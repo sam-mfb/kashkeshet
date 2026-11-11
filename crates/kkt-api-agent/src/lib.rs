@@ -1,14 +1,16 @@
-//! What any registered agent may do, and the records every level shares:
-//! the agents, channels, messages, memory and lanes the operations take and
-//! give back, the queries they take, who acts ([`Actor`], [`Agent`],
-//! [`Operator`]) and the errors they return ([`RuleError`], [`Code`]).
+//! What any registered agent may do ([`Api`] and its areas, with the
+//! [`Limits`] they enforce), and the records every level shares: the agents,
+//! channels, messages, memory and lanes the operations take and give back,
+//! the queries they take, who acts ([`Actor`], [`Agent`], [`Operator`]) and
+//! the errors they return ([`RuleError`], [`Code`]).
 //!
-//! A contract crate: plain values, with no behaviour beyond their own.
-//! kkt-rules implements the operations; the surfaces and products use these
-//! records through it.
+//! A contract crate: traits and plain values, with no behaviour beyond their
+//! own. kkt-rules implements the operations; the surfaces use them through
+//! `dyn Api`.
 
 mod agents;
 mod announcement;
+mod api;
 mod channels;
 mod error;
 mod lanes;
@@ -22,6 +24,7 @@ mod views;
 
 pub use agents::*;
 pub use announcement::*;
+pub use api::*;
 pub use channels::*;
 pub use error::*;
 pub use lanes::*;

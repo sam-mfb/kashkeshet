@@ -2,7 +2,8 @@
 //! own method of the same name, which checks the operator's permissions.
 
 use super::*;
-use kkt_api_operator::{Answer, Changes, Lanes, Server, Views};
+use kkt_api_agent::Answer;
+use kkt_api_operator::{Changes, Lanes, Server, Views};
 use std::time::Duration;
 
 impl Views for Rules {

@@ -691,11 +691,11 @@ fn the_admin_sees_which_channels_are_hidden() {
     };
     let page = Page {
         items: vec![
-            kkt_rules::AdminChannel {
+            kkt_api_admin::AdminChannel {
                 info: info("ch_gone", false),
                 hidden: true,
             },
-            kkt_rules::AdminChannel {
+            kkt_api_admin::AdminChannel {
                 info: info("ch_lobby", true),
                 hidden: false,
             },
@@ -733,7 +733,7 @@ fn the_admin_channel_json_stays_valid_at_the_smallest_cap() {
     let fmt = formatter(cap);
     for unit in ["界", "\"", "\\", "\n", "\u{1}", "😀"] {
         let purpose = unit.repeat(500);
-        let channel = kkt_rules::AdminChannel {
+        let channel = kkt_api_admin::AdminChannel {
             info: kkt_api_agent::ChannelInfo {
                 id: "ch_big".into(),
                 name: "名前\"quoted\"".into(),

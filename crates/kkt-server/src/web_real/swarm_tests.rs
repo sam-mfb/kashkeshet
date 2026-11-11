@@ -44,7 +44,7 @@ struct InOther;
 impl Identify for InOther {
     fn avatar<'a>(
         &'a self,
-        _rules: &'a Rules,
+        _api: &'a dyn kkt_api_agent::Api,
         _principal: &'a Principal,
         _token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {
@@ -154,7 +154,7 @@ async fn world() -> World {
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
         settings: kkt_rules::Settings::DEFAULT,
-        wording: Arc::new(kkt_mcp_formatter::NoticeWording),
+        wording: Arc::new(kkt_rules::DefaultWording),
     });
     let main_viewer = viewer(Principal::Anyone, &KeyMode::new(None)).await;
     let other_viewer = viewer(Principal::Anyone, &InOther).await;

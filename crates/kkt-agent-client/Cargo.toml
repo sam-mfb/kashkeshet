@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 futures.workspace = true
+libc = { workspace = true, optional = true }
 kkt-clock = { path = "../kkt-clock" }
 # Written out rather than left to the program: rmcp's client transport talks
 # TLS through reqwest's `rustls` (reorganization plan, risk 4).
@@ -19,5 +20,9 @@ tokio.workspace = true
 
 [features]
 # `Client`, `Remote` and `AdminRemote` (with watching.rs): they reach the
-# server over HTTP.
-real = ["dep:reqwest", "dep:rmcp"]
+# server over HTTP. Credential and state files also use real; libc reads
+# the effective uid for credential ownership checks on Unix.
+real = ["dep:reqwest", "dep:rmcp", "dep:libc"]
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }

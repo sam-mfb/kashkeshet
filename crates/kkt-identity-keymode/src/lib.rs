@@ -6,10 +6,11 @@
 //! which of the server's keys admitted the caller ([`KeyMode::operator`]).
 
 use kkt_admission::{Principal, ServerKey};
-use kkt_api_agent::{Agent, Audit, Code, Operator, Permission, Permissions, RuleError, SwarmId};
+use kkt_api_agent::{
+    Agent, Api, Audit, Code, Operator, Permission, Permissions, RuleError, SwarmId,
+};
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_names::AdminName;
-use kkt_rules::Rules;
 
 /// Key mode: one swarm, `sw_main`; an agent is who its token says; anyone
 /// admitted may register or reclaim; the operator is decided by the key
@@ -101,16 +102,13 @@ impl KeyMode {
 impl Identify for KeyMode {
     fn avatar<'a>(
         &'a self,
-        rules: &'a Rules,
+        api: &'a dyn Api,
         principal: &'a Principal,
         token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {
         Box::pin(async move {
             KeyMode::check_admitted(principal)?;
-            let actor = rules
-                .in_swarm(self.swarm.clone())
-                .authenticate(token)
-                .await?;
+            let actor = api.in_swarm(self.swarm.clone()).authenticate(token).await?;
             Ok(Identified {
                 swarm: self.swarm.clone(),
                 actor,

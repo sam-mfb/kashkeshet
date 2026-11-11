@@ -89,6 +89,7 @@ mod tests {
             Arc::new(SeqEntropy::new(1)),
             Arc::new(KeyMode::new(None)),
             Arc::new(kkt_log::testing::CapturedLog::default()),
+            Arc::new(kkt_rules::DefaultWording),
             &kkt_mcp_formatter::Settings::DEFAULT,
             &kkt_events::Settings::DEFAULT,
             1,

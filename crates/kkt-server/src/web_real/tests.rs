@@ -148,7 +148,7 @@ async fn rules_world_and_db(
         entropy: Arc::new(SeqEntropy::new(4)),
         run_id,
         settings,
-        wording: Arc::new(kkt_mcp_formatter::NoticeWording),
+        wording: Arc::new(kkt_rules::DefaultWording),
     });
     let mut agents = Vec::new();
     for _ in 0..2 {
@@ -844,7 +844,7 @@ struct Elsewhere {
 impl Identify for Elsewhere {
     fn avatar<'a>(
         &'a self,
-        _rules: &'a Rules,
+        _api: &'a dyn kkt_api_agent::Api,
         _principal: &'a Principal,
         _token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {

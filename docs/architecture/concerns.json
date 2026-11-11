@@ -127,12 +127,17 @@
   },
   "kkt-api-agent": {
    "layer": "core",
-   "concern": "What any registered agent may do, and the records every level shares: the agents, channels, messages, memory and lanes the operations take and give back, the queries they take, who acts, and the errors they return.",
+   "concern": "What any registered agent may do: Api and its areas (Agents, Channels, Messages, Memory, Lanes), with the Limits they enforce; and the records every level shares: the agents, channels, messages, memory and lanes the operations take and give back, the queries they take, who acts, and the errors they return.",
    "kind": "contract"
   },
   "kkt-api-operator": {
    "layer": "core",
-   "concern": "What the human who runs the server may do, by area (Views, Changes, Lanes, Server), with the records only they use. It depends on kkt-api-agent for the shared records.",
+   "concern": "What the human who runs the server may do, by area (Views, Changes, Lanes, Server), with the records only they use, and OperatorApi, every operation the operator may use in one swarm. It depends on kkt-api-agent for the shared records.",
+   "kind": "contract"
+  },
+  "kkt-api-admin": {
+   "layer": "core",
+   "concern": "What /mcp-admin's administrator does: the admin reads across every channel of a swarm (Admin), creating a swarm (Swarms), AdminChannel, and AdminApi, every operation /mcp-admin uses in one swarm.",
    "kind": "contract"
   },
   "kkt-rules": {
@@ -143,7 +148,7 @@
   },
   "kkt-mcp-formatter": {
    "layer": "surfaces",
-   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; and, until step 5.5 moves it to kkt-rules, `NoticeWording`, the default words for the operator in a notice.",
+   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`.",
    "must_not": "Decide permissions or read the database.",
    "kind": "logic"
   },
@@ -263,9 +268,9 @@
   },
   "kkt-agent-client": {
    "layer": "clients",
-   "concern": "The shared MCP client for agent commands and watching: avatar credentials, and reaching the server as an agent or admin.",
+   "concern": "The shared MCP client, agent credential and watch-state files, and reaching the server as an agent or admin.",
    "kind": "effect",
-   "must_not": "Implement kkt-watch's contract: the program adapts its records and failures."
+   "must_not": "Choose the credential-file rule or warning output; implement kkt-watch's contract: the program adapts its records and failures."
   },
   "kkt-watch": {
    "layer": "clients",
