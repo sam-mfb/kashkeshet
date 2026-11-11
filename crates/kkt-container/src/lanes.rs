@@ -10,7 +10,6 @@ use super::provision::run;
 use super::{Command, ConfigReader, DockerError, Folder, Host};
 use kkt_config_file::{CONFIG_DIR, CONFIG_FILE_NAME};
 use kkt_machine::XDG_CONFIG_HOME_DEFAULT;
-use kkt_settings::Limits;
 use std::path::{Path, PathBuf};
 
 /// The start of the name of the folder in the kkt container that `kkt lanes
@@ -127,7 +126,8 @@ fn export_and_copy_out(
 }
 
 /// The `max_lane_chars` that `kkt lanes import` in the kkt container uses:
-/// from the config file it finds there, else the default. It reads the file
+/// from the config file it finds there, else `default`, the limit kkt uses
+/// when its settings name none; the caller gives it. It reads the file
 /// in a new container from the kkt image, on the same data volume, so the
 /// install need not be running; Compose makes the volume if it is missing.
 /// `reader` parses the file. An error names what could not be read,
@@ -146,6 +146,7 @@ pub fn lane_limit(
     host: &dyn Host,
     folder: &Folder,
     reader: &dyn ConfigReader,
+    default: usize,
 ) -> Result<usize, DockerError> {
     let script = config_script();
     let said = succeed(
@@ -175,9 +176,7 @@ pub fn lane_limit(
             // Names the setting that is wrong.
             detail,
         })?;
-    Ok(settings
-        .max_lane_chars
-        .unwrap_or(Limits::DEFAULT.max_lane_chars))
+    Ok(settings.max_lane_chars.unwrap_or(default))
 }
 
 /// A shell script that prints the config file `kkt` in the container reads

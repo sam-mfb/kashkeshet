@@ -2,7 +2,7 @@
 //!
 //! Both the MCP tools and the web page go through this module. Nothing else
 //! touches the database, and the rules reach it only through the
-//! [`Reads`] and [`Writes`] contract of their own storage module.
+//! [`Reader`] and [`Writer`] contract of their own storage module.
 //!
 //! The rules:
 //!
@@ -76,17 +76,14 @@ mod lanes;
 pub use lane_import::{
     ImportedLane, LaneImport, LaneOutcome, check_lane_import, check_retire_missing,
 };
-pub use lanes::{
-    AgentLane, HeldLane, Lane, LaneChange, LaneRetired, LaneSave, LaneSource, LaneTaking,
-    LaneVersion,
-};
+pub use lanes::LaneSave;
 mod memory;
-pub use memory::{MemoryEntry, MemoryList, MemorySaved, MemorySummary};
+
 mod command_line;
 mod messages;
 mod operator;
-pub use announcement::ServerAnnouncement;
-pub use operator::{Audit, Operator, OperatorWording, Permission, Permissions};
+
+pub use operator::OperatorWording;
 mod rate;
 mod settings;
 pub use settings::Settings;
@@ -100,33 +97,29 @@ mod tests;
 
 pub use admin::AdminChannel;
 pub use administration::ChannelChange;
-pub use agents::{Actor, Agent, AgentInfo, ClientInfo, Reclaimed, RecordedClient, Registration};
-pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
-pub use command_line::{AgentStatus, CommandLine, Revoked};
-pub use error::{Code, Refusal, RuleError};
-pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};
-/// Storage: the [`Reads`] and [`Writes`] contract, its implementation in
+
+pub use command_line::{CommandLine, Revoked};
+
+pub use human::{ChannelActivity, ServerRunInfo};
+/// Storage: the [`Reader`] and [`Writer`] contract, its implementation in
 /// kkt-db's terms, and the core's tables ([`schema`]).
 mod store;
-pub use messages::{
-    ActivityRow, Message, MessagePage, Position, ReadQuery, SearchHit, SearchQuery, WaitQuery,
-    WaitResult,
-};
+
 use rate::{RegisterLimiter, SendLimiter};
 #[cfg(any(test, feature = "testing"))]
 pub use store::testing;
 pub use store::{
-    ActivityRecord, AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, CORE,
-    ChannelFacts, ChannelFilter, ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary,
-    ChannelUseRecord, Db, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord,
-    MembershipRecord, MemoryEntryRecord, MessageRange, MessageRecord, MessageTimeRecord,
-    NewAgentRecord, NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewServerRunRecord,
-    NewerFilter, NoteEditRecord, Reads, SearchFilter, SearchHitRecord, SentFilter,
-    ServerAnnouncementRecord, ServerRunRecord, StoreError, StoreResult, SwarmId, TakenLaneRecord,
-    Writes, legacy, schema,
+    AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, CORE, ChannelFacts, ChannelFilter,
+    ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary, ChannelUseRecord, Db, LaneRecord,
+    LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord,
+    MessageRange, MessageTimeRecord, NewAgentRecord, NewChannelRecord, NewLaneVersionRecord,
+    NewMessageRecord, NewServerRunRecord, NewerFilter, NoteEditRecord, Reader, SearchFilter,
+    SentFilter, StoreError, StoreResult, TakenLaneRecord, Writer, legacy, schema,
 };
 
 use access::{Decision, Need, Viewer, Who};
+use agents::may_change;
+use kkt_api_agent::*;
 use kkt_clock::{self as clock, Clock, Span, Time};
 use kkt_entropy::Entropy;
 use kkt_events::{
@@ -136,15 +129,6 @@ use kkt_events::{
 use kkt_names as names;
 use serde::Serialize;
 use std::sync::Arc;
-
-pub type Result<T> = std::result::Result<T, RuleError>;
-
-/// One page of a list, plus the cursor for the next page if there is one.
-#[derive(Clone, Debug, Serialize)]
-pub struct Page<T> {
-    pub items: Vec<T>,
-    pub next_cursor: Option<String>,
-}
 
 /// Everything the rules depend on, supplied at startup.
 pub struct Deps {
@@ -276,7 +260,7 @@ impl Bound {
     where
         T: Send + 'static,
         E: From<StoreError> + Send + 'static,
-        F: FnOnce(&dyn Reads, &SwarmId) -> std::result::Result<T, E> + Send + 'static,
+        F: FnOnce(&Reader<'_>, &SwarmId) -> std::result::Result<T, E> + Send + 'static,
     {
         let swarm = self.swarm.clone();
         self.db.read(move |store| f(store, &swarm)).await
@@ -287,7 +271,7 @@ impl Bound {
     where
         T: Send + 'static,
         E: From<StoreError> + Send + 'static,
-        F: FnOnce(&dyn Writes, &SwarmId) -> std::result::Result<T, E> + Send + 'static,
+        F: FnOnce(&Writer<'_>, &SwarmId) -> std::result::Result<T, E> + Send + 'static,
     {
         let swarm = self.swarm.clone();
         self.db.write(move |store| f(store, &swarm)).await
@@ -296,7 +280,7 @@ impl Bound {
 
 /// The channel, if `agent` can see it, and whether `agent` is in it.
 fn visible_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     agent: &str,
     id: &str,
@@ -306,7 +290,7 @@ fn visible_channel(
 
 /// The channel, if `agent` is a member of it.
 fn member_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     agent: &str,
     id: &str,
@@ -315,7 +299,7 @@ fn member_channel(
 }
 
 fn channel_for(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     agent: &str,
     id: &str,
@@ -335,7 +319,7 @@ fn channel_for(
 
 /// The channel, if `agent` is a member of it and owns it.
 fn owned_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     agent: &str,
     id: &str,
@@ -345,7 +329,7 @@ fn owned_channel(
 
 /// The channel, if `actor` may change it as a member would.
 fn changeable_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     actor: &Actor,
     id: &str,
@@ -361,7 +345,7 @@ fn changeable_channel(
 /// The channel, if `access::decide` lets `who`, the human or an admin agent,
 /// change it as a member would.
 fn operator_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     who: Who,
     id: &str,
@@ -384,7 +368,7 @@ fn agent_view_of(facts: Option<&ChannelFacts>) -> access::Channel {
 /// tell a hidden channel from a missing one. A channel of another swarm is
 /// missing.
 fn human_view_of(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     facts: Option<&ChannelFacts>,
     id: &str,
@@ -399,7 +383,7 @@ fn human_view_of(
 /// Full details of channel `id`, hidden or not, if `access::decide` lets the
 /// human read it, and whether it is hidden.
 fn human_readable_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     id: &str,
     preview: usize,
@@ -430,13 +414,13 @@ fn decided(
     }
 }
 
-fn agent_exists(store: &dyn Reads, swarm: &SwarmId, handle: &str) -> Result<bool> {
+fn agent_exists(store: &Reader<'_>, swarm: &SwarmId, handle: &str) -> Result<bool> {
     Ok(store.agent(swarm, handle)?.is_some())
 }
 
 /// Full details of one channel, as `viewer` sees it. `viewer` is `None` for the human.
 fn channel_info(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     id: &str,
     viewer: Option<&str>,
@@ -452,7 +436,7 @@ fn channel_info(
 /// Full details of one hidden channel, for the human. Call it only through
 /// [`human_readable_channel`], which asks `access::decide` first.
 fn hidden_channel_info(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     id: &str,
     preview: usize,
@@ -464,7 +448,7 @@ fn hidden_channel_info(
 }
 
 fn info_from_summary(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     id: &str,
     summary: crate::ChannelSummary,

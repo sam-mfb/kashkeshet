@@ -13,7 +13,6 @@ kkt-client-config = { path = "../kkt-client-config" }
 kkt-container = { path = "../kkt-container" }
 kkt-machine = { path = "../kkt-machine" }
 kkt-names = { path = "../kkt-names" }
-kkt-settings = { path = "../kkt-settings" }
 semver.workspace = true
 serde.workspace = true
 toml.workspace = true

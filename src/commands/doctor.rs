@@ -15,6 +15,7 @@ use kkt_diagnostics::{self as diagnostics, SETUP_CHECK};
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_service::Manager;
+use kkt_settings::Limits;
 use kkt_setup as setup;
 use std::path::Path;
 
@@ -94,7 +95,12 @@ pub async fn run(
         Some(setup::Mode::Client) => diagnostics::ThisMachine::Elsewhere,
         Some(setup::Mode::Docker(install)) => {
             let folder = kkt_container::Folder(install.folder);
-            let state = kkt_container::status(&ContainerHost, &folder, &ContainerConfigs);
+            let state = kkt_container::status(
+                &ContainerHost,
+                &folder,
+                &ContainerConfigs,
+                Limits::DEFAULT.name_pack.name(),
+            );
             let running = matches!(&state, Ok(state) if state.running);
             let tailscale_login = match &state {
                 Ok(state) => state.login.clone(),

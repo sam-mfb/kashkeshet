@@ -1,9 +1,9 @@
 #!/bin/bash
 # Build a throwaway crate outside the workspace that depends on kashkeshet's
-# shared crates (kkt-rules, kkt-server and kkt-server-listen) the way kkt-pro
-# will: by git, at one commit. It fails when a shared crate cannot be used from
-# outside the workspace, for example when it reaches a file or a setting
-# that only exists inside it.
+# shared crates (kkt-api-agent, kkt-rules, kkt-server and kkt-server-listen)
+# the way kkt-pro will: by git, at one commit. It fails when a shared crate
+# cannot be used from outside the workspace, for example when it reaches a
+# file or a setting that only exists inside it.
 #
 # Usage: build-outside-crate.sh <repository URL> <commit> <empty folder>
 #
@@ -41,6 +41,9 @@ edition = "2024"
 publish = false
 
 [dependencies]
+# kkt-api-agent holds the records the shared operations take, SwarmId among
+# them.
+kkt-api-agent = { git = "$url", rev = "$rev" }
 kkt-rules = { git = "$url", rev = "$rev" }
 # kkt-server brings in the shared crates with build scripts
 # (kkt-provenance, kkt-mcp, kkt-names): the likeliest to break outside the
@@ -52,9 +55,9 @@ TOML
 cat > "$dir/src/lib.rs" <<'RUST'
 //! Uses kashkeshet's shared crates from outside its workspace.
 
+use kkt_api_agent::SwarmId;
 use kkt_rules::Rules;
 use kkt_server::Parts;
-use kkt_rules::SwarmId;
 
 /// `rules` acting in the swarm named `id`.
 pub fn in_swarm(rules: &Rules, id: &str) -> Rules {
@@ -68,4 +71,4 @@ pub fn run_of(parts: &Parts) -> i64 {
 RUST
 cd "$dir"
 cargo build
-echo "build-outside-crate: built against kkt-rules, kkt-server and kkt-server-listen at $rev"
+echo "build-outside-crate: built against kkt-api-agent, kkt-rules, kkt-server and kkt-server-listen at $rev"

@@ -13,6 +13,7 @@
 //! Usage: `kkt-keymode --config <file> [--bind <address>]`. It prints
 //! `bound to <address>` once it listens, and stops on SIGINT or SIGTERM.
 
+use kkt_admission::AccessKey;
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
 use kkt_clock::Clock;
@@ -26,7 +27,7 @@ use kkt_logs::{LogLevel, LogPolicy};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts};
-use kkt_settings::{AccessKey, InvalidSetting, Limits, ServeOptions, ServeSettings};
+use kkt_settings::{InvalidSetting, Limits, RecordedSettings, ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use std::net::SocketAddr;
@@ -125,23 +126,26 @@ async fn run(args: &[String]) -> Result<(), String> {
     let run = ServerRun::new(
         Build::CURRENT,
         &RunSettings {
-            allow_any_bind,
-            limits: limits.clone(),
-            log_level,
-            dependency_log_level,
-            allowed_origins: config.allowed_origins.clone(),
-            allowed_hosts: config.allowed_hosts.extra().to_vec(),
-            config_file: Some(config_file),
-            access_key_file: config.admission.key_source().map(str::to_string),
-            web_key_file: config.web_admission.key_source().map(str::to_string),
-            admin_key_file: config
-                .admin_admission
-                .as_ref()
-                .and_then(|admission| admission.key_source())
-                .map(str::to_string),
-            admin_name: admin_name.as_ref().map(|name| name.to_string()),
-            log_file: None,
-            log_policy: LogPolicy::DEFAULT,
+            settings: RecordedSettings {
+                allow_any_bind,
+                limits: limits.clone(),
+                log_level,
+                dependency_log_level,
+                allowed_origins: config.allowed_origins.clone(),
+                allowed_hosts: config.allowed_hosts.extra().to_vec(),
+                config_file: Some(config_file),
+                access_key_file: config.admission.key_source().map(str::to_string),
+                web_key_file: config.web_admission.key_source().map(str::to_string),
+                admin_key_file: config
+                    .admin_admission
+                    .as_ref()
+                    .and_then(|admission| admission.key_source())
+                    .map(str::to_string),
+                admin_name: admin_name.as_ref().map(|name| name.to_string()),
+                log_file: None,
+                log_policy: LogPolicy::DEFAULT,
+            }
+            .lines(),
             instructions: config.agent_instructions().to_string(),
         },
     );
@@ -299,11 +303,11 @@ fn read(path: &Path) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| format!("could not read {}: {e}", path.display()))
 }
 
-/// Why the server's keys were refused, naming the setting.
+/// Why the server's keys were refused, naming the setting. kkt-keymode
+/// words the web and admin keys' refusals its own way, without the config
+/// file's setting names; the rest are kkt-admission's wording.
 fn refusal(refusal: KeyRefusal<String>) -> String {
     match refusal {
-        KeyRefusal::Text(e) => e,
-        KeyRefusal::AccessKey(e) => format!("invalid setting: {e}"),
         KeyRefusal::WebKeyReused => {
             "invalid setting: the web key must differ from the access key".into()
         }
@@ -312,7 +316,7 @@ fn refusal(refusal: KeyRefusal<String>) -> String {
             "invalid setting: the admin key must differ from the access and web keys".into()
         }
         KeyRefusal::AdminKey(e) => format!("invalid setting: admin key: {}", e.rule),
-        KeyRefusal::AdminName(e) => format!("invalid setting: admin name: {e}"),
+        other => kkt_admission::key_refusal(other, None, None),
     }
 }
 
@@ -370,7 +374,7 @@ impl KeyTexts for KeyFiles<'_> {
 
     fn admin_names(&mut self) -> Result<Option<String>, String> {
         match self.admin {
-            Some(path) => KeyFiles::optional(&kkt_settings::admin_name_path(path)),
+            Some(path) => KeyFiles::optional(&kkt_admission::admin_name_path(path)),
             None => Ok(None),
         }
     }

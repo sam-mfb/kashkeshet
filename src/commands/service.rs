@@ -10,7 +10,7 @@ use crate::machine::settings::{
 use crate::process::program_path;
 use kkt_clock_system::SystemClock;
 use kkt_machine::{Env, Platform};
-use kkt_service::{DryRun, Manager, PlanError, Request, Spec};
+use kkt_service::{DryRun, Manager, Request, ServiceSettings, Spec, check_bind};
 use kkt_settings::ServeOptions;
 use std::io;
 use std::net::{SocketAddr, TcpListener};
@@ -51,7 +51,7 @@ pub async fn run(env: &Env, platform: Platform, command: ServiceAction) -> Resul
         }) => {
             let plan = service_plan(env, platform, config, db, access_key_file, no_access_key)?;
             let running = manager.state(&system).map_err(|e| e.to_string())?.running;
-            check_bind(&plan, running, &try_bind)?;
+            check_bind(running, plan.bind, plan.config_file.as_deref(), &try_bind)?;
             if dry_run {
                 let dry = DryRun::new(&system);
                 manager
@@ -133,44 +133,17 @@ pub struct ServicePlan {
     config_file: Option<String>,
 }
 
-/// Refuses to install a service whose server could not listen on its
-/// address, such as one another program has, before anything is written:
-/// installed, it would fail and be started again every few seconds (#371).
-/// `try_bind` listens on an address and lets it go at once. When the kkt
-/// service is `running`, it holds its own address, and installing again
-/// replaces it, so the address is not tried; `check_started` catches a new
-/// address that turns out to be taken.
-fn check_bind(
-    plan: &ServicePlan,
-    running: bool,
-    try_bind: &dyn Fn(SocketAddr) -> io::Result<()>,
-) -> Result<(), String> {
-    if running {
-        return Ok(());
+/// What the service plan needs of `options`, from one source.
+fn service_settings(options: &ServeOptions) -> ServiceSettings {
+    ServiceSettings {
+        db: options.db.clone(),
+        access_key_file: options.access_key_file.clone(),
+        no_access_key: options.no_access_key,
     }
-    let Err(e) = try_bind(plan.bind) else {
-        return Ok(());
-    };
-    let bind = plan.bind;
-    let set_it = match &plan.config_file {
-        Some(file) => format!("set another address with `bind` in {file}"),
-        None => "set another address with `bind` in a config file".to_string(),
-    };
-    Err(if e.kind() == io::ErrorKind::AddrInUse {
-        format!(
-            "{bind} is already in use, so the server could not listen there. Stop the program \
-             using it, or {set_it}, then run `kkt service install` again."
-        )
-    } else {
-        format!(
-            "the server could not listen on {bind}: {e}. To fix it, {set_it}, then run \
-             `kkt service install` again."
-        )
-    })
 }
 
-/// Listens on `address` and lets it go at once: [`check_bind`]'s test of
-/// whether the server could listen there.
+/// Listens on `address` and lets it go at once: the program's answer to
+/// [`kkt_service::check_bind`], whether the server could listen there.
 fn try_bind(address: SocketAddr) -> io::Result<()> {
     TcpListener::bind(address).map(drop)
 }
@@ -209,35 +182,34 @@ pub fn service_plan(
     };
     let loaded = load_serve_options(env, config, flags)?;
     let sources = loaded.sources();
-    let said = |e: PlanError| match e {
-        PlanError::Invalid(e) => sources.invalid(e),
-        other => other.to_string(),
-    };
     let plan = kkt_service::plan(
         Request {
-            config_file: loaded.config_file,
-            flags: loaded.flags,
-            from_file: loaded.from_file,
+            config_file: loaded.config_file.clone(),
+            flags: service_settings(&loaded.flags),
+            from_file: service_settings(&loaded.from_file),
             default_db: kkt_setup::default_db(env, platform),
             default_key: crate::machine::settings::default_access_key(env),
         },
         &|path: &Path| path.exists(),
     )
-    .map_err(said)?;
+    .map_err(|e| e.to_string())?;
+    // What the flags and the config file give together, with the plan's
+    // database and keys to check in place of theirs.
+    let check = ServeOptions {
+        db: plan.check.db.clone(),
+        access_key_file: plan.check.access_key_file.clone(),
+        no_access_key: plan.check.no_access_key,
+        ..loaded.flags.over(loaded.from_file)
+    };
     // The database is the one passed or the config file's, so it is always
-    // known here: a missing home directory was refused above.
+    // known here: a missing home directory was refused above. A bad setting
+    // is refused here, naming the config file if it set it.
     let in_effect = DefaultDb::Required(NO_HOME_TO_KEEP_DB);
-    let mut settings = resolve(
-        env,
-        platform,
-        plan.check.clone(),
-        in_effect,
-        Report::Traced(&sources),
-    )?;
+    let mut settings = resolve(env, platform, check, in_effect, Report::Traced(&sources))?;
     settings.web_key = plan.check_web_key.clone();
     let checked = check_settings(settings, &sources)?;
     Ok(ServicePlan {
-        spec: plan.spec(program).map_err(said)?,
+        spec: plan.spec(program).map_err(|e| e.to_string())?,
         new_key: plan.new_key,
         new_web_key: plan.new_web_key,
         bind: checked.bind,
@@ -329,7 +301,7 @@ mod tests {
         );
         assert_eq!(plan.spec.dirs, [db.parent().expect("folder").to_path_buf()]);
         assert_eq!(plan.new_key, Some(key.clone()));
-        assert_eq!(plan.new_web_key, Some(kkt_settings::web_key_path(&key)));
+        assert_eq!(plan.new_web_key, Some(kkt_admission::web_key_path(&key)));
     }
 
     #[test]
@@ -373,32 +345,37 @@ mod tests {
         );
     }
 
-    /// A plan for `bind`, as set in `config_file`.
-    fn plan_for(bind: SocketAddr, config_file: Option<&str>) -> ServicePlan {
-        ServicePlan {
-            spec: Spec {
-                program: PathBuf::from("/bin/kkt"),
-                args: Vec::new(),
-                dirs: Vec::new(),
-            },
-            new_key: None,
-            new_web_key: None,
-            bind,
-            config_file: config_file.map(String::from),
-        }
+    /// A key file given with no key is refused by the check after the plan,
+    /// naming the setting the flag gave, not the config file.
+    #[test]
+    fn a_key_file_given_with_no_key_is_refused() {
+        let home = scratch::Dir::new("service-key-and-no-key");
+        let env = test_env(Some(&home));
+        write_default_config(&home, "access_key_file = \"/keys/key\"");
+        assert_eq!(
+            service_plan(&env, TEST_PLATFORM, None, None, None, true).map(|p| p.spec.args),
+            Err(
+                "invalid setting: no_access_key cannot be set together with access_key_file"
+                    .to_string()
+            )
+        );
     }
 
-    /// #371: with another program listening on the address, the install
-    /// is refused, naming the address and where to change it, rather than
+    /// #371, with a real socket: with another program listening on the
+    /// address, the install is refused, naming the address and where to change it, rather than
     /// installing a server that fails and is started again every few
     /// seconds.
     #[test]
     fn an_address_in_use_is_refused_before_installing() {
         let other = TcpListener::bind("127.0.0.1:0").expect("listen");
         let bind = other.local_addr().expect("address");
-        let plan = plan_for(bind, Some("/home/sam/.config/kkt/config.toml"));
         assert_eq!(
-            check_bind(&plan, false, &try_bind),
+            check_bind(
+                false,
+                bind,
+                Some("/home/sam/.config/kkt/config.toml"),
+                &try_bind
+            ),
             Err(format!(
                 "{bind} is already in use, so the server could not listen there. Stop the \
                  program using it, or set another address with `bind` in \
@@ -413,43 +390,8 @@ mod tests {
         let free = TcpListener::bind("127.0.0.1:0").expect("listen");
         let bind = free.local_addr().expect("address");
         drop(free);
-        assert_eq!(check_bind(&plan_for(bind, None), false, &try_bind), Ok(()));
+        assert_eq!(check_bind(false, bind, None, &try_bind), Ok(()));
         TcpListener::bind(bind).expect("still free");
-    }
-
-    /// The running kkt service holds its own address, and installing again
-    /// replaces it, so the address is not tried.
-    #[test]
-    fn a_running_service_is_not_refused_for_its_own_address() {
-        let ours = TcpListener::bind("127.0.0.1:0").expect("listen");
-        let bind = ours.local_addr().expect("address");
-        let tried = std::cell::Cell::new(false);
-        let try_bind = |_: SocketAddr| {
-            tried.set(true);
-            Ok(())
-        };
-        assert_eq!(check_bind(&plan_for(bind, None), true, &try_bind), Ok(()));
-        assert!(!tried.get());
-    }
-
-    /// Other reasons the server could not listen are refused too, saying
-    /// what the system said.
-    #[test]
-    fn other_listen_failures_are_refused_with_the_reason() {
-        let bind: SocketAddr = "192.0.2.1:7420".parse().expect("address");
-        let unavailable = |_: SocketAddr| Err(io::Error::from(io::ErrorKind::AddrNotAvailable));
-        let err = check_bind(&plan_for(bind, None), false, &unavailable).expect_err("refused");
-        assert!(
-            err.starts_with("the server could not listen on 192.0.2.1:7420: "),
-            "{err}"
-        );
-        assert!(
-            err.ends_with(
-                "To fix it, set another address with `bind` in a config file, then run \
-                 `kkt service install` again."
-            ),
-            "{err}"
-        );
     }
 
     #[test]

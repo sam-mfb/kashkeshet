@@ -22,6 +22,17 @@ impl SettingError {
     }
 }
 
+/// Which access key a server uses.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AccessKey {
+    /// None: `/mcp` and the web page are open to anyone who can reach them.
+    None,
+    /// The key in this file, which must exist.
+    File(PathBuf),
+    /// The key in this default file, created if it does not exist yet.
+    Default(PathBuf),
+}
+
 /// Shortest access key, in bytes. 32 random hex digits carry 128 bits.
 pub(crate) const MIN_ACCESS_KEY_BYTES: usize = 32;
 /// Characters in a key made by `kkt key create`, from the 36-character
@@ -49,6 +60,26 @@ pub const ADMIN_NAME_FILE_SUFFIX: &str = ".name";
 /// access key file in kkt's config directory, `config_dir`.
 pub fn access_key_file(config_dir: &Path) -> PathBuf {
     config_dir.join(ACCESS_KEY_FILE_NAME)
+}
+
+/// The operator web key always lives beside the server's access key.
+pub fn web_key_path(access_key: &Path) -> PathBuf {
+    access_key.with_file_name(WEB_KEY_FILE_NAME)
+}
+
+/// The admin key lives beside the server's access key, unless that place
+/// is already used by the access key (which older versions allowed).
+pub fn admin_key_path(access_key: &Path) -> Option<PathBuf> {
+    let admin = access_key.with_file_name(ADMIN_KEY_FILE_NAME);
+    (admin != access_key).then_some(admin)
+}
+
+/// The admin agent's name, if the admin key has one, lives beside the admin
+/// key, in a file of its own: each key file has its own name file.
+pub fn admin_name_path(admin_key: &Path) -> PathBuf {
+    let mut name = admin_key.file_name().unwrap_or_default().to_os_string();
+    name.push(ADMIN_NAME_FILE_SUFFIX);
+    admin_key.with_file_name(name)
 }
 
 /// Checks an access key, as read from `--access-key-file` without
@@ -83,6 +114,31 @@ mod tests {
         assert_eq!(
             access_key_file(Path::new("/home/sam/.config/kkt")),
             PathBuf::from("/home/sam/.config/kkt/access-key")
+        );
+    }
+
+    #[test]
+    fn the_web_and_admin_keys_live_beside_the_access_key() {
+        let access = Path::new("/keys/access-key");
+        assert_eq!(web_key_path(access), PathBuf::from("/keys/web-key"));
+        assert_eq!(
+            admin_key_path(access),
+            Some(PathBuf::from("/keys/admin-key"))
+        );
+        // An access key already in the admin key's place leaves no place
+        // for an admin key.
+        assert_eq!(admin_key_path(Path::new("/keys/admin-key")), None);
+    }
+
+    #[test]
+    fn each_admin_key_file_has_its_own_name_file() {
+        assert_eq!(
+            admin_name_path(Path::new("/keys/admin-key")),
+            PathBuf::from("/keys/admin-key.name")
+        );
+        assert_eq!(
+            admin_name_path(Path::new("/keys/other")),
+            PathBuf::from("/keys/other.name")
         );
     }
 

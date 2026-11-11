@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-api-agent = { path = "../kkt-api-agent" }
 axum.workspace = true
 futures.workspace = true
 kkt-admission = { path = "../kkt-admission" }

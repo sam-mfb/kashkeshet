@@ -2,7 +2,7 @@
 //! The native writer applies these plans to the files on disk.
 
 mod policy;
-pub use policy::{Pruning, Rotation, prune_due, pruning, rolled, rotation, should_roll};
+pub use policy::{Pruning, Rotation, prune_due, pruning, rotation, should_roll};
 
 use std::time::Duration;
 

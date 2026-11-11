@@ -8,8 +8,6 @@ pub use startup::{init_logging, init_stderr_logging};
 
 use kkt_clock::{Clock, Time};
 use kkt_logs::LogPolicy;
-#[cfg(test)]
-use kkt_logs::rolled;
 use kkt_logs::{prune_due, pruning, rotation, should_roll};
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
@@ -56,7 +54,9 @@ impl RotatingFile {
     /// `<file>.<n>`, the `n`th most recently rolled file.
     #[cfg(test)]
     fn rolled(&self, n: usize) -> PathBuf {
-        rolled(&self.path, n)
+        let mut name = self.path.as_os_str().to_owned();
+        name.push(format!(".{n}"));
+        PathBuf::from(name)
     }
 
     /// Renames the file to `<file>.1`, moving older ones up and dropping the

@@ -17,7 +17,7 @@ const LOG_OWN_TARGETS: &[&str] = &["kashkeshet", "kkt"];
 
 /// Sends the log to stdout, or to a log file kept within the policy given
 /// with it. kkt's own code logs at `own`, the libraries it uses at
-/// `dependencies`.
+/// `dependencies`. The supplied clock determines when rolled files expire.
 pub fn init_logging(
     log_file: Option<(&Path, LogPolicy)>,
     own: LogLevel,

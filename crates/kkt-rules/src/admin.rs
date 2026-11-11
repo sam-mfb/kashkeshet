@@ -3,7 +3,7 @@
 //! and every agent the web page shows. Admission (the admin key) has already
 //! let the caller in; nothing here changes anything.
 
-use super::channels::{decode_channel_cursor, encode_channel_cursor};
+use super::channels::decode_channel_cursor;
 use super::*;
 use crate::AnyChannelRecord;
 
@@ -43,9 +43,7 @@ impl Rules {
                     })
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = match (more, items.last()) {
-                    (true, Some(last)) => {
-                        Some(encode_channel_cursor(&last.info.name, &last.info.id))
-                    }
+                    (true, Some(last)) => Some(channel_cursor(&last.info)),
                     _ => None,
                 };
                 Ok(Page { items, next_cursor })
@@ -144,7 +142,7 @@ impl Rules {
                     .ok_or_else(|| RuleError::message_not_found(id))?;
                 admin_channel(store, swarm, &message.channel_id, Need::See)
                     .map_err(|_| RuleError::message_not_found(id))?;
-                Ok(Message::from(message))
+                Ok(message)
             })
             .await
     }
@@ -160,7 +158,7 @@ impl Rules {
         self.db()
             .read(move |store, swarm| {
                 let rows = store.any_activity(swarm, after_id)?;
-                Ok(rows.into_iter().map(ActivityRow::from).collect())
+                Ok(rows.into_iter().collect())
             })
             .await
     }
@@ -194,7 +192,7 @@ impl Rules {
                     store.count_any_newer_messages(swarm, after_id, channel_ids.as_deref())?;
                 Ok(WaitResult {
                     more_waiting: total - messages.len() as i64,
-                    messages: messages.into_iter().map(Message::from).collect(),
+                    messages: messages.into_iter().collect(),
                     newer_lane: None,
                 })
             })
@@ -250,7 +248,7 @@ impl Rules {
 /// The channel `id`, hidden or not, if `access::decide` lets the admin agent
 /// use it for `need`.
 fn admin_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     id: &str,
     need: Need,
@@ -270,7 +268,7 @@ fn admin_channel(
 }
 
 fn admin_view(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     record: AnyChannelRecord,
     preview: usize,

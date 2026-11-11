@@ -20,7 +20,7 @@ pub fn prune_due(now: Time, last_pruned: Time) -> Result<bool, OutOfRange> {
 }
 
 /// `<file>.<n>`, the nth most recently rolled file.
-pub fn rolled(path: &Path, n: usize) -> PathBuf {
+fn rolled(path: &Path, n: usize) -> PathBuf {
     let mut name = path.as_os_str().to_owned();
     name.push(format!(".{n}"));
     PathBuf::from(name)
@@ -28,8 +28,11 @@ pub fn rolled(path: &Path, n: usize) -> PathBuf {
 
 /// The filesystem steps for one rollover, in their existing order.
 pub struct Rotation {
+    /// The oldest rolled file to remove before renaming.
     pub oldest: PathBuf,
+    /// Source and destination pairs, oldest first.
     pub shifts: Vec<(PathBuf, PathBuf)>,
+    /// Where the current file is renamed after the shifts.
     pub first: PathBuf,
 }
 
@@ -52,9 +55,11 @@ pub struct Pruning {
 }
 
 impl Pruning {
+    /// Rolled files to inspect, newest first.
     pub fn paths(&self) -> &[PathBuf] {
         &self.paths
     }
+    /// Whether the modification time is strictly before the age cutoff.
     pub fn expired(&self, written: Time) -> bool {
         written < self.cutoff
     }

@@ -15,15 +15,14 @@
 pub mod client;
 
 use kkt_admission::{AdminAdmission, Admission, Principal};
+use kkt_api_agent::{Agent, Audit, Code, Operator, Permission, Permissions, RuleError, SwarmId};
 use kkt_clock::Clock;
 use kkt_entropy::Entropy;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_names::AdminName;
-use kkt_rules::{
-    self as rules, Agent, Audit, Code, Operator, Permission, Permissions, RuleError, Rules, SwarmId,
-};
+use kkt_rules::Rules;
 use kkt_rules::{Db, NewServerRunRecord};
 use kkt_server::{AppConfig, Parts};
 use kkt_shutdown::Shutdown;
@@ -94,7 +93,7 @@ enum Role {
 pub struct FakeIdentify;
 
 impl FakeIdentify {
-    fn bearer(principal: &Principal) -> rules::Result<(SwarmId, Role)> {
+    fn bearer(principal: &Principal) -> kkt_api_agent::Result<(SwarmId, Role)> {
         let refused = || RuleError::new(Code::Unauthenticated, "not a bearer the fake knows");
         let Principal::Bearer(token) = principal else {
             return Err(refused());
@@ -110,7 +109,7 @@ impl FakeIdentify {
         }
     }
 
-    fn agents_swarm(principal: &Principal) -> rules::Result<SwarmId> {
+    fn agents_swarm(principal: &Principal) -> kkt_api_agent::Result<SwarmId> {
         match FakeIdentify::bearer(principal)? {
             (swarm, Role::Agents) => Ok(swarm),
             (_, Role::Operator | Role::Admin) => Err(RuleError::new(

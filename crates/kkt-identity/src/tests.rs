@@ -1,6 +1,6 @@
 use super::testing::FixedIdentify;
 use super::*;
-use kkt_rules::{Audit, Code, Permission, Permissions};
+use kkt_api_agent::{Audit, Code, Permission, Permissions};
 
 fn reader() -> Operator {
     Operator::new(Permissions::of(&[Permission::Read]), Audit::WebPage)

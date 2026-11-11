@@ -7,13 +7,17 @@
 //! the file gives, as [`ServeOptions`], and the defaults that depend on the
 //! machine, such as the default database, so every rule here can be tested
 //! directly.
+//!
+//! It also words the settings a server run records ([`RecordedSettings`]),
+//! as lines kkt-provenance stores.
 
 mod limits;
-#[cfg(feature = "testing")]
-pub mod testing;
+mod record;
 
 pub use limits::Limits;
+pub use record::RecordedSettings;
 
+use kkt_admission::{AccessKey, admin_key_path, web_key_path};
 use kkt_logs::LogLevel;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::path::PathBuf;
@@ -22,8 +26,7 @@ use std::path::PathBuf;
 
 /// Address to listen on.
 pub const DEFAULT_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7420));
-/// Whether `bind` may be a non-loopback address. Other crates' tests read
-/// it through `testing`.
+/// Whether `bind` may be a non-loopback address.
 const DEFAULT_ALLOW_ANY_BIND: bool = false;
 /// Browser origins allowed to call `/mcp` (`allow_origins`): none.
 const DEFAULT_ALLOW_ORIGINS: &[&str] = &[];
@@ -300,37 +303,6 @@ impl ServeOptions {
 /// A default list as the owned list a setting holds.
 fn strings(list: &[&str]) -> Vec<String> {
     list.iter().map(|s| s.to_string()).collect()
-}
-
-/// The operator web key always lives beside the server's access key.
-pub fn web_key_path(access_key: &std::path::Path) -> PathBuf {
-    access_key.with_file_name(kkt_admission::WEB_KEY_FILE_NAME)
-}
-
-/// The admin key lives beside the server's access key, unless that place
-/// is already used by the access key (which older versions allowed).
-pub fn admin_key_path(access_key: &std::path::Path) -> Option<PathBuf> {
-    let admin = access_key.with_file_name(kkt_admission::ADMIN_KEY_FILE_NAME);
-    (admin != access_key).then_some(admin)
-}
-
-/// The admin agent's name, if the admin key has one, lives beside the admin
-/// key, in a file of its own: each key file has its own name file.
-pub fn admin_name_path(admin_key: &std::path::Path) -> PathBuf {
-    let mut name = admin_key.file_name().unwrap_or_default().to_os_string();
-    name.push(kkt_admission::ADMIN_NAME_FILE_SUFFIX);
-    admin_key.with_file_name(name)
-}
-
-/// Which access key a server uses.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum AccessKey {
-    /// None: `/mcp` and the web page are open to anyone who can reach them.
-    None,
-    /// The key in this file, which must exist.
-    File(PathBuf),
-    /// The key in this default file, created if it does not exist yet.
-    Default(PathBuf),
 }
 
 /// The settings a server runs with. They are not yet checked: the caller

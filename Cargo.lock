@@ -1040,6 +1040,7 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-agent-client",
+ "kkt-api-agent",
  "kkt-backup",
  "kkt-backup-os",
  "kkt-client-config",
@@ -1117,6 +1118,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-api-agent"
+version = "0.10.0"
+dependencies = [
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "kkt-backup"
 version = "0.10.0"
 dependencies = [
@@ -1190,7 +1199,6 @@ dependencies = [
  "kkt-config-file",
  "kkt-machine",
  "kkt-names",
- "kkt-settings",
  "serde_json",
  "thiserror",
  "tokio",
@@ -1268,6 +1276,7 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-admission",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-clock-system",
  "kkt-db-sqlite",
@@ -1307,6 +1316,7 @@ name = "kkt-identity"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
+ "kkt-api-agent",
  "kkt-rules",
  "tokio",
 ]
@@ -1316,6 +1326,7 @@ name = "kkt-identity-keymode"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",
@@ -1397,6 +1408,7 @@ version = "0.10.0"
 dependencies = [
  "axum",
  "kkt-admission",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",
@@ -1422,6 +1434,7 @@ dependencies = [
 name = "kkt-mcp-formatter"
 version = "0.10.0"
 dependencies = [
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-names",
  "kkt-rules",
@@ -1443,9 +1456,6 @@ name = "kkt-provenance"
 version = "0.10.0"
 dependencies = [
  "kkt-hash",
- "kkt-logs",
- "kkt-names",
- "kkt-settings",
 ]
 
 [[package]]
@@ -1465,6 +1475,7 @@ name = "kkt-rules"
 version = "0.10.0"
 dependencies = [
  "futures",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-db",
  "kkt-db-sqlite",
@@ -1492,6 +1503,7 @@ dependencies = [
  "axum",
  "futures",
  "kkt-admission",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",
@@ -1534,9 +1546,9 @@ dependencies = [
 name = "kkt-service"
 version = "0.10.0"
 dependencies = [
+ "kkt-admission",
  "kkt-clock",
  "kkt-machine",
- "kkt-settings",
  "thiserror",
 ]
 
@@ -1552,6 +1564,7 @@ dependencies = [
  "kkt-logs",
  "kkt-mcp-formatter",
  "kkt-names",
+ "kkt-provenance",
  "kkt-web",
  "thiserror",
 ]
@@ -1565,7 +1578,6 @@ dependencies = [
  "kkt-container",
  "kkt-machine",
  "kkt-names",
- "kkt-settings",
  "semver",
  "serde",
  "toml",

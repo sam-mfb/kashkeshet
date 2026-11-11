@@ -16,12 +16,12 @@ pub use mcp_transport::Settings;
 use crate::mcp_transport::Transport;
 use axum::Router;
 use kkt_admission::Principal;
+use kkt_api_agent::{
+    Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, SearchQuery, WaitQuery,
+};
 use kkt_identity::Identify;
 use kkt_mcp_formatter::{Format, Formatter};
-use kkt_rules::{
-    self as rules, Agent, ChannelQuery, NewChannel, ReadQuery, RuleError, Rules, SearchQuery,
-    WaitQuery,
-};
+use kkt_rules::{self as rules, Rules};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{
     CallToolResult, DiscoverResult, Implementation, InitializeRequestParams, InitializeResult,
@@ -128,7 +128,7 @@ impl ChatServer {
         &self,
         context: &RequestContext<RoleServer>,
         token: &Option<String>,
-    ) -> rules::Result<(Rules, Agent)> {
+    ) -> kkt_api_agent::Result<(Rules, Agent)> {
         let principal = principal(context)?;
         let who = self
             .identify
@@ -139,13 +139,13 @@ impl ChatServer {
 
     /// The rules in the swarm `register` and `reclaim` act in, through
     /// `identify`, or why they may not be used.
-    async fn newcomer(&self, context: &RequestContext<RoleServer>) -> rules::Result<Rules> {
+    async fn newcomer(&self, context: &RequestContext<RoleServer>) -> kkt_api_agent::Result<Rules> {
         let principal = principal(context)?;
         let swarm = self.identify.newcomer(&principal).await?;
         Ok(self.rules.in_swarm(swarm))
     }
 
-    fn respond(&self, format: Format, out: rules::Result<String>) -> CallToolResult {
+    fn respond(&self, format: Format, out: kkt_api_agent::Result<String>) -> CallToolResult {
         mcp_tools::respond(&self.fmt, format, out, |e| {
             tracing::error!(error = %e, "tool call failed");
         })
@@ -155,11 +155,14 @@ impl ChatServer {
         self.rules.settings().limit(requested)
     }
 
-    fn client_info(context: &RequestContext<RoleServer>) -> Option<rules::ClientInfo> {
-        context.peer.peer_info().map(|info| rules::ClientInfo {
-            name: info.client_info.name.clone(),
-            version: info.client_info.version.clone(),
-        })
+    fn client_info(context: &RequestContext<RoleServer>) -> Option<kkt_api_agent::ClientInfo> {
+        context
+            .peer
+            .peer_info()
+            .map(|info| kkt_api_agent::ClientInfo {
+                name: info.client_info.name.clone(),
+                version: info.client_info.version.clone(),
+            })
     }
 }
 
@@ -167,7 +170,7 @@ impl ChatServer {
 /// server's admission sits in front of both endpoints and leaves it on
 /// every request it lets through; a request without one was not admitted,
 /// which is a fault in how the server was put together, not the caller's.
-pub(crate) fn principal(context: &RequestContext<RoleServer>) -> rules::Result<Principal> {
+pub(crate) fn principal(context: &RequestContext<RoleServer>) -> kkt_api_agent::Result<Principal> {
     context
         .extensions
         .get::<axum::http::request::Parts>()
@@ -176,7 +179,7 @@ pub(crate) fn principal(context: &RequestContext<RoleServer>) -> rules::Result<P
         .ok_or_else(|| {
             tracing::error!("a call reached the endpoint without admission's principal");
             RuleError::new(
-                rules::Code::Internal,
+                kkt_api_agent::Code::Internal,
                 "the server could not tell who is calling",
             )
         })

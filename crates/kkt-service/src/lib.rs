@@ -12,8 +12,10 @@
 //! [`DryRun`] reports what would change without changing anything.
 //!
 //! [`plan`] works out what the service runs and which keys to make, from
-//! plain inputs.
+//! plain inputs. [`check_bind`] says whether the service's server could
+//! listen on its address, from the program's answer.
 
+mod bind;
 mod dry_run;
 mod launchd;
 mod plan;
@@ -21,8 +23,9 @@ mod systemd;
 #[cfg(test)]
 mod tests;
 
+pub use bind::check_bind;
 pub use dry_run::DryRun;
-pub use plan::{Plan, PlanError, Request, plan};
+pub use plan::{Plan, PlanError, Request, ServiceSettings, plan};
 
 use kkt_clock::Clock;
 use kkt_machine::Env;

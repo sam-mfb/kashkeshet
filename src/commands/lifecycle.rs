@@ -20,6 +20,7 @@ use kkt_clock_system::SystemClock;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_service::{Manager, ServiceError};
+use kkt_settings::Limits;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
 
@@ -167,8 +168,13 @@ pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Res
         }
         setup::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
-            let state = kkt_container::status(&ContainerHost, &folder, &ContainerConfigs)
-                .map_err(|e| e.to_string())?;
+            let state = kkt_container::status(
+                &ContainerHost,
+                &folder,
+                &ContainerConfigs,
+                Limits::DEFAULT.name_pack.name(),
+            )
+            .map_err(|e| e.to_string())?;
             match &state.name_pack {
                 Ok(pack) => println!("Name pack: {pack}"),
                 Err(reason) => println!("Name pack: unavailable ({reason})"),

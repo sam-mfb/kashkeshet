@@ -190,7 +190,7 @@ fn both_compose_setups_keep_both_default_keys_in_the_data_volume() {
     let access = kkt_admission::access_key_file(
         &kkt_config_file::config_dir(&env).expect("default config folder"),
     );
-    let web = kkt_settings::web_key_path(&access);
+    let web = kkt_admission::web_key_path(&access);
     assert_eq!(web, std::path::Path::new("/data/.config/kkt/web-key"));
     assert_ne!(access, web);
     for file in ["compose.yaml", "compose.tailscale.yaml"] {

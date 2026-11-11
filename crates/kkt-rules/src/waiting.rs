@@ -100,7 +100,7 @@ impl Drop for Guard<'_> {
 /// else in any channel. `viewer` is `None` for the human and admin agents,
 /// who see every channel, so for them it is the plain value.
 pub(super) fn last_sent(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     agent: &str,
     channel: Option<&str>,
@@ -126,7 +126,7 @@ impl Rules {
     /// human and admin agents, who see every channel.
     pub(super) fn observed_agent(
         &self,
-        store: &dyn Reads,
+        store: &Reader<'_>,
         swarm: &SwarmId,
         record: AgentRecord,
         viewer: Option<&str>,

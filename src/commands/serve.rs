@@ -16,7 +16,7 @@ use kkt_logs_os::init_logging;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
-use kkt_settings::{ServeOptions, ServeSettings};
+use kkt_settings::{RecordedSettings, ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use std::path::PathBuf;
@@ -86,23 +86,26 @@ async fn serve(
     let run = ServerRun::new(
         Build::CURRENT,
         &RunSettings {
-            allow_any_bind,
-            limits: limits.clone(),
-            log_level,
-            dependency_log_level,
-            allowed_origins: config.allowed_origins.clone(),
-            allowed_hosts: config.allowed_hosts.extra().to_vec(),
-            config_file: config_file.clone(),
-            access_key_file: config.admission.key_source().map(str::to_string),
-            web_key_file: config.web_admission.key_source().map(str::to_string),
-            admin_key_file: config
-                .admin_admission
-                .as_ref()
-                .and_then(|admission| admission.key_source())
-                .map(str::to_string),
-            admin_name: admin_name.as_ref().map(|name| name.to_string()),
-            log_file,
-            log_policy,
+            settings: RecordedSettings {
+                allow_any_bind,
+                limits: limits.clone(),
+                log_level,
+                dependency_log_level,
+                allowed_origins: config.allowed_origins.clone(),
+                allowed_hosts: config.allowed_hosts.extra().to_vec(),
+                config_file: config_file.clone(),
+                access_key_file: config.admission.key_source().map(str::to_string),
+                web_key_file: config.web_admission.key_source().map(str::to_string),
+                admin_key_file: config
+                    .admin_admission
+                    .as_ref()
+                    .and_then(|admission| admission.key_source())
+                    .map(str::to_string),
+                admin_name: admin_name.as_ref().map(|name| name.to_string()),
+                log_file,
+                log_policy,
+            }
+            .lines(),
             // The run record hashes the base instructions: the server's
             // instructions file, or kkt-mcp's built-in text when there is
             // none. kkt-mcp adds the current server announcement when an

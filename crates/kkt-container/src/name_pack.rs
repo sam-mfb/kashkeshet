@@ -8,13 +8,14 @@
 use super::compose::compose;
 use super::{Command, ConfigReader, Folder, Host};
 use kkt_machine::Env;
-use kkt_settings::Limits;
 use std::path::{Path, PathBuf};
 
+/// `default` is the name pack `kkt serve` uses when its settings name none.
 pub(super) fn selected(
     host: &dyn Host,
     folder: &Folder,
     reader: &dyn ConfigReader,
+    default: &str,
 ) -> Result<String, String> {
     let id = output(host, &compose(folder, &["ps", "--quiet", "kkt"]))?;
     let id = id.trim();
@@ -78,7 +79,7 @@ pub(super) fn selected(
             .map_err(|e| format!("could not check the container config: {e}"))?;
         match exists.code {
             Some(0) => {}
-            Some(1) => return Ok(Limits::DEFAULT.name_pack.name().to_string()),
+            Some(1) => return Ok(default.to_string()),
             _ => return Err("could not check the container config".into()),
         }
     }
@@ -93,9 +94,7 @@ pub(super) fn selected(
             env.home.as_deref(),
         )
         .map_err(|e| format!("unreadable container config: {e}"))?;
-    Ok(said
-        .name_pack
-        .unwrap_or_else(|| Limits::DEFAULT.name_pack.name().to_string()))
+    Ok(said.name_pack.unwrap_or_else(|| default.to_string()))
 }
 
 fn strings(value: &serde_json::Value) -> Option<Vec<&str>> {

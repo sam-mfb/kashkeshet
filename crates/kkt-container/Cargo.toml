@@ -12,7 +12,6 @@ kkt-clock = { path = "../kkt-clock" }
 kkt-config-file = { path = "../kkt-config-file" }
 kkt-machine = { path = "../kkt-machine" }
 kkt-names = { path = "../kkt-names" }
-kkt-settings = { path = "../kkt-settings" }
 serde_json.workspace = true
 thiserror.workspace = true
 
