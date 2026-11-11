@@ -28,7 +28,6 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use kkt_admission::{AdminAdmission, Admission, Credentials, Decision, Sessions, WebAdmission};
 use kkt_clock::{self as clock, Clock, Time};
-use kkt_config::Limits;
 use kkt_entropy::Entropy;
 use kkt_events::Events;
 use kkt_format::Formatter;
@@ -53,7 +52,12 @@ pub struct AppConfig {
     /// for a credential (there is no open one). `None` turns `/mcp-admin`
     /// off: it is not served at all.
     pub admin_admission: Option<AdminAdmission>,
-    pub limits: Limits,
+    /// What the rules enforce and fill in, for every swarm.
+    pub rules: kkt_rules::Settings,
+    /// How much the web page shows at once.
+    pub web: web::Settings,
+    /// How long a web page sign-in lasts.
+    pub sessions: kkt_admission::Settings,
     /// Browser origins allowed to call `/mcp`. Requests with any other
     /// `Origin` header are refused; requests without one (agents) pass.
     pub allowed_origins: Vec<String>,
@@ -93,13 +97,13 @@ pub struct Parts {
 
 impl Parts {
     /// The usual parts around `db`, `clock`, `entropy` and `identify`,
-    /// sized by `limits`, for the server run `run_id`.
+    /// with responses sized by `fmt`, for the server run `run_id`.
     pub fn new(
         db: Db,
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
         identify: Arc<dyn Identify>,
-        limits: &Limits,
+        fmt: &kkt_format::Settings,
         run_id: i64,
     ) -> Parts {
         Parts {
@@ -107,7 +111,7 @@ impl Parts {
             db,
             identify,
             fmt: Formatter::new(
-                limits.max_response_bytes,
+                fmt.max_response_bytes,
                 clock.clone(),
                 Build::CURRENT.version,
             ),
@@ -154,7 +158,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let sessions = Sessions::new(
         parts.clock.clone(),
         parts.entropy.clone(),
-        config.limits.web_session_lifetime,
+        config.sessions.web_session_lifetime,
     );
     let identify = parts.identify;
     let rules = Rules::new(Deps {
@@ -167,7 +171,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         clock: parts.clock,
         entropy: parts.entropy,
         run_id: parts.run_id,
-        limits: config.limits,
+        settings: config.rules,
         wording: Arc::new(kkt_format::NoticeWording),
     });
 
@@ -205,6 +209,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         Arc::new(RulesSources::new(rules)),
         config.allowed_hosts.clone(),
         web_gate,
+        config.web,
     )
     .merge(mcp);
     match admin {

@@ -23,7 +23,7 @@ async fn an_unknown_bearer_gets_nothing() {
         memory(),
         system_clock(),
         os_entropy(),
-        kkt_config::Limits::DEFAULT,
+        kkt_fake_product::Settings::DEFAULT,
     )
     .await;
     let client = Client::new(&product);
@@ -105,7 +105,7 @@ async fn a_handle_taken_in_the_other_swarm_is_taken_and_nothing_more() {
         memory(),
         system_clock(),
         os_entropy(),
-        kkt_config::Limits::DEFAULT,
+        kkt_fake_product::Settings::DEFAULT,
     )
     .await;
     let client = Client::new(&product);

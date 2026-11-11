@@ -15,9 +15,3 @@ thiserror.workspace = true
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-scratch = { path = "../kkt-scratch" }
-
-[features]
-# `OsSystem`: it reads and writes files and runs launchctl, systemctl and
-# the other commands.
-real = []

@@ -1051,6 +1051,8 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-diagnostics",
  "kkt-entropy-os",
+ "kkt-format",
+ "kkt-hash",
  "kkt-hosts",
  "kkt-identity",
  "kkt-lane-files",
@@ -1063,18 +1065,19 @@ dependencies = [
  "kkt-scratch",
  "kkt-server",
  "kkt-service",
+ "kkt-service-os",
  "kkt-settings",
  "kkt-setup",
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-store",
  "kkt-watch",
+ "kkt-web",
  "libc",
  "reqwest",
  "rmcp",
  "rusqlite",
  "serde_json",
- "sha2",
  "tokio",
  "toml",
  "tracing",
@@ -1088,8 +1091,8 @@ dependencies = [
  "kkt-clock",
  "kkt-config",
  "kkt-entropy",
+ "kkt-hash",
  "kkt-names",
- "sha2",
  "thiserror",
 ]
 
@@ -1239,6 +1242,7 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-entropy",
  "kkt-entropy-os",
+ "kkt-format",
  "kkt-hosts",
  "kkt-identity",
  "kkt-names",
@@ -1247,6 +1251,7 @@ dependencies = [
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-store",
+ "kkt-web",
  "reqwest",
  "serde_json",
  "tokio",
@@ -1263,6 +1268,13 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "kkt-hash"
+version = "0.10.0"
+dependencies = [
+ "sha2",
 ]
 
 [[package]]
@@ -1298,14 +1310,17 @@ dependencies = [
  "kkt-config",
  "kkt-db-sqlite",
  "kkt-entropy-os",
+ "kkt-format",
  "kkt-hosts",
  "kkt-identity",
  "kkt-provenance",
+ "kkt-rules",
  "kkt-server",
  "kkt-settings",
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-store",
+ "kkt-web",
  "tokio",
 ]
 
@@ -1360,7 +1375,7 @@ name = "kkt-names"
 version = "0.10.0"
 dependencies = [
  "kkt-entropy",
- "sha2",
+ "kkt-hash",
 ]
 
 [[package]]
@@ -1368,8 +1383,9 @@ name = "kkt-provenance"
 version = "0.10.0"
 dependencies = [
  "kkt-config",
+ "kkt-hash",
  "kkt-names",
- "sha2",
+ "kkt-settings",
 ]
 
 [[package]]
@@ -1392,10 +1408,10 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-entropy",
  "kkt-events",
+ "kkt-hash",
  "kkt-names",
  "kkt-store",
  "serde",
- "sha2",
  "thiserror",
  "tokio",
 ]
@@ -1441,10 +1457,13 @@ version = "0.10.0"
 dependencies = [
  "kkt-clock",
  "kkt-config",
- "kkt-scratch",
  "kkt-settings",
  "thiserror",
 ]
+
+[[package]]
+name = "kkt-service-os"
+version = "0.10.0"
 
 [[package]]
 name = "kkt-settings"

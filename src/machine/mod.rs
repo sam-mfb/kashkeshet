@@ -8,4 +8,5 @@ pub(crate) mod credentials;
 pub mod database;
 pub mod keys;
 pub mod record;
+pub(crate) mod service;
 pub mod settings;

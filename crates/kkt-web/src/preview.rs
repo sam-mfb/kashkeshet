@@ -587,9 +587,10 @@ impl Source for Preview {
         &self,
         id: String,
         before_id: Option<i64>,
+        page_messages: usize,
     ) -> BoxFuture<'_, Result<ChannelView, SourceError>> {
         let world = self.world();
-        let view = world.channel_view(&id, before_id, self.settings.page_messages);
+        let view = world.channel_view(&id, before_id, page_messages);
         Box::pin(async move { view })
     }
 
@@ -733,12 +734,12 @@ impl Source for Preview {
     ) -> BoxFuture<'_, Result<super::source::ServerAnnouncementView, SourceError>> {
         let view = super::source::ServerAnnouncementView {
             history: self.world().server_announcement.clone(),
-            max_chars: kkt_config::Limits::DEFAULT.max_server_announcement_chars,
+            max_chars: LIMITS.max_server_announcement_chars,
         };
         Box::pin(async move { Ok(view) })
     }
     fn save_server_announcement(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>> {
-        let max = kkt_config::Limits::DEFAULT.max_server_announcement_chars;
+        let max = LIMITS.max_server_announcement_chars;
         if text.chars().count() > max {
             return Box::pin(async move {
                 Err(SourceError::Invalid(format!(
@@ -824,22 +825,32 @@ impl Source for Preview {
             .map(live_event)
             .boxed()
     }
-
-    fn page_messages(&self) -> usize {
-        self.settings.page_messages
-    }
-
-    fn member_excerpt_chars(&self) -> usize {
-        kkt_config::Limits::DEFAULT.web_member_excerpt_chars
-    }
 }
+
+/// The limits the preview keeps to, as a server keeps to its defaults.
+struct PreviewLimits {
+    max_channel_name_chars: usize,
+    max_purpose_chars: usize,
+    max_server_announcement_chars: usize,
+    max_lane_description_chars: usize,
+    max_lane_chars: usize,
+}
+
+/// The preview's limits: a server's defaults.
+const LIMITS: PreviewLimits = PreviewLimits {
+    max_channel_name_chars: 64,
+    max_purpose_chars: 500,
+    max_server_announcement_chars: 4000,
+    max_lane_description_chars: 200,
+    max_lane_chars: 8000,
+};
 
 /// The server's lane limits, at their defaults.
 fn lane_limits() -> LaneLimits {
     LaneLimits {
         max_name_chars: kkt_config::MAX_LANE_NAME_CHARS,
-        max_description_chars: kkt_config::MAX_LANE_DESCRIPTION_CHARS,
-        max_text_chars: kkt_config::Limits::DEFAULT.max_lane_chars,
+        max_description_chars: LIMITS.max_lane_description_chars,
+        max_text_chars: LIMITS.max_lane_chars,
     }
 }
 
@@ -1120,7 +1131,7 @@ impl World {
     ) -> Result<(Channel, Message), SourceError> {
         let name = name.trim();
         let purpose = purpose.trim();
-        let limits = kkt_config::Limits::DEFAULT;
+        let limits = LIMITS;
         if name.is_empty()
             || name.chars().any(char::is_control)
             || name.chars().count() > limits.max_channel_name_chars

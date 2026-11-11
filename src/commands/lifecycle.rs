@@ -11,13 +11,14 @@ use crate::machine::keys::{
 use crate::machine::record::{
     docker_folder, read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
 };
+use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{ServeArgs, read_config, serve_bind};
 use kkt_backup as backup;
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
 use kkt_config as config;
 use kkt_provenance::Build;
-use kkt_service::{Manager, OsSystem, ServiceError};
+use kkt_service::{Manager, ServiceError};
 use kkt_settings::Env;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
@@ -249,7 +250,7 @@ pub async fn upgrade(
             }
             let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
             for line in manager
-                .install(&OsSystem, &SystemClock, &plan.spec)
+                .install(&ServiceSystem, &SystemClock, &plan.spec)
                 .await
                 .map_err(unrecorded_upgrade)?
             {

@@ -121,6 +121,8 @@ this list; one that is not on it blocks.
 | kkt-identity depends on kkt-rules, an extra arrow (`Identify::avatar` takes `&Rules`) | 1.7 | 5.3b |
 | kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
 | kkt-provenance depends on kkt-settings, an extra arrow (the run record still takes the whole gathered `Limits`) | 3.1d | 3.5c |
+| kkt-settings depends on kkt-admission, kkt-format and kkt-web, extra arrows (`Limits::check` and the key paths read their constants) | 3.1b | 3.4 and 3.5b |
+| The preview has its own copy of the access-key check and the session ID length (kkt-web may not depend on kkt-admission) | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
@@ -136,7 +138,7 @@ adds a row in its own pull request.
 |---|---|---|
 | kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect |
 | kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding |
-| kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter) and kkt-web, six arrows the proposal does not draw | 3.1d (#424) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server |
+| kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter), kkt-web, kkt-events and kkt-mcp, arrows the proposal does not draw | 3.1d (#424), 3.1a (#429), 3.1b (#431) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server |
 
 ## The steps
 
@@ -261,7 +263,10 @@ constant, setting, injected or check. All of them come out of one file,
   crates read. M.
 - **3.1a** storage, rules and events (kkt-rules, kkt-db-sqlite, kkt-events,
   kkt-names): M.
-- **3.1b** the web page and admission (kkt-web, kkt-admission, kkt-hosts). It
+- **3.1b** the surfaces: the web page, the MCP endpoints and their
+  formatter, admission and hosts (kkt-web, kkt-mcp, kkt-format,
+  kkt-admission, kkt-hosts), and the preview's items, which stay in kkt-web
+  until 6.3 moves the preview out. It
   also makes F4's change on today's `Rules`: the overview takes the activity
   bucket and window as arguments, and kkt-web passes its own
   `WEB_ACTIVITY_*`. kkt-rules uses them today (`human.rs`), so moving them to
@@ -273,6 +278,13 @@ constant, setting, injected or check. All of them come out of one file,
 Depends on phases 1 and 2 only where an owner crate was split there (for
 example, kkt-backup's constants go to kkt-backup, not kkt-backup-os). Not
 beside phase 5, which also changes kkt-rules' settings.
+
+3.2 removes kkt-config before 3.3 makes kkt-config-file and 6.3 makes
+kkt-web-preview, so an item whose owner does not exist yet goes, for now, to
+the crate that holds its code today: the preview's items to kkt-web, and the
+config file's folder and name to kkt-settings, beside `parse_file`. They move
+on with that code in 3.3 and 6.3. `WEB_SESSION_ID_CHARS` stays with the
+sessions in kkt-admission until 6.1 moves them to kkt-web.
 
 **3.2 kkt-config goes.** S. Delete the empty crate and its row in CLAUDE.md,
 and fix `.github/scripts/build-outside-crate.sh` if it names it. Depends on

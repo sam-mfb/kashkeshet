@@ -1087,7 +1087,7 @@ fn the_lane_limit_is_the_containers_own_setting_or_the_default() {
         let host = with_container_config(config);
         assert_eq!(
             lane_limit(&host, &folder()).unwrap(),
-            kkt_config::Limits::DEFAULT.max_lane_chars
+            kkt_settings::Limits::DEFAULT.max_lane_chars
         );
     }
 }

@@ -58,14 +58,19 @@ async fn send(client: &Client, swarm: &SwarmId, token: &str, channel: &str, body
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_slow_subscriber_does_not_lag_while_another_swarm_floods() {
-    let limits = kkt_config::Limits {
-        max_body_bytes: BIG,
-        max_response_bytes: 4 * BIG,
-        sends_per_minute: 1_000_000,
-        registrations_per_minute: 1_000,
-        ..kkt_config::Limits::DEFAULT
+    let settings = kkt_fake_product::Settings {
+        rules: kkt_rules::Settings {
+            max_body_bytes: BIG,
+            sends_per_minute: 1_000_000,
+            registrations_per_minute: 1_000,
+            ..kkt_rules::Settings::DEFAULT
+        },
+        fmt: kkt_format::Settings {
+            max_response_bytes: 4 * BIG,
+        },
+        ..kkt_fake_product::Settings::DEFAULT
     };
-    let product = Product::start(memory(), system_clock(), os_entropy(), limits).await;
+    let product = Product::start(memory(), system_clock(), os_entropy(), settings).await;
     let client = Client::new(&product);
 
     let cookie = client.sign_in(Bearers::operator(&other())).await;

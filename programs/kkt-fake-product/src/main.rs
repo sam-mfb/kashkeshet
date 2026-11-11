@@ -6,10 +6,10 @@
 //! knows, and stops on SIGINT or SIGTERM.
 
 use kkt_clock_system::SystemClock;
-use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS, Limits};
+use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS};
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
-use kkt_fake_product::{Bearers, Product};
+use kkt_fake_product::{Bearers, Product, Settings};
 use kkt_shutdown_os::StopSignals;
 use kkt_store::Db;
 use std::path::PathBuf;
@@ -51,7 +51,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         Db::new(place),
         Arc::new(SystemClock),
         Arc::new(OsEntropy),
-        Limits::DEFAULT,
+        Settings::DEFAULT,
     )
     .await;
     println!("kkt-fake-product bound to {}", product.address);

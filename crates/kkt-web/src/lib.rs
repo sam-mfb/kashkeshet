@@ -15,6 +15,7 @@ mod change;
 mod lanes;
 mod notice;
 mod preview;
+mod settings;
 mod sign_in;
 mod source;
 mod toast;
@@ -22,6 +23,7 @@ mod viewing;
 
 pub use notice::live_event;
 pub use preview::{Preview, PreviewGate};
+pub use settings::Settings;
 pub use source::{
     ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
     ChannelLink, ChannelSummary, ChannelView, Gate, Joined, KeptAgent, KeptReason, LaneLimits,
@@ -54,12 +56,13 @@ use std::convert::Infallible;
 use std::sync::Arc;
 use viewing::{Forms, GateForms, ViewerSource, Viewing};
 
-/// What every page shares: the gate's forms (for form tokens), and whether
-/// to offer a logout button.
+/// What every page shares: the gate's forms (for form tokens), whether to
+/// offer a logout button, and the page's settings.
 #[derive(Clone)]
 struct Site {
     gate: Arc<dyn Forms>,
     sign_out: bool,
+    settings: Settings,
 }
 
 impl FromRef<Site> for Arc<dyn Forms> {
@@ -69,12 +72,13 @@ impl FromRef<Site> for Arc<dyn Forms> {
 }
 
 /// What one request's page needs: the source of the viewer the gate
-/// admitted (`viewing::admit`), the gate's forms, and whether to offer a
-/// logout button.
+/// admitted (`viewing::admit`), the gate's forms, whether to offer a
+/// logout button, and the page's settings.
 struct Pages {
     source: Arc<dyn Source>,
     gate: Arc<dyn Forms>,
     sign_out: bool,
+    settings: Settings,
 }
 
 impl FromRequestParts<Site> for Pages {
@@ -86,6 +90,7 @@ impl FromRequestParts<Site> for Pages {
                 source: source.clone(),
                 gate: site.gate.clone(),
                 sign_out: site.sign_out,
+                settings: site.settings,
             }),
             // Every page route is behind `viewing::admit`, so this is a
             // route added without it.
@@ -114,11 +119,12 @@ impl Pages {
 /// asked who is viewing every page and the event stream, and each viewer
 /// reads the source `sources` gives it. When `gate` requires sign-in, a
 /// viewer it does not admit is sent to `/login`, and `/login` and `/logout`
-/// are added.
+/// are added. The pages are sized by `settings`.
 pub fn router<V: Viewer>(
     sources: Arc<dyn Sources<Viewer = V>>,
     hosts: AllowedHosts,
     gate: Arc<dyn Gate<Viewer = V>>,
+    settings: Settings,
 ) -> Router {
     let sign_in_required = gate.sign_in_required();
     let forms: Arc<dyn Forms> = Arc::new(GateForms(gate.clone()));
@@ -157,6 +163,7 @@ pub fn router<V: Viewer>(
         .with_state(Site {
             gate: forms.clone(),
             sign_out: sign_in_required,
+            settings,
         });
     let site = if sign_in_required {
         let sign_in = Router::new()
@@ -298,7 +305,11 @@ async fn earlier_messages(
     Path(id): Path<String>,
     Query(params): Query<EarlierParams>,
 ) -> Response {
-    match pages.source.channel(id, Some(params.before_id)).await {
+    match pages
+        .source
+        .channel(id, Some(params.before_id), pages.settings.page_messages)
+        .await
+    {
         Ok(v) => Json(EarlierMessages {
             messages: v.messages,
             older_before_id: v.older_before_id,
@@ -456,7 +467,11 @@ async fn channel(
     Query(params): Query<ChannelParams>,
     headers: HeaderMap,
 ) -> Response {
-    match pages.source.channel(id, params.before_id).await {
+    match pages
+        .source
+        .channel(id, params.before_id, pages.settings.page_messages)
+        .await
+    {
         Ok(v) => page(ChannelPage {
             channel: v.channel,
             hidden: v.hidden,
@@ -464,14 +479,14 @@ async fn channel(
             members: Member::rows(
                 v.members,
                 &v.latest_messages,
-                pages.source.member_excerpt_chars(),
+                pages.settings.member_excerpt_chars,
             ),
             messages: v.messages,
             older_before_id: v.older_before_id,
             latest: params.before_id.is_none(),
             // A hidden channel gets no new messages.
             live: params.before_id.is_none() && !v.hidden,
-            max_messages: pages.source.page_messages(),
+            max_messages: pages.settings.page_messages,
             sign_out: pages.sign_out,
             form_token: pages.form_token(&headers),
         }),
