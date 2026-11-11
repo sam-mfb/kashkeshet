@@ -41,7 +41,7 @@
      "items": [
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
-      "kkt-names::OsEntropy",
+      "kkt-entropy-os::OsEntropy",
       "kkt-identity::KeyMode"
      ],
      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
@@ -94,7 +94,7 @@
      "note": "kkt serve"
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-admission",
      "to": [
       {
@@ -140,7 +140,7 @@
      ]
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-server",
      "to": [
       {
@@ -623,7 +623,7 @@
      "items": [
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
-      "kkt-names::OsEntropy",
+      "kkt-entropy-os::OsEntropy",
       "kkt-identity::KeyMode",
       "kkt-server::AppConfig",
       "kkt-admission::AdminAdmission",
@@ -689,7 +689,7 @@
      ]
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-server",
      "to": [
       {
@@ -798,7 +798,7 @@
      "note": "its program; its tests pass a fixed clock"
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-fake-product",
      "to": [
       {

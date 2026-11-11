@@ -14,8 +14,8 @@ use futures::StreamExt;
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_config::{Limits, PreviewSettings};
-use kkt_names::SeededEntropy;
-use kkt_names::testing::SeqEntropy;
+use kkt_entropy::SeededEntropy;
+use kkt_entropy::testing::SeqEntropy;
 use kkt_shutdown::Shutdown;
 
 /// The preview's simulated gate, open: for the preview's runs.

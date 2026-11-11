@@ -8,8 +8,8 @@
 use kkt_clock_system::SystemClock;
 use kkt_config::{DB_BUSY_TIMEOUT, DB_READERS, Limits};
 use kkt_db_sqlite::{Options, SqlitePlace};
+use kkt_entropy_os::OsEntropy;
 use kkt_fake_product::{Bearers, Product};
-use kkt_names::OsEntropy;
 use kkt_shutdown_os::StopSignals;
 use kkt_store::Db;
 use std::path::PathBuf;

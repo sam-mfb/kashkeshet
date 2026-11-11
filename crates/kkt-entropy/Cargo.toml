@@ -1,0 +1,13 @@
+[package]
+name = "kkt-entropy"
+description = "kkt's randomness contract, Entropy, and its test doubles"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# `testing`: the predictable stand-ins `SeqEntropy`, `SameHandleEntropy` and
+# `SeededEntropy`.
+testing = []

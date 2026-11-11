@@ -8,7 +8,7 @@ use axum::http::Request as HttpRequest;
 use futures::future::BoxFuture;
 use kkt_clock::testing::FixedClock;
 use kkt_config::PreviewSettings;
-use kkt_names::SeededEntropy;
+use kkt_entropy::SeededEntropy;
 use kkt_shutdown::Shutdown;
 use std::sync::Mutex;
 use tower::ServiceExt;

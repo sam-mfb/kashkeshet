@@ -11,8 +11,8 @@ use crate::machine::settings::{
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
 use kkt_config::{self as config, LogPolicy};
+use kkt_entropy_os::OsEntropy;
 use kkt_identity::KeyMode;
-use kkt_names::OsEntropy;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
 use kkt_settings::{Env, ServeOptions, ServeSettings};

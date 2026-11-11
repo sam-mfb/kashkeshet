@@ -17,9 +17,10 @@ pub mod client;
 use kkt_admission::{AdminAdmission, Admission, Principal};
 use kkt_clock::Clock;
 use kkt_config::Limits;
+use kkt_entropy::Entropy;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying, KeyMode};
-use kkt_names::{AdminName, Entropy};
+use kkt_names::AdminName;
 use kkt_rules::{
     self as rules, Agent, Audit, Code, Operator, Permission, Permissions, RuleError, Rules, SwarmId,
 };

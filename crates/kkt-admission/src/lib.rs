@@ -13,6 +13,11 @@
 //! credentials [`Admission`] accepts and gets a session; later requests are
 //! let in by the session alone.
 
+/// Characters session IDs, form tokens and new access keys are drawn from:
+/// lowercase ASCII letters and digits, as kkt-names drew them before. Keep
+/// it so, so new keys look like the ones existing installs hold.
+const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+
 mod any_bearer;
 pub mod server_keys;
 mod session;
@@ -312,7 +317,7 @@ mod tests {
     use super::*;
     use kkt_clock::testing::FixedClock;
     use kkt_clock::{Span, Time};
-    use kkt_names::testing::SeqEntropy;
+    use kkt_entropy::testing::SeqEntropy;
 
     const KEY: &str = "0123456789abcdef0123456789abcdef";
 

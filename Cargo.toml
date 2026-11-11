@@ -13,6 +13,8 @@ members = [
     "crates/kkt-container",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
+    "crates/kkt-entropy",
+    "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
     "crates/kkt-events",
     "crates/kkt-format",
@@ -52,6 +54,8 @@ default-members = [
     "crates/kkt-container",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
+    "crates/kkt-entropy",
+    "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
     "crates/kkt-events",
     "crates/kkt-format",
@@ -166,7 +170,8 @@ kkt-identity = { path = "crates/kkt-identity" }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
-kkt-names = { path = "crates/kkt-names", features = ["real"] }
+kkt-entropy-os = { path = "crates/kkt-entropy-os", features = ["real"] }
+kkt-names = { path = "crates/kkt-names" }
 kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
 kkt-rules = { path = "crates/kkt-rules" }
