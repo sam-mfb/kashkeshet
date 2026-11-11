@@ -457,7 +457,6 @@
      "note": "kkt service install, kkt upgrade"
     },
     {
-     "impl": "kkt-remote-access::OsHost",
      "crate": "kkt-remote-access",
      "to": [
       {
@@ -477,10 +476,11 @@
        "param": "host"
       }
      ],
-     "note": "kkt setup with Tailscale, status, uninstall"
+     "note": "kkt setup with Tailscale, status, uninstall",
+     "own": "RemoteHost, adapting kkt-remote-access-os's OsHost",
+     "supplier": "kkt-remote-access-os's OsHost"
     },
     {
-     "impl": "kkt-client-config::OsHost",
      "crate": "kkt-client-config",
      "to": [
       {
@@ -508,10 +508,11 @@
        "param": "host"
       }
      ],
-     "note": "kkt connect, kkt setup, kkt doctor"
+     "note": "kkt connect, kkt setup, kkt doctor",
+     "own": "ClientHost, adapting kkt-client-config-os's OsHost",
+     "supplier": "kkt-client-config-os's OsHost"
     },
     {
-     "impl": "kkt-diagnostics::OsProber",
      "crate": "kkt-diagnostics",
      "to": [
       {
@@ -519,7 +520,9 @@
        "param": "prober"
       }
      ],
-     "note": "kkt doctor, kkt setup"
+     "note": "kkt doctor, kkt setup",
+     "own": "DiagnosticProber, adapting kkt-diagnostics-os's OsProber",
+     "supplier": "kkt-diagnostics-os's OsProber"
     },
     {
      "impl": "kkt-diagnostics::Inspector",

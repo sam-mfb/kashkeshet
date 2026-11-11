@@ -1,0 +1,16 @@
+[package]
+name = "kkt-diagnostics-os"
+description = "The machine's key files and HTTP probes for kkt diagnostics"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+reqwest = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+# `OsProber`: key files and HTTP probes; third-party types stay inside.
+real = ["dep:reqwest", "dep:serde_json"]

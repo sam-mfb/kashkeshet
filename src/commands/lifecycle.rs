@@ -11,6 +11,7 @@ use crate::machine::keys::{
 use crate::machine::record::{
     docker_folder, read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
 };
+use crate::machine::remote_access::RemoteHost;
 use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{ServeArgs, read_config, serve_bind};
 use kkt_backup as backup;
@@ -30,13 +31,8 @@ fn write_backup(
     clock: &dyn Clock,
     contents: &backup::Contents,
 ) -> Result<PathBuf, String> {
-    backup::write(
-        folder,
-        clock.now(),
-        Build::CURRENT.version,
-        contents,
-        crate::machine::database::copy,
-    )
+    let layout = backup::layout(clock.now(), Build::CURRENT.version, contents);
+    kkt_backup_os::write(folder, &layout, crate::machine::database::copy)
 }
 
 /// Before the server upgrades the tables in `database`, backs it up beside
@@ -80,7 +76,7 @@ pub(crate) fn backup_before_upgrade(
     );
     // The backup is made, so the upgrade is safe; an old backup left behind
     // only takes space.
-    match backup::prune(&folder, keep) {
+    match kkt_backup_os::prune(&folder, keep) {
         Ok(removed) => {
             for path in removed {
                 tracing::info!("removed the old backup {}", path.display());
@@ -299,7 +295,7 @@ pub async fn uninstall(env: &Env, serve_args: ServeArgs) -> Result<(), String> {
         setup::Mode::Service { tailscale: shared } => {
             if shared {
                 // The default config file's address, as `serve` would bind.
-                kkt_remote_access::stop(&kkt_remote_access::OsHost, serve_bind(env)?)?;
+                kkt_remote_access::stop(&RemoteHost, serve_bind(env)?)?;
             }
             service::run(env, ServiceAction::Uninstall).await?;
         }

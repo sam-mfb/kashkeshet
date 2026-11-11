@@ -8,12 +8,6 @@ use serde_json::Value;
 use serde_json::error::Category;
 use std::net::SocketAddr;
 
-#[cfg(feature = "real")]
-mod os;
-
-#[cfg(feature = "real")]
-pub use os::OsHost;
-
 /// The host's Tailscale CLI, injected so tests never change a real tailnet.
 pub trait Host {
     fn run(&self, args: &[String]) -> Result<Output, String>;

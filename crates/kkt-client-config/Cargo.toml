@@ -14,7 +14,3 @@ kkt-settings = { path = "../kkt-settings" }
 serde.workspace = true
 serde_json.workspace = true
 toml_edit.workspace = true
-
-[features]
-# `OsHost`, the real `Host`: it reads and writes files and runs `claude`.
-real = []

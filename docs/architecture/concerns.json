@@ -183,25 +183,49 @@
    "layer": "operations",
    "concern": "Sharing a service-mode server over the machine's existing Tailscale login.",
    "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-remote-access-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's tailscale command: plain OsHost methods, adapted by the program.",
+   "must_not": "Decide how the server is shared."
   },
   "kkt-client-config": {
    "layer": "operations",
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
    "must_not": "Touch the machine except through `Host`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-client-config-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's client-config files and claude command: plain OsHost methods, adapted by the program.",
+   "must_not": "Decide a client config's content."
   },
   "kkt-diagnostics": {
    "layer": "operations",
    "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server.",
    "must_not": "Change anything, or touch the machine except through `Prober`.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-diagnostics-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "The machine's key files and diagnostic HTTP probe, returning its own records.",
+   "must_not": "Let reqwest types out of the crate."
   },
   "kkt-backup": {
    "layer": "operations",
    "concern": "Backup folders: their names, contents, file modes, and pruning.",
    "must_not": "Read the clock or copy the database itself: the caller passes both.",
-   "kind": "mixed"
+   "kind": "logic"
+  },
+  "kkt-backup-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "Writing immutable backup layouts and removing old folders selected by the backup logic.",
+   "must_not": "Choose backup names, contents, modes or retention."
   },
   "kkt-lane-files": {
    "layer": "operations",

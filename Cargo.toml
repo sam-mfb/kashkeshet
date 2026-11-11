@@ -6,7 +6,9 @@ members = [
     "crates/kkt-admission",
     "crates/kkt-agent-client",
     "crates/kkt-backup",
+    "crates/kkt-backup-os",
     "crates/kkt-client-config",
+    "crates/kkt-client-config-os",
     "crates/kkt-clock",
     "crates/kkt-clock-system",
     "crates/kkt-config",
@@ -17,6 +19,7 @@ members = [
     "crates/kkt-entropy",
     "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
+    "crates/kkt-diagnostics-os",
     "crates/kkt-events",
     "crates/kkt-hash",
     "crates/kkt-hosts",
@@ -30,6 +33,7 @@ members = [
     "crates/kkt-names",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
+    "crates/kkt-remote-access-os",
     "crates/kkt-rules",
     "crates/kkt-scratch",
     "crates/kkt-search",
@@ -51,7 +55,9 @@ default-members = [
     "crates/kkt-admission",
     "crates/kkt-agent-client",
     "crates/kkt-backup",
+    "crates/kkt-backup-os",
     "crates/kkt-client-config",
+    "crates/kkt-client-config-os",
     "crates/kkt-clock",
     "crates/kkt-clock-system",
     "crates/kkt-config",
@@ -62,6 +68,7 @@ default-members = [
     "crates/kkt-entropy",
     "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
+    "crates/kkt-diagnostics-os",
     "crates/kkt-events",
     "crates/kkt-hash",
     "crates/kkt-hosts",
@@ -75,6 +82,7 @@ default-members = [
     "crates/kkt-names",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
+    "crates/kkt-remote-access-os",
     "crates/kkt-rules",
     "crates/kkt-scratch",
     "crates/kkt-search",
@@ -164,8 +172,10 @@ clap.workspace = true
 futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
-kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
-kkt-client-config = { path = "crates/kkt-client-config", features = ["real"] }
+kkt-backup = { path = "crates/kkt-backup" }
+kkt-backup-os = { path = "crates/kkt-backup-os", features = ["real"] }
+kkt-client-config = { path = "crates/kkt-client-config" }
+kkt-client-config-os = { path = "crates/kkt-client-config-os", features = ["real"] }
 kkt-clock = { path = "crates/kkt-clock" }
 kkt-clock-system = { path = "crates/kkt-clock-system", features = ["real"] }
 kkt-config = { path = "crates/kkt-config" }
@@ -173,7 +183,8 @@ kkt-container = { path = "crates/kkt-container" }
 kkt-container-os = { path = "crates/kkt-container-os", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
-kkt-diagnostics = { path = "crates/kkt-diagnostics", features = ["real"] }
+kkt-diagnostics = { path = "crates/kkt-diagnostics" }
+kkt-diagnostics-os = { path = "crates/kkt-diagnostics-os", features = ["real"] }
 kkt-events = { path = "crates/kkt-events" }
 kkt-mcp-formatter = { path = "crates/kkt-mcp-formatter" }
 kkt-hash = { path = "crates/kkt-hash" }
@@ -186,7 +197,8 @@ kkt-entropy-os = { path = "crates/kkt-entropy-os", features = ["real"] }
 kkt-mcp = { path = "crates/kkt-mcp" }
 kkt-names = { path = "crates/kkt-names" }
 kkt-provenance = { path = "crates/kkt-provenance" }
-kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
+kkt-remote-access = { path = "crates/kkt-remote-access" }
+kkt-remote-access-os = { path = "crates/kkt-remote-access-os", features = ["real"] }
 kkt-rules = { path = "crates/kkt-rules" }
 kkt-server = { path = "crates/kkt-server" }
 kkt-server-listen = { path = "crates/kkt-server-listen", features = ["real"] }

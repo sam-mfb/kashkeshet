@@ -1041,7 +1041,9 @@ dependencies = [
  "kkt-admission",
  "kkt-agent-client",
  "kkt-backup",
+ "kkt-backup-os",
  "kkt-client-config",
+ "kkt-client-config-os",
  "kkt-clock",
  "kkt-clock-system",
  "kkt-config",
@@ -1050,6 +1052,7 @@ dependencies = [
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
+ "kkt-diagnostics-os",
  "kkt-entropy-os",
  "kkt-events",
  "kkt-hash",
@@ -1063,6 +1066,7 @@ dependencies = [
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
+ "kkt-remote-access-os",
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
@@ -1116,7 +1120,14 @@ name = "kkt-backup"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-config",
+]
+
+[[package]]
+name = "kkt-backup-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-backup",
+ "kkt-clock",
  "kkt-scratch",
 ]
 
@@ -1131,6 +1142,10 @@ dependencies = [
  "serde_json",
  "toml_edit",
 ]
+
+[[package]]
+name = "kkt-client-config-os"
+version = "0.10.0"
 
 [[package]]
 name = "kkt-clock"
@@ -1205,9 +1220,15 @@ dependencies = [
  "kkt-admission",
  "kkt-clock",
  "kkt-config",
+ "url",
+]
+
+[[package]]
+name = "kkt-diagnostics-os"
+version = "0.10.0"
+dependencies = [
  "reqwest",
  "serde_json",
- "url",
 ]
 
 [[package]]
@@ -1406,6 +1427,10 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "kkt-remote-access-os"
+version = "0.10.0"
 
 [[package]]
 name = "kkt-rules"

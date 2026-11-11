@@ -11,7 +11,3 @@ publish = false
 kkt-config = { path = "../kkt-config" }
 serde.workspace = true
 serde_json.workspace = true
-
-[features]
-# `OsHost`: runs the host's `tailscale` command.
-real = []
