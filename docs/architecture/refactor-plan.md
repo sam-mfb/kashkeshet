@@ -137,6 +137,7 @@ adds a row in its own pull request.
 | kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect |
 | kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding |
 | kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter) and kkt-web, six arrows the proposal does not draw | 3.1d (#424) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server |
+| The 0.10.0 migration test (`tests/migrations/v0_10_0.rs`) stays in the program's tests, not kkt-rules', and calls `kkt_rules::legacy()` and kkt-rules' schema | 5.2b-1 | It builds real SQLite files with rusqlite and opens them through a `SqlitePlace`. F16 keeps effect crates out of kkt-rules' tests, and the program's tests are where CLAUDE.md allows rusqlite (msg 2347) |
 
 ## The steps
 

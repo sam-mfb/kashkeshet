@@ -7,12 +7,29 @@
 //! which keeps the order members joined in. Version 2 is swarms (schema
 //! 22). Later versions only add, as every migration does.
 
-use kkt_db::{Column, Constraint, Set, Step, Table};
+use kkt_db::{Column, Constraint, Legacy, Set, Step, Table};
 
 /// The name of the core's set of migrations.
 pub const CORE: &str = "core";
 
 use super::MAIN_SWARM;
+
+/// The core's databases from before kkt-db, as database-neutral facts: kkt
+/// 0.10.0's (21) is the core's version 1, and `next`'s with swarms (22) its
+/// version 2. The two handoff-note columns, whose notes migration 0019
+/// copied into memory entries, are left behind. An older database is
+/// refused with `too_old`, which the program words.
+pub fn legacy(too_old: String) -> Legacy {
+    Legacy {
+        set: CORE,
+        adopted: vec![(21, 1), (22, 2)],
+        dropped: vec![
+            ("agents", "handoff_note"),
+            ("agents", "handoff_note_set_at"),
+        ],
+        too_old,
+    }
+}
 
 /// The core's tables, at every version.
 pub fn schema() -> Set {
