@@ -18,19 +18,22 @@ def unknown(crates, kind_of):
     return sorted(c["name"] for c in crates if kind_of.get(c["name"]) not in KINDS)
 
 
-def behaviour(crate):
-    """The items of `crate` that do something, outside `testing`: its
-    functions, and the types with methods of their own."""
+def beyond_values(crate, edges):
+    """What a contract crate does beyond pure behaviour on its own values:
+    behaviour through an injected dependency (a slot outside `testing`),
+    and wiring other crates' implementations. A contract may compute on
+    its own value types (Time arithmetic, query checks, search matching);
+    an effect is checked apart."""
     found = []
-    for item in crate["items"]:
-        if item["path"].startswith("testing::") or item.get("feature") == "testing":
+    for slot in crate["slots"]:
+        if slot["at"].startswith("testing::") or not slot["traits"]:
             continue
-        if item["kind"] == "fn":
-            found.append(item["path"])
-        elif item["kind"] in ("struct", "enum") and item.get("methods"):
-            n = len(item["methods"])
-            found.append(f"{item['path']} ({n} method{'' if n == 1 else 's'})")
-    return found
+        traits = ", ".join(t["trait"] for t in slot["traits"])
+        found.append(f"{slot['at']} takes {slot['name']} ({traits})")
+    for e in edges:
+        if e["from"] == crate["name"] and e["kind"] == "normal" and any(r["role"] == "wires" for r in e["roles"]):
+            found.append(f"wires {e['to']}'s implementations")
+    return sorted(set(found))
 
 
 def turns_on_real(crate, edges):
@@ -50,10 +53,11 @@ def check(crates, edges, kind_of, mixed_allowed):
     for c in crates:
         kind = kind_of[c["name"]]
         if kind == "contract":
-            does = behaviour(c)
+            does = beyond_values(c, edges)
             if does:
-                shown = ", ".join(does[:4]) + (f", and {len(does) - 4} more" if len(does) > 4 else "")
-                mismatches.append(f"{c['name']} is marked contract but has behaviour: {shown}")
+                mismatches.append(f"{c['name']} is marked contract but does more than compute on its own values: {'; '.join(does)}")
+            if turns_on_real(c, edges) or IO_CRATES & set(c["third_party"]):
+                mismatches.append(f"{c['name']} is marked contract but has an effect: a `real` feature or an I/O dependency")
         if kind == "logic" and turns_on_real(c, edges):
             mismatches.append(f"{c['name']} is marked logic but turns on `real`")
         if kind == "effect" and not turns_on_real(c, edges) and not IO_CRATES & set(c["third_party"]):

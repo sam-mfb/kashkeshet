@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "3945cbc",
+ "commit": "7a0848d",
  "crates": [
   {
    "bins": [
@@ -16188,7 +16188,7 @@ window.KKT_GRAPH = {
   }
  ],
  "kind_mismatches": [
-  "kkt-db is marked contract but has behaviour: Column (10 methods), Condition (3 methods), Database (3 methods), Delete (1 method), and 30 more",
+  "kkt-db is marked contract but does more than compute on its own values: Database::new takes backend (Backend); migrate takes target (Evolve); pending takes target (Evolve)",
   "kkt-server is marked composition but its own `real` feature touches the machine"
  ]
 };
@@ -16394,7 +16394,7 @@ window.KKT_CONCERNS = {
  },
  "kinds": [
   {
-   "about": "Traits and plain values only.",
+   "about": "Traits and plain values, with pure behaviour on its own value types (such as Time arithmetic, query checks and search matching), and no effect or wiring.",
    "id": "contract",
    "title": "contract"
   },

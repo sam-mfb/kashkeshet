@@ -6,7 +6,7 @@
    "concern": "What is truly cross-domain among kkt's settings: the error every settings check gives (`InvalidSetting`), the access key's form and its check, the mode of every private file, and the length of web session IDs. Everything else has moved to the crate that owns it (item 7)."
   },
   "kkt-settings": {
-   "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings (item 7)."
+   "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, the log file's `LogPolicy`, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings (item 7)."
   }
  },
  "items": [
@@ -921,9 +921,9 @@
     "kkt-provenance"
    ],
    "test_only": [],
-   "to": "kkt-logs",
+   "to": "kkt-settings",
    "how": "injected, public",
-   "note": "the log file's policy, which the program fills; kkt-provenance records it"
+   "note": "configuration: the log file's policy, which kkt-settings gathers and checks and the program fills; kkt-logs takes it, and kkt-provenance records it without depending on kkt-logs (msg 1995)"
   },
   {
    "item": "MACOS_CRASH_LOG_FILE_NAME",

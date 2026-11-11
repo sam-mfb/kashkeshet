@@ -772,6 +772,20 @@ window.KKT_PROPOSED = {
       ]
      },
      {
+      "crate": "kkt-logs",
+      "impl": "kkt-clock-system::SystemClock",
+      "note": "kkt serve --log-file",
+      "through_adapter": [
+       "kkt-clock::Clock"
+      ],
+      "to": [
+       {
+        "at": "RotatingFile::open",
+        "param": "clock"
+       }
+      ]
+     },
+     {
       "crate": "kkt-store",
       "impl": "kkt-db-sqlite-db::SqliteBackend",
       "note": "SqliteBackend over the SqlitePlace gives the kkt-db Database (item 8)",
@@ -847,21 +861,6 @@ window.KKT_PROPOSED = {
        {
         "at": "CommandLine::new",
         "param": "db"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-logs-os",
-      "impl": "kkt-clock-system::SystemClock",
-      "note": "kkt serve --log-file; through the program's Clock adapter",
-      "status": "follows",
-      "through_adapter": [
-       "kkt-clock::Clock"
-      ],
-      "to": [
-       {
-        "at": "RotatingFile::open",
-        "param": "clock"
        }
       ]
      }
@@ -1783,15 +1782,6 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "follows"
-    ],
-    "to": "kkt-logs-os"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
     "role": "implements",
     "statuses": [
      "decided"
@@ -2231,15 +2221,6 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-logs"
-   },
-   {
-    "from": "kkt-keymode",
-    "kind": "normal",
     "role": "implements",
     "statuses": [
      "decided"
@@ -2292,20 +2273,13 @@ window.KKT_PROPOSED = {
     "to": "kkt-web"
    },
    {
-    "from": "kkt-logs-os",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [],
-    "to": "kkt-clock"
-   },
-   {
-    "from": "kkt-logs-os",
+    "from": "kkt-logs",
     "kind": "normal",
     "role": "uses",
     "statuses": [
-     "follows"
+     "decided"
     ],
-    "to": "kkt-logs"
+    "to": "kkt-settings"
    },
    {
     "from": "kkt-mcp",
@@ -2340,15 +2314,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-entropy"
-   },
-   {
-    "from": "kkt-provenance",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-logs"
    },
    {
     "from": "kkt-provenance",
@@ -2887,26 +2852,6 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "items_gone": [
-     "RotatingFile"
-    ],
-    "items_new": [
-     "LogPolicy"
-    ],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-logs"
-   },
-   {
-    "from": "kashkeshet",
-    "items_gone": [
      "OsEntropy"
     ],
     "items_new": [
@@ -3023,6 +2968,7 @@ window.KKT_PROPOSED = {
      "DEFAULT_LOG_LEVEL",
      "Limits",
      "LogLevel",
+     "LogPolicy",
      "check_bind",
      "check_dependency_log_level"
     ],
@@ -3544,6 +3490,7 @@ window.KKT_PROPOSED = {
     "from": "kkt-keymode",
     "items_gone": [],
     "items_new": [
+     "LogPolicy",
      "check_bind"
     ],
     "kind": "normal",
@@ -4790,7 +4737,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "LogPolicy moves to kkt-logs"
+      "text": "LogPolicy moves to kkt-settings"
      },
      {
       "status": "decided",
@@ -5522,45 +5469,12 @@ window.KKT_PROPOSED = {
     "crate": "kkt-logs",
     "notes": [
      {
-      "status": "follows",
-      "text": "RotatingFile moves to kkt-logs-os: an effect, split out so no crate is mixed (msg 1992)"
-     },
-     {
       "status": "decided",
       "text": "LOG_PRUNE_INTERVAL comes here from kkt-config"
      },
      {
       "status": "decided",
-      "text": "LogPolicy comes here from kkt-config"
-     },
-     {
-      "status": "decided",
       "text": "MIN_LOG_FILE_BYTES comes here from kkt-config, private"
-     },
-     {
-      "status": "follows",
-      "text": "its real feature moves to kkt-logs-os"
-     }
-    ]
-   },
-   {
-    "crate": "kkt-logs-os",
-    "notes": [
-     {
-      "status": "follows",
-      "text": "new effect crate, from kkt-logs"
-     },
-     {
-      "status": "follows",
-      "text": "RotatingFile comes here from kkt-logs"
-     },
-     {
-      "status": "follows",
-      "text": "takes the real feature from kkt-logs"
-     },
-     {
-      "status": "follows",
-      "text": "it rolls the file over by kkt-logs' policy"
      }
     ]
    },
@@ -5647,7 +5561,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "recommended",
-      "text": "SeededEntropy moves to kkt-entropy: rests on assumption A1"
+      "text": "SeededEntropy moves to kkt-entropy: behind testing, as a test double: rests on assumption A1"
      },
      {
       "status": "decided",
@@ -6116,6 +6030,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "LogLevel comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "LogPolicy comes here from kkt-config"
      },
      {
       "status": "decided",
@@ -6983,16 +6901,9 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-logs": {
-    "concern": "How the server's own log file is kept bounded: `LogPolicy` and its check, and `LOG_PRUNE_INTERVAL`. The file itself is in kkt-logs-os.",
-    "kind": "logic",
-    "layer": "foundations",
-    "status": "follows"
-   },
-   "kkt-logs-os": {
-    "concern": "The server's own log file on disk: `RotatingFile`, rolled over by kkt-logs' `LogPolicy`, with the time from an injected `Clock`. kkt-logs' `real` feature moves here.",
+    "concern": "The log file the server writes itself, rolled over and pruned within its policy.",
     "kind": "effect",
-    "layer": "foundations",
-    "status": "follows"
+    "layer": "foundations"
    },
    "kkt-mcp": {
     "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It declares the `Identify` it asks.",
@@ -7075,7 +6986,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-settings": {
-    "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings (item 7).",
+    "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, the log file's `LogPolicy`, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings (item 7).",
     "kind": "configuration",
     "layer": "operations",
     "must_not": "Read files or the environment: callers pass their text and values in.",
@@ -7136,7 +7047,7 @@ window.KKT_PROPOSED = {
   },
   "kinds": [
    {
-    "about": "Traits and plain values only.",
+    "about": "Traits and plain values, with pure behaviour on its own value types (such as Time arithmetic, query checks and search matching), and no effect or wiring.",
     "id": "contract",
     "title": "contract"
    },
@@ -8198,9 +8109,9 @@ window.KKT_PROPOSED = {
     "how": "injected, public",
     "item": "LogPolicy",
     "kind": "struct",
-    "note": "the log file's policy, which the program fills; kkt-provenance records it",
+    "note": "configuration: the log file's policy, which kkt-settings gathers and checks and the program fills; kkt-logs takes it, and kkt-provenance records it without depending on kkt-logs (msg 1995)",
     "test_only": [],
-    "to": "kkt-logs",
+    "to": "kkt-settings",
     "used_by": [
      "kashkeshet",
      "kkt-keymode",
@@ -9361,11 +9272,11 @@ window.KKT_PROPOSED = {
   },
   {
    "id": "19",
-   "text": "No crate in the proposed map is mixed, compositions included (msg 1992): kkt-server's listen and Listening go to kkt-server-listen, kkt-backup's write and prune to kkt-backup-os, kkt-shutdown's StopSignals to kkt-shutdown-os, and kkt-logs' RotatingFile to kkt-logs-os, which the check also found (kkt-provenance read LogPolicy from an effect crate). Only the programs use them. Tagged \"follows from Sam's rule\"; C7 is open."
+   "text": "No crate in the proposed map is mixed, compositions included (msg 1992): kkt-server's listen and Listening go to kkt-server-listen, kkt-backup's write and prune to kkt-backup-os, and kkt-shutdown's StopSignals to kkt-shutdown-os. Only the programs use them. LogPolicy is configuration: it goes to kkt-settings, so kkt-provenance records it without depending on kkt-logs (msg 1995). Tagged \"follows from Sam's rule\"; C7 is open."
   }
  ],
  "graph": {
-  "commit": "3945cbc",
+  "commit": "7a0848d",
   "crates": [
    {
     "bins": [
@@ -11823,7 +11734,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "LogPolicy moves to kkt-logs"
+      "text": "LogPolicy moves to kkt-settings"
      },
      {
       "status": "decided",
@@ -14249,6 +14160,7 @@ window.KKT_PROPOSED = {
      },
      {
       "doc": "Entropy that repeats from a seed: the same seed gives the same numbers in the same order.",
+      "feature": "testing",
       "kind": "struct",
       "methods": [
        "new"
@@ -15273,7 +15185,9 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "A log file the server writes itself, kept within a `LogPolicy`: rolled over by size, with a bounded number of rolled files, none kept longer than the policy's age.",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": []
+    },
     "holders": [],
     "implements": [],
     "items": [
@@ -15285,97 +15199,28 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "How a log file the server writes itself (`--log-file`) is kept bounded.",
-      "fields": [
-       "max_bytes",
-       "rotated_files",
-       "max_age"
-      ],
-      "kind": "struct",
-      "methods": [
-       "check"
-      ],
-      "moved_from": "kkt-config",
-      "path": "LogPolicy",
-      "status": "decided"
-     }
-    ],
-    "kind": "logic",
-    "lib": "kkt_logs",
-    "name": "kkt-logs",
-    "path": "crates/kkt-logs",
-    "proposed": "changed",
-    "proposed_notes": [
-     {
-      "status": "follows",
-      "text": "RotatingFile moves to kkt-logs-os: an effect, split out so no crate is mixed (msg 1992)"
-     },
-     {
-      "status": "decided",
-      "text": "LOG_PRUNE_INTERVAL comes here from kkt-config"
-     },
-     {
-      "status": "decided",
-      "text": "LogPolicy comes here from kkt-config"
-     },
-     {
-      "status": "decided",
-      "text": "MIN_LOG_FILE_BYTES comes here from kkt-config, private"
-     },
-     {
-      "status": "follows",
-      "text": "its real feature moves to kkt-logs-os"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [],
-    "items": [
-     {
       "doc": "The log file at `path`, appended to, and rolled over by its policy.",
       "feature": "real",
       "kind": "struct",
       "methods": [
        "open"
       ],
-      "moved_from": "kkt-logs",
-      "path": "RotatingFile",
-      "status": "follows"
+      "path": "RotatingFile"
      }
     ],
     "kind": "effect",
-    "lib": "kkt_logs_os",
-    "name": "kkt-logs-os",
-    "path": "(proposed)",
-    "proposed": "new",
+    "lib": "kkt_logs",
+    "name": "kkt-logs",
+    "path": "crates/kkt-logs",
+    "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "follows",
-      "text": "new effect crate, from kkt-logs"
+      "status": "decided",
+      "text": "LOG_PRUNE_INTERVAL comes here from kkt-config"
      },
      {
-      "status": "follows",
-      "text": "RotatingFile comes here from kkt-logs"
-     },
-     {
-      "status": "follows",
-      "text": "takes the real feature from kkt-logs"
-     },
-     {
-      "status": "follows",
-      "text": "it rolls the file over by kkt-logs' policy"
+      "status": "decided",
+      "text": "MIN_LOG_FILE_BYTES comes here from kkt-config, private"
      }
     ],
     "released_program": false,
@@ -15986,7 +15831,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "recommended",
-      "text": "SeededEntropy moves to kkt-entropy: rests on assumption A1"
+      "text": "SeededEntropy moves to kkt-entropy: behind testing, as a test double: rests on assumption A1"
      },
      {
       "status": "decided",
@@ -19478,6 +19323,21 @@ window.KKT_PROPOSED = {
       ]
      },
      {
+      "doc": "How a log file the server writes itself (`--log-file`) is kept bounded.",
+      "fields": [
+       "max_bytes",
+       "rotated_files",
+       "max_age"
+      ],
+      "kind": "struct",
+      "methods": [
+       "check"
+      ],
+      "moved_from": "kkt-config",
+      "path": "LogPolicy",
+      "status": "decided"
+     },
+     {
       "doc": "The platform, which decides where per-user data goes.",
       "kind": "enum",
       "path": "Platform",
@@ -19649,6 +19509,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "LogLevel comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "LogPolicy comes here from kkt-config"
      },
      {
       "status": "decided",
@@ -23789,30 +23653,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-lane-files-os"
    },
    {
-    "features": [],
-    "from": "kashkeshet",
-    "items": [
-     "LogPolicy"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "LogPolicy"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "to": "kkt-logs"
-   },
-   {
     "features": [
      "real"
     ],
@@ -23822,7 +23662,6 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "new",
     "role": "uses",
     "roles": [
      {
@@ -23832,11 +23671,8 @@ window.KKT_PROPOSED = {
       "role": "uses"
      }
     ],
-    "statuses": [
-     "follows"
-    ],
     "target": null,
-    "to": "kkt-logs-os"
+    "to": "kkt-logs"
    },
    {
     "features": [],
@@ -24255,6 +24091,7 @@ window.KKT_PROPOSED = {
      "Env",
      "Limits",
      "LogLevel",
+     "LogPolicy",
      "Platform",
      "ServeOptions",
      "ServeSettings",
@@ -24280,6 +24117,7 @@ window.KKT_PROPOSED = {
        "Env",
        "Limits",
        "LogLevel",
+       "LogPolicy",
        "Platform",
        "ServeOptions",
        "ServeSettings",
@@ -27038,30 +26876,6 @@ window.KKT_PROPOSED = {
    {
     "features": [],
     "from": "kkt-keymode",
-    "items": [
-     "LogPolicy"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "LogPolicy"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "to": "kkt-logs"
-   },
-   {
-    "features": [],
-    "from": "kkt-keymode",
     "items": [],
     "kind": "normal",
     "optional": false,
@@ -27231,6 +27045,7 @@ window.KKT_PROPOSED = {
     "from": "kkt-keymode",
     "items": [
      "AccessKey",
+     "LogPolicy",
      "ServeOptions",
      "ServeSettings",
      "admin_name_path",
@@ -27245,6 +27060,7 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "AccessKey",
+       "LogPolicy",
        "ServeOptions",
        "ServeSettings",
        "admin_name_path",
@@ -27452,30 +27268,8 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-logs-os",
+    "from": "kkt-logs",
     "items": [
-     "Clock"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Clock"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "to": "kkt-clock"
-   },
-   {
-    "features": [],
-    "from": "kkt-logs-os",
-    "items": [
-     "LOG_PRUNE_INTERVAL",
      "LogPolicy"
     ],
     "kind": "normal",
@@ -27485,17 +27279,16 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "LOG_PRUNE_INTERVAL",
        "LogPolicy"
       ],
       "role": "uses"
      }
     ],
     "statuses": [
-     "follows"
+     "decided"
     ],
     "target": null,
-    "to": "kkt-logs"
+    "to": "kkt-settings"
    },
    {
     "features": [],
@@ -27863,30 +27656,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-provenance",
     "items": [
-     "LogPolicy"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "LogPolicy"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "to": "kkt-logs"
-   },
-   {
-    "features": [],
-    "from": "kkt-provenance",
-    "items": [
      "AdminName"
     ],
     "kind": "dev",
@@ -27908,7 +27677,8 @@ window.KKT_PROPOSED = {
     "from": "kkt-provenance",
     "items": [
      "Limits",
-     "LogLevel"
+     "LogLevel",
+     "LogPolicy"
     ],
     "kind": "normal",
     "optional": false,
@@ -27918,7 +27688,8 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "Limits",
-       "LogLevel"
+       "LogLevel",
+       "LogPolicy"
       ],
       "role": "uses"
      }
@@ -30227,9 +29998,8 @@ window.KKT_PROPOSED = {
    }
   ],
   "kind_mismatches": [
-   "kkt-clock is marked contract but has behaviour: Span (9 methods), Time (12 methods), floor_text, from_text, and 1 more",
-   "kkt-db is marked contract but has behaviour: Column (10 methods), Condition (3 methods), Database (3 methods), Delete (1 method), and 30 more",
-   "kkt-entropy is marked contract but has behaviour: SeededEntropy (1 method), random_chars"
+   "kkt-db is marked contract but does more than compute on its own values: Database::new takes backend (Backend); migrate takes target (Evolve); pending takes target (Evolve)",
+   "kkt-entropy is marked contract but does more than compute on its own values: random_chars takes entropy (Entropy)"
   ]
  },
  "not_traits": [
@@ -30260,7 +30030,7 @@ window.KKT_PROPOSED = {
   "If it is used by two crates or fewer, each consumer declares its own contract, and the program adapts the implementation to it.",
   "Used by: crates other than the definer and the implementers that take the trait in a public slot or call through it, in normal dependencies. Test-only use is listed separately."
  ],
- "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves only the move that rests on A1. \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup, kkt-shutdown and kkt-logs.",
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves only the move that rests on A1. \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
  "statuses": {
   "decided": "decided by Sam",
   "follows": "follows from Sam's rule",

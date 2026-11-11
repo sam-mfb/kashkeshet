@@ -39,7 +39,7 @@ or kind is not one it knows: fix the entry and run it again.
 
 Each box is outlined in its kind's colour, written by hand per crate:
 
-- **contract**: traits and plain values only;
+- **contract**: traits and plain values, with pure behaviour on its own value types (Time arithmetic, query checks, search matching), and no effect or wiring;
 - **logic**: behaviour, with every effect injected (protocol translation counts, so kkt-mcp and kkt-web are logic);
 - **effect**: touches the operating system, disk, network, real time or real randomness directly;
 - **composition**: wires others and decides nothing (kkt-server and the programs);
@@ -47,8 +47,8 @@ Each box is outlined in its kind's colour, written by hand per crate:
 - **test support**: for tests only;
 - **mixed**: a contract or logic together with a real effect, in the current map only. In the proposed map a mixed crate is a violation.
 
-`kinds.py` checks what it can: a contract with behaviour (functions, or
-types with methods, outside `testing`), a logic crate that turns on `real`,
+`kinds.py` checks what it can: a contract that does more than compute on its
+own values (behaviour through an injected dependency, wiring, or an effect), a logic crate that turns on `real`,
 an effect crate with no `real` feature and no I/O dependency, and a composition
 crate other than a program with a `real` feature of its own. In the proposed map
 that last one, like a mixed crate, is a violation. It reports

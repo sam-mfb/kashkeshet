@@ -254,7 +254,7 @@
   {
    "id": "contract",
    "title": "contract",
-   "about": "Traits and plain values only."
+   "about": "Traits and plain values, with pure behaviour on its own value types (such as Time arithmetic, query checks and search matching), and no effect or wiring."
   },
   {
    "id": "logic",

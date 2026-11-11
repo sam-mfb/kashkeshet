@@ -797,7 +797,7 @@
       list.length
         ? el("ul", {}, list.map((m) => el("li", {}, prose(m))))
         : el("p", { class: "muted" }, "Every kind fits what the map shows."),
-      el("p", { class: "muted" }, "Reported, not corrected: a contract with behaviour, a logic crate that turns on real, an effect crate with no real feature or I/O dependency, a composition other than a program with a real feature of its own."),
+      el("p", { class: "muted" }, "Reported, not corrected: a contract that does more than compute on its own values (behaviour through an injected dependency, wiring, or an effect), a logic crate that turns on real, an effect crate with no real feature or I/O dependency, a composition other than a program with a real feature of its own."),
     ];
   }
 

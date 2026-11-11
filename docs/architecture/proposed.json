@@ -133,14 +133,6 @@
    "from": "kkt-shutdown",
    "status": "follows",
    "concern": "The operating system's stop signals: `StopSignals`, which the programs install and which stop kkt-shutdown's `Shutdown`. kkt-shutdown's `real` feature moves here."
-  },
-  {
-   "name": "kkt-logs-os",
-   "layer": "foundations",
-   "kind": "effect",
-   "from": "kkt-logs",
-   "status": "follows",
-   "concern": "The server's own log file on disk: `RotatingFile`, rolled over by kkt-logs' `LogPolicy`, with the time from an injected `Clock`. kkt-logs' `real` feature moves here."
   }
  ],
  "moves": [
@@ -165,7 +157,8 @@
    "to": "kkt-entropy",
    "status": "recommended",
    "assumption": "A1",
-   "note": "rests on assumption A1"
+   "note": "behind testing, as a test double: rests on assumption A1",
+   "feature": "testing"
   },
   {
    "item": "kkt-names::testing",
@@ -272,12 +265,6 @@
   {
    "item": "kkt-shutdown::StopSignals",
    "to": "kkt-shutdown-os",
-   "status": "follows",
-   "note": "an effect, split out so no crate is mixed (msg 1992)"
-  },
-  {
-   "item": "kkt-logs::RotatingFile",
-   "to": "kkt-logs-os",
    "status": "follows",
    "note": "an effect, split out so no crate is mixed (msg 1992)"
   }
@@ -1457,19 +1444,6 @@
    },
    "status": "follows",
    "note": "a stop signal stops kkt-shutdown's Shutdown"
-  },
-  {
-   "from": "kkt-logs-os",
-   "to": "kkt-logs",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "LogPolicy",
-     "LOG_PRUNE_INTERVAL"
-    ]
-   },
-   "status": "follows",
-   "note": "it rolls the file over by kkt-logs' policy"
   }
  ],
  "decisions": {
@@ -1762,7 +1736,7 @@
   },
   {
    "id": "19",
-   "text": "No crate in the proposed map is mixed, compositions included (msg 1992): kkt-server's listen and Listening go to kkt-server-listen, kkt-backup's write and prune to kkt-backup-os, kkt-shutdown's StopSignals to kkt-shutdown-os, and kkt-logs' RotatingFile to kkt-logs-os, which the check also found (kkt-provenance read LogPolicy from an effect crate). Only the programs use them. Tagged \"follows from Sam's rule\"; C7 is open."
+   "text": "No crate in the proposed map is mixed, compositions included (msg 1992): kkt-server's listen and Listening go to kkt-server-listen, kkt-backup's write and prune to kkt-backup-os, and kkt-shutdown's StopSignals to kkt-shutdown-os. Only the programs use them. LogPolicy is configuration: it goes to kkt-settings, so kkt-provenance records it without depending on kkt-logs (msg 1995). Tagged \"follows from Sam's rule\"; C7 is open."
   }
  ],
  "not_traits": [
@@ -1955,7 +1929,7 @@
    "doc": "How notices name the operator, from the admin key's name or none: \"The operator\", or \"The operator (via <name>)\". It takes plain input, so kkt-names knows nothing of kkt-rules' Audit; the program's adapter maps Audit to it and meets kkt-rules' OperatorWording."
   }
  ],
- "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves only the move that rests on A1. \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup, kkt-shutdown and kkt-logs.",
+ "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves only the move that rests on A1. \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
  "strict": {
   "status": "decided",
   "text": "No implementation implements another crate's contract; the program always adapts (Sam, msg 1978). A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, DryRun implements System, and SameSource implements Sources (msg 1984). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
@@ -2096,10 +2070,6 @@
    "status": "decided",
    "concern": "Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while it has a subscriber. The buffer's size is a setting the program fills (item 7)."
   },
-  "kkt-logs": {
-   "status": "follows",
-   "concern": "How the server's own log file is kept bounded: `LogPolicy` and its check, and `LOG_PRUNE_INTERVAL`. The file itself is in kkt-logs-os."
-  },
   "kkt-watch": {
    "status": "decided",
    "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server, clock, saved place, output and its retry and wait timings are injected by the program (item 7)."
@@ -2183,12 +2153,6 @@
   {
    "from": "kkt-shutdown",
    "to": "kkt-shutdown-os",
-   "feature": "real",
-   "status": "follows"
-  },
-  {
-   "from": "kkt-logs",
-   "to": "kkt-logs-os",
    "feature": "real",
    "status": "follows"
   }
@@ -2354,10 +2318,6 @@
      {
       "impl": "kkt-store::Db",
       "crate": "kkt-fake-product"
-     },
-     {
-      "impl": "kkt-clock::SystemClock",
-      "crate": "kkt-logs"
      }
     ],
     "wiring_add": [
@@ -2436,18 +2396,6 @@
       ],
       "status": "decided",
       "note": "kkt agent, kkt lanes"
-     },
-     {
-      "impl": "kkt-clock-system::SystemClock",
-      "crate": "kkt-logs-os",
-      "to": [
-       {
-        "at": "RotatingFile::open",
-        "param": "clock"
-       }
-      ],
-      "status": "follows",
-      "note": "kkt serve --log-file; through the program's Clock adapter"
      }
     ]
    },
@@ -2814,8 +2762,7 @@
   "kkt-diagnostics": "logic",
   "kkt-lane-files": "logic",
   "kkt-backup": "logic",
-  "kkt-shutdown": "logic",
-  "kkt-logs": "logic"
+  "kkt-shutdown": "logic"
  },
  "open_questions": [
   {
