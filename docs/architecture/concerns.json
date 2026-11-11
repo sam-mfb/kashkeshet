@@ -139,7 +139,7 @@
   },
   "kkt-db-sqlite": {
    "layer": "data",
-   "concern": "kkt-db over SQLite, the only crate that knows SQLite: it opens a SQLite database, in a file or in memory, as a kkt-db `Database`, adopts a database from before kkt-db as the caller's `Legacy` describes, and copies a database for backups.",
+   "concern": "kkt-db over SQLite, the only crate that knows SQLite: it opens a SQLite database, in a file or in memory, as a kkt-db `Backend`, running its work on tokio's blocking pool, adopts a database from before kkt-db as the caller's `Legacy` describes, and copies a database for backups.",
    "must_not": "Know a product's tables, or let a rusqlite type out of the crate.",
    "kind": "effect"
   },

@@ -12,7 +12,9 @@ publish = false
 # every backend does.
 kkt-search = { path = "../kkt-search", optional = true }
 thiserror.workspace = true
-tokio.workspace = true
+# Only for `testing`: the conformance checks run concurrent writes and a
+# write during a read.
+tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
 kkt-search = { path = "../kkt-search" }
@@ -20,5 +22,6 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [features]
 # `testing`: `testing::MemoryPlace`, a database held in memory that keeps the
-# contract, and `testing::conformance`, the checks every backend must pass.
-testing = ["dep:kkt-search"]
+# contract; `testing::conformance`, the checks every backend must pass; and
+# `testing::FaultyBackend`, which fails a change on cue.
+testing = ["dep:kkt-search", "dep:tokio"]
