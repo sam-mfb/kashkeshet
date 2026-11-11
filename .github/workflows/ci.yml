@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [next, main]
+    branches: [next, main, refactor]
   push:
-    branches: [next, main]
+    branches: [next, main, refactor]
 
 permissions:
   contents: read
@@ -21,7 +21,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15]
+        # macos-15 is temporarily off: GitHub has too little macOS runner
+        # capacity. It should come back: add it to this list again.
+        os: [ubuntu-24.04]
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
