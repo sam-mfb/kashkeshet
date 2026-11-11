@@ -8,7 +8,7 @@
 //! with its name, so two sessions saving different entries keep both.
 
 use super::*;
-use kkt_config::MAX_MEMORY_NAME_CHARS;
+use kkt_names::MAX_MEMORY_NAME_CHARS;
 
 impl Rules {
     /// Saves `text` as `me`'s entry named `name`, replacing any with that

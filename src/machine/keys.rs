@@ -406,7 +406,7 @@ pub(crate) enum AdminNameFile {
 pub(crate) fn read_admin_name(path: &Path, key: &str) -> Result<AdminNameFile, String> {
     let names = settings::admin_name_path(path);
     match read_admin_names(&names)? {
-        Some(text) => match AdminName::bound_in(&text, key, config::MAX_ADMIN_NAME_CHARS) {
+        Some(text) => match AdminName::bound_in(&text, key, kkt_names::MAX_ADMIN_NAME_CHARS) {
             Ok(Some(name)) => Ok(AdminNameFile::Named(name)),
             Ok(None) => Ok(AdminNameFile::OtherKey(names)),
             Err(e) => Err(format!(

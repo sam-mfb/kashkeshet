@@ -1,6 +1,12 @@
 use super::*;
-use kkt_config::{MAX_HANDLE_ATTEMPTS, MAX_HANDLE_CHARS, MAX_LANE_NAME_CHARS};
+use kkt_names::{MAX_HANDLE_CHARS, MAX_LANE_NAME_CHARS};
 use lanes::{AgentLane, HeldLane};
+
+/// How many numbered handles to try before giving up on a drawn handle.
+/// kkt-names' tests show every drawn handle, numbered up to attempt
+/// 10,000, fits its handle limit, so this must stay at most that.
+const MAX_HANDLE_ATTEMPTS: u32 = 10_000;
+const _: () = assert!(MAX_HANDLE_ATTEMPTS <= 10_000);
 
 impl Rules {
     /// Creates a new avatar with a server-chosen handle and a fresh token.

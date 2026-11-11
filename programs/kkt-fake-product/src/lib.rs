@@ -152,7 +152,7 @@ impl Identify for FakeIdentify {
                     ),
                 }),
                 (swarm, Role::Admin) => {
-                    let name = AdminName::new(ADMIN_NAME, kkt_config::MAX_ADMIN_NAME_CHARS)
+                    let name = AdminName::new(ADMIN_NAME, kkt_names::MAX_ADMIN_NAME_CHARS)
                         .map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
                     Ok(Identified {
                         swarm,
@@ -179,6 +179,8 @@ pub struct Settings {
     pub web: kkt_web::Settings,
     /// How long a web page sign-in lasts.
     pub sessions: kkt_admission::Settings,
+    /// How many notices the events bus keeps for a slow subscriber.
+    pub events: kkt_events::Settings,
 }
 
 impl Settings {
@@ -188,6 +190,7 @@ impl Settings {
         fmt: kkt_format::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
         sessions: kkt_admission::Settings::DEFAULT,
+        events: kkt_events::Settings::DEFAULT,
     };
 }
 
@@ -229,6 +232,7 @@ impl Product {
             entropy,
             Arc::new(FakeIdentify),
             &settings.fmt,
+            &settings.events,
             run_id,
         );
         let config = AppConfig {

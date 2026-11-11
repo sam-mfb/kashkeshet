@@ -1048,6 +1048,7 @@ dependencies = [
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
+ "kkt-events",
  "kkt-format",
  "kkt-hosts",
  "kkt-identity",
@@ -1137,7 +1138,6 @@ dependencies = [
 name = "kkt-config"
 version = "0.10.0"
 dependencies = [
- "kkt-names",
  "thiserror",
 ]
 
@@ -1189,7 +1189,6 @@ name = "kkt-events"
 version = "0.10.0"
 dependencies = [
  "futures",
- "kkt-config",
  "kkt-shutdown",
  "serde",
  "tokio",
@@ -1202,8 +1201,8 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-clock",
- "kkt-config",
  "kkt-db-sqlite",
+ "kkt-events",
  "kkt-format",
  "kkt-hosts",
  "kkt-identity",
@@ -1244,7 +1243,6 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-clock",
- "kkt-config",
  "kkt-db-sqlite",
  "kkt-events",
  "kkt-names",
@@ -1261,6 +1259,7 @@ dependencies = [
  "kkt-clock",
  "kkt-config",
  "kkt-db-sqlite",
+ "kkt-events",
  "kkt-format",
  "kkt-hosts",
  "kkt-identity",
@@ -1373,7 +1372,6 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-clock",
- "kkt-config",
  "kkt-db-sqlite",
  "kkt-events",
  "kkt-format",

@@ -50,3 +50,12 @@ pub struct Options {
     /// How long a connection waits for a lock another process holds.
     pub busy_timeout: Duration,
 }
+
+impl Options {
+    /// Four read-only connections beside the one writer, and a five-second
+    /// wait for a lock before failing.
+    pub const DEFAULT: Options = Options {
+        readers: 4,
+        busy_timeout: Duration::from_secs(5),
+    };
+}

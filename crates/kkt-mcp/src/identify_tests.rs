@@ -110,7 +110,7 @@ async fn rules() -> Rules {
     Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
-        events: Events::new(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
         clock,
         entropy: Arc::new(SeqEntropy::new(1)),
         run_id,

@@ -7,7 +7,6 @@ use crate::machine::connection::{ConnectionOptions, remote_client};
 use crate::machine::credentials::{CredentialFile, watch_token};
 use crate::machine::settings::read_config;
 use kkt_clock::SystemClock;
-use kkt_config as config;
 use kkt_names as names;
 use kkt_rules::{CommandLine, Revoked};
 use kkt_settings::Env;
@@ -32,10 +31,10 @@ pub async fn register(
     // The server checks the handle and lane too; checking first gives the
     // reason, and leaves no files behind.
     if let Some(handle) = handle {
-        names::check_proposed_handle(handle, config::MAX_HANDLE_CHARS)?;
+        names::check_proposed_handle(handle, names::MAX_HANDLE_CHARS)?;
     }
     if let Some(lane) = lane {
-        names::check_lane_name(lane, config::MAX_LANE_NAME_CHARS)?;
+        names::check_lane_name(lane, names::MAX_LANE_NAME_CHARS)?;
     }
     let client = remote_client(env, connection)?;
     let mut token = CredentialFile::create(token_file)?;

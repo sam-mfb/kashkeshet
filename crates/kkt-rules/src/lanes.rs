@@ -9,7 +9,7 @@
 //! version of, or dropping a lane is announced by the agent in every
 //! channel it is in; registering with one announces nothing.
 use super::*;
-use kkt_config::MAX_LANE_NAME_CHARS;
+use kkt_names::MAX_LANE_NAME_CHARS;
 use kkt_store::{
     AgentLaneRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord,
     NewLaneVersionRecord, TakenLaneRecord,

@@ -22,9 +22,9 @@ use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use kkt_clock::{self as clock, Clock, Span, Time};
 use kkt_config::{
-    CHANNEL_RANDOM_LEN, InvalidSetting, MAX_LANE_NAME_CHARS, PREVIEW_AGENTS, PREVIEW_BURST_MAX,
-    PREVIEW_BURST_ONE_IN, PREVIEW_CHANNELS, PREVIEW_HIDE_CHANNEL_ONE_IN, PREVIEW_HISTORY,
-    PREVIEW_LEAVE_ONE_IN, PREVIEW_LONG_MESSAGE_ONE_IN, PREVIEW_MESSAGES, PREVIEW_NEW_AGENT_ONE_IN,
+    InvalidSetting, PREVIEW_AGENTS, PREVIEW_BURST_MAX, PREVIEW_BURST_ONE_IN, PREVIEW_CHANNELS,
+    PREVIEW_HIDE_CHANNEL_ONE_IN, PREVIEW_HISTORY, PREVIEW_LEAVE_ONE_IN,
+    PREVIEW_LONG_MESSAGE_ONE_IN, PREVIEW_MESSAGES, PREVIEW_NEW_AGENT_ONE_IN,
     PREVIEW_NEW_CHANNEL_ONE_IN, PREVIEW_RECOVERY_CODE_CHARS, PREVIEW_STALE_HOURS,
     PREVIEW_UNREGISTER_ONE_IN, PreviewSettings, WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW,
     WEB_SESSION_ID_CHARS, check_access_key,
@@ -33,7 +33,7 @@ use kkt_events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent, NewChannel,
     NewMessage, SwarmEvents,
 };
-use kkt_names::{self as names, Entropy};
+use kkt_names::{self as names, CHANNEL_RANDOM_LEN, Entropy, MAX_LANE_NAME_CHARS};
 use kkt_shutdown::Shutdown;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -409,7 +409,7 @@ impl Preview {
             settings,
             activity_window,
             // The preview is one made-up swarm.
-            events: Events::new()
+            events: Events::new(kkt_events::Settings::DEFAULT)
                 .until_stopped(shutdown.clone())
                 .in_swarm("sw_preview"),
             world: Mutex::new(world),
@@ -838,7 +838,7 @@ const LIMITS: PreviewLimits = PreviewLimits {
 /// The server's lane limits, at their defaults.
 fn lane_limits() -> LaneLimits {
     LaneLimits {
-        max_name_chars: kkt_config::MAX_LANE_NAME_CHARS,
+        max_name_chars: MAX_LANE_NAME_CHARS,
         max_description_chars: LIMITS.max_lane_description_chars,
         max_text_chars: LIMITS.max_lane_chars,
     }
@@ -1146,7 +1146,7 @@ impl World {
                 selected.push(member.to_string());
             }
         }
-        let id = (0..kkt_config::MAX_CHANNEL_ID_ATTEMPTS)
+        let id = (0..names::MAX_CHANNEL_ID_ATTEMPTS)
             .map(|_| names::channel_id(e, CHANNEL_RANDOM_LEN))
             .find(|id| {
                 !self.channels.iter().any(|c| c.channel.id == *id)

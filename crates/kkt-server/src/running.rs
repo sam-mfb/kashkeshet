@@ -95,6 +95,7 @@ mod tests {
             Arc::new(SeqEntropy::new(1)),
             Arc::new(KeyMode::new(None)),
             &kkt_format::Settings::DEFAULT,
+            &kkt_events::Settings::DEFAULT,
             1,
         );
         let config = AppConfig {

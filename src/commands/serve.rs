@@ -140,6 +140,7 @@ async fn serve(
         Arc::new(OsEntropy),
         Arc::new(KeyMode::new(admin_name)),
         &format_settings(&limits),
+        &kkt_events::Settings::DEFAULT,
         run_id,
     );
     let server = app::build(parts, config, shutdown.clone());
