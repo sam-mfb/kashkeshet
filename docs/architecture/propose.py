@@ -93,7 +93,7 @@ def trait_table(graph):
 def build(graph, concerns, assembly, spec, problems, extra=None):
     """The map `spec` makes of `graph`. `extra`, for the item 7 layer: more
     moves and items made private, and the parts Limits splits into."""
-    extra = extra or {"moves": [], "private": [], "new_items": [], "replace": {}}
+    extra = extra or {"moves": [], "private": [], "new_items": [], "replace": {}, "user_moves": {}}
     # Code that moves with a moved item takes the items only it uses along.
     from_moves = {}
     for cm in spec.get("code_moves", []):
@@ -410,14 +410,18 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         # What only the consumer's tests name follows its item as the
         # items do, kept apart as the arrow's test-only uses.
         for path in e.get("test_items", []):
+            # The test code may move too: with its item (code_moves), or as
+            # item 7 says (user_moves).
+            frm = from_moves.get((e["from"], e["to"], path), (None,))[0] or \
+                extra["user_moves"].get((e["from"], e["to"], path), e["from"])
             replaced = extra["replace"].get((e["to"], path))
             if replaced is not None:
                 targets = [split(r) for r in replaced.get(e["from"], [])]
             else:
                 targets = [(t, path) for t in wheres(e["to"], path, e["from"])]
             for target, p in targets:
-                if target != e["from"]:
-                    test_uses.setdefault((e["from"], target, e["kind"]), set()).add(p)
+                if target != frm:
+                    test_uses.setdefault((frm, target, e["kind"]), set()).add(p)
         role_of = {p: r["role"] for r in e.get("roles", []) for p in r["detail"]}
         if not e["items"]:
             entry_for((e["from"], e["to"], e["kind"]), e)
@@ -800,7 +804,9 @@ def item7(graph, split_spec, problems):
     new_items = [dict(n, status=status) for n in split_spec["limits"]["parts"]]
     return {"moves": moves, "private": private, "new_items": new_items, "status": status,
             "concern_edits": {n: dict(e, status=status) for n, e in split_spec.get("concern_edits", {}).items()},
-            "replace": {("kkt-config", "Limits"): split_spec["limits"]["users"]}}
+            "replace": {("kkt-config", "Limits"): split_spec["limits"]["users"]},
+            "user_moves": {(u, "kkt-config", r["item"]): to for r in split_spec["items"]
+                           for u, to in r.get("user_moves", {}).items()}}
 
 
 def before_renames(split_spec, renames):

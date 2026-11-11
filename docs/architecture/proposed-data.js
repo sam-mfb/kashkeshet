@@ -2553,13 +2553,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-shutdown-os"
    },
    {
-    "from": "kkt-web",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [],
-    "to": "kkt-web-preview"
-   },
-   {
     "from": "kkt-web-preview",
     "kind": "dev",
     "role": "implements",
@@ -30186,30 +30179,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-shutdown-os"
-   },
-   {
-    "features": [],
-    "from": "kkt-web",
-    "items": [
-     "PREVIEW_BIND",
-     "PREVIEW_SEED"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "PREVIEW_BIND",
-       "PREVIEW_SEED"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-web-preview"
    },
    {
     "features": [],
