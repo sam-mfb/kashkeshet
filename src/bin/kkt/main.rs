@@ -12,16 +12,18 @@ use kashkeshet::commands::service::{self, ServiceAction, ServiceInstall};
 use kashkeshet::commands::setup::InstallOptions;
 use kashkeshet::commands::watch::{self, WatchTask};
 use kashkeshet::commands::{self, connect, doctor, key};
-use kashkeshet::logging::{init_logging, init_stderr_logging};
 use kashkeshet::machine::connection::ConnectionOptions;
 use kashkeshet::machine::keys::KeyKind;
 use kashkeshet::machine::record::check_setup;
 use kashkeshet::machine::settings::ServeArgs;
 use kashkeshet::process::{end_on_closed_output, process_env};
+use kkt_clock_system::SystemClock;
 use kkt_config::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
+use kkt_logs_os::{init_logging, init_stderr_logging};
 use kkt_settings::{Env, ServeOptions};
 use kkt_setup as setup;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
@@ -37,8 +39,15 @@ async fn main() -> std::process::ExitCode {
     let logging = match &task {
         Ok(Task::Serve { .. }) => Ok(()),
         // Standard output contains only the command's result, with no library logs.
-        Ok(Task::Watch(_) | Task::Register { .. } | Task::Reclaim { .. }) => init_stderr_logging(),
-        _ => init_logging(None, DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL),
+        Ok(Task::Watch(_) | Task::Register { .. } | Task::Reclaim { .. }) => {
+            init_stderr_logging(DEFAULT_LOG_LEVEL)
+        }
+        _ => init_logging(
+            None,
+            DEFAULT_LOG_LEVEL,
+            DEFAULT_DEPENDENCY_LOG_LEVEL,
+            Arc::new(SystemClock),
+        ),
     };
     let result = match (logging, task) {
         (Err(e), _) => Err(e),
@@ -50,7 +59,13 @@ async fn main() -> std::process::ExitCode {
         Err(e) => {
             // An error from before logging started still needs saying.
             if tracing::dispatcher::has_been_set()
-                || init_logging(None, DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL).is_ok()
+                || init_logging(
+                    None,
+                    DEFAULT_LOG_LEVEL,
+                    DEFAULT_DEPENDENCY_LOG_LEVEL,
+                    Arc::new(SystemClock),
+                )
+                .is_ok()
             {
                 tracing::error!("{e}");
             } else {

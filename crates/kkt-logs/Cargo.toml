@@ -1,6 +1,6 @@
 [package]
 name = "kkt-logs"
-description = "kkt's own log file, rolled over and pruned by its policy"
+description = "kkt's log rollover and pruning rules, as pure plans"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,8 +13,3 @@ kkt-config = { path = "../kkt-config" }
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-scratch = { path = "../kkt-scratch" }
-
-[features]
-# `RotatingFile`, all of the crate: it writes, renames and deletes files.
-real = []

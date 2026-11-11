@@ -27,6 +27,7 @@ members = [
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-logs",
+    "crates/kkt-logs-os",
     "crates/kkt-mcp",
     "crates/kkt-names",
     "crates/kkt-provenance",
@@ -74,6 +75,7 @@ default-members = [
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-logs",
+    "crates/kkt-logs-os",
     "crates/kkt-mcp",
     "crates/kkt-names",
     "crates/kkt-provenance",
@@ -185,7 +187,8 @@ kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity = { path = "crates/kkt-identity" }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
-kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
+kkt-logs = { path = "crates/kkt-logs" }
+kkt-logs-os = { path = "crates/kkt-logs-os", features = ["real"] }
 kkt-entropy-os = { path = "crates/kkt-entropy-os", features = ["real"] }
 kkt-names = { path = "crates/kkt-names" }
 kkt-provenance = { path = "crates/kkt-provenance" }
@@ -203,7 +206,6 @@ kkt-store = { path = "crates/kkt-store" }
 kkt-watch = { path = "crates/kkt-watch" }
 tokio.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true

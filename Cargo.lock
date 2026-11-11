@@ -1059,6 +1059,7 @@ dependencies = [
  "kkt-lane-files",
  "kkt-lane-files-os",
  "kkt-logs",
+ "kkt-logs-os",
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
@@ -1082,7 +1083,6 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -1345,7 +1345,18 @@ version = "0.10.0"
 dependencies = [
  "kkt-clock",
  "kkt-config",
+]
+
+[[package]]
+name = "kkt-logs-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-config",
+ "kkt-logs",
  "kkt-scratch",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

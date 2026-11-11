@@ -2,7 +2,6 @@
 //! the server, through `kkt-server`, until it is told to stop.
 
 use crate::commands::lifecycle::backup_before_upgrade;
-use crate::logging::init_logging;
 use crate::machine::keys::make_default_key;
 use crate::machine::settings::{
     Checked, DefaultDb, NO_HOME_TO_KEEP_DB, Report, Sources, check_settings, load_serve_options,
@@ -13,6 +12,7 @@ use kkt_clock_system::SystemClock;
 use kkt_config::{self as config, LogPolicy};
 use kkt_entropy_os::OsEntropy;
 use kkt_identity::KeyMode;
+use kkt_logs_os::init_logging;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
 use kkt_settings::{Env, ServeOptions, ServeSettings};
@@ -42,6 +42,7 @@ pub async fn run(env: &Env, config: Option<PathBuf>, flags: ServeOptions) -> Res
         log_file.as_deref().map(|path| (path, log_policy)),
         settings.log_level,
         settings.dependency_log_level,
+        Arc::new(SystemClock),
     )?;
     let served = serve(settings, &sources, log_policy).await;
     if let (Some(file), Err(e)) = (&log_file, &served) {
