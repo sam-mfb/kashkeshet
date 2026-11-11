@@ -202,7 +202,7 @@
         el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
       el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
-      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line with a slot name, on hover or selection: where a wired thing goes (not a dependency). Thick outline: selected. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line with a slot name, while hovering a wires arrow or a crate: where a wired thing goes (not a dependency). Thick outline: selected. Dashed box: dev-only."));
   }
 
   function draw() {
@@ -455,8 +455,9 @@
     ? deliveries().filter((d) => d.program === e.from && d.builder === e.to) : []);
 
   // Dotted lines from the crate whose thing is built to each crate that
-  // receives it, labelled with the slot: for the hovered wires arrow, or
-  // for the hovered or selected crate as program, builder or receiver.
+  // receives it, labelled with the slot: only while a wires arrow, or a
+  // crate (as program, builder or receiver), is hovered; never from a
+  // selection alone.
   function paintDeliveries() {
     if (!view || !view.deliveryLayer) return;
     const layer = view.deliveryLayer;
@@ -464,10 +465,10 @@
     while (layer.firstChild) layer.removeChild(layer.firstChild);
     while (labelLayer.firstChild) labelLayer.removeChild(labelLayer.firstChild);
     if (state.hiddenRoles.has("wires") || !state.kinds.normal) return;
-    const focus = state.hovered || state.selected;
+    const hovered = state.hovered;
     let shown = [];
     if (state.hoveredEdge) shown = arrowDeliveries(state.hoveredEdge);
-    else if (focus) shown = deliveries().filter((d) => d.program === focus || d.builder === focus || d.receiver === focus);
+    else if (hovered) shown = deliveries().filter((d) => d.program === hovered || d.builder === hovered || d.receiver === hovered);
     const lines = new Map();
     for (const d of shown) {
       if (d.builder === d.receiver || !visibleCrate(d.builder) || !visibleCrate(d.receiver)) continue;
