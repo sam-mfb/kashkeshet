@@ -333,9 +333,11 @@ impl KeyTexts for KeyFiles<'_> {
     fn access(&mut self) -> Result<Option<KeyText>, String> {
         self.0.access().map_err(|e| e.to_string())
     }
+    // This program makes no key: the selected web key must already exist.
     fn web(&mut self) -> Result<Option<KeyText>, String> {
         self.0.web().map_err(|e| e.to_string())
     }
+    // A missing admin key turns the admin endpoint off.
     fn admin(&mut self) -> Result<Option<KeyText>, String> {
         self.0.admin().map_err(|e| e.to_string())
     }
