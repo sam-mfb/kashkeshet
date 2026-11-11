@@ -131,7 +131,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         kinds[new["name"]] = new["kind"]
         crates[new["name"]] = {
             "name": new["name"], "lib": new["name"].replace("-", "_"), "bins": [], "path": "(proposed)",
-            "dev_only": False, "released_program": False, "features": {}, "crate_doc": "",
+            "dev_only": False, "released_program": False, "features": new.get("features", {}), "crate_doc": "",
             "third_party": new.get("third_party", []), "items": [], "slots": [], "implements": [], "contracts": [],
             "builds": [], "holders": [], "proposed": "new", "kind": new["kind"],
         }
@@ -999,6 +999,19 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             for a in flow.get("adapters", []):
                 if split(a["adapts"])[0] == old:
                     a["adapts"] = f"{new}::{split(a['adapts'])[1]}"
+    # Crates the proposal removes once everything in them has moved
+    # (kkt-config): they must be empty by now.
+    for rc in spec.get("remove_crates", []):
+        name = rc["name"]
+        if name not in crates:
+            problems.append(f"remove_crates: no crate {name}")
+            continue
+        if crates[name]["items"]:
+            problems.append(f"remove_crates: {name} still holds {', '.join(i['path'] for i in crates[name]['items'])}")
+        crates.pop(name)
+        kinds.pop(name, None)
+        new_concerns["crates"].pop(name, None)
+        edges = [e for e in edges if name not in (e["from"], e["to"])]
     allowed = programs | {n for n, k in kinds.items() if k == "composition"}
     violations = [f"{e['from']} depends on the effect crate {e['to']}" for e in edges
                   if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]

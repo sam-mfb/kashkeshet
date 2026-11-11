@@ -1,10 +1,7 @@
 {
- "about": "For each public item of today's kkt-config, where it lives in the proposed map and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts live in the crate that owns them, private there or public when others use them; tuning values are settings fields; operator settings and defaults are in kkt-settings or the program; kkt-config keeps only what is truly cross-domain. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. Crates are named as the proposed map names them; used_by and test_only name today's users.",
+ "about": "For each public item of today's kkt-config, where it lives in the proposed map and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts live in the crate that owns them, private there or public when others use them; tuning values are settings fields; operator settings and defaults are in kkt-settings or the program; Nothing stays in kkt-config: it goes, and its last items live with their owners. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. Crates are named as the proposed map names them; used_by and test_only name today's users.",
  "status": "decided",
  "concern_edits": {
-  "kkt-config": {
-   "concern": "What is truly cross-domain among kkt's settings: the error every settings check gives (`InvalidSetting`), the access key's form and its check, the mode of every private file, and the length of web session IDs. Everything else has moved to the crate that owns it."
-  },
   "kkt-settings": {
    "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, the log file's `LogPolicy`, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings."
   }
@@ -21,9 +18,9 @@
     "kkt-diagnostics"
    ],
    "test_only": [],
-   "to": "kkt-config",
+   "to": "kkt-admission",
    "how": "constant, public",
-   "note": "truly cross-domain: the mode of every private file kkt writes (keys, backups, client configs, the Docker folder), checked by kkt doctor"
+   "note": "the mode of the access key files, which kkt-admission's keys live in; kkt-backup, kkt-client-config and kkt-container each state the mode of the private files they write"
   },
   {
    "item": "ACCESS_KEY_FILE_NAME",
@@ -795,9 +792,9 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-config",
+   "to": "kkt-settings",
    "how": "type, public",
-   "note": "truly cross-domain: the error every settings check gives, in admission, hosts, service, settings and web"
+   "note": "the error every settings check gives, with the settings checks; admission, hosts, service and the preview give it too"
   },
   {
    "item": "LANE_PART_ROOM_CHARS",
@@ -1131,7 +1128,7 @@
    "test_only": [
     "kkt-diagnostics"
    ],
-   "to": "kkt-config",
+   "to": "kkt-admission",
    "how": "constant, test-visible (behind testing)",
    "note": "with check_access_key; behind testing, since only kkt-diagnostics's tests read it"
   },
@@ -1853,9 +1850,9 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-config",
+   "to": "kkt-web",
    "how": "constant, public",
-   "note": "truly cross-domain: kkt-admission makes web session IDs and kkt-web reads them from the cookie, and neither may depend on the other"
+   "note": "the length of web session IDs, with the sessions, which kkt-web makes and reads"
   },
   {
    "item": "WEB_STALE_DEFAULT_HOURS",
@@ -1924,9 +1921,9 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-config",
+   "to": "kkt-admission",
    "how": "check, public",
-   "note": "truly cross-domain: the access key's form, checked by admission, client config, diagnostics, setup and web, which do not all depend on one another"
+   "note": "the access key's form, with the access keys kkt-admission checks; client config, diagnostics, setup and the preview use it from there"
   },
   {
    "item": "check_bind",

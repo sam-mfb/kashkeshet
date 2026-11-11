@@ -6,7 +6,7 @@ what the map shows, and reports a crate whose kind does not fit rather than
 changing it. generate.py and propose.py both use it.
 """
 
-KINDS = ["contract", "logic", "effect", "composition", "configuration", "test support", "mixed"]
+KINDS = ["contract", "logic", "effect", "composition", "test support", "mixed"]
 
 # Third-party crates that reach the machine: a crate that uses one does
 # I/O of its own.

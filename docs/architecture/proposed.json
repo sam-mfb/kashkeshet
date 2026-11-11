@@ -165,6 +165,17 @@
    "from": "kkt-rules",
    "status": "decided",
    "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (ChannelActivity, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange). It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here."
+  },
+  {
+   "name": "kkt-config-file",
+   "layer": "operations",
+   "kind": "effect",
+   "from": "kkt-settings",
+   "status": "decided",
+   "features": {
+    "real": []
+   },
+   "concern": "The config file: reading it (behind `real`) and parsing its TOML into the settings it gives (`parse_file`), and writing a change to its text (`with_allowed_host`). The program adapts it to kkt-settings' source of settings, and to kkt-container's parser for the container's config."
   }
  ],
  "moves": [
@@ -676,6 +687,18 @@
    "to": "kkt-api-agent",
    "status": "decided",
    "note": "the swarm an operation acts in"
+  },
+  {
+   "item": "kkt-settings::parse_file",
+   "to": "kkt-config-file",
+   "status": "decided",
+   "note": "parsing the config file's TOML, with the file"
+  },
+  {
+   "item": "kkt-settings::with_allowed_host",
+   "to": "kkt-config-file",
+   "status": "decided",
+   "note": "a change to the config file's text, with the file"
   }
  ],
  "remove_items": [
@@ -1194,6 +1217,34 @@
    "kind": "const",
    "status": "decided",
    "doc": "The name pack a server uses when its settings name none. kkt-settings fills kkt-rules' name_pack from it, and kkt-container reads it for a container whose config names none, so kkt-container no longer depends on kkt-api-agent."
+  },
+  {
+   "crate": "kkt-config-file",
+   "path": "read",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "real",
+   "doc": "Reads the config file at a path and parses it into the settings it gives."
+  },
+  {
+   "crate": "kkt-settings",
+   "path": "SettingsSource",
+   "kind": "trait",
+   "status": "decided",
+   "methods": [
+    "options"
+   ],
+   "doc": "A source of settings, such as the config file or the command-line flags: the settings it gives, each optional. kkt-settings combines them, flags over the file over explicit defaults, and checks them."
+  },
+  {
+   "crate": "kkt-container",
+   "path": "ConfigReader",
+   "kind": "trait",
+   "status": "decided",
+   "methods": [
+    "settings"
+   ],
+   "doc": "What kkt-container needs of the container's config file, which it reads through its Host: the settings in that text, for the name pack and the lane limit."
   }
  ],
  "declared": [
@@ -1318,6 +1369,18 @@
     "to": "kkt-lane-files::Disk",
     "status": "decided",
     "note": "the OS implementation, adapted to the contract its consumer declares"
+   },
+   {
+    "adapts": "kkt-config-file::read",
+    "to": "kkt-settings::SettingsSource",
+    "status": "decided",
+    "note": "1 forwarding method: the config file as a source of settings; the command-line flags are a second source, the program's own type"
+   },
+   {
+    "adapts": "kkt-config-file::parse_file",
+    "to": "kkt-container::ConfigReader",
+    "status": "decided",
+    "note": "1 forwarding method: parsing the container's config text, which kkt-container reads through its Host"
    }
   ],
   "kkt-keymode": [
@@ -1332,6 +1395,12 @@
     "to": "kkt-server::WebIdentify",
     "status": "decided",
     "note": "1 forwarding method: the same KeyMode, adapted to kkt-server's own contract for its web gate"
+   },
+   {
+    "adapts": "kkt-config-file::read",
+    "to": "kkt-settings::SettingsSource",
+    "status": "decided",
+    "note": "1 forwarding method: the config file as a source of settings; the command-line flags are a second source, the program's own type"
    }
   ],
   "kkt-fake-product": [
@@ -1890,13 +1959,13 @@
   },
   {
    "from": "kkt-admission",
-   "to": "kkt-config",
+   "to": "kkt-web",
    "kind": "normal",
    "drop": [
     "WEB_SESSION_ID_CHARS"
    ],
    "status": "decided",
-   "note": "the session ID length goes with the sessions to kkt-web"
+   "note": "the session ID length goes with the sessions to kkt-web, where the constant now lives"
   },
   {
    "from": "kkt-web",
@@ -1909,18 +1978,6 @@
    },
    "status": "decided",
    "note": "its sessions' start times and expiry"
-  },
-  {
-   "from": "kkt-web",
-   "to": "kkt-config",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "WEB_SESSION_ID_CHARS"
-    ]
-   },
-   "status": "decided",
-   "note": "its session IDs' length"
   },
   {
    "from": "kkt-web-preview",
@@ -2350,6 +2407,19 @@
    ],
    "status": "decided",
    "note": "RulesSource's uses of the operator records go with it"
+  },
+  {
+   "from": "kkt-config-file",
+   "to": "kkt-settings",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "InvalidSetting",
+     "ServeOptions"
+    ]
+   },
+   "status": "decided",
+   "note": "it parses the file into kkt-settings' settings, and reports a bad one with kkt-settings' error"
   }
  ],
  "decisions": {
@@ -2702,6 +2772,10 @@
   {
    "id": "33",
    "text": "Msg 2052: A13's sortings are accepted, except that lanes, the server announcement and server runs stay operator-level only for now, to revisit (Q7). The default name pack moves to kkt-settings (DEFAULT_NAME_PACK), so kkt-container no longer depends on kkt-api-agent. The rules slot, one value meeting every trait kkt-server hands on, stands."
+  },
+  {
+   "id": "34",
+   "text": "Msg 2111: the configuration kind goes, since it named a domain, not what a crate does. kkt-config goes: WEB_SESSION_ID_CHARS to kkt-web, check_access_key, MIN_ACCESS_KEY_BYTES and ACCESS_KEY_FILE_MODE to kkt-admission (kkt-backup, kkt-client-config and kkt-container state their own private-file modes), and InvalidSetting to kkt-settings. kkt-settings is logic and declares SettingsSource; a new effect crate, kkt-config-file, reads and parses the config file, and the program adapts it and the flags to that source. kkt-container parses the container's config through its own ConfigReader, which the program adapts kkt-config-file to."
   }
  ],
  "not_traits": [
@@ -2856,6 +2930,7 @@
      "random_chars"
     ],
     "kkt-config": [
+     "InvalidSetting",
      "MAX_LANE_DESCRIPTION_CHARS",
      "PREVIEW_AGENTS",
      "PREVIEW_BURST_MAX",
@@ -2871,7 +2946,9 @@
      "PREVIEW_RECOVERY_CODE_CHARS",
      "PREVIEW_STALE_HOURS",
      "PREVIEW_UNREGISTER_ONE_IN",
-     "PreviewSettings"
+     "PreviewSettings",
+     "WEB_SESSION_ID_CHARS",
+     "check_access_key"
     ]
    }
   },
@@ -3050,6 +3127,26 @@
    ],
    "status": "decided",
    "note": "one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin"
+  },
+  {
+   "crate": "kkt-container",
+   "at": "status",
+   "name": "config",
+   "traits": [
+    "kkt-container::ConfigReader"
+   ],
+   "status": "decided",
+   "note": "reads the name pack from the container's config"
+  },
+  {
+   "crate": "kkt-container",
+   "at": "lane_limit",
+   "name": "config",
+   "traits": [
+    "kkt-container::ConfigReader"
+   ],
+   "status": "decided",
+   "note": "reads the lane limit from the container's config"
   }
  ],
  "renames": [
@@ -3122,7 +3219,7 @@
   },
   "kkt-container": {
    "status": "decided",
-   "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it. It declares the `Host` it runs them through; the real one is in kkt-container-os, adapted by the program."
+   "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it. It declares the `Host` it runs them through; the real one is in kkt-container-os, adapted by the program. It reads the container's config through its Host and parses it through its own ConfigReader."
   },
   "kkt-service": {
    "status": "decided",
@@ -3164,6 +3261,11 @@
   "kkt-shutdown": {
    "status": "follows",
    "concern": "The stop signal: `Shutdown`, whose clones share one signal. The operating system's signals are in kkt-shutdown-os."
+  },
+  "kkt-settings": {
+   "status": "decided",
+   "concern": "Gathering a server's settings: it combines the sources of settings it declares (`SettingsSource`: the command-line flags, the config file) with explicit defaults, flags over the file over defaults, checks every value, and gives each crate the settings it needs. Also the default paths, and the error every settings check gives (`InvalidSetting`).",
+   "must_not": "Read files or the environment: the program adapts the config file and the flags to its sources."
   }
  },
  "feature_moves": [
@@ -3378,6 +3480,22 @@
       ],
       "status": "decided",
       "note": "the notices' wording, in the Deps the program gives kkt-rules' start"
+     },
+     {
+      "impl": "kkt-config-file::parse_file",
+      "crate": "kkt-container",
+      "to": [
+       {
+        "at": "status",
+        "param": "config"
+       },
+       {
+        "at": "lane_limit",
+        "param": "config"
+       }
+      ],
+      "status": "decided",
+      "note": "through the program's adapter to kkt-container's ConfigReader"
      }
     ]
    },
@@ -4162,6 +4280,26 @@
     "translate": 0,
     "copies": 1,
     "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each."
+   },
+   {
+    "adapter": "kkt-config-file::read",
+    "to": "kkt-settings: SettingsSource",
+    "where": "kkt, kkt-keymode",
+    "methods": 1,
+    "forward": 1,
+    "translate": 0,
+    "copies": 2,
+    "why": "options reads the config file and gives its settings; kkt-config-file exists only to give them, and kkt-settings declares the source it needs."
+   },
+   {
+    "adapter": "kkt-config-file::parse_file",
+    "to": "kkt-container: ConfigReader",
+    "where": "kkt",
+    "methods": 1,
+    "forward": 1,
+    "translate": 0,
+    "copies": 1,
+    "why": "settings parses the container's config text, which kkt-container reads through its Host."
    }
   ],
   "before_totals": {
@@ -4173,12 +4311,12 @@
    "forward_written": 271
   },
   "after_totals": {
-   "adapters": 12,
-   "methods": 53,
-   "forward": 52,
+   "adapters": 14,
+   "methods": 55,
+   "forward": 54,
    "translate": 1,
-   "written": 57,
-   "forward_written": 56
+   "written": 60,
+   "forward_written": 59
   },
   "page_about": "Every adapter in the proposed map, with its methods: forwarding (F), the same operation as a method of the provider with at most a rename or a trivial conversion, or translating (T), which combines calls, reshapes records or holds logic. Copies: how many programs write it."
  },
@@ -4206,6 +4344,24 @@
    ],
    "status": "decided",
    "note": "hashes session IDs and form tokens, with the sessions from kkt-admission"
+  },
+  {
+   "crate": "kkt-settings",
+   "remove": [
+    "toml",
+    "toml_edit"
+   ],
+   "status": "decided",
+   "note": "parsing and editing the config file go to kkt-config-file"
+  },
+  {
+   "crate": "kkt-config-file",
+   "add": [
+    "toml",
+    "toml_edit"
+   ],
+   "status": "decided",
+   "note": "parses and edits the config file's TOML"
   }
  ],
  "replace_items": [
@@ -4256,6 +4412,42 @@
     ],
     "kkt-keymode": [
      "kkt-rules::Rules"
+    ]
+   }
+  },
+  {
+   "item": "kkt-settings::parse_file",
+   "status": "decided",
+   "users": {
+    "kashkeshet": [
+     "kkt-config-file::parse_file"
+    ],
+    "kkt-keymode": [
+     "kkt-config-file::parse_file"
+    ],
+    "kkt-container": [
+     "kkt-container::ConfigReader"
+    ]
+   }
+  },
+  {
+   "item": "kkt-config::ACCESS_KEY_FILE_MODE",
+   "status": "decided",
+   "users": {
+    "kashkeshet": [
+     "kkt-admission::ACCESS_KEY_FILE_MODE"
+    ],
+    "kkt-diagnostics": [
+     "kkt-admission::ACCESS_KEY_FILE_MODE"
+    ],
+    "kkt-backup": [
+     "kkt-backup::PRIVATE_FILE_MODE"
+    ],
+    "kkt-client-config": [
+     "kkt-client-config::PRIVATE_FILE_MODE"
+    ],
+    "kkt-container": [
+     "kkt-container::PRIVATE_FILE_MODE"
     ]
    }
   }
@@ -4492,7 +4684,13 @@
   "A contract used by more than two crates lives in a contract-only crate of its own (traits, plain value types with pure behaviour on them, and test doubles behind `testing`). Any crate may implement a shared contract crate's contract directly. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
   "A contract used by two crates or fewer is declared by each of them. No implementation implements a contract another crate declares for itself: the program adapts the implementation to it. kkt-server, the assembly the three server programs share, writes the adapters they would each write, once, and decides nothing.",
   "A crate may implement its own traits (FixedClock implements Clock, DryRun implements System).",
-  "Each crate is one kind: contract, logic, effect, composition, configuration or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect.",
+  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect.",
   "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three."
+ ],
+ "remove_crates": [
+  {
+   "name": "kkt-config",
+   "note": "kkt-config goes: its items live with their owners or in kkt-settings"
+  }
  ]
 }

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "078f2d9",
+ "commit": "51f27ec",
  "crates": [
   {
    "bins": [
@@ -16233,7 +16233,7 @@ window.KKT_CONCERNS = {
   },
   "kkt-config": {
    "concern": "Every limit, fixed setting and default, and their checks.",
-   "kind": "configuration",
+   "kind": "contract",
    "layer": "foundations",
    "must_not": "Read files or the environment."
   },
@@ -16357,7 +16357,7 @@ window.KKT_CONCERNS = {
   },
   "kkt-settings": {
    "concern": "Gathering a server's settings from flags, the config file and defaults, and the default paths.",
-   "kind": "configuration",
+   "kind": "logic",
    "layer": "operations",
    "must_not": "Read files or the environment: callers pass their text and values in."
   },
@@ -16412,11 +16412,6 @@ window.KKT_CONCERNS = {
    "about": "Wires others and decides nothing.",
    "id": "composition",
    "title": "composition"
-  },
-  {
-   "about": "Limits, settings and their defaults.",
-   "id": "configuration",
-   "title": "configuration"
   },
   {
    "about": "For tests only.",

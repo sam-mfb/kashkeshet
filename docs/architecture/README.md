@@ -46,7 +46,6 @@ Each box is outlined in its kind's colour, written by hand per crate:
 - **logic**: behaviour, with every effect injected (protocol translation counts, so kkt-mcp and kkt-web are logic);
 - **effect**: touches the operating system, disk, network, real time or real randomness directly;
 - **composition**: wires others and decides nothing (kkt-server and the programs);
-- **configuration**: limits, settings and their defaults;
 - **test support**: for tests only;
 - **mixed**: a contract or logic together with a real effect, in the current map only. In the proposed map a mixed crate is a violation.
 

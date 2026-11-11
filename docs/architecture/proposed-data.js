@@ -73,15 +73,35 @@ window.KKT_PROPOSED = {
     "translate": 0,
     "where": "kkt",
     "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each."
+   },
+   {
+    "adapter": "kkt-config-file::read",
+    "copies": 2,
+    "forward": 1,
+    "methods": 1,
+    "to": "kkt-settings: SettingsSource",
+    "translate": 0,
+    "where": "kkt, kkt-keymode",
+    "why": "options reads the config file and gives its settings; kkt-config-file exists only to give them, and kkt-settings declares the source it needs."
+   },
+   {
+    "adapter": "kkt-config-file::parse_file",
+    "copies": 1,
+    "forward": 1,
+    "methods": 1,
+    "to": "kkt-container: ConfigReader",
+    "translate": 0,
+    "where": "kkt",
+    "why": "settings parses the container's config text, which kkt-container reads through its Host."
    }
   ],
   "after_totals": {
-   "adapters": 12,
-   "forward": 52,
-   "forward_written": 56,
-   "methods": 53,
+   "adapters": 14,
+   "forward": 54,
+   "forward_written": 59,
+   "methods": 55,
    "translate": 1,
-   "written": 57
+   "written": 60
   }
  },
  "assembly": {
@@ -273,6 +293,22 @@ window.KKT_PROPOSED = {
       "note": "the OS implementation, adapted to the contract its consumer declares",
       "status": "decided",
       "to": "kkt-lane-files::Disk"
+     },
+     {
+      "adapts": "kkt-config-file::read",
+      "large": false,
+      "methods": 1,
+      "note": "1 forwarding method: the config file as a source of settings; the command-line flags are a second source, the program's own type",
+      "status": "decided",
+      "to": "kkt-settings::SettingsSource"
+     },
+     {
+      "adapts": "kkt-config-file::parse_file",
+      "large": false,
+      "methods": 1,
+      "note": "1 forwarding method: parsing the container's config text, which kkt-container reads through its Host",
+      "status": "decided",
+      "to": "kkt-container::ConfigReader"
      }
     ],
     "also": [
@@ -902,6 +938,25 @@ window.KKT_PROPOSED = {
         "param": "wording"
        }
       ]
+     },
+     {
+      "crate": "kkt-container",
+      "impl": "kkt-config-file::parse_file",
+      "note": "through the program's adapter to kkt-container's ConfigReader",
+      "status": "decided",
+      "through_adapter": [
+       "kkt-container::ConfigReader"
+      ],
+      "to": [
+       {
+        "at": "status",
+        "param": "config"
+       },
+       {
+        "at": "lane_limit",
+        "param": "config"
+       }
+      ]
      }
     ]
    },
@@ -1110,6 +1165,14 @@ window.KKT_PROPOSED = {
       "note": "1 forwarding method: the same KeyMode, adapted to kkt-server's own contract for its web gate",
       "status": "decided",
       "to": "kkt-server::WebIdentify"
+     },
+     {
+      "adapts": "kkt-config-file::read",
+      "large": false,
+      "methods": 1,
+      "note": "1 forwarding method: the config file as a source of settings; the command-line flags are a second source, the program's own type",
+      "status": "decided",
+      "to": "kkt-settings::SettingsSource"
      }
     ],
     "inferred": false,
@@ -1455,6 +1518,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-config-file"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
@@ -1577,6 +1649,15 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
+    "from": "kkt-admission",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-settings"
+   },
+   {
     "from": "kkt-api-admin",
     "kind": "normal",
     "role": "uses",
@@ -1604,6 +1685,15 @@ window.KKT_PROPOSED = {
     "to": "kkt-backup"
    },
    {
+    "from": "kkt-client-config",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-admission"
+   },
+   {
     "from": "kkt-clock-system",
     "kind": "normal",
     "role": "implements",
@@ -1611,6 +1701,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-config-file",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-settings"
    },
    {
     "from": "kkt-db",
@@ -1634,6 +1733,15 @@ window.KKT_PROPOSED = {
     "role": "uses",
     "statuses": [],
     "to": "kkt-search"
+   },
+   {
+    "from": "kkt-diagnostics",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-admission"
    },
    {
     "from": "kkt-entropy-os",
@@ -1806,6 +1914,15 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
+    "from": "kkt-hosts",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-settings"
+   },
+   {
     "from": "kkt-identity-keymode",
     "kind": "normal",
     "role": "uses",
@@ -1886,6 +2003,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-clock-system"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-config-file"
    },
    {
     "from": "kkt-keymode",
@@ -2192,6 +2318,15 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
+    "to": "kkt-admission"
+   },
+   {
+    "from": "kkt-setup",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-container"
    },
    {
@@ -2257,6 +2392,15 @@ window.KKT_PROPOSED = {
     "role": "uses",
     "statuses": [],
     "to": "kkt-shutdown-os"
+   },
+   {
+    "from": "kkt-web-preview",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-admission"
    },
    {
     "from": "kkt-web-preview",
@@ -2359,6 +2503,15 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web-preview",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-settings"
+   },
+   {
+    "from": "kkt-web-preview",
     "kind": "dev",
     "role": "uses",
     "statuses": [
@@ -2408,6 +2561,7 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "items_gone": [],
     "items_new": [
+     "ACCESS_KEY_FILE_MODE",
      "server_keys::bound_in",
      "server_keys::bound_to"
     ],
@@ -2479,47 +2633,6 @@ window.KKT_PROPOSED = {
     ],
     "statuses": [],
     "to": "kkt-clock"
-   },
-   {
-    "from": "kashkeshet",
-    "items_gone": [
-     "CLIENT_KEY_FILE_NAME",
-     "DB_BUSY_TIMEOUT",
-     "DB_READERS",
-     "DEFAULT_BIND",
-     "DEFAULT_DEPENDENCY_LOG_LEVEL",
-     "DEFAULT_LOG_LEVEL",
-     "DEFAULT_LOG_LINES",
-     "DOCKER_ADMIN_KEY_FILE_NAME",
-     "DOCKER_FOLDER",
-     "DOCKER_KEY_FILE_NAME",
-     "DOCKER_PROJECT",
-     "LOG_OWN_TARGETS",
-     "Limits",
-     "LogLevel",
-     "LogPolicy",
-     "MAX_ADMIN_NAME_CHARS",
-     "MAX_HANDLE_CHARS",
-     "MAX_LANE_NAME_CHARS",
-     "MCP_ADMIN_PATH",
-     "NO_ADMIN_KEY_EXIT",
-     "SERVICE_BACKUP_FOLDER",
-     "UPGRADE_BACKUP_FOLDER",
-     "WATCH_TIMED_OUT_EXIT",
-     "WATCH_TOKEN_ENV",
-     "check_bind",
-     "check_dependency_log_level"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-config"
    },
    {
     "from": "kashkeshet",
@@ -2725,11 +2838,15 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kashkeshet",
-    "items_gone": [],
+    "items_gone": [
+     "parse_file",
+     "with_allowed_host"
+    ],
     "items_new": [
      "DEFAULT_BIND",
      "DEFAULT_DEPENDENCY_LOG_LEVEL",
      "DEFAULT_LOG_LEVEL",
+     "InvalidSetting",
      "Limits",
      "LogLevel",
      "LogPolicy",
@@ -2738,6 +2855,7 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "roles_after": [
+     "implements",
      "uses"
     ],
     "roles_before": [
@@ -2767,26 +2885,6 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-admission",
     "items_gone": [
-     "MAX_ADMIN_NAME_CHARS",
-     "NEW_ACCESS_KEY_CHARS",
-     "WEB_SESSION_ID_CHARS"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-config"
-   },
-   {
-    "from": "kkt-admission",
-    "items_gone": [
      "Entropy",
      "random_chars"
     ],
@@ -2806,90 +2904,10 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
-    "from": "kkt-backup",
-    "items_gone": [
-     "BACKUP_FOLDER_MODE"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-config"
-   },
-   {
-    "from": "kkt-client-config",
-    "items_gone": [
-     "AGY_CLI_SETTINGS",
-     "AGY_CONFIG",
-     "AGY_LEGACY_CONFIG",
-     "CLAUDE_CONFIG",
-     "CLAUDE_HOME_DEFAULT",
-     "CLAUDE_PROGRAM",
-     "CLAUDE_SETTINGS",
-     "CODEX_CONFIG",
-     "CODEX_HOME_DEFAULT",
-     "CODEX_KKT_RULES",
-     "CODEX_PROGRAM",
-     "CODEX_RULES_DIR",
-     "MUSE_CONFIG",
-     "MUSE_CONFIG_DIR",
-     "MUSE_PROGRAM",
-     "OPENCODE_CONFIG",
-     "OPENCODE_PROGRAM"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-config"
-   },
-   {
     "from": "kkt-container",
     "items_gone": [
-     "CONFIG_DIR",
-     "CONFIG_FILE_NAME",
-     "DOCKER_ADMIN_KEY_FILE_NAME",
-     "DOCKER_BACKUPS_DIR",
-     "DOCKER_BACKUPS_MOUNT",
-     "DOCKER_IMAGE_USER_ID",
-     "DOCKER_LANES_EXPORT_DIR",
-     "DOCKER_LANES_IMPORT_DIR",
-     "DOCKER_LINK_WAIT_POLLS",
-     "DOCKER_LOGIN_WAIT",
-     "DOCKER_MANAGED_VARIABLES",
-     "DOCKER_PENDING_TAILNET",
-     "DOCKER_POLL_INTERVAL",
-     "DOCKER_START_WAIT",
-     "DOCKER_WEB_KEY_FILE_NAME",
-     "Limits",
-     "NO_ADMIN_KEY_EXIT",
-     "UNKNOWN_OPTION_EXIT",
-     "XDG_CONFIG_HOME_DEFAULT"
+     "parse_file"
     ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-config"
-   },
-   {
-    "from": "kkt-container",
-    "items_gone": [],
     "items_new": [
      "CONFIG_DIR",
      "CONFIG_FILE_NAME",
@@ -2966,26 +2984,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-db"
-   },
-   {
-    "from": "kkt-diagnostics",
-    "items_gone": [
-     "DOCTOR_MAX_RESPONSE_BYTES",
-     "DOCTOR_PROTOCOL_VERSION",
-     "DOCTOR_TIMEOUT",
-     "SETUP_SERVER_POLL",
-     "SETUP_SERVER_WAIT"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-config"
    },
    {
     "from": "kkt-fake-product",
@@ -3136,22 +3134,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-shutdown"
    },
    {
-    "from": "kkt-hosts",
-    "items_gone": [
-     "ALWAYS_ALLOWED_HOSTS"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-config"
-   },
-   {
     "from": "kkt-keymode",
     "items_gone": [
      "SystemClock"
@@ -3166,25 +3148,6 @@ window.KKT_PROPOSED = {
     ],
     "statuses": [],
     "to": "kkt-clock"
-   },
-   {
-    "from": "kkt-keymode",
-    "items_gone": [
-     "DB_BUSY_TIMEOUT",
-     "DB_READERS",
-     "LogPolicy",
-     "check_bind"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-config"
    },
    {
     "from": "kkt-keymode",
@@ -3230,13 +3193,17 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-keymode",
-    "items_gone": [],
+    "items_gone": [
+     "parse_file"
+    ],
     "items_new": [
+     "InvalidSetting",
      "LogPolicy",
      "check_bind"
     ],
     "kind": "normal",
     "roles_after": [
+     "implements",
      "uses"
     ],
     "roles_before": [
@@ -3556,21 +3523,10 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-service",
-    "items_gone": [
-     "LAUNCHD_LABEL",
-     "LAUNCHD_RELOAD_RETRY",
-     "LAUNCHD_REMOVAL_WAIT",
-     "LAUNCH_AGENTS_DIR",
-     "MACOS_CRASH_LOG_FILE_NAME",
-     "MACOS_LOG_DIR",
-     "MACOS_LOG_FILE_NAME",
-     "SERVICE_RESTART_DELAY",
-     "SERVICE_START_CHECK",
-     "SERVICE_STOP_TIMEOUT",
-     "SYSTEMD_UNIT",
-     "SYSTEMD_USER_DIR"
+    "items_gone": [],
+    "items_new": [
+     "InvalidSetting"
     ],
-    "items_new": [],
     "kind": "normal",
     "roles_after": [
      "uses"
@@ -3578,78 +3534,10 @@ window.KKT_PROPOSED = {
     "roles_before": [
      "uses"
     ],
-    "statuses": [],
-    "to": "kkt-config"
-   },
-   {
-    "from": "kkt-settings",
-    "items_gone": [
-     "ACCESS_KEY_FILE_NAME",
-     "ADMIN_KEY_FILE_NAME",
-     "ADMIN_NAME_FILE_SUFFIX",
-     "CONFIG_DIR",
-     "CONFIG_FILE_NAME",
-     "DB_FILE_NAME",
-     "DEFAULT_ALLOW_ANY_BIND",
-     "DEFAULT_ALLOW_HOSTS",
-     "DEFAULT_ALLOW_ORIGINS",
-     "DEFAULT_BIND",
-     "DEFAULT_DEPENDENCY_LOG_LEVEL",
-     "DEFAULT_LOG_LEVEL",
-     "Limits",
-     "LogLevel",
-     "MACOS_DATA_DIR",
-     "WEB_KEY_FILE_NAME",
-     "XDG_CONFIG_HOME_DEFAULT",
-     "XDG_DATA_DIR",
-     "XDG_DATA_HOME_DEFAULT"
+    "statuses": [
+     "decided"
     ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-config"
-   },
-   {
-    "from": "kkt-setup",
-    "items_gone": [
-     "ACCESS_KEY_FILE_NAME",
-     "DEFAULT_SETUP_ADMIN_KEY",
-     "DEFAULT_SETUP_ADMIN_NAME",
-     "DEFAULT_SETUP_ADOPT",
-     "DEFAULT_SETUP_ALLOW_KKT",
-     "DEFAULT_SETUP_CONNECT_CLIENT",
-     "DEFAULT_SETUP_CONTAINERS",
-     "DEFAULT_SETUP_CONTINUE",
-     "DEFAULT_SETUP_KEY",
-     "DEFAULT_SETUP_MODE_INDEX",
-     "DEFAULT_SETUP_TAILSCALE",
-     "DEFAULT_SETUP_TRY_AGAIN",
-     "DEFAULT_SETUP_URL",
-     "DEFAULT_TS_HOSTNAME",
-     "DOCKER_ADMIN_KEY_FILE_NAME",
-     "DOCKER_WEB_KEY_FILE_NAME",
-     "MAX_ADMIN_NAME_CHARS",
-     "SETUP_DOCKER_HOST",
-     "SETUP_FILE_NAME",
-     "SETUP_UNFINISHED_FILE_NAME",
-     "SETUP_UNKNOWN_VERSION"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-config"
+    "to": "kkt-settings"
    },
    {
     "from": "kkt-setup",
@@ -3704,49 +3592,6 @@ window.KKT_PROPOSED = {
     ],
     "statuses": [],
     "to": "kkt-clock"
-   },
-   {
-    "from": "kkt-web",
-    "items_gone": [
-     "CHANNEL_RANDOM_LEN",
-     "Limits",
-     "MAX_CHANNEL_ID_ATTEMPTS",
-     "MAX_LANE_DESCRIPTION_CHARS",
-     "MAX_LANE_NAME_CHARS",
-     "PREVIEW_AGENTS",
-     "PREVIEW_BURST_MAX",
-     "PREVIEW_BURST_ONE_IN",
-     "PREVIEW_CHANNELS",
-     "PREVIEW_HIDE_CHANNEL_ONE_IN",
-     "PREVIEW_HISTORY",
-     "PREVIEW_LEAVE_ONE_IN",
-     "PREVIEW_LONG_MESSAGE_ONE_IN",
-     "PREVIEW_MESSAGES",
-     "PREVIEW_NEW_AGENT_ONE_IN",
-     "PREVIEW_NEW_CHANNEL_ONE_IN",
-     "PREVIEW_RECOVERY_CODE_CHARS",
-     "PREVIEW_STALE_HOURS",
-     "PREVIEW_UNREGISTER_ONE_IN",
-     "PreviewSettings",
-     "WEB_ACTIVITY_BUCKET",
-     "WEB_ACTIVITY_WINDOW",
-     "WEB_KEEP_ALIVE",
-     "WEB_SESSION_COOKIE",
-     "WEB_STALE_DEFAULT_HOURS",
-     "WEB_STALE_HOURS"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-config"
    },
    {
     "from": "kkt-web",
@@ -3873,7 +3718,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "ACCESS_KEY_FILE_MODE comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "MIN_ACCESS_KEY_BYTES comes here from kkt-config"
+     },
+     {
+      "status": "decided",
       "text": "NEW_ACCESS_KEY_CHARS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "check_access_key comes here from kkt-config"
      },
      {
       "status": "decided",
@@ -3905,7 +3762,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the session ID length goes with the sessions to kkt-web"
+      "text": "the session ID length goes with the sessions to kkt-web, where the constant now lives"
      }
     ]
    },
@@ -4472,643 +4329,31 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "crate": "kkt-config",
+    "crate": "kkt-config-file",
     "notes": [
      {
       "status": "decided",
-      "text": "ACCESS_KEY_FILE_NAME moves to kkt-settings"
+      "text": "new effect crate, from kkt-settings"
      },
      {
       "status": "decided",
-      "text": "ADMIN_KEY_FILE_NAME moves to kkt-settings"
+      "text": "parse_file comes here from kkt-settings"
      },
      {
       "status": "decided",
-      "text": "ADMIN_NAME_FILE_SUFFIX moves to kkt-settings"
+      "text": "with_allowed_host comes here from kkt-settings"
      },
      {
       "status": "decided",
-      "text": "AGENT_SECRET_CHARS moves to kkt-rules"
+      "text": "new fn read"
      },
      {
       "status": "decided",
-      "text": "AGY_CLI_SETTINGS moves to kkt-client-config"
+      "text": "parses and edits the config file's TOML"
      },
      {
       "status": "decided",
-      "text": "AGY_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "AGY_LEGACY_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "ALWAYS_ALLOWED_HOSTS moves to kkt-hosts"
-     },
-     {
-      "status": "decided",
-      "text": "BACKUP_FOLDER_MODE moves to kkt-backup"
-     },
-     {
-      "status": "decided",
-      "text": "CHANNEL_RANDOM_LEN moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "CLAUDE_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CLAUDE_HOME_DEFAULT moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CLAUDE_PROGRAM moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CLAUDE_SETTINGS moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CLIENT_KEY_FILE_NAME moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "CLOCK_RECHECK moves to kkt-clock-system"
-     },
-     {
-      "status": "decided",
-      "text": "CODEX_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CODEX_HOME_DEFAULT moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CODEX_KKT_RULES moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CODEX_PROGRAM moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CODEX_RULES_DIR moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CONFIG_DIR moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "CONFIG_FILE_NAME moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DB_BUSY_TIMEOUT moves to kkt-db-sqlite"
-     },
-     {
-      "status": "decided",
-      "text": "DB_FILE_NAME moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DB_READERS moves to kkt-db-sqlite"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_ALLOW_ANY_BIND moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_ALLOW_HOSTS moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_ALLOW_ORIGINS moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_BIND moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_DEPENDENCY_LOG_LEVEL moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_LOG_LEVEL moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_LOG_LINES moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_ADMIN_KEY moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_ADMIN_NAME moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_ADOPT moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_ALLOW_KKT moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_CONNECT_CLIENT moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_CONTAINERS moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_CONTINUE moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_KEY moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_MODE_INDEX moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_TAILSCALE moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_TRY_AGAIN moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_URL moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_TS_HOSTNAME moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_ADMIN_KEY_FILE_NAME moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_BACKUPS_DIR moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_BACKUPS_MOUNT moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_FOLDER moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_IMAGE_USER_ID moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_KEY_FILE_NAME moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_LANES_EXPORT_DIR moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_LANES_IMPORT_DIR moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_LINK_WAIT_POLLS moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_LOGIN_WAIT moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_MANAGED_VARIABLES moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_PENDING_TAILNET moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_POLL_INTERVAL moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_PROJECT moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_START_WAIT moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_WEB_KEY_FILE_NAME moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCTOR_MAX_RESPONSE_BYTES moves to kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "DOCTOR_PROTOCOL_VERSION moves to kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "DOCTOR_TIMEOUT moves to kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "EVENT_BUFFER moves to kkt-events"
-     },
-     {
-      "status": "decided",
-      "text": "LANE_PART_ROOM_CHARS moves to kkt-mcp-formatter"
-     },
-     {
-      "status": "decided",
-      "text": "LAUNCHD_LABEL moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "LAUNCHD_RELOAD_RETRY moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "LAUNCHD_REMOVAL_WAIT moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "LAUNCH_AGENTS_DIR moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "LOG_OWN_TARGETS moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "LOG_PRUNE_INTERVAL moves to kkt-logs"
-     },
-     {
-      "status": "decided",
-      "text": "Limits moves to kkt-settings: Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor). upgrade_backups_kept stays with what kkt-settings gathers: kkt-backup's prune already takes the count as an argument, which the program passes"
-     },
-     {
-      "status": "decided",
-      "text": "LogLevel moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "LogPolicy moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "MACOS_CRASH_LOG_FILE_NAME moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "MACOS_DATA_DIR moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "MACOS_LOG_DIR moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "MACOS_LOG_FILE_NAME moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_ADMIN_NAME_CHARS moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_CHANNEL_ID_ATTEMPTS moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_HANDLE_ATTEMPTS moves to kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_HANDLE_CHARS moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_LANE_DESCRIPTION_CHARS moves to kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_LANE_NAME_CHARS moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_MEMORY_NAME_CHARS moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_WEB_PAGE_MESSAGES moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "MCP_ADMIN_PATH moves to kkt-mcp"
-     },
-     {
-      "status": "decided",
-      "text": "MCP_MAX_REQUEST_BYTES moves to kkt-mcp"
-     },
-     {
-      "status": "decided",
-      "text": "MCP_SSE_KEEP_ALIVE moves to kkt-mcp"
-     },
-     {
-      "status": "decided",
-      "text": "MCP_SSE_RETRY moves to kkt-mcp"
-     },
-     {
-      "status": "decided",
-      "text": "MIN_LOG_FILE_BYTES moves to kkt-logs"
-     },
-     {
-      "status": "decided",
-      "text": "MIN_RESPONSE_BYTES moves to kkt-mcp-formatter"
-     },
-     {
-      "status": "decided",
-      "text": "MUSE_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "MUSE_CONFIG_DIR moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "MUSE_PROGRAM moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "NEW_ACCESS_KEY_CHARS moves to kkt-admission"
-     },
-     {
-      "status": "decided",
-      "text": "NOTE_PREVIEW_CHARS moves to kkt-mcp-formatter"
-     },
-     {
-      "status": "decided",
-      "text": "NO_ADMIN_KEY_EXIT moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "OPENCODE_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "OPENCODE_PROGRAM moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_AGENTS moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_BIND moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_BURST_MAX moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_BURST_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_CHANNELS moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_HIDE_CHANNEL_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_HISTORY moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_LEAVE_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_LONG_MESSAGE_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_MESSAGES moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_NEW_AGENT_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_NEW_CHANNEL_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_RECOVERY_CODE_CHARS moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_SEED moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_STALE_HOURS moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_UNREGISTER_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PreviewSettings moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "RECLAIM_MEMORY_NAMES moves to kkt-mcp-formatter"
-     },
-     {
-      "status": "decided",
-      "text": "RECOVERY_PREFIX moves to kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "SERVICE_BACKUP_FOLDER moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "SERVICE_RESTART_DELAY moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "SERVICE_START_CHECK moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "SERVICE_STOP_TIMEOUT moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_DOCKER_HOST moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_FILE_NAME moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_SERVER_POLL moves to kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_SERVER_WAIT moves to kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_UNFINISHED_FILE_NAME moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_UNKNOWN_VERSION moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "SYSTEMD_UNIT moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "SYSTEMD_USER_DIR moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "TAILSCALE_HTTPS_PORT moves to kkt-remote-access"
-     },
-     {
-      "status": "decided",
-      "text": "TOKEN_PREFIX moves to kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "UNKNOWN_OPTION_EXIT moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "UPGRADE_BACKUP_FOLDER moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_ADMIN_NAME moves to kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_ADMIN_POLL moves to kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_BATCH moves to kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_BODY_CHARS moves to kkt-watch"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_CALL_GRACE moves to kkt-watch"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_RETRY_FIRST moves to kkt-watch"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_RETRY_MAX moves to kkt-watch"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_TIMED_OUT_EXIT moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_TOKEN_ENV moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_WAIT moves to kkt-watch"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_ACTIVITY_BUCKET moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_ACTIVITY_WINDOW moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_KEEP_ALIVE moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_KEY_FILE_NAME moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_SESSION_COOKIE moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_STALE_DEFAULT_HOURS moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_STALE_HOURS moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "XDG_CONFIG_HOME_DEFAULT moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "XDG_DATA_DIR moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "XDG_DATA_HOME_DEFAULT moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "check_bind moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "check_dependency_log_level moves to kkt-settings"
+      "text": "it parses the file into kkt-settings' settings, and reports a bad one with kkt-settings' error"
      }
     ]
    },
@@ -5178,6 +4423,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "UNKNOWN_OPTION_EXIT comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "new trait ConfigReader"
+     },
+     {
+      "status": "decided",
+      "text": "status takes config: reads the name pack from the container's config"
+     },
+     {
+      "status": "decided",
+      "text": "lane_limit takes config: reads the lane limit from the container's config"
      },
      {
       "status": "decided",
@@ -6408,6 +5665,14 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
+      "text": "parse_file moves to kkt-config-file: parsing the config file's TOML, with the file"
+     },
+     {
+      "status": "decided",
+      "text": "with_allowed_host moves to kkt-config-file: a change to the config file's text, with the file"
+     },
+     {
+      "status": "decided",
       "text": "ACCESS_KEY_FILE_NAME comes here from kkt-config"
      },
      {
@@ -6456,6 +5721,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "InvalidSetting comes here from kkt-config"
+     },
+     {
+      "status": "decided",
       "text": "Limits comes here from kkt-config"
      },
      {
@@ -6497,6 +5766,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new const DEFAULT_NAME_PACK"
+     },
+     {
+      "status": "decided",
+      "text": "new trait SettingsSource"
+     },
+     {
+      "status": "decided",
+      "text": "parsing and editing the config file go to kkt-config-file"
      }
     ]
    },
@@ -6666,6 +5943,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "WEB_SESSION_COOKIE comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "WEB_SESSION_ID_CHARS comes here from kkt-config"
      },
      {
       "status": "decided",
@@ -6853,10 +6134,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its session IDs' length"
-     },
-     {
-      "status": "decided",
       "text": "the page calls kkt-api-agent directly and renders its records; its own copies are gone"
      },
      {
@@ -7000,9 +6277,16 @@ window.KKT_PROPOSED = {
    }
   ],
   "gone": [
+   "kkt-config",
    "kkt-store"
   ],
   "removed": [
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
+   },
    {
     "from": "kashkeshet",
     "kind": "normal",
@@ -7029,6 +6313,12 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-admission",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
+   },
+   {
+    "from": "kkt-admission",
     "kind": "dev",
     "role": "wires",
     "to": "kkt-names"
@@ -7046,7 +6336,37 @@ window.KKT_PROPOSED = {
     "to": "kkt-watch"
    },
    {
+    "from": "kkt-backup",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
+   },
+   {
+    "from": "kkt-client-config",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
+   },
+   {
     "from": "kkt-clock",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
+   },
+   {
+    "from": "kkt-config",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-names"
+   },
+   {
+    "from": "kkt-container",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
+   },
+   {
+    "from": "kkt-diagnostics",
     "kind": "normal",
     "role": "uses",
     "to": "kkt-config"
@@ -7112,6 +6432,12 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
+    "from": "kkt-hosts",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
+   },
+   {
     "from": "kkt-identity",
     "kind": "normal",
     "role": "uses",
@@ -7164,6 +6490,12 @@ window.KKT_PROPOSED = {
     "kind": "dev",
     "role": "uses",
     "to": "kkt-store"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
    },
    {
     "from": "kkt-keymode",
@@ -7304,6 +6636,24 @@ window.KKT_PROPOSED = {
     "to": "kkt-store"
    },
    {
+    "from": "kkt-service",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
+   },
+   {
+    "from": "kkt-settings",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
+   },
+   {
+    "from": "kkt-setup",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
+   },
+   {
     "from": "kkt-store",
     "kind": "normal",
     "role": "uses",
@@ -7317,6 +6667,12 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-watch",
+    "kind": "normal",
+    "role": "uses",
+    "to": "kkt-config"
+   },
+   {
+    "from": "kkt-web",
     "kind": "normal",
     "role": "uses",
     "to": "kkt-config"
@@ -7422,15 +6778,14 @@ window.KKT_PROPOSED = {
     "layer": "foundations",
     "status": "decided"
    },
-   "kkt-config": {
-    "concern": "What is truly cross-domain among kkt's settings: the error every settings check gives (`InvalidSetting`), the access key's form and its check, the mode of every private file, and the length of web session IDs. Everything else has moved to the crate that owns it.",
-    "kind": "configuration",
-    "layer": "foundations",
-    "must_not": "Read files or the environment.",
+   "kkt-config-file": {
+    "concern": "The config file: reading it (behind `real`) and parsing its TOML into the settings it gives (`parse_file`), and writing a change to its text (`with_allowed_host`). The program adapts it to kkt-settings' source of settings, and to kkt-container's parser for the container's config.",
+    "kind": "effect",
+    "layer": "operations",
     "status": "decided"
    },
    "kkt-container": {
-    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it. It declares the `Host` it runs them through; the real one is in kkt-container-os, adapted by the program.",
+    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it. It declares the `Host` it runs them through; the real one is in kkt-container-os, adapted by the program. It reads the container's config through its Host and parses it through its own ConfigReader.",
     "kind": "logic",
     "layer": "operations",
     "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
@@ -7621,9 +6976,9 @@ window.KKT_PROPOSED = {
    },
    "kkt-settings": {
     "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, the log file's `LogPolicy`, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings.",
-    "kind": "configuration",
+    "kind": "logic",
     "layer": "operations",
-    "must_not": "Read files or the environment: callers pass their text and values in.",
+    "must_not": "Read files or the environment: the program adapts the config file and the flags to its sources.",
     "status": "decided"
    },
    "kkt-setup": {
@@ -7686,11 +7041,6 @@ window.KKT_PROPOSED = {
     "about": "Wires others and decides nothing.",
     "id": "composition",
     "title": "composition"
-   },
-   {
-    "about": "Limits, settings and their defaults.",
-    "id": "configuration",
-    "title": "configuration"
    },
    {
     "about": "For tests only.",
@@ -7757,7 +7107,7 @@ window.KKT_PROPOSED = {
   ]
  },
  "config_split": {
-  "about": "For each public item of today's kkt-config, where it lives in the proposed map and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts live in the crate that owns them, private there or public when others use them; tuning values are settings fields; operator settings and defaults are in kkt-settings or the program; kkt-config keeps only what is truly cross-domain. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. Crates are named as the proposed map names them; used_by and test_only name today's users.",
+  "about": "For each public item of today's kkt-config, where it lives in the proposed map and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts live in the crate that owns them, private there or public when others use them; tuning values are settings fields; operator settings and defaults are in kkt-settings or the program; Nothing stays in kkt-config: it goes, and its last items live with their owners. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. Crates are named as the proposed map names them; used_by and test_only name today's users.",
   "limits": {
    "gathered_in": "kkt-settings",
    "note": "Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor). upgrade_backups_kept stays with what kkt-settings gathers: kkt-backup's prune already takes the count as an argument, which the program passes",
@@ -7828,9 +7178,9 @@ window.KKT_PROPOSED = {
     "how": "constant, public",
     "item": "ACCESS_KEY_FILE_MODE",
     "kind": "const",
-    "note": "truly cross-domain: the mode of every private file kkt writes (keys, backups, client configs, the Docker folder), checked by kkt doctor",
+    "note": "the mode of the access key files, which kkt-admission's keys live in; kkt-backup, kkt-client-config and kkt-container each state the mode of the private files they write",
     "test_only": [],
-    "to": "kkt-config",
+    "to": "kkt-admission",
     "used_by": [
      "kashkeshet",
      "kkt-backup",
@@ -8600,9 +7950,9 @@ window.KKT_PROPOSED = {
     "how": "type, public",
     "item": "InvalidSetting",
     "kind": "struct",
-    "note": "truly cross-domain: the error every settings check gives, in admission, hosts, service, settings and web",
+    "note": "the error every settings check gives, with the settings checks; admission, hosts, service and the preview give it too",
     "test_only": [],
-    "to": "kkt-config",
+    "to": "kkt-settings",
     "used_by": [
      "kashkeshet",
      "kkt-admission",
@@ -8946,7 +8296,7 @@ window.KKT_PROPOSED = {
     "test_only": [
      "kkt-diagnostics"
     ],
-    "to": "kkt-config",
+    "to": "kkt-admission",
     "used_by": []
    },
    {
@@ -9663,9 +9013,9 @@ window.KKT_PROPOSED = {
     "how": "constant, public",
     "item": "WEB_SESSION_ID_CHARS",
     "kind": "const",
-    "note": "truly cross-domain: kkt-admission makes web session IDs and kkt-web reads them from the cookie, and neither may depend on the other",
+    "note": "the length of web session IDs, with the sessions, which kkt-web makes and reads",
     "test_only": [],
-    "to": "kkt-config",
+    "to": "kkt-web",
     "used_by": [
      "kkt-admission",
      "kkt-web"
@@ -9731,9 +9081,9 @@ window.KKT_PROPOSED = {
     "how": "check, public",
     "item": "check_access_key",
     "kind": "fn",
-    "note": "truly cross-domain: the access key's form, checked by admission, client config, diagnostics, setup and web, which do not all depend on one another",
+    "note": "the access key's form, with the access keys kkt-admission checks; client config, diagnostics, setup and the preview use it from there",
     "test_only": [],
-    "to": "kkt-config",
+    "to": "kkt-admission",
     "used_by": [
      "kkt-admission",
      "kkt-client-config",
@@ -9768,7 +9118,7 @@ window.KKT_PROPOSED = {
   ]
  },
  "graph": {
-  "commit": "078f2d9",
+  "commit": "51f27ec",
   "crates": [
    {
     "bins": [
@@ -9794,6 +9144,15 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "trait": "Host",
       "trait_crate": "kkt-client-config",
+      "type": null
+     },
+     {
+      "adapts": "kkt-config-file::parse_file",
+      "crate": "kashkeshet",
+      "kind": "normal",
+      "status": "decided",
+      "trait": "ConfigReader",
+      "trait_crate": "kkt-container",
       "type": null
      },
      {
@@ -9863,6 +9222,15 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "trait": "System",
       "trait_crate": "kkt-service",
+      "type": null
+     },
+     {
+      "adapts": "kkt-config-file::read",
+      "crate": "kashkeshet",
+      "kind": "normal",
+      "status": "decided",
+      "trait": "SettingsSource",
+      "trait_crate": "kkt-settings",
       "type": null
      },
      {
@@ -10613,6 +9981,13 @@ window.KKT_PROPOSED = {
     ],
     "items": [
      {
+      "doc": "Unix permissions of a key file `kkt key create` writes: only the owner may read or write it.",
+      "kind": "const",
+      "moved_from": "kkt-config",
+      "path": "ACCESS_KEY_FILE_MODE",
+      "status": "decided"
+     },
+     {
       "doc": "How a server admits callers to its admin endpoint, `/mcp-admin`: one of the modes that ask for a credential.",
       "kind": "enum",
       "methods": [
@@ -10670,6 +10045,14 @@ window.KKT_PROPOSED = {
        "Admitted",
        "Refused"
       ]
+     },
+     {
+      "doc": "Shortest access key, in bytes.",
+      "feature": "testing",
+      "kind": "const",
+      "moved_from": "kkt-config",
+      "path": "MIN_ACCESS_KEY_BYTES",
+      "status": "decided"
      },
      {
       "doc": "A way of admitting callers: what every mode provides.",
@@ -10756,6 +10139,13 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "Checks an access key, as read from `--access-key-file` without surrounding whitespace.",
+      "kind": "fn",
+      "moved_from": "kkt-config",
+      "path": "check_access_key",
+      "status": "decided"
+     },
+     {
       "doc": "The server's keys: that its access, web and admin keys are well formed and differ from one another, and the admin name tied to its admin key.",
       "kind": "mod",
       "path": "server_keys"
@@ -10837,7 +10227,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "ACCESS_KEY_FILE_MODE comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "MIN_ACCESS_KEY_BYTES comes here from kkt-config"
+     },
+     {
+      "status": "decided",
       "text": "NEW_ACCESS_KEY_CHARS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "check_access_key comes here from kkt-config"
      },
      {
       "status": "decided",
@@ -10869,7 +10271,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the session ID length goes with the sessions to kkt-web"
+      "text": "the session ID length goes with the sessions to kkt-web, where the constant now lives"
      }
     ],
     "released_program": false,
@@ -13212,698 +12614,88 @@ window.KKT_PROPOSED = {
     "bins": [],
     "builds": [],
     "contracts": [],
-    "crate_doc": "Server limits and fixed settings.",
+    "crate_doc": "",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": []
+    },
     "holders": [],
     "implements": [],
     "items": [
      {
-      "doc": "Unix permissions of a key file `kkt key create` writes: only the owner may read or write it.",
-      "kind": "const",
-      "path": "ACCESS_KEY_FILE_MODE"
-     },
-     {
-      "doc": "A setting the server refuses to start with.",
-      "fields": [
-       "name",
-       "rule"
-      ],
-      "kind": "struct",
-      "methods": [
-       "new"
-      ],
-      "path": "InvalidSetting"
-     },
-     {
-      "doc": "Shortest access key, in bytes.",
-      "kind": "const",
-      "path": "MIN_ACCESS_KEY_BYTES"
-     },
-     {
-      "doc": "Characters in a web session ID, from the 36-character alphabet: about 165 bits.",
-      "kind": "const",
-      "path": "WEB_SESSION_ID_CHARS"
-     },
-     {
-      "doc": "Checks an access key, as read from `--access-key-file` without surrounding whitespace.",
+      "doc": "The settings in a config file's `text`.",
       "kind": "fn",
-      "path": "check_access_key"
+      "moved_from": "kkt-settings",
+      "path": "parse_file",
+      "status": "decided"
+     },
+     {
+      "doc": "Reads the config file at a path and parses it into the settings it gives.",
+      "feature": "real",
+      "kind": "fn",
+      "path": "read",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The config file `text` with `host` added to `allow_hosts`, keeping the rest of the file, comments included, as it was.",
+      "kind": "fn",
+      "moved_from": "kkt-settings",
+      "path": "with_allowed_host",
+      "status": "decided"
      }
     ],
-    "kind": "configuration",
-    "lib": "kkt_config",
-    "name": "kkt-config",
-    "path": "crates/kkt-config",
-    "proposed": "changed",
+    "kind": "effect",
+    "lib": "kkt_config_file",
+    "name": "kkt-config-file",
+    "path": "(proposed)",
+    "proposed": "new",
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "ACCESS_KEY_FILE_NAME moves to kkt-settings"
+      "text": "new effect crate, from kkt-settings"
      },
      {
       "status": "decided",
-      "text": "ADMIN_KEY_FILE_NAME moves to kkt-settings"
+      "text": "parse_file comes here from kkt-settings"
      },
      {
       "status": "decided",
-      "text": "ADMIN_NAME_FILE_SUFFIX moves to kkt-settings"
+      "text": "with_allowed_host comes here from kkt-settings"
      },
      {
       "status": "decided",
-      "text": "AGENT_SECRET_CHARS moves to kkt-rules"
+      "text": "new fn read"
      },
      {
       "status": "decided",
-      "text": "AGY_CLI_SETTINGS moves to kkt-client-config"
+      "text": "parses and edits the config file's TOML"
      },
      {
       "status": "decided",
-      "text": "AGY_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "AGY_LEGACY_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "ALWAYS_ALLOWED_HOSTS moves to kkt-hosts"
-     },
-     {
-      "status": "decided",
-      "text": "BACKUP_FOLDER_MODE moves to kkt-backup"
-     },
-     {
-      "status": "decided",
-      "text": "CHANNEL_RANDOM_LEN moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "CLAUDE_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CLAUDE_HOME_DEFAULT moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CLAUDE_PROGRAM moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CLAUDE_SETTINGS moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CLIENT_KEY_FILE_NAME moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "CLOCK_RECHECK moves to kkt-clock-system"
-     },
-     {
-      "status": "decided",
-      "text": "CODEX_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CODEX_HOME_DEFAULT moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CODEX_KKT_RULES moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CODEX_PROGRAM moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CODEX_RULES_DIR moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "CONFIG_DIR moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "CONFIG_FILE_NAME moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DB_BUSY_TIMEOUT moves to kkt-db-sqlite"
-     },
-     {
-      "status": "decided",
-      "text": "DB_FILE_NAME moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DB_READERS moves to kkt-db-sqlite"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_ALLOW_ANY_BIND moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_ALLOW_HOSTS moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_ALLOW_ORIGINS moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_BIND moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_DEPENDENCY_LOG_LEVEL moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_LOG_LEVEL moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_LOG_LINES moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_ADMIN_KEY moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_ADMIN_NAME moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_ADOPT moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_ALLOW_KKT moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_CONNECT_CLIENT moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_CONTAINERS moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_CONTINUE moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_KEY moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_MODE_INDEX moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_TAILSCALE moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_TRY_AGAIN moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_SETUP_URL moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DEFAULT_TS_HOSTNAME moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_ADMIN_KEY_FILE_NAME moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_BACKUPS_DIR moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_BACKUPS_MOUNT moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_FOLDER moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_IMAGE_USER_ID moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_KEY_FILE_NAME moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_LANES_EXPORT_DIR moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_LANES_IMPORT_DIR moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_LINK_WAIT_POLLS moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_LOGIN_WAIT moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_MANAGED_VARIABLES moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_PENDING_TAILNET moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_POLL_INTERVAL moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_PROJECT moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_START_WAIT moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCKER_WEB_KEY_FILE_NAME moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "DOCTOR_MAX_RESPONSE_BYTES moves to kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "DOCTOR_PROTOCOL_VERSION moves to kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "DOCTOR_TIMEOUT moves to kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "EVENT_BUFFER moves to kkt-events"
-     },
-     {
-      "status": "decided",
-      "text": "LANE_PART_ROOM_CHARS moves to kkt-mcp-formatter"
-     },
-     {
-      "status": "decided",
-      "text": "LAUNCHD_LABEL moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "LAUNCHD_RELOAD_RETRY moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "LAUNCHD_REMOVAL_WAIT moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "LAUNCH_AGENTS_DIR moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "LOG_OWN_TARGETS moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "LOG_PRUNE_INTERVAL moves to kkt-logs"
-     },
-     {
-      "status": "decided",
-      "text": "Limits moves to kkt-settings: Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor). upgrade_backups_kept stays with what kkt-settings gathers: kkt-backup's prune already takes the count as an argument, which the program passes"
-     },
-     {
-      "status": "decided",
-      "text": "LogLevel moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "LogPolicy moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "MACOS_CRASH_LOG_FILE_NAME moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "MACOS_DATA_DIR moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "MACOS_LOG_DIR moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "MACOS_LOG_FILE_NAME moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_ADMIN_NAME_CHARS moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_CHANNEL_ID_ATTEMPTS moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_HANDLE_ATTEMPTS moves to kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_HANDLE_CHARS moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_LANE_DESCRIPTION_CHARS moves to kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_LANE_NAME_CHARS moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_MEMORY_NAME_CHARS moves to kkt-names"
-     },
-     {
-      "status": "decided",
-      "text": "MAX_WEB_PAGE_MESSAGES moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "MCP_ADMIN_PATH moves to kkt-mcp"
-     },
-     {
-      "status": "decided",
-      "text": "MCP_MAX_REQUEST_BYTES moves to kkt-mcp"
-     },
-     {
-      "status": "decided",
-      "text": "MCP_SSE_KEEP_ALIVE moves to kkt-mcp"
-     },
-     {
-      "status": "decided",
-      "text": "MCP_SSE_RETRY moves to kkt-mcp"
-     },
-     {
-      "status": "decided",
-      "text": "MIN_LOG_FILE_BYTES moves to kkt-logs"
-     },
-     {
-      "status": "decided",
-      "text": "MIN_RESPONSE_BYTES moves to kkt-mcp-formatter"
-     },
-     {
-      "status": "decided",
-      "text": "MUSE_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "MUSE_CONFIG_DIR moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "MUSE_PROGRAM moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "NEW_ACCESS_KEY_CHARS moves to kkt-admission"
-     },
-     {
-      "status": "decided",
-      "text": "NOTE_PREVIEW_CHARS moves to kkt-mcp-formatter"
-     },
-     {
-      "status": "decided",
-      "text": "NO_ADMIN_KEY_EXIT moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "OPENCODE_CONFIG moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "OPENCODE_PROGRAM moves to kkt-client-config"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_AGENTS moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_BIND moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_BURST_MAX moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_BURST_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_CHANNELS moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_HIDE_CHANNEL_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_HISTORY moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_LEAVE_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_LONG_MESSAGE_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_MESSAGES moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_NEW_AGENT_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_NEW_CHANNEL_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_RECOVERY_CODE_CHARS moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_SEED moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_STALE_HOURS moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_UNREGISTER_ONE_IN moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "PreviewSettings moves to kkt-web-preview"
-     },
-     {
-      "status": "decided",
-      "text": "RECLAIM_MEMORY_NAMES moves to kkt-mcp-formatter"
-     },
-     {
-      "status": "decided",
-      "text": "RECOVERY_PREFIX moves to kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "SERVICE_BACKUP_FOLDER moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "SERVICE_RESTART_DELAY moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "SERVICE_START_CHECK moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "SERVICE_STOP_TIMEOUT moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_DOCKER_HOST moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_FILE_NAME moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_SERVER_POLL moves to kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_SERVER_WAIT moves to kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_UNFINISHED_FILE_NAME moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "SETUP_UNKNOWN_VERSION moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "SYSTEMD_UNIT moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "SYSTEMD_USER_DIR moves to kkt-service"
-     },
-     {
-      "status": "decided",
-      "text": "TAILSCALE_HTTPS_PORT moves to kkt-remote-access"
-     },
-     {
-      "status": "decided",
-      "text": "TOKEN_PREFIX moves to kkt-rules"
-     },
-     {
-      "status": "decided",
-      "text": "UNKNOWN_OPTION_EXIT moves to kkt-container"
-     },
-     {
-      "status": "decided",
-      "text": "UPGRADE_BACKUP_FOLDER moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_ADMIN_NAME moves to kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_ADMIN_POLL moves to kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_BATCH moves to kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_BODY_CHARS moves to kkt-watch"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_CALL_GRACE moves to kkt-watch"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_RETRY_FIRST moves to kkt-watch"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_RETRY_MAX moves to kkt-watch"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_TIMED_OUT_EXIT moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_TOKEN_ENV moves to kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "WATCH_WAIT moves to kkt-watch"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_ACTIVITY_BUCKET moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_ACTIVITY_WINDOW moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_KEEP_ALIVE moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_KEY_FILE_NAME moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_SESSION_COOKIE moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_STALE_DEFAULT_HOURS moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "WEB_STALE_HOURS moves to kkt-web"
-     },
-     {
-      "status": "decided",
-      "text": "XDG_CONFIG_HOME_DEFAULT moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "XDG_DATA_DIR moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "XDG_DATA_HOME_DEFAULT moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "check_bind moves to kkt-settings"
-     },
-     {
-      "status": "decided",
-      "text": "check_dependency_log_level moves to kkt-settings"
+      "text": "it parses the file into kkt-settings' settings, and reports a bad one with kkt-settings' error"
      }
     ],
     "released_program": false,
     "slots": [],
     "third_party": [
-     "thiserror"
+     "toml",
+     "toml_edit"
     ]
    },
    {
     "bins": [],
     "builds": [],
     "contracts": [
+     {
+      "implementors": [
+       {
+        "crate": "kashkeshet",
+        "type": null
+       }
+      ],
+      "trait": "ConfigReader"
+     },
      {
       "implementors": [
        {
@@ -13939,6 +12731,16 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "Command"
+     },
+     {
+      "doc": "What kkt-container needs of the container's config file, which it reads through its Host: the settings in that text, for the name pack and the lane limit.",
+      "kind": "trait",
+      "methods": [
+       "settings"
+      ],
+      "path": "ConfigReader",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "Docker setup's host copy of the admin key.",
@@ -14283,6 +13085,18 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new trait ConfigReader"
+     },
+     {
+      "status": "decided",
+      "text": "status takes config: reads the name pack from the container's config"
+     },
+     {
+      "status": "decided",
+      "text": "lane_limit takes config: reads the lane limit from the container's config"
+     },
+     {
+      "status": "decided",
       "text": "its real feature moves to kkt-container-os"
      }
     ],
@@ -14461,6 +13275,34 @@ window.KKT_PROPOSED = {
        {
         "crate": "kkt-container",
         "trait": "Host"
+       }
+      ]
+     },
+     {
+      "at": "status",
+      "kind": "param",
+      "name": "config",
+      "note": "reads the name pack from the container's config",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-container",
+        "trait": "ConfigReader"
+       }
+      ]
+     },
+     {
+      "at": "lane_limit",
+      "kind": "param",
+      "name": "config",
+      "note": "reads the lane limit from the container's config",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-container",
+        "trait": "ConfigReader"
        }
       ]
      }
@@ -16602,6 +15444,15 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "trait": "WebIdentify",
       "trait_crate": "kkt-server",
+      "type": null
+     },
+     {
+      "adapts": "kkt-config-file::read",
+      "crate": "kkt-keymode",
+      "kind": "normal",
+      "status": "decided",
+      "trait": "SettingsSource",
+      "trait_crate": "kkt-settings",
       "type": null
      }
     ],
@@ -19947,7 +18798,21 @@ window.KKT_PROPOSED = {
    {
     "bins": [],
     "builds": [],
-    "contracts": [],
+    "contracts": [
+     {
+      "implementors": [
+       {
+        "crate": "kashkeshet",
+        "type": null
+       },
+       {
+        "crate": "kkt-keymode",
+        "type": null
+       }
+      ],
+      "trait": "SettingsSource"
+     }
+    ],
     "crate_doc": "The settings a server starts with, gathered from the command line, the config file, and the defaults in `kkt-config`.",
     "dev_only": false,
     "features": {},
@@ -20040,6 +18905,20 @@ window.KKT_PROPOSED = {
        "default_db"
       ],
       "path": "Env"
+     },
+     {
+      "doc": "A setting the server refuses to start with.",
+      "fields": [
+       "name",
+       "rule"
+      ],
+      "kind": "struct",
+      "methods": [
+       "new"
+      ],
+      "moved_from": "kkt-config",
+      "path": "InvalidSetting",
+      "status": "decided"
      },
      {
       "doc": "",
@@ -20177,6 +19056,16 @@ window.KKT_PROPOSED = {
       "path": "ServeSettings"
      },
      {
+      "doc": "A source of settings, such as the config file or the command-line flags: the settings it gives, each optional. kkt-settings combines them, flags over the file over explicit defaults, and checks them.",
+      "kind": "trait",
+      "methods": [
+       "options"
+      ],
+      "path": "SettingsSource",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "`$XDG_CONFIG_HOME` when it is not set, under the home directory.",
       "kind": "const",
       "moved_from": "kkt-config",
@@ -20208,27 +19097,25 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The settings in a config file's `text`.",
-      "kind": "fn",
-      "path": "parse_file"
-     },
-     {
       "doc": "The operator web key always lives beside the server's access key.",
       "kind": "fn",
       "path": "web_key_path"
-     },
-     {
-      "doc": "The config file `text` with `host` added to `allow_hosts`, keeping the rest of the file, comments included, as it was.",
-      "kind": "fn",
-      "path": "with_allowed_host"
      }
     ],
-    "kind": "configuration",
+    "kind": "logic",
     "lib": "kkt_settings",
     "name": "kkt-settings",
     "path": "crates/kkt-settings",
     "proposed": "changed",
     "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "parse_file moves to kkt-config-file: parsing the config file's TOML, with the file"
+     },
+     {
+      "status": "decided",
+      "text": "with_allowed_host moves to kkt-config-file: a change to the config file's text, with the file"
+     },
      {
       "status": "decided",
       "text": "ACCESS_KEY_FILE_NAME comes here from kkt-config"
@@ -20279,6 +19166,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "InvalidSetting comes here from kkt-config"
+     },
+     {
+      "status": "decided",
       "text": "Limits comes here from kkt-config"
      },
      {
@@ -20320,14 +19211,19 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new const DEFAULT_NAME_PACK"
+     },
+     {
+      "status": "decided",
+      "text": "new trait SettingsSource"
+     },
+     {
+      "status": "decided",
+      "text": "parsing and editing the config file go to kkt-config-file"
      }
     ],
     "released_program": false,
     "slots": [],
-    "third_party": [
-     "toml",
-     "toml_edit"
-    ]
+    "third_party": []
    },
    {
     "bins": [],
@@ -21638,6 +20534,13 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "Characters in a web session ID, from the 36-character alphabet: about 165 bits.",
+      "kind": "const",
+      "moved_from": "kkt-config",
+      "path": "WEB_SESSION_ID_CHARS",
+      "status": "decided"
+     },
+     {
       "doc": "",
       "kind": "fn",
       "path": "live_event"
@@ -21900,6 +20803,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "WEB_SESSION_ID_CHARS comes here from kkt-config"
+     },
+     {
+      "status": "decided",
       "text": "WEB_STALE_DEFAULT_HOURS comes here from kkt-config, private"
      },
      {
@@ -22081,10 +20988,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its sessions' start times and expiry"
-     },
-     {
-      "status": "decided",
-      "text": "its session IDs' length"
      },
      {
       "status": "decided",
@@ -22788,6 +21691,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
+     "ACCESS_KEY_FILE_MODE",
      "AdminAdmission",
      "ServerKey",
      "SharedKey",
@@ -22813,6 +21717,7 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
+       "ACCESS_KEY_FILE_MODE",
        "AdminAdmission",
        "ServerKey",
        "server_keys",
@@ -23140,25 +22045,35 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "ACCESS_KEY_FILE_MODE",
-     "InvalidSetting"
+     "parse_file",
+     "read",
+     "with_allowed_host"
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "changed",
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "ACCESS_KEY_FILE_MODE",
-       "InvalidSetting"
+       "with_allowed_host"
       ],
       "role": "uses"
+     },
+     {
+      "detail": [
+       "parse_file",
+       "read"
+      ],
+      "role": "wires"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-config"
+    "to": "kkt-config-file"
    },
    {
     "features": [],
@@ -23196,6 +22111,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "adapter for kkt-config-file::parse_file implements ConfigReader",
        "adapter for kkt-container-os::OsHost implements Host",
        "terminal::browser_login::TerminalLink implements LoginLink"
       ],
@@ -24071,6 +22987,7 @@ window.KKT_PROPOSED = {
      "DEFAULT_DEPENDENCY_LOG_LEVEL",
      "DEFAULT_LOG_LEVEL",
      "Env",
+     "InvalidSetting",
      "Limits",
      "LogLevel",
      "LogPolicy",
@@ -24081,15 +22998,19 @@ window.KKT_PROPOSED = {
      "admin_name_path",
      "check_bind",
      "check_dependency_log_level",
-     "parse_file",
-     "web_key_path",
-     "with_allowed_host"
+     "web_key_path"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
+     {
+      "detail": [
+       "adapter for kkt-config-file::read implements SettingsSource"
+      ],
+      "role": "implements"
+     },
      {
       "detail": [
        "AccessKey",
@@ -24097,6 +23018,7 @@ window.KKT_PROPOSED = {
        "DEFAULT_DEPENDENCY_LOG_LEVEL",
        "DEFAULT_LOG_LEVEL",
        "Env",
+       "InvalidSetting",
        "Limits",
        "LogLevel",
        "LogPolicy",
@@ -24107,9 +23029,7 @@ window.KKT_PROPOSED = {
        "admin_name_path",
        "check_bind",
        "check_dependency_log_level",
-       "parse_file",
-       "web_key_path",
-       "with_allowed_host"
+       "web_key_path"
       ],
       "role": "uses"
      }
@@ -24394,33 +23314,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
-    "features": [],
-    "from": "kkt-admission",
-    "items": [
-     "InvalidSetting",
-     "check_access_key"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "InvalidSetting",
-       "check_access_key"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-config"
-   },
-   {
     "features": [
      "testing"
     ],
@@ -24500,6 +23393,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-names"
+   },
+   {
+    "features": [],
+    "from": "kkt-admission",
+    "items": [
+     "InvalidSetting"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "InvalidSetting"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-settings"
    },
    {
     "features": [],
@@ -24685,28 +23603,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-backup",
     "items": [
-     "ACCESS_KEY_FILE_MODE"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "ACCESS_KEY_FILE_MODE"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-config"
-   },
-   {
-    "features": [],
-    "from": "kkt-backup",
-    "items": [
      "Dir"
     ],
     "kind": "dev",
@@ -24757,25 +23653,26 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-client-config",
     "items": [
-     "ACCESS_KEY_FILE_MODE",
      "check_access_key"
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "changed",
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "ACCESS_KEY_FILE_MODE",
        "check_access_key"
       ],
       "role": "uses"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "test_items": [],
-    "to": "kkt-config"
+    "to": "kkt-admission"
    },
    {
     "features": [],
@@ -24831,28 +23728,30 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-config",
+    "from": "kkt-config-file",
     "items": [
-     "ANIMALS",
-     "NamePack"
+     "InvalidSetting",
+     "ServeOptions"
     ],
     "kind": "normal",
     "optional": false,
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "ANIMALS",
-       "NamePack"
+       "InvalidSetting",
+       "ServeOptions"
       ],
       "role": "uses"
      }
     ],
-    "target": null,
-    "test_items": [
-     "AdminName"
+    "statuses": [
+     "decided"
     ],
-    "to": "kkt-names"
+    "target": null,
+    "test_items": [],
+    "to": "kkt-settings"
    },
    {
     "features": [
@@ -24916,28 +23815,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-container",
     "items": [
-     "ACCESS_KEY_FILE_MODE"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "ACCESS_KEY_FILE_MODE"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-config"
-   },
-   {
-    "features": [],
-    "from": "kkt-container",
-    "items": [
      "AdminName"
     ],
     "kind": "normal",
@@ -24986,8 +23863,7 @@ window.KKT_PROPOSED = {
      "CONFIG_FILE_NAME",
      "DEFAULT_NAME_PACK",
      "Env",
-     "XDG_CONFIG_HOME_DEFAULT",
-     "parse_file"
+     "XDG_CONFIG_HOME_DEFAULT"
     ],
     "kind": "normal",
     "optional": false,
@@ -25000,8 +23876,7 @@ window.KKT_PROPOSED = {
        "CONFIG_FILE_NAME",
        "DEFAULT_NAME_PACK",
        "Env",
-       "XDG_CONFIG_HOME_DEFAULT",
-       "parse_file"
+       "XDG_CONFIG_HOME_DEFAULT"
       ],
       "role": "uses"
      }
@@ -25281,6 +24156,35 @@ window.KKT_PROPOSED = {
     "to": "kkt-search"
    },
    {
+    "features": [],
+    "from": "kkt-diagnostics",
+    "items": [
+     "ACCESS_KEY_FILE_MODE",
+     "check_access_key"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "ACCESS_KEY_FILE_MODE",
+       "check_access_key"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [
+     "MIN_ACCESS_KEY_BYTES"
+    ],
+    "to": "kkt-admission"
+   },
+   {
     "features": [
      "testing"
     ],
@@ -25335,32 +24239,6 @@ window.KKT_PROPOSED = {
      "testing::FixedClock"
     ],
     "to": "kkt-clock"
-   },
-   {
-    "features": [],
-    "from": "kkt-diagnostics",
-    "items": [
-     "ACCESS_KEY_FILE_MODE",
-     "check_access_key"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "ACCESS_KEY_FILE_MODE",
-       "check_access_key"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [
-     "MIN_ACCESS_KEY_BYTES"
-    ],
-    "to": "kkt-config"
    },
    {
     "features": [],
@@ -26276,7 +25154,7 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "changed",
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
@@ -26286,9 +25164,12 @@ window.KKT_PROPOSED = {
       "role": "uses"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "test_items": [],
-    "to": "kkt-config"
+    "to": "kkt-settings"
    },
    {
     "features": [],
@@ -26646,23 +25527,33 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
-     "InvalidSetting"
+     "parse_file",
+     "read"
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "changed",
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "InvalidSetting"
+       "parse_file"
       ],
       "role": "uses"
+     },
+     {
+      "detail": [
+       "read"
+      ],
+      "role": "wires"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-config"
+    "to": "kkt-config-file"
    },
    {
     "features": [],
@@ -26933,27 +25824,33 @@ window.KKT_PROPOSED = {
     "from": "kkt-keymode",
     "items": [
      "AccessKey",
+     "InvalidSetting",
      "LogPolicy",
      "ServeOptions",
      "ServeSettings",
      "admin_name_path",
-     "check_bind",
-     "parse_file"
+     "check_bind"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "uses",
+    "role": "implements",
     "roles": [
      {
       "detail": [
+       "adapter for kkt-config-file::read implements SettingsSource"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
        "AccessKey",
+       "InvalidSetting",
        "LogPolicy",
        "ServeOptions",
        "ServeSettings",
        "admin_name_path",
-       "check_bind",
-       "parse_file"
+       "check_bind"
       ],
       "role": "uses"
      }
@@ -29063,28 +27960,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-service",
     "items": [
-     "InvalidSetting"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "InvalidSetting"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-config"
-   },
-   {
-    "features": [],
-    "from": "kkt-service",
-    "items": [
      "Dir"
     ],
     "kind": "dev",
@@ -29108,30 +27983,8 @@ window.KKT_PROPOSED = {
     "items": [
      "AccessKey",
      "Env",
+     "InvalidSetting",
      "ServeOptions"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "AccessKey",
-       "Env",
-       "ServeOptions"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-settings"
-   },
-   {
-    "features": [],
-    "from": "kkt-settings",
-    "items": [
-     "InvalidSetting"
     ],
     "kind": "normal",
     "optional": false,
@@ -29140,14 +27993,20 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "InvalidSetting"
+       "AccessKey",
+       "Env",
+       "InvalidSetting",
+       "ServeOptions"
       ],
       "role": "uses"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "test_items": [],
-    "to": "kkt-config"
+    "to": "kkt-settings"
    },
    {
     "features": [],
@@ -29176,6 +28035,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-setup",
     "items": [
+     "check_access_key"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "check_access_key"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-admission"
+   },
+   {
+    "features": [],
+    "from": "kkt-setup",
+    "items": [
      "Client"
     ],
     "kind": "normal",
@@ -29192,28 +28076,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-client-config"
-   },
-   {
-    "features": [],
-    "from": "kkt-setup",
-    "items": [
-     "check_access_key"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "check_access_key"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-config"
    },
    {
     "features": [],
@@ -29568,35 +28430,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock-system"
    },
    {
-    "features": [],
-    "from": "kkt-web",
-    "items": [
-     "InvalidSetting",
-     "WEB_SESSION_ID_CHARS",
-     "check_access_key"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "InvalidSetting",
-       "WEB_SESSION_ID_CHARS",
-       "check_access_key"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-config"
-   },
-   {
     "features": [
      "testing",
      "real"
@@ -29768,6 +28601,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-shutdown-os"
+   },
+   {
+    "features": [],
+    "from": "kkt-web-preview",
+    "items": [
+     "check_access_key"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "check_access_key"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-admission"
    },
    {
     "features": [],
@@ -30137,6 +28995,31 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
+    "features": [],
+    "from": "kkt-web-preview",
+    "items": [
+     "InvalidSetting"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "InvalidSetting"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-settings"
+   },
+   {
     "features": [
      "real"
     ],
@@ -30262,6 +29145,7 @@ window.KKT_PROPOSED = {
      "LiveEvent",
      "Sessions",
      "SignIn",
+     "WEB_SESSION_ID_CHARS",
      "live_event"
     ],
     "kind": "normal",
@@ -30281,6 +29165,7 @@ window.KKT_PROPOSED = {
        "LiveEvent",
        "Sessions",
        "SignIn",
+       "WEB_SESSION_ID_CHARS",
        "live_event"
       ],
       "role": "uses"
@@ -30308,7 +29193,7 @@ window.KKT_PROPOSED = {
   "A contract used by more than two crates lives in a contract-only crate of its own (traits, plain value types with pure behaviour on them, and test doubles behind `testing`). Any crate may implement a shared contract crate's contract directly. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
   "A contract used by two crates or fewer is declared by each of them. No implementation implements a contract another crate declares for itself: the program adapts the implementation to it. kkt-server, the assembly the three server programs share, writes the adapters they would each write, once, and decides nothing.",
   "A crate may implement its own traits (FixedClock implements Clock, DryRun implements System).",
-  "Each crate is one kind: contract, logic, effect, composition, configuration or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect.",
+  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect.",
   "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three."
  ],
  "table": [

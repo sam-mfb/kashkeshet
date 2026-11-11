@@ -34,8 +34,10 @@ Message numbers are given only where they help to find a discussion in
 
 ## Kinds and layers
 
-- **Every crate has a kind**: contract, logic, effect, composition,
-  configuration or test support, plus mixed in the current map only. A
+- **Every crate has a kind, by what it does**: contract, logic, effect,
+  composition or test support, plus mixed in the current map only. There is
+  no configuration kind: it named a domain, not what a crate does (msg 2111).
+  A
   contract may hold pure behaviour on its own value types (Time arithmetic,
   query checks), but no effect and no wiring. Only programs and compositions
   depend on effect crates.
@@ -129,8 +131,22 @@ Message numbers are given only where they help to find a discussion in
 
 - **kkt-config is broken up by domain** (msg 1979). Format and fixed facts go
   to the crate that owns them; tuning values become settings the program
-  fills; kkt-config keeps only what is truly cross-domain. The page's
-  kkt-config table lists every item.
+  fills. The page's kkt-config table lists every item.
+- **kkt-config goes altogether** (msg 2111). Its last items go to their
+  owners: the web session ID length to kkt-web, with the sessions; the access
+  key's form and check, and the key files' mode, to kkt-admission; the error
+  every settings check gives to kkt-settings. kkt-backup, kkt-client-config
+  and kkt-container each state the mode of the private files they write,
+  instead of borrowing the key files' mode.
+- **kkt-settings is logic, and the config file is an effect** (msg 2111).
+  kkt-settings combines the sources of settings it declares (the flags and
+  the config file, flags over file over explicit defaults), checks them and
+  gives each crate what it needs. A new effect crate, kkt-config-file, reads
+  and parses the config file and edits its text; the program adapts it, and
+  the flags, to kkt-settings' source. kkt-container reads the container's
+  config through its Host and parses it through a parser contract of its own,
+  which the program adapts kkt-config-file to. kkt-setup's own record is a
+  different file and stays with kkt-setup.
 
 ## Other decisions
 

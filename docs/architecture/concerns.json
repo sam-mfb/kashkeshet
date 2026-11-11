@@ -147,7 +147,7 @@
    "layer": "operations",
    "concern": "Gathering a server's settings from flags, the config file and defaults, and the default paths.",
    "must_not": "Read files or the environment: callers pass their text and values in.",
-   "kind": "configuration"
+   "kind": "logic"
   },
   "kkt-setup": {
    "layer": "operations",
@@ -212,7 +212,7 @@
    "layer": "foundations",
    "concern": "Every limit, fixed setting and default, and their checks.",
    "must_not": "Read files or the environment.",
-   "kind": "configuration"
+   "kind": "contract"
   },
   "kkt-clock": {
    "layer": "foundations",
@@ -270,11 +270,6 @@
    "id": "composition",
    "title": "composition",
    "about": "Wires others and decides nothing."
-  },
-  {
-   "id": "configuration",
-   "title": "configuration",
-   "about": "Limits, settings and their defaults."
   },
   {
    "id": "test support",
