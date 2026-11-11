@@ -1,6 +1,6 @@
 [package]
 name = "kkt-settings"
-description = "kkt's server settings: gathered from flags, the config file's settings and defaults"
+description = "kkt's server settings: gathered from flags, the config file's settings and defaults, and worded for the run record"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,6 +15,7 @@ kkt-names = { path = "../kkt-names" }
 kkt-web = { path = "../kkt-web" }
 thiserror.workspace = true
 
-[features]
-# `testing::DEFAULT_ALLOW_ANY_BIND`, a private default, for other crates' tests.
-testing = []
+[dev-dependencies]
+# The run record tests check the text kkt-provenance stores from the lines
+# worded here.
+kkt-provenance = { path = "../kkt-provenance" }

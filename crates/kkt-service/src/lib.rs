@@ -25,7 +25,7 @@ mod tests;
 
 pub use bind::check_bind;
 pub use dry_run::DryRun;
-pub use plan::{Plan, PlanError, Request, plan};
+pub use plan::{Plan, PlanError, Request, ServiceSettings, plan};
 
 use kkt_clock::Clock;
 use kkt_machine::Env;

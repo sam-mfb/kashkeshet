@@ -27,7 +27,7 @@ use kkt_logs::{LogLevel, LogPolicy};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts};
-use kkt_settings::{InvalidSetting, Limits, ServeOptions, ServeSettings};
+use kkt_settings::{InvalidSetting, Limits, RecordedSettings, ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use std::net::SocketAddr;
@@ -126,23 +126,26 @@ async fn run(args: &[String]) -> Result<(), String> {
     let run = ServerRun::new(
         Build::CURRENT,
         &RunSettings {
-            allow_any_bind,
-            limits: limits.clone(),
-            log_level,
-            dependency_log_level,
-            allowed_origins: config.allowed_origins.clone(),
-            allowed_hosts: config.allowed_hosts.extra().to_vec(),
-            config_file: Some(config_file),
-            access_key_file: config.admission.key_source().map(str::to_string),
-            web_key_file: config.web_admission.key_source().map(str::to_string),
-            admin_key_file: config
-                .admin_admission
-                .as_ref()
-                .and_then(|admission| admission.key_source())
-                .map(str::to_string),
-            admin_name: admin_name.as_ref().map(|name| name.to_string()),
-            log_file: None,
-            log_policy: LogPolicy::DEFAULT,
+            settings: RecordedSettings {
+                allow_any_bind,
+                limits: limits.clone(),
+                log_level,
+                dependency_log_level,
+                allowed_origins: config.allowed_origins.clone(),
+                allowed_hosts: config.allowed_hosts.extra().to_vec(),
+                config_file: Some(config_file),
+                access_key_file: config.admission.key_source().map(str::to_string),
+                web_key_file: config.web_admission.key_source().map(str::to_string),
+                admin_key_file: config
+                    .admin_admission
+                    .as_ref()
+                    .and_then(|admission| admission.key_source())
+                    .map(str::to_string),
+                admin_name: admin_name.as_ref().map(|name| name.to_string()),
+                log_file: None,
+                log_policy: LogPolicy::DEFAULT,
+            }
+            .lines(),
             instructions: config.agent_instructions().to_string(),
         },
     );
@@ -371,7 +374,7 @@ impl KeyTexts for KeyFiles<'_> {
 
     fn admin_names(&mut self) -> Result<Option<String>, String> {
         match self.admin {
-            Some(path) => KeyFiles::optional(&kkt_settings::admin_name_path(path)),
+            Some(path) => KeyFiles::optional(&kkt_admission::admin_name_path(path)),
             None => Ok(None),
         }
     }

@@ -249,6 +249,7 @@ pub(crate) fn docker_lane_limit(env: &Env, platform: Platform) -> Result<usize, 
         &ContainerHost,
         &kkt_container::Folder(folder),
         &ContainerConfigs,
+        Limits::DEFAULT.max_lane_chars,
     )
     .map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
 }

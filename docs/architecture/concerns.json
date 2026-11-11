@@ -151,7 +151,7 @@
   },
   "kkt-settings": {
    "layer": "operations",
-   "concern": "Gathering a server's settings from flags, what the config file gives and defaults.",
+   "concern": "Gathering a server's settings from flags, what the config file gives and defaults, and wording the settings a server run records as lines of a name and a value. Only the programs depend on it.",
    "must_not": "Read files or the environment, or parse the config file: callers pass in what the file gives and the defaults that depend on the machine.",
    "kind": "logic"
   },
@@ -175,7 +175,7 @@
   },
   "kkt-service": {
    "layer": "operations",
-   "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs.",
+   "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs, from the settings it needs, which the program gives and checks.",
    "must_not": "Touch the machine except through its `System` contract.",
    "kind": "logic"
   },
@@ -314,7 +314,7 @@
   },
   "kkt-provenance": {
    "layer": "foundations",
-   "concern": "What produced a server run: the build, its git commit, and the settings that shape the run.",
+   "concern": "What produced a server run: the build, its git commit, and the settings that shape the run, as lines of a name and a value that the program words.",
    "must_not": "Store the run record: kkt-server does.",
    "kind": "logic"
   },

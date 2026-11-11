@@ -215,8 +215,8 @@ pub struct Inputs {
     /// setup.
     pub project: String,
     /// The port on the host's `127.0.0.1` that kkt is published on.
-    /// [`kkt_settings::DEFAULT_BIND`]'s port unless testing beside a real
-    /// setup.
+    /// The port of kkt's default bind address, 7420, unless testing beside
+    /// a real setup.
     pub port: u16,
     /// Host names kkt answers to besides its own, such as
     /// `host.docker.internal`. Written to `.env` as `KKT_ALLOW_HOSTS`.

@@ -29,7 +29,8 @@ pub mod testing;
 pub use any_bearer::{AnyBearer, BearerToken};
 pub use keys::{
     ACCESS_KEY_FILE_MODE, ACCESS_KEY_FILE_NAME, ADMIN_KEY_FILE_NAME, ADMIN_NAME_FILE_SUFFIX,
-    AccessKey, SettingError, WEB_KEY_FILE_NAME, access_key_file, check_access_key,
+    AccessKey, SettingError, WEB_KEY_FILE_NAME, access_key_file, admin_key_path, admin_name_path,
+    check_access_key, web_key_path,
 };
 pub use server_keys::key_refusal;
 pub use session::{Sessions, Settings, WEB_SESSION_ID_CHARS};

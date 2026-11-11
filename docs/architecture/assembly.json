@@ -35,8 +35,9 @@
     },
     {
      "title": "Run record",
-     "text": "What produced this run is stored, and new rows carry its ID.",
+     "text": "What produced this run is stored, with its settings worded by kkt-settings, and new rows carry its ID.",
      "items": [
+      "kkt-settings::RecordedSettings",
       "kkt-provenance::ServerRun",
       "kkt-server::record_run"
      ]
@@ -629,6 +630,7 @@
      "title": "Run record",
      "text": "The run is recorded as kkt serve's is.",
      "items": [
+      "kkt-settings::RecordedSettings",
       "kkt-provenance::ServerRun",
       "kkt-server::record_run"
      ]

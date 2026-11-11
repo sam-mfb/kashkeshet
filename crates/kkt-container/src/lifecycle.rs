@@ -41,10 +41,13 @@ pub enum Login {
 }
 
 /// `reader` parses the container's config file, for its name pack.
+/// `default_name_pack` is the name pack `kkt serve` uses when its settings
+/// name none; the caller gives it.
 pub fn status(
     host: &dyn Host,
     folder: &Folder,
     reader: &dyn ConfigReader,
+    default_name_pack: &str,
 ) -> Result<State, DockerError> {
     let env_path = folder.path().join(ENV_FILE);
     if !host.exists(&env_path) {
@@ -79,7 +82,7 @@ pub fn status(
     };
     let running = done.stdout.lines().any(|l| l.trim() == "kkt");
     let name_pack = if running {
-        super::name_pack::selected(host, folder, reader)
+        super::name_pack::selected(host, folder, reader, default_name_pack)
     } else {
         Err("container is not running".into())
     };

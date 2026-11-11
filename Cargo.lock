@@ -1190,7 +1190,6 @@ dependencies = [
  "kkt-config-file",
  "kkt-machine",
  "kkt-names",
- "kkt-settings",
  "serde_json",
  "thiserror",
  "tokio",
@@ -1433,9 +1432,6 @@ name = "kkt-provenance"
 version = "0.10.0"
 dependencies = [
  "kkt-hash",
- "kkt-logs",
- "kkt-names",
- "kkt-settings",
 ]
 
 [[package]]
@@ -1527,7 +1523,6 @@ dependencies = [
  "kkt-admission",
  "kkt-clock",
  "kkt-machine",
- "kkt-settings",
  "thiserror",
 ]
 
@@ -1543,6 +1538,7 @@ dependencies = [
  "kkt-logs",
  "kkt-mcp-formatter",
  "kkt-names",
+ "kkt-provenance",
  "kkt-web",
  "thiserror",
 ]
@@ -1556,7 +1552,6 @@ dependencies = [
  "kkt-container",
  "kkt-machine",
  "kkt-names",
- "kkt-settings",
  "semver",
  "serde",
  "toml",

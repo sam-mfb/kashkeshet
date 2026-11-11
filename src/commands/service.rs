@@ -10,7 +10,7 @@ use crate::machine::settings::{
 use crate::process::program_path;
 use kkt_clock_system::SystemClock;
 use kkt_machine::{Env, Platform};
-use kkt_service::{DryRun, Manager, PlanError, Request, Spec, check_bind};
+use kkt_service::{DryRun, Manager, Request, ServiceSettings, Spec, check_bind};
 use kkt_settings::ServeOptions;
 use std::io;
 use std::net::{SocketAddr, TcpListener};
@@ -133,6 +133,15 @@ pub struct ServicePlan {
     config_file: Option<String>,
 }
 
+/// What the service plan needs of `options`, from one source.
+fn service_settings(options: &ServeOptions) -> ServiceSettings {
+    ServiceSettings {
+        db: options.db.clone(),
+        access_key_file: options.access_key_file.clone(),
+        no_access_key: options.no_access_key,
+    }
+}
+
 /// Listens on `address` and lets it go at once: the program's answer to
 /// [`kkt_service::check_bind`], whether the server could listen there.
 fn try_bind(address: SocketAddr) -> io::Result<()> {
@@ -173,35 +182,34 @@ pub fn service_plan(
     };
     let loaded = load_serve_options(env, config, flags)?;
     let sources = loaded.sources();
-    let said = |e: PlanError| match e {
-        PlanError::Invalid(e) => sources.invalid(e),
-        other => other.to_string(),
-    };
     let plan = kkt_service::plan(
         Request {
-            config_file: loaded.config_file,
-            flags: loaded.flags,
-            from_file: loaded.from_file,
+            config_file: loaded.config_file.clone(),
+            flags: service_settings(&loaded.flags),
+            from_file: service_settings(&loaded.from_file),
             default_db: kkt_setup::default_db(env, platform),
             default_key: crate::machine::settings::default_access_key(env),
         },
         &|path: &Path| path.exists(),
     )
-    .map_err(said)?;
+    .map_err(|e| e.to_string())?;
+    // What the flags and the config file give together, with the plan's
+    // database and keys to check in place of theirs.
+    let check = ServeOptions {
+        db: plan.check.db.clone(),
+        access_key_file: plan.check.access_key_file.clone(),
+        no_access_key: plan.check.no_access_key,
+        ..loaded.flags.over(loaded.from_file)
+    };
     // The database is the one passed or the config file's, so it is always
-    // known here: a missing home directory was refused above.
+    // known here: a missing home directory was refused above. A bad setting
+    // is refused here, naming the config file if it set it.
     let in_effect = DefaultDb::Required(NO_HOME_TO_KEEP_DB);
-    let mut settings = resolve(
-        env,
-        platform,
-        plan.check.clone(),
-        in_effect,
-        Report::Traced(&sources),
-    )?;
+    let mut settings = resolve(env, platform, check, in_effect, Report::Traced(&sources))?;
     settings.web_key = plan.check_web_key.clone();
     let checked = check_settings(settings, &sources)?;
     Ok(ServicePlan {
-        spec: plan.spec(program).map_err(said)?,
+        spec: plan.spec(program).map_err(|e| e.to_string())?,
         new_key: plan.new_key,
         new_web_key: plan.new_web_key,
         bind: checked.bind,
@@ -293,7 +301,7 @@ mod tests {
         );
         assert_eq!(plan.spec.dirs, [db.parent().expect("folder").to_path_buf()]);
         assert_eq!(plan.new_key, Some(key.clone()));
-        assert_eq!(plan.new_web_key, Some(kkt_settings::web_key_path(&key)));
+        assert_eq!(plan.new_web_key, Some(kkt_admission::web_key_path(&key)));
     }
 
     #[test]
@@ -334,6 +342,22 @@ mod tests {
         assert!(
             err.ends_with(&format!(" (set in {})", config.display())),
             "{err}"
+        );
+    }
+
+    /// A key file given with no key is refused by the check after the plan,
+    /// naming the setting the flag gave, not the config file.
+    #[test]
+    fn a_key_file_given_with_no_key_is_refused() {
+        let home = scratch::Dir::new("service-key-and-no-key");
+        let env = test_env(Some(&home));
+        write_default_config(&home, "access_key_file = \"/keys/key\"");
+        assert_eq!(
+            service_plan(&env, TEST_PLATFORM, None, None, None, true).map(|p| p.spec.args),
+            Err(
+                "invalid setting: no_access_key cannot be set together with access_key_file"
+                    .to_string()
+            )
         );
     }
 

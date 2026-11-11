@@ -8,7 +8,6 @@ use kkt_admission::{AccessKey, ServerKey, SharedKey};
 use kkt_entropy_os::OsEntropy;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
-use kkt_settings as settings;
 use kkt_setup as setup;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -310,7 +309,9 @@ pub(crate) fn read_server_keys(
     let mut files = ServerKeyFiles { access, web, admin };
     // A name file is read only beside an admin key, so with none the name
     // refusal cannot happen; the path is then empty.
-    let names = admin.map(settings::admin_name_path).unwrap_or_default();
+    let names = admin
+        .map(kkt_admission::admin_name_path)
+        .unwrap_or_default();
     server_keys::check(&mut files).map_err(|refusal| {
         let set_in = sources
             .set_in("access_key_file")
@@ -379,7 +380,7 @@ impl KeyTexts for ServerKeyFiles<'_> {
 
     fn admin_names(&mut self) -> Result<Option<String>, String> {
         match self.admin {
-            Some(path) => read_admin_names(&settings::admin_name_path(path)),
+            Some(path) => read_admin_names(&kkt_admission::admin_name_path(path)),
             None => Ok(None),
         }
     }
@@ -421,7 +422,7 @@ pub(crate) enum AdminNameFile {
 /// The name tied to the admin key `key`, kept in the file at `path`, from
 /// the name file beside it.
 pub(crate) fn read_admin_name(path: &Path, key: &str) -> Result<AdminNameFile, String> {
-    let names = settings::admin_name_path(path);
+    let names = kkt_admission::admin_name_path(path);
     match read_admin_names(&names)? {
         Some(text) => match AdminName::bound_in(&text, key, kkt_names::MAX_ADMIN_NAME_CHARS) {
             Ok(Some(name)) => Ok(AdminNameFile::Named(name)),
@@ -452,7 +453,7 @@ pub fn write_admin_name(
     key: &str,
     name: Option<&AdminName>,
 ) -> Result<String, String> {
-    let names = settings::admin_name_path(path);
+    let names = kkt_admission::admin_name_path(path);
     let unnamed = "It has no name, so it may only read. To let it make changes, make it again with --force --name <name>.";
     match name {
         Some(name) => {
@@ -550,7 +551,7 @@ mod tests {
         );
         assert_eq!(
             local_operator_key(&env, TEST_PLATFORM, None, None, KeyKind::Web),
-            Ok(Some(settings::web_key_path(&access)))
+            Ok(Some(kkt_admission::web_key_path(&access)))
         );
     }
 
