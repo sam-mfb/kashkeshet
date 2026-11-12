@@ -211,9 +211,10 @@ pub fn service_plan(
         new_key: plan.new_key,
         new_web_key: plan.new_web_key,
         bind: checked.bind,
-        config_file: checked
-            .config_file
-            .or_else(|| kkt_config_file::config_file(env).map(|p| p.display().to_string())),
+        config_file: checked.config_file.or_else(|| {
+            kkt_config_file::config_file(env.config_home().as_deref())
+                .map(|p| p.display().to_string())
+        }),
     })
 }
 
@@ -401,7 +402,8 @@ mod tests {
         assert_eq!(plan.bind, kkt_settings::DEFAULT_BIND);
         assert_eq!(
             plan.config_file,
-            kkt_config_file::config_file(&env).map(|p| p.display().to_string())
+            kkt_config_file::config_file(env.config_home().as_deref())
+                .map(|p| p.display().to_string())
         );
     }
 }

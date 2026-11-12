@@ -184,7 +184,7 @@
   },
   "kkt-config-file": {
    "layer": "operations",
-   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), in kkt-machine's `Env::config_home`.",
+   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), under a supplied config-home folder.",
    "must_not": "Read or write files, or know kkt-settings or the settings' checks beyond each value's kind.",
    "kind": "logic"
   },

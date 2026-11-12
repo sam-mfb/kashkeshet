@@ -40,7 +40,7 @@ pub(crate) fn unrecorded_docker(
 ) -> Result<Option<setup::Unrecorded>, String> {
     let (Ok(folder), Some(config_dir)) = (
         setup::docker_folder(env, platform),
-        kkt_config_file::config_dir(env),
+        kkt_config_file::config_dir(env.config_home().as_deref()),
     ) else {
         return Ok(None);
     };
@@ -128,7 +128,7 @@ pub(crate) fn unrecorded_service(
 /// one and the install is still there: the managed Docker folder's settings
 /// file, or the installed service.
 pub fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
-    let Some(config_dir) = kkt_config_file::config_dir(env) else {
+    let Some(config_dir) = kkt_config_file::config_dir(env.config_home().as_deref()) else {
         return Ok(None);
     };
     let Some(unfinished) = kkt_setup_os::read_unfinished(&config_dir)? else {
@@ -154,7 +154,7 @@ pub use setup::{docker_folder, docker_url, unfinished_mode};
 
 /// This machine's setup record, if `kkt setup` wrote one.
 pub fn read_setup(env: &Env) -> Result<Option<setup::Record>, String> {
-    let Some(config_dir) = kkt_config_file::config_dir(env) else {
+    let Some(config_dir) = kkt_config_file::config_dir(env.config_home().as_deref()) else {
         return Ok(None);
     };
     kkt_setup_os::read_record(&config_dir)
@@ -186,7 +186,8 @@ pub fn check_setup(env: &Env) -> Result<(), String> {
 /// Resolve lifecycle commands through the setup record. An unrecorded
 /// machine still supports the original local-database backup command.
 pub fn write_setup_record(env: &Env, record: &setup::Record) -> Result<(), String> {
-    let config_dir = kkt_config_file::config_dir(env).ok_or("set HOME to keep the setup record")?;
+    let config_dir = kkt_config_file::config_dir(env.config_home().as_deref())
+        .ok_or("set HOME to keep the setup record")?;
     kkt_setup_os::write_record(&config_dir, record)
 }
 

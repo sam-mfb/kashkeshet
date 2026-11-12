@@ -102,7 +102,8 @@ pub(crate) fn resolve(
 /// The access key file `kkt serve` uses when none is given: kkt-admission's
 /// default, in kkt's config directory. `None` without a home.
 pub(crate) fn default_access_key(env: &Env) -> Option<PathBuf> {
-    kkt_config_file::config_dir(env).map(|dir| kkt_admission::access_key_file(&dir))
+    kkt_config_file::config_dir(env.config_home().as_deref())
+        .map(|dir| kkt_admission::access_key_file(&dir))
 }
 
 /// The address `kkt serve` would listen on with the default config file.
@@ -218,7 +219,7 @@ pub fn read_config(
             let text = config_file_os::read_named(&path).map_err(unreadable)?;
             Some((path, text))
         }
-        None => match kkt_config_file::config_file(env) {
+        None => match kkt_config_file::config_file(env.config_home().as_deref()) {
             Some(path) => config_file_os::read_default(&path)
                 .map_err(unreadable)?
                 .map(|text| (path, text)),
@@ -505,7 +506,8 @@ mod test_support {
     /// Writes `text` as the default config file under `home`, and returns its
     /// path, for tests.
     pub(crate) fn write_default_config(home: &Path, text: &str) -> PathBuf {
-        let path = kkt_config_file::config_file(&test_env(Some(home))).expect("a config path");
+        let path = kkt_config_file::config_file(test_env(Some(home)).config_home().as_deref())
+            .expect("a config path");
         std::fs::create_dir_all(path.parent().expect("a folder")).expect("config folder");
         std::fs::write(&path, text).expect("config file");
         path
@@ -516,6 +518,55 @@ mod test_support {
 mod tests {
     use super::*;
     use crate::scratch;
+
+    fn config_path_env(home: Option<&str>, config: Option<&str>) -> Env {
+        Env {
+            home: home.map(PathBuf::from),
+            claude_config_dir: None,
+            codex_home: None,
+            xdg_config_home: config.map(PathBuf::from),
+            xdg_data_home: None,
+        }
+    }
+
+    #[test]
+    fn the_config_file_goes_under_dot_config_on_every_platform() {
+        let e = config_path_env(Some("/home/sam"), None);
+        assert_eq!(
+            kkt_config_file::config_file(e.config_home().as_deref()),
+            Some(PathBuf::from("/home/sam/.config/kkt/config.toml"))
+        );
+        let e = config_path_env(Some("/home/sam"), Some("/xdg/config"));
+        assert_eq!(
+            kkt_config_file::config_file(e.config_home().as_deref()),
+            Some(PathBuf::from("/xdg/config/kkt/config.toml"))
+        );
+    }
+
+    #[test]
+    fn a_relative_xdg_config_home_is_ignored() {
+        let e = config_path_env(Some("/home/sam"), Some("relative/config"));
+        assert_eq!(
+            kkt_config_file::config_dir(e.config_home().as_deref()),
+            Some(PathBuf::from("/home/sam/.config/kkt"))
+        );
+    }
+
+    #[test]
+    fn without_a_home_there_is_no_config_file_unless_xdg_says() {
+        assert_eq!(
+            kkt_config_file::config_file(config_path_env(None, None).config_home().as_deref()),
+            None
+        );
+        assert!(
+            kkt_config_file::config_file(
+                config_path_env(None, Some("/xdg/config"))
+                    .config_home()
+                    .as_deref()
+            )
+            .is_some()
+        );
+    }
 
     #[test]
     fn each_parts_defaults_are_the_gathered_defaults() {

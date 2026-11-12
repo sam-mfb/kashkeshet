@@ -16,14 +16,13 @@
 //! value of the wrong kind is refused, naming the key.
 //!
 //! This crate owns the file's format and where it is by default
-//! ([`config_file`], from the machine's `Env`): parsing its text into
+//! ([`config_file`], under the supplied config-home folder): parsing its text into
 //! [`Config`], what the file says in its own terms, and adding an allowed
 //! host to its text. It reads and writes no file (kkt-config-file-os
 //! does) and knows nothing of the settings' defaults or checks beyond the
 //! kind of each value: the log levels are kept as written, for the reader to
 //! check.
 
-use kkt_machine::Env;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -32,17 +31,16 @@ pub const CONFIG_DIR: &str = "kkt";
 /// The config file `kkt serve` reads, in the config directory, if it exists.
 pub const CONFIG_FILE_NAME: &str = "config.toml";
 
-/// kkt's config directory: `kkt` in the machine's config home
-/// ([`Env::config_home`]), `$XDG_CONFIG_HOME/kkt` or `~/.config/kkt`. The
-/// same on every platform.
-pub fn config_dir(env: &Env) -> Option<PathBuf> {
-    Some(env.config_home()?.join(CONFIG_DIR))
+/// kkt's config directory: `kkt` under the supplied config-home folder.
+/// With no config home there is no default config directory.
+pub fn config_dir(config_home: Option<&Path>) -> Option<PathBuf> {
+    Some(config_home?.join(CONFIG_DIR))
 }
 
 /// The config file `kkt serve` reads when it exists and no `--config` is
 /// given.
-pub fn config_file(env: &Env) -> Option<PathBuf> {
-    Some(config_dir(env)?.join(CONFIG_FILE_NAME))
+pub fn config_file(config_home: Option<&Path>) -> Option<PathBuf> {
+    Some(config_dir(config_home)?.join(CONFIG_FILE_NAME))
 }
 
 /// Why a config file's text could not be read as a config file: the setting
@@ -475,39 +473,18 @@ mod tests {
         assert_eq!(bad.name, "allow_hosts");
     }
 
-    fn env(home: Option<&str>, config: Option<&str>) -> Env {
-        Env {
-            home: home.map(PathBuf::from),
-            claude_config_dir: None,
-            codex_home: None,
-            xdg_config_home: config.map(PathBuf::from),
-            xdg_data_home: None,
-        }
-    }
-
     #[test]
-    fn the_config_file_goes_under_dot_config_on_every_platform() {
-        let e = env(Some("/home/sam"), None);
+    fn the_config_paths_are_under_the_supplied_folder() {
+        let folder = Some(Path::new("/home/sam/.config"));
         assert_eq!(
-            config_file(&e),
+            config_dir(folder),
+            Some(PathBuf::from("/home/sam/.config/kkt"))
+        );
+        assert_eq!(
+            config_file(folder),
             Some(PathBuf::from("/home/sam/.config/kkt/config.toml"))
         );
-        let e = env(Some("/home/sam"), Some("/xdg/config"));
-        assert_eq!(
-            config_file(&e),
-            Some(PathBuf::from("/xdg/config/kkt/config.toml"))
-        );
-    }
-
-    #[test]
-    fn a_relative_xdg_config_home_is_ignored() {
-        let e = env(Some("/home/sam"), Some("relative/config"));
-        assert_eq!(config_dir(&e), Some(PathBuf::from("/home/sam/.config/kkt")));
-    }
-
-    #[test]
-    fn without_a_home_there_is_no_config_file_unless_xdg_says() {
-        assert_eq!(config_file(&env(None, None)), None);
-        assert!(config_file(&env(None, Some("/xdg/config"))).is_some());
+        assert_eq!(config_dir(None), None);
+        assert_eq!(config_file(None), None);
     }
 }

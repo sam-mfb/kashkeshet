@@ -61,7 +61,8 @@ pub(super) fn selected(
     let explicit = flag(&args, "--config")?;
     let path = match explicit {
         Some(path) => PathBuf::from(path),
-        None => kkt_config_file::config_file(&env).ok_or("container has no config path")?,
+        None => kkt_config_file::config_file(env.config_home().as_deref())
+            .ok_or("container has no config path")?,
     };
     let working = config["WorkingDir"].as_str().unwrap_or("");
     let path = if path.is_absolute() {
