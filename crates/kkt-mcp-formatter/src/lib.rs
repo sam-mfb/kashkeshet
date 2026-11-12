@@ -52,6 +52,35 @@ impl Settings {
     pub const DEFAULT: Settings = Settings {
         max_response_bytes: 8 * 1024,
     };
+
+    /// Every invalid setting, with the check that found it. The caller
+    /// chooses which problem to report alongside other owners' problems.
+    pub fn problems(&self) -> Vec<Problem> {
+        if self.max_response_bytes < MIN_RESPONSE_BYTES {
+            vec![Problem {
+                name: "max_response_bytes",
+                check: "floor",
+                rule: format!("must be at least {MIN_RESPONSE_BYTES}"),
+            }]
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// The formatter's settings as the run record words them.
+    pub fn record_lines(&self) -> Vec<(String, String)> {
+        let Self { max_response_bytes } = self;
+        vec![("max_response_bytes".into(), max_response_bytes.to_string())]
+    }
+}
+
+/// An invalid formatter setting and the owner's check that found it.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("{name} {rule}")]
+pub struct Problem {
+    pub name: &'static str,
+    pub check: &'static str,
+    pub rule: String,
 }
 
 #[derive(Clone)]
