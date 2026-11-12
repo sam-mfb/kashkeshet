@@ -1461,6 +1461,187 @@ its own pair. 12.2 and 12.3 each change one field of kkt-operate's
 change is a rebase, not a conflict. The small splits follow each builder's
 larger step. 12.5d touches kkt-container's `LoginLink`, so it follows 12.2.
 
+### Phase 13 (draft): one crate for a contract with one implementation
+
+A draft for Sam, from the contract audit (#516, `contract-audit.md`, its
+facts checked by kkt-review-373 in msg 3153). Nothing here is decided, and
+no code changes until Sam gives the word.
+
+**Why.** Phase 12 split every third-party dependency into a contract crate
+and a named wrapper. The audit asked, for each contract crate, whether it
+is needed, and found six that have one implementation and one or two
+consumers. Merging each with its wrapper is what 3.3.2 describes. In Rust
+the other way to drop a contract crate, a trait the consumer declares,
+always costs a forwarding adapter in the program, because a type meets a
+trait only through an `impl` beside one of them
+(`refactor-merge.md`'s sixth note for the principles).
+
+**The target shape: a merged crate.** One crate, named for the scope,
+holds:
+- the contract in the open: the trait, its records and its stand-in, all
+  compiled always, with the stand-in behind `testing`;
+- the implementation behind `real`, which only programs turn on
+  (check-crates' check 2).
+
+Consumers depend on it without `real`, so they cannot name the
+implementation: it does not exist in their build, and CI builds each crate
+alone. The program turns `real` on and injects the implementation as it
+is, with no adapter. The tool's knowledge stays testable without `real`,
+over a private runner and fake, as phase 12 made it.
+
+**The six merges.**
+
+| Contract crate | Merges with | Consumers today | Step |
+|---|---|---|---|
+| kkt-container | kkt-container-docker | kkt-operate (the trait), kkt-setup (records and file names) | 13.1 |
+| kkt-remote-access | kkt-remote-access-tailscale | kkt-operate | 13.2 |
+| kkt-browser | kkt-browser-os | kkt-container-docker (kkt-container, after 13.1) | 13.3 |
+| kkt-lane-commit | kkt-lane-commit-git | kkt-lane-files; kkt-operate passes it on | 13.4 |
+| kkt-probe | kkt-probe-reqwest | kkt-diagnostics; kkt-operate passes it on | 13.5 |
+| kkt-agent-client | kkt-agent-client-rmcp | kkt-agent-commands (`Servers`), kkt-watch (`Watched`) | 13.6 |
+
+**What stays split.**
+- kkt-service: two implementations, launchd and systemd.
+- kkt-api-agent, kkt-api-operator, kkt-api-admin, kkt-db, kkt-identity,
+  kkt-clock, kkt-entropy and kkt-log: several implementations, or more than
+  two consumers (3.3.3, 3.3.4).
+- kkt-agent-files-os, the machine's own files.
+
+**The two facts sage-cardinal asked to have stated** (msg 3150; checked by
+kkt-review-373, msg 3153):
+- **kkt-agent-client has two consumer crates:** kkt-agent-commands and
+  kkt-watch.
+  - The fake product's tests use only kkt-agent-client-rmcp's `Http` and
+    `HttpReply`, with `real` on, not the contract. After 13.6 they depend
+    on kkt-agent-client with `real`, and the documented exception names it
+    again.
+  - The program's `tests/register.rs` dev-depends on the contract only to
+    bring `Watched` into scope, to call it on rmcp's `Remote`.
+- **kkt-container's contract is runtime-neutral, with three values that
+  belong to the Docker install.** Its 16 operations, its records,
+  `ConfigReader` and `LoginLink` name no Docker or Compose command, file or
+  format; a Podman runtime running the same Compose files could implement
+  them. The three values are:
+  - the key-file names `docker-web-key` and `docker-admin-key`, which
+    existing installs fix and kkt-setup reads;
+  - `NO_ADMIN_KEY_EXIT`.
+
+  So the case for merging rests on there being one implementation (3.3.2),
+  not on the contract being Docker's own.
+
+**Questions for Sam.**
+1. **kkt-client-command:** merge it with kkt-client-command-claude, or keep
+   it split? It has one implementation today. A second is plausible, since
+   other agent clients configure MCP servers through their own command
+   line. Two crates' tests use its stand-in.
+2. **kkt-machine's `Machine` trait:** only `main.rs` calls it, and its
+   stand-in `FixedMachine` is used nowhere. Recommended: kkt-machine-os
+   gives `env()` and `platform()` as plain functions. kkt-machine keeps
+   `Env` and `Platform`, which five crates use.
+3. **The rule:** the merges revise Sam's ruling of 2026-11-12. Suggested
+   text: a third-party tool or library with one implementation is one crate
+   named for the scope, its contract in the open and the implementation
+   behind `real`. Several implementations, or a contract many crates
+   share, keep a contract crate with named implementations, as kkt-service
+   and kkt-db do. Either way the program injects the implementation, with
+   no adapter.
+
+**What changes in the rules and checks** (step 13.0, before any merge).
+- **CLAUDE.md's "Third-party tools and libraries" paragraph:** the rule
+  above, in Sam's words.
+- **CLAUDE.md's "Features" paragraph:** "a contract crate never has
+  [`real`]" stays for contract crates, and a sentence adds the merged kind.
+  - kkt-agent-commands' "must not": "depend on a contract's implementation
+    (such as kkt-agent-client-rmcp)" becomes "turn on another crate's
+    `real`".
+  - The crate table gains the merged crates' rows, and loses the wrappers'
+    rows.
+- **A new kind, "contract and effect"** (`concerns.json`, `proposed.json`,
+  `kinds.py`). It holds a contract in the open and its one implementation
+  behind `real`.
+  - `kinds.py` checks that the items outside `real` only compute on their
+    own values (today's `beyond_values` test for a contract), and that the
+    crate has a `real` feature.
+  - check-crates.sh's check 6 (no `real` in a contract crate) keeps
+    applying to "contract" crates only, so its code does not change; its
+    comment names the new kind.
+  - Check 2 (only programs turn on `real`) is what keeps consumers off the
+    implementation, and does not change.
+- **`progress.py`:** a dependency on a merged crate without `real` is not
+  a break of "depends on the effect crate". Only one that turns `real` on
+  is, apart from programs.
+- **The proposal:**
+  - each merge charted, with the wrapper's items moved under the scope's
+    name;
+  - the six kind edits;
+  - the arrows (the wrappers' arrows to their contracts go);
+  - 12.1's rule text, revised.
+- **`real-exceptions.json`:** the fake product's entry names
+  kkt-agent-client again (13.6).
+
+**The map: a merged crate's two kinds of dependency** (a proposal; nothing
+built yet). Sam wants the map to show which dependency on a merged crate
+is on its contract only (built without `real`), and which is on its
+implementation (turning `real` on). The data already holds what is
+needed: each arrow records the features it turns on, and each item
+whether it is behind `real`.
+
+- **The box:** a merged crate is drawn in two parts, one above the other,
+  with a thin divider.
+  - The top part is the contract: its name and the items outside `real`.
+  - The bottom part is the implementation: the items behind `real`,
+    labelled with the tool.
+- **The arrows:**
+  - An arrow that does not turn `real` on (a consumer's grey "uses") lands
+    on the contract part.
+  - An arrow that turns it on (the program's amber "wires", or the fake
+    product's dashed test arrow) lands on the implementation part.
+- **The crate's own implementation:** a small green hollow-triangle mark
+  inside the box, from the bottom part to the top. Today an
+  implementation of a crate's own trait is not drawn, so a merged crate
+  would otherwise show no "implements" at all.
+- **The panel** lists the two parts' items under two headings, and says
+  which crates depend on each part.
+- **generate.py:** each crate gets `parts` (the contract's items and the
+  implementation's, from each item's feature) when its kind is "contract
+  and effect". Each arrow into such a crate gets `lands`: "implementation"
+  if its features include `real`, else "contract". Each `implements` of a
+  crate's own trait is kept for these crates.
+- **map.js:**
+  - such a box is drawn taller, split, with the endpoint of each arrow on
+    the part named by `lands`;
+  - the inner mark is drawn;
+  - the panel shows the two lists;
+  - the key explains the split box.
+- **page-test.js:** a check that a merged crate's box has both parts, and
+  that a consumer's arrow and the program's arrow land on different parts.
+
+**Steps, if Sam takes it.** One pull request each into `refactor`. Each
+merge moves code and tests unchanged, keeps every message, file and
+command, and charts its own proposal entries. Builders as in phase 12: the
+crate's builder merges it; kkt-mt-step1's code is reviewed by
+kkt-review-b, and its plan and map work by kkt-review-373.
+
+| Step | What | Size | Builds | Reviews |
+|---|---|---|---|---|
+| 13.0 | The rule text, the new kind, kinds.py, progress.py, check-crates' comment, CLAUDE.md, the proposal's rule | S | kkt-mt-step1 | kkt-review-373 |
+| 13.1 | kkt-container merges with kkt-container-docker | M | kkt-build-c | kkt-review-373 |
+| 13.2 | kkt-remote-access merges with kkt-remote-access-tailscale | S | kkt-build-c | kkt-review-373 |
+| 13.3 | kkt-browser merges with kkt-browser-os | S | kkt-mt-step1 | kkt-review-b |
+| 13.4 | kkt-lane-commit merges with kkt-lane-commit-git | S | kkt-build-b | kkt-review-b |
+| 13.5 | kkt-probe merges with kkt-probe-reqwest | S | kkt-build-b | kkt-review-b |
+| 13.6 | kkt-agent-client merges with kkt-agent-client-rmcp | M | kkt-mt-step1 | kkt-review-b |
+| 13.7 | The map's split boxes (generate.py, map.js, page-test.js) | M | kkt-mt-step1 | kkt-review-373 |
+| 13.8 | Chart what differs, and the scorecard | S | kkt-mt-step1 | kkt-review-373 |
+
+13.0 comes first. 13.1 to 13.6 can then run side by side: each touches its
+own pair, and the shared files (Cargo.toml, CLAUDE.md, the proposal) merge
+as in phase 12. 13.3 builds on kkt-container's browser field, so it follows
+13.1. 13.7 needs at least one merged crate to draw.
+
+**Existing installs:** none expected. The merges move code between crates
+and change no file, flag, message or command that an install relies on.
+
 ## Order at a glance
 
 ```
