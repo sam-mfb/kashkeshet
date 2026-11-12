@@ -2322,15 +2322,6 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-identity-keymode",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-events"
-   },
-   {
-    "from": "kkt-identity-keymode",
     "kind": "normal",
     "role": "implements",
     "statuses": [
@@ -5015,6 +5006,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7)"
+     },
+     {
+      "status": "decided",
+      "text": "the 0.10.0 migration test and the database-file tests reach the store through kkt-rules' testing: Reader through testing::read, and testing::write, with the records and filters they take (step 5.6b)"
      }
     ]
    },
@@ -6808,6 +6803,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it starts the rules with a Startup (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests take a database from testing::database and start the product's own rules on it (step 5.6b)"
      }
     ]
    },
@@ -6896,6 +6895,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "KeyMode's tests, moved from kkt-identity"
+     },
+     {
+      "status": "decided",
+      "text": "its tests build their rules with testing::memory from a testing::Memory (step 5.6b)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-events in its tests: testing::memory makes the events bus its rules hear on (step 5.6b)"
      }
     ]
    },
@@ -7377,6 +7384,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-api-sim in its tests: its tests already use only stand-ins and need nothing the simulation gives (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests build their rules with testing::memory from a testing::Memory (step 5.6b)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-events in its tests: testing::memory makes the events bus its rules hear on (step 5.6b)"
      }
     ]
    },
@@ -7866,6 +7881,74 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "new fn testing::database"
+     },
+     {
+      "status": "decided",
+      "text": "new fn testing::read"
+     },
+     {
+      "status": "decided",
+      "text": "new fn testing::write"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Reader"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Writer"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::ChannelFilter"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::ChannelKind"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::ChannelScope"
+     },
+     {
+      "status": "decided",
+      "text": "new enum testing::MessageRange"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::NewAgentRecord"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::NewChannelRecord"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::NewMessageRecord"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::NewServerRunRecord"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::NewerFilter"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::SearchFilter"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::SentFilter"
+     },
+     {
+      "status": "decided",
       "text": "new struct Settings"
      },
      {
@@ -8133,6 +8216,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new_server_run gives kkt-rules' NewServerRun; Parts takes the Rules start built, not the wording or the rules' settings (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests take a database for a start of their own from testing::database, and build rules with testing::memory from a testing::Memory (step 5.6b)"
      }
     ]
    },
@@ -9703,6 +9790,12 @@ window.KKT_PROPOSED = {
     "kind": "dev",
     "role": "wires",
     "to": "kkt-db-sqlite"
+   },
+   {
+    "from": "kkt-mcp",
+    "kind": "dev",
+    "role": "uses",
+    "to": "kkt-events"
    },
    {
     "from": "kkt-mcp",
@@ -13567,6 +13660,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7)"
+     },
+     {
+      "status": "decided",
+      "text": "the 0.10.0 migration test and the database-file tests reach the store through kkt-rules' testing: Reader through testing::read, and testing::write, with the records and filters they take (step 5.6b)"
      }
     ],
     "released_program": true,
@@ -20446,6 +20543,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it starts the rules with a Startup (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests take a database from testing::database and start the product's own rules on it (step 5.6b)"
      }
     ],
     "released_program": false,
@@ -20754,6 +20855,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "KeyMode's tests, moved from kkt-identity"
+     },
+     {
+      "status": "decided",
+      "text": "its tests build their rules with testing::memory from a testing::Memory (step 5.6b)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-events in its tests: testing::memory makes the events bus its rules hear on (step 5.6b)"
      }
     ],
     "released_program": false,
@@ -21999,6 +22108,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-api-sim in its tests: its tests already use only stand-ins and need nothing the simulation gives (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests build their rules with testing::memory from a testing::Memory (step 5.6b)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-events in its tests: testing::memory makes the events bus its rules hear on (step 5.6b)"
      }
     ],
     "released_program": false,
@@ -23235,6 +23352,126 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "Which channels `Reader::channel_ids` returns, in name order (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::ChannelFilter",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The stored facts that decide whether a viewer may use a channel: whether it is hidden or open, and whether the viewer is in it or owns it (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::ChannelKind",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Which channels a query covers: those in one swarm whose kind, for the viewer, is one of the allowed kinds (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::ChannelScope",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "What a test's rules are made from: the rules' startup without the database (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::Memory",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Which messages of a channel to return, and in what order (step 5.6b).",
+      "feature": "testing",
+      "kind": "enum",
+      "path": "testing::MessageRange",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "An avatar as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::NewAgentRecord",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A channel as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::NewChannelRecord",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A message as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::NewMessageRecord",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A server run as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::NewServerRunRecord",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Which messages `Reader::newer_messages` and `Reader::count_newer_messages` cover (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::NewerFilter",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The store's questions, over one state of the database, for the program's tests that pin what a 0.10.0 database answers (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::Reader",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Which messages Reader::search_messages looks at (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::SearchFilter",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Which messages `Reader::latest_message_from` looks at (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::SentFilter",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The store's changes, inside one transaction, for the program's tests that write rows into a database file (step 5.6b).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::Writer",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A new database in memory, with the core's tables, for other crates' tests: for a program that starts its own rules, or for the operator's `crate::CommandLine` (step 5.6b).",
+      "feature": "testing",
+      "kind": "fn",
+      "path": "testing::database",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Makes the next write to a test store fail, for tests of what a failed write leaves. It wraps the test store's backend in kkt-db's testing::FaultyBackend.",
       "kind": "fn",
       "path": "testing::fail_next_write",
@@ -23242,9 +23479,18 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Rules over kkt-db's in-memory database with the core's tables, for other crates' tests, which set up their data through kkt-api-agent's operations.",
+      "doc": "The rules over a new in-memory database with the core's tables, built by start from a testing::Memory, for other crates' tests, which set up their data through the kkt-api crates (step 5.6b).",
+      "feature": "testing",
       "kind": "fn",
       "path": "testing::memory",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Runs `f` over a view of one state of `db`, for the tests that pin the store's reads (step 5.6b).",
+      "feature": "testing",
+      "kind": "fn",
+      "path": "testing::read",
       "proposed_item": true,
       "status": "decided"
      },
@@ -23254,6 +23500,14 @@ window.KKT_PROPOSED = {
       "kind": "fn",
       "moved_from": "kkt-store",
       "path": "testing::swarms_stay_apart",
+      "status": "decided"
+     },
+     {
+      "doc": "Runs `f` inside one transaction of `db`, for the tests that write rows into a database file directly (step 5.6b).",
+      "feature": "testing",
+      "kind": "fn",
+      "path": "testing::write",
+      "proposed_item": true,
       "status": "decided"
      }
     ],
@@ -23559,6 +23813,74 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Startup"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "new fn testing::database"
+     },
+     {
+      "status": "decided",
+      "text": "new fn testing::read"
+     },
+     {
+      "status": "decided",
+      "text": "new fn testing::write"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Reader"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Writer"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::ChannelFilter"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::ChannelKind"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::ChannelScope"
+     },
+     {
+      "status": "decided",
+      "text": "new enum testing::MessageRange"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::NewAgentRecord"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::NewChannelRecord"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::NewMessageRecord"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::NewServerRunRecord"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::NewerFilter"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::SearchFilter"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::SentFilter"
      },
      {
       "status": "decided",
@@ -24235,6 +24557,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new_server_run gives kkt-rules' NewServerRun; Parts takes the Rules start built, not the wording or the rules' settings (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests take a database for a start of their own from testing::database, and build rules with testing::memory from a testing::Memory (step 5.6b)"
      }
     ],
     "released_program": false,
@@ -30109,7 +30435,21 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "items": [
      "Db",
-     "schema"
+     "schema",
+     "testing::ChannelFilter",
+     "testing::ChannelKind",
+     "testing::ChannelScope",
+     "testing::MessageRange",
+     "testing::NewAgentRecord",
+     "testing::NewChannelRecord",
+     "testing::NewMessageRecord",
+     "testing::NewServerRunRecord",
+     "testing::NewerFilter",
+     "testing::Reader",
+     "testing::SearchFilter",
+     "testing::SentFilter",
+     "testing::read",
+     "testing::write"
     ],
     "kind": "dev",
     "optional": false,
@@ -30118,7 +30458,21 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "schema"
+       "schema",
+       "testing::ChannelFilter",
+       "testing::ChannelKind",
+       "testing::ChannelScope",
+       "testing::MessageRange",
+       "testing::NewAgentRecord",
+       "testing::NewChannelRecord",
+       "testing::NewMessageRecord",
+       "testing::NewServerRunRecord",
+       "testing::NewerFilter",
+       "testing::Reader",
+       "testing::SearchFilter",
+       "testing::SentFilter",
+       "testing::read",
+       "testing::write"
       ],
       "role": "uses"
      },
@@ -32872,7 +33226,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-fake-product",
     "items": [
-     "testing::memory"
+     "testing::database"
     ],
     "kind": "dev",
     "optional": false,
@@ -32881,7 +33235,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "testing::memory"
+       "testing::database"
       ],
       "role": "uses"
      }
@@ -33514,31 +33868,6 @@ window.KKT_PROPOSED = {
    {
     "features": [],
     "from": "kkt-identity-keymode",
-    "items": [
-     "Events"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Events"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-events"
-   },
-   {
-    "features": [],
-    "from": "kkt-identity-keymode",
     "items": [],
     "kind": "normal",
     "optional": false,
@@ -33618,6 +33947,7 @@ window.KKT_PROPOSED = {
      "OperatorWording",
      "Settings",
      "schema",
+     "testing::Memory",
      "testing::memory"
     ],
     "kind": "dev",
@@ -33631,6 +33961,7 @@ window.KKT_PROPOSED = {
        "OperatorWording",
        "Settings",
        "schema",
+       "testing::Memory",
        "testing::memory"
       ],
       "role": "uses"
@@ -34755,27 +35086,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-mcp",
     "items": [
-     "Events"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Events"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-events"
-   },
-   {
-    "features": [],
-    "from": "kkt-mcp",
-    "items": [
      "Format",
      "Formatter"
     ],
@@ -34987,6 +35297,7 @@ window.KKT_PROPOSED = {
      "Deps",
      "OperatorWording",
      "schema",
+     "testing::Memory",
      "testing::memory"
     ],
     "kind": "dev",
@@ -34999,6 +35310,7 @@ window.KKT_PROPOSED = {
        "Deps",
        "OperatorWording",
        "schema",
+       "testing::Memory",
        "testing::memory"
       ],
       "role": "uses"
@@ -36322,6 +36634,8 @@ window.KKT_PROPOSED = {
     "items": [
      "Db",
      "schema",
+     "testing::Memory",
+     "testing::database",
      "testing::memory"
     ],
     "kind": "dev",
@@ -36332,6 +36646,8 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "schema",
+       "testing::Memory",
+       "testing::database",
        "testing::memory"
       ],
       "role": "uses"
