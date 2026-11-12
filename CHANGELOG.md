@@ -51,6 +51,18 @@ The shared crates are reorganized so that every dependency is injected and each 
   `Registered`, `Reclaimed` and `Failure`, give way to the contract's;
   `Remote` and `AdminRemote` implement `Watched` in place of their own
   methods. Messages and files are unchanged.
+- **Service contract.** `kkt-service::Service` replaces `Manager`, `System`,
+  `DryRun`, `Command` and `Finished`: what kkt asks of the service manager, in
+  kkt's terms, with `Unsupported` for other systems and `testing::Memory` for
+  tests. `kkt-service-launchd::Launchd` and `kkt-service-systemd::Systemd`
+  (behind `real`) implement it directly, each holding its own manager's files
+  and commands; the program picks one by platform and injects it into
+  `OperateParts::service`, in place of its adapter. `kkt-service-os` keeps
+  only `try_bind`. launchd's waits (`removal_wait`, `reload_retry`) move from
+  `kkt_service::Settings` to `kkt_service_launchd::Settings`, given to
+  `Launchd::new`, and `ServiceError::ReloadFailed` holds the text launchd's
+  wrapper words. `kkt_operate::service::run` no longer takes the `Env`. The
+  service files, commands and messages are unchanged.
 - **Client command contract.** `kkt-client-command::ClientCommand` (remove
   kkt's server, add it as the client's own entry; `testing::Recorder`) is
   how kkt-client-config changes a client through its own command.

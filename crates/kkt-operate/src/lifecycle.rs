@@ -12,7 +12,7 @@ use crate::{OperateParts, ServeFacts, ServiceDefaults};
 use kkt_backup as backup;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
-use kkt_service::{Manager, ServiceError};
+use kkt_service::ServiceError;
 use kkt_setup as setup;
 use kkt_setup::connection::ConnectionSource;
 use std::path::{Path, PathBuf};
@@ -102,7 +102,7 @@ pub async fn status<D: ServiceDefaults>(
                 "{}",
                 setup::configured_name_pack_line(&config.name_pack)
             ));
-            service::run(parts, env, ServiceAction::Status).await
+            service::run(parts, ServiceAction::Status).await
         }
         setup::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
@@ -172,11 +172,10 @@ pub async fn upgrade<D: ServiceDefaults>(
                     key.display()
                 ));
             }
-            let manager = Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref())
-                .map_err(|e| e.to_string())?;
-            for line in manager
+            parts.service.ready().map_err(|e| e.to_string())?;
+            for line in parts
+                .service
                 .install(
-                    parts.service,
                     parts.clock.as_ref(),
                     kkt_service::Settings::DEFAULT,
                     &service.spec,
@@ -222,7 +221,7 @@ pub async fn uninstall<D: ServiceDefaults>(
         }
         setup::Mode::Service { tailscale: shared } => {
             stop_sharing(shared, parts.serve, parts.remote)?;
-            service::run(parts, env, ServiceAction::Uninstall).await?;
+            service::run(parts, ServiceAction::Uninstall).await?;
         }
         setup::Mode::Client => {}
     }
@@ -316,16 +315,18 @@ fn local_backup<D>(
 mod tests {
     use super::*;
     use std::cell::RefCell;
-    use std::time::Duration;
 
     #[test]
     fn an_upgrade_whose_service_would_not_load_says_to_run_it_again() {
-        let error = ServiceError::ReloadFailed {
-            command: "launchctl bootstrap gui/501 kkt.plist".to_string(),
-            detail: "Bootstrap failed: 5: Input/output error".to_string(),
-            tries: 141,
-            still_removing_for: Some(Duration::from_secs(35)),
-        };
+        // As kkt-service-launchd words it.
+        let error = ServiceError::ReloadFailed(
+            "`launchctl bootstrap gui/501 kkt.plist` failed on each of 141 tries over 35 seconds, \
+             while launchd was still removing the old service: Bootstrap failed: 5: \
+             Input/output error. kashkeshet is stopped: the old service was unloaded, and the new \
+             one is installed but not loaded. Once the old service is gone, run `kkt service \
+             start` to load the new one, and `kkt service status` to check."
+                .to_string(),
+        );
         let said = unrecorded_upgrade(error);
         assert!(
             said.starts_with(
@@ -648,62 +649,6 @@ mod tests {
         }
     }
 
-    /// A service manager whose service is installed and loaded, and whose
-    /// every command succeeds; it logs each change it is asked to make.
-    #[derive(Default)]
-    struct InstalledService(RefCell<Vec<String>>);
-
-    impl kkt_service::System for InstalledService {
-        fn user_id(&self) -> std::io::Result<u32> {
-            Ok(501)
-        }
-        fn exists(&self, _: &Path) -> std::io::Result<bool> {
-            Ok(true)
-        }
-        fn read_file(&self, path: &Path) -> std::io::Result<String> {
-            Err(std::io::Error::other(format!(
-                "not read here: {}",
-                path.display()
-            )))
-        }
-        fn create_dir_all(&self, path: &Path) -> std::io::Result<()> {
-            Err(std::io::Error::other(format!(
-                "not made here: {}",
-                path.display()
-            )))
-        }
-        fn write_file(&self, path: &Path, _: &str) -> std::io::Result<()> {
-            Err(std::io::Error::other(format!(
-                "not written here: {}",
-                path.display()
-            )))
-        }
-        fn remove_file(&self, path: &Path) -> std::io::Result<()> {
-            self.0
-                .borrow_mut()
-                .push(format!("remove {}", path.display()));
-            Ok(())
-        }
-        fn run(&self, command: &kkt_service::Command) -> std::io::Result<kkt_service::Finished> {
-            if !command.query {
-                self.0
-                    .borrow_mut()
-                    .push(format!("{} {}", command.program, command.args.join(" ")));
-            }
-            Ok(kkt_service::Finished {
-                code: Some(0),
-                stdout: String::new(),
-                stderr: String::new(),
-            })
-        }
-        fn run_attached(
-            &self,
-            command: &kkt_service::Command,
-        ) -> std::io::Result<kkt_service::Finished> {
-            self.run(command)
-        }
-    }
-
     /// The setup record of a service not shared over Tailscale, which logs
     /// what is done to it.
     struct UnsharedRecord(RefCell<Vec<String>>);
@@ -790,7 +735,7 @@ mod tests {
         };
         let (serve, remote, untouched) =
             (Asked::default(), Tailscale::default(), Untouched::default());
-        let service = InstalledService::default();
+        let service = kkt_service::testing::Memory::installed(vec!["serve".into()], true);
         let record = UnsharedRecord(RefCell::new(Vec::new()));
         let said = Said::default();
         let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> {
@@ -830,12 +775,7 @@ mod tests {
             "{:?}",
             untouched.0.borrow()
         );
-        // The service was removed, whichever manager this system has.
-        let changes = service.0.borrow();
-        assert!(
-            changes.iter().any(|c| c.starts_with("remove ")),
-            "{changes:?}"
-        );
+        assert_eq!(service.done(), ["uninstall"]);
         let config_dir = home.join(".config").join("kkt");
         assert_eq!(
             *record.0.borrow(),

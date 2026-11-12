@@ -150,7 +150,7 @@ pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     pub container: &'a dyn kkt_container::Container,
     pub container_configs: &'a dyn kkt_container::ConfigReader,
     pub login_link: &'a dyn kkt_container::LoginLink,
-    pub service: &'a dyn kkt_service::System,
+    pub service: &'a dyn kkt_service::Service,
     pub try_bind: &'a dyn Fn(std::net::SocketAddr) -> std::io::Result<()>,
     pub remote: &'a dyn kkt_remote_access::RemoteAccess,
     pub clients: &'a dyn kkt_client_config::Host,

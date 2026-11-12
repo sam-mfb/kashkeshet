@@ -18,7 +18,6 @@ use kkt_diagnostics::{self as diagnostics, Inspector, point_server_fix_at};
 use kkt_lane_files as lane_files;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
-use kkt_service::Manager;
 use kkt_setup as setup;
 use kkt_setup::connection::{self, ConnectionOptions, ConnectionSource};
 use setup::waiting_note;
@@ -72,7 +71,6 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         }
         tokio::runtime::Handle::current().block_on(service::run(
             self.parts,
-            self.env,
             ServiceAction::Install(ServiceInstall {
                 config: None,
                 db: None,
@@ -263,17 +261,16 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 // A key file that cannot be inspected is not replaced:
                 // `new_key_file` refuses to write over one. Only a new key
                 // is given the name.
-                let made = Manager::for_this_os(
-                    self.env.home.as_deref(),
-                    self.env.config_home().as_deref(),
-                )
-                .and_then(|manager| {
-                    manager.add_key(self.parts.service, &admin, &|path| {
-                        let key = new_key_file(self.parts.key_files, path, false)?;
-                        write_admin_name(self.parts.key_files, path, &key, Some(name)).map(drop)
+                let service = self.parts.service;
+                let made = service
+                    .ready()
+                    .and_then(|()| {
+                        service.add_key(&admin, &|path| {
+                            let key = new_key_file(self.parts.key_files, path, false)?;
+                            write_admin_name(self.parts.key_files, path, &key, Some(name)).map(drop)
+                        })
                     })
-                })
-                .map_err(|e| e.to_string())?;
+                    .map_err(|e| e.to_string())?;
                 self.parts.output.output(format_args!(
                     "{} admin key for /mcp-admin is in {}, and the server was restarted to use it. Read it with `kkt key show --admin`.\n",
                     if made { "A new" } else { "The" },
