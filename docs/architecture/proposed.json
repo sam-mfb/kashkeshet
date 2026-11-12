@@ -3835,7 +3835,7 @@
    "path": "AgentParts",
    "kind": "struct",
    "status": "decided",
-   "doc": "The effects and facts the agents' commands take: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the client configs' host, this program's path, the terminal and the clock (step 10.3)."
+   "doc": "The effects and facts the agents' commands take: kkt-setup's connection question, where the admin key is and the admin endpoint's path (which the program takes from kkt-mcp, so that the assembly needs no arrow to it), the server's client, the credential files, the client configs' host, this program's path, the terminal and the clock (step 10.3)."
   },
   {
    "crate": "kkt-agent-commands",
@@ -7966,18 +7966,6 @@
    },
    "status": "decided",
    "note": "what its commands use of kkt-names (step 10.3)"
-  },
-  {
-   "from": "kkt-agent-commands",
-   "to": "kkt-mcp",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "MCP_ADMIN_PATH"
-    ]
-   },
-   "status": "decided",
-   "note": "what its commands use of kkt-mcp (step 10.3)"
   },
   {
    "from": "kkt-agent-commands",

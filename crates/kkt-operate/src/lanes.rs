@@ -160,7 +160,7 @@ pub fn local_operator<D>(
 /// Imports the lanes `read` from a folder into the local database. The
 /// source recorded is `source` if given, else the folder and its git
 /// commit. Returns the report to print.
-pub async fn local_import_lanes<D>(
+pub(crate) async fn local_import_lanes<D>(
     parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
@@ -230,11 +230,18 @@ fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
         .collect()
 }
 
+/// The lane limit from this machine's default serve config, else the owner's default.
+pub fn local_lane_limit<D>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+) -> Result<usize, String> {
+    Ok(parts.serve.config(None)?.max_lane_chars)
+}
+
 /// The `max_lane_chars` of kkt in Docker set up in the folder `kkt setup`
 /// uses: the container's own setting when the folder holds an install, and
 /// the default for a new one, whose container starts with no config file.
 /// The host's config file plays no part; the container never reads it.
-pub fn docker_lane_limit<D>(
+pub(crate) fn docker_lane_limit<D>(
     parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
@@ -260,7 +267,7 @@ pub fn docker_lane_limit<D>(
 /// files' format, then each lane by the lane rules. Warns of each file it
 /// skips, as the import would. Returns how many lanes there are; an error
 /// names the file or lane that is wrong.
-pub fn check_lanes_folder(
+pub(crate) fn check_lanes_folder(
     disk: &dyn lane_files::Disk,
     output: &dyn crate::Output,
     folder: &Path,
@@ -278,7 +285,7 @@ pub fn check_lanes_folder(
 /// in `folder`. The files were read here first, so a mistake is named by
 /// its path on the host; [`lane_files::Read::files_to_copy`] says which go
 /// in. Returns the report to print.
-pub fn docker_import_lanes(
+pub(crate) fn docker_import_lanes(
     container: &dyn kkt_container::Host,
     folder: &kkt_container::Folder,
     read: lane_files::Read,

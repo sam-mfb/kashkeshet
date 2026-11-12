@@ -109,7 +109,7 @@ pub(super) fn create_dir(host: &dyn Host, path: &Path) -> Result<(), DockerError
 }
 
 /// The Tailscale auth key from the named file, trimmed as setup's inputs require.
-pub fn tailscale_auth_key(host: &impl Host, path: &Path) -> Result<String, String> {
+pub fn tailscale_auth_key(host: &(impl Host + ?Sized), path: &Path) -> Result<String, String> {
     host.read_file(path)
         .map(|key| key.trim().to_string())
         .map_err(|e| format!("could not read {}: {e}", path.display()))

@@ -108,7 +108,7 @@ it was, or names something the proposal left unnamed.
 | Remove `refactor` from CI's branch lists | 1 | **Accepted by Sam, 2026-11-12.** In the pull request that merges `refactor` into `next` (`refactor-merge.md`) |
 | Log output | 5 | **Accepted by Sam, 2026-11-12.** The same events, targets, levels and fields reach the log |
 | How `refactor` merges into `next` | 6 | **Accepted by Sam, 2026-11-12.** One merge commit, no force-push, after a final review of the whole diff and a full CI run |
-| macOS in CI | 7 | **Accepted by Sam, 2026-11-12, and done sooner:** the macOS checks are back on `refactor` now (#486); watch the files `refactor-merge.md` lists in their first runs |
+| macOS in CI | 7 | **Accepted by Sam, 2026-11-12, and done sooner:** the macOS checks came back on `refactor` (#486), then went off again the same day, since GitHub's macOS runners are short (see "Temporary breaks") |
 | The proposed map after the refactor | 8 | **Accepted by Sam, 2026-11-12.** The proposal is kept as a record, and "Current" is the code |
 
 **To re-show Sam after phases 9 to 11.** Today's decisions overtake these
@@ -233,6 +233,7 @@ this list; one that is not on it blocks.
 
 | Break | Introduced by | Removed by |
 |---|---|---|
+| The macOS Rust checks are off in CI: `macos-15` is out of `ci.yml`'s list of systems, so platform-specific code is reviewed by hand again | Sam, 2026-11-12: GitHub's macOS runners are short, and #497's job never got one (this pull request) | Adding `macos-15` back to the list, as its comment says, or a self-hosted macOS runner |
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
@@ -253,6 +254,7 @@ the last column says so.
 |---|---|---|---|---|
 | kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | accepted by Sam, 2026-11-12 | yes |
 | One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | accepted by Sam, 2026-11-12 | yes |
+| kkt-container's `tailscale_auth_key` and `docker_env` accept a possibly unsized `Host` | 10.2b (setup) | Setup now passes the plan's injected host trait object to the existing file readers; the widening accepts all previous callers and changes no reads or output | awaiting Sam | no arrow or slot change |
 | `ServeFacts::service_settings` returns service-plan inputs and a deferred `CheckService`, which retains opaque program options and their source context | 10.2b (service) | The assembly owns planning and its ordered check/install sequence; the program alone knows and validates its whole serving surface. No serving option type or assembly dependency crosses the boundary | awaiting Sam | to chart at 10.4 |
 | `ServiceDefaults::matches_defaults(args)` answers the installed/default settings comparison; only service-capable `OperateParts` can ask it | 10.2a | Both serving surfaces stay in the program. A service-capable adapter requires `ServeArgs` at construction; record/config-only parts have no such capability. Installed arguments are resolved before defaults; the assembly retains the service-file check and refusal wrapping | required by the 10.2a review; awaiting Sam for the narrowed question | to chart at 10.4 |
 | `ServerSettings::check` returns opaque `CheckedSettings` containing the immutable settings and their host policy; `Parts::new` consumes that one value | 9.2 | The constructor cannot skip validation or combine settings with a different host policy; the program reads the checked values for its record. The integration harness uses the program's own run-record mapping | requested in the 9.2 review; awaiting Sam for the constructor detail | to chart at 10.4 |
@@ -1114,6 +1116,7 @@ commands.
   |---|---|---|
   | `connection` | kkt-setup's `connection::ConnectionSource` | `ConnectionReads` |
   | `admin_key` | `AdminKey` (kkt-agent-commands'): where the admin key is, given `--key-file` or not | kkt-operate's `selected_key_path` |
+  | `admin_path` | The admin endpoint's path, a plain value | kkt-mcp's `MCP_ADMIN_PATH` |
   | `servers` | `Servers`: a client of the server at an address with an optional key, which registers, reclaims and sets a description and reports its own failures (lost, key refused, refused with a code); and kkt-watch's `Server` for an agent or the admin endpoint | kkt-agent-client's `Client`, `Remote`, `AdminRemote`, with `WatchServer` |
   | `credentials` | `Credentials`: reserve a credential file and save to it, read a token file, claim a state file as kkt-watch's `Place` | `credentials.rs` |
   | `key_files` | `KeyText`: read the client's key file | kkt-admission-os |
@@ -1122,9 +1125,11 @@ commands.
   | `report`, `output` | kkt-watch's `Report`; `Output` for the handle lines | `WatchOutput`; kkt-terminal-os |
   | `clock` | kkt-clock's `Clock` | kkt-clock-system |
 
-- Depends on (7 kkt crates): kkt-setup, kkt-watch, kkt-client-config,
-  kkt-names, kkt-mcp (`MCP_ADMIN_PATH`), kkt-machine and kkt-clock.
-  Third-party: futures.
+- Depends on (6 kkt crates): kkt-setup, kkt-watch, kkt-client-config,
+  kkt-names, kkt-machine and kkt-clock. Third-party: futures. The admin
+  endpoint's path comes in `AgentParts` (10.3): an arrow to kkt-mcp for
+  one constant would add kkt-mcp's build to the assembly's, and changed
+  the third-party feature list `cargo tree` reports.
 - Takes no arrow from kashkeshet, which still uses each of these crates
   for serving, its adapters or `cli.rs`.
 
@@ -1165,7 +1170,7 @@ proposed map.
 | kkt-fake-product | 23 | 23 | Phase 10 does not touch it: it serves two swarms with its own `Identify` and no settings surface |
 | kkt-web-preview | 14 | 14 | Phase 10 does not touch it: it serves the page alone over simulated data |
 | kkt-operate | | 17 | New |
-| kkt-agent-commands | | 7 | New |
+| kkt-agent-commands | | 6 | New |
 
 **What must not change, and what pins it.** Every command's output, exit
 codes and help, and every install's files.
@@ -1214,11 +1219,11 @@ crate's paperwork (workspace members, CLAUDE.md's row, `concerns.json`,
 
 | Step | What | Size | After | Who |
 |---|---|---|---|---|
-| 9.1 | Each owner checks and words its own settings | S | (in progress) | kkt-build-b, kkt-build-c |
-| 9.2 | kkt-server's `ServerSettings`; `Parts` takes `Arc<dyn AdminApi>` | M | 9.1 | kkt-build-c, after its small kkt-service pull request |
-| 9.3 | The programs keep the serve surface (kkt, and kkt-keymode's own smaller one); kkt-settings goes | M | 9.2 | kkt-build-b, after its 11.1 |
-| 10.2a | kkt-operate, with `OperateParts`: the record, the operator's key finders, doctor, lanes, `kkt key` and `kkt agent` | L in lines, M in substance | 9.3 | kkt-build-b |
-| 10.2b | setup, service and lifecycle move into kkt-operate | M | 10.2a | kkt-build-c |
+| 9.1 | Each owner checks and words its own settings | S | (done: #484, #485) | kkt-build-b, kkt-build-c |
+| 9.2 | kkt-server's `ServerSettings`; `Parts` takes `Arc<dyn AdminApi>` | M | (done: #494) | kkt-build-c |
+| 9.3 | The programs keep the serve surface (kkt, and kkt-keymode's own smaller one); kkt-settings goes | M | (done: #495) | kkt-build-b |
+| 10.2a | kkt-operate, with `OperateParts`: the record, the operator's key finders, doctor, lanes, `kkt key` and `kkt agent` | L in lines, M in substance | 9.3 | kkt-build-c (msg 2896: swapped from kkt-build-b, who took 9.3 and then 11.3) |
+| 10.2b | setup, service and lifecycle move into kkt-operate | M | 10.2a | kkt-build-c, with kkt-build-b taking one of its moves on a branch stacked on it |
 | 10.3 | kkt-agent-commands, with `AgentParts`: register, reclaim, watch, connect | M | 9.3; beside 10.2a and 10.2b | kkt-mt-step1 |
 | 10.4 | `main.rs` builds the two `Parts` in one place; CLAUDE.md's tables; chart what differs (9.4 folds in here) and the scorecard | S | 10.2b, 10.3 | kkt-mt-step1 |
 
@@ -1305,9 +1310,11 @@ Each has the default we proceed on, so nothing waits.
    diff and a full CI run. Accepted by Sam, 2026-11-12.
 7. **macOS in CI.** The macOS Rust checks were off for most of the
    refactor, since GitHub had too little macOS runner capacity, and
-   platform-specific code was reviewed by hand meanwhile. They are back on
-   `refactor` now (#486), so the merge's pull request only removes
-   `refactor` from CI's branch lists. Accepted by Sam, 2026-11-12.
+   platform-specific code was reviewed by hand meanwhile. They came back
+   on `refactor` (#486), then went off again the same day, since GitHub's
+   macOS runners are short; "Temporary breaks" lists it. The merge's pull
+   request removes `refactor` from CI's branch lists. Accepted by Sam,
+   2026-11-12.
 8. **The proposed map after the refactor.** Default: step 8.1 keeps the
    proposal as a record of what was planned, with the scorecard at the end,
    and the page's "Current" map shows the code. Accepted by Sam, 2026-11-12.
@@ -1370,3 +1377,16 @@ again, as expected until phases 9 and 10 land:
   5, and kkt-server → kkt-rules until 9.2);
 - rules: no kind check fails; 1 break of the proposal's rules (kkt-rules'
   tests on kkt-db-sqlite, until kkt-build-b's stand-in replaces it).
+
+With 10.2a (kkt-operate's base) and 10.3 (kkt-agent-commands) merged:
+
+- crates: 61 of 61 proposed crates exist; none missing; none to remove;
+- items: 774 of 811 proposed items are in their proposed crate. Every item
+  of kkt-agent-commands is in. Missing: what 10.2b moves into kkt-operate
+  (setup, service and lifecycle); the 16 `kkt_rules::testing` re-exports
+  that #492 removed and `new_server_run`, which 9.3 left in kkt's
+  `server_run`, both for 10.4 to chart;
+- arrows: 237 of 238 proposed arrows exist (the proposal lost
+  kkt-agent-commands → kkt-mcp in 10.3); 1 missing (kkt-operate →
+  kkt-backup, which 10.2b adds); none extra;
+- rules: no kind check fails; no break of the proposal's rules.

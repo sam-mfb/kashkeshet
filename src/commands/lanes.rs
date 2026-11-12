@@ -1,12 +1,9 @@
 //! Wires the operator's lane commands to this program's database, disk and configuration.
 mod disk;
-use crate::machine::settings::read_config;
 pub(crate) use disk::LaneDisk;
-use kkt_api_agent::LaneSource;
-use kkt_lane_files as lane_files;
 use kkt_machine::{Env, Platform};
 pub use kkt_operate::lanes::LanesAction;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub async fn run(
     env: &Env,
@@ -41,57 +38,11 @@ fn local_operator(
     kkt_operate::lanes::local_operator(&native.parts(), db, config)
 }
 
-pub(crate) async fn local_import_lanes(
-    env: &Env,
-    platform: Platform,
-    db: Option<PathBuf>,
-    config: Option<PathBuf>,
-    read: lane_files::Read,
-    retire_missing: bool,
-    source: Option<LaneSource>,
-) -> Result<String, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform);
-    kkt_operate::lanes::local_import_lanes(
-        &native.parts(),
-        db,
-        config,
-        read,
-        retire_missing,
-        source,
-    )
-    .await
-}
-
-pub(crate) fn docker_lane_limit(env: &Env, platform: Platform) -> Result<usize, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform);
-    kkt_operate::lanes::docker_lane_limit(&native.parts(), env, platform)
-}
-
-pub(crate) fn check_lanes_folder(folder: &Path, max_lane_chars: usize) -> Result<usize, String> {
-    kkt_operate::lanes::check_lanes_folder(
-        &LaneDisk,
-        &crate::machine::operate::NativeOutput,
-        folder,
-        max_lane_chars,
-    )
-}
-
-pub(crate) fn docker_import_lanes(
-    folder: &kkt_container::Folder,
-    read: lane_files::Read,
-    retire_missing: bool,
-) -> Result<String, String> {
-    kkt_operate::lanes::docker_import_lanes(
-        &crate::machine::container::ContainerHost,
-        folder,
-        read,
-        retire_missing,
-    )
-}
-
-pub(crate) fn local_lane_limit(env: &Env) -> Result<usize, String> {
-    let (_, from_file) = read_config(env, None)?;
-    Ok(from_file.lane_limit())
+#[cfg(test)]
+fn local_lane_limit(env: &Env) -> Result<usize, String> {
+    let native =
+        crate::machine::operate::NativeOperate::new(env, crate::machine::settings::TEST_PLATFORM);
+    kkt_operate::lanes::local_lane_limit(&native.parts())
 }
 
 #[cfg(test)]

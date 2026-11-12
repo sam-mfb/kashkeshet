@@ -590,6 +590,15 @@ mod tests {
             self.0.borrow_mut().push("key_files.is_file");
             false
         }
+        fn create_dir_all(&self, _: &Path) -> Result<(), String> {
+            self.refused("key_files.create_dir_all")
+        }
+        fn keep_staged(&self, _: &Path, _: &Path) -> Result<(), String> {
+            self.refused("key_files.keep_staged")
+        }
+        fn remove(&self, _: &Path) -> std::io::Result<()> {
+            self.asked("key_files.remove")
+        }
         fn new_key(&self, _: &Path, _: bool) -> Result<String, String> {
             self.refused("key_files.new_key")
         }
@@ -598,6 +607,45 @@ mod tests {
         }
         fn write_admin_name(&self, _: &Path, _: Option<&str>) -> Result<(), String> {
             self.refused("key_files.write_admin_name")
+        }
+    }
+
+    impl kkt_container::LoginLink for Untouched {
+        fn show(&self, _: &str) {
+            self.0.borrow_mut().push("login_link.show");
+        }
+        fn open_requested(&self) -> bool {
+            self.0.borrow_mut().push("login_link.open_requested");
+            false
+        }
+        fn open(&self, _: &str) -> std::io::Result<()> {
+            self.asked("login_link.open")
+        }
+        fn open_failure(&self) -> Option<String> {
+            self.0.borrow_mut().push("login_link.open_failure");
+            None
+        }
+    }
+
+    impl kkt_setup::Lines for Untouched {
+        fn interactive(&self) -> bool {
+            self.0.borrow_mut().push("lines.interactive");
+            false
+        }
+        fn say(&self, _: &str) {
+            self.0.borrow_mut().push("lines.say");
+        }
+        fn read_line(&self, _: &str) -> Result<Option<String>, String> {
+            self.refused("lines.read_line")
+        }
+    }
+
+    impl crate::ConfigText for Untouched {
+        fn read(&self, _: &Path) -> Result<Option<String>, String> {
+            self.refused("config_file.read")
+        }
+        fn write(&self, _: &Path, _: &str) -> Result<(), String> {
+            self.refused("config_file.write")
         }
     }
 
@@ -707,6 +755,28 @@ mod tests {
             self.0.borrow_mut().push("wrote a record".into());
             Err("not asked here".into())
         }
+        fn write_unfinished(&self, _: &Path, _: &setup::Unfinished) -> Result<(), String> {
+            self.0.borrow_mut().push("wrote an unfinished note".into());
+            Err("not asked here".into())
+        }
+        fn remove_unfinished(&self, _: &Path) -> Result<(), String> {
+            self.0
+                .borrow_mut()
+                .push("removed the unfinished note".into());
+            Err("not asked here".into())
+        }
+        fn kkt_path(&self) -> Result<PathBuf, String> {
+            self.0.borrow_mut().push("asked kkt's path".into());
+            Err("not asked here".into())
+        }
+        fn path_dirs(&self) -> Vec<PathBuf> {
+            self.0.borrow_mut().push("asked PATH".into());
+            Vec::new()
+        }
+        fn on_path(&self, _: &[PathBuf], _: &str) -> bool {
+            self.0.borrow_mut().push("asked what is on PATH".into());
+            false
+        }
         fn absolute(&self, _: &Path) -> std::io::Result<PathBuf> {
             Err(std::io::Error::other("not asked here"))
         }
@@ -772,6 +842,9 @@ mod tests {
             database: &untouched,
             backups: &untouched,
             output: &said,
+            login_link: &untouched,
+            lines: &untouched,
+            config_file: &untouched,
         };
         futures::executor::block_on(uninstall(&parts, &env, Platform::Xdg))
             .expect("the service and its record are removed");
