@@ -6,13 +6,13 @@
 //! why the two are not one reader.
 
 use super::compose::compose;
-use super::{Command, ConfigReader, Folder, Host};
+use super::{Command, ConfigReader, Folder, Runner};
 use kkt_machine::Env;
 use std::path::{Path, PathBuf};
 
 /// `default` is the name pack `kkt serve` uses when its settings name none.
 pub(super) fn selected(
-    host: &dyn Host,
+    host: &dyn Runner,
     folder: &Folder,
     reader: &dyn ConfigReader,
     default: &str,
@@ -120,7 +120,7 @@ fn flag<'a>(args: &[&'a str], name: &str) -> Result<Option<&'a str>, String> {
     Ok(None)
 }
 
-fn output(host: &dyn Host, command: &Command) -> Result<String, String> {
+fn output(host: &dyn Runner, command: &Command) -> Result<String, String> {
     let done = host.run(command).map_err(|_| "container query failed")?;
     if !done.success() {
         // Container settings can contain secrets; do not include command output.

@@ -166,9 +166,6 @@ impl kkt_client_config::Host for NoClients {
     fn process_id(&self) -> u32 {
         1
     }
-    fn claude(&self, _: &[&str], _: Option<&Path>) -> Result<(), String> {
-        unreachable!("no test runs claude")
-    }
 }
 
 struct Kkt;
@@ -218,6 +215,7 @@ fn parts(
                 .collect(),
         )),
         clients: Box::new(NoClients),
+        client_command: Box::new(kkt_client_command::testing::Recorder::default()),
         program: Box::new(Kkt),
         report: Box::new(Lines),
         output: Box::new(Out(seen.clone())),

@@ -1,6 +1,4 @@
-//! What kkt-container needs from the kkt container's config file, and the
-//! contract of whoever parses the file's text for it. kkt-container reads
-//! the text through its [`super::Host`]; the format is not its own.
+//! Parsing the settings a container installation needs.
 
 use std::path::Path;
 

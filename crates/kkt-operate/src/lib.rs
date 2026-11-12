@@ -147,13 +147,16 @@ pub trait Output {
 /// Commands that inspect an unrecorded service require `D: ServiceDefaults`;
 /// record/config-only commands may use `()` and cannot ask that question.
 pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
-    pub container: &'a dyn kkt_container::Host,
+    pub container: &'a dyn kkt_container::Container,
     pub container_configs: &'a dyn kkt_container::ConfigReader,
     pub login_link: &'a dyn kkt_container::LoginLink,
     pub service: &'a dyn kkt_service::Service,
     pub try_bind: &'a dyn Fn(std::net::SocketAddr) -> std::io::Result<()>,
     pub remote: &'a dyn kkt_remote_access::RemoteAccess,
     pub clients: &'a dyn kkt_client_config::Host,
+    /// A client's own command, for the clients whose settings only it should
+    /// change.
+    pub client_command: &'a dyn kkt_client_command::ClientCommand,
     pub prober: &'a dyn kkt_diagnostics::Prober,
     pub lanes: &'a dyn kkt_lane_files::Disk,
     pub lines: &'a dyn kkt_setup::Lines,

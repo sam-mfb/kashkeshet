@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "f66d006",
+ "commit": "3e559b0",
  "crates": [
   {
    "bins": [
@@ -103,12 +103,6 @@ window.KKT_GRAPH = {
     {
      "crate": "kashkeshet",
      "trait": "ConfigReader",
-     "trait_crate": "kkt-container",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "Host",
      "trait_crate": "kkt-container",
      "type": null
     },
@@ -1558,6 +1552,10 @@ window.KKT_GRAPH = {
        "trait": "Host"
       },
       {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      },
+      {
        "crate": "kkt-agent-commands",
        "trait": "Program"
       },
@@ -1597,6 +1595,7 @@ window.KKT_GRAPH = {
       "credentials",
       "key_files",
       "clients",
+      "client_command",
       "program",
       "report",
       "output",
@@ -1729,6 +1728,17 @@ window.KKT_GRAPH = {
     {
      "at": "AgentParts",
      "kind": "field",
+     "name": "client_command",
+     "traits": [
+      {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      }
+     ]
+    },
+    {
+     "at": "AgentParts",
+     "kind": "field",
      "name": "clients",
      "traits": [
       {
@@ -1841,6 +1851,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-agent-commands",
          "trait": "Program"
         },
@@ -1894,6 +1908,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-agent-commands",
@@ -1951,6 +1969,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-agent-commands",
          "trait": "Program"
         },
@@ -2004,6 +2026,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-agent-commands",
@@ -3801,6 +3827,123 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
+       "crate": "kkt-client-command",
+       "type": "testing::Recorder"
+      },
+      {
+       "crate": "kkt-client-command-claude",
+       "type": "Claude"
+      }
+     ],
+     "trait": "ClientCommand"
+    }
+   ],
+   "crate_doc": "Configuring an MCP client through that client's own command line, in kkt's terms: removing kkt's server from the client's settings, and adding it as the client's own entry.",
+   "dev_only": false,
+   "features": {
+    "testing": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-client-command",
+     "trait": "ClientCommand",
+     "trait_crate": "kkt-client-command",
+     "type": "testing::Recorder"
+    }
+   ],
+   "items": [
+    {
+     "doc": "A client's own command, as kkt-client-config asks it.",
+     "kind": "trait",
+     "methods": [
+      "add_server",
+      "remove_server"
+     ],
+     "path": "ClientCommand"
+    },
+    {
+     "doc": "A stand-in client command, for tests of the crates that ask one: it records each call, and fails every call when told to.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "One call, as `Recorder` keeps it.",
+     "feature": "testing",
+     "kind": "enum",
+     "path": "testing::Call",
+     "variants": [
+      "Remove",
+      "Add"
+     ]
+    },
+    {
+     "doc": "Records each call.",
+     "feature": "testing",
+     "fields": [
+      "calls",
+      "fails"
+     ],
+     "kind": "struct",
+     "path": "testing::Recorder"
+    }
+   ],
+   "lib": "kkt_client_command",
+   "machine_work": {},
+   "name": "kkt-client-command",
+   "path": "crates/kkt-client-command",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "kkt-client-command for Claude Code: `claude mcp remove` and `claude mcp add-json`, at user scope, under the name `kkt`, with `CLAUDE_CONFIG_DIR` set to the profile's folder or unset for the default.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-client-command-claude",
+     "trait": "ClientCommand",
+     "trait_crate": "kkt-client-command",
+     "type": "Claude"
+    }
+   ],
+   "items": [
+    {
+     "doc": "Claude Code's own command, which the program injects as kkt-client-command's `ClientCommand`.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Claude"
+    }
+   ],
+   "lib": "kkt_client_command_claude",
+   "machine_work": {
+    "src/runner.rs": [
+     "process::Command::new"
+    ]
+   },
+   "name": "kkt-client-command-claude",
+   "path": "crates/kkt-client-command-claude",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
        "crate": "kashkeshet",
        "type": "machine::client_config::ClientHost"
       }
@@ -3844,7 +3987,6 @@ window.KKT_GRAPH = {
      "methods": [
       "absolute",
       "canonicalize",
-      "claude",
       "create_dir_all",
       "create_private",
       "exists",
@@ -3959,6 +4101,17 @@ window.KKT_GRAPH = {
     {
      "at": "configure",
      "kind": "param",
+     "name": "command",
+     "traits": [
+      {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      }
+     ]
+    },
+    {
+     "at": "configure",
+     "kind": "param",
      "name": "host",
      "traits": [
       {
@@ -3979,7 +4132,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's client-config files and `claude` command, as plain OsHost methods adapted by the program to the client-config logic.",
+   "crate_doc": "The machine's client-config files, as plain OsHost methods adapted by the program to the client-config logic.",
    "dev_only": false,
    "features": {
     "real": []
@@ -3994,7 +4147,6 @@ window.KKT_GRAPH = {
      "methods": [
       "absolute",
       "canonicalize",
-      "claude",
       "create_dir_all",
       "create_private",
       "exists",
@@ -4022,8 +4174,6 @@ window.KKT_GRAPH = {
      "os::unix::fs::OpenOptionsExt",
      "os::unix::fs::PermissionsExt",
      "path::absolute",
-     "process::Command",
-     "process::Command::new",
      "process::id",
      "Path::canonicalize",
      "Path::exists"
@@ -4397,11 +4547,15 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kashkeshet",
-       "type": null
+       "crate": "kkt-container",
+       "type": "testing::Memory"
+      },
+      {
+       "crate": "kkt-container-docker",
+       "type": "Docker"
       }
      ],
-     "trait": "Host"
+     "trait": "Container"
     },
     {
      "implementors": [
@@ -4413,22 +4567,25 @@ window.KKT_GRAPH = {
      "trait": "LoginLink"
     }
    ],
-   "crate_doc": "kkt in Docker: the Compose files that come with this program, the folder kkt manages for them, and the commands that set it up, start it, back it up, import and export its lanes, upgrade it and remove it.",
+   "crate_doc": "The operations and records of a kkt container installation.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "testing": []
+   },
    "holders": [],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-container",
+     "trait": "Container",
+     "trait_crate": "kkt-container",
+     "type": "testing::Memory"
+    }
+   ],
    "items": [
     {
-     "doc": "A program to run and its arguments.",
-     "fields": [
-      "program",
-      "args",
-      "unset",
-      "current_dir"
-     ],
-     "kind": "struct",
-     "path": "Command"
+     "doc": "The host copy of the admin key.",
+     "kind": "const",
+     "path": "ADMIN_KEY_FILE_NAME"
     },
     {
      "doc": "Parses a config file's text into the settings kkt-container uses.",
@@ -4437,6 +4594,29 @@ window.KKT_GRAPH = {
       "settings"
      ],
      "path": "ConfigReader"
+    },
+    {
+     "doc": "Running and managing a kkt container installation.",
+     "kind": "trait",
+     "methods": [
+      "add_admin_key",
+      "backup",
+      "compare_web_key",
+      "down",
+      "existing",
+      "export_lanes",
+      "has_settings",
+      "import_lanes",
+      "lane_limit",
+      "provision",
+      "settings_file",
+      "sharing_key",
+      "status",
+      "up",
+      "upgrade",
+      "version"
+     ],
+     "path": "Container"
     },
     {
      "doc": "The settings of the container's config file that kkt-container uses.",
@@ -4448,39 +4628,9 @@ window.KKT_GRAPH = {
      "path": "ContainerConfig"
     },
     {
-     "doc": "Docker setup's host copy of the admin key.",
-     "kind": "const",
-     "path": "DOCKER_ADMIN_KEY_FILE_NAME"
-    },
-    {
-     "doc": "Docker setup's host copy of the operator key.",
-     "kind": "const",
-     "path": "DOCKER_WEB_KEY_FILE_NAME"
-    },
-    {
-     "doc": "",
-     "kind": "enum",
-     "path": "DockerError",
-     "variants": [
-      "NotAvailable",
-      "Command",
-      "Io",
-      "LoginTimeout",
-      "HttpsDisabled",
-      "StartTimeout",
-      "Unexpected",
-      "Incomplete"
-     ]
-    },
-    {
-     "doc": "The file Compose reads its settings from, in the managed folder.",
-     "kind": "const",
-     "path": "ENV_FILE"
-    },
-    {
-     "doc": "What an install in the managed folder is, read from its files alone, as any version of `kkt setup` leaves them.",
+     "doc": "An installation discovered in the managed folder.",
      "fields": [
-      "tailscale",
+      "sharing",
       "node",
       "port"
      ],
@@ -4488,20 +4638,7 @@ window.KKT_GRAPH = {
      "path": "Existing"
     },
     {
-     "doc": "How a command ended.",
-     "fields": [
-      "code",
-      "stdout",
-      "stderr"
-     ],
-     "kind": "struct",
-     "methods": [
-      "success"
-     ],
-     "path": "Finished"
-    },
-    {
-     "doc": "The folder kkt manages for the Compose files, the settings file and the backups folder.",
+     "doc": "The folder managed for a container installation and its backups.",
      "kind": "struct",
      "methods": [
       "backups",
@@ -4510,35 +4647,19 @@ window.KKT_GRAPH = {
      "path": "Folder"
     },
     {
-     "doc": "What Docker setup needs from the host; the program adapts its real host.",
-     "kind": "trait",
-     "methods": [
-      "create_dir_all",
-      "exists",
-      "is_file",
-      "read_file",
-      "run",
-      "run_attached",
-      "say",
-      "working_dir",
-      "write_file"
-     ],
-     "path": "Host"
-    },
-    {
-     "doc": "What to set up.",
+     "doc": "The version, installation name, port and network access requested.",
      "fields": [
       "version",
       "project",
       "port",
       "allow_hosts",
-      "tailscale"
+      "sharing"
      ],
      "kind": "struct",
      "path": "Inputs"
     },
     {
-     "doc": "How the host's copy of a key compares with the running kkt container's.",
+     "doc": "Whether the saved web key still matches the running server.",
      "kind": "enum",
      "path": "KeyCopy",
      "variants": [
@@ -4547,7 +4668,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "What to import: the lane files, and the source to record for them, which is the folder on the host and its git commit, not the copy in the container.",
+     "doc": "Lane files and their original source to import into the server.",
      "fields": [
       "files",
       "source_folder",
@@ -4558,7 +4679,7 @@ window.KKT_GRAPH = {
      "path": "LanesImport"
     },
     {
-     "doc": "Whether the Tailscale container is logged in to the tailnet.",
+     "doc": "Whether the installation's sharing connection is logged in.",
      "kind": "enum",
      "path": "Login",
      "variants": [
@@ -4580,12 +4701,12 @@ window.KKT_GRAPH = {
      "path": "LoginLink"
     },
     {
-     "doc": "The exit code of `kkt key show --admin` when there is no admin key.",
+     "doc": "The exit code of a key request when no admin key exists.",
      "kind": "const",
      "path": "NO_ADMIN_KEY_EXIT"
     },
     {
-     "doc": "What setup found out while starting kkt.",
+     "doc": "The network name discovered while starting the installation.",
      "fields": [
       "node"
      ],
@@ -4593,117 +4714,48 @@ window.KKT_GRAPH = {
      "path": "Provisioned"
     },
     {
-     "doc": "How long setup and upgrade wait on the containers, and how often they ask.",
+     "doc": "The network name and optional login key requested for sharing.",
      "fields": [
-      "docker_login_wait",
-      "docker_start_wait",
-      "docker_link_wait_polls",
-      "docker_poll_interval"
+      "hostname",
+      "auth_key"
      ],
      "kind": "struct",
-     "path": "Settings"
+     "path": "Sharing"
     },
     {
-     "doc": "How kkt in Docker stands.",
+     "doc": "An installation's files, running server, version and network login.",
      "fields": [
       "files_present",
       "running",
       "version",
       "name_pack",
-      "tailscale",
+      "sharing",
       "login"
      ],
      "kind": "struct",
      "path": "State"
     },
     {
-     "doc": "Tailscale settings for `Inputs`.",
-     "fields": [
-      "hostname",
-      "auth_key"
-     ],
+     "doc": "The host copy of the operator key.",
+     "kind": "const",
+     "path": "WEB_KEY_FILE_NAME"
+    },
+    {
+     "doc": "In-memory installations for tests.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "Installations in memory, with a supplied sharing name and lane output.",
+     "feature": "testing",
      "kind": "struct",
-     "path": "Tailscale"
-    },
-    {
-     "doc": "Gives the running kkt container in `folder` an admin key named `name`, unless it has one, then restarts kkt so it serves `/mcp-admin`; then saves the keys' host copies beside the access key's at `key_file`, as setup does, and returns the...",
-     "kind": "fn",
-     "path": "add_admin_key"
-    },
-    {
-     "doc": "Backs kkt up with `kkt backup` inside the container, then copies the new backup folder into `dest`, if given, owned by the person running this.",
-     "kind": "fn",
-     "path": "backup"
-    },
-    {
-     "doc": "Compares the web key's host copy at `web_key_file` with the running kkt container's web key.",
-     "kind": "fn",
-     "path": "compare_web_key"
-    },
-    {
-     "doc": "The managed Docker folder's settings text; retain the original read error.",
-     "kind": "fn",
-     "path": "docker_env"
-    },
-    {
-     "doc": "Stops and removes the containers.",
-     "kind": "fn",
-     "path": "down"
-    },
-    {
-     "doc": "The settings file.",
-     "kind": "fn",
-     "path": "env_text"
-    },
-    {
-     "doc": "The install in `folder`, if its settings file is there; runs nothing.",
-     "kind": "fn",
-     "path": "existing"
-    },
-    {
-     "doc": "Exports every current lane from kkt in Docker to `dest`, an absolute folder on the host, created if missing.",
-     "kind": "fn",
-     "path": "export_lanes"
-    },
-    {
-     "doc": "Imports the lane files into kkt in Docker.",
-     "kind": "fn",
-     "path": "import_lanes"
-    },
-    {
-     "doc": "The `max_lane_chars` that `kkt lanes import` in the kkt container uses: from the config file it finds there, else `default`, the limit kkt uses when its settings name none; the caller gives it.",
-     "kind": "fn",
-     "path": "lane_limit"
-    },
-    {
-     "doc": "Writes the files for `inputs` into `folder`, starts kkt (and Tailscale) and saves the access key at `key_file` and the web key beside it, both readable only by their owner.",
-     "kind": "fn",
-     "path": "provision"
-    },
-    {
-     "doc": "`reader` parses the container's config file, for its name pack.",
-     "kind": "fn",
-     "path": "status"
-    },
-    {
-     "doc": "The Tailscale auth key from the named file, trimmed as setup's inputs require.",
-     "kind": "fn",
-     "path": "tailscale_auth_key"
-    },
-    {
-     "doc": "Starts the containers.",
-     "kind": "fn",
-     "path": "up"
-    },
-    {
-     "doc": "Moves kkt to `new_version`: a backup first (so a failed backup stops the upgrade), then this program's Compose files and the new version in the settings file, then the new image.",
-     "kind": "fn",
-     "path": "upgrade"
-    },
-    {
-     "doc": "The kkt version `env` runs, from its `KKT_VERSION` line.",
-     "kind": "fn",
-     "path": "version_in_env"
+     "methods": [
+      "calls",
+      "new",
+      "set_sharing_key"
+     ],
+     "path": "testing::Memory"
     }
    ],
    "lib": "kkt_container",
@@ -4711,288 +4763,41 @@ window.KKT_GRAPH = {
    "name": "kkt-container",
    "path": "crates/kkt-container",
    "released_program": false,
-   "slots": [
-    {
-     "at": "add_admin_key",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    },
-    {
-     "at": "add_admin_key",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "backup",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "compare_web_key",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "docker_env",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "down",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "existing",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "export_lanes",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "import_lanes",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "lane_limit",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "lane_limit",
-     "kind": "param",
-     "name": "reader",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "ConfigReader"
-      }
-     ]
-    },
-    {
-     "at": "provision",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    },
-    {
-     "at": "provision",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "provision",
-     "kind": "param",
-     "name": "login",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "LoginLink"
-      }
-     ]
-    },
-    {
-     "at": "status",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "status",
-     "kind": "param",
-     "name": "reader",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "ConfigReader"
-      }
-     ]
-    },
-    {
-     "at": "tailscale_auth_key",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "up",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "upgrade",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    },
-    {
-     "at": "upgrade",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-container",
-       "trait": "Host"
-      }
-     ]
-    }
-   ],
+   "slots": [],
    "testing_third_party": [],
    "third_party": [
-    "serde_json",
-    "thiserror"
+    "futures"
    ]
   },
   {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine Docker runs on: files, commands and terminal lines.",
+   "crate_doc": "Docker implementation of kkt-container: the Compose files that come with this program, the folder kkt manages for them, and the commands that set it up, start it, back it up, import and export its lanes, upgrade it and remove it.",
    "dev_only": false,
    "features": {
     "real": []
    },
    "holders": [],
-   "implements": [],
-   "items": [
+   "implements": [
     {
-     "doc": "A raw command and the environment and directory it runs with.",
-     "fields": [
-      "program",
-      "args",
-      "unset",
-      "current_dir"
-     ],
-     "kind": "struct",
-     "path": "Command"
-    },
-    {
-     "doc": "The machine's exit status and captured output.",
-     "fields": [
-      "code",
-      "stdout",
-      "stderr"
-     ],
-     "kind": "struct",
-     "path": "Finished"
-    },
-    {
-     "doc": "",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "create_dir_all",
-      "exists",
-      "is_file",
-      "read_file",
-      "run",
-      "run_attached",
-      "say",
-      "working_dir",
-      "write_file"
-     ],
-     "path": "OsHost"
+     "crate": "kkt-container-docker",
+     "trait": "Container",
+     "trait_crate": "kkt-container",
+     "type": "Docker"
     }
    ],
-   "lib": "kkt_container_os",
+   "items": [
+    {
+     "doc": "Docker and Compose implement the container contract directly.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Docker"
+    }
+   ],
+   "lib": "kkt_container_docker",
    "machine_work": {
-    "src/lib.rs": [
+    "src/runner.rs": [
      "env::current_dir",
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
@@ -5014,12 +4819,16 @@ window.KKT_GRAPH = {
      "Path::is_file"
     ]
    },
-   "name": "kkt-container-os",
-   "path": "crates/kkt-container-os",
+   "name": "kkt-container-docker",
+   "path": "crates/kkt-container-docker",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "futures",
+    "serde_json",
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -8304,7 +8113,7 @@ window.KKT_GRAPH = {
      "holds": [
       {
        "crate": "kkt-container",
-       "trait": "Host"
+       "trait": "Container"
       },
       {
        "crate": "kkt-container",
@@ -8325,6 +8134,10 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-client-config",
        "trait": "Host"
+      },
+      {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
       },
       {
        "crate": "kkt-diagnostics",
@@ -8488,6 +8301,7 @@ window.KKT_GRAPH = {
       "try_bind",
       "remote",
       "clients",
+      "client_command",
       "prober",
       "lanes",
       "lines",
@@ -8894,6 +8708,17 @@ window.KKT_GRAPH = {
     {
      "at": "OperateParts",
      "kind": "field",
+     "name": "client_command",
+     "traits": [
+      {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
      "name": "clients",
      "traits": [
       {
@@ -8931,7 +8756,7 @@ window.KKT_GRAPH = {
      "traits": [
       {
        "crate": "kkt-container",
-       "trait": "Host"
+       "trait": "Container"
       }
      ]
     },
@@ -9086,7 +8911,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -9107,6 +8932,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9173,7 +9002,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -9194,6 +9023,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9264,7 +9097,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -9285,6 +9118,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9355,7 +9192,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -9376,6 +9213,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9446,7 +9287,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -9467,6 +9308,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9548,7 +9393,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -9569,6 +9414,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9635,7 +9484,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -9656,6 +9505,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9733,7 +9586,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -9754,6 +9607,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9824,7 +9681,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -9845,6 +9702,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9937,7 +9798,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -9958,6 +9819,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10024,7 +9889,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -10045,6 +9910,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10111,7 +9980,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -10132,6 +10001,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10198,7 +10071,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -10219,6 +10092,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10285,7 +10162,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -10306,6 +10183,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10372,7 +10253,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -10393,6 +10274,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10463,7 +10348,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -10484,6 +10369,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10554,7 +10443,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -10575,6 +10464,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10688,7 +10581,7 @@ window.KKT_GRAPH = {
      "traits": [
       {
        "crate": "kkt-container",
-       "trait": "Host"
+       "trait": "Container"
       }
      ]
     },
@@ -10722,7 +10615,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -10743,6 +10636,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10813,7 +10710,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -10834,6 +10731,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10915,7 +10816,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -10936,6 +10837,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -11002,7 +10907,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -11023,6 +10928,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -11089,7 +10998,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -11110,6 +11019,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -11180,7 +11093,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-container",
-         "trait": "Host"
+         "trait": "Container"
         },
         {
          "crate": "kkt-container",
@@ -11201,6 +11114,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -14137,12 +14054,12 @@ window.KKT_GRAPH = {
      "path": "doctor_checks::admin_key_fix"
     },
     {
-     "doc": "The doctor's line about kkt in Docker, from what `kkt_container::status` found in the managed `folder`.",
+     "doc": "The doctor's line about kkt in Docker, from what `kkt_container::Container::status` found in the managed `folder`.",
      "kind": "fn",
      "path": "doctor_checks::docker_check"
     },
     {
-     "doc": "The doctor's line about whether the web key's host copy is the Docker server's key, from what `kkt_container::compare_web_key` found.",
+     "doc": "The doctor's line about whether the web key's host copy is the Docker server's key, from what `kkt_container::Container::compare_web_key` found.",
      "kind": "fn",
      "path": "doctor_checks::docker_web_key_check"
     },
@@ -16576,6 +16493,29 @@ window.KKT_GRAPH = {
    "to": "kkt-backup-os"
   },
   {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "Claude"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "Claude"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command-claude"
+  },
+  {
    "features": [],
    "from": "kashkeshet",
    "items": [
@@ -16742,11 +16682,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Command",
     "ConfigReader",
     "ContainerConfig",
-    "Finished",
-    "Host",
     "LoginLink"
    ],
    "kind": "normal",
@@ -16756,16 +16693,13 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "a type of its own implements ConfigReader",
-      "a type of its own implements Host",
       "terminal::browser_login::TerminalLink implements LoginLink"
      ],
      "role": "implements"
     },
     {
      "detail": [
-      "Command",
-      "ContainerConfig",
-      "Finished"
+      "ContainerConfig"
      ],
      "role": "uses"
     }
@@ -16780,26 +16714,22 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
-    "Command",
-    "Finished",
-    "OsHost"
+    "Docker"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
     {
      "detail": [
-      "Command",
-      "Finished",
-      "OsHost"
+      "Docker"
      ],
-     "role": "uses"
+     "role": "wires"
     }
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-container-os"
+   "to": "kkt-container-docker"
   },
   {
    "features": [],
@@ -18268,6 +18198,29 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-agent-commands",
    "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "testing::Recorder"
+   ],
+   "to": "kkt-client-command"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
     "Client",
     "Host",
     "Setup",
@@ -18448,6 +18401,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-admission"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-agent-commands",
+   "items": [
+    "testing::Recorder"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "testing::Recorder"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
   },
   {
    "features": [
@@ -19315,6 +19291,27 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-client-command-claude",
+   "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Claude implements ClientCommand"
+     ],
+     "role": "implements"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
+  },
+  {
+   "features": [],
    "from": "kkt-client-config",
    "items": [
     "check_access_key"
@@ -19338,6 +19335,29 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-client-config",
    "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "testing::Call"
+   ],
+   "to": "kkt-client-command"
+  },
+  {
+   "features": [],
+   "from": "kkt-client-config",
+   "items": [
     "Env"
    ],
    "kind": "normal",
@@ -19354,6 +19374,31 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-machine"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-client-config",
+   "items": [
+    "ClientCommand",
+    "testing::Call"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand",
+      "testing::Call"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
   },
   {
    "features": [],
@@ -19410,6 +19455,50 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-container",
    "items": [
+    "Clock"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Time"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-container",
+   "items": [
+    "AdminName"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AdminName"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-names"
+  },
+  {
+   "features": [],
+   "from": "kkt-container-docker",
+   "items": [
     "Clock",
     "Span"
    ],
@@ -19434,7 +19523,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
    "items": [
     "CONFIG_DIR",
     "CONFIG_FILE_NAME",
@@ -19461,7 +19550,63 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
+   "items": [
+    "ADMIN_KEY_FILE_NAME",
+    "ConfigReader",
+    "Container",
+    "ContainerConfig",
+    "Existing",
+    "Folder",
+    "Inputs",
+    "KeyCopy",
+    "LanesImport",
+    "Login",
+    "LoginLink",
+    "NO_ADMIN_KEY_EXIT",
+    "Provisioned",
+    "Sharing",
+    "State",
+    "WEB_KEY_FILE_NAME"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Docker implements Container"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "ADMIN_KEY_FILE_NAME",
+      "ConfigReader",
+      "ContainerConfig",
+      "Existing",
+      "Folder",
+      "Inputs",
+      "KeyCopy",
+      "LanesImport",
+      "Login",
+      "LoginLink",
+      "NO_ADMIN_KEY_EXIT",
+      "Provisioned",
+      "Sharing",
+      "State",
+      "WEB_KEY_FILE_NAME"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-container"
+  },
+  {
+   "features": [],
+   "from": "kkt-container-docker",
    "items": [
     "Env",
     "XDG_CONFIG_HOME_DEFAULT"
@@ -19484,7 +19629,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
    "items": [
     "AdminName"
    ],
@@ -19509,7 +19654,7 @@ window.KKT_GRAPH = {
    "features": [
     "testing"
    ],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
    "items": [
     "Span",
     "Time",
@@ -19539,7 +19684,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container-os",
+   "from": "kkt-container-docker",
    "items": [
     "Dir"
    ],
@@ -22498,6 +22643,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operate",
    "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
     "Client",
     "Host",
     "Setup",
@@ -22579,31 +22745,15 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operate",
    "items": [
+    "ADMIN_KEY_FILE_NAME",
     "ConfigReader",
-    "DOCKER_ADMIN_KEY_FILE_NAME",
-    "ENV_FILE",
+    "Container",
     "Folder",
-    "Host",
     "Inputs",
     "LanesImport",
     "LoginLink",
     "NO_ADMIN_KEY_EXIT",
-    "Settings",
-    "Tailscale",
-    "add_admin_key",
-    "backup",
-    "compare_web_key",
-    "docker_env",
-    "down",
-    "existing",
-    "export_lanes",
-    "import_lanes",
-    "lane_limit",
-    "provision",
-    "status",
-    "tailscale_auth_key",
-    "upgrade",
-    "version_in_env"
+    "Sharing"
    ],
    "kind": "normal",
    "optional": false,
@@ -22611,40 +22761,23 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "ADMIN_KEY_FILE_NAME",
       "ConfigReader",
-      "DOCKER_ADMIN_KEY_FILE_NAME",
-      "ENV_FILE",
+      "Container",
       "Folder",
-      "Host",
       "Inputs",
       "LanesImport",
       "LoginLink",
       "NO_ADMIN_KEY_EXIT",
-      "Settings",
-      "Tailscale",
-      "add_admin_key",
-      "backup",
-      "compare_web_key",
-      "docker_env",
-      "down",
-      "existing",
-      "export_lanes",
-      "import_lanes",
-      "lane_limit",
-      "provision",
-      "status",
-      "tailscale_auth_key",
-      "upgrade",
-      "version_in_env"
+      "Sharing"
      ],
      "role": "uses"
     }
    ],
    "target": null,
    "test_items": [
-    "Command",
     "ContainerConfig",
-    "Finished"
+    "testing::Memory"
    ],
    "to": "kkt-container"
   },
@@ -23087,6 +23220,39 @@ window.KKT_GRAPH = {
     "connection::ServeConnection"
    ],
    "to": "kkt-setup"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-operate",
+   "items": [
+    "ConfigReader",
+    "ContainerConfig",
+    "LoginLink",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ConfigReader",
+      "LoginLink"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-container"
   },
   {
    "features": [],
@@ -24861,13 +25027,12 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
-    "DOCKER_ADMIN_KEY_FILE_NAME",
-    "DOCKER_WEB_KEY_FILE_NAME",
-    "DockerError",
+    "ADMIN_KEY_FILE_NAME",
     "Folder",
     "KeyCopy",
     "Login",
-    "State"
+    "State",
+    "WEB_KEY_FILE_NAME"
    ],
    "kind": "normal",
    "optional": false,
@@ -24875,13 +25040,12 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "DOCKER_ADMIN_KEY_FILE_NAME",
-      "DOCKER_WEB_KEY_FILE_NAME",
-      "DockerError",
+      "ADMIN_KEY_FILE_NAME",
       "Folder",
       "KeyCopy",
       "Login",
-      "State"
+      "State",
+      "WEB_KEY_FILE_NAME"
      ],
      "role": "uses"
     }
@@ -25944,14 +26108,26 @@ window.KKT_CONCERNS = {
    "layer": "operations",
    "must_not": "Choose backup names, contents, modes or retention."
   },
+  "kkt-client-command": {
+   "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand (remove kkt's server, add it as the client's own entry), with the testing Recorder.",
+   "kind": "contract",
+   "layer": "operations",
+   "must_not": "Know a client's command, its arguments or output; touch the machine."
+  },
+  "kkt-client-command-claude": {
+   "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner; running claude is behind real.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Echo the command's output, which may hold credentials."
+  },
   "kkt-client-config": {
-   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
+   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through kkt-client-command's ClientCommand, and its file restored if that fails.",
    "kind": "logic",
    "layer": "operations",
-   "must_not": "Touch the machine except through `Host`."
+   "must_not": "Touch the machine except through `Host` and `ClientCommand`."
   },
   "kkt-client-config-os": {
-   "concern": "The machine's client-config files and claude command: plain OsHost methods, adapted by the program.",
+   "concern": "The machine's client-config files: plain OsHost methods, adapted by the program.",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Decide a client config's content."
@@ -25981,16 +26157,16 @@ window.KKT_CONCERNS = {
    "must_not": "Know the files' format."
   },
   "kkt-container": {
-   "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
-   "kind": "logic",
+   "concern": "The container installation contract, its requests and results, config parsing and login-link contracts, and an in-memory testing stand-in.",
+   "kind": "contract",
    "layer": "operations",
-   "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`."
+   "must_not": "Know Docker commands, Compose files or their formats; touch the machine."
   },
-  "kkt-container-os": {
-   "concern": "The machine's Docker commands, files and terminal: plain OsHost methods, adapted by the program.",
+  "kkt-container-docker": {
+   "concern": "Docker and Compose implement Container directly; all Docker files, commands, output and sidecar status, tested over a private runner.",
    "kind": "effect",
    "layer": "operations",
-   "must_not": "Decide what Docker setup does."
+   "must_not": "Decide setup answers or remember the setup record."
   },
   "kkt-db": {
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
@@ -26957,88 +27133,6 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-container",
-     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install",
-     "own": "ContainerHost, adapting kkt-container-os's OsHost",
-     "supplier": "kkt-container-os's OsHost",
-     "to": [
-      {
-       "at": "provision",
-       "param": "host"
-      },
-      {
-       "at": "upgrade",
-       "param": "host"
-      },
-      {
-       "at": "status",
-       "param": "host"
-      },
-      {
-       "at": "compare_web_key",
-       "param": "host"
-      },
-      {
-       "at": "lane_limit",
-       "param": "host"
-      },
-      {
-       "at": "import_lanes",
-       "param": "host"
-      },
-      {
-       "at": "export_lanes",
-       "param": "host"
-      },
-      {
-       "at": "backup",
-       "param": "host"
-      },
-      {
-       "at": "down",
-       "param": "host"
-      },
-      {
-       "at": "existing",
-       "param": "host"
-      },
-      {
-       "at": "add_admin_key",
-       "param": "host"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-container",
-     "impl": "kkt-clock-system::SystemClock",
-     "note": "kkt setup and upgrade, for a Docker install",
-     "to": [
-      {
-       "at": "provision",
-       "param": "clock"
-      },
-      {
-       "at": "upgrade",
-       "param": "clock"
-      },
-      {
-       "at": "add_admin_key",
-       "param": "clock"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-container",
-     "impl": "kashkeshet::terminal::browser_login::TerminalLink",
-     "note": "kkt setup for Docker, with Tailscale",
-     "to": [
-      {
-       "at": "provision",
-       "param": "login"
-      }
-     ]
-    },
-    {
      "crate": "kkt-service",
      "note": "kkt service, setup, upgrade, status and doctor",
      "own": "ServiceSystem, adapting kkt-service-os's OsSystem",
@@ -27238,8 +27332,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "ContainerHost",
-     "supplier": "kkt-container-os::OsHost",
+     "impl": "kkt-container-docker::Docker",
+     "note": "Direct injection of the named container implementation into the operator assembly.",
      "to": [
       {
        "at": "OperateParts",
@@ -27420,6 +27514,28 @@ window.KKT_ASSEMBLY = {
       {
        "at": "OperateParts",
        "param": "config_file"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "impl": "kkt-client-command-claude::Claude",
+     "note": "kkt setup: Claude Code's own command, injected as it is",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "client_command"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-agent-commands",
+     "impl": "kkt-client-command-claude::Claude",
+     "note": "kkt connect: Claude Code's own command, injected as it is",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "client_command"
       }
      ]
     }

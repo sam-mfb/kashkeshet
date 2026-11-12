@@ -58,13 +58,14 @@ impl<'a, D> NativeOperate<'a, D> {
     /// The parts, as kkt-operate's commands take them.
     pub fn parts(&self) -> OperateParts<'_, ConnectionReads<'a>, D> {
         OperateParts {
-            container: &super::container::ContainerHost,
+            container: &kkt_container_docker::Docker,
             container_configs: &settings::ContainerConfigs,
             login_link: &self.login_link,
             service: self.service.as_ref(),
             try_bind: &kkt_service_os::try_bind,
             remote: &kkt_remote_access_tailscale::Tailscale,
             clients: &super::client_config::ClientHost,
+            client_command: &kkt_client_command_claude::Claude,
             prober: &super::diagnostics::DiagnosticProber,
             lanes: &crate::commands::lanes::LaneDisk,
             lines: &crate::terminal::TerminalLines,

@@ -1,12 +1,13 @@
 //! Setting kkt up in Docker: files, folder ownership, the Tailscale login,
 //! starting the containers and saving both keys.
 
+use super::Provisioned;
 use super::compose::{compose, tailscale_status, version};
 use super::files::{create_dir, env_text, write_embedded, write_env};
 use super::tailscale::{parse_status, split_name};
 use super::{
     DOCKER_ADMIN_KEY_FILE_NAME, DOCKER_BACKUPS_MOUNT, DOCKER_WEB_KEY_FILE_NAME, DockerError,
-    Folder, Host, Inputs, LoginLink, NO_ADMIN_KEY_EXIT, Settings, UNKNOWN_OPTION_EXIT,
+    Folder, Inputs, LoginLink, NO_ADMIN_KEY_EXIT, Runner, Settings, UNKNOWN_OPTION_EXIT,
 };
 use kkt_clock::{Clock, Span};
 use kkt_names::AdminName;
@@ -17,21 +18,13 @@ use std::time::Duration;
 /// must belong to it.
 const DOCKER_IMAGE_USER_ID: u32 = 10001;
 
-/// What setup found out while starting kkt.
-#[derive(Debug, PartialEq, Eq)]
-pub struct Provisioned {
-    /// The node's name on the tailnet, as `(hostname, tailnet)`, if kkt is
-    /// served over Tailscale. kkt answers to `<hostname>.<tailnet>`.
-    pub node: Option<(String, String)>,
-}
-
 /// Writes the files for `inputs` into `folder`, starts kkt (and Tailscale)
 /// and saves the access key at `key_file` and the web key beside it, both
 /// readable only by their owner. It waits on the containers as `settings`
 /// say.
 /// Safe to run again on the same folder: it carries on from where it was.
 pub async fn provision(
-    host: &dyn Host,
+    host: &dyn Runner,
     clock: &dyn Clock,
     settings: Settings,
     login: &dyn LoginLink,
@@ -40,7 +33,7 @@ pub async fn provision(
     key_file: &Path,
 ) -> Result<Provisioned, DockerError> {
     check_docker(host)?;
-    let tailscale = inputs.tailscale.is_some();
+    let tailscale = inputs.sharing.is_some();
     create_dir(host, folder.path())?;
     create_dir(host, &folder.backups())?;
     write_embedded(host, folder, tailscale)?;
@@ -78,7 +71,7 @@ pub(super) struct SavedKeys {
 }
 
 /// Says where the keys in `saved` are, and how to read them.
-pub(super) fn say_saved(host: &dyn Host, saved: &SavedKeys) {
+pub(super) fn say_saved(host: &dyn Runner, saved: &SavedKeys) {
     host.say(&format!(
         "The web key is saved in {}. Read it with `kkt key show --web`.",
         saved.web.display()
@@ -101,7 +94,7 @@ pub(super) fn say_saved(host: &dyn Host, saved: &SavedKeys) {
 /// the key and then failed to restart leaves kkt without `/mcp-admin`, and
 /// running this again must finish the job without making another key.
 pub async fn add_admin_key(
-    host: &dyn Host,
+    host: &dyn Runner,
     clock: &dyn Clock,
     settings: Settings,
     folder: &Folder,
@@ -148,7 +141,7 @@ pub async fn add_admin_key(
 /// container also has an admin key, saves it beside them the same way.
 /// No key is shown or put in a command's arguments.
 pub(super) async fn save_keys(
-    host: &dyn Host,
+    host: &dyn Runner,
     clock: &dyn Clock,
     settings: Settings,
     folder: &Folder,
@@ -185,7 +178,7 @@ pub(super) async fn save_keys(
 /// older than admin keys, refuses the option with [`UNKNOWN_OPTION_EXIT`].
 /// Any other failure, or no key printed, is an error, which leaves the
 /// command's output out since it may hold the key.
-fn read_admin_key(host: &dyn Host, folder: &Folder) -> Result<Option<String>, DockerError> {
+fn read_admin_key(host: &dyn Runner, folder: &Folder) -> Result<Option<String>, DockerError> {
     let show = key_show(folder, ServerKey::Admin);
     let done = run(host, &show)?;
     let key = done.stdout.trim();
@@ -205,7 +198,7 @@ fn read_admin_key(host: &dyn Host, folder: &Folder) -> Result<Option<String>, Do
 }
 
 /// Fails with a clear message if Docker or its Compose plugin is missing.
-fn check_docker(host: &dyn Host) -> Result<(), DockerError> {
+fn check_docker(host: &dyn Runner) -> Result<(), DockerError> {
     let command = version();
     match host.run(&command) {
         Ok(done) if done.success() => Ok(()),
@@ -221,7 +214,7 @@ fn check_docker(host: &dyn Host) -> Result<(), DockerError> {
 
 /// Makes the backups folder belong to the user the kkt image runs as, so the
 /// container can write to it, without needing sudo on the host.
-fn own_backups(host: &dyn Host, folder: &Folder) -> Result<(), DockerError> {
+fn own_backups(host: &dyn Runner, folder: &Folder) -> Result<(), DockerError> {
     let owner = DOCKER_IMAGE_USER_ID.to_string();
     run_attached(
         host,
@@ -246,7 +239,7 @@ fn own_backups(host: &dyn Host, folder: &Folder) -> Result<(), DockerError> {
 /// Waits for the Tailscale container to be logged in, showing the login link
 /// once, and returns the node's name as `(hostname, tailnet)`.
 async fn log_in(
-    host: &dyn Host,
+    host: &dyn Runner,
     clock: &dyn Clock,
     settings: Settings,
     login: &dyn LoginLink,
@@ -325,7 +318,7 @@ async fn log_in(
 
 /// Waits for kkt to be up and returns the selected key.
 async fn wait_for_key(
-    host: &dyn Host,
+    host: &dyn Runner,
     clock: &dyn Clock,
     settings: Settings,
     folder: &Folder,
@@ -391,7 +384,7 @@ async fn poll<T>(
 /// Runs a command and returns how it ended; failing to run it at all is an
 /// error.
 pub(super) fn run(
-    host: &dyn Host,
+    host: &dyn Runner,
     command: &super::Command,
 ) -> Result<super::Finished, DockerError> {
     host.run(command)
@@ -399,7 +392,7 @@ pub(super) fn run(
 }
 
 /// Runs a command with its output on the terminal; a failure is an error.
-pub(super) fn run_attached(host: &dyn Host, command: &super::Command) -> Result<(), DockerError> {
+pub(super) fn run_attached(host: &dyn Runner, command: &super::Command) -> Result<(), DockerError> {
     let done = host
         .run_attached(command)
         .map_err(|e| DockerError::NotAvailable(format!("could not run `{command}`: {e}")))?;

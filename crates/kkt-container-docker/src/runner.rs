@@ -1,5 +1,4 @@
-//! The machine Docker runs on: files, commands and terminal lines.
-//! Plain OsHost methods are adapted by the program to the container logic.
+//! Private native runner for the Docker wrapper.
 
 #[cfg(any(test, feature = "real"))]
 use std::io;
@@ -8,10 +7,10 @@ use std::path::Path;
 use std::process::Stdio;
 
 #[cfg(any(test, feature = "real"))]
-pub struct OsHost;
+pub(super) struct OsHost;
 
 /// A raw command and the environment and directory it runs with.
-pub struct Command<'a> {
+struct NativeCommand<'a> {
     pub program: &'a str,
     pub args: &'a [String],
     pub unset: &'a [String],
@@ -20,7 +19,7 @@ pub struct Command<'a> {
 
 /// The machine's exit status and captured output.
 #[derive(Default)]
-pub struct Finished {
+struct NativeFinished {
     pub code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
@@ -32,48 +31,48 @@ const PRIVATE_FILE_MODE: u32 = 0o600;
 
 #[cfg(any(test, feature = "real"))]
 impl OsHost {
-    pub fn run(&self, command: &Command<'_>) -> io::Result<Finished> {
+    fn run(&self, command: &NativeCommand<'_>) -> io::Result<NativeFinished> {
         let output = process(command).stdin(Stdio::null()).output()?;
-        Ok(Finished {
+        Ok(NativeFinished {
             code: output.status.code(),
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         })
     }
 
-    pub fn run_attached(&self, command: &Command<'_>) -> io::Result<Finished> {
+    fn run_attached(&self, command: &NativeCommand<'_>) -> io::Result<NativeFinished> {
         let status = process(command).stdin(Stdio::null()).status()?;
-        Ok(Finished {
+        Ok(NativeFinished {
             code: status.code(),
-            ..Finished::default()
+            ..NativeFinished::default()
         })
     }
 
-    pub fn is_file(&self, path: &Path) -> bool {
+    fn is_file(&self, path: &Path) -> bool {
         path.is_file()
     }
 
-    pub fn exists(&self, path: &Path) -> bool {
+    fn exists(&self, path: &Path) -> bool {
         path.exists()
     }
 
-    pub fn read_file(&self, path: &Path) -> io::Result<String> {
+    fn read_file(&self, path: &Path) -> io::Result<String> {
         std::fs::read_to_string(path)
     }
 
-    pub fn create_dir_all(&self, path: &Path) -> io::Result<()> {
+    fn create_dir_all(&self, path: &Path) -> io::Result<()> {
         std::fs::create_dir_all(path)
     }
 
-    pub fn write_file(&self, path: &Path, contents: &str, private: bool) -> io::Result<()> {
+    fn write_file(&self, path: &Path, contents: &str, private: bool) -> io::Result<()> {
         write(path, contents, private)
     }
 
-    pub fn say(&self, line: &str) {
+    fn say(&self, line: &str) {
         println!("{line}");
     }
 
-    pub fn working_dir(&self) -> io::Result<std::path::PathBuf> {
+    fn working_dir(&self) -> io::Result<std::path::PathBuf> {
         std::env::current_dir()
     }
 }
@@ -81,7 +80,7 @@ impl OsHost {
 /// The process for `command`: in its folder, without the variables it must
 /// not see.
 #[cfg(any(test, feature = "real"))]
-fn process(command: &Command<'_>) -> std::process::Command {
+fn process(command: &NativeCommand<'_>) -> std::process::Command {
     let mut process = std::process::Command::new(command.program);
     process.args(command.args);
     for name in command.unset {
@@ -130,7 +129,7 @@ mod tests {
     #[test]
     fn a_private_file_is_made_private_even_over_a_looser_one() {
         use std::os::unix::fs::PermissionsExt;
-        let dir = crate::scratch::Dir::new("kkt-docker-host");
+        let dir = scratch::Dir::new("kkt-docker-host");
         let path = dir.join("key");
         std::fs::write(&path, "old").unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
@@ -149,7 +148,7 @@ mod tests {
         // Cargo sets CARGO_MANIFEST_DIR for every test run.
         let print = |unset: Vec<String>| {
             OsHost
-                .run(&Command {
+                .run(&NativeCommand {
                     program: "sh",
                     args: &[
                         "-c".into(),
@@ -168,9 +167,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn the_real_host_runs_a_command_in_the_folder_it_names() {
-        let dir = crate::scratch::Dir::new("kkt-docker-cwd");
+        let dir = scratch::Dir::new("kkt-docker-cwd");
         let here = OsHost
-            .run(&Command {
+            .run(&NativeCommand {
                 program: "pwd",
                 args: &["-P".into()],
                 unset: &[],
@@ -182,5 +181,63 @@ mod tests {
             Path::new(here.trim()),
             std::fs::canonicalize(&dir).unwrap().as_path()
         );
+    }
+}
+
+#[cfg(any(test, feature = "real"))]
+impl super::Runner for OsHost {
+    fn run(&self, command: &super::Command) -> io::Result<super::Finished> {
+        OsHost.run(&native_command(command)).map(finished)
+    }
+
+    fn run_attached(&self, command: &super::Command) -> io::Result<super::Finished> {
+        OsHost.run_attached(&native_command(command)).map(finished)
+    }
+
+    fn is_file(&self, path: &Path) -> bool {
+        OsHost.is_file(path)
+    }
+
+    fn exists(&self, path: &Path) -> bool {
+        OsHost.exists(path)
+    }
+
+    fn read_file(&self, path: &Path) -> io::Result<String> {
+        OsHost.read_file(path)
+    }
+
+    fn create_dir_all(&self, path: &Path) -> io::Result<()> {
+        OsHost.create_dir_all(path)
+    }
+
+    fn write_file(&self, path: &Path, contents: &str, private: bool) -> io::Result<()> {
+        OsHost.write_file(path, contents, private)
+    }
+
+    fn say(&self, line: &str) {
+        OsHost.say(line)
+    }
+
+    fn working_dir(&self) -> io::Result<std::path::PathBuf> {
+        OsHost.working_dir()
+    }
+}
+
+#[cfg(any(test, feature = "real"))]
+fn native_command(command: &super::Command) -> NativeCommand<'_> {
+    NativeCommand {
+        program: command.program,
+        args: &command.args,
+        unset: &command.unset,
+        current_dir: command.current_dir.as_deref(),
+    }
+}
+
+#[cfg(any(test, feature = "real"))]
+fn finished(output: NativeFinished) -> super::Finished {
+    super::Finished {
+        code: output.code,
+        stdout: output.stdout,
+        stderr: output.stderr,
     }
 }

@@ -43,6 +43,9 @@ pub struct AgentParts<C: ConnectionSource> {
     pub key_files: Box<dyn KeyText>,
     /// The client configs' files, for `kkt connect`.
     pub clients: Box<dyn kkt_client_config::Host>,
+    /// A client's own command, for the clients whose settings only it should
+    /// change.
+    pub client_command: Box<dyn kkt_client_command::ClientCommand>,
     /// This program's path, for a client's config.
     pub program: Box<dyn Program>,
     /// Where `kkt watch` prints messages and notes.

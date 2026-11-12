@@ -16,7 +16,7 @@ type Script = Box<dyn Fn(&str) -> io::Result<Finished>>;
 /// A host whose commands are answered by a script, and which keeps what was
 /// run, said and written. Every command takes three seconds on its clock,
 /// longer than the poll interval, so waiting never really waits.
-struct FakeHost {
+struct FakeRunner {
     clock: Arc<FixedClock>,
     reply: Script,
     ran: RefCell<Vec<String>>,
@@ -50,9 +50,9 @@ fn no_admin_key() -> io::Result<Finished> {
     })
 }
 
-impl FakeHost {
-    fn new(reply: impl Fn(&str) -> io::Result<Finished> + 'static) -> FakeHost {
-        FakeHost {
+impl FakeRunner {
+    fn new(reply: impl Fn(&str) -> io::Result<Finished> + 'static) -> FakeRunner {
+        FakeRunner {
             clock: Arc::new(FixedClock::new(
                 Time::from_parts(2026, 10, 29, 12, 0, 0).unwrap(),
             )),
@@ -85,7 +85,7 @@ impl FakeHost {
     }
 }
 
-impl Host for FakeHost {
+impl Runner for FakeRunner {
     fn run(&self, command: &Command) -> io::Result<Finished> {
         self.answer(command)
     }
@@ -213,7 +213,7 @@ fn plain() -> Inputs {
         project: "kkt".into(),
         port: 7420,
         allow_hosts: vec![],
-        tailscale: None,
+        sharing: None,
     }
 }
 
@@ -223,7 +223,7 @@ fn with_tailscale(auth_key: Option<&str>) -> Inputs {
         project: "kkt".into(),
         port: 7420,
         allow_hosts: vec![],
-        tailscale: Some(Tailscale {
+        sharing: Some(Tailscale {
             hostname: "kkt".into(),
             auth_key: auth_key.map(str::to_string),
         }),
@@ -347,7 +347,7 @@ fn a_node_name_splits_into_its_own_and_the_tailnets() {
 
 #[tokio::test]
 async fn a_local_setup_writes_the_files_starts_kkt_and_saves_the_key_privately() {
-    let host = FakeHost::new(working(""));
+    let host = FakeRunner::new(working(""));
     let done = provision(
         &host,
         &*host.clock,
@@ -398,7 +398,7 @@ async fn a_local_setup_writes_the_files_starts_kkt_and_saves_the_key_privately()
 #[tokio::test]
 async fn a_tailscale_setup_shows_the_login_link_once_and_uses_the_nodes_own_name() {
     let polls = Cell::new(0);
-    let host = FakeHost::new(move |command| {
+    let host = FakeRunner::new(move |command| {
         if command.contains("tailscale status") {
             polls.set(polls.get() + 1);
             return ok(if polls.get() < 4 {
@@ -456,7 +456,7 @@ async fn a_tailscale_setup_shows_the_login_link_once_and_uses_the_nodes_own_name
 
 #[tokio::test]
 async fn an_auth_key_goes_only_in_the_private_settings_file() {
-    let host = FakeHost::new(working(RUNNING));
+    let host = FakeRunner::new(working(RUNNING));
     provision(
         &host,
         &*host.clock,
@@ -477,7 +477,7 @@ async fn an_auth_key_goes_only_in_the_private_settings_file() {
 
 #[tokio::test]
 async fn disabled_https_stops_setup_before_kkt_starts() {
-    let host = FakeHost::new(working(RUNNING_NO_HTTPS));
+    let host = FakeRunner::new(working(RUNNING_NO_HTTPS));
     let err = provision(
         &host,
         &*host.clock,
@@ -497,7 +497,7 @@ async fn disabled_https_stops_setup_before_kkt_starts() {
 
 #[tokio::test]
 async fn waiting_for_a_login_gives_up_after_the_deadline() {
-    let host = FakeHost::new(working(NEEDS_LOGIN));
+    let host = FakeRunner::new(working(NEEDS_LOGIN));
     let err = provision(
         &host,
         &*host.clock,
@@ -516,7 +516,7 @@ async fn waiting_for_a_login_gives_up_after_the_deadline() {
 
 #[tokio::test]
 async fn kkt_that_never_makes_a_key_is_a_start_timeout() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if command.contains("key show") {
             failed("no such container")
         } else {
@@ -540,7 +540,7 @@ async fn kkt_that_never_makes_a_key_is_a_start_timeout() {
 
 #[tokio::test]
 async fn missing_docker_is_said_plainly_and_nothing_is_written() {
-    let host = FakeHost::new(|_| Err(io::Error::new(io::ErrorKind::NotFound, "no such file")));
+    let host = FakeRunner::new(|_| Err(io::Error::new(io::ErrorKind::NotFound, "no such file")));
     let err = provision(
         &host,
         &*host.clock,
@@ -559,7 +559,7 @@ async fn missing_docker_is_said_plainly_and_nothing_is_written() {
 
 #[tokio::test]
 async fn a_failing_command_is_an_error_naming_it() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if command.contains("--entrypoint chown") {
             failed("pull access denied")
         } else {
@@ -581,8 +581,8 @@ async fn a_failing_command_is_an_error_naming_it() {
     assert!(err.to_string().contains("--entrypoint chown"), "{err}");
 }
 
-fn installed(env: &str) -> FakeHost {
-    let host = FakeHost::new(|command| {
+fn installed(env: &str) -> FakeRunner {
+    let host = FakeRunner::new(|command| {
         if command.contains("kkt backup") {
             ok("Backed up to /backups/kkt-20261029T120000.000Z-v0.4.0\n")
         } else if command.contains("ps --status running") {
@@ -599,7 +599,7 @@ fn installed(env: &str) -> FakeHost {
 
 #[test]
 fn status_says_whether_it_is_set_up_and_running() {
-    let host = FakeHost::new(|_| ok(""));
+    let host = FakeRunner::new(|_| ok(""));
     assert_eq!(
         status(&host, &folder(), &Reader, DEFAULT_PACK).unwrap(),
         State {
@@ -607,7 +607,7 @@ fn status_says_whether_it_is_set_up_and_running() {
             running: false,
             version: None,
             name_pack: Err("container is not set up".into()),
-            tailscale: false,
+            sharing: false,
             login: None
         }
     );
@@ -621,18 +621,18 @@ fn status_says_whether_it_is_set_up_and_running() {
             running: true,
             version: Some("0.4.0".into()),
             name_pack: Err("could not identify the kkt container".into()),
-            tailscale: true,
+            sharing: true,
             // This fake host's Tailscale container answers nothing readable.
             login: Some(Login::Other("an unreadable answer".into()))
         }
     );
-    let stopped = FakeHost::new(|_| ok(""));
+    let stopped = FakeRunner::new(|_| ok(""));
     stopped.files.borrow_mut().insert(
         PathBuf::from("/data/docker/.env"),
         (env_text(&plain(), None), true),
     );
     let state = status(&stopped, &folder(), &Reader, DEFAULT_PACK).unwrap();
-    assert!(state.files_present && !state.running && !state.tailscale);
+    assert!(state.files_present && !state.running && !state.sharing);
 }
 
 /// The settings file `kkt setup` 0.4.1 wrote for Docker over Tailscale once
@@ -643,8 +643,8 @@ COMPOSE_FILE=compose.tailscale.yaml\nTS_HOSTNAME=kkt\nTS_TAILNET=tail1234.ts.net
 
 /// A host whose managed folder holds `env` and the Compose files for it,
 /// with Tailscale's or without.
-fn left_by_setup(env: &str, tailscale: bool) -> FakeHost {
-    let host = FakeHost::new(|_| ok(""));
+fn left_by_setup(env: &str, tailscale: bool) -> FakeRunner {
+    let host = FakeRunner::new(|_| ok(""));
     let mut files = host.files.borrow_mut();
     files.insert(PathBuf::from("/data/docker/.env"), (env.to_string(), true));
     for (name, contents) in embedded(tailscale) {
@@ -660,7 +660,7 @@ fn an_install_is_read_from_the_files_setup_left_without_running_anything() {
     assert_eq!(
         existing(&host, &folder()).unwrap(),
         Some(Existing {
-            tailscale: true,
+            sharing: true,
             node: Some(("kkt".into(), "tail1234.ts.net".into())),
             port: 7420,
         })
@@ -669,14 +669,14 @@ fn an_install_is_read_from_the_files_setup_left_without_running_anything() {
     assert_eq!(
         existing(&host, &folder()).unwrap(),
         Some(Existing {
-            tailscale: false,
+            sharing: false,
             node: None,
             port: 7420,
         })
     );
     assert!(host.ran.borrow().is_empty());
     assert_eq!(
-        existing(&FakeHost::new(|_| ok("")), &folder()).unwrap(),
+        existing(&FakeRunner::new(|_| ok("")), &folder()).unwrap(),
         None
     );
 }
@@ -763,7 +763,7 @@ fn status_reads_the_containers_name_pack() {
             "Env": ["HOME=/data"], "WorkingDir": ""
         })
         .to_string();
-        let host = FakeHost::new(move |command| {
+        let host = FakeRunner::new(move |command| {
             if command.contains("ps --status running") {
                 ok("kkt\n")
             } else if command.contains("ps --quiet kkt") {
@@ -795,7 +795,7 @@ fn status_reads_the_containers_name_pack() {
 #[test]
 fn status_reports_an_unavailable_name_pack_when_queries_fail() {
     for failure in ["ps --quiet", "inspect --format", "test -e", "cat --"] {
-        let host = FakeHost::new(move |command| {
+        let host = FakeRunner::new(move |command| {
             if command.contains(failure) {
                 if failure == "test -e" {
                     return Ok(Finished {
@@ -827,9 +827,9 @@ fn status_reports_an_unavailable_name_pack_when_queries_fail() {
 /// of `docker inspect`'s `.Config`), and whose config file, if any, is
 /// `config`. `test -e` answers for any path, as the container would for
 /// the one asked about.
-fn running_container(inspect: serde_json::Value, config: Option<&'static str>) -> FakeHost {
+fn running_container(inspect: serde_json::Value, config: Option<&'static str>) -> FakeRunner {
     let inspect = inspect.to_string();
-    FakeHost::new(move |command| {
+    FakeRunner::new(move |command| {
         if command.contains("ps --quiet kkt") {
             ok("abcdef1234\n")
         } else if command.contains("inspect --format") {
@@ -914,7 +914,7 @@ fn the_name_pack_is_read_where_kkt_serve_in_the_container_reads_it() {
 #[test]
 fn an_unreadable_container_config_keeps_its_cause() {
     // The check for the default file could not run.
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if command.contains("ps --quiet kkt") {
             ok("abcdef1234\n")
         } else if command.contains("inspect --format") {
@@ -940,7 +940,7 @@ fn an_unreadable_container_config_keeps_its_cause() {
     assert!(err.contains("name_pack"), "{err}");
 
     // A check that ran but answered neither yes nor no has no cause to add.
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if command.contains("ps --quiet kkt") {
             ok("abcdef1234\n")
         } else if command.contains("inspect --format") {
@@ -964,7 +964,7 @@ fn an_unreadable_container_config_keeps_its_cause() {
 /// install has a limit too.
 #[test]
 fn the_lane_limit_never_reads_serves_command_and_needs_no_running_install() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if command.contains("run --rm --no-deps -T --entrypoint sh kkt -c ") {
             ok("max_lane_chars = 300\nname_pack = \"garden\"\n")
         } else if command.contains("ps --status running") {
@@ -1017,7 +1017,7 @@ fn a_backup_without_a_destination_stays_in_the_managed_folder() {
 
 #[test]
 fn a_failed_backup_copies_nothing() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if command.contains("kkt backup") {
             failed("disk full")
         } else {
@@ -1043,7 +1043,7 @@ fn lanes_import(commit: Option<&str>, retire_missing: bool) -> LanesImport {
 
 /// The commands run, without the `docker compose --project-directory ...`
 /// before each.
-fn compose_args(host: &FakeHost) -> Vec<String> {
+fn compose_args(host: &FakeRunner) -> Vec<String> {
     host.ran
         .borrow()
         .iter()
@@ -1067,7 +1067,7 @@ fn mktemp(command: &str) -> Option<io::Result<Finished>> {
 
 #[test]
 fn lanes_are_imported_in_the_container_with_the_host_folder_as_source() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if let Some(answer) = mktemp(command) {
             answer
         } else if command.contains("kkt lanes import") {
@@ -1094,8 +1094,8 @@ fn lanes_are_imported_in_the_container_with_the_host_folder_as_source() {
 
 /// A host whose kkt container's config file, read in a new container, is
 /// `config` (empty when there is none).
-fn with_container_config(config: &'static str) -> FakeHost {
-    FakeHost::new(move |command| {
+fn with_container_config(config: &'static str) -> FakeRunner {
+    FakeRunner::new(move |command| {
         if command.contains("run --rm --no-deps -T --entrypoint sh kkt -c ") {
             ok(config)
         } else {
@@ -1149,7 +1149,7 @@ fn a_lane_limit_that_cannot_be_read_is_an_error() {
     assert!(err.contains("config file"), "{err}");
     assert!(err.contains("max_lane_chars"), "{err}");
 
-    let host = FakeHost::new(|_| failed("no such image"));
+    let host = FakeRunner::new(|_| failed("no such image"));
     let err = lane_limit(&host, &folder(), &Reader, DEFAULT_LANE_LIMIT)
         .unwrap_err()
         .to_string();
@@ -1164,7 +1164,7 @@ fn a_folder_mktemp_did_not_make_as_asked_is_neither_used_nor_removed() {
         "/tmp/kkt-lanes-import.\n",
         "/tmp/kkt-lanes-import.ab/..\n",
     ] {
-        let host = FakeHost::new(move |command| {
+        let host = FakeRunner::new(move |command| {
             if command.contains("mktemp") {
                 ok(answer)
             } else {
@@ -1179,7 +1179,7 @@ fn a_folder_mktemp_did_not_make_as_asked_is_neither_used_nor_removed() {
 
 #[test]
 fn a_folder_outside_git_is_imported_with_no_commit() {
-    let host = FakeHost::new(|command| mktemp(command).unwrap_or_else(|| ok("")));
+    let host = FakeRunner::new(|command| mktemp(command).unwrap_or_else(|| ok("")));
     import_lanes(&host, &folder(), &lanes_import(None, false)).unwrap();
     let ran = compose_args(&host);
     let import = ran.iter().find(|c| c.contains("kkt lanes import")).unwrap();
@@ -1191,7 +1191,7 @@ fn a_folder_outside_git_is_imported_with_no_commit() {
 
 #[test]
 fn a_failed_import_still_removes_the_copy_and_says_why() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if let Some(answer) = mktemp(command) {
             answer
         } else if command.contains("kkt lanes import") {
@@ -1211,7 +1211,7 @@ fn a_failed_import_still_removes_the_copy_and_says_why() {
 
 #[test]
 fn a_failed_copy_imports_nothing_and_removes_what_was_copied() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if let Some(answer) = mktemp(command) {
             answer
         } else if command.contains("reviewer.md") {
@@ -1232,7 +1232,7 @@ fn a_failed_copy_imports_nothing_and_removes_what_was_copied() {
 
 #[test]
 fn lanes_are_exported_in_the_container_and_copied_out() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if let Some(answer) = mktemp(command) {
             answer
         } else if command.contains("kkt lanes export") {
@@ -1257,7 +1257,7 @@ fn lanes_are_exported_in_the_container_and_copied_out() {
 
 #[test]
 fn a_failed_cleanup_after_a_failed_export_is_said_and_the_export_error_returned() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if let Some(answer) = mktemp(command) {
             answer
         } else if command.contains("rm -rf") {
@@ -1416,7 +1416,7 @@ impl Container {
     }
 }
 
-impl Host for Container {
+impl Runner for Container {
     fn run(&self, command: &Command) -> io::Result<Finished> {
         self.answer(&command.to_string())
     }
@@ -1512,7 +1512,7 @@ fn an_export_run_while_another_is_exporting_does_not_remove_its_files() {
 
 /// Upgrades the fake install in [`folder`] to 0.5.0, with the access key's
 /// host copy at `/keys/docker-access-key`.
-async fn upgrade_to_0_5_0(host: &FakeHost) -> Result<(), DockerError> {
+async fn upgrade_to_0_5_0(host: &FakeRunner) -> Result<(), DockerError> {
     upgrade(
         host,
         &*host.clock,
@@ -1527,7 +1527,7 @@ async fn upgrade_to_0_5_0(host: &FakeHost) -> Result<(), DockerError> {
 #[tokio::test]
 async fn a_failed_image_pull_restores_the_selected_version_for_a_retry() {
     let original = env_text(&plain(), None);
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if command.ends_with(" pull") {
             failed("registry unavailable")
         } else if command.contains("kkt backup") {
@@ -1585,8 +1585,8 @@ async fn an_upgrade_backs_up_first_then_moves_to_the_new_version() {
 /// host copy and no web key, with a kkt container that has both keys once
 /// the new version starts, or never has a web key if `web_key_appears` is
 /// false.
-fn installed_before_the_web_key(web_key_appears: bool) -> FakeHost {
-    let host = FakeHost::new(move |command| {
+fn installed_before_the_web_key(web_key_appears: bool) -> FakeRunner {
+    let host = FakeRunner::new(move |command| {
         if command.contains("kkt backup") {
             ok("Backed up to /backups/kkt-20261029T120000.000Z-v0.4.2\n")
         } else if command.contains("key show --admin") {
@@ -1682,15 +1682,15 @@ const ADMIN_KEY: &str = "admin-key-0123456789abcdef0123456789abcdef";
 
 /// A kkt container with all three keys, or, if `admin_at_start` is false,
 /// with an admin key only once `kkt key create --admin` has run in it.
-fn with_admin_key(admin_at_start: bool) -> FakeHost {
+fn with_admin_key(admin_at_start: bool) -> FakeRunner {
     with_admin_key_and_failing_restarts(admin_at_start, 0)
 }
 
 /// As [`with_admin_key`], where the first `failing` restarts of kkt fail.
-fn with_admin_key_and_failing_restarts(admin_at_start: bool, failing: usize) -> FakeHost {
+fn with_admin_key_and_failing_restarts(admin_at_start: bool, failing: usize) -> FakeRunner {
     let made = std::rc::Rc::new(Cell::new(admin_at_start));
     let failing = Cell::new(failing);
-    FakeHost::new(move |command| {
+    FakeRunner::new(move |command| {
         if command.contains("kkt backup") {
             ok("Backed up to /backups/kkt-20261029T120000.000Z-v0.5.0\n")
         } else if command.contains("key create --admin") {
@@ -1716,7 +1716,7 @@ fn with_admin_key_and_failing_restarts(admin_at_start: bool, failing: usize) -> 
 }
 
 /// Asserts that no key was said or put in a command's arguments.
-fn no_key_shown(host: &FakeHost) {
+fn no_key_shown(host: &FakeRunner) {
     let said = host.said.borrow().join("\n");
     for key in [KEY, ADMIN_KEY, "web-key-0123"] {
         assert!(!said.contains(key), "{said}");
@@ -1879,8 +1879,8 @@ fn sentinel() -> kkt_names::AdminName {
 }
 
 /// A kkt container whose admin key exists but cannot be read.
-fn with_an_unreadable_admin_key() -> FakeHost {
-    FakeHost::new(|command| {
+fn with_an_unreadable_admin_key() -> FakeRunner {
+    FakeRunner::new(|command| {
         if command.contains("kkt backup") {
             ok("Backed up to /backups/kkt-20261029T120000.000Z-v0.5.0\n")
         } else if command.contains("key show --admin") {
@@ -1944,7 +1944,7 @@ async fn an_upgrade_says_when_the_admin_key_cannot_be_read() {
 
 #[tokio::test]
 async fn an_older_kkt_without_admin_keys_has_none() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if command.contains("key show --admin") {
             Ok(Finished {
                 code: Some(UNKNOWN_OPTION_EXIT),
@@ -2008,7 +2008,7 @@ async fn an_upgrade_with_no_access_key_copy_saves_no_keys() {
 
 #[tokio::test]
 async fn an_upgrade_whose_backup_fails_changes_nothing() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if command.contains("kkt backup") {
             failed("disk full")
         } else {
@@ -2026,7 +2026,7 @@ async fn an_upgrade_whose_backup_fails_changes_nothing() {
 
 #[test]
 fn down_keeps_the_data_unless_asked_to_remove_it() {
-    let host = FakeHost::new(|_| ok(""));
+    let host = FakeRunner::new(|_| ok(""));
     down(&host, &folder(), false).unwrap();
     down(&host, &folder(), true).unwrap();
     let ran = host.ran.borrow();
@@ -2091,7 +2091,7 @@ fn commands_run_without_the_variables_that_would_override_the_settings_file() {
 
 #[test]
 fn status_does_not_call_a_container_stopped_when_compose_failed() {
-    let host = FakeHost::new(|command| {
+    let host = FakeRunner::new(|command| {
         if command.contains("ps --status") {
             failed("Cannot connect to the Docker daemon")
         } else {
@@ -2112,7 +2112,7 @@ fn status_does_not_call_a_container_stopped_when_compose_failed() {
 
 #[tokio::test]
 async fn both_keys_go_in_a_folder_that_did_not_exist_yet() {
-    let host = FakeHost::new(working(""));
+    let host = FakeRunner::new(working(""));
     provision(
         &host,
         &*host.clock,
@@ -2167,7 +2167,7 @@ fn a_backup_folder_typed_relative_is_taken_from_where_the_person_is() {
 #[tokio::test]
 async fn the_link_is_opened_when_asked_and_setup_goes_on_watching_for_the_login() {
     let polls = Cell::new(0);
-    let host = FakeHost::new(move |command| {
+    let host = FakeRunner::new(move |command| {
         if command.contains("tailscale status") {
             polls.set(polls.get() + 1);
             return ok(if polls.get() < 6 {
@@ -2211,7 +2211,7 @@ async fn the_link_is_opened_when_asked_and_setup_goes_on_watching_for_the_login(
 #[tokio::test]
 async fn a_link_that_cannot_be_opened_is_said_and_setup_carries_on() {
     let polls = Cell::new(0);
-    let host = FakeHost::new(move |command| {
+    let host = FakeRunner::new(move |command| {
         if command.contains("tailscale status") {
             polls.set(polls.get() + 1);
             return ok(if polls.get() < 4 {
@@ -2247,7 +2247,7 @@ async fn a_link_that_cannot_be_opened_is_said_and_setup_carries_on() {
 
 #[tokio::test]
 async fn no_link_is_shown_when_no_login_is_needed() {
-    let host = FakeHost::new(working(RUNNING));
+    let host = FakeRunner::new(working(RUNNING));
     let login = FakeLogin::default();
     provision(
         &host,
@@ -2266,7 +2266,7 @@ async fn no_link_is_shown_when_no_login_is_needed() {
 #[tokio::test]
 async fn an_opener_that_fails_after_starting_is_said_while_setup_goes_on_waiting() {
     let polls = Cell::new(0);
-    let host = FakeHost::new(move |command| {
+    let host = FakeRunner::new(move |command| {
         if command.contains("tailscale status") {
             polls.set(polls.get() + 1);
             return ok(if polls.get() < 5 {
@@ -2312,8 +2312,8 @@ fn tailscale_env() -> String {
 
 /// A machine set up with Tailscale, whose Tailscale container answers
 /// `tailscale status --json` with `status`.
-fn with_tailscale_status(status: Option<&'static str>) -> FakeHost {
-    let host = FakeHost::new(move |command| {
+fn with_tailscale_status(status: Option<&'static str>) -> FakeRunner {
+    let host = FakeRunner::new(move |command| {
         if command.contains("tailscale status --json") {
             return match status {
                 Some(json) => ok(json),
@@ -2348,7 +2348,7 @@ fn status_reports_the_tailscale_login() {
     }
 }
 
-fn status_of(host: &FakeHost) -> State {
+fn status_of(host: &FakeRunner) -> State {
     status(host, &folder(), &Reader, DEFAULT_PACK).unwrap()
 }
 
@@ -2365,7 +2365,7 @@ async fn a_machine_that_needs_a_login_again_gets_its_container_restarted_for_a_l
     // expired key or a `tailscale logout`.
     let restarted = Cell::new(false);
     let after_restart = Cell::new(0);
-    let host = FakeHost::new(move |command| {
+    let host = FakeRunner::new(move |command| {
         if command.contains("restart tailscale") {
             restarted.set(true);
             return ok("");
@@ -2418,7 +2418,7 @@ async fn a_machine_that_needs_a_login_again_gets_its_container_restarted_for_a_l
 #[tokio::test]
 async fn a_new_machine_whose_link_comes_within_a_few_seconds_is_not_restarted() {
     let polls = Cell::new(0);
-    let host = FakeHost::new(move |command| {
+    let host = FakeRunner::new(move |command| {
         if command.contains("tailscale status") {
             polls.set(polls.get() + 1);
             return ok(match polls.get() {
@@ -2445,7 +2445,7 @@ async fn a_new_machine_whose_link_comes_within_a_few_seconds_is_not_restarted() 
 
 #[tokio::test]
 async fn a_machine_that_is_already_logged_in_is_not_restarted_or_shown_a_link() {
-    let host = FakeHost::new(working(RUNNING));
+    let host = FakeRunner::new(working(RUNNING));
     let login = FakeLogin::default();
     provision(
         &host,
@@ -2464,8 +2464,8 @@ async fn a_machine_that_is_already_logged_in_is_not_restarted_or_shown_a_link() 
 
 /// A host whose kkt container answers `key show --web` with `answer`, and
 /// whose web key's host copy holds `copy`.
-fn with_web_key(answer: fn() -> io::Result<Finished>, copy: &str) -> FakeHost {
-    let host = FakeHost::new(move |command| {
+fn with_web_key(answer: fn() -> io::Result<Finished>, copy: &str) -> FakeRunner {
+    let host = FakeRunner::new(move |command| {
         if command.contains("key show --web") {
             answer()
         } else {
@@ -2515,4 +2515,39 @@ fn a_web_key_that_cannot_be_read_from_the_container_is_an_error_without_its_outp
     let err = compare_web_key(&host, &folder(), Path::new("/keys/docker-web-key")).unwrap_err();
     assert!(err.to_string().contains("exit 1"), "{err}");
     assert!(!err.to_string().contains("web-key-0123"), "{err}");
+}
+
+#[test]
+fn scope_queries_preserve_settings_and_key_reads_and_start_arguments() {
+    let host = FakeRunner::new(|_| ok(""));
+    assert!(!has_settings(&host, &folder()));
+    assert!(!settings_file(&host, &folder()));
+    host.files.borrow_mut().insert(
+        folder().path().join(ENV_FILE),
+        ("KKT_VERSION=0.4.0\n".into(), true),
+    );
+    assert!(has_settings(&host, &folder()));
+    assert!(settings_file(&host, &folder()));
+    assert_eq!(installed_version(&host, &folder()).unwrap(), "0.4.0");
+    host.files
+        .borrow_mut()
+        .insert(folder().path().join(ENV_FILE), ("no version".into(), true));
+    assert_eq!(
+        installed_version(&host, &folder()).unwrap_err(),
+        "/data/docker/.env has no KKT_VERSION"
+    );
+    let key = Path::new("/keys/sharing");
+    host.files
+        .borrow_mut()
+        .insert(key.into(), ("  secret\n".into(), true));
+    assert_eq!(tailscale_auth_key(&host, key).unwrap(), "secret");
+    up(&host, &folder()).unwrap();
+    assert!(
+        host.ran
+            .borrow()
+            .last()
+            .unwrap()
+            .to_string()
+            .contains("up -d")
+    );
 }

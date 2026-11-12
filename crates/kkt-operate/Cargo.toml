@@ -12,6 +12,7 @@ kkt-admission = { path = "../kkt-admission" }
 kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-backup = { path = "../kkt-backup" }
+kkt-client-command = { path = "../kkt-client-command" }
 kkt-client-config = { path = "../kkt-client-config" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-config-file = { path = "../kkt-config-file" }
@@ -28,5 +29,6 @@ kkt-setup = { path = "../kkt-setup" }
 tokio.workspace = true
 
 [dev-dependencies]
+kkt-container = { path = "../kkt-container", features = ["testing"] }
 kkt-service = { path = "../kkt-service", features = ["testing"] }
 futures.workspace = true

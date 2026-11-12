@@ -439,88 +439,6 @@
      "note": "kkt switch"
     },
     {
-     "crate": "kkt-container",
-     "to": [
-      {
-       "at": "provision",
-       "param": "host"
-      },
-      {
-       "at": "upgrade",
-       "param": "host"
-      },
-      {
-       "at": "status",
-       "param": "host"
-      },
-      {
-       "at": "compare_web_key",
-       "param": "host"
-      },
-      {
-       "at": "lane_limit",
-       "param": "host"
-      },
-      {
-       "at": "import_lanes",
-       "param": "host"
-      },
-      {
-       "at": "export_lanes",
-       "param": "host"
-      },
-      {
-       "at": "backup",
-       "param": "host"
-      },
-      {
-       "at": "down",
-       "param": "host"
-      },
-      {
-       "at": "existing",
-       "param": "host"
-      },
-      {
-       "at": "add_admin_key",
-       "param": "host"
-      }
-     ],
-     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install",
-     "own": "ContainerHost, adapting kkt-container-os's OsHost",
-     "supplier": "kkt-container-os's OsHost"
-    },
-    {
-     "impl": "kkt-clock-system::SystemClock",
-     "crate": "kkt-container",
-     "to": [
-      {
-       "at": "provision",
-       "param": "clock"
-      },
-      {
-       "at": "upgrade",
-       "param": "clock"
-      },
-      {
-       "at": "add_admin_key",
-       "param": "clock"
-      }
-     ],
-     "note": "kkt setup and upgrade, for a Docker install"
-    },
-    {
-     "impl": "kashkeshet::terminal::browser_login::TerminalLink",
-     "crate": "kkt-container",
-     "to": [
-      {
-       "at": "provision",
-       "param": "login"
-      }
-     ],
-     "note": "kkt setup for Docker, with Tailscale"
-    },
-    {
      "crate": "kkt-client-config",
      "to": [
       {
@@ -645,7 +563,6 @@
      "note": "The MCP endpoints and web page share the program's log."
     },
     {
-     "own": "ContainerHost",
      "crate": "kkt-operate",
      "to": [
       {
@@ -653,7 +570,8 @@
        "param": "container"
       }
      ],
-     "supplier": "kkt-container-os::OsHost"
+     "impl": "kkt-container-docker::Docker",
+     "note": "Direct injection of the named container implementation into the operator assembly."
     },
     {
      "own": "ContainerConfigs",
@@ -852,6 +770,28 @@
        "param": "config_file"
       }
      ]
+    },
+    {
+     "impl": "kkt-client-command-claude::Claude",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "client_command"
+      }
+     ],
+     "note": "kkt setup: Claude Code's own command, injected as it is"
+    },
+    {
+     "impl": "kkt-client-command-claude::Claude",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "client_command"
+      }
+     ],
+     "note": "kkt connect: Claude Code's own command, injected as it is"
     }
    ],
    "inferred": false
