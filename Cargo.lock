@@ -1048,6 +1048,7 @@ dependencies = [
  "kkt-api-agent",
  "kkt-backup",
  "kkt-backup-os",
+ "kkt-browser-os",
  "kkt-client-command-claude",
  "kkt-client-config",
  "kkt-client-config-os",
@@ -1225,6 +1226,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-browser"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-browser-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-browser",
+ "kkt-scratch",
+]
+
+[[package]]
 name = "kkt-client-command"
 version = "0.10.0"
 
@@ -1299,6 +1312,7 @@ name = "kkt-container-docker"
 version = "0.10.0"
 dependencies = [
  "futures",
+ "kkt-browser",
  "kkt-clock",
  "kkt-config-file",
  "kkt-container",
@@ -1788,7 +1802,6 @@ dependencies = [
 name = "kkt-terminal-os"
 version = "0.10.0"
 dependencies = [
- "kkt-scratch",
  "libc",
 ]
 

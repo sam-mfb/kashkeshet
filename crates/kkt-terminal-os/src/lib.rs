@@ -1,13 +1,11 @@
-//! The process terminal: input, output, terminal detection, the browser
-//! login link and the default behavior when a command's output pipe closes.
+//! The process terminal: input, output, terminal detection, the terminal's
+//! half of the login link (showing it, and the Enter key) and the default
+//! behavior when a command's output pipe closes.
 
 #![cfg(feature = "real")]
 
 mod browser;
 pub use browser::BrowserLink;
-
-#[cfg(test)]
-use kkt_scratch as scratch;
 
 use std::fmt;
 use std::io::{self, IsTerminal, Write};

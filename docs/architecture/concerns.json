@@ -226,7 +226,7 @@
   },
   "kkt-container": {
    "layer": "operations",
-   "concern": "The container installation contract, its requests and results, config parsing and login-link contracts, and an in-memory testing stand-in.",
+   "concern": "The container installation contract, its requests and results, config parsing, and the login link's terminal half (LoginLink), and an in-memory testing stand-in.",
    "must_not": "Know Docker commands, Compose files or their formats; touch the machine.",
    "kind": "contract"
   },
@@ -403,8 +403,20 @@
   "kkt-terminal-os": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the browser login link.",
+   "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the terminal's half of the login link: showing it, and the Enter key.",
    "must_not": "Decide setup answers or depend on setup/container logic."
+  },
+  "kkt-browser": {
+   "layer": "operations",
+   "concern": "The project's contract for opening a link in the person's browser: Browser (start opening it now; say later, once, if that failed), with the testing Recorder.",
+   "must_not": "Know an opener program; touch the machine.",
+   "kind": "contract"
+  },
+  "kkt-browser-os": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "Implements Browser with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real.",
+   "must_not": "Wait for the browser; repeat the link in a message."
   },
   "kkt-logs": {
    "layer": "foundations",
@@ -463,7 +475,7 @@
   "kkt-container-docker": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "Docker and Compose implement Container directly; all Docker files, commands, output and sidecar status, tested over a private runner.",
+   "concern": "Docker and Compose implement Container directly; all Docker files, commands, output and sidecar status, tested over a private runner. A sharing setup's login link opens in the kkt-browser Browser it is built with.",
    "must_not": "Decide setup answers or remember the setup record."
   }
  },

@@ -400,6 +400,22 @@
    "from": "kkt-client-config-os",
    "status": "decided",
    "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json, CLAUDE_CONFIG_DIR and the wording, over a private runner; running claude is behind real (step 12.5c)."
+  },
+  {
+   "name": "kkt-browser",
+   "layer": "operations",
+   "kind": "contract",
+   "from": "kkt-terminal-os",
+   "status": "decided",
+   "concern": "The project's contract for opening a link in the person's browser: Browser, with the testing Recorder (step 12.5d)."
+  },
+  {
+   "name": "kkt-browser-os",
+   "layer": "operations",
+   "kind": "effect",
+   "from": "kkt-terminal-os",
+   "status": "decided",
+   "concern": "Implements Browser with the system's own opener: starting it, reaping it, keeping a failure to report once; starting it is behind real (step 12.5d)."
   }
  ],
  "moves": [
@@ -4476,6 +4492,36 @@
    "feature": "real",
    "status": "decided",
    "doc": "The machine's git, asked where a lane folder is (step 12.5a)."
+  },
+  {
+   "crate": "kkt-browser",
+   "path": "Browser",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "The person's browser: start opening a link, and say later, once, if that failed. (step 12.5d)",
+   "methods": [
+    "open",
+    "open_failure"
+   ]
+  },
+  {
+   "crate": "kkt-browser",
+   "path": "testing::Recorder",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A stand-in that records each link and can fail. (step 12.5d)",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-browser-os",
+   "path": "SystemBrowser",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The system's own opener, which the program gives the Docker wrapper as kkt-browser's Browser. (step 12.5d)",
+   "feature": "real",
+   "methods": [
+    "new"
+   ]
   },
   {
    "crate": "kkt-probe",
@@ -9198,6 +9244,42 @@
    "note": "OperateParts takes the lane folder's commit (12.5a)."
   },
   {
+   "from": "kkt-container-docker",
+   "to": "kkt-browser",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Browser"
+    ]
+   },
+   "note": "a sharing setup's login link opens in the Browser it is built with (step 12.5d)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-browser-os",
+   "to": "kkt-browser",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Browser"
+    ]
+   },
+   "note": "it implements the contract directly (step 12.5d)",
+   "status": "decided"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-browser-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "SystemBrowser"
+    ]
+   },
+   "note": "the program gives the Docker wrapper the system's opener as it is (step 12.5d)",
+   "status": "decided"
+  },
+  {
    "from": "kkt-probe-reqwest",
    "to": "kkt-probe",
    "kind": "normal",
@@ -13095,6 +13177,18 @@
    "feature": "testing",
    "status": "decided",
    "note": "The scope contract supplies its own in-memory stand-in (12.5a)."
+  },
+  {
+   "crate": "kkt-browser-os",
+   "feature": "real",
+   "status": "decided",
+   "note": "starting the system's opener (step 12.5d)"
+  },
+  {
+   "crate": "kkt-browser",
+   "feature": "testing",
+   "status": "decided",
+   "note": "its Recorder stand-in (step 12.5d)"
   },
   {
    "crate": "kkt-probe",
