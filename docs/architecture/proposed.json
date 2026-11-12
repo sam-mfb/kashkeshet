@@ -1,5 +1,5 @@
 {
- "about": "Written by hand: the workspace reorganized by one dependency-injection rule (Sam, msg 1938), with Sam's decisions on it (msgs 1939, 1952, 1978, 1979, 1981, 1984, 1986, 1987, and 2009–2022), as a transformation of the current map. propose.py applies it to map-data.js and writes proposed-data.js; it stops if a trait has no decision, or anything named here is not in the map. A chart for planning, not a change to the code. Every entry has a status: decided (by Sam) or recommended (pending Sam). Item 7, the kkt-config breakup in config-split.json, is part of the proposal, accepted by Sam (msg 1979).",
+ "about": "Written by hand: the workspace reorganized by one dependency-injection rule (Sam, msg 1938), with Sam's decisions on it (msgs 1939, 1952, 1978, 1979, 1981, 1984, 1986, 1987, and 2009\u20132022), as a transformation of the current map. propose.py applies it to map-data.js and writes proposed-data.js; it stops if a trait has no decision, or anything named here is not in the map. A chart for planning, not a change to the code. Every entry has a status: decided (by Sam) or recommended (pending Sam). Item 7, the kkt-config breakup in config-split.json, is part of the proposal, accepted by Sam (msg 1979).",
  "statuses": {
   "decided": "decided by Sam",
   "recommended": "recommended, pending Sam",
@@ -79,18 +79,6 @@
    "from": "kkt-service",
    "status": "decided",
    "concern": "Implements kkt-service's Service directly as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system; the real files and commands are behind real (step 12.3, option a)."
-  },
-  {
-   "name": "kkt-remote-access-tailscale",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kkt-remote-access",
-   "status": "decided",
-   "concern": "Implements the project's RemoteAccess contract directly; owns Tailscale arguments, parsing, messages and its private process runner behind real (step 12.1, option a).",
-   "third_party": [
-    "serde",
-    "serde_json"
-   ]
   },
   {
    "name": "kkt-client-config-os",
@@ -4004,7 +3992,7 @@
    "doc": "A machine with the given network name, initially sharing nothing."
   },
   {
-   "crate": "kkt-remote-access-tailscale",
+   "crate": "kkt-remote-access",
    "path": "Tailscale",
    "kind": "struct",
    "feature": "real",
@@ -8624,7 +8612,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-remote-access-tailscale",
+   "to": "kkt-remote-access",
    "kind": "normal",
    "add": {
     "wires": [
@@ -8636,21 +8624,6 @@
    ],
    "status": "decided",
    "note": "Builds and hands Tailscale directly to kkt-operate (12.1)."
-  },
-  {
-   "from": "kkt-remote-access-tailscale",
-   "to": "kkt-remote-access",
-   "kind": "normal",
-   "add": {
-    "implements": [
-     "RemoteAccess"
-    ],
-    "uses": [
-     "Node"
-    ]
-   },
-   "status": "decided",
-   "note": "The named wrapper implements the scope contract directly (12.1)."
   },
   {
    "from": "kkt-container",
@@ -9410,7 +9383,7 @@
    "status": "decided",
    "result": "Removed: the project-level RemoteAccess scope contract replaces run-a-command. The named Tailscale wrapper implements it directly, and the program only injects it (step 12.1).",
    "new": [
-    "kkt-remote-access-tailscale"
+    "kkt-remote-access"
    ],
    "conflicts": [
     "C2"
@@ -9475,7 +9448,7 @@
   },
   {
    "id": "3",
-   "text": "The history from before kkt-db moves out of the program. kkt-store owned it (kkt-rules since msg 2017) as database-neutral facts (old 21 → core 1, 22 → core 2, the dropped handoff_note columns). kkt-db defines the neutral shape (today kkt-db-sqlite's Legacy). kkt-db-sqlite keeps only the SQLite part (user_version, the adoption). The program wires it and supplies the \"upgrade with kkt 0.10 first\" message."
+   "text": "The history from before kkt-db moves out of the program. kkt-store owned it (kkt-rules since msg 2017) as database-neutral facts (old 21 \u2192 core 1, 22 \u2192 core 2, the dropped handoff_note columns). kkt-db defines the neutral shape (today kkt-db-sqlite's Legacy). kkt-db-sqlite keeps only the SQLite part (user_version, the adoption). The program wires it and supplies the \"upgrade with kkt 0.10 first\" message."
   },
   {
    "id": "4",
@@ -10732,7 +10705,8 @@
   },
   "kkt-remote-access": {
    "status": "decided",
-   "concern": "The project's sharing contract RemoteAccess, Node and its testing stand-in; no tool knowledge."
+   "concern": "The remote-sharing contract and stand-in, with Tailscale behind real; tool logic is tested over a private runner.",
+   "must_not": "Let tool details into the open contract; change login, DNS preferences, unrelated sharing, config or the service."
   },
   "kkt-client-config": {
    "status": "decided",
@@ -10817,12 +10791,6 @@
   {
    "from": "kkt-service",
    "to": "kkt-service-os",
-   "feature": "real",
-   "status": "decided"
-  },
-  {
-   "from": "kkt-remote-access",
-   "to": "kkt-remote-access-tailscale",
    "feature": "real",
    "status": "decided"
   },
@@ -11143,7 +11111,7 @@
       "note": "where the server's events go"
      },
      {
-      "impl": "kkt-remote-access-tailscale::Tailscale",
+      "impl": "kkt-remote-access::Tailscale",
       "crate": "kkt-operate",
       "to": [
        {
@@ -11673,7 +11641,7 @@
   "kkt-names": "logic",
   "kkt-service": "contract",
   "kkt-container": "contract",
-  "kkt-remote-access": "contract",
+  "kkt-remote-access": "contract and effect",
   "kkt-client-config": "logic",
   "kkt-diagnostics": "logic",
   "kkt-lane-files": "logic",
@@ -11771,322 +11739,6 @@
    "note": "a provided method written in terms of below, so it is part of the contract and kkt-entropy has no free function over Entropy"
   }
  ],
- "adapter_census": {
-  "about": "Every adapter in the proposal, measured against the code (msg 2009). Each method is forwarding (F): the same operation as a method of the provider, with at most a rename or a trivial conversion; or translating (T): it combines calls, reshapes records or holds logic. Copies: how many programs write it. Counted by hand from the code at the commit the map was generated from; the methods are each contract's.",
-  "before_note": "As charted before msg 2009. Every provider kept its code in methods of the same name as the contract's, so every adapter method only forwarded; the column says where the translation stayed.",
-  "after_note": "After the reshape. kkt-store merged into kkt-rules (msg 2017), and kkt-rules implements the kkt-api crates, the shared contracts kkt-mcp and kkt-web call directly (msg 2031), so neither the store nor the page's data needs an adapter. Shared contract crates are implemented directly (msg 2020). kkt-server writes the web gate's and the wording's adapters once for the three programs and decides nothing (msg 2019); kkt-web keeps the sessions (msg 2021). The preview implements kkt-api-agent and the Gate itself (A7).",
-  "before": [
-   {
-    "adapter": "kkt-store-rules::RulesStore",
-    "to": "kkt-rules: Reads, Writes",
-    "where": "kkt-store-rules",
-    "methods": 73,
-    "forward": 73,
-    "translate": 0,
-    "copies": 1,
-    "why": "Each method calls kkt-store's Db method of the same name and copies the record across. The translation (73 kkt-db queries, such as channel_ids, which joins memberships with open channels, or append_lane_version, which reads the newest version before inserting) stayed in kkt-store."
-   },
-   {
-    "adapter": "kkt-db-sqlite-db::SqliteBackend",
-    "to": "kkt-db: Backend, Connection, Evolve",
-    "where": "kkt-db-sqlite-db",
-    "methods": 14,
-    "forward": 14,
-    "translate": 0,
-    "copies": 1,
-    "why": "Each method calls SqlitePlace's method of the same name. The SQL writing (save inserts or replaces and keeps the search index; search builds an FTS5 match) stayed in kkt-db-sqlite."
-   },
-   {
-    "adapter": "kkt-identity-keymode::KeyMode",
-    "to": "kkt-mcp: Identify; kkt-server: Identify",
-    "where": "kkt, kkt-keymode",
-    "methods": 6,
-    "forward": 6,
-    "translate": 0,
-    "copies": 2,
-    "why": "avatar, newcomer and operator, once for each of two copies of the same contract."
-   },
-   {
-    "adapter": "kkt-server::RulesSource",
-    "to": "kkt-web: Source",
-    "where": "each server program",
-    "methods": 21,
-    "forward": 21,
-    "translate": 0,
-    "copies": 3,
-    "why": "Each method calls RulesSource's method of the same name; RulesSource held the translation."
-   },
-   {
-    "adapter": "kkt-server::RulesSources",
-    "to": "kkt-web: Sources",
-    "where": "each server program",
-    "methods": 1,
-    "forward": 1,
-    "translate": 0,
-    "copies": 3,
-    "why": "source."
-   },
-   {
-    "adapter": "kkt-server::AdmissionGate",
-    "to": "kkt-web: Gate",
-    "where": "each server program",
-    "methods": 6,
-    "forward": 6,
-    "translate": 0,
-    "copies": 3,
-    "why": "Each method calls AdmissionGate's method of the same name."
-   },
-   {
-    "adapter": "kkt-names::NoticeWording",
-    "to": "kkt-rules: OperatorWording",
-    "where": "each server program",
-    "methods": 1,
-    "forward": 1,
-    "translate": 0,
-    "copies": 3,
-    "why": "operator: maps Audit to the admin key's name and calls NoticeWording."
-   },
-   {
-    "adapter": "kkt-clock-system::SystemClock",
-    "to": "kkt-clock: Clock",
-    "where": "each of four programs",
-    "methods": 2,
-    "forward": 2,
-    "translate": 0,
-    "copies": 4,
-    "why": "now and sleep_until."
-   },
-   {
-    "adapter": "kkt-entropy-os::OsEntropy",
-    "to": "kkt-entropy: Entropy",
-    "where": "each of four programs",
-    "methods": 1,
-    "forward": 1,
-    "translate": 0,
-    "copies": 4,
-    "why": "below."
-   },
-   {
-    "adapter": "kkt-agent-client::Remote",
-    "to": "kkt-watch: Server",
-    "where": "kkt",
-    "methods": 5,
-    "forward": 5,
-    "translate": 0,
-    "copies": 1,
-    "why": "Each method calls Remote's own and maps the failure; the MCP calls and JSON reading (wait, handle) stayed in kkt-agent-client."
-   },
-   {
-    "adapter": "kkt-agent-client::AdminRemote",
-    "to": "kkt-watch: Server",
-    "where": "kkt",
-    "methods": 5,
-    "forward": 5,
-    "translate": 0,
-    "copies": 1,
-    "why": "As Remote."
-   },
-   {
-    "adapter": "kkt-container-os::OsHost",
-    "to": "kkt-container: Host",
-    "where": "kkt",
-    "methods": 8,
-    "forward": 8,
-    "translate": 0,
-    "copies": 1,
-    "why": "run, run_attached, exists, read_file, create_dir_all, write_file, say, working_dir."
-   },
-   {
-    "adapter": "kkt-service-os::OsSystem",
-    "to": "kkt-service: System",
-    "where": "kkt",
-    "methods": 8,
-    "forward": 8,
-    "translate": 0,
-    "copies": 1,
-    "why": "user_id, exists, read_file, create_dir_all, write_file, remove_file, run, run_attached."
-   },
-   {
-    "adapter": "kkt-remote-access-os::OsHost",
-    "to": "kkt-remote-access: Host",
-    "where": "kkt",
-    "methods": 1,
-    "forward": 1,
-    "translate": 0,
-    "copies": 1,
-    "why": "run."
-   },
-   {
-    "adapter": "kkt-client-config-os::OsHost",
-    "to": "kkt-client-config: Host",
-    "where": "kkt",
-    "methods": 11,
-    "forward": 11,
-    "translate": 0,
-    "copies": 1,
-    "why": "read, exists, create_private, restrict, create_dir_all, rename, remove_file, absolute, canonicalize, process_id, claude."
-   },
-   {
-    "adapter": "kkt-diagnostics-os::OsProber",
-    "to": "kkt-diagnostics: Prober",
-    "where": "kkt",
-    "methods": 2,
-    "forward": 2,
-    "translate": 0,
-    "copies": 1,
-    "why": "key_file, probe."
-   },
-   {
-    "adapter": "kkt-lane-files-os::OsDisk",
-    "to": "kkt-lane-files: Disk",
-    "where": "kkt",
-    "methods": 6,
-    "forward": 6,
-    "translate": 0,
-    "copies": 1,
-    "why": "file_names, read, create_dir_all, write, absolute, git_commit."
-   },
-   {
-    "adapter": "kkt-web-preview::Preview",
-    "to": "kkt-web: Source",
-    "where": "the preview example (and a copy in its tests)",
-    "methods": 21,
-    "forward": 21,
-    "translate": 0,
-    "copies": 1,
-    "why": "Each method calls Preview's own."
-   },
-   {
-    "adapter": "kkt-web-preview::PreviewGate",
-    "to": "kkt-web: Gate",
-    "where": "the preview example",
-    "methods": 6,
-    "forward": 6,
-    "translate": 0,
-    "copies": 1,
-    "why": "Each method calls PreviewGate's own."
-   }
-  ],
-  "after": [
-   {
-    "adapter": "kkt-server::AdmissionGate",
-    "to": "kkt-web: Gate",
-    "where": "kkt-server, for the three programs",
-    "methods": 2,
-    "forward": 1,
-    "translate": 1,
-    "copies": 1,
-    "why": "admits translates: kkt-admission's decision for an open page or a signed-in viewer, then kkt-identity's Identify. sign_in forwards: whether a key is good, and whom it admits. The sessions and form tokens are kkt-web's."
-   },
-   {
-    "adapter": "kkt-agent-client::Remote and AdminRemote",
-    "to": "kkt-watch: Server",
-    "where": "kkt",
-    "methods": 5,
-    "forward": 5,
-    "translate": 0,
-    "copies": 1,
-    "why": "One adapter, WatchServer, an enum over the two; each method calls the same-named method of the one it holds and maps the failure (step 1.9)."
-   },
-   {
-    "adapter": "the six -os crates",
-    "to": "their consumers' Host, System, Prober and Disk",
-    "where": "kkt",
-    "methods": 36,
-    "forward": 29,
-    "translate": 7,
-    "copies": 1,
-    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1). kkt-remote-access-os' run returns its own Output and I/O error, which the adapter translates (step 2.3). kkt-diagnostics-os' key_file and probe return its own KeyFile and Check, which the adapter translates (step 2.5). This is the historical adapter census before phase 12. The remote-access adapter goes in the pilot; its wrapper implements the scope contract directly."
-   },
-   {
-    "adapter": "kkt-config-file::parse_file",
-    "to": "kkt-container: ConfigReader",
-    "where": "kkt",
-    "methods": 1,
-    "forward": 0,
-    "translate": 1,
-    "copies": 1,
-    "why": "settings parses the container's config text with kkt-config-file, which kkt-container reads through its Host, and picks the name pack and lane limit into kkt-container's own ContainerConfig (step 3.3)."
-   },
-   {
-    "adapter": "kkt-admission-os::KeyFiles",
-    "to": "kkt-admission: KeyTexts",
-    "where": "kkt, kkt-keymode",
-    "methods": 4,
-    "forward": 4,
-    "translate": 0,
-    "copies": 2,
-    "why": "Each method reads one key file's text; kkt-admission declares the texts its key check needs."
-   },
-   {
-    "adapter": "kkt-terminal-os::Terminal",
-    "to": "kkt-setup: Lines",
-    "where": "kkt",
-    "methods": 3,
-    "forward": 3,
-    "translate": 0,
-    "copies": 1,
-    "why": "say writes a line, read_line reads one, interactive asks whether input is a terminal (step 7.1b)."
-   },
-   {
-    "adapter": "kkt-terminal-os::Terminal",
-    "to": "kkt-watch: Report",
-    "where": "kkt",
-    "methods": 2,
-    "forward": 2,
-    "translate": 0,
-    "copies": 1,
-    "why": "message writes a line to standard output with Terminal's message, in one locked write and flush; note writes one to standard error (step 7.1a)."
-   },
-   {
-    "adapter": "kkt-terminal-os::BrowserLink",
-    "to": "kkt-container: LoginLink",
-    "where": "kkt",
-    "methods": 4,
-    "forward": 4,
-    "translate": 0,
-    "copies": 1,
-    "why": "show, open, open_requested and open_failure call BrowserLink's own methods."
-   },
-   {
-    "adapter": "kkt-agent-client::StateFile",
-    "to": "kkt-watch: Place",
-    "where": "kkt",
-    "methods": 2,
-    "forward": 2,
-    "translate": 0,
-    "copies": 1,
-    "why": "load and save read and write the state file."
-   },
-   {
-    "adapter": "kkt-lane-files-os::OsDisk",
-    "to": "kkt-lane-files: git::Git",
-    "where": "kkt",
-    "methods": 1,
-    "forward": 0,
-    "translate": 1,
-    "copies": 1,
-    "why": "run calls OsDisk's git and turns its GitOutput into kkt-lane-files' Ran; git's meaning stays in kkt-lane-files (step 2.6)."
-   }
-  ],
-  "before_totals": {
-   "adapters": 19,
-   "methods": 198,
-   "forward": 198,
-   "translate": 0,
-   "written": 271,
-   "forward_written": 271
-  },
-  "after_totals": {
-   "adapters": 15,
-   "methods": 60,
-   "forward": 50,
-   "translate": 10,
-   "written": 64,
-   "forward_written": 54
-  },
-  "page_about": "Every adapter in the proposed map, with its methods: forwarding (F), the same operation as a method of the provider with at most a rename or a trivial conversion, or translating (T), which combines calls, reshapes records or holds logic. Copies: how many programs write it."
- },
  "third_party_edits": [
   {
    "crate": "kkt-db",
@@ -12214,12 +11866,16 @@
   },
   {
    "crate": "kkt-remote-access",
-   "remove": [
-    "serde",
-    "serde_json"
-   ],
    "status": "decided",
-   "note": "All tool parsing moves into the named wrapper (12.1)."
+   "note": "Tool parsing stays in the merged scope crate, optional under real; the open contract and stand-in need neither parser (13.2).",
+   "optional": {
+    "serde": [
+     "real"
+    ],
+    "serde_json": [
+     "real"
+    ]
+   }
   },
   {
    "crate": "kkt-container",
@@ -12631,7 +12287,7 @@
    "note": "its own stand-in"
   },
   {
-   "type": "kkt-remote-access-tailscale::Tailscale",
+   "type": "kkt-remote-access::Tailscale",
    "to": [
     "kkt-remote-access::RemoteAccess"
    ],
@@ -13142,5 +12798,321 @@
    "status": "decided",
    "note": "The scope contract supplies its own in-memory stand-in (12.5b)."
   }
- ]
+ ],
+ "adapter_census": {
+  "about": "Every adapter in the proposal, measured against the code (msg 2009). Each method is forwarding (F): the same operation as a method of the provider, with at most a rename or a trivial conversion; or translating (T): it combines calls, reshapes records or holds logic. Copies: how many programs write it. Counted by hand from the code at the commit the map was generated from; the methods are each contract's.",
+  "before_note": "As charted before msg 2009. Every provider kept its code in methods of the same name as the contract's, so every adapter method only forwarded; the column says where the translation stayed.",
+  "after_note": "After the reshape. kkt-store merged into kkt-rules (msg 2017), and kkt-rules implements the kkt-api crates, the shared contracts kkt-mcp and kkt-web call directly (msg 2031), so neither the store nor the page's data needs an adapter. Shared contract crates are implemented directly (msg 2020). kkt-server writes the web gate's and the wording's adapters once for the three programs and decides nothing (msg 2019); kkt-web keeps the sessions (msg 2021). The preview implements kkt-api-agent and the Gate itself (A7).",
+  "before": [
+   {
+    "adapter": "kkt-store-rules::RulesStore",
+    "to": "kkt-rules: Reads, Writes",
+    "where": "kkt-store-rules",
+    "methods": 73,
+    "forward": 73,
+    "translate": 0,
+    "copies": 1,
+    "why": "Each method calls kkt-store's Db method of the same name and copies the record across. The translation (73 kkt-db queries, such as channel_ids, which joins memberships with open channels, or append_lane_version, which reads the newest version before inserting) stayed in kkt-store."
+   },
+   {
+    "adapter": "kkt-db-sqlite-db::SqliteBackend",
+    "to": "kkt-db: Backend, Connection, Evolve",
+    "where": "kkt-db-sqlite-db",
+    "methods": 14,
+    "forward": 14,
+    "translate": 0,
+    "copies": 1,
+    "why": "Each method calls SqlitePlace's method of the same name. The SQL writing (save inserts or replaces and keeps the search index; search builds an FTS5 match) stayed in kkt-db-sqlite."
+   },
+   {
+    "adapter": "kkt-identity-keymode::KeyMode",
+    "to": "kkt-mcp: Identify; kkt-server: Identify",
+    "where": "kkt, kkt-keymode",
+    "methods": 6,
+    "forward": 6,
+    "translate": 0,
+    "copies": 2,
+    "why": "avatar, newcomer and operator, once for each of two copies of the same contract."
+   },
+   {
+    "adapter": "kkt-server::RulesSource",
+    "to": "kkt-web: Source",
+    "where": "each server program",
+    "methods": 21,
+    "forward": 21,
+    "translate": 0,
+    "copies": 3,
+    "why": "Each method calls RulesSource's method of the same name; RulesSource held the translation."
+   },
+   {
+    "adapter": "kkt-server::RulesSources",
+    "to": "kkt-web: Sources",
+    "where": "each server program",
+    "methods": 1,
+    "forward": 1,
+    "translate": 0,
+    "copies": 3,
+    "why": "source."
+   },
+   {
+    "adapter": "kkt-server::AdmissionGate",
+    "to": "kkt-web: Gate",
+    "where": "each server program",
+    "methods": 6,
+    "forward": 6,
+    "translate": 0,
+    "copies": 3,
+    "why": "Each method calls AdmissionGate's method of the same name."
+   },
+   {
+    "adapter": "kkt-names::NoticeWording",
+    "to": "kkt-rules: OperatorWording",
+    "where": "each server program",
+    "methods": 1,
+    "forward": 1,
+    "translate": 0,
+    "copies": 3,
+    "why": "operator: maps Audit to the admin key's name and calls NoticeWording."
+   },
+   {
+    "adapter": "kkt-clock-system::SystemClock",
+    "to": "kkt-clock: Clock",
+    "where": "each of four programs",
+    "methods": 2,
+    "forward": 2,
+    "translate": 0,
+    "copies": 4,
+    "why": "now and sleep_until."
+   },
+   {
+    "adapter": "kkt-entropy-os::OsEntropy",
+    "to": "kkt-entropy: Entropy",
+    "where": "each of four programs",
+    "methods": 1,
+    "forward": 1,
+    "translate": 0,
+    "copies": 4,
+    "why": "below."
+   },
+   {
+    "adapter": "kkt-agent-client::Remote",
+    "to": "kkt-watch: Server",
+    "where": "kkt",
+    "methods": 5,
+    "forward": 5,
+    "translate": 0,
+    "copies": 1,
+    "why": "Each method calls Remote's own and maps the failure; the MCP calls and JSON reading (wait, handle) stayed in kkt-agent-client."
+   },
+   {
+    "adapter": "kkt-agent-client::AdminRemote",
+    "to": "kkt-watch: Server",
+    "where": "kkt",
+    "methods": 5,
+    "forward": 5,
+    "translate": 0,
+    "copies": 1,
+    "why": "As Remote."
+   },
+   {
+    "adapter": "kkt-container-os::OsHost",
+    "to": "kkt-container: Host",
+    "where": "kkt",
+    "methods": 8,
+    "forward": 8,
+    "translate": 0,
+    "copies": 1,
+    "why": "run, run_attached, exists, read_file, create_dir_all, write_file, say, working_dir."
+   },
+   {
+    "adapter": "kkt-service-os::OsSystem",
+    "to": "kkt-service: System",
+    "where": "kkt",
+    "methods": 8,
+    "forward": 8,
+    "translate": 0,
+    "copies": 1,
+    "why": "user_id, exists, read_file, create_dir_all, write_file, remove_file, run, run_attached."
+   },
+   {
+    "adapter": "kkt-remote-access-os::OsHost",
+    "to": "kkt-remote-access: Host",
+    "where": "kkt",
+    "methods": 1,
+    "forward": 1,
+    "translate": 0,
+    "copies": 1,
+    "why": "run."
+   },
+   {
+    "adapter": "kkt-client-config-os::OsHost",
+    "to": "kkt-client-config: Host",
+    "where": "kkt",
+    "methods": 11,
+    "forward": 11,
+    "translate": 0,
+    "copies": 1,
+    "why": "read, exists, create_private, restrict, create_dir_all, rename, remove_file, absolute, canonicalize, process_id, claude."
+   },
+   {
+    "adapter": "kkt-diagnostics-os::OsProber",
+    "to": "kkt-diagnostics: Prober",
+    "where": "kkt",
+    "methods": 2,
+    "forward": 2,
+    "translate": 0,
+    "copies": 1,
+    "why": "key_file, probe."
+   },
+   {
+    "adapter": "kkt-lane-files-os::OsDisk",
+    "to": "kkt-lane-files: Disk",
+    "where": "kkt",
+    "methods": 6,
+    "forward": 6,
+    "translate": 0,
+    "copies": 1,
+    "why": "file_names, read, create_dir_all, write, absolute, git_commit."
+   },
+   {
+    "adapter": "kkt-web-preview::Preview",
+    "to": "kkt-web: Source",
+    "where": "the preview example (and a copy in its tests)",
+    "methods": 21,
+    "forward": 21,
+    "translate": 0,
+    "copies": 1,
+    "why": "Each method calls Preview's own."
+   },
+   {
+    "adapter": "kkt-web-preview::PreviewGate",
+    "to": "kkt-web: Gate",
+    "where": "the preview example",
+    "methods": 6,
+    "forward": 6,
+    "translate": 0,
+    "copies": 1,
+    "why": "Each method calls PreviewGate's own."
+   }
+  ],
+  "after": [
+   {
+    "adapter": "kkt-server::AdmissionGate",
+    "to": "kkt-web: Gate",
+    "where": "kkt-server, for the three programs",
+    "methods": 2,
+    "forward": 1,
+    "translate": 1,
+    "copies": 1,
+    "why": "admits translates: kkt-admission's decision for an open page or a signed-in viewer, then kkt-identity's Identify. sign_in forwards: whether a key is good, and whom it admits. The sessions and form tokens are kkt-web's."
+   },
+   {
+    "adapter": "kkt-agent-client::Remote and AdminRemote",
+    "to": "kkt-watch: Server",
+    "where": "kkt",
+    "methods": 5,
+    "forward": 5,
+    "translate": 0,
+    "copies": 1,
+    "why": "One adapter, WatchServer, an enum over the two; each method calls the same-named method of the one it holds and maps the failure (step 1.9)."
+   },
+   {
+    "adapter": "the six -os crates",
+    "to": "their consumers' Host, System, Prober and Disk",
+    "where": "kkt",
+    "methods": 36,
+    "forward": 29,
+    "translate": 7,
+    "copies": 1,
+    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1). kkt-remote-access-os' run returns its own Output and I/O error, which the adapter translates (step 2.3). kkt-diagnostics-os' key_file and probe return its own KeyFile and Check, which the adapter translates (step 2.5). This is the historical adapter census before phase 12. The remote-access adapter goes in the pilot; its wrapper implements the scope contract directly."
+   },
+   {
+    "adapter": "kkt-config-file::parse_file",
+    "to": "kkt-container: ConfigReader",
+    "where": "kkt",
+    "methods": 1,
+    "forward": 0,
+    "translate": 1,
+    "copies": 1,
+    "why": "settings parses the container's config text with kkt-config-file, which kkt-container reads through its Host, and picks the name pack and lane limit into kkt-container's own ContainerConfig (step 3.3)."
+   },
+   {
+    "adapter": "kkt-admission-os::KeyFiles",
+    "to": "kkt-admission: KeyTexts",
+    "where": "kkt, kkt-keymode",
+    "methods": 4,
+    "forward": 4,
+    "translate": 0,
+    "copies": 2,
+    "why": "Each method reads one key file's text; kkt-admission declares the texts its key check needs."
+   },
+   {
+    "adapter": "kkt-terminal-os::Terminal",
+    "to": "kkt-setup: Lines",
+    "where": "kkt",
+    "methods": 3,
+    "forward": 3,
+    "translate": 0,
+    "copies": 1,
+    "why": "say writes a line, read_line reads one, interactive asks whether input is a terminal (step 7.1b)."
+   },
+   {
+    "adapter": "kkt-terminal-os::Terminal",
+    "to": "kkt-watch: Report",
+    "where": "kkt",
+    "methods": 2,
+    "forward": 2,
+    "translate": 0,
+    "copies": 1,
+    "why": "message writes a line to standard output with Terminal's message, in one locked write and flush; note writes one to standard error (step 7.1a)."
+   },
+   {
+    "adapter": "kkt-terminal-os::BrowserLink",
+    "to": "kkt-container: LoginLink",
+    "where": "kkt",
+    "methods": 4,
+    "forward": 4,
+    "translate": 0,
+    "copies": 1,
+    "why": "show, open, open_requested and open_failure call BrowserLink's own methods."
+   },
+   {
+    "adapter": "kkt-agent-client::StateFile",
+    "to": "kkt-watch: Place",
+    "where": "kkt",
+    "methods": 2,
+    "forward": 2,
+    "translate": 0,
+    "copies": 1,
+    "why": "load and save read and write the state file."
+   },
+   {
+    "adapter": "kkt-lane-files-os::OsDisk",
+    "to": "kkt-lane-files: git::Git",
+    "where": "kkt",
+    "methods": 1,
+    "forward": 0,
+    "translate": 1,
+    "copies": 1,
+    "why": "run calls OsDisk's git and turns its GitOutput into kkt-lane-files' Ran; git's meaning stays in kkt-lane-files (step 2.6)."
+   }
+  ],
+  "before_totals": {
+   "adapters": 19,
+   "methods": 198,
+   "forward": 198,
+   "translate": 0,
+   "written": 271,
+   "forward_written": 271
+  },
+  "after_totals": {
+   "adapters": 15,
+   "methods": 60,
+   "forward": 50,
+   "translate": 10,
+   "written": 64,
+   "forward_written": 54
+  },
+  "page_about": "Every adapter in the proposed map, with its methods: forwarding (F), the same operation as a method of the provider with at most a rename or a trivial conversion, or translating (T), which combines calls, reshapes records or holds logic. Copies: how many programs write it."
+ }
 }

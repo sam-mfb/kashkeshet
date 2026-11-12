@@ -759,7 +759,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-operate",
-      "impl": "kkt-remote-access-tailscale::Tailscale",
+      "impl": "kkt-remote-access::Tailscale",
       "note": "The program directly injects the named sharing implementation into the operator assembly.",
       "status": "decided",
       "to": [
@@ -1506,15 +1506,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-probe-reqwest"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-remote-access-tailscale"
    },
    {
     "from": "kashkeshet",
@@ -2820,15 +2811,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-hash"
    },
    {
-    "from": "kkt-remote-access-tailscale",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-remote-access"
-   },
-   {
     "from": "kkt-rules",
     "kind": "normal",
     "role": "implements",
@@ -3640,6 +3622,31 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-names"
+   },
+   {
+    "from": "kashkeshet",
+    "items_gone": [
+     "OsHost",
+     "prepare",
+     "serve",
+     "served",
+     "stop"
+    ],
+    "items_new": [
+     "Tailscale"
+    ],
+    "kind": "normal",
+    "roles_after": [
+     "wires"
+    ],
+    "roles_before": [
+     "uses",
+     "wires"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-remote-access"
    },
    {
     "from": "kashkeshet",
@@ -8839,31 +8846,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "testing::Memory implements kkt-remote-access::RemoteAccess: The contract owns its testing stand-in (12.1)."
-     },
-     {
-      "status": "decided",
-      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.1)."
-     },
-     {
-      "status": "decided",
-      "text": "its real feature moves to kkt-remote-access-tailscale"
-     },
-     {
-      "status": "decided",
-      "text": "All tool parsing moves into the named wrapper (12.1)."
-     }
-    ]
-   },
-   {
-    "crate": "kkt-remote-access-tailscale",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-remote-access"
-     },
-     {
-      "status": "decided",
       "text": "new struct Tailscale"
      },
      {
@@ -8872,11 +8854,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "takes the real feature from kkt-remote-access"
+      "text": "testing::Memory implements kkt-remote-access::RemoteAccess: The contract owns its testing stand-in (12.1)."
      },
      {
       "status": "decided",
-      "text": "The named wrapper implements the scope contract directly (12.1)."
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "Tool parsing stays in the merged scope crate, optional under real; the open contract and stand-in need neither parser (13.2)."
      }
     ]
    },
@@ -10863,12 +10849,6 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "kind": "normal",
     "role": "uses",
-    "to": "kkt-remote-access"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "uses",
     "to": "kkt-settings"
    },
    {
@@ -11652,16 +11632,10 @@ window.KKT_PROPOSED = {
     "must_not": "Store the run record: kkt-server does."
    },
    "kkt-remote-access": {
-    "concern": "The project's sharing contract RemoteAccess, Node and its testing stand-in; no tool knowledge.",
-    "kind": "contract",
+    "concern": "The remote-sharing contract and stand-in, with Tailscale behind real; tool logic is tested over a private runner.",
+    "kind": "contract and effect",
     "layer": "operations",
-    "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service.",
-    "status": "decided"
-   },
-   "kkt-remote-access-tailscale": {
-    "concern": "Implements the project's RemoteAccess contract directly; owns Tailscale arguments, parsing, messages and its private process runner behind real (step 12.1, option a).",
-    "kind": "effect",
-    "layer": "operations",
+    "must_not": "Let tool details into the open contract; change login, DNS preferences, unrelated sharing, config or the service.",
     "status": "decided"
    },
    "kkt-rules": {
@@ -26107,11 +26081,11 @@ window.KKT_PROPOSED = {
       "implementors": [
        {
         "crate": "kkt-remote-access",
-        "type": "testing::Memory"
+        "type": "Tailscale"
        },
        {
-        "crate": "kkt-remote-access-tailscale",
-        "type": "Tailscale"
+        "crate": "kkt-remote-access",
+        "type": "testing::Memory"
        }
       ],
       "trait": "RemoteAccess"
@@ -26120,10 +26094,18 @@ window.KKT_PROPOSED = {
     "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login.",
     "dev_only": false,
     "features": {
+     "real": [],
      "testing": []
     },
     "holders": [],
     "implements": [
+     {
+      "crate": "kkt-remote-access",
+      "status": "decided",
+      "trait": "RemoteAccess",
+      "trait_crate": "kkt-remote-access",
+      "type": "Tailscale"
+     },
      {
       "crate": "kkt-remote-access",
       "status": "decided",
@@ -26155,6 +26137,14 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "Shares this machine's server through its existing Tailscale login.",
+      "feature": "real",
+      "kind": "struct",
+      "path": "Tailscale",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "A machine with the given network name, initially sharing nothing.",
       "feature": "testing",
       "kind": "struct",
@@ -26166,7 +26156,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      }
     ],
-    "kind": "contract",
+    "kind": "contract and effect",
     "lib": "kkt_remote_access",
     "machine_work": {
      "src/os.rs": [
@@ -26176,6 +26166,14 @@ window.KKT_PROPOSED = {
      ]
     },
     "name": "kkt-remote-access",
+    "optional_third_party": {
+     "serde": [
+      "real"
+     ],
+     "serde_json": [
+      "real"
+     ]
+    },
     "path": "crates/kkt-remote-access",
     "proposed": "changed",
     "proposed_notes": [
@@ -26221,66 +26219,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "testing::Memory implements kkt-remote-access::RemoteAccess: The contract owns its testing stand-in (12.1)."
-     },
-     {
-      "status": "decided",
-      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.1)."
-     },
-     {
-      "status": "decided",
-      "text": "its real feature moves to kkt-remote-access-tailscale"
-     },
-     {
-      "status": "decided",
-      "text": "All tool parsing moves into the named wrapper (12.1)."
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-remote-access-tailscale",
-      "status": "decided",
-      "trait": "RemoteAccess",
-      "trait_crate": "kkt-remote-access",
-      "type": "Tailscale"
-     }
-    ],
-    "items": [
-     {
-      "doc": "Shares this machine's server through its existing Tailscale login.",
-      "feature": "real",
-      "kind": "struct",
-      "path": "Tailscale",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_remote_access_tailscale",
-    "name": "kkt-remote-access-tailscale",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-remote-access"
-     },
-     {
-      "status": "decided",
       "text": "new struct Tailscale"
      },
      {
@@ -26289,11 +26227,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "takes the real feature from kkt-remote-access"
+      "text": "testing::Memory implements kkt-remote-access::RemoteAccess: The contract owns its testing stand-in (12.1)."
      },
      {
       "status": "decided",
-      "text": "The named wrapper implements the scope contract directly (12.1)."
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "Tool parsing stays in the merged scope crate, optional under real; the open contract and stand-in need neither parser (13.2)."
      }
     ],
     "released_program": false,
@@ -33385,7 +33327,7 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "new",
+    "proposed": "changed",
     "role": "wires",
     "roles": [
      {
@@ -33400,7 +33342,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-remote-access-tailscale"
+    "to": "kkt-remote-access"
    },
    {
     "features": [
@@ -39369,38 +39311,6 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-remote-access-tailscale",
-    "items": [
-     "Node",
-     "RemoteAccess"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "Tailscale implements RemoteAccess"
-      ],
-      "role": "implements"
-     },
-     {
-      "detail": [
-       "Node"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-remote-access"
-   },
-   {
-    "features": [],
     "from": "kkt-rules",
     "items": [
      "AdminChannel"
@@ -42661,7 +42571,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "new": [
-    "kkt-remote-access-tailscale"
+    "kkt-remote-access"
    ],
    "path": "Host",
    "result": "Removed: the project-level RemoteAccess scope contract replaces run-a-command. The named Tailscale wrapper implements it directly, and the program only injects it (step 12.1).",

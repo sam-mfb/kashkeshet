@@ -611,7 +611,7 @@
        "param": "remote"
       }
      ],
-     "impl": "kkt-remote-access-tailscale::Tailscale",
+     "impl": "kkt-remote-access::Tailscale",
      "note": "The program injects the sharing implementation directly into the operator assembly."
     },
     {

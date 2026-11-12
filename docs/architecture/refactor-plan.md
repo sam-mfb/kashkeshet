@@ -1732,7 +1732,7 @@ kkt-review-b, and its plan and map work by kkt-review-373.
 |---|---|---|---|---|
 | 13.0 | The rule text, the new kind, generate.py's slot features and optional dependencies, kinds.py, progress.py, check-crates' comment, CLAUDE.md, the proposal's rule | M | kkt-mt-step1 | kkt-review-373 |
 | 13.1 | kkt-container merges with kkt-container-docker | M | kkt-build-c | kkt-review-373 |
-| 13.2 | kkt-remote-access merges with kkt-remote-access-tailscale | S | kkt-build-c | kkt-review-373 |
+| 13.2 | kkt-remote-access merges with kkt-remote-access-tailscale | S | kkt-build-c (this pull request) | kkt-review-373 |
 | 13.3 | kkt-browser merges with kkt-browser-os | S | kkt-mt-step1 | kkt-review-b |
 | 13.4 | kkt-lane-commit merges with kkt-lane-commit-git | S | kkt-build-b | kkt-review-b |
 | 13.5 | kkt-probe merges with kkt-probe-reqwest | S | kkt-build-b | kkt-review-b |
@@ -1962,3 +1962,14 @@ Docker decisions, timings, Compose assets, commands, messages and sidecar status
 move into that wrapper, with a private `Runner` and the old fake and native tests.
 The program's adapter and `kkt-container-os` go. The program wires `Docker` into
 `kkt-operate::OperateParts.container`. No check condition or rule text changes.
+
+### 13.2: remote sharing contract and Tailscale implementation together
+
+The contract, Node and its `testing` stand-in stay outside `real`. The Tailscale
+wrapper moves unchanged into private modules of kkt-remote-access, with Tailscale
+re-exported only behind `real`. Unit tests still exercise the tool logic and its
+private fake without `real`; native process execution stays behind `real`.
+
+serde and serde_json become optional under `real`, with dev-dependencies for
+the private tests. The program builds the same Tailscale directly from the scope
+crate, without an adapter. No command, message, flag, file or test assertion changes.
