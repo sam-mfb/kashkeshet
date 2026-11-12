@@ -111,13 +111,15 @@ mod store;
 use rate::{RegisterLimiter, SendLimiter};
 #[cfg(any(test, feature = "testing"))]
 pub use store::testing;
-pub use store::{
-    AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, CORE, ChannelFacts, ChannelFilter,
-    ChannelKind, ChannelNoteRecord, ChannelScope, ChannelSummary, ChannelUseRecord, Db, LaneRecord,
-    LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord, MembershipRecord, MemoryEntryRecord,
-    MessageRange, MessageTimeRecord, NewAgentRecord, NewChannelRecord, NewLaneVersionRecord,
-    NewMessageRecord, NewServerRunRecord, NewerFilter, NoteEditRecord, Reader, SearchFilter,
-    SentFilter, StoreError, StoreResult, TakenLaneRecord, Writer, legacy, schema,
+pub use store::{CORE, Db, StoreError, StoreResult, legacy, schema};
+// The store's records, questions and changes are the rules' own: other
+// crates' tests reach them only through `testing`.
+pub(crate) use store::{
+    AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelFilter,
+    ChannelScope, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord,
+    LaneSourceRecord, LaneVersionRecord, MemoryEntryRecord, MessageRange, NewAgentRecord,
+    NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewerFilter, NoteEditRecord, Reader,
+    SearchFilter, SentFilter, TakenLaneRecord, Writer,
 };
 
 use access::{Decision, Need, Viewer, Who};

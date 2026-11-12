@@ -876,7 +876,9 @@ impl Reader<'_> {
         self.first(&select, message_from_row)
     }
 
-    /// Up to `limit` messages across all channels, newest first.
+    /// Up to `limit` messages across all channels, newest first. No rule
+    /// asks it any more; the tests that pin the store's reads do.
+    #[cfg(any(test, feature = "testing"))]
     pub fn recent_messages(&self, swarm: &SwarmId, n: usize) -> StoreResult<Vec<Message>> {
         let select = messages_select()
             .filter(is(through("channel_id", "hidden"), false))

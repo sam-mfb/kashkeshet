@@ -12,15 +12,13 @@ use kkt_api_agent::{Code, RuleError};
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::SeqEntropy;
-use kkt_events::Events;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_log::{Level, Log, testing::CapturedLog};
 use kkt_mcp_formatter::Formatter;
+use kkt_rules::OperatorWording;
 use kkt_rules::Rules;
-use kkt_rules::Settings;
-use kkt_rules::{Deps, OperatorWording};
 use kkt_shutdown::Shutdown;
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -85,31 +83,16 @@ async fn rules() -> Rules {
     let clock = Arc::new(FixedClock::new(
         Time::from_parts(2026, 11, 9, 0, 0, 0).unwrap(),
     ));
-    let db = { kkt_rules::testing::memory().expect("an in-memory store") };
-    let run_id = db
-        .write(|w| {
-            let run_id = w.insert_server_run(&kkt_rules::NewServerRunRecord {
-                started_at: "2026-11-09T00:00:00Z".into(),
-                version: "test".into(),
-                git_commit: "test".into(),
-                settings: "test".into(),
-                instructions_sha256: "test".into(),
-            })?;
-            w.insert_swarm(&SwarmId::new("sw_other"), "2026-11-09T00:00:00Z", run_id)?;
-            Ok::<_, kkt_rules::StoreError>(run_id)
-        })
-        .await
-        .expect("a server run and a second swarm");
-    Rules::new(Deps {
-        db,
-        swarm: SwarmId::main(),
-        events: Events::new(kkt_events::Settings::DEFAULT),
-        clock,
-        entropy: Arc::new(SeqEntropy::new(1)),
-        run_id,
-        settings: Settings::DEFAULT,
+    let rules = kkt_rules::testing::memory(kkt_rules::testing::Memory {
         wording: Arc::new(Plain),
+        ..kkt_rules::testing::Memory::new(clock, Arc::new(SeqEntropy::new(1)))
     })
+    .await
+    .expect("rules over a new database");
+    kkt_api_admin::Swarms::create_swarm(&rules, SwarmId::new("sw_other"))
+        .await
+        .expect("a second swarm");
+    rules
 }
 
 /// Both endpoints over `rules`, identifying calls with `identify`, with

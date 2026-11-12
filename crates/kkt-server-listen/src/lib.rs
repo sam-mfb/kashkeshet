@@ -82,20 +82,16 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpStream;
 
-    fn app(shutdown: &Shutdown) -> App {
+    async fn app(shutdown: &Shutdown) -> App {
         let clock = Arc::new(FixedClock::new(start_time()));
         let entropy = Arc::new(SeqEntropy::new(1));
-        let rules = kkt_rules::Rules::new(kkt_rules::Deps {
-            db: kkt_rules::testing::memory().expect("an in-memory store"),
-            swarm: kkt_api_agent::SwarmId::main(),
+        let rules = kkt_rules::testing::memory(kkt_rules::testing::Memory {
             events: kkt_events::Events::new(kkt_events::Settings::DEFAULT)
                 .until_stopped(shutdown.clone()),
-            clock: clock.clone(),
-            entropy: entropy.clone(),
-            run_id: 1,
-            settings: kkt_rules::Settings::DEFAULT,
-            wording: Arc::new(kkt_rules::DefaultWording),
-        });
+            ..kkt_rules::testing::Memory::new(clock.clone(), entropy.clone())
+        })
+        .await
+        .expect("rules over a new database");
         let parts = Parts::new(
             rules,
             clock,
@@ -132,9 +128,12 @@ mod tests {
     #[tokio::test]
     async fn listening_on_port_0_reports_the_port_bound_and_serves_there_until_stopped() {
         let shutdown = Shutdown::new();
-        let listening = listen(app(&shutdown), "127.0.0.1:0".parse().expect("address"))
-            .await
-            .expect("listen");
+        let listening = listen(
+            app(&shutdown).await,
+            "127.0.0.1:0".parse().expect("address"),
+        )
+        .await
+        .expect("listen");
         let address = listening.address().expect("address");
         assert_ne!(address.port(), 0);
         let stop = shutdown.clone();
@@ -154,6 +153,6 @@ mod tests {
         let taken = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
         let address = taken.local_addr().expect("address");
         let shutdown = Shutdown::new();
-        assert!(listen(app(&shutdown), address).await.is_err());
+        assert!(listen(app(&shutdown).await, address).await.is_err());
     }
 }

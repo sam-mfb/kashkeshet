@@ -11,12 +11,10 @@ use kkt_api_operator::{LaneSave, OperatorApi};
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::SeqEntropy;
-use kkt_events::Events;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
-use kkt_rules::NewServerRunRecord;
-use kkt_rules::{Deps, Rules};
+use kkt_rules::Rules;
 use kkt_web::Viewer;
 use kkt_web::testing::{
     ACTIVITY_BUCKET, ACTIVITY_WINDOW, App, form_token_in, get, post, post_for_page, start_time,
@@ -131,31 +129,13 @@ struct World {
 /// one channel. The server has a lane and an announcement.
 async fn world() -> World {
     let clock = Arc::new(FixedClock::new(start_time()));
-    let db = kkt_rules::testing::memory().expect("an in-memory store");
-    let run_id = db
-        .write(|w| {
-            let run_id = w.insert_server_run(&NewServerRunRecord {
-                started_at: "2026-10-25T12:00:00Z".into(),
-                version: "test".into(),
-                git_commit: "test".into(),
-                settings: "test".into(),
-                instructions_sha256: "test".into(),
-            })?;
-            w.insert_swarm(&other(), "2026-10-25T12:00:00Z", run_id)?;
-            Ok::<_, kkt_rules::StoreError>(run_id)
-        })
-        .await
-        .expect("a server run and a second swarm");
-    let rules = Rules::new(Deps {
-        db,
-        swarm: SwarmId::main(),
-        events: Events::new(kkt_events::Settings::DEFAULT),
-        clock: clock.clone(),
-        entropy: Arc::new(SeqEntropy::new(4)),
-        run_id,
-        settings: kkt_rules::Settings::DEFAULT,
-        wording: Arc::new(kkt_rules::DefaultWording),
-    });
+    let rules = kkt_rules::testing::memory(kkt_rules::testing::Memory::new(
+        clock.clone(),
+        Arc::new(SeqEntropy::new(4)),
+    ))
+    .await
+    .expect("rules over a new database");
+    rules.create_swarm(other()).await.expect("a second swarm");
     let main_viewer = viewer(Principal::Anyone, &KeyMode::new(None)).await;
     let other_viewer = viewer(Principal::Anyone, &InOther).await;
     assert_eq!(main_viewer.swarm, SwarmId::main());

@@ -96,7 +96,7 @@ mod tests {
     #[tokio::test]
     async fn start_records_the_run_as_given_at_the_clocks_now() {
         let at = kkt_clock::from_text("2026-11-12T08:30:00Z").expect("a time");
-        let db = crate::testing::memory().expect("an in-memory store");
+        let db = crate::testing::database().expect("an in-memory store");
         let earlier = start(run(), startup(db.clone(), Arc::new(FixedClock::new(at))))
             .await
             .expect("the first run");
@@ -131,7 +131,7 @@ mod tests {
     #[tokio::test]
     async fn the_rules_start_gives_stamp_their_rows_with_the_run() {
         let at = kkt_clock::from_text("2026-11-12T08:30:00Z").expect("a time");
-        let db = crate::testing::memory().expect("an in-memory store");
+        let db = crate::testing::database().expect("an in-memory store");
         let rules = start(run(), startup(db.clone(), Arc::new(FixedClock::new(at))))
             .await
             .expect("a run");

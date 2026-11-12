@@ -9,9 +9,10 @@
 //! `UPDATE_READS=1 cargo test --test migrations`, and review the diff.
 
 use super::temp_dir;
-use kkt_rules::{
-    ChannelFilter, ChannelKind, ChannelScope, MessageRange, NewerFilter, Reader, SearchFilter,
-    SentFilter, StoreError,
+use kkt_rules::StoreError;
+use kkt_rules::testing::{
+    self, ChannelFilter, ChannelKind, ChannelScope, MessageRange, NewerFilter, Reader,
+    SearchFilter, SentFilter,
 };
 use rusqlite::Connection;
 use std::fmt::Debug;
@@ -766,7 +767,7 @@ async fn reads_after_opening(test: &str) -> String {
     let path = dir.join("v0_10_0.db");
     make(&path);
     let db = kashkeshet::machine::database::open(&path).expect("open the 0.10.0 database");
-    db.read(every_read).await.expect("every read")
+    testing::read(&db, every_read).await.expect("every read")
 }
 
 #[tokio::test]
@@ -888,7 +889,7 @@ async fn a_next_database_with_swarms_is_adopted_too() {
         "adopting is an upgrade, which the backup before it must see"
     );
     let db = kashkeshet::machine::database::open(&path).expect("open next's database");
-    let reads = db.read(every_read).await.expect("every read");
+    let reads = testing::read(&db, every_read).await.expect("every read");
     drop(db);
     let pinned = std::fs::read_to_string(reads_path()).expect("read the pinned reads");
     assert!(reads == pinned, "{}", where_they_differ(&reads, &pinned));
@@ -900,7 +901,7 @@ async fn a_next_database_with_swarms_is_adopted_too() {
 #[tokio::test]
 async fn ids_and_versions_keep_rising_after_adoption() {
     use kkt_api_agent::SwarmId;
-    use kkt_rules::NewMessageRecord;
+    use kkt_rules::testing::NewMessageRecord;
     let dir = temp_dir("v0_10_0-ids");
     let path = dir.join("v0_10_0.db");
     make(&path);
@@ -923,24 +924,22 @@ async fn ids_and_versions_keep_rising_after_adoption() {
         (newest, version + 50)
     };
     let db = kashkeshet::machine::database::open(&path).expect("open the 0.10.0 database");
-    let (id, saved) = db
-        .write(move |w| {
-            let id = w.insert_message(
-                &SwarmId::main(),
-                &NewMessageRecord {
-                    channel_id: "ch_general".into(),
-                    agent: "amber-falcon".into(),
-                    body: "after the upgrade".into(),
-                    created_at: "2026-11-09T00:00:00Z".into(),
-                    run_id: 3,
-                },
-            )?;
-            let saved =
-                w.append_server_announcement("Be brief.", "2026-11-09T00:00:00Z", 3, None)?;
-            Ok::<_, StoreError>((id, saved.version))
-        })
-        .await
-        .expect("a message and an announcement");
+    let (id, saved) = testing::write(&db, move |w| {
+        let id = w.insert_message(
+            &SwarmId::main(),
+            &NewMessageRecord {
+                channel_id: "ch_general".into(),
+                agent: "amber-falcon".into(),
+                body: "after the upgrade".into(),
+                created_at: "2026-11-09T00:00:00Z".into(),
+                run_id: 3,
+            },
+        )?;
+        let saved = w.append_server_announcement("Be brief.", "2026-11-09T00:00:00Z", 3, None)?;
+        Ok::<_, StoreError>((id, saved.version))
+    })
+    .await
+    .expect("a message and an announcement");
     assert!(id > newest, "message {id} after message {newest}");
     assert_eq!(saved, announcement + 1);
 }
@@ -1136,11 +1135,11 @@ async fn a_v0_10_0_database_gains_one_swarm_holding_every_avatar_and_channel() {
 
 #[tokio::test]
 async fn a_new_database_has_the_one_swarm_and_new_rows_join_it() {
-    use kkt_rules::{NewAgentRecord, NewChannelRecord};
+    use kkt_rules::testing::{NewAgentRecord, NewChannelRecord};
     let dir = temp_dir("new-swarm");
     let path = dir.join("new.db");
     let db = kashkeshet::machine::database::open(&path).expect("a new database");
-    db.write(|s| {
+    testing::write(&db, |s| {
         s.insert_agent(
             &kkt_api_agent::SwarmId::main(),
             &NewAgentRecord {
@@ -1149,7 +1148,7 @@ async fn a_new_database_has_the_one_swarm_and_new_rows_join_it() {
                 recovery_hash: None,
                 created_at: "2026-11-08T00:00:00Z".into(),
                 last_seen: None,
-                run_id: s.insert_server_run(&kkt_rules::NewServerRunRecord {
+                run_id: s.insert_server_run(&kkt_rules::testing::NewServerRunRecord {
                     started_at: "2026-11-08T00:00:00Z".into(),
                     version: "test".into(),
                     git_commit: "test".into(),
