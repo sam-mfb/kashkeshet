@@ -40,6 +40,12 @@ use std::fmt::Debug;
 
 pub use super::reads::{Probes, every_store_read};
 
+/// The rules' scenarios that run on the real backend too, for the
+/// program's test that runs them on kkt-db-sqlite (11.3).
+pub mod scenarios {
+    pub use crate::scenarios::run_all;
+}
+
 /// What a test's rules are made from: the rules' startup without the
 /// database. [`Memory::new`] fills in the rest as a server in key mode
 /// would: the one swarm, a new events bus, the default settings and

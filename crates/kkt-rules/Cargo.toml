@@ -8,6 +8,9 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+# Only for `testing`: the scenarios (`testing::scenarios::run_all`) catch a
+# failing one to name it.
+futures = { workspace = true, optional = true }
 kkt-api-admin = { path = "../kkt-api-admin" }
 kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-api-operator = { path = "../kkt-api-operator" }
@@ -31,7 +34,10 @@ tokio = { workspace = true, features = ["time"] }
 
 [features]
 # `testing`: `testing::swarms_stay_apart` and `swarms_stay_apart_in`, the
-# check that a store keeps swarms apart, on any backend; `testing::memory`,
+# check that a store keeps swarms apart, on any backend; `testing::scenarios`,
+# the rules' scenarios that run on the real backend too; `testing::memory`,
 # the rules over kkt-db's fast stand-in (`FastPlace`), and
 # `testing::database`, the database alone; and `testing::fail_next_write`.
-testing = ["kkt-db/testing"]
+# The scenarios, `testing::scenarios::run_all`, run on a fixed clock and
+# seeded entropy, and bound their waits in real time.
+testing = ["kkt-db/testing", "kkt-clock/testing", "kkt-entropy/testing", "dep:futures", "tokio/time"]
