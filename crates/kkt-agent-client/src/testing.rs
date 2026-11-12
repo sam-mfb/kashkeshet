@@ -18,7 +18,22 @@ pub const ADMIN_HANDLE: &str = "(admin)";
 /// A server in memory. Clones share it.
 #[derive(Clone, Default)]
 pub struct Memory {
-    avatars: Arc<Mutex<Vec<Avatar>>>,
+    state: Arc<Mutex<State>>,
+}
+
+/// The avatars, and how many tokens have been issued: each token is new.
+#[derive(Default)]
+struct State {
+    avatars: Vec<Avatar>,
+    issued: usize,
+}
+
+impl State {
+    /// A token never issued before.
+    fn token(&mut self) -> String {
+        self.issued += 1;
+        format!("act_{}", self.issued)
+    }
 }
 
 /// One registered avatar, as `Memory` keeps it.
@@ -38,12 +53,12 @@ impl Memory {
 
     /// Every avatar registered so far, in order.
     pub fn registered(&self) -> Vec<Avatar> {
-        self.lock().clone()
+        self.lock().avatars.clone()
     }
 
-    fn lock(&self) -> MutexGuard<'_, Vec<Avatar>> {
+    fn lock(&self) -> MutexGuard<'_, State> {
         // A test that panicked while holding the lock has already failed.
-        self.avatars.lock().unwrap_or_else(|e| e.into_inner())
+        self.state.lock().unwrap_or_else(|e| e.into_inner())
     }
 }
 
@@ -79,20 +94,20 @@ impl Avatars for Memory {
         lane: Option<&'a str>,
     ) -> BoxFuture<'a, Result<Registered, Failure>> {
         Box::pin(async move {
-            let mut avatars = self.lock();
-            let n = avatars.len() + 1;
+            let mut state = self.lock();
+            let n = state.avatars.len() + 1;
             let handle = handle.map_or_else(|| format!("agent-{n}"), str::to_string);
-            if avatars.iter().any(|a| a.handle == handle) {
+            if state.avatars.iter().any(|a| a.handle == handle) {
                 return Err(refused("handle_taken", "that handle is taken"));
             }
             let avatar = Avatar {
                 handle,
-                token: format!("act_{n}"),
+                token: state.token(),
                 recovery_code: format!("rc_{n}"),
                 lane: lane.map(str::to_string),
                 description: None,
             };
-            avatars.push(avatar.clone());
+            state.avatars.push(avatar.clone());
             Ok(Registered {
                 handle: avatar.handle,
                 token: avatar.token,
@@ -107,13 +122,16 @@ impl Avatars for Memory {
         recovery_code: &'a str,
     ) -> BoxFuture<'a, Result<Reclaimed, Failure>> {
         Box::pin(async move {
-            let mut avatars = self.lock();
-            let n = avatars.len();
-            let avatar = avatars
-                .iter_mut()
-                .find(|a| a.handle == handle && a.recovery_code == recovery_code)
+            let mut state = self.lock();
+            let i = state
+                .avatars
+                .iter()
+                .position(|a| a.handle == handle && a.recovery_code == recovery_code)
                 .ok_or_else(|| refused("unauthenticated", "wrong handle or recovery code"))?;
-            avatar.token = format!("act_{n}_reclaimed");
+            // A new token, never issued before; the old one stops working.
+            let token = state.token();
+            let avatar = &mut state.avatars[i];
+            avatar.token = token;
             Ok(Reclaimed {
                 handle: avatar.handle.clone(),
                 token: avatar.token.clone(),
@@ -123,8 +141,9 @@ impl Avatars for Memory {
 
     fn describe<'a>(&'a self, token: &'a str, text: &'a str) -> BoxFuture<'a, Result<(), Failure>> {
         Box::pin(async move {
-            let mut avatars = self.lock();
-            let avatar = avatars
+            let mut state = self.lock();
+            let avatar = state
+                .avatars
                 .iter_mut()
                 .find(|a| a.token == token)
                 .ok_or_else(|| refused("unauthenticated", "unknown token"))?;
@@ -148,6 +167,7 @@ impl Watched for Watch {
                 Some(token) => self
                     .server
                     .lock()
+                    .avatars
                     .iter()
                     .find(|a| &a.token == token)
                     .map(|a| a.handle.clone())
@@ -224,6 +244,40 @@ mod tests {
         assert_ne!(reclaimed.token, first.token);
         let old = server.agent(at(), first.token);
         assert!(block_on(old.handle()).is_err());
+    }
+
+    #[test]
+    fn each_reclaim_issues_a_token_no_other_avatar_or_earlier_reclaim_has() {
+        let server = Memory::new();
+        let avatars = server.avatars(at());
+        let alice =
+            block_on(avatars.register(Some("alice"), None)).unwrap_or_else(|e| panic!("{e}"));
+        let bob = block_on(avatars.register(Some("bob"), None)).unwrap_or_else(|e| panic!("{e}"));
+        let reclaim = |handle, code: &str| {
+            block_on(avatars.reclaim(handle, code)).unwrap_or_else(|e| panic!("{e}"))
+        };
+        let alice_2 = reclaim("alice", &alice.recovery_code);
+        let bob_2 = reclaim("bob", &bob.recovery_code);
+        let alice_3 = reclaim("alice", &alice.recovery_code);
+        let tokens = [
+            &alice.token,
+            &bob.token,
+            &alice_2.token,
+            &bob_2.token,
+            &alice_3.token,
+        ];
+        for (i, a) in tokens.iter().enumerate() {
+            for b in &tokens[i + 1..] {
+                assert_ne!(a, b, "a token was issued twice");
+            }
+        }
+        let watches_as = |token: &str| block_on(server.agent(at(), token.to_string()).handle());
+        assert_eq!(watches_as(&bob_2.token), Ok("bob".to_string()));
+        assert_eq!(watches_as(&alice_3.token), Ok("alice".to_string()));
+        // Each reclaim retires the token before it.
+        assert!(watches_as(&alice_2.token).is_err());
+        assert!(watches_as(&alice.token).is_err());
+        assert!(watches_as(&bob.token).is_err());
     }
 
     #[test]
