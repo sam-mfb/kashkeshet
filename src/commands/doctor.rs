@@ -2,7 +2,6 @@
 use crate::machine::connection::ConnectionOptions;
 use crate::machine::settings::ServeArgs;
 use kkt_machine::{Env, Platform};
-pub(crate) use kkt_operate::doctor::server_fix;
 
 pub async fn run(
     env: &Env,
