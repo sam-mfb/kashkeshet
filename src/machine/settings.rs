@@ -971,4 +971,101 @@ mod tests {
             "every setting fixed"
         );
     }
+
+    /// kkt-rules words its own settings' lines of the run record exactly as
+    /// kkt-settings' record does today, for settings far from the defaults,
+    /// so phase 9 can take them from kkt-rules without changing a byte.
+    #[test]
+    fn the_rules_record_lines_match_the_run_records_own() {
+        use std::time::Duration;
+        let limits = Limits {
+            name_pack: kkt_names::NamePack::find("garden").expect("a name pack"),
+            default_limit: 7,
+            max_limit: 70,
+            max_body_bytes: 1234,
+            max_channel_name_chars: 33,
+            max_purpose_chars: 444,
+            max_description_chars: 222,
+            max_note_chars: 5555,
+            max_server_announcement_chars: 666,
+            max_memory_entry_chars: 777,
+            max_memory_chars: 8888,
+            max_lane_chars: 999,
+            sends_per_minute: 11,
+            registrations_per_minute: 12,
+            max_agents: 13,
+            default_wait: Duration::from_millis(1500),
+            max_wait: Duration::from_millis(2500),
+            waiting_grace: Duration::from_millis(250),
+            member_preview: 4,
+            purpose_preview_chars: 55,
+            ..Limits::DEFAULT
+        };
+        let record = kkt_settings::RecordedSettings {
+            allow_any_bind: false,
+            limits: limits.clone(),
+            log_level: LogLevel::Info,
+            dependency_log_level: LogLevel::Warn,
+            allowed_origins: Vec::new(),
+            allowed_hosts: Vec::new(),
+            config_file: None,
+            access_key_file: None,
+            web_key_file: None,
+            admin_key_file: None,
+            admin_name: None,
+            log_file: None,
+            log_policy: kkt_logs::LogPolicy::DEFAULT,
+        }
+        .lines();
+        let rules = rules_settings(&limits).record_lines();
+        let theirs: Vec<_> = record
+            .into_iter()
+            .filter(|(name, _)| rules.iter().any(|(n, _)| n == name))
+            .collect();
+        assert_eq!(rules, theirs);
+    }
+
+    /// For each check kkt-rules now states, with only that setting bad,
+    /// kkt-rules' problem names the setting and words the rule exactly as
+    /// today's check does, so phase 9 can take the check from kkt-rules
+    /// without changing a refusal.
+    #[test]
+    fn the_rules_problems_word_each_refusal_as_todays_check() {
+        use std::time::Duration;
+        let cases: [fn(&mut Limits); 17] = [
+            |l| l.default_limit = 0,
+            |l| l.max_body_bytes = 0,
+            |l| l.max_channel_name_chars = 0,
+            |l| l.max_purpose_chars = 0,
+            |l| l.max_description_chars = 0,
+            |l| l.max_note_chars = 0,
+            |l| l.max_server_announcement_chars = 0,
+            |l| l.max_memory_entry_chars = 0,
+            // Only max_memory_chars: its floor comes first; its bound
+            // against max_memory_entry_chars is broken too, and later.
+            |l| l.max_memory_chars = 0,
+            |l| l.max_lane_chars = 0,
+            |l| l.sends_per_minute = 0,
+            |l| l.registrations_per_minute = 0,
+            |l| l.max_agents = 0,
+            |l| l.max_limit = l.default_limit - 1,
+            |l| l.max_memory_chars = l.max_memory_entry_chars - 1,
+            |l| l.waiting_grace = l.max_wait + Duration::from_millis(1),
+            |l| {
+                l.max_wait = l.default_wait - Duration::from_millis(1);
+                l.waiting_grace = Duration::ZERO;
+            },
+        ];
+        for make in cases {
+            let mut limits = Limits::DEFAULT;
+            make(&mut limits);
+            let today = limits.check().expect_err("a bad setting");
+            let problems = rules_settings(&limits).problems();
+            let first = problems.first().expect("a problem");
+            assert_eq!(
+                (first.name, first.rule.as_str()),
+                (today.name, today.rule.as_str())
+            );
+        }
+    }
 }

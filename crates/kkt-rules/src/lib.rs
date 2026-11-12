@@ -89,7 +89,7 @@ mod operator_api;
 pub use operator::OperatorWording;
 mod rate;
 mod settings;
-pub use settings::Settings;
+pub use settings::{FLOOR, Problem, Settings};
 mod stale;
 mod startup;
 pub use startup::{NewServerRun, Startup, start};
