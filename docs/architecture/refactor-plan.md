@@ -1616,6 +1616,59 @@ whether it is behind `real`.
 - **page-test.js:** a check that a merged crate's box has both parts, and
   that a consumer's arrow and the program's arrow land on different parts.
 
+**Which way the arrows point** (Sam, msg 3155; a proposal, nothing built
+yet). The map draws "A depends on B" as A → B. Sam reads a dependency the
+other way: B is included in A, so the arrow runs from the thing to where
+it goes. Proposed as the default:
+
+- **uses** (grey): from the crate that is used to the crate that uses it.
+- **wires** (amber): from the implementation to the program that builds
+  it.
+- **implements** (green): unchanged, from the implementer to the contract.
+
+The data does not change (`edges` keep `from` as the dependant), only the
+drawing. For a merged crate this gives Sam's own picture: grey from the
+contract part out to each consumer, amber from the implementation part out
+to the program, and the green mark inside.
+
+**One case needs a rule:** an arrow with several roles whose directions
+now differ. The common one is a wrapper that both implements its contract
+and uses its records. Proposed: such an arrow keeps the "implements"
+direction, with its "uses" stroke beside it, since using the contract's
+records is part of implementing it. Every other arrow has one direction.
+
+**What else reads backwards today, and would change with it:**
+- **The legend and the role words** read as "A uses B" and "A wires B".
+  They become "used by" and "built by", with "implements a contract of"
+  unchanged.
+- **The help text** ("Arrows point from a crate to what it depends on")
+  says the new direction, and that the data and the panel's lists keep
+  Cargo's sense.
+- **The edge panel's title,** today "A → B" for A depends on B: drawn in
+  the arrow's direction, with "used by", "built by" or "implements" between
+  the names.
+- **The proposed view's lists of changed arrows** ("A → B") follow the same
+  wording.
+- **The crate panel** keeps its two lists, renamed for the new reading:
+  "Includes" for "Depends on", and "Included in" for "Used by". Each keeps
+  its count and code-or-tests marks.
+
+**What already reads Sam's way:** the thin dotted injection lines run from
+the program to the crate it injects into, and the assembly flows read in
+build order, so neither changes.
+
+**Out of scope:** the command-line scripts' text (`progress.py` and
+`check-programs.py` print "A -> B" in Cargo's sense). They can change
+later, if Sam wants the same reading there.
+
+**What the code needs:**
+- **map.js:** draw a "uses" or "wires" stroke from `to` to `from`, choosing
+  the arrowhead per drawn direction; the multi-role rule; the wording
+  above.
+- **README.md:** the arrows' section.
+- **page-test.js:** a check that a "uses" arrow's head is at the user.
+- **generate.py:** nothing.
+
 **Steps, if Sam takes it.** One pull request each into `refactor`. Each
 merge moves code and tests unchanged, keeps every message, file and
 command, and charts its own proposal entries. Builders as in phase 12: the
