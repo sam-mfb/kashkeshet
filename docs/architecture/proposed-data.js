@@ -428,7 +428,7 @@ window.KKT_PROPOSED = {
        "kkt-server::ServerSettings",
        "kkt-rules::Settings",
        "kkt-provenance::ServerRun",
-       "kashkeshet::commands::serve::new_server_run",
+       "kashkeshet::machine::server_run::new_server_run",
        "kkt-rules::NewServerRun",
        "kkt-rules::Startup",
        "kkt-rules::start"
@@ -5043,7 +5043,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new fn commands::serve::new_server_run"
+      "text": "new fn machine::server_run::new_server_run"
      },
      {
       "status": "decided",
@@ -5359,7 +5359,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the 0.10.0 migration test and the database-file tests reach the store through kkt-rules' testing: Reader through testing::read, and testing::write, with the records and filters they take (step 5.6b)"
+      "text": "the program's tests pin a 0.10.0 database's reads through every_store_read, run the store's swarm check and the rules' scenarios on kkt-db-sqlite (steps 11.2, 11.3, 11.4)"
      },
      {
       "status": "decided",
@@ -6479,6 +6479,10 @@ window.KKT_PROPOSED = {
       "text": "new struct Settings"
      },
      {
+      "status": "decided",
+      "text": "new struct Problem"
+     },
+     {
       "status": "follows",
       "text": "its real feature moves to kkt-backup-os"
      }
@@ -6999,6 +7003,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct testing::FaultyBackend"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::FastPlace"
      },
      {
       "status": "decided",
@@ -8011,6 +8019,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Problem"
+     },
+     {
+      "status": "decided",
       "text": "new struct Settings"
      },
      {
@@ -8221,15 +8233,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "commands::agent comes here from kashkeshet as agents"
+      "text": "commands::agent comes here from kashkeshet as agent"
      },
      {
       "status": "decided",
-      "text": "commands::agent::AgentAction comes here from kashkeshet as agents::AgentAction"
+      "text": "commands::agent::AgentAction comes here from kashkeshet as agent::AgentAction"
      },
      {
       "status": "decided",
-      "text": "commands::agent::run comes here from kashkeshet as agents::run"
+      "text": "commands::agent::run comes here from kashkeshet as agent::run"
      },
      {
       "status": "decided",
@@ -8290,6 +8302,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn keys::selected_key_path"
+     },
+     {
+      "status": "decided",
+      "text": "new trait ServiceDefaults"
      },
      {
       "status": "decided",
@@ -8761,6 +8777,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "testing::swarms_stay_apart is no longer public: becomes swarms_stay_apart_in, which takes the database to check (step 11.2)"
+     },
+     {
+      "status": "decided",
       "text": "new fn legacy"
      },
      {
@@ -8793,63 +8813,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new fn testing::read"
+      "text": "new fn testing::every_store_read"
      },
      {
       "status": "decided",
-      "text": "new fn testing::write"
+      "text": "new struct testing::Probes"
      },
      {
       "status": "decided",
-      "text": "new struct testing::Reader"
+      "text": "new fn testing::rules_on"
      },
      {
       "status": "decided",
-      "text": "new struct testing::Writer"
+      "text": "new fn testing::swarms_stay_apart_in"
      },
      {
       "status": "decided",
-      "text": "new struct testing::ChannelFilter"
+      "text": "new mod testing::scenarios"
      },
      {
       "status": "decided",
-      "text": "new struct testing::ChannelKind"
+      "text": "new fn testing::scenarios::run_all"
      },
      {
       "status": "decided",
-      "text": "new struct testing::ChannelScope"
-     },
-     {
-      "status": "decided",
-      "text": "new enum testing::MessageRange"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::NewAgentRecord"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::NewChannelRecord"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::NewMessageRecord"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::NewServerRunRecord"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::NewerFilter"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::SearchFilter"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::SentFilter"
+      "text": "new struct Problem"
      },
      {
       "status": "decided",
@@ -8901,7 +8889,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead. Its own tests still use kkt-db-sqlite's, for speed (step 5.3b), a difference the proposal's rule cannot draw: the scorecard counts it as a break"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests run on kkt-db's testing::FastPlace instead (step 11.2); the program's tests run the store and a chosen part of the rules' scenarios on kkt-db-sqlite (steps 11.2, 11.3)"
      },
      {
       "status": "decided",
@@ -9012,6 +9000,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct ServerSettings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct CheckedSettings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct SettingError"
      },
      {
       "status": "decided",
@@ -10078,6 +10074,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct testing::App"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Problem"
      },
      {
       "status": "decided",
@@ -13609,13 +13609,6 @@ window.KKT_PROPOSED = {
       "path": "commands::serve"
      },
      {
-      "doc": "What produced a run, kkt-provenance's ServerRun, as kkt-rules' start records it, a NewServerRun (step 9.2).",
-      "kind": "fn",
-      "path": "commands::serve::new_server_run",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "`kkt serve`: flags over the config file over the defaults, with the database in the per-user data directory unless one is given.",
       "kind": "fn",
       "path": "commands::serve::run"
@@ -13653,6 +13646,13 @@ window.KKT_PROPOSED = {
       "doc": "The upgrade opening the file at `path` would make to tables already there, adopting a database from before kkt-db included.",
       "kind": "fn",
       "path": "machine::database::pending_upgrade"
+     },
+     {
+      "doc": "What produced a run, kkt-provenance's ServerRun, as kkt-rules' start records it, a NewServerRun; public for the integration tests' harness, which records a run as kkt serve does (steps 9.2, 9.3).",
+      "kind": "fn",
+      "path": "machine::server_run::new_server_run",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "The settings `kkt serve` would run with: reading the config file, where each setting came from, the one place they are resolved (`resolve`), and the startup checks.",
@@ -14109,7 +14109,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new fn commands::serve::new_server_run"
+      "text": "new fn machine::server_run::new_server_run"
      },
      {
       "status": "decided",
@@ -14425,7 +14425,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the 0.10.0 migration test and the database-file tests reach the store through kkt-rules' testing: Reader through testing::read, and testing::write, with the records and filters they take (step 5.6b)"
+      "text": "the program's tests pin a 0.10.0 database's reads through every_store_read, run the store's swarm check and the rules' scenarios on kkt-db-sqlite (steps 11.2, 11.3, 11.4)"
      },
      {
       "status": "decided",
@@ -18089,6 +18089,13 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "An invalid backup setting and the owner's check that found it. (step 9.1)",
+      "kind": "struct",
+      "path": "Problem",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "How many of the backups made before upgrading the database are kept (upgrade_backups_kept), with its default, its check and its line in the run record (step 9.1).",
       "kind": "struct",
       "methods": [
@@ -18174,6 +18181,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Problem"
      },
      {
       "status": "follows",
@@ -20404,6 +20415,18 @@ window.KKT_PROPOSED = {
       "path": "testing"
      },
      {
+      "doc": "Where a fast in-memory database lives. (step 11.1)",
+      "feature": "testing",
+      "kind": "struct",
+      "methods": [
+       "new",
+       "open"
+      ],
+      "path": "testing::FastPlace",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "A backend that wraps another and fails the next change to a table on cue, in place of Database::fail_next_change_to. kkt-rules' testing::fail_next_write uses it.",
       "feature": "testing",
       "kind": "struct",
@@ -20549,6 +20572,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct testing::FaultyBackend"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::FastPlace"
      },
      {
       "status": "decided",
@@ -23659,6 +23686,13 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "An invalid formatter setting and the owner's check that found it. (step 9.1)",
+      "kind": "struct",
+      "path": "Problem",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
       "kind": "struct",
       "methods": [
@@ -23696,6 +23730,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "RECLAIM_MEMORY_NAMES comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Problem"
      },
      {
       "status": "decided",
@@ -24028,6 +24066,10 @@ window.KKT_PROPOSED = {
      },
      {
       "implementors": [],
+      "trait": "ServiceDefaults"
+     },
+     {
+      "implementors": [],
       "trait": "SetupFiles"
      }
     ],
@@ -24087,6 +24129,16 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "Required only by commands that inspect an unrecorded service. (step 10.2a)",
+      "kind": "trait",
+      "methods": [
+       "matches_defaults"
+      ],
+      "path": "ServiceDefaults",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The setup record and the unfinished note, read, written and removed; paths made absolute or canonical; this program's path (step 10.2a).",
       "kind": "trait",
       "path": "SetupFiles",
@@ -24097,14 +24149,14 @@ window.KKT_PROPOSED = {
       "doc": "Agents: `kkt register` and `kkt reclaim`, which get an identity from a server and save its credentials, and `kkt agent`, the operator's commands on agents in the local database.",
       "kind": "mod",
       "moved_from": "kashkeshet",
-      "path": "agents",
+      "path": "agent",
       "status": "decided"
      },
      {
       "doc": "What `kkt agent` does.",
       "kind": "enum",
       "moved_from": "kashkeshet",
-      "path": "agents::AgentAction",
+      "path": "agent::AgentAction",
       "status": "decided",
       "variants": [
        "List",
@@ -24115,7 +24167,7 @@ window.KKT_PROPOSED = {
       "doc": "`kkt agent`: the operator's commands, on the database `kkt serve` would use unless `--db` names another.",
       "kind": "fn",
       "moved_from": "kashkeshet",
-      "path": "agents::run",
+      "path": "agent::run",
       "status": "decided"
      },
      {
@@ -24472,15 +24524,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "commands::agent comes here from kashkeshet as agents"
+      "text": "commands::agent comes here from kashkeshet as agent"
      },
      {
       "status": "decided",
-      "text": "commands::agent::AgentAction comes here from kashkeshet as agents::AgentAction"
+      "text": "commands::agent::AgentAction comes here from kashkeshet as agent::AgentAction"
      },
      {
       "status": "decided",
-      "text": "commands::agent::run comes here from kashkeshet as agents::run"
+      "text": "commands::agent::run comes here from kashkeshet as agent::run"
      },
      {
       "status": "decided",
@@ -24541,6 +24593,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn keys::selected_key_path"
+     },
+     {
+      "status": "decided",
+      "text": "new trait ServiceDefaults"
      },
      {
       "status": "decided",
@@ -25493,6 +25549,13 @@ window.KKT_PROPOSED = {
       "path": "OperatorWording"
      },
      {
+      "doc": "A setting the rules cannot run with: its name, which check found it (its `floor`, or the other setting it is bounded by), and the rule it breaks. (step 9.1)",
+      "kind": "struct",
+      "path": "Problem",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The result of a revocation.",
       "kind": "enum",
       "path": "Revoked",
@@ -25639,30 +25702,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Which channels `Reader::channel_ids` returns, in name order (step 5.6b).",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::ChannelFilter",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "The stored facts that decide whether a viewer may use a channel: whether it is hidden or open, and whether the viewer is in it or owns it (step 5.6b).",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::ChannelKind",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Which channels a query covers: those in one swarm whose kind, for the viewer, is one of the allowed kinds (step 5.6b).",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::ChannelScope",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "What a test's rules are made from: the rules' startup without the database (step 5.6b).",
       "feature": "testing",
       "kind": "struct",
@@ -25671,82 +25710,10 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Which messages of a channel to return, and in what order (step 5.6b).",
-      "feature": "testing",
-      "kind": "enum",
-      "path": "testing::MessageRange",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "An avatar as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b).",
+      "doc": "What to ask about: the avatars, channels and message IDs of the database, some missing on purpose, and the tokens and recovery codes of some avatars, as written, whose hashes the store keeps. (step 11.4)",
       "feature": "testing",
       "kind": "struct",
-      "path": "testing::NewAgentRecord",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "A channel as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b).",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::NewChannelRecord",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "A message as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b).",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::NewMessageRecord",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "A server run as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b).",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::NewServerRunRecord",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Which messages `Reader::newer_messages` and `Reader::count_newer_messages` cover (step 5.6b).",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::NewerFilter",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "The store's questions, over one state of the database, for the program's tests that pin what a 0.10.0 database answers (step 5.6b).",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::Reader",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Which messages Reader::search_messages looks at (step 5.6b).",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::SearchFilter",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Which messages `Reader::latest_message_from` looks at (step 5.6b).",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::SentFilter",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "The store's changes, inside one transaction, for the program's tests that write rows into a database file (step 5.6b).",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::Writer",
+      "path": "testing::Probes",
       "proposed_item": true,
       "status": "decided"
      },
@@ -25755,6 +25722,14 @@ window.KKT_PROPOSED = {
       "feature": "testing",
       "kind": "fn",
       "path": "testing::database",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Every read the store offers, asked on `db` with `probes`, one answer per line, in one state of the database. (step 11.4)",
+      "feature": "testing",
+      "kind": "fn",
+      "path": "testing::every_store_read",
       "proposed_item": true,
       "status": "decided"
      },
@@ -25774,26 +25749,34 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Runs `f` over a view of one state of `db`, for the tests that pin the store's reads (step 5.6b).",
+      "doc": "The rules over `db`, a database the test opened itself, such as a file or one an older release left, after `crate::start` records a test run in it, as `memory` starts them on a new one. (step 11.4)",
       "feature": "testing",
       "kind": "fn",
-      "path": "testing::read",
+      "path": "testing::rules_on",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "Checks that two swarms stay apart in a database that holds no avatars or channels yet: a swarm sees and changes nothing of another.",
+      "doc": "The rules' scenarios that run on the real backend too, for the program's test that runs them on kkt-db-sqlite (11.3). (step 11.3)",
       "feature": "testing",
-      "kind": "fn",
-      "moved_from": "kkt-store",
-      "path": "testing::swarms_stay_apart",
+      "kind": "mod",
+      "path": "testing::scenarios",
+      "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "Runs `f` inside one transaction of `db`, for the tests that write rows into a database file directly (step 5.6b).",
+      "doc": "Runs every scenario, each over new databases that `new_backend` makes with the core's tables, as a database the program opens is. (step 11.3)",
       "feature": "testing",
       "kind": "fn",
-      "path": "testing::write",
+      "path": "testing::scenarios::run_all",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Checks, in one write, that two swarms stay apart in `db`, a new database with the core's tables and nothing in them yet: every question and change the store makes, over whichever backend `db` is on. (step 11.2)",
+      "feature": "testing",
+      "kind": "fn",
+      "path": "testing::swarms_stay_apart_in",
       "proposed_item": true,
       "status": "decided"
      }
@@ -26079,6 +26062,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "testing::swarms_stay_apart is no longer public: becomes swarms_stay_apart_in, which takes the database to check (step 11.2)"
+     },
+     {
+      "status": "decided",
       "text": "new fn legacy"
      },
      {
@@ -26111,63 +26098,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new fn testing::read"
+      "text": "new fn testing::every_store_read"
      },
      {
       "status": "decided",
-      "text": "new fn testing::write"
+      "text": "new struct testing::Probes"
      },
      {
       "status": "decided",
-      "text": "new struct testing::Reader"
+      "text": "new fn testing::rules_on"
      },
      {
       "status": "decided",
-      "text": "new struct testing::Writer"
+      "text": "new fn testing::swarms_stay_apart_in"
      },
      {
       "status": "decided",
-      "text": "new struct testing::ChannelFilter"
+      "text": "new mod testing::scenarios"
      },
      {
       "status": "decided",
-      "text": "new struct testing::ChannelKind"
+      "text": "new fn testing::scenarios::run_all"
      },
      {
       "status": "decided",
-      "text": "new struct testing::ChannelScope"
-     },
-     {
-      "status": "decided",
-      "text": "new enum testing::MessageRange"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::NewAgentRecord"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::NewChannelRecord"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::NewMessageRecord"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::NewServerRunRecord"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::NewerFilter"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::SearchFilter"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::SentFilter"
+      "text": "new struct Problem"
      },
      {
       "status": "decided",
@@ -26219,7 +26174,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead. Its own tests still use kkt-db-sqlite's, for speed (step 5.3b), a difference the proposal's rule cannot draw: the scorecard counts it as a break"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests run on kkt-db's testing::FastPlace instead (step 11.2); the program's tests run the store and a chosen part of the rules' scenarios on kkt-db-sqlite (steps 11.2, 11.3)"
      },
      {
       "status": "decided",
@@ -26375,12 +26330,6 @@ window.KKT_PROPOSED = {
         "trait": "Backend"
        }
       ]
-     },
-     {
-      "at": "testing::swarms_stay_apart",
-      "kind": "param",
-      "name": "store",
-      "traits": []
      },
      {
       "at": "Startup",
@@ -26648,6 +26597,16 @@ window.KKT_PROPOSED = {
       "path": "AppConfig"
      },
      {
+      "doc": "An immutable snapshot whose settings and host policy passed the startup checks together. (step 9.2)",
+      "kind": "struct",
+      "methods": [
+       "settings"
+      ],
+      "path": "CheckedSettings",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The parts the server is built from: the clock and entropy, the identity for the endpoints and for the web gate, and the application as one Arc<dyn AdminApi>, which each surface takes as its own contract; Parts::new also takes the ServerSettings, in place of the formatter's settings (steps 9.2).",
       "fields": [
        "clock",
@@ -26670,6 +26629,13 @@ window.KKT_PROPOSED = {
        "record_lines"
       ],
       "path": "ServerSettings",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A setting's refusal, as worded by the owner of its check. (step 9.2)",
+      "kind": "struct",
+      "path": "SettingError",
       "proposed_item": true,
       "status": "decided"
      },
@@ -26740,6 +26706,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct ServerSettings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct CheckedSettings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct SettingError"
      },
      {
       "status": "decided",
@@ -29930,6 +29904,13 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "An invalid page setting and the owner's check that found it. (step 9.1)",
+      "kind": "struct",
+      "path": "Problem",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The session a request presents, as `Sessions::session` finds it (step 6.1).",
       "kind": "enum",
       "path": "Session",
@@ -30484,6 +30465,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct testing::App"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Problem"
      },
      {
       "status": "decided",
@@ -32334,20 +32319,11 @@ window.KKT_PROPOSED = {
     "items": [
      "Db",
      "schema",
-     "testing::ChannelFilter",
-     "testing::ChannelKind",
-     "testing::ChannelScope",
-     "testing::MessageRange",
-     "testing::NewAgentRecord",
-     "testing::NewChannelRecord",
-     "testing::NewMessageRecord",
-     "testing::NewServerRunRecord",
-     "testing::NewerFilter",
-     "testing::Reader",
-     "testing::SearchFilter",
-     "testing::SentFilter",
-     "testing::read",
-     "testing::write"
+     "testing::Probes",
+     "testing::every_store_read",
+     "testing::rules_on",
+     "testing::scenarios::run_all",
+     "testing::swarms_stay_apart_in"
     ],
     "kind": "dev",
     "optional": false,
@@ -32357,20 +32333,11 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "schema",
-       "testing::ChannelFilter",
-       "testing::ChannelKind",
-       "testing::ChannelScope",
-       "testing::MessageRange",
-       "testing::NewAgentRecord",
-       "testing::NewChannelRecord",
-       "testing::NewMessageRecord",
-       "testing::NewServerRunRecord",
-       "testing::NewerFilter",
-       "testing::Reader",
-       "testing::SearchFilter",
-       "testing::SentFilter",
-       "testing::read",
-       "testing::write"
+       "testing::Probes",
+       "testing::every_store_read",
+       "testing::rules_on",
+       "testing::scenarios::run_all",
+       "testing::swarms_stay_apart_in"
       ],
       "role": "uses"
      },
