@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "0147960",
+ "commit": "3e559b0",
  "crates": [
   {
    "bins": [
@@ -66,12 +66,6 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
-     "trait": "Avatars",
-     "trait_crate": "kkt-agent-commands",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
      "trait": "CredentialSlot",
      "trait_crate": "kkt-agent-commands",
      "type": null
@@ -97,12 +91,6 @@ window.KKT_GRAPH = {
     {
      "crate": "kashkeshet",
      "trait": "Program",
-     "trait_crate": "kkt-agent-commands",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "Servers",
      "trait_crate": "kkt-agent-commands",
      "type": null
     },
@@ -225,12 +213,6 @@ window.KKT_GRAPH = {
      "trait": "Report",
      "trait_crate": "kkt-watch",
      "type": null
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "Server",
-     "trait_crate": "kkt-watch",
-     "type": "commands::watch::WatchServer"
     }
    ],
    "items": [
@@ -250,18 +232,9 @@ window.KKT_GRAPH = {
      "path": "commands::serve::run"
     },
     {
-     "doc": "The program's adapters for `kkt watch`, which kkt-agent-commands runs: the MCP client as kkt-watch's `Server`, and the terminal as its `Report`.",
+     "doc": "The terminal as kkt-watch's `Report`, for `kkt watch`, which kkt-agent-commands runs.",
      "kind": "mod",
      "path": "commands::watch"
-    },
-    {
-     "doc": "The program's adapter for watching either MCP endpoint.",
-     "kind": "enum",
-     "path": "commands::watch::WatchServer",
-     "variants": [
-      "Agent",
-      "Admin"
-     ]
     },
     {
      "doc": "What kkt keeps on this machine: the serve settings and config file, the setup record, key files, how a client reaches the server, agent credential files, and the database file.",
@@ -269,7 +242,7 @@ window.KKT_GRAPH = {
      "path": "machine"
     },
     {
-     "doc": "kkt-agent-commands' parts, as kkt answers them: the MCP client, the key files, this program's path and the terminal, with the local server's facts from the setup and the serve settings.",
+     "doc": "kkt-agent-commands' parts, as kkt answers them: the MCP client (kkt-agent-client-rmcp, injected as it is), the key files, this program's path and the terminal, with the local server's facts from the setup and the serve settings.",
      "kind": "mod",
      "path": "machine::agent_parts"
     },
@@ -1114,14 +1087,246 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kkt-agent-client",
+       "type": "testing::Memory"
+      },
+      {
+       "crate": "kkt-agent-client-rmcp",
+       "type": "Client"
+      }
+     ],
+     "trait": "Avatars"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kkt-agent-client",
+       "type": "testing::Memory"
+      },
+      {
+       "crate": "kkt-agent-client-rmcp",
+       "type": "Mcp"
+      }
+     ],
+     "trait": "Servers"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kkt-agent-client",
+       "type": null
+      },
+      {
+       "crate": "kkt-agent-client-rmcp",
+       "type": "AdminRemote"
+      },
+      {
+       "crate": "kkt-agent-client-rmcp",
+       "type": "Remote"
+      }
+     ],
+     "trait": "Watched"
+    }
+   ],
+   "crate_doc": "A client of kkt's server, as kkt's commands use it: registering and reclaiming avatars, and watching for an agent's new messages or, with the admin key, for every channel's.",
+   "dev_only": false,
+   "features": {
+    "testing": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-agent-client",
+     "trait": "Avatars",
+     "trait_crate": "kkt-agent-client",
+     "type": "testing::Memory"
+    },
+    {
+     "crate": "kkt-agent-client",
+     "trait": "Servers",
+     "trait_crate": "kkt-agent-client",
+     "type": "testing::Memory"
+    },
+    {
+     "crate": "kkt-agent-client",
+     "trait": "Watched",
+     "trait_crate": "kkt-agent-client",
+     "type": null
+    }
+   ],
+   "items": [
+    {
+     "doc": "A server, as a client reaches it: its MCP endpoint and the key it is reached with, if it needs one.",
+     "fields": [
+      "url",
+      "key",
+      "key_name"
+     ],
+     "kind": "struct",
+     "path": "Address"
+    },
+    {
+     "doc": "What a client asks of a server for an avatar.",
+     "kind": "trait",
+     "methods": [
+      "describe",
+      "reclaim",
+      "register"
+     ],
+     "path": "Avatars"
+    },
+    {
+     "doc": "A visible channel, for resolving names before watching starts.",
+     "fields": [
+      "id",
+      "name"
+     ],
+     "kind": "struct",
+     "path": "Channel"
+    },
+    {
+     "doc": "Why a call to the server failed.",
+     "kind": "enum",
+     "path": "Failure",
+     "variants": [
+      "Lost",
+      "Refused",
+      "KeyRefused"
+     ]
+    },
+    {
+     "doc": "A new message, as `kkt watch` shows it.",
+     "fields": [
+      "id",
+      "channel_name",
+      "agent",
+      "body",
+      "cut"
+     ],
+     "kind": "struct",
+     "path": "Message"
+    },
+    {
+     "doc": "The lane the agent holds, which has a newer version than the one it took.",
+     "fields": [
+      "name",
+      "version",
+      "current_version"
+     ],
+     "kind": "struct",
+     "path": "NewerLane"
+    },
+    {
+     "doc": "A replacement token for an existing avatar.",
+     "fields": [
+      "handle",
+      "token"
+     ],
+     "kind": "struct",
+     "path": "Reclaimed"
+    },
+    {
+     "doc": "Credentials returned once by registration.",
+     "fields": [
+      "handle",
+      "token",
+      "recovery_code"
+     ],
+     "kind": "struct",
+     "path": "Registered"
+    },
+    {
+     "doc": "Clients of a server.",
+     "kind": "trait",
+     "methods": [
+      "admin",
+      "agent",
+      "avatars"
+     ],
+     "path": "Servers"
+    },
+    {
+     "doc": "What a wait gave: new messages, and the agent's lane if it has a newer version.",
+     "fields": [
+      "messages",
+      "newer_lane"
+     ],
+     "kind": "struct",
+     "path": "Waited"
+    },
+    {
+     "doc": "What watching asks of a server: as an agent, the agent's channels; with the admin key, every channel.",
+     "kind": "trait",
+     "methods": [
+      "channels",
+      "handle",
+      "latest_id",
+      "message",
+      "wait"
+     ],
+     "path": "Watched"
+    },
+    {
+     "doc": "A stand-in server in memory, for tests of the crates that use this contract.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "The admin's name as a watch sees it.",
+     "feature": "testing",
+     "kind": "const",
+     "path": "testing::ADMIN_HANDLE"
+    },
+    {
+     "doc": "One registered avatar, as `Memory` keeps it.",
+     "feature": "testing",
+     "fields": [
+      "handle",
+      "token",
+      "recovery_code",
+      "lane",
+      "description"
+     ],
+     "kind": "struct",
+     "path": "testing::Avatar"
+    },
+    {
+     "doc": "A server in memory.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "new",
+      "registered"
+     ],
+     "path": "testing::Memory"
+    }
+   ],
+   "lib": "kkt_agent_client",
+   "machine_work": {},
+   "name": "kkt-agent-client",
+   "path": "crates/kkt-agent-client",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "futures"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
    "contracts": [],
-   "crate_doc": "Shared MCP client for avatar commands and watching.",
+   "crate_doc": "kkt-agent-client's contract over MCP, through rmcp and reqwest: a client of kkt's server that registers and reclaims avatars and watches for messages.",
    "dev_only": false,
    "features": {
     "real": [
      "dep:reqwest",
-     "dep:rmcp",
-     "dep:libc"
+     "dep:rmcp"
     ]
    },
    "holders": [
@@ -1135,30 +1340,41 @@ window.KKT_GRAPH = {
      "type": "AdminRemote"
     }
    ],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-agent-client-rmcp",
+     "trait": "Avatars",
+     "trait_crate": "kkt-agent-client",
+     "type": "Client"
+    },
+    {
+     "crate": "kkt-agent-client-rmcp",
+     "trait": "Servers",
+     "trait_crate": "kkt-agent-client",
+     "type": "Mcp"
+    },
+    {
+     "crate": "kkt-agent-client-rmcp",
+     "trait": "Watched",
+     "trait_crate": "kkt-agent-client",
+     "type": "AdminRemote"
+    },
+    {
+     "crate": "kkt-agent-client-rmcp",
+     "trait": "Watched",
+     "trait_crate": "kkt-agent-client",
+     "type": "Remote"
+    }
+   ],
    "items": [
     {
      "doc": "Message and channel reads over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included.",
      "feature": "real",
      "kind": "struct",
      "methods": [
-      "channels",
-      "handle",
-      "latest_id",
-      "message",
-      "new",
-      "wait"
+      "new"
      ],
      "path": "AdminRemote"
-    },
-    {
-     "doc": "A visible channel, for resolving names before watching starts.",
-     "fields": [
-      "id",
-      "name"
-     ],
-     "kind": "struct",
-     "path": "Channel"
     },
     {
      "doc": "The server at `url`, reached with the access key `key` (if it needs one), with no agent credentials held in the transport.",
@@ -1172,52 +1388,6 @@ window.KKT_GRAPH = {
       "set_description"
      ],
      "path": "Client"
-    },
-    {
-     "doc": "The caller's rule over the path and named file/caller facts.",
-     "feature": "real",
-     "kind": "type",
-     "path": "CredentialCheck"
-    },
-    {
-     "doc": "Reserve destinations before changing an avatar on the server.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "create",
-      "save"
-     ],
-     "path": "CredentialFile"
-    },
-    {
-     "doc": "The inspected file and the caller whose access is checked.",
-     "feature": "real",
-     "fields": [
-      "owner",
-      "mode",
-      "caller_uid"
-     ],
-     "kind": "struct",
-     "path": "CredentialFileFacts"
-    },
-    {
-     "doc": "Why a call to the server failed.",
-     "kind": "enum",
-     "path": "Failure",
-     "variants": [
-      "Lost",
-      "Refused",
-      "KeyRefused"
-     ]
-    },
-    {
-     "doc": "One process's exclusive hold on a file that it alone may write, such as `kkt watch`'s state file.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "take"
-     ],
-     "path": "FileLock"
     },
     {
      "doc": "GET and POST requests with redirects disabled and TCP_NODELAY enabled.",
@@ -1244,79 +1414,18 @@ window.KKT_GRAPH = {
      "path": "HttpReply"
     },
     {
-     "doc": "Why a `FileLock` was not taken.",
+     "doc": "kkt's servers over MCP: what the program injects as kkt-agent-client's `Servers`.",
      "feature": "real",
-     "kind": "enum",
-     "path": "LockRefused",
-     "variants": [
-      "Held",
-      "Failed"
-     ]
-    },
-    {
-     "doc": "A new message, as `kkt watch` shows it.",
-     "fields": [
-      "id",
-      "channel_name",
-      "agent",
-      "body",
-      "cut"
-     ],
      "kind": "struct",
-     "path": "Message"
-    },
-    {
-     "doc": "The lane the agent holds, which has a newer version than the one it took.",
-     "fields": [
-      "name",
-      "version",
-      "current_version"
-     ],
-     "kind": "struct",
-     "path": "NewerLane"
-    },
-    {
-     "doc": "A checked permission change, with caller-supplied advice and warning.",
-     "feature": "real",
-     "fields": [
-      "mode",
-      "advice",
-      "warning"
-     ],
-     "kind": "struct",
-     "path": "PrivateMode"
-    },
-    {
-     "doc": "A replacement token for an existing avatar.",
-     "fields": [
-      "handle",
-      "token"
-     ],
-     "kind": "struct",
-     "path": "Reclaimed"
-    },
-    {
-     "doc": "Credentials returned once by registration.",
-     "fields": [
-      "handle",
-      "token",
-      "recovery_code"
-     ],
-     "kind": "struct",
-     "path": "Registered"
+     "path": "Mcp"
     },
     {
      "doc": "",
      "feature": "real",
      "kind": "struct",
      "methods": [
-      "channels",
       "from_client",
-      "handle",
-      "latest_id",
-      "message",
-      "new",
-      "wait"
+      "new"
      ],
      "path": "Remote"
     },
@@ -1328,70 +1437,12 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Settings"
-    },
-    {
-     "doc": "`kkt watch --state-file`: the highest message ID seen, as text.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "claim",
-      "load",
-      "save"
-     ],
-     "path": "StateFile"
-    },
-    {
-     "doc": "What a wait gave: new messages, and the agent's lane if it has a newer version.",
-     "fields": [
-      "messages",
-      "newer_lane"
-     ],
-     "kind": "struct",
-     "path": "Waited"
-    },
-    {
-     "doc": "Applies the caller's credential-file rule to this opened handle.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "make_private"
-    },
-    {
-     "doc": "Reads from the same opened file whose owner and mode the caller checks.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "read_secret"
-    },
-    {
-     "doc": "The agent's token: from a private file, or else from the environment.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "watch_token"
     }
    ],
-   "lib": "kkt_agent_client",
-   "machine_work": {
-    "src/credentials.rs": [
-     "env::var",
-     "fs::File",
-     "fs::File::open",
-     "fs::OpenOptions::new",
-     "fs::Permissions::from_mode",
-     "fs::TryLockError::Error",
-     "fs::TryLockError::WouldBlock",
-     "fs::metadata",
-     "fs::read_to_string",
-     "fs::remove_file",
-     "fs::rename",
-     "fs::write",
-     "os::unix::fs",
-     "os::unix::fs::MetadataExt",
-     "os::unix::fs::OpenOptionsExt",
-     "os::unix::fs::PermissionsExt",
-     "Path::metadata"
-    ]
-   },
-   "name": "kkt-agent-client",
-   "path": "crates/kkt-agent-client",
+   "lib": "kkt_agent_client_rmcp",
+   "machine_work": {},
+   "name": "kkt-agent-client-rmcp",
+   "path": "crates/kkt-agent-client-rmcp",
    "released_program": false,
    "slots": [
     {
@@ -1409,7 +1460,6 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "futures",
-    "libc",
     "reqwest",
     "rmcp",
     "serde_json",
@@ -1428,15 +1478,6 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "AdminKey"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": null
-      }
-     ],
-     "trait": "Avatars"
     },
     {
      "implementors": [
@@ -1482,15 +1523,6 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "Program"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": null
-      }
-     ],
-     "trait": "Servers"
     }
    ],
    "crate_doc": "The agents' commands: `kkt register` and `kkt reclaim`, which get an avatar from a server and save its credentials, `kkt watch`, which waits for new messages from a shell, and `kkt connect`, which writes a client's MCP config.",
@@ -1504,7 +1536,7 @@ window.KKT_GRAPH = {
        "trait": "AdminKey"
       },
       {
-       "crate": "kkt-agent-commands",
+       "crate": "kkt-agent-client",
        "trait": "Servers"
       },
       {
@@ -1518,6 +1550,10 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-client-config",
        "trait": "Host"
+      },
+      {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
       },
       {
        "crate": "kkt-agent-commands",
@@ -1542,16 +1578,6 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
-     "doc": "A server, as a client reaches it: its MCP endpoint and the key it is reached with, if it needs one.",
-     "fields": [
-      "url",
-      "key",
-      "key_name"
-     ],
-     "kind": "struct",
-     "path": "Address"
-    },
-    {
      "doc": "Where the admin key is.",
      "kind": "trait",
      "methods": [
@@ -1569,6 +1595,7 @@ window.KKT_GRAPH = {
       "credentials",
       "key_files",
       "clients",
+      "client_command",
       "program",
       "report",
       "output",
@@ -1576,16 +1603,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "AgentParts"
-    },
-    {
-     "doc": "What a client asks of a server for an avatar.",
-     "kind": "trait",
-     "methods": [
-      "describe",
-      "reclaim",
-      "register"
-     ],
-     "path": "Avatars"
     },
     {
      "doc": "A reserved credential file.",
@@ -1604,16 +1621,6 @@ window.KKT_GRAPH = {
       "token"
      ],
      "path": "Credentials"
-    },
-    {
-     "doc": "Why a call to a server failed.",
-     "kind": "enum",
-     "path": "Failure",
-     "variants": [
-      "Lost",
-      "KeyRefused",
-      "Refused"
-     ]
     },
     {
      "doc": "Reading a key file.",
@@ -1657,35 +1664,6 @@ window.KKT_GRAPH = {
       "kkt_path"
      ],
      "path": "Program"
-    },
-    {
-     "doc": "A replacement token for an existing avatar.",
-     "fields": [
-      "handle",
-      "token"
-     ],
-     "kind": "struct",
-     "path": "Reclaimed"
-    },
-    {
-     "doc": "A new avatar's handle and credentials.",
-     "fields": [
-      "handle",
-      "token",
-      "recovery_code"
-     ],
-     "kind": "struct",
-     "path": "Registered"
-    },
-    {
-     "doc": "Clients of a server.",
-     "kind": "trait",
-     "methods": [
-      "admin",
-      "agent",
-      "avatars"
-     ],
-     "path": "Servers"
     },
     {
      "doc": "`kkt connect`: writes or prints a client's MCP config for this machine's server.",
@@ -1744,6 +1722,17 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-agent-commands",
        "trait": "AdminKey"
+      }
+     ]
+    },
+    {
+     "at": "AgentParts",
+     "kind": "field",
+     "name": "client_command",
+     "traits": [
+      {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
       }
      ]
     },
@@ -1830,7 +1819,7 @@ window.KKT_GRAPH = {
      "name": "servers",
      "traits": [
       {
-       "crate": "kkt-agent-commands",
+       "crate": "kkt-agent-client",
        "trait": "Servers"
       }
      ]
@@ -1846,7 +1835,7 @@ window.KKT_GRAPH = {
          "trait": "AdminKey"
         },
         {
-         "crate": "kkt-agent-commands",
+         "crate": "kkt-agent-client",
          "trait": "Servers"
         },
         {
@@ -1860,6 +1849,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-agent-commands",
@@ -1901,7 +1894,7 @@ window.KKT_GRAPH = {
          "trait": "AdminKey"
         },
         {
-         "crate": "kkt-agent-commands",
+         "crate": "kkt-agent-client",
          "trait": "Servers"
         },
         {
@@ -1915,6 +1908,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-agent-commands",
@@ -1956,7 +1953,7 @@ window.KKT_GRAPH = {
          "trait": "AdminKey"
         },
         {
-         "crate": "kkt-agent-commands",
+         "crate": "kkt-agent-client",
          "trait": "Servers"
         },
         {
@@ -1970,6 +1967,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-agent-commands",
@@ -2011,7 +2012,7 @@ window.KKT_GRAPH = {
          "trait": "AdminKey"
         },
         {
-         "crate": "kkt-agent-commands",
+         "crate": "kkt-agent-client",
          "trait": "Servers"
         },
         {
@@ -2025,6 +2026,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-agent-commands",
@@ -2057,8 +2062,138 @@ window.KKT_GRAPH = {
     }
    ],
    "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Agent credentials and watch state on disk: the token and recovery-code files `kkt register` and `kkt reclaim` write, the token file `kkt watch` reads, and its state file.",
+   "dev_only": false,
+   "features": {
+    "real": [
+     "dep:libc"
+    ]
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "The caller's rule over the path and named file/caller facts.",
+     "feature": "real",
+     "kind": "type",
+     "path": "CredentialCheck"
+    },
+    {
+     "doc": "Reserve destinations before changing an avatar on the server.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "create",
+      "save"
+     ],
+     "path": "CredentialFile"
+    },
+    {
+     "doc": "The inspected file and the caller whose access is checked.",
+     "feature": "real",
+     "fields": [
+      "owner",
+      "mode",
+      "caller_uid"
+     ],
+     "kind": "struct",
+     "path": "CredentialFileFacts"
+    },
+    {
+     "doc": "One process's exclusive hold on a file that it alone may write, such as `kkt watch`'s state file.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "take"
+     ],
+     "path": "FileLock"
+    },
+    {
+     "doc": "Why a `FileLock` was not taken.",
+     "feature": "real",
+     "kind": "enum",
+     "path": "LockRefused",
+     "variants": [
+      "Held",
+      "Failed"
+     ]
+    },
+    {
+     "doc": "A checked permission change, with caller-supplied advice and warning.",
+     "feature": "real",
+     "fields": [
+      "mode",
+      "advice",
+      "warning"
+     ],
+     "kind": "struct",
+     "path": "PrivateMode"
+    },
+    {
+     "doc": "`kkt watch --state-file`: the highest message ID seen, as text.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "claim",
+      "load",
+      "save"
+     ],
+     "path": "StateFile"
+    },
+    {
+     "doc": "Applies the caller's credential-file rule to this opened handle.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "make_private"
+    },
+    {
+     "doc": "Reads from the same opened file whose owner and mode the caller checks.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "read_secret"
+    },
+    {
+     "doc": "The agent's token: from a private file, or else from the environment.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "watch_token"
+    }
+   ],
+   "lib": "kkt_agent_files_os",
+   "machine_work": {
+    "src/lib.rs": [
+     "env::var",
+     "fs::File",
+     "fs::File::open",
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::TryLockError::Error",
+     "fs::TryLockError::WouldBlock",
+     "fs::metadata",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::write",
+     "os::unix::fs",
+     "os::unix::fs::MetadataExt",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "Path::metadata"
+    ]
+   },
+   "name": "kkt-agent-files-os",
+   "path": "crates/kkt-agent-files-os",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
    "third_party": [
-    "futures"
+    "libc"
    ]
   },
   {
@@ -3692,6 +3827,123 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
+       "crate": "kkt-client-command",
+       "type": "testing::Recorder"
+      },
+      {
+       "crate": "kkt-client-command-claude",
+       "type": "Claude"
+      }
+     ],
+     "trait": "ClientCommand"
+    }
+   ],
+   "crate_doc": "Configuring an MCP client through that client's own command line, in kkt's terms: removing kkt's server from the client's settings, and adding it as the client's own entry.",
+   "dev_only": false,
+   "features": {
+    "testing": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-client-command",
+     "trait": "ClientCommand",
+     "trait_crate": "kkt-client-command",
+     "type": "testing::Recorder"
+    }
+   ],
+   "items": [
+    {
+     "doc": "A client's own command, as kkt-client-config asks it.",
+     "kind": "trait",
+     "methods": [
+      "add_server",
+      "remove_server"
+     ],
+     "path": "ClientCommand"
+    },
+    {
+     "doc": "A stand-in client command, for tests of the crates that ask one: it records each call, and fails every call when told to.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "One call, as `Recorder` keeps it.",
+     "feature": "testing",
+     "kind": "enum",
+     "path": "testing::Call",
+     "variants": [
+      "Remove",
+      "Add"
+     ]
+    },
+    {
+     "doc": "Records each call.",
+     "feature": "testing",
+     "fields": [
+      "calls",
+      "fails"
+     ],
+     "kind": "struct",
+     "path": "testing::Recorder"
+    }
+   ],
+   "lib": "kkt_client_command",
+   "machine_work": {},
+   "name": "kkt-client-command",
+   "path": "crates/kkt-client-command",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "kkt-client-command for Claude Code: `claude mcp remove` and `claude mcp add-json`, at user scope, under the name `kkt`, with `CLAUDE_CONFIG_DIR` set to the profile's folder or unset for the default.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-client-command-claude",
+     "trait": "ClientCommand",
+     "trait_crate": "kkt-client-command",
+     "type": "Claude"
+    }
+   ],
+   "items": [
+    {
+     "doc": "Claude Code's own command, which the program injects as kkt-client-command's `ClientCommand`.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Claude"
+    }
+   ],
+   "lib": "kkt_client_command_claude",
+   "machine_work": {
+    "src/runner.rs": [
+     "process::Command::new"
+    ]
+   },
+   "name": "kkt-client-command-claude",
+   "path": "crates/kkt-client-command-claude",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
        "crate": "kashkeshet",
        "type": "machine::client_config::ClientHost"
       }
@@ -3735,7 +3987,6 @@ window.KKT_GRAPH = {
      "methods": [
       "absolute",
       "canonicalize",
-      "claude",
       "create_dir_all",
       "create_private",
       "exists",
@@ -3850,6 +4101,17 @@ window.KKT_GRAPH = {
     {
      "at": "configure",
      "kind": "param",
+     "name": "command",
+     "traits": [
+      {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      }
+     ]
+    },
+    {
+     "at": "configure",
+     "kind": "param",
      "name": "host",
      "traits": [
       {
@@ -3870,7 +4132,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's client-config files and `claude` command, as plain OsHost methods adapted by the program to the client-config logic.",
+   "crate_doc": "The machine's client-config files, as plain OsHost methods adapted by the program to the client-config logic.",
    "dev_only": false,
    "features": {
     "real": []
@@ -3885,7 +4147,6 @@ window.KKT_GRAPH = {
      "methods": [
       "absolute",
       "canonicalize",
-      "claude",
       "create_dir_all",
       "create_private",
       "exists",
@@ -3913,8 +4174,6 @@ window.KKT_GRAPH = {
      "os::unix::fs::OpenOptionsExt",
      "os::unix::fs::PermissionsExt",
      "path::absolute",
-     "process::Command",
-     "process::Command::new",
      "process::id",
      "Path::canonicalize",
      "Path::exists"
@@ -7877,6 +8136,10 @@ window.KKT_GRAPH = {
        "trait": "Host"
       },
       {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      },
+      {
        "crate": "kkt-diagnostics",
        "trait": "Prober"
       },
@@ -8038,6 +8301,7 @@ window.KKT_GRAPH = {
       "try_bind",
       "remote",
       "clients",
+      "client_command",
       "prober",
       "lanes",
       "lines",
@@ -8444,6 +8708,17 @@ window.KKT_GRAPH = {
     {
      "at": "OperateParts",
      "kind": "field",
+     "name": "client_command",
+     "traits": [
+      {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
      "name": "clients",
      "traits": [
       {
@@ -8659,6 +8934,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -8744,6 +9023,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -8837,6 +9120,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -8928,6 +9215,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -9017,6 +9308,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9121,6 +9416,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -9206,6 +9505,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9306,6 +9609,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -9395,6 +9702,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9510,6 +9821,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -9595,6 +9910,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9684,6 +10003,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -9769,6 +10092,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9858,6 +10185,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -9943,6 +10274,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10036,6 +10371,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -10125,6 +10464,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10295,6 +10638,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -10384,6 +10731,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10488,6 +10839,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -10575,6 +10930,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -10660,6 +11019,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10751,6 +11114,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -14307,15 +14674,6 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "Report"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": "commands::watch::WatchServer"
-      }
-     ],
-     "trait": "Server"
     }
    ],
    "crate_doc": "`kkt watch`: wait for one agent's new messages from the shell, with no model running.",
@@ -14324,47 +14682,6 @@ window.KKT_GRAPH = {
    "holders": [],
    "implements": [],
    "items": [
-    {
-     "doc": "A visible channel, for resolving names before watching starts.",
-     "fields": [
-      "id",
-      "name"
-     ],
-     "kind": "struct",
-     "path": "Channel"
-    },
-    {
-     "doc": "Why a call to the server failed.",
-     "kind": "enum",
-     "path": "Failure",
-     "variants": [
-      "Lost",
-      "Refused",
-      "KeyRefused"
-     ]
-    },
-    {
-     "doc": "A new message, as `kkt watch` shows it.",
-     "fields": [
-      "id",
-      "channel_name",
-      "agent",
-      "body",
-      "cut"
-     ],
-     "kind": "struct",
-     "path": "Message"
-    },
-    {
-     "doc": "The lane the agent holds, which has a newer version than the one it took.",
-     "fields": [
-      "name",
-      "version",
-      "current_version"
-     ],
-     "kind": "struct",
-     "path": "NewerLane"
-    },
     {
      "doc": "",
      "fields": [
@@ -14407,18 +14724,6 @@ window.KKT_GRAPH = {
      "path": "Report"
     },
     {
-     "doc": "The server, acting as one agent.",
-     "kind": "trait",
-     "methods": [
-      "channels",
-      "handle",
-      "latest_id",
-      "message",
-      "wait"
-     ],
-     "path": "Server"
-    },
-    {
      "doc": "How long the watch's calls wait, and how it retries.",
      "fields": [
       "watch_wait",
@@ -14428,15 +14733,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Settings"
-    },
-    {
-     "doc": "What a wait gave: new messages, and the agent's lane if it has a newer version.",
-     "fields": [
-      "messages",
-      "newer_lane"
-     ],
-     "kind": "struct",
-     "path": "Waited"
     },
     {
      "doc": "`id #channel sender: body`, all on one line: the body's line breaks become ` / ` and other control characters spaces.",
@@ -14494,8 +14790,8 @@ window.KKT_GRAPH = {
      "name": "server",
      "traits": [
       {
-       "crate": "kkt-watch",
-       "trait": "Server"
+       "crate": "kkt-agent-client",
+       "trait": "Watched"
       }
      ]
     }
@@ -16007,66 +16303,40 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
-    "AdminRemote",
-    "Channel",
-    "Client",
-    "CredentialFile",
-    "CredentialFileFacts",
-    "Failure",
-    "Message",
-    "PrivateMode",
-    "Remote",
-    "Settings",
-    "StateFile",
-    "watch_token"
+    "Mcp"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
     {
      "detail": [
-      "Client",
-      "CredentialFile",
-      "Failure",
-      "Remote",
-      "StateFile",
-      "watch_token"
-     ],
-     "role": "uses"
-    },
-    {
-     "detail": [
-      "AdminRemote"
+      "Mcp"
      ],
      "role": "wires"
     }
    ],
    "target": null,
    "test_items": [
-    "make_private"
+    "Client",
+    "Remote",
+    "Settings"
    ],
-   "to": "kkt-agent-client"
+   "to": "kkt-agent-client-rmcp"
   },
   {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Address",
     "AdminKey",
     "AgentParts",
-    "Avatars",
     "CredentialSlot",
     "Credentials",
-    "Failure",
     "KeyText",
     "KeyUnread",
     "NewAvatar",
     "Output",
     "Program",
-    "Reclaimed",
-    "Registered",
-    "Servers",
     "connect",
     "connect::run",
     "reclaim",
@@ -16081,25 +16351,19 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "a type of its own implements AdminKey",
-      "a type of its own implements Avatars",
       "a type of its own implements CredentialSlot",
       "a type of its own implements Credentials",
       "a type of its own implements KeyText",
       "a type of its own implements Output",
-      "a type of its own implements Program",
-      "a type of its own implements Servers"
+      "a type of its own implements Program"
      ],
      "role": "implements"
     },
     {
      "detail": [
-      "Address",
       "AgentParts",
-      "Failure",
       "KeyUnread",
       "NewAvatar",
-      "Reclaimed",
-      "Registered",
       "connect",
       "connect::run",
       "reclaim",
@@ -16113,6 +16377,39 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-agent-commands"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "CredentialFile",
+    "CredentialFileFacts",
+    "PrivateMode",
+    "StateFile",
+    "watch_token"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "CredentialFile",
+      "CredentialFileFacts",
+      "PrivateMode",
+      "StateFile",
+      "watch_token"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "make_private"
+   ],
+   "to": "kkt-agent-files-os"
   },
   {
    "features": [],
@@ -16194,6 +16491,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-backup-os"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "Claude"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "Claude"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command-claude"
   },
   {
    "features": [],
@@ -17386,15 +17706,9 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Channel",
-    "Failure",
-    "Message",
-    "NewerLane",
     "Options",
     "Place",
-    "Report",
-    "Server",
-    "Waited"
+    "Report"
    ],
    "kind": "normal",
    "optional": false,
@@ -17403,19 +17717,13 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "a type of its own implements Place",
-      "a type of its own implements Report",
-      "commands::watch::WatchServer implements Server"
+      "a type of its own implements Report"
      ],
      "role": "implements"
     },
     {
      "detail": [
-      "Channel",
-      "Failure",
-      "Message",
-      "NewerLane",
-      "Options",
-      "Waited"
+      "Options"
      ],
      "role": "uses"
     }
@@ -17451,6 +17759,27 @@ window.KKT_GRAPH = {
     "PageLimits"
    ],
    "to": "kkt-web"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "Watched"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Watched"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-agent-client"
   },
   {
    "features": [],
@@ -17746,6 +18075,76 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-agent-client",
    "items": [
+    "Clock"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Time"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-client-rmcp",
+   "items": [
+    "Address",
+    "Avatars",
+    "Channel",
+    "Failure",
+    "Message",
+    "NewerLane",
+    "Reclaimed",
+    "Registered",
+    "Servers",
+    "Waited",
+    "Watched"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Client implements Avatars",
+      "Mcp implements Servers",
+      "AdminRemote implements Watched",
+      "Remote implements Watched"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Address",
+      "Channel",
+      "Failure",
+      "Message",
+      "NewerLane",
+      "Reclaimed",
+      "Registered",
+      "Waited"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-agent-client"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-client-rmcp",
+   "items": [
     "Clock",
     "Span"
    ],
@@ -17767,24 +18166,56 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-agent-client",
+   "from": "kkt-agent-commands",
    "items": [
-    "Dir"
+    "Address",
+    "Failure",
+    "Servers"
    ],
-   "kind": "dev",
+   "kind": "normal",
    "optional": false,
    "role": "uses",
    "roles": [
     {
      "detail": [
-      "Dir"
+      "Address",
+      "Failure",
+      "Servers"
      ],
      "role": "uses"
     }
    ],
    "target": null,
-   "test_items": [],
-   "to": "kkt-scratch"
+   "test_items": [
+    "Avatars",
+    "Reclaimed",
+    "Registered",
+    "Watched"
+   ],
+   "to": "kkt-agent-client"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "testing::Recorder"
+   ],
+   "to": "kkt-client-command"
   },
   {
    "features": [],
@@ -17927,7 +18358,6 @@ window.KKT_GRAPH = {
     "Outcome",
     "Place",
     "Report",
-    "Server",
     "Settings",
     "run"
    ],
@@ -17941,7 +18371,6 @@ window.KKT_GRAPH = {
       "Outcome",
       "Place",
       "Report",
-      "Server",
       "Settings",
       "run"
      ],
@@ -17979,6 +18408,29 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-agent-commands",
    "items": [
+    "testing::Recorder"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "testing::Recorder"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-agent-commands",
+   "items": [
     "Time",
     "testing::FixedClock"
    ],
@@ -18002,6 +18454,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-files-os",
+   "items": [
+    "Dir"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Dir"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-scratch"
   },
   {
    "features": [],
@@ -18818,6 +19291,27 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-client-command-claude",
+   "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Claude implements ClientCommand"
+     ],
+     "role": "implements"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
+  },
+  {
+   "features": [],
    "from": "kkt-client-config",
    "items": [
     "check_access_key"
@@ -18841,6 +19335,29 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-client-config",
    "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "testing::Call"
+   ],
+   "to": "kkt-client-command"
+  },
+  {
+   "features": [],
+   "from": "kkt-client-config",
+   "items": [
     "Env"
    ],
    "kind": "normal",
@@ -18857,6 +19374,31 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-machine"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-client-config",
+   "items": [
+    "ClientCommand",
+    "testing::Call"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand",
+      "testing::Call"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
   },
   {
    "features": [],
@@ -20137,7 +20679,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-agent-client"
+   "to": "kkt-agent-client-rmcp"
   },
   {
    "features": [
@@ -22096,6 +22638,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-backup"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
   },
   {
    "features": [],
@@ -24631,6 +25194,37 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-watch",
    "items": [
+    "Channel",
+    "Failure",
+    "Message",
+    "NewerLane",
+    "Waited",
+    "Watched"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Channel",
+      "Failure",
+      "Message",
+      "NewerLane",
+      "Waited",
+      "Watched"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-agent-client"
+  },
+  {
+   "features": [],
+   "from": "kkt-watch",
+   "items": [
     "Clock",
     "Span",
     "Time"
@@ -25458,16 +26052,28 @@ window.KKT_CONCERNS = {
    "must_not": "Choose admission rules, select a randomness provider, or word each program's key refusals."
   },
   "kkt-agent-client": {
-   "concern": "The shared MCP client, agent credential and watch-state files, plain Http requests for test callers, and reaching the server as an agent or admin.",
+   "concern": "The project's contract for a client of kkt's server, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records and Failure; the testing Memory stand-in.",
+   "kind": "contract",
+   "layer": "clients",
+   "must_not": "Know a transport, a protocol library or its errors; touch the machine."
+  },
+  "kkt-agent-client-rmcp": {
+   "concern": "Implements kkt-agent-client directly over MCP through rmcp and reqwest: Mcp, Client, Remote and AdminRemote, with Settings; plain Http requests for a program's test client. Everything that reaches the server is behind real.",
    "kind": "effect",
    "layer": "clients",
-   "must_not": "Choose the credential-file rule or warning output; implement kkt-watch's contract: the program adapts its records and failures."
+   "must_not": "Let an rmcp or reqwest type out of the crate."
   },
   "kkt-agent-commands": {
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
    "kind": "composition",
    "layer": "assembly",
-   "must_not": "Depend on an `-os` crate, on kkt-agent-client or on another assembly; touch the machine except through `AgentParts`."
+   "must_not": "Depend on an `-os` crate, on a contract's implementation (such as kkt-agent-client-rmcp) or on another assembly; touch the machine except through `AgentParts`."
+  },
+  "kkt-agent-files-os": {
+   "concern": "Agent credential files and kkt watch's state files on this machine: reserving and saving a token or recovery code, reading a token file under the caller's credential-file rule, file locks, claiming a state file.",
+   "kind": "effect",
+   "layer": "clients",
+   "must_not": "Choose the credential-file rule or where its warnings go."
   },
   "kkt-api-admin": {
    "concern": "What /mcp-admin's administrator does: the admin reads across every channel of a swarm (Admin), creating a swarm (Swarms), AdminChannel, and AdminApi, every operation /mcp-admin uses in one swarm.",
@@ -25502,14 +26108,26 @@ window.KKT_CONCERNS = {
    "layer": "operations",
    "must_not": "Choose backup names, contents, modes or retention."
   },
+  "kkt-client-command": {
+   "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand (remove kkt's server, add it as the client's own entry), with the testing Recorder.",
+   "kind": "contract",
+   "layer": "operations",
+   "must_not": "Know a client's command, its arguments or output; touch the machine."
+  },
+  "kkt-client-command-claude": {
+   "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner; running claude is behind real.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Echo the command's output, which may hold credentials."
+  },
   "kkt-client-config": {
-   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
+   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through kkt-client-command's ClientCommand, and its file restored if that fails.",
    "kind": "logic",
    "layer": "operations",
-   "must_not": "Touch the machine except through `Host`."
+   "must_not": "Touch the machine except through `Host` and `ClientCommand`."
   },
   "kkt-client-config-os": {
-   "concern": "The machine's client-config files and claude command: plain OsHost methods, adapted by the program.",
+   "concern": "The machine's client-config files: plain OsHost methods, adapted by the program.",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Decide a client config's content."
@@ -25780,7 +26398,7 @@ window.KKT_CONCERNS = {
    "must_not": "Decide setup answers or depend on setup/container logic."
   },
   "kkt-watch": {
-   "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server, clock, saved place and output are injected.",
+   "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server (kkt-agent-client's Watched), clock, saved place and output are injected.",
    "kind": "logic",
    "layer": "clients",
    "must_not": "Reach the server, the time, its place or its output except through what is injected."
@@ -25890,8 +26508,8 @@ window.KKT_ASSEMBLY = {
    "wiring": [
     {
      "crate": "kkt-watch",
-     "own": "the servers the program gave AgentParts",
-     "supplier": "the program's servers",
+     "own": "the Watched the program's Servers made",
+     "supplier": "the program's Servers",
      "to": [
       {
        "at": "run",
@@ -26083,9 +26701,9 @@ window.KKT_ASSEMBLY = {
       "kashkeshet::machine::agent_parts::agent_parts",
       "kkt-agent-commands::AgentParts",
       "kashkeshet::machine::connection::ConnectionReads",
-      "kkt-agent-client::Client",
-      "kkt-agent-client::Remote",
-      "kkt-agent-client::AdminRemote",
+      "kkt-agent-client-rmcp::Mcp",
+      "kkt-agent-client::Servers",
+      "kkt-agent-client::Watched",
       "kkt-agent-commands::register",
       "kkt-agent-commands::reclaim",
       "kkt-agent-commands::watch::run",
@@ -26093,7 +26711,7 @@ window.KKT_ASSEMBLY = {
       "kkt-clock-system::SystemClock",
       "kkt-terminal-os::Terminal"
      ],
-     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client's clients adapted to its Servers and to kkt-watch's Server, the credential and state files, the key files, kkt's path, the terminal and the system clock.",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-rmcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files-os' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
      "title": "The agents' commands"
     },
     {
@@ -26373,9 +26991,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-agent-commands",
-     "note": "kkt register, reclaim and watch",
-     "own": "McpServers, adapting kkt-agent-client's Client, Remote and AdminRemote (as WatchServer)",
-     "supplier": "kkt-agent-client::Client",
+     "impl": "kkt-agent-client-rmcp::Mcp",
+     "note": "kkt register, reclaim and watch: injected as it is, with no adapter",
      "to": [
       {
        "at": "AgentParts",
@@ -26386,8 +27003,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and watch",
-     "own": "CredentialFiles, adapting kkt-agent-client's credential and state files",
-     "supplier": "kkt-agent-client::CredentialFile",
+     "own": "CredentialFiles, applying kkt-setup's credential-file rule to kkt-agent-files-os' credential and state files",
+     "supplier": "kkt-agent-files-os::CredentialFile",
      "to": [
       {
        "at": "AgentParts",
@@ -26897,6 +27514,28 @@ window.KKT_ASSEMBLY = {
       {
        "at": "OperateParts",
        "param": "config_file"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "impl": "kkt-client-command-claude::Claude",
+     "note": "kkt setup: Claude Code's own command, injected as it is",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "client_command"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-agent-commands",
+     "impl": "kkt-client-command-claude::Claude",
+     "note": "kkt connect: Claude Code's own command, injected as it is",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "client_command"
       }
      ]
     }
