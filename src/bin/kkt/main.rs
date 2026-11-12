@@ -10,12 +10,13 @@ use kashkeshet::commands::lifecycle;
 use kashkeshet::commands::serve;
 use kashkeshet::commands::service::{self, ServiceAction, ServiceInstall};
 use kashkeshet::commands::setup::InstallOptions;
-use kashkeshet::commands::watch::{self, WatchTask};
-use kashkeshet::commands::{self, connect, doctor, key};
+use kashkeshet::commands::{self, doctor, key};
+use kashkeshet::machine::agent_parts::agent_parts;
 use kashkeshet::machine::connection::ConnectionOptions;
 use kashkeshet::machine::record::check_setup;
 use kashkeshet::machine::settings::ServeArgs;
 use kashkeshet::machine::settings::ServeOptions;
+use kkt_agent_commands::{self as agent_commands, connect, watch::WatchTask};
 use kkt_clock_system::SystemClock;
 use kkt_logs::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
 use kkt_logs_os::{init_logging, init_stderr_logging};
@@ -217,7 +218,14 @@ async fn run(
             connection,
             client_config,
             write,
-        } => connect::run(env, platform, &client, connection, client_config, write),
+        } => connect::run(
+            &agent_parts(env, platform, serve_args),
+            env,
+            &client,
+            connection,
+            client_config,
+            write,
+        ),
         Task::Doctor(connection) => doctor::run(env, platform, serve_args, connection).await,
         Task::Setup { answers, options } => {
             commands::setup::run(env, platform, serve_args, answers, options).await
@@ -230,13 +238,12 @@ async fn run(
             lane,
             connection,
         } => {
-            agent::register(
-                env,
-                platform,
+            agent_commands::register(
+                &agent_parts(env, platform, serve_args),
                 connection,
                 token_file,
                 recovery_file,
-                agent::NewAvatar {
+                agent_commands::NewAvatar {
                     handle: handle.as_deref(),
                     lane: lane.as_deref(),
                     description,
@@ -250,9 +257,8 @@ async fn run(
             token_file,
             connection,
         } => {
-            agent::reclaim(
-                env,
-                platform,
+            agent_commands::reclaim(
+                &agent_parts(env, platform, serve_args),
                 connection,
                 &handle,
                 recovery_file,
@@ -261,7 +267,10 @@ async fn run(
             .await
         }
         // The only command with an exit code of its own.
-        Task::Watch(task) => return watch::run(env, platform, serve_args, task).await,
+        Task::Watch(task) => {
+            return agent_commands::watch::run(&mut agent_parts(env, platform, serve_args), task)
+                .await;
+        }
     };
     done.map(|()| std::process::ExitCode::SUCCESS)
 }

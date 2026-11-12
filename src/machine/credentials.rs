@@ -1,25 +1,42 @@
-//! Adapting credential-file policy and warning destinations to the native
-//! client, and its watch state file to the watch logic's Place.
+//! kkt-agent-commands' `Credentials`, from the native client's credential
+//! and state files, with setup's credential-file rule and the warnings on
+//! standard error.
 
+use kkt_agent_commands::{CredentialSlot, Credentials};
 use kkt_diagnostics as diagnostics;
 use kkt_terminal_os::Terminal;
 use kkt_watch as watch;
 use std::path::{Path, PathBuf};
 
-/// A reserved destination for an agent token or recovery code.
-pub(crate) struct CredentialFile(kkt_agent_client::CredentialFile);
+/// Agent credential files and watch state files on this machine.
+pub(crate) struct CredentialFiles;
 
-impl CredentialFile {
-    pub fn create(path: PathBuf) -> Result<Self, String> {
+impl Credentials for CredentialFiles {
+    fn reserve(&self, path: PathBuf) -> Result<Box<dyn CredentialSlot>, String> {
         kkt_agent_client::CredentialFile::create(path, |path, e| {
             tracing::warn!(
                 "could not remove incomplete credential file {}: {e}",
                 path.display()
             );
         })
-        .map(Self)
+        .map(|file| Box::new(CredentialFile(file)) as Box<dyn CredentialSlot>)
     }
-    pub fn save(&mut self, secret: &str) -> Result<(), String> {
+
+    fn token(&self, file: Option<&Path>) -> Result<String, String> {
+        kkt_agent_client::watch_token(file, credential_check, private_warning)
+    }
+
+    fn claim_state(&self, path: PathBuf) -> Result<Box<dyn watch::Place>, String> {
+        kkt_agent_client::StateFile::claim(path)
+            .map(|file| Box::new(StateFile(file)) as Box<dyn watch::Place>)
+    }
+}
+
+/// A reserved destination for an agent token or recovery code.
+struct CredentialFile(kkt_agent_client::CredentialFile);
+
+impl CredentialSlot for CredentialFile {
+    fn save(&mut self, secret: &str) -> Result<(), String> {
         self.0.save(secret)
     }
 }
@@ -44,18 +61,9 @@ fn private_warning(text: &str) {
     Terminal.errors(format_args!("{text}\n"));
 }
 
-/// The agent's token, using setup's file rule and the original warning output.
-pub(crate) fn watch_token(file: Option<&Path>) -> Result<String, String> {
-    kkt_agent_client::watch_token(file, credential_check, private_warning)
-}
-
 /// The native state file supplied to watch's Place.
-pub(crate) struct StateFile(kkt_agent_client::StateFile);
-impl StateFile {
-    pub(crate) fn claim(path: PathBuf) -> Result<Self, String> {
-        kkt_agent_client::StateFile::claim(path).map(Self)
-    }
-}
+struct StateFile(kkt_agent_client::StateFile);
+
 impl watch::Place for StateFile {
     fn load(&self) -> Result<Option<i64>, String> {
         self.0.load()

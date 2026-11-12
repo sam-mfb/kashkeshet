@@ -1,12 +1,12 @@
 //! How a client reaches the server: its address and access key file, from
-//! the setup record or the serve settings, and the MCP clients made from
-//! them.
+//! the setup record or the serve settings. kkt-setup's connection question,
+//! answered on this machine (`ConnectionReads`).
 
-use crate::machine::keys::{KeyKind, make_default_key, read_key, selected_key_path};
+use crate::machine::keys::{make_default_key, read_key};
 use crate::machine::record::read_setup;
 use crate::machine::settings::ServeOptions;
 use crate::machine::settings::Sources;
-use crate::machine::settings::{ServeArgs, serve_settings_and_sources};
+use crate::machine::settings::serve_settings_and_sources;
 use kkt_admission::AccessKey;
 use kkt_diagnostics as diagnostics;
 use kkt_machine::{Env, Platform};
@@ -15,9 +15,17 @@ pub use setup::connection::{Connection, ConnectionOptions};
 use setup::connection::{ConnectionSource, ServeConnection};
 use std::path::Path;
 
-pub(crate) struct ConnectionReads<'a> {
+/// kkt-setup's connection question, answered from this machine's setup
+/// record and serve settings.
+pub struct ConnectionReads<'a> {
     pub(crate) env: &'a Env,
     pub(crate) platform: Platform,
+}
+
+impl<'a> ConnectionReads<'a> {
+    pub fn new(env: &'a Env, platform: Platform) -> Self {
+        Self { env, platform }
+    }
 }
 
 impl ConnectionSource for ConnectionReads<'_> {
@@ -87,55 +95,6 @@ pub fn serve_connection(
     create: bool,
 ) -> Result<Connection, String> {
     setup::connection::serve_connection(&ConnectionReads { env, platform }, flags, create)
-}
-
-pub(crate) fn remote_client(
-    env: &Env,
-    platform: Platform,
-    flags: ConnectionOptions,
-) -> Result<kkt_agent_client::Client, String> {
-    let connection = client_connection(env, platform, flags, false)?;
-    let key = match &connection.key_file {
-        Some(path) => Some(
-            kkt_admission_os::KeyFiles::read(path)
-                .map_err(|e| format!("could not read key file {}: {}", path.display(), e.error))?
-                .trim()
-                .to_string(),
-        ),
-        None => None,
-    };
-    let client = kkt_agent_client::Client::new(connection.url, key);
-    Ok(match &connection.key_file {
-        Some(path) => client.describe_key(format!("the access key in {}", path.display())),
-        None => client,
-    })
-}
-
-/// A client of the server's admin endpoint: the address `flags` and the
-/// setup give, with `/mcp` changed to `/mcp-admin`, and the admin key from
-/// `--key-file` or where `kkt key show --admin` finds it.
-pub(crate) fn admin_client(
-    env: &Env,
-    platform: Platform,
-    serve_args: ServeArgs,
-    flags: ConnectionOptions,
-) -> Result<kkt_agent_client::Client, String> {
-    let key_file = flags.key_file.clone();
-    let connection =
-        setup::connection::admin_connection(&ConnectionReads { env, platform }, flags)?;
-    let url = setup::connection::admin_endpoint(&connection.url, kkt_mcp::MCP_ADMIN_PATH)?;
-    let path = selected_key_path(env, platform, serve_args, key_file, KeyKind::Admin)?;
-    let key = kkt_admission_os::KeyFiles::read(&path).map_err(|e| match e.error.kind() {
-        std::io::ErrorKind::NotFound => format!(
-            "there is no admin key at {}; `kkt key create --admin` makes one on the server",
-            path.display()
-        ),
-        _ => format!("could not read key file {}: {}", path.display(), e.error),
-    })?;
-    Ok(
-        kkt_agent_client::Client::new(url, Some(key.trim().to_string()))
-            .describe_key(format!("the admin key in {}", path.display())),
-    )
 }
 
 #[cfg(test)]
