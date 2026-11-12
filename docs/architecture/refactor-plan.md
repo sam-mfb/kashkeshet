@@ -733,7 +733,11 @@ composition (msgs 2773 and 2775).
      owner words it. The checks stay the owners'. kkt-server keeps the
      order as a list of (setting, check) pairs, and knows nothing of the
      program's crates: the program passes kkt-rules', kkt-backup's and its
-     own problems in as plain values.
+     own problems in as plain values. So the list names some settings
+     kkt-server does not hold, such as `max_lane_chars` or
+     `upgrade_backups_kept`, as plain names only: that is the price of one
+     order kept in one place, and kkt-server still knows nothing of what the
+     names belong to.
    - `record_lines` puts every line of the run record in today's order, by
      name. Its own fields' lines come from their owners' `record_lines()`;
      the program passes its lines in as plain name and value pairs
@@ -915,6 +919,8 @@ for the shared constructors: one at a time.
   problems and the program's by (setting, check), and `record_lines` orders
   its fields' owners' lines and the program's by name (the golden and order
   tests move here from kkt-settings, and keep their expected text).
+  Naming the first of all the problems gives what today's early returns
+  give, because no check relies on an earlier one having passed.
   `Parts::new` takes `&ServerSettings`; `AppConfig` loses `web`, `mcp`,
   `allowed_origins` and `allowed_hosts`. The three programs and
   `tests/common` follow; kkt and kkt-keymode build `ServerSettings`,
@@ -924,7 +930,9 @@ for the shared constructors: one at a time.
   `resolve`, `ServeSettings` and the program's checks move into kkt
   (`src/machine/settings.rs`) and kkt-keymode, which map each key onto a
   `ServerSettings` field or a program setting (kkt-rules' `Settings`,
-  kkt-backup's, or its own). Each program passes kkt-rules' and
+  kkt-backup's, or its own). kkt-keymode makes no backups: it depends on
+  kkt-backup only so that its run record keeps the `upgrade_backups_kept`
+  line byte for byte, which is deliberate. Each program passes kkt-rules' and
   kkt-backup's problems and record lines, and its own, to kkt-server's
   `check` and `record_lines`. kkt-settings is deleted, with
   `Limits` and the tests that compared its defaults with the owners'
