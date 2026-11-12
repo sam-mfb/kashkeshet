@@ -1,6 +1,6 @@
 [package]
 name = "kkt-service-os"
-description = "The machine's files and commands for kkt's service manager"
+description = "Trying whether the service's server could listen on its address"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,5 +8,5 @@ repository.workspace = true
 publish = false
 
 [features]
-# `OsSystem`: files and real commands.
+# `try_bind`: listening on a real address.
 real = []

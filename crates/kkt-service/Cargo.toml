@@ -7,6 +7,10 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+[features]
+# `testing::Memory`, a service manager in memory for consumers' tests.
+testing = []
+
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
 kkt-admission = { path = "../kkt-admission" }

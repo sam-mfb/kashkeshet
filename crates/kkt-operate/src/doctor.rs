@@ -9,7 +9,6 @@ use kkt_client_config as clients;
 use kkt_diagnostics as diagnostics;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
-use kkt_service::Manager;
 use kkt_setup as setup;
 use kkt_setup::connection::{self, ConnectionOptions, ConnectionSource};
 use setup::doctor_checks as checks;
@@ -114,7 +113,7 @@ pub async fn run<D: crate::ServiceDefaults>(
             }
         }
         Some(setup::Mode::Service { .. }) | None => {
-            diagnostics::ThisMachine::Service(service_check(parts.service, env))
+            diagnostics::ThisMachine::Service(service_check(parts.service))
         }
     };
     let plan = diagnostics::Plan {
@@ -142,10 +141,11 @@ pub async fn run<D: crate::ServiceDefaults>(
     }
 }
 
-fn service_check(service: &dyn kkt_service::System, env: &Env) -> diagnostics::Check {
+fn service_check(service: &dyn kkt_service::Service) -> diagnostics::Check {
     diagnostic_check(checks::service_check(
-        Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref())
-            .and_then(|manager| manager.state(service))
+        service
+            .ready()
+            .and_then(|()| service.state())
             .map(|state| (state.installed, state.running))
             .map_err(|e| e.to_string()),
     ))

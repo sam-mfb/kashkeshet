@@ -3,7 +3,7 @@
 
 use crate::{Output, SetupFiles};
 use kkt_machine::{Env, Platform};
-use kkt_service::{Manager, ServiceError};
+use kkt_service::ServiceError;
 use kkt_setup as setup;
 use kkt_setup::connection::{self, ConnectionOptions, ConnectionSource};
 
@@ -21,7 +21,7 @@ pub fn read_unrecorded<D: crate::ServiceDefaults>(
 ) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
     let docker =
         unrecorded_docker(parts, env, platform).map_err(|e| (setup::Purpose::Docker, e))?;
-    let service = unrecorded_service(parts, env).map_err(|e| (setup::Purpose::Service, e))?;
+    let service = unrecorded_service(parts).map_err(|e| (setup::Purpose::Service, e))?;
     setup::unrecorded_here(docker, service)
 }
 
@@ -77,21 +77,20 @@ fn unrecorded_docker<D>(
 /// the address it really has and an upgrade keeps its settings.
 fn unrecorded_service<D: crate::ServiceDefaults>(
     parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
-    env: &Env,
 ) -> Result<Option<setup::Unrecorded>, String> {
     let service = parts.service;
-    let manager = match Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref()) {
-        Ok(manager) => manager,
+    match service.ready() {
+        Ok(()) => {}
         // No service can be installed here.
         Err(ServiceError::NoHome | ServiceError::Unsupported) => return Ok(None),
         Err(e) => return Err(e.to_string()),
-    };
-    if !manager.state(service).map_err(|e| e.to_string())?.installed {
+    }
+    if !service.state().map_err(|e| e.to_string())?.installed {
         return Ok(None);
     }
     let found = |what: String| setup::unreadable_service(&what);
-    let args = manager
-        .installed_args(service)
+    let args = service
+        .installed_args()
         .map_err(|e| found(format!("its service file could not be read: {e}")))?
         .ok_or_else(|| found("its service file went away while it was read".into()))?;
     let unread = |e: String| found(format!("its settings could not be read: {e}"));
@@ -125,7 +124,7 @@ pub fn read_unfinished(
     env: &Env,
     files: &dyn SetupFiles,
     container: &dyn kkt_container::Host,
-    service: &dyn kkt_service::System,
+    service: &dyn kkt_service::Service,
 ) -> Result<Option<setup::Unfinished>, String> {
     let Some(config_dir) = kkt_config_file::config_dir(env.config_home().as_deref()) else {
         return Ok(None);
@@ -139,8 +138,9 @@ pub fn read_unfinished(
             container.is_file(&folder.join(kkt_container::ENV_FILE))
         }
         setup::InstallCheck::Service => {
-            Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref())
-                .and_then(|manager| manager.state(service))
+            service
+                .ready()
+                .and_then(|()| service.state())
                 .map_err(|e| e.to_string())?
                 .installed
         }
@@ -163,14 +163,13 @@ pub fn read_setup(env: &Env, files: &dyn SetupFiles) -> Result<Option<setup::Rec
 pub fn check_setup(
     env: &Env,
     files: &dyn SetupFiles,
-    service: &dyn kkt_service::System,
+    service: &dyn kkt_service::Service,
     output: &dyn Output,
 ) -> Result<(), String> {
     let record = read_setup(env, files)?;
     let service_running = match record.as_ref().map(|r| &r.mode) {
         Some(setup::Mode::Service { .. }) => {
-            let state = Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref())
-                .and_then(|m| m.state(service));
+            let state = service.ready().and_then(|()| service.state());
             match state {
                 Ok(state) => Some(state.running),
                 Err(e) => {

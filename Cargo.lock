@@ -1080,7 +1080,9 @@ dependencies = [
  "kkt-server",
  "kkt-server-listen",
  "kkt-service",
+ "kkt-service-launchd",
  "kkt-service-os",
+ "kkt-service-systemd",
  "kkt-setup",
  "kkt-setup-os",
  "kkt-shutdown",
@@ -1663,8 +1665,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-service-launchd"
+version = "0.10.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-service",
+]
+
+[[package]]
 name = "kkt-service-os"
 version = "0.10.0"
+
+[[package]]
+name = "kkt-service-systemd"
+version = "0.10.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-scratch",
+ "kkt-service",
+]
 
 [[package]]
 name = "kkt-setup"

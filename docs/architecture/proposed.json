@@ -1,5 +1,5 @@
 {
- "about": "Written by hand: the workspace reorganized by one dependency-injection rule (Sam, msg 1938), with Sam's decisions on it (msgs 1939, 1952, 1978, 1979, 1981, 1984, 1986, 1987, and 2009\u20132022), as a transformation of the current map. propose.py applies it to map-data.js and writes proposed-data.js; it stops if a trait has no decision, or anything named here is not in the map. A chart for planning, not a change to the code. Every entry has a status: decided (by Sam) or recommended (pending Sam). Item 7, the kkt-config breakup in config-split.json, is part of the proposal, accepted by Sam (msg 1979).",
+ "about": "Written by hand: the workspace reorganized by one dependency-injection rule (Sam, msg 1938), with Sam's decisions on it (msgs 1939, 1952, 1978, 1979, 1981, 1984, 1986, 1987, and 2009–2022), as a transformation of the current map. propose.py applies it to map-data.js and writes proposed-data.js; it stops if a trait has no decision, or anything named here is not in the map. A chart for planning, not a change to the code. Every entry has a status: decided (by Sam) or recommended (pending Sam). Item 7, the kkt-config breakup in config-split.json, is part of the proposal, accepted by Sam (msg 1979).",
  "statuses": {
   "decided": "decided by Sam",
   "recommended": "recommended, pending Sam",
@@ -58,7 +58,23 @@
    "kind": "effect",
    "from": "kkt-service",
    "status": "decided",
-   "concern": "The machine's service manager: `OsSystem`, a plain type that implements nothing; the program adapts it to kkt-service's `System`. kkt-service's `real` feature moves here."
+   "concern": "Trying whether the service's server could listen on its address: `try_bind`, which the program passes to kkt-service's bind check. Its service files and commands went to the service manager wrappers (step 12.3)."
+  },
+  {
+   "name": "kkt-service-launchd",
+   "layer": "operations",
+   "kind": "effect",
+   "from": "kkt-service",
+   "status": "decided",
+   "concern": "Implements kkt-service's Service directly as a launchd user agent on macOS: the plist, launchctl's commands and answers, the log file and the retries while launchd removes an old service, tested against a private system; the real files and commands are behind real (step 12.3, option a)."
+  },
+  {
+   "name": "kkt-service-systemd",
+   "layer": "operations",
+   "kind": "effect",
+   "from": "kkt-service",
+   "status": "decided",
+   "concern": "Implements kkt-service's Service directly as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system; the real files and commands are behind real (step 12.3, option a)."
   },
   {
    "name": "kkt-remote-access-tailscale",
@@ -364,11 +380,6 @@
   {
    "item": "kkt-container::OsHost",
    "to": "kkt-container-os",
-   "status": "decided"
-  },
-  {
-   "item": "kkt-service::OsSystem",
-   "to": "kkt-service-os",
    "status": "decided"
   },
   {
@@ -1863,6 +1874,36 @@
    "item": "kkt-remote-access::stop",
    "status": "decided",
    "note": "The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+  },
+  {
+   "item": "kkt-service::OsSystem",
+   "status": "decided",
+   "note": "The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+  },
+  {
+   "item": "kkt-service::System",
+   "status": "decided",
+   "note": "The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+  },
+  {
+   "item": "kkt-service::Command",
+   "status": "decided",
+   "note": "The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+  },
+  {
+   "item": "kkt-service::Finished",
+   "status": "decided",
+   "note": "The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+  },
+  {
+   "item": "kkt-service::DryRun",
+   "status": "decided",
+   "note": "The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+  },
+  {
+   "item": "kkt-service::Manager",
+   "status": "decided",
+   "note": "The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
   }
  ],
  "method_moves": [
@@ -2609,13 +2650,6 @@
    "status": "decided",
    "feature": "real",
    "doc": "What running git gave back, in kkt-lane-files-os' own terms; the program translates it to kkt-lane-files' Ran."
-  },
-  {
-   "crate": "kkt-service-os",
-   "path": "Finished",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "How a command ended, in kkt-service-os' own terms; the program translates it to kkt-service's Finished."
   },
   {
    "crate": "kkt-container-os",
@@ -3969,6 +4003,104 @@
    "feature": "real",
    "status": "decided",
    "doc": "Shares this machine's server through its existing Tailscale login."
+  },
+  {
+   "crate": "kkt-service",
+   "path": "Service",
+   "kind": "trait",
+   "methods": [
+    "ready",
+    "install",
+    "dry_run",
+    "check_started",
+    "installed_args",
+    "uninstall",
+    "start",
+    "stop",
+    "add_key",
+    "state",
+    "status",
+    "logs"
+   ],
+   "status": "decided",
+   "doc": "What kkt asks of this machine's service manager (step 12.3)."
+  },
+  {
+   "crate": "kkt-service",
+   "path": "Unsupported",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The service on a system with no service manager kkt works with (step 12.3)."
+  },
+  {
+   "crate": "kkt-service",
+   "path": "Pending",
+   "kind": "type",
+   "status": "decided",
+   "doc": "An answer that comes after waiting on the clock it is given (step 12.3)."
+  },
+  {
+   "crate": "kkt-service",
+   "path": "path_text",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "A path as service-file text (step 12.3)."
+  },
+  {
+   "crate": "kkt-service",
+   "path": "plain_text",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Refuses text a service file cannot hold safely (step 12.3)."
+  },
+  {
+   "crate": "kkt-service",
+   "path": "SERVICE_RESTART_DELAY",
+   "kind": "constant",
+   "status": "decided",
+   "doc": "How long the service manager waits before starting the server again after it failed (step 12.3)."
+  },
+  {
+   "crate": "kkt-service",
+   "path": "SERVICE_STOP_TIMEOUT",
+   "kind": "constant",
+   "status": "decided",
+   "doc": "How long the service manager waits for the server to stop before it kills it (step 12.3)."
+  },
+  {
+   "crate": "kkt-service",
+   "path": "testing::Memory",
+   "kind": "struct",
+   "methods": [
+    "new",
+    "installed",
+    "done"
+   ],
+   "feature": "testing",
+   "status": "decided",
+   "doc": "One service, held in memory (step 12.3)."
+  },
+  {
+   "crate": "kkt-service-launchd",
+   "path": "Launchd",
+   "kind": "struct",
+   "methods": [
+    "new"
+   ],
+   "feature": "real",
+   "status": "decided",
+   "doc": "The launchd user agent of the user whose home folder it is given (step 12.3)."
+  },
+  {
+   "crate": "kkt-service-systemd",
+   "path": "Systemd",
+   "kind": "struct",
+   "methods": [
+    "new"
+   ],
+   "feature": "real",
+   "status": "decided",
+   "doc": "The systemd user unit of the user whose config base it is given (step 12.3)."
   }
  ],
  "declared": [],
@@ -3982,11 +4114,6 @@
    "trait": "kkt-container::Host",
    "status": "decided",
    "note": "OsHost (kkt-container-os) implements nothing; the program adapts it."
-  },
-  {
-   "trait": "kkt-service::System",
-   "status": "decided",
-   "note": "OsSystem (kkt-service-os) implements nothing; the program adapts it. DryRun is kkt-service's own and still implements System."
   },
   {
    "trait": "kkt-client-config::Host",
@@ -4043,12 +4170,6 @@
     "to": "kkt-container::Host",
     "status": "decided",
     "note": "8 methods; run and run_attached translate kkt-container's Command and Finished to and from kkt-container-os' own (step 2.1)"
-   },
-   {
-    "adapts": "kkt-service-os::OsSystem",
-    "to": "kkt-service::System",
-    "status": "decided",
-    "note": "8 methods; run and run_attached translate kkt-service-os' own Finished into kkt-service's (step 2.2)"
    },
    {
     "adapts": "kkt-client-config-os::OsHost",
@@ -7776,9 +7897,8 @@
    "kind": "normal",
    "add": {
     "uses": [
-     "Manager",
+     "Service",
      "ServiceError",
-     "DryRun",
      "Request",
      "Spec",
      "check_bind",
@@ -8415,6 +8535,100 @@
    },
    "status": "decided",
    "note": "The named wrapper implements the scope contract directly (12.1)."
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-service-launchd",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "Launchd"
+    ]
+   },
+   "features": [
+    "real"
+   ],
+   "status": "decided",
+   "note": "Builds Launchd for its platform and hands it directly to kkt-operate (12.3)."
+  },
+  {
+   "from": "kkt-service-launchd",
+   "to": "kkt-service",
+   "kind": "normal",
+   "add": {
+    "implements": [
+     "Service"
+    ],
+    "uses": [
+     "ServiceError",
+     "ServiceState",
+     "Settings",
+     "Spec",
+     "path_text",
+     "plain_text"
+    ]
+   },
+   "status": "decided",
+   "note": "The named wrapper implements the scope contract directly (12.3)."
+  },
+  {
+   "from": "kkt-service-launchd",
+   "to": "kkt-clock",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Clock"
+    ]
+   },
+   "status": "decided",
+   "note": "waits on the clock it is given, as the contract says (12.3)."
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-service-systemd",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "Systemd"
+    ]
+   },
+   "features": [
+    "real"
+   ],
+   "status": "decided",
+   "note": "Builds Systemd for its platform and hands it directly to kkt-operate (12.3)."
+  },
+  {
+   "from": "kkt-service-systemd",
+   "to": "kkt-service",
+   "kind": "normal",
+   "add": {
+    "implements": [
+     "Service"
+    ],
+    "uses": [
+     "ServiceError",
+     "ServiceState",
+     "Settings",
+     "Spec",
+     "path_text",
+     "plain_text"
+    ]
+   },
+   "status": "decided",
+   "note": "The named wrapper implements the scope contract directly (12.3)."
+  },
+  {
+   "from": "kkt-service-systemd",
+   "to": "kkt-clock",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Clock"
+    ]
+   },
+   "status": "decided",
+   "note": "waits on the clock it is given, as the contract says (12.3)."
   }
  ],
  "decisions": {
@@ -8567,9 +8781,10 @@
   },
   "kkt-service::System": {
    "status": "decided",
-   "result": "Declared by its consumer, kkt-service. OsSystem moves to kkt-service-os as a plain type that implements nothing; kkt-service's real feature moves with it, and the program adapts it. DryRun stays in kkt-service, implementing its own crate's System.",
+   "result": "Removed: the project-level Service scope contract replaces working the system through files and commands. A named wrapper for each service manager implements it directly, kkt-service-launchd and kkt-service-systemd, and the program only picks one by platform and injects it (step 12.3).",
    "new": [
-    "kkt-service-os"
+    "kkt-service-launchd",
+    "kkt-service-systemd"
    ],
    "conflicts": [
     "C2"
@@ -8646,7 +8861,7 @@
   },
   {
    "id": "3",
-   "text": "The history from before kkt-db moves out of the program. kkt-store owned it (kkt-rules since msg 2017) as database-neutral facts (old 21 \u2192 core 1, 22 \u2192 core 2, the dropped handoff_note columns). kkt-db defines the neutral shape (today kkt-db-sqlite's Legacy). kkt-db-sqlite keeps only the SQLite part (user_version, the adoption). The program wires it and supplies the \"upgrade with kkt 0.10 first\" message."
+   "text": "The history from before kkt-db moves out of the program. kkt-store owned it (kkt-rules since msg 2017) as database-neutral facts (old 21 → core 1, 22 → core 2, the dropped handoff_note columns). kkt-db defines the neutral shape (today kkt-db-sqlite's Legacy). kkt-db-sqlite keeps only the SQLite part (user_version, the adoption). The program wires it and supplies the \"upgrade with kkt 0.10 first\" message."
   },
   {
    "id": "4",
@@ -9378,10 +9593,6 @@
    "doc": "The parts the server is built from: the clock and entropy, the identity for the endpoints and for the web gate, and the application as one Arc<dyn AdminApi>, which each surface takes as its own contract; Parts::new also takes the ServerSettings, in place of the formatter's settings (steps 9.2)."
   },
   {
-   "item": "kkt-service::Manager",
-   "doc": "The service manager of one platform; for_this_os chooses it from the home folder and the config home folder, given as plain optional paths."
-  },
-  {
    "item": "kkt-remote-access::Node",
    "doc": "The network name by which clients reach this machine.",
    "status": "decided"
@@ -9598,7 +9809,7 @@
    "at": "OperateParts",
    "name": "service",
    "traits": [
-    "kkt-service::System"
+    "kkt-service::Service"
    ],
    "status": "decided",
    "note": "injected by the program (steps 10.2b and 10.2a)"
@@ -9914,7 +10125,7 @@
   },
   "kkt-service": {
    "status": "decided",
-   "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs. It declares the `System` it works through, and keeps `DryRun`; the real one is in kkt-service-os, adapted by the program."
+   "concern": "The project's contract for running kkt as a service of the user's login (Service), its values and errors, Unsupported for other systems, and the service plan and bind check on plain values; its testing stand-in. No service manager's knowledge."
   },
   "kkt-remote-access": {
    "status": "decided",
@@ -10180,6 +10391,18 @@
      {
       "impl": "kkt-remote-access::OsHost",
       "crate": "kkt-remote-access"
+     },
+     {
+      "impl": "kkt-service::OsSystem",
+      "crate": "kkt-service"
+     },
+     {
+      "impl": "kkt-service::DryRun",
+      "crate": "kkt-service"
+     },
+     {
+      "impl": "kkt-clock::SystemClock",
+      "crate": "kkt-service"
      }
     ],
     "wiring_add": [
@@ -10840,7 +11063,7 @@
  "kind_edits": {
   "kkt-clock": "contract",
   "kkt-names": "logic",
-  "kkt-service": "logic",
+  "kkt-service": "contract",
   "kkt-container": "logic",
   "kkt-remote-access": "contract",
   "kkt-client-config": "logic",
@@ -11774,6 +11997,38 @@
    ],
    "status": "decided",
    "note": "The contract owns its testing stand-in (12.1)."
+  },
+  {
+   "type": "kkt-service-launchd::Launchd",
+   "to": [
+    "kkt-service::Service"
+   ],
+   "status": "decided",
+   "note": "A tool wrapper implements its scope contract directly (step 12.3)."
+  },
+  {
+   "type": "kkt-service-systemd::Systemd",
+   "to": [
+    "kkt-service::Service"
+   ],
+   "status": "decided",
+   "note": "A tool wrapper implements its scope contract directly (step 12.3)."
+  },
+  {
+   "type": "kkt-service::testing::Memory",
+   "to": [
+    "kkt-service::Service"
+   ],
+   "status": "decided",
+   "note": "The contract owns its testing stand-in (12.3)."
+  },
+  {
+   "type": "kkt-service::Unsupported",
+   "to": [
+    "kkt-service::Service"
+   ],
+   "status": "decided",
+   "note": "The contract's own answer for other systems (12.3)."
   }
  ],
  "trait_swaps": [
@@ -11916,11 +12171,8 @@
      "kkt-setup-os"
     ],
     "status": "decided",
-    "decisions": [
-     "kkt-service"
-    ],
-    "decides": "whether a busy address stops the install, and the dry run's text",
-    "keeps": "kkt service as a thin body"
+    "keeps": "kkt service as a thin body",
+    "note": "Since 12.3 it decides nothing: the busy-address check is kkt-service's check_bind, on plain values, and the dry run's text is kkt-operate's."
    },
    {
     "file": "src/commands/setup.rs",
@@ -12107,6 +12359,12 @@
    "feature": "testing",
    "status": "decided",
    "note": "The scope contract supplies its own in-memory stand-in (12.1)."
+  },
+  {
+   "crate": "kkt-service",
+   "feature": "testing",
+   "status": "decided",
+   "note": "The scope contract supplies its own in-memory stand-in (12.3)."
   }
  ]
 }
