@@ -696,18 +696,6 @@
      "note": "kkt serve --log-file"
     },
     {
-     "own": "LaneDisk, adapting the raw output of kkt-lane-files-os's git runner",
-     "supplier": "kkt-lane-files-os's OsDisk",
-     "crate": "kkt-lane-files",
-     "to": [
-      {
-       "at": "git::commit",
-       "param": "git"
-      }
-     ],
-     "note": "Lane-folder git policy stays in kkt-lane-files."
-    },
-    {
      "impl": "kkt-logs-os::TracingLog",
      "crate": "kkt-server",
      "to": [
@@ -790,6 +778,17 @@
        "param": "lanes"
       }
      ]
+    },
+    {
+     "impl": "kkt-lane-commit-git::Git",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "lane_commit"
+      }
+     ],
+     "note": "The program injects git directly as the lane folder's commit (12.5a)."
     },
     {
      "own": "ServeReads, answering the program's serving questions lazily",

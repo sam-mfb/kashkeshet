@@ -1,6 +1,6 @@
-//! Adapts the machine's lane-folder operations to the lane-file contract.
+//! Adapts the machine's lane-folder files to the lane-file contract.
 
-use kkt_lane_files::{Disk, git};
+use kkt_lane_files::Disk;
 use kkt_lane_files_os::OsDisk;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -26,20 +26,5 @@ impl Disk for LaneDisk {
 
     fn absolute(&self, path: &Path) -> io::Result<PathBuf> {
         OsDisk.absolute(path)
-    }
-
-    fn git_commit(&self, folder: &Path) -> io::Result<Option<String>> {
-        git::commit(self, folder)
-    }
-}
-
-impl git::Git for LaneDisk {
-    fn run(&self, folder: &Path, args: &[&str]) -> io::Result<git::Ran> {
-        let ran = OsDisk.git(folder, args)?;
-        Ok(git::Ran {
-            code: ran.code,
-            stdout: ran.stdout,
-            stderr: ran.stderr,
-        })
     }
 }

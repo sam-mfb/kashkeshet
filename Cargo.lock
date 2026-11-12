@@ -1066,6 +1066,7 @@ dependencies = [
  "kkt-hash",
  "kkt-hosts",
  "kkt-identity-keymode",
+ "kkt-lane-commit-git",
  "kkt-lane-files",
  "kkt-lane-files-os",
  "kkt-logs",
@@ -1464,8 +1465,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-lane-commit"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-lane-commit-git"
+version = "0.10.0"
+dependencies = [
+ "kkt-lane-commit",
+]
+
+[[package]]
 name = "kkt-lane-files"
 version = "0.10.0"
+dependencies = [
+ "kkt-lane-commit",
+]
 
 [[package]]
 name = "kkt-lane-files-os"
@@ -1573,6 +1588,7 @@ dependencies = [
  "kkt-config-file",
  "kkt-container",
  "kkt-diagnostics",
+ "kkt-lane-commit",
  "kkt-lane-files",
  "kkt-machine",
  "kkt-names",

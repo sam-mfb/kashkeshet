@@ -1,6 +1,7 @@
 //! A lane folder's git commit, from the answers of the `git` commands that
-//! find it. Running a command is behind [`Git`], so what each answer means
-//! is tested against a fake; the program supplies the real runner.
+//! find it. Running a command is behind the private [`Git`] runner, so what
+//! each answer means is tested against a fake; the real runner is behind
+//! `real`.
 //!
 //! Only an expected absence is "no commit": the folder is in no git
 //! repository, the repository has no commit yet, git ignores the folder,
@@ -26,15 +27,15 @@ const FATAL: i32 = 128;
 const NOT_A_REPOSITORY: &str = "not a git repository";
 
 /// What one `git` command gave back.
-pub struct Ran {
+pub(crate) struct Ran {
     /// `None` when it was stopped by a signal.
-    pub code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
+    pub(crate) code: Option<i32>,
+    pub(crate) stdout: String,
+    pub(crate) stderr: String,
 }
 
 /// Runs git.
-pub trait Git {
+pub(crate) trait Git {
     /// Runs `git -C <folder> <args>` in the C locale. An error of kind
     /// `NotFound` means git is not installed.
     fn run(&self, folder: &Path, args: &[&str]) -> io::Result<Ran>;
@@ -43,7 +44,7 @@ pub trait Git {
 /// The commit checked out where `folder` is, with `-dirty` added when files
 /// in `folder` differ from it; `None` for an expected absence (see the
 /// module's notes).
-pub fn commit(git: &dyn Git, folder: &Path) -> io::Result<Option<String>> {
+pub(crate) fn commit(git: &dyn Git, folder: &Path) -> io::Result<Option<String>> {
     let head = match git.run(folder, REV_PARSE) {
         Ok(ran) => ran,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
@@ -88,6 +89,27 @@ fn failed(args: &[&str], ran: &Ran) -> io::Error {
         args.join(" "),
         ran.stderr.trim()
     ))
+}
+
+/// The machine's git.
+#[cfg(feature = "real")]
+pub(crate) struct OsGit;
+
+#[cfg(feature = "real")]
+impl Git for OsGit {
+    fn run(&self, folder: &Path, args: &[&str]) -> io::Result<Ran> {
+        let done = std::process::Command::new("git")
+            .arg("-C")
+            .arg(folder)
+            .args(args)
+            .env("LC_ALL", "C")
+            .output()?;
+        Ok(Ran {
+            code: done.status.code(),
+            stdout: String::from_utf8_lossy(&done.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&done.stderr).into_owned(),
+        })
+    }
 }
 
 #[cfg(test)]

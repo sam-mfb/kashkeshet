@@ -559,9 +559,6 @@ mod tests {
         fn absolute(&self, _: &Path) -> std::io::Result<PathBuf> {
             self.asked("lanes.absolute")
         }
-        fn git_commit(&self, _: &Path) -> std::io::Result<Option<String>> {
-            self.asked("lanes.git_commit")
-        }
     }
 
     impl ConnectionSource for Untouched {
@@ -589,6 +586,12 @@ mod tests {
     impl ServiceDefaults for Untouched {
         fn matches_defaults(&self, _: &[String]) -> Result<bool, String> {
             self.refused("service_defaults.matches_defaults")
+        }
+    }
+
+    impl kkt_lane_commit::LaneCommit for Untouched {
+        fn commit(&self, _: &Path) -> std::io::Result<Option<String>> {
+            self.asked("lane_commit.commit")
         }
     }
 
@@ -854,6 +857,7 @@ mod tests {
             client_command: &untouched,
             prober: &NoProbes,
             lanes: &untouched,
+            lane_commit: &untouched,
             connection: &untouched,
             clock: std::sync::Arc::new(NoClock),
             serve: &serve,

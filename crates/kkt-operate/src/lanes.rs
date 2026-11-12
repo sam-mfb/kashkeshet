@@ -64,8 +64,13 @@ pub async fn run<D>(
                                 .into(),
                         );
                     }
-                    let read =
-                        read_lanes_warning(parts.lanes, parts.output, &from, retire_missing)?;
+                    let read = read_lanes_warning(
+                        parts.lanes,
+                        parts.lane_commit,
+                        parts.output,
+                        &from,
+                        retire_missing,
+                    )?;
                     parts.output.output(format_args!(
                         "{}",
                         docker_import_lanes(parts.container, &folder, read, retire_missing)?
@@ -111,7 +116,13 @@ pub async fn run<D>(
                     folder,
                     commit: source_commit,
                 });
-                let read = read_lanes_warning(parts.lanes, parts.output, &folder, retire_missing)?;
+                let read = read_lanes_warning(
+                    parts.lanes,
+                    parts.lane_commit,
+                    parts.output,
+                    &folder,
+                    retire_missing,
+                )?;
                 let report =
                     local_import_lanes(parts, db, config, read, retire_missing, source).await?;
                 parts.output.output(format_args!("{report}"));
@@ -193,11 +204,12 @@ pub(crate) async fn local_import_lanes<D>(
 /// `retire_missing`, a folder that could only retire every lane is refused.
 fn read_lanes_warning(
     disk: &dyn lane_files::Disk,
+    commits: &dyn kkt_lane_commit::LaneCommit,
     output: &dyn crate::Output,
     folder: &Path,
     retire_missing: bool,
 ) -> Result<lane_files::Read, String> {
-    let read = lane_files::read_folder(disk, folder)?;
+    let read = lane_files::read_folder(disk, commits, folder)?;
     warn_skipped(output, &read.skipped);
     if retire_missing {
         kkt_rules::check_retire_missing(
@@ -269,11 +281,12 @@ pub(crate) fn docker_lane_limit<D>(
 /// names the file or lane that is wrong.
 pub(crate) fn check_lanes_folder(
     disk: &dyn lane_files::Disk,
+    commits: &dyn kkt_lane_commit::LaneCommit,
     output: &dyn crate::Output,
     folder: &Path,
     max_lane_chars: usize,
 ) -> Result<usize, String> {
-    let read = lane_files::read_folder(disk, folder)?;
+    let read = lane_files::read_folder(disk, commits, folder)?;
     warn_skipped(output, &read.skipped);
     let count = read.lanes.len();
     kkt_rules::check_lane_import(&lane_saves(read.lanes), max_lane_chars)

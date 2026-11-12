@@ -1,13 +1,13 @@
 use super::*;
+use kkt_lane_commit::testing::Memory;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
-/// Files in memory, under `/work`, with a git commit for some folders.
+/// Files in memory, under `/work`.
 #[derive(Default)]
 struct FakeDisk {
     files: RefCell<BTreeMap<PathBuf, String>>,
     folders: RefCell<Vec<PathBuf>>,
-    commits: BTreeMap<PathBuf, String>,
 }
 
 impl FakeDisk {
@@ -63,10 +63,6 @@ impl Disk for FakeDisk {
     fn absolute(&self, path: &Path) -> io::Result<PathBuf> {
         Ok(Path::new("/work").join(path))
     }
-
-    fn git_commit(&self, folder: &Path) -> io::Result<Option<String>> {
-        Ok(self.commits.get(folder).cloned())
-    }
 }
 
 fn lane(name: &str) -> LaneFile {
@@ -79,9 +75,8 @@ fn lane(name: &str) -> LaneFile {
 
 #[test]
 fn a_folder_written_reads_back_with_its_commit() {
-    let mut disk = FakeDisk::default();
-    disk.commits
-        .insert(PathBuf::from("/work/lanes"), "abc123".into());
+    let disk = FakeDisk::default();
+    let commits = Memory::new().at("/work/lanes", "abc123");
     let lanes = [lane("reviewer"), lane("orchestrator")];
     let folder = write_folder(&disk, Path::new("lanes"), &lanes).expect("written");
     assert_eq!(folder, PathBuf::from("/work/lanes"));
@@ -90,7 +85,7 @@ fn a_folder_written_reads_back_with_its_commit() {
             .borrow()
             .contains_key(Path::new("/work/lanes/reviewer.md"))
     );
-    let read = read_folder(&disk, Path::new("lanes")).expect("read");
+    let read = read_folder(&disk, &commits, Path::new("lanes")).expect("read");
     assert_eq!(
         read,
         Read {
@@ -108,7 +103,7 @@ fn other_files_are_left_alone_and_a_folder_outside_git_has_no_commit() {
         ("/work/lanes/notes.txt", "not a lane"),
         ("/work/lanes/reviewer.md", &render(&lane("reviewer"))),
     ]);
-    let read = read_folder(&disk, Path::new("lanes")).expect("read");
+    let read = read_folder(&disk, &Memory::new(), Path::new("lanes")).expect("read");
     assert_eq!(read.lanes, vec![lane("reviewer")]);
     assert_eq!(read.skipped, []);
     assert_eq!(read.commit, None);
@@ -126,7 +121,7 @@ fn a_readme_and_markdown_files_with_no_lane_header_are_skipped_and_named() {
         ("/work/lanes/notes.md", "\u{feff}# Notes\n\n---\n"),
         ("/work/lanes/reviewer.md", &render(&lane("reviewer"))),
     ]);
-    let read = read_folder(&disk, Path::new("lanes")).expect("read");
+    let read = read_folder(&disk, &Memory::new(), Path::new("lanes")).expect("read");
     assert_eq!(read.lanes, vec![lane("reviewer")]);
     assert_eq!(
         read.skipped,
@@ -164,7 +159,7 @@ fn the_files_to_copy_are_the_lane_files_and_with_retire_missing_the_headerless_o
         ("/work/lanes/notes.md", "# Notes"),
         ("/work/lanes/reviewer.md", &render(&lane("reviewer"))),
     ]);
-    let read = read_folder(&disk, Path::new("lanes")).expect("read");
+    let read = read_folder(&disk, &Memory::new(), Path::new("lanes")).expect("read");
     assert_eq!(
         read.files_to_copy(false),
         [PathBuf::from("/work/lanes/reviewer.md")]
@@ -185,7 +180,7 @@ fn a_folder_of_notes_reads_as_no_lanes_and_every_md_file_skipped() {
         ("/work/docs/README.md", "# Docs"),
         ("/work/docs/guide.md", "# Guide"),
     ]);
-    let read = read_folder(&notes_only, Path::new("docs")).expect("read");
+    let read = read_folder(&notes_only, &Memory::new(), Path::new("docs")).expect("read");
     assert!(read.lanes.is_empty());
     assert_eq!(read.skipped.len(), 2);
     assert_eq!(read.folder, PathBuf::from("/work/docs"));
@@ -193,10 +188,10 @@ fn a_folder_of_notes_reads_as_no_lanes_and_every_md_file_skipped() {
         ("/work/lanes/README.md", "# My lanes"),
         ("/work/lanes/reviewer.md", &render(&lane("reviewer"))),
     ]);
-    let read = read_folder(&with_lane, Path::new("lanes")).expect("read");
+    let read = read_folder(&with_lane, &Memory::new(), Path::new("lanes")).expect("read");
     assert_eq!((read.lanes.len(), read.skipped.len()), (1, 1));
     let empty = FakeDisk::with(&[("/work/empty/notes.txt", "not a lane")]);
-    let read = read_folder(&empty, Path::new("empty")).expect("read");
+    let read = read_folder(&empty, &Memory::new(), Path::new("empty")).expect("read");
     assert_eq!((read.lanes.len(), read.skipped.len()), (0, 0));
 }
 
@@ -206,7 +201,7 @@ fn a_markdown_file_with_a_lane_header_that_is_wrong_is_an_error_naming_it() {
         ("/work/lanes/notes.md", "# Notes"),
         ("/work/lanes/reviewer.md", "---\nname: reviewer\n"),
     ]);
-    let error = read_folder(&disk, Path::new("lanes")).expect_err("refused");
+    let error = read_folder(&disk, &Memory::new(), Path::new("lanes")).expect_err("refused");
     assert!(
         error.starts_with("/work/lanes/reviewer.md: the header has no closing ---"),
         "{error}"
@@ -215,6 +210,7 @@ fn a_markdown_file_with_a_lane_header_that_is_wrong_is_an_error_naming_it() {
 
 #[test]
 fn a_missing_folder_is_an_error_naming_it() {
-    let error = read_folder(&FakeDisk::default(), Path::new("gone")).expect_err("refused");
+    let error =
+        read_folder(&FakeDisk::default(), &Memory::new(), Path::new("gone")).expect_err("refused");
     assert!(error.contains("/work/gone"), "{error}");
 }

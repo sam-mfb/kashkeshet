@@ -298,12 +298,18 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             || local_lane_limit(self.parts),
             || docker_lane_limit(self.parts, self.env, self.platform),
         )?;
-        check_lanes_folder(self.parts.lanes, self.parts.output, folder, max_lane_chars)
+        check_lanes_folder(
+            self.parts.lanes,
+            self.parts.lane_commit,
+            self.parts.output,
+            folder,
+            max_lane_chars,
+        )
     }
 
     fn import_lanes(&self, record: &setup::Record, folder: &Path) -> Result<String, String> {
         // `check_lanes` warned of the skipped files before setup began.
-        let read = lane_files::read_folder(self.parts.lanes, folder)?;
+        let read = lane_files::read_folder(self.parts.lanes, self.parts.lane_commit, folder)?;
         let report = match &record.mode {
             setup::Mode::Docker(install) => docker_import_lanes(
                 self.parts.container,
