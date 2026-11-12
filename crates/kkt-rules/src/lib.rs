@@ -99,6 +99,8 @@ mod wording;
 use waiting::Waiting;
 pub use wording::DefaultWording;
 
+#[cfg(any(test, feature = "testing"))]
+mod scenarios;
 #[cfg(test)]
 mod tests;
 
@@ -242,8 +244,8 @@ impl Rules {
     }
 
     /// The database itself, not bound to the swarm, for tests that look at
-    /// or break what is stored.
-    #[cfg(test)]
+    /// or break what is stored, here and in the scenarios.
+    #[cfg(any(test, feature = "testing"))]
     fn unbound_db(&self) -> &Db {
         &self.inner.deps.db
     }
