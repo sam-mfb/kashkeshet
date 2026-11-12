@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "6bb24ad",
+ "commit": "c988fae",
  "crates": [
   {
    "bins": [
@@ -121,12 +121,6 @@ window.KKT_GRAPH = {
     {
      "crate": "kashkeshet",
      "trait": "Disk",
-     "trait_crate": "kkt-lane-files",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "git::Git",
      "trait_crate": "kkt-lane-files",
      "type": null
     },
@@ -6961,12 +6955,109 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kashkeshet",
-       "type": null
+       "crate": "kkt-lane-commit",
+       "type": "testing::Memory"
+      },
+      {
+       "crate": "kkt-lane-commit-git",
+       "type": "Git"
       }
      ],
-     "trait": "Disk"
+     "trait": "LaneCommit"
+    }
+   ],
+   "crate_doc": "The commit a lane folder is at, as a contract: `LaneCommit`, which `kkt lanes import` asks so the lane versions it saves record where they came from.",
+   "dev_only": false,
+   "features": {
+    "testing": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-lane-commit",
+     "trait": "LaneCommit",
+     "trait_crate": "kkt-lane-commit",
+     "type": "testing::Memory"
+    }
+   ],
+   "items": [
+    {
+     "doc": "The commit a lane folder is at.",
+     "kind": "trait",
+     "methods": [
+      "commit"
+     ],
+     "path": "LaneCommit"
     },
+    {
+     "doc": "Commits in memory, for consumers' tests: each folder given one is at it, and any other folder is at none.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "Folders and the commits they are at.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "at",
+      "new"
+     ],
+     "path": "testing::Memory"
+    }
+   ],
+   "lib": "kkt_lane_commit",
+   "machine_work": {},
+   "name": "kkt-lane-commit",
+   "path": "crates/kkt-lane-commit",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "The commit a lane folder is at, from git: `Git` implements kkt-lane-commit's `LaneCommit` by running `git -C <folder>` in the C locale and reading its answers.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-lane-commit-git",
+     "trait": "LaneCommit",
+     "trait_crate": "kkt-lane-commit",
+     "type": "Git"
+    }
+   ],
+   "items": [
+    {
+     "doc": "The machine's git, asked where a lane folder is.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Git"
+    }
+   ],
+   "lib": "kkt_lane_commit_git",
+   "machine_work": {
+    "src/git.rs": [
+     "process::Command::new"
+    ]
+   },
+   "name": "kkt-lane-commit-git",
+   "path": "crates/kkt-lane-commit-git",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [
     {
      "implementors": [
       {
@@ -6974,7 +7065,7 @@ window.KKT_GRAPH = {
        "type": null
       }
      ],
-     "trait": "git::Git"
+     "trait": "Disk"
     }
    ],
    "crate_doc": "Lanes as files on disk: a folder with one Markdown file per lane, `<lane>.md` (see `format`), which `kkt lanes export` writes and `kkt lanes import` reads, and the folder's git commit, which an import records.",
@@ -6990,7 +7081,6 @@ window.KKT_GRAPH = {
       "absolute",
       "create_dir_all",
       "file_names",
-      "git_commit",
       "read",
       "write"
      ],
@@ -7050,34 +7140,6 @@ window.KKT_GRAPH = {
      "path": "file_name"
     },
     {
-     "doc": "A lane folder's git commit, from the answers of the `git` commands that find it.",
-     "kind": "mod",
-     "path": "git"
-    },
-    {
-     "doc": "Runs git.",
-     "kind": "trait",
-     "methods": [
-      "run"
-     ],
-     "path": "git::Git"
-    },
-    {
-     "doc": "What one `git` command gave back.",
-     "fields": [
-      "code",
-      "stdout",
-      "stderr"
-     ],
-     "kind": "struct",
-     "path": "git::Ran"
-    },
-    {
-     "doc": "The commit checked out where `folder` is, with `-dirty` added when files in `folder` differ from it; `None` for an expected absence (see the module's notes).",
-     "kind": "fn",
-     "path": "git::commit"
-    },
-    {
      "doc": "Reads a lane file whose name, without `.md`, is `stem`.",
      "kind": "fn",
      "path": "parse"
@@ -7105,13 +7167,13 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [
     {
-     "at": "git::commit",
+     "at": "read_folder",
      "kind": "param",
-     "name": "git",
+     "name": "commits",
      "traits": [
       {
-       "crate": "kkt-lane-files",
-       "trait": "git::Git"
+       "crate": "kkt-lane-commit",
+       "trait": "LaneCommit"
       }
      ]
     },
@@ -7145,7 +7207,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's files and git for lane folders, as plain `OsDisk` methods.",
+   "crate_doc": "The machine's files for lane folders, as plain `OsDisk` methods.",
    "dev_only": false,
    "features": {
     "real": []
@@ -7154,25 +7216,13 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
-     "doc": "The exit status and text returned by the machine's git.",
-     "feature": "real",
-     "fields": [
-      "code",
-      "stdout",
-      "stderr"
-     ],
-     "kind": "struct",
-     "path": "GitOutput"
-    },
-    {
-     "doc": "The machine's files, and its `git`.",
+     "doc": "The machine's files.",
      "feature": "real",
      "kind": "struct",
      "methods": [
       "absolute",
       "create_dir_all",
       "file_names",
-      "git",
       "read",
       "write"
      ],
@@ -7187,8 +7237,6 @@ window.KKT_GRAPH = {
      "fs::read_to_string",
      "fs::write",
      "path::absolute",
-     "process::Command",
-     "process::Command::new",
      "Path::is_file"
     ]
    },
@@ -8278,6 +8326,10 @@ window.KKT_GRAPH = {
        "trait": "Disk"
       },
       {
+       "crate": "kkt-lane-commit",
+       "trait": "LaneCommit"
+      },
+      {
        "crate": "kkt-setup",
        "trait": "ask::Lines"
       },
@@ -8434,6 +8486,7 @@ window.KKT_GRAPH = {
       "client_command",
       "prober",
       "lanes",
+      "lane_commit",
       "lines",
       "config_file",
       "connection",
@@ -8926,6 +8979,17 @@ window.KKT_GRAPH = {
     {
      "at": "OperateParts",
      "kind": "field",
+     "name": "lane_commit",
+     "traits": [
+      {
+       "crate": "kkt-lane-commit",
+       "trait": "LaneCommit"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
      "name": "lanes",
      "traits": [
       {
@@ -9076,6 +9140,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -9165,6 +9233,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-lane-files",
          "trait": "Disk"
+        },
+        {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
         },
         {
          "crate": "kkt-setup",
@@ -9262,6 +9334,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -9357,6 +9433,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -9450,6 +9530,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-lane-files",
          "trait": "Disk"
+        },
+        {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
         },
         {
          "crate": "kkt-setup",
@@ -9558,6 +9642,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -9647,6 +9735,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-lane-files",
          "trait": "Disk"
+        },
+        {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
         },
         {
          "crate": "kkt-setup",
@@ -9751,6 +9843,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -9844,6 +9940,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-lane-files",
          "trait": "Disk"
+        },
+        {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
         },
         {
          "crate": "kkt-setup",
@@ -9963,6 +10063,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -10052,6 +10156,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-lane-files",
          "trait": "Disk"
+        },
+        {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
         },
         {
          "crate": "kkt-setup",
@@ -10145,6 +10253,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -10234,6 +10346,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-lane-files",
          "trait": "Disk"
+        },
+        {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
         },
         {
          "crate": "kkt-setup",
@@ -10327,6 +10443,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -10416,6 +10536,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-lane-files",
          "trait": "Disk"
+        },
+        {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
         },
         {
          "crate": "kkt-setup",
@@ -10513,6 +10637,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -10606,6 +10734,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-lane-files",
          "trait": "Disk"
+        },
+        {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
         },
         {
          "crate": "kkt-setup",
@@ -10780,6 +10912,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -10873,6 +11009,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-lane-files",
          "trait": "Disk"
+        },
+        {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
         },
         {
          "crate": "kkt-setup",
@@ -10981,6 +11121,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -11072,6 +11216,10 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
+        },
+        {
          "crate": "kkt-setup",
          "trait": "ask::Lines"
         },
@@ -11161,6 +11309,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-lane-files",
          "trait": "Disk"
+        },
+        {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
         },
         {
          "crate": "kkt-setup",
@@ -11256,6 +11408,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-lane-files",
          "trait": "Disk"
+        },
+        {
+         "crate": "kkt-lane-commit",
+         "trait": "LaneCommit"
         },
         {
          "crate": "kkt-setup",
@@ -17027,14 +17183,33 @@ window.KKT_GRAPH = {
    "to": "kkt-identity-keymode"
   },
   {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "Git"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "Git"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-lane-commit-git"
+  },
+  {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Disk",
-    "git",
-    "git::Git",
-    "git::Ran",
-    "git::commit"
+    "Disk"
    ],
    "kind": "normal",
    "optional": false,
@@ -17042,18 +17217,9 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "a type of its own implements Disk",
-      "a type of its own implements git::Git"
+      "a type of its own implements Disk"
      ],
      "role": "implements"
-    },
-    {
-     "detail": [
-      "git",
-      "git::Ran",
-      "git::commit"
-     ],
-     "role": "uses"
     }
    ],
    "target": null,
@@ -21835,6 +22001,73 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-lane-commit-git",
+   "items": [
+    "LaneCommit"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Git implements LaneCommit"
+     ],
+     "role": "implements"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-lane-commit"
+  },
+  {
+   "features": [],
+   "from": "kkt-lane-files",
+   "items": [
+    "LaneCommit"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "LaneCommit"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "testing::Memory"
+   ],
+   "to": "kkt-lane-commit"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-lane-files",
+   "items": [
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-lane-commit"
+  },
+  {
+   "features": [],
    "from": "kkt-logs",
    "items": [
     "OutOfRange",
@@ -23012,6 +23245,27 @@ window.KKT_GRAPH = {
     "Probing"
    ],
    "to": "kkt-diagnostics"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "LaneCommit"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "LaneCommit"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-lane-commit"
   },
   {
    "features": [],
@@ -26633,14 +26887,26 @@ window.KKT_CONCERNS = {
    "layer": "programs",
    "must_not": "Be released, or share code with the `kkt` program."
   },
+  "kkt-lane-commit": {
+   "concern": "The project's contract for the commit a lane folder is at (`LaneCommit`), and its testing Memory stand-in.",
+   "kind": "contract",
+   "layer": "operations",
+   "must_not": "Know a version-control tool, its commands or output; touch the machine."
+  },
+  "kkt-lane-commit-git": {
+   "concern": "Implements LaneCommit with git: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner; running git is behind real.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Read or write the lane files."
+  },
   "kkt-lane-files": {
-   "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit.",
+   "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from kkt-lane-commit's `LaneCommit`.",
    "kind": "logic",
    "layer": "operations",
-   "must_not": "Touch the machine except through `Disk` and `git::Git`."
+   "must_not": "Touch the machine except through `Disk`; know a version-control tool."
   },
   "kkt-lane-files-os": {
-   "concern": "The machine's files and git for lane folders: plain OsDisk methods, adapted by the program.",
+   "concern": "The machine's files for lane folders: plain OsDisk methods, adapted by the program.",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Decide which lanes to import or export."
@@ -27637,18 +27903,6 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-lane-files",
-     "note": "Lane-folder git policy stays in kkt-lane-files.",
-     "own": "LaneDisk, adapting the raw output of kkt-lane-files-os's git runner",
-     "supplier": "kkt-lane-files-os's OsDisk",
-     "to": [
-      {
-       "at": "git::commit",
-       "param": "git"
-      }
-     ]
-    },
-    {
      "crate": "kkt-server",
      "impl": "kkt-logs-os::TracingLog",
      "note": "The MCP endpoints and web page share the program's log.",
@@ -27751,6 +28005,17 @@ window.KKT_ASSEMBLY = {
       {
        "at": "OperateParts",
        "param": "lanes"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "impl": "kkt-lane-commit-git::Git",
+     "note": "The program injects git directly as the lane folder's commit (12.5a).",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "lane_commit"
       }
      ]
     },
