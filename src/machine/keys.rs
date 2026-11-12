@@ -13,26 +13,14 @@ use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
 use std::path::{Path, PathBuf};
 
-/// What to say, after `label`, about the name tied to the admin key `key`
-/// in the file at `path`, if anything: a Docker setup's host copy has no
-/// name beside it, as the name is kept in the container.
 pub fn admin_name_line(path: &Path, key: &str, label: &str) -> Result<Option<String>, String> {
-    if path.file_name()
+    let docker_host_copy = path.file_name()
         == Some(std::ffi::OsStr::new(
             kkt_container::DOCKER_ADMIN_KEY_FILE_NAME,
-        ))
-    {
-        return Ok(None);
-    }
-    let make = "`kkt key create --admin --force --name <name>` makes a named one";
-    Ok(Some(match read_admin_name(path, key)? {
-        AdminNameFile::Named(name) => format!("{label}: {name}"),
-        AdminNameFile::None => format!("{label}: none, so the key may only read; {make}"),
-        AdminNameFile::OtherKey(names) => format!(
-            "{label}: none, so the key may only read: {} names a different key; {make}",
-            names.display()
-        ),
-    }))
+        ));
+    kkt_admission::admin_name_line(path, key, label, docker_host_copy, |names| {
+        KeyFiles::read_optional(names).map_err(name_read_error)
+    })
 }
 
 pub use kkt_setup::{KeyKind, admin_key_collision};
@@ -364,42 +352,9 @@ impl KeyTexts for ServerKeyFiles<'_> {
     }
 }
 
-/// The text of the admin name file at `names`; None if missing.
-fn read_admin_names(names: &Path) -> Result<Option<String>, String> {
-    KeyFiles::read_optional(names).map_err(name_read_error)
-}
-
 /// The text of the key file at `path`, which `setting` names.
 fn read_key_text(path: &Path, setting: &str) -> Result<String, String> {
     KeyFiles::read(path).map_err(|e| key_read_error(setting, e))
-}
-
-/// What the name file beside an admin key says about that key.
-pub(crate) enum AdminNameFile {
-    /// The admin agent's name, tied to this key.
-    Named(AdminName),
-    /// There is no name file: the key may only read.
-    None,
-    /// The name file, at this path, is for a different key, as when the key
-    /// file was replaced without its name: this key may only read.
-    OtherKey(PathBuf),
-}
-
-/// The name tied to the admin key `key`, kept in the file at `path`, from
-/// the name file beside it.
-pub(crate) fn read_admin_name(path: &Path, key: &str) -> Result<AdminNameFile, String> {
-    let names = kkt_admission::admin_name_path(path);
-    match read_admin_names(&names)? {
-        Some(text) => match AdminName::bound_in(&text, key, kkt_names::MAX_ADMIN_NAME_CHARS) {
-            Ok(Some(name)) => Ok(AdminNameFile::Named(name)),
-            Ok(None) => Ok(AdminNameFile::OtherKey(names)),
-            Err(e) => Err(format!(
-                "invalid setting: admin name in {}: {e}",
-                names.display()
-            )),
-        },
-        None => Ok(AdminNameFile::None),
-    }
 }
 
 /// The access key in the file at `path`.
@@ -419,26 +374,10 @@ pub fn write_admin_name(
     key: &str,
     name: Option<&AdminName>,
 ) -> Result<String, String> {
-    let names = kkt_admission::admin_name_path(path);
-    let unnamed = "It has no name, so it may only read. To let it make changes, make it again with --force --name <name>.";
-    let bound = name.map(|name| name.bound_to(key));
-    match (
-        name,
-        kkt_admission_os::write_admin_name(path, bound.as_deref()),
-    ) {
-        (Some(name), Ok(())) => Ok(format!(
-            "Its admin agent is named {name}: its changes are announced as \"operator (via {name})\"."
-        )),
-        (Some(_), Err(e)) => Err(format!(
-            "the key was written, but its name could not be: could not write {}: {e}. {unnamed}",
-            names.display()
-        )),
-        (None, Ok(())) => Ok(unnamed.into()),
-        (None, Err(e)) => Ok(format!(
-            "{unnamed} The name file of an earlier key, {}, could not be removed ({e}); it does not name this key.",
-            names.display()
-        )),
-    }
+    let bound = name.map(|name| kkt_admission::bound_to(name, key));
+    let written =
+        kkt_admission_os::write_admin_name(path, bound.as_deref()).map_err(|e| e.to_string());
+    kkt_admission::admin_name_written(path, name, written)
 }
 
 /// Makes a new random key and writes it to `path`, creating its folder if

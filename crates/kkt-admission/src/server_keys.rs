@@ -57,7 +57,7 @@ pub enum KeyRefusal<E> {
     AdminKeyReused,
     /// The admin key is not one `check_access_key` accepts.
     AdminKey(SettingError),
-    /// The admin name file is not one `AdminName::bound_in` reads; says why.
+    /// The admin name file is not one `crate::bound_in` reads; says why.
     AdminName(String),
 }
 
@@ -97,7 +97,7 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
                 .map_err(KeyRefusal::AdminKey)?;
             let name = match texts.admin_names().map_err(KeyRefusal::Text)? {
                 None => None,
-                Some(names) => AdminName::bound_in(&names, &key.text, MAX_ADMIN_NAME_CHARS)
+                Some(names) => crate::bound_in(&names, &key.text, MAX_ADMIN_NAME_CHARS)
                     .map_err(KeyRefusal::AdminName)?,
             };
             (Some(shared), name)
@@ -321,7 +321,7 @@ mod tests {
         let name = AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("a name");
         let mut texts = Scripted {
             admin: Some("abcdefabcdefabcdefabcdefabcdefab\n"),
-            names: Some(name.bound_to(ADMIN)),
+            names: Some(crate::bound_to(&name, ADMIN)),
             ..all_keys()
         };
         let keys = check(&mut texts).expect("accepted");
@@ -332,7 +332,7 @@ mod tests {
     fn a_name_file_for_another_admin_key_names_nothing() {
         let name = AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("a name");
         let mut texts = Scripted {
-            names: Some(name.bound_to(WEB)),
+            names: Some(crate::bound_to(&name, WEB)),
             ..all_keys()
         };
         let keys = check(&mut texts).expect("accepted");

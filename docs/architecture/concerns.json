@@ -110,7 +110,7 @@
   },
   "kkt-admission": {
    "layer": "access",
-   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token, and for the web page whether sign-in is needed and whom a key admits. Also the checks on the server's keys, and where the access key file goes by default, in the config folder it is given.",
+   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token, and for the web page whether sign-in is needed and whom a key admits. Also the checks on the server's keys, and where the access key file goes by default, in the config folder it is given. The admin name file's binding to its key and the advice about it.",
    "must_not": "Know about agent tokens or channel access.",
    "kind": "logic"
   },
