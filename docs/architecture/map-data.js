@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a2b0b74",
+ "commit": "f073fc6",
  "crates": [
   {
    "bins": [
@@ -549,6 +549,7 @@ window.KKT_GRAPH = {
    "lib": "kashkeshet",
    "machine_work": {},
    "name": "kashkeshet",
+   "optional_third_party": {},
    "path": ".",
    "released_program": true,
    "slots": [
@@ -943,6 +944,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_admission",
    "machine_work": {},
    "name": "kkt-admission",
+   "optional_third_party": {},
    "path": "crates/kkt-admission",
    "released_program": false,
    "slots": [
@@ -1060,6 +1062,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-admission-os",
+   "optional_third_party": {},
    "path": "crates/kkt-admission-os",
    "released_program": false,
    "slots": [],
@@ -1291,6 +1294,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_agent_client",
    "machine_work": {},
    "name": "kkt-agent-client",
+   "optional_third_party": {},
    "path": "crates/kkt-agent-client",
    "released_program": false,
    "slots": [],
@@ -1424,11 +1428,20 @@ window.KKT_GRAPH = {
    "lib": "kkt_agent_client_rmcp",
    "machine_work": {},
    "name": "kkt-agent-client-rmcp",
+   "optional_third_party": {
+    "reqwest": [
+     "real"
+    ],
+    "rmcp": [
+     "real"
+    ]
+   },
    "path": "crates/kkt-agent-client-rmcp",
    "released_program": false,
    "slots": [
     {
      "at": "AdminRemote::new",
+     "feature": "real",
      "kind": "param",
      "name": "clock",
      "traits": [
@@ -1693,6 +1706,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_agent_commands",
    "machine_work": {},
    "name": "kkt-agent-commands",
+   "optional_third_party": {},
    "path": "crates/kkt-agent-commands",
    "released_program": false,
    "slots": [
@@ -2170,6 +2184,11 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-agent-files-os",
+   "optional_third_party": {
+    "libc": [
+     "real"
+    ]
+   },
    "path": "crates/kkt-agent-files-os",
    "released_program": false,
    "slots": [],
@@ -2264,6 +2283,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_api_admin",
    "machine_work": {},
    "name": "kkt-api-admin",
+   "optional_third_party": {},
    "path": "crates/kkt-api-admin",
    "released_program": false,
    "slots": [],
@@ -3025,6 +3045,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_api_agent",
    "machine_work": {},
    "name": "kkt-api-agent",
+   "optional_third_party": {},
    "path": "crates/kkt-api-agent",
    "released_program": false,
    "slots": [],
@@ -3427,6 +3448,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_api_operator",
    "machine_work": {},
    "name": "kkt-api-operator",
+   "optional_third_party": {},
    "path": "crates/kkt-api-operator",
    "released_program": false,
    "slots": [],
@@ -3616,11 +3638,13 @@ window.KKT_GRAPH = {
    "lib": "kkt_api_sim",
    "machine_work": {},
    "name": "kkt-api-sim",
+   "optional_third_party": {},
    "path": "crates/kkt-api-sim",
    "released_program": false,
    "slots": [
     {
      "at": "Preview::new",
+     "feature": "testing",
      "kind": "param",
      "name": "clock",
      "traits": [
@@ -3632,6 +3656,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "Preview::new",
+     "feature": "testing",
      "kind": "param",
      "name": "entropy",
      "traits": [
@@ -3742,6 +3767,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_backup",
    "machine_work": {},
    "name": "kkt-backup",
+   "optional_third_party": {},
    "path": "crates/kkt-backup",
    "released_program": false,
    "slots": [],
@@ -3796,6 +3822,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-backup-os",
+   "optional_third_party": {},
    "path": "crates/kkt-backup-os",
    "released_program": false,
    "slots": [],
@@ -3865,6 +3892,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_browser",
    "machine_work": {},
    "name": "kkt-browser",
+   "optional_third_party": {},
    "path": "crates/kkt-browser",
    "released_program": false,
    "slots": [],
@@ -3909,6 +3937,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-browser-os",
+   "optional_third_party": {},
    "path": "crates/kkt-browser-os",
    "released_program": false,
    "slots": [],
@@ -3987,6 +4016,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_client_command",
    "machine_work": {},
    "name": "kkt-client-command",
+   "optional_third_party": {},
    "path": "crates/kkt-client-command",
    "released_program": false,
    "slots": [],
@@ -4026,6 +4056,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-client-command-claude",
+   "optional_third_party": {},
    "path": "crates/kkt-client-command-claude",
    "released_program": false,
    "slots": [],
@@ -4135,6 +4166,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_client_config",
    "machine_work": {},
    "name": "kkt-client-config",
+   "optional_third_party": {},
    "path": "crates/kkt-client-config",
    "released_program": false,
    "slots": [
@@ -4275,6 +4307,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-client-config-os",
+   "optional_third_party": {},
    "path": "crates/kkt-client-config-os",
    "released_program": false,
    "slots": [],
@@ -4404,6 +4437,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_clock",
    "machine_work": {},
    "name": "kkt-clock",
+   "optional_third_party": {},
    "path": "crates/kkt-clock",
    "released_program": false,
    "slots": [],
@@ -4449,6 +4483,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-clock-system",
+   "optional_third_party": {},
    "path": "crates/kkt-clock-system",
    "released_program": false,
    "slots": [],
@@ -4539,6 +4574,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_config_file",
    "machine_work": {},
    "name": "kkt-config-file",
+   "optional_third_party": {},
    "path": "crates/kkt-config-file",
    "released_program": false,
    "slots": [],
@@ -4620,6 +4656,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-config-file-os",
+   "optional_third_party": {},
    "path": "crates/kkt-config-file-os",
    "released_program": false,
    "slots": [],
@@ -4854,6 +4891,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_container",
    "machine_work": {},
    "name": "kkt-container",
+   "optional_third_party": {},
    "path": "crates/kkt-container",
    "released_program": false,
    "slots": [],
@@ -4926,11 +4964,13 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-container-docker",
+   "optional_third_party": {},
    "path": "crates/kkt-container-docker",
    "released_program": false,
    "slots": [
     {
      "at": "Docker::new",
+     "feature": "real",
      "kind": "param",
      "name": "browser",
      "traits": [
@@ -5668,11 +5708,13 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-db",
+   "optional_third_party": {},
    "path": "crates/kkt-db",
    "released_program": false,
    "slots": [
     {
      "at": "testing::FaultyBackend::new",
+     "feature": "testing",
      "kind": "param",
      "name": "inner",
      "traits": [
@@ -5787,6 +5829,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-db-sqlite",
+   "optional_third_party": {},
    "path": "crates/kkt-db-sqlite",
    "released_program": false,
    "slots": [],
@@ -5985,6 +6028,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_diagnostics",
    "machine_work": {},
    "name": "kkt-diagnostics",
+   "optional_third_party": {},
    "path": "crates/kkt-diagnostics",
    "released_program": false,
    "slots": [
@@ -6210,6 +6254,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_entropy",
    "machine_work": {},
    "name": "kkt-entropy",
+   "optional_third_party": {},
    "path": "crates/kkt-entropy",
    "released_program": false,
    "slots": [],
@@ -6247,6 +6292,11 @@ window.KKT_GRAPH = {
    "lib": "kkt_entropy_os",
    "machine_work": {},
    "name": "kkt-entropy-os",
+   "optional_third_party": {
+    "rand": [
+     "real"
+    ]
+   },
    "path": "crates/kkt-entropy-os",
    "released_program": false,
    "slots": [],
@@ -6427,6 +6477,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_events",
    "machine_work": {},
    "name": "kkt-events",
+   "optional_third_party": {},
    "path": "crates/kkt-events",
    "released_program": false,
    "slots": [],
@@ -6517,6 +6568,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_fake_product",
    "machine_work": {},
    "name": "kkt-fake-product",
+   "optional_third_party": {},
    "path": "programs/kkt-fake-product",
    "released_program": false,
    "slots": [
@@ -6585,6 +6637,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_hash",
    "machine_work": {},
    "name": "kkt-hash",
+   "optional_third_party": {},
    "path": "crates/kkt-hash",
    "released_program": false,
    "slots": [],
@@ -6651,6 +6704,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_hosts",
    "machine_work": {},
    "name": "kkt-hosts",
+   "optional_third_party": {},
    "path": "crates/kkt-hosts",
    "released_program": false,
    "slots": [],
@@ -6739,6 +6793,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_identity",
    "machine_work": {},
    "name": "kkt-identity",
+   "optional_third_party": {},
    "path": "crates/kkt-identity",
    "released_program": false,
    "slots": [],
@@ -6775,6 +6830,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_identity_keymode",
    "machine_work": {},
    "name": "kkt-identity-keymode",
+   "optional_third_party": {},
    "path": "crates/kkt-identity-keymode",
    "released_program": false,
    "slots": [],
@@ -6803,6 +6859,7 @@ window.KKT_GRAPH = {
    "lib": null,
    "machine_work": {},
    "name": "kkt-keymode",
+   "optional_third_party": {},
    "path": "programs/kkt-keymode",
    "released_program": false,
    "slots": [],
@@ -6872,6 +6929,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_lane_commit",
    "machine_work": {},
    "name": "kkt-lane-commit",
+   "optional_third_party": {},
    "path": "crates/kkt-lane-commit",
    "released_program": false,
    "slots": [],
@@ -6911,6 +6969,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-lane-commit-git",
+   "optional_third_party": {},
    "path": "crates/kkt-lane-commit-git",
    "released_program": false,
    "slots": [],
@@ -7026,6 +7085,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_lane_files",
    "machine_work": {},
    "name": "kkt-lane-files",
+   "optional_third_party": {},
    "path": "crates/kkt-lane-files",
    "released_program": false,
    "slots": [
@@ -7104,6 +7164,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-lane-files-os",
+   "optional_third_party": {},
    "path": "crates/kkt-lane-files-os",
    "released_program": false,
    "slots": [],
@@ -7216,6 +7277,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_log",
    "machine_work": {},
    "name": "kkt-log",
+   "optional_third_party": {},
    "path": "crates/kkt-log",
    "released_program": false,
    "slots": [],
@@ -7331,6 +7393,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_logs",
    "machine_work": {},
    "name": "kkt-logs",
+   "optional_third_party": {},
    "path": "crates/kkt-logs",
    "released_program": false,
    "slots": [],
@@ -7412,11 +7475,20 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-logs-os",
+   "optional_third_party": {
+    "tracing": [
+     "real"
+    ],
+    "tracing-subscriber": [
+     "real"
+    ]
+   },
    "path": "crates/kkt-logs-os",
    "released_program": false,
    "slots": [
     {
      "at": "RotatingFile::open",
+     "feature": "real",
      "kind": "param",
      "name": "clock",
      "traits": [
@@ -7428,6 +7500,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "init_logging",
+     "feature": "real",
      "kind": "param",
      "name": "clock",
      "traits": [
@@ -7537,6 +7610,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_machine",
    "machine_work": {},
    "name": "kkt-machine",
+   "optional_third_party": {},
    "path": "crates/kkt-machine",
    "released_program": false,
    "slots": [],
@@ -7576,6 +7650,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-machine-os",
+   "optional_third_party": {},
    "path": "crates/kkt-machine-os",
    "released_program": false,
    "slots": [],
@@ -7657,6 +7732,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_mcp",
    "machine_work": {},
    "name": "kkt-mcp",
+   "optional_third_party": {},
    "path": "crates/kkt-mcp",
    "released_program": false,
    "slots": [
@@ -7874,6 +7950,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_mcp_formatter",
    "machine_work": {},
    "name": "kkt-mcp-formatter",
+   "optional_third_party": {},
    "path": "crates/kkt-mcp-formatter",
    "released_program": false,
    "slots": [
@@ -8020,6 +8097,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_names",
    "machine_work": {},
    "name": "kkt-names",
+   "optional_third_party": {},
    "path": "crates/kkt-names",
    "released_program": false,
    "slots": [
@@ -8737,6 +8815,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_operate",
    "machine_work": {},
    "name": "kkt-operate",
+   "optional_third_party": {},
    "path": "crates/kkt-operate",
    "released_program": false,
    "slots": [
@@ -11423,6 +11502,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_probe",
    "machine_work": {},
    "name": "kkt-probe",
+   "optional_third_party": {},
    "path": "crates/kkt-probe",
    "released_program": false,
    "slots": [],
@@ -11483,6 +11563,14 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-probe-reqwest",
+   "optional_third_party": {
+    "reqwest": [
+     "real"
+    ],
+    "serde_json": [
+     "real"
+    ]
+   },
    "path": "crates/kkt-probe-reqwest",
    "released_program": false,
    "slots": [],
@@ -11538,6 +11626,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_provenance",
    "machine_work": {},
    "name": "kkt-provenance",
+   "optional_third_party": {},
    "path": "crates/kkt-provenance",
    "released_program": false,
    "slots": [],
@@ -11615,6 +11704,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_remote_access",
    "machine_work": {},
    "name": "kkt-remote-access",
+   "optional_third_party": {},
    "path": "crates/kkt-remote-access",
    "released_program": false,
    "slots": [],
@@ -11655,6 +11745,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-remote-access-tailscale",
+   "optional_third_party": {},
    "path": "crates/kkt-remote-access-tailscale",
    "released_program": false,
    "slots": [],
@@ -12271,6 +12362,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_rules",
    "machine_work": {},
    "name": "kkt-rules",
+   "optional_third_party": {},
    "path": "crates/kkt-rules",
    "released_program": false,
    "slots": [
@@ -12478,6 +12570,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::Memory",
+     "feature": "testing",
      "kind": "field",
      "name": "clock",
      "traits": [
@@ -12489,6 +12582,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::Memory",
+     "feature": "testing",
      "kind": "field",
      "name": "entropy",
      "traits": [
@@ -12500,6 +12594,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::Memory",
+     "feature": "testing",
      "kind": "field",
      "name": "wording",
      "traits": [
@@ -12511,6 +12606,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::Memory::new",
+     "feature": "testing",
      "kind": "param",
      "name": "clock",
      "traits": [
@@ -12522,6 +12618,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::Memory::new",
+     "feature": "testing",
      "kind": "param",
      "name": "entropy",
      "traits": [
@@ -12533,6 +12630,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::every_store_read",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-rules",
@@ -12551,6 +12649,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::fail_next_write",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-rules",
@@ -12569,6 +12668,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::memory",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-rules",
@@ -12595,6 +12695,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::rules_on",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-rules",
@@ -12613,6 +12714,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::rules_on",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-rules",
@@ -12639,6 +12741,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::swarms_stay_apart_in",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-rules",
@@ -12702,6 +12805,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-scratch",
+   "optional_third_party": {},
    "path": "crates/kkt-scratch",
    "released_program": false,
    "slots": [],
@@ -12752,6 +12856,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_search",
    "machine_work": {},
    "name": "kkt-search",
+   "optional_third_party": {},
    "path": "crates/kkt-search",
    "released_program": false,
    "slots": [],
@@ -12902,6 +13007,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_server",
    "machine_work": {},
    "name": "kkt-server",
+   "optional_third_party": {},
    "path": "crates/kkt-server",
    "released_program": false,
    "slots": [
@@ -13160,6 +13266,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_server_listen",
    "machine_work": {},
    "name": "kkt-server-listen",
+   "optional_third_party": {},
    "path": "crates/kkt-server-listen",
    "released_program": false,
    "slots": [],
@@ -13387,6 +13494,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_service",
    "machine_work": {},
    "name": "kkt-service",
+   "optional_third_party": {},
    "path": "crates/kkt-service",
    "released_program": false,
    "slots": [],
@@ -13448,6 +13556,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-service-launchd",
+   "optional_third_party": {},
    "path": "crates/kkt-service-launchd",
    "released_program": false,
    "slots": [],
@@ -13480,6 +13589,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-service-os",
+   "optional_third_party": {},
    "path": "crates/kkt-service-os",
    "released_program": false,
    "slots": [],
@@ -13529,6 +13639,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-service-systemd",
+   "optional_third_party": {},
    "path": "crates/kkt-service-systemd",
    "released_program": false,
    "slots": [],
@@ -14536,6 +14647,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_setup",
    "machine_work": {},
    "name": "kkt-setup",
+   "optional_third_party": {},
    "path": "crates/kkt-setup",
    "released_program": false,
    "slots": [
@@ -14743,6 +14855,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-setup-os",
+   "optional_third_party": {},
    "path": "crates/kkt-setup-os",
    "released_program": false,
    "slots": [],
@@ -14775,6 +14888,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_shutdown",
    "machine_work": {},
    "name": "kkt-shutdown",
+   "optional_third_party": {},
    "path": "crates/kkt-shutdown",
    "released_program": false,
    "slots": [],
@@ -14809,6 +14923,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_shutdown_os",
    "machine_work": {},
    "name": "kkt-shutdown-os",
+   "optional_third_party": {},
    "path": "crates/kkt-shutdown-os",
    "released_program": false,
    "slots": [],
@@ -14878,6 +14993,11 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-terminal-os",
+   "optional_third_party": {
+    "libc": [
+     "real"
+    ]
+   },
    "path": "crates/kkt-terminal-os",
    "released_program": false,
    "slots": [],
@@ -14981,6 +15101,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_watch",
    "machine_work": {},
    "name": "kkt-watch",
+   "optional_third_party": {},
    "path": "crates/kkt-watch",
    "released_program": false,
    "slots": [
@@ -15504,6 +15625,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_web",
    "machine_work": {},
    "name": "kkt-web",
+   "optional_third_party": {},
    "path": "crates/kkt-web",
    "released_program": false,
    "slots": [
@@ -15591,6 +15713,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::App",
+     "feature": "testing",
      "kind": "field",
      "name": "api",
      "traits": [
@@ -15602,6 +15725,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::App::new",
+     "feature": "testing",
      "kind": "param",
      "name": "api",
      "traits": [
@@ -15613,6 +15737,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::Door",
+     "feature": "testing",
      "kind": "field",
      "name": "gate",
      "traits": [
@@ -15624,6 +15749,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::Door",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15646,6 +15772,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::administration_works",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15677,6 +15804,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::administration_works",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15695,6 +15823,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::announcement_editor_works",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15726,6 +15855,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::announcement_editor_works",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15744,6 +15874,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::changes_work",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15775,6 +15906,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::changes_work",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15793,6 +15925,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::channel_creation_works",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15824,6 +15957,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::channel_creation_works",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15842,6 +15976,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::earlier_pages_work",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15873,6 +16008,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::earlier_pages_work",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15891,6 +16027,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::handoff_works",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15922,6 +16059,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::handoff_works",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15940,6 +16078,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::hidden_channels_show_only_on_request",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15971,6 +16110,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::hidden_channels_show_only_on_request",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -15989,6 +16129,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::history_works",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16020,6 +16161,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::history_works",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16038,6 +16180,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::lanes_pages_work",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16069,6 +16212,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::lanes_pages_work",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16087,6 +16231,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::member_lists_show_lanes_and_latest_messages",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16118,6 +16263,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::member_lists_show_lanes_and_latest_messages",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16136,6 +16282,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::operator_changes_are_live",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16154,6 +16301,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::pages_work",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16185,6 +16333,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::pages_work",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16203,6 +16352,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::site",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16234,6 +16384,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::site",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16252,6 +16403,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::site_with",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16283,6 +16435,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::site_with",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16301,6 +16454,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::stale_agents_work",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16332,6 +16486,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::stale_agents_work",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16350,6 +16505,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::summaries_agree_with_the_pages",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16381,6 +16537,7 @@ window.KKT_GRAPH = {
     },
     {
      "at": "testing::summaries_agree_with_the_pages",
+     "feature": "testing",
      "holds": [
       {
        "crate": "kkt-web",
@@ -16426,6 +16583,7 @@ window.KKT_GRAPH = {
    "lib": null,
    "machine_work": {},
    "name": "kkt-web-preview",
+   "optional_third_party": {},
    "path": "programs/kkt-web-preview",
    "released_program": false,
    "slots": [],
@@ -27184,6 +27342,11 @@ window.KKT_CONCERNS = {
    "about": "Traits and plain values, with pure behaviour on its own value types (such as Time arithmetic, query checks and search matching), and no effect or wiring.",
    "id": "contract",
    "title": "contract"
+  },
+  {
+   "about": "A contract in the open and its one implementation behind real, which only programs turn on (phase 13). A crate that depends on it without real depends on the contract alone.",
+   "id": "contract and effect",
+   "title": "contract and effect"
   },
   {
    "about": "Behaviour, with every effect injected. Protocol translation counts as logic.",

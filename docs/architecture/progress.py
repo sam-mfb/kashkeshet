@@ -14,8 +14,9 @@ with the proposed map, and prints:
 - arrows: the proposed normal arrows present and missing, and the normal
   arrows in the code that the proposal does not have;
 - rules: kinds.py's checks, with the proposed kinds, and the proposal's own
-  rules (only programs and compositions depend on effect crates, or turn on
-  a merged crate's `real`, in code and in tests; a crate implements another's
+  rules (only programs and compositions depend on effect crates, in code and
+  in tests, and only programs turn on a merged crate's `real`, which kinds.py
+  checks; a crate implements another's
   contract only if that crate is a contract crate or a merged one, or it is a
   program, a composition or test support), run on the code.
 
