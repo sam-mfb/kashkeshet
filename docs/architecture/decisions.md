@@ -320,9 +320,13 @@ Message numbers are given only where they help to find a discussion in
 
 ## After the refactor
 
-The code matches the proposal, as last amended, except for two differences
-that `progress.py --list` reports. Each has a row in the plan's differences
-table, and Sam has not yet ruled on either.
+Since step 8.1, Sam has decided that kkt-settings goes (phase 9 of the
+plan, 2026-11-12). The proposal charts that target, so the scorecard shows
+kkt-settings and its arrows as extra until phase 9 lands.
+
+Apart from phase 9, the code matches the proposal, as last amended, except
+for two differences that `progress.py --list` reports. Each has a row in the
+plan's differences table, and Sam has not yet ruled on either.
 
 - **The arrow kkt-server → kkt-api-admin is missing** (step 5.6a). kkt-server's
   `Parts` holds the concrete `Rules` and passes it to each surface, which
