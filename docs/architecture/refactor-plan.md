@@ -1504,7 +1504,8 @@ kkt-container-docker uses. Per merge:
   only `Docker::new` takes a browser;
 - 13.4: nothing (kkt-lane-commit-git adds no dependency);
 - 13.5: reqwest and serde_json, from kkt-probe-reqwest;
-- 13.6: rmcp, reqwest, tokio and libc.
+- 13.6: rmcp and reqwest (already optional), tokio and serde_json;
+  futures and kkt-clock stay normal.
 
 A dependency that the open contract itself uses stays a normal one. A
 merged crate's `real` turns on its optional dependencies, but never
