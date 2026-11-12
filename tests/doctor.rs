@@ -1,5 +1,5 @@
 mod common;
-use kashkeshet::machine::diagnostics::DiagnosticProber;
+use kashkeshet::machine::diagnostics::prober;
 use kkt_scratch as scratch;
 
 use kkt_diagnostics as diagnostics;
@@ -42,13 +42,9 @@ async fn keyed() -> common::Server {
 async fn doctor_initializes_and_closes_a_real_mcp_session_without_registering() {
     let server = keyed().await;
     let key = Key::new(&format!("{KEY}\n"));
-    let checks = diagnostics::inspect(
-        &DiagnosticProber,
-        &format!("{}/mcp", server.base),
-        Some(&key.path),
-    )
-    .await
-    .expect("inspect");
+    let checks = diagnostics::inspect(&prober(), &format!("{}/mcp", server.base), Some(&key.path))
+        .await
+        .expect("inspect");
     assert!(checks.iter().all(|c| c.ok), "{checks:?}");
     assert!(
         checks
@@ -66,13 +62,9 @@ async fn doctor_initializes_and_closes_a_real_mcp_session_without_registering() 
 async fn doctor_reports_wrong_keys_and_does_not_expose_them() {
     let server = keyed().await;
     let key = Key::new("wrong0123456789abcdef0123456789abcdef");
-    let checks = diagnostics::inspect(
-        &DiagnosticProber,
-        &format!("{}/mcp", server.base),
-        Some(&key.path),
-    )
-    .await
-    .expect("inspect");
+    let checks = diagnostics::inspect(&prober(), &format!("{}/mcp", server.base), Some(&key.path))
+        .await
+        .expect("inspect");
     assert!(
         checks.iter().any(|c| c.name == "key accepted"
             && !c.ok
@@ -87,13 +79,9 @@ async fn missing_key_is_reported_without_creating_it() {
     let server = keyed().await;
     let key = Key::new(KEY);
     let missing = key.path.with_extension("missing");
-    let checks = diagnostics::inspect(
-        &DiagnosticProber,
-        &format!("{}/mcp", server.base),
-        Some(&missing),
-    )
-    .await
-    .expect("inspect");
+    let checks = diagnostics::inspect(&prober(), &format!("{}/mcp", server.base), Some(&missing))
+        .await
+        .expect("inspect");
     assert!(checks.iter().any(|c| c.name == "key file" && !c.ok));
     assert!(!missing.exists());
 }
@@ -101,7 +89,7 @@ async fn missing_key_is_reported_without_creating_it() {
 #[tokio::test]
 async fn explicit_no_key_mode_checks_an_open_server() {
     let server = common::start().await;
-    let checks = diagnostics::inspect(&DiagnosticProber, &format!("{}/mcp", server.base), None)
+    let checks = diagnostics::inspect(&prober(), &format!("{}/mcp", server.base), None)
         .await
         .expect("inspect");
     assert!(checks.iter().all(|c| c.ok), "{checks:?}");
@@ -114,13 +102,9 @@ async fn a_world_readable_key_is_reported_even_if_authentication_works() {
     let server = keyed().await;
     let key = Key::new(KEY);
     std::fs::set_permissions(&key.path, std::fs::Permissions::from_mode(0o644)).expect("mode");
-    let checks = diagnostics::inspect(
-        &DiagnosticProber,
-        &format!("{}/mcp", server.base),
-        Some(&key.path),
-    )
-    .await
-    .expect("inspect");
+    let checks = diagnostics::inspect(&prober(), &format!("{}/mcp", server.base), Some(&key.path))
+        .await
+        .expect("inspect");
     assert!(checks.iter().any(|c| {
         c.name == "key permissions"
             && !c.ok
@@ -134,11 +118,11 @@ async fn a_world_readable_key_is_reported_even_if_authentication_works() {
 #[test]
 fn the_admin_key_is_checked_under_its_own_names_with_the_given_fix() {
     let key = Key::new("admin-0123456789abcdef0123456789abcdef");
-    let checks = diagnostics::inspect_admin_key(&DiagnosticProber, &key.path, "the fix");
+    let checks = diagnostics::inspect_admin_key(&prober(), &key.path, "the fix");
     assert!(checks.iter().all(|c| c.ok), "{checks:?}");
     assert!(checks.iter().any(|c| c.name == "admin key file"));
     let short = Key::new("short");
-    let checks = diagnostics::inspect_admin_key(&DiagnosticProber, &short.path, "the fix");
+    let checks = diagnostics::inspect_admin_key(&prober(), &short.path, "the fix");
     assert!(
         checks.iter().any(|c| c.name == "admin key contents"
             && !c.ok
@@ -177,7 +161,7 @@ async fn host_refusal_has_a_distinct_fix() {
                 .expect("write");
         }
     });
-    let checks = diagnostics::inspect(&DiagnosticProber, &format!("http://{address}/mcp"), None)
+    let checks = diagnostics::inspect(&prober(), &format!("http://{address}/mcp"), None)
         .await
         .expect("inspect");
     task.abort();
@@ -196,7 +180,7 @@ async fn unreachable_server_reports_how_to_start_it() {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("port");
     let address = listener.local_addr().expect("address");
     drop(listener);
-    let checks = diagnostics::inspect(&DiagnosticProber, &format!("http://{address}/mcp"), None)
+    let checks = diagnostics::inspect(&prober(), &format!("http://{address}/mcp"), None)
         .await
         .expect("inspect");
     assert!(checks.iter().any(|c| {

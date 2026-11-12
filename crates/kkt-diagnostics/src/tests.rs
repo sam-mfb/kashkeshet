@@ -4,9 +4,11 @@
 use super::*;
 use kkt_clock::Clock;
 use kkt_clock::testing::FixedClock;
+use kkt_probe::Probing;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Mutex;
 use std::task::{Context, Poll, Waker};
 use std::time::Duration;

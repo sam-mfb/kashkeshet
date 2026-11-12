@@ -21,6 +21,7 @@ pub struct NativeOperate<'a, D = ()> {
     connection: ConnectionReads<'a>,
     service_defaults: D,
     service: Box<dyn kkt_service::Service>,
+    prober: kkt_probe_reqwest::HttpProber,
     login_link: crate::terminal::browser_login::TerminalLink,
 }
 
@@ -32,6 +33,7 @@ impl<'a> NativeOperate<'a> {
             connection: ConnectionReads { env, platform },
             service_defaults: (),
             service: super::service::for_this_os(env),
+            prober: super::diagnostics::prober(),
             login_link: crate::terminal::browser_login::TerminalLink::new(),
         }
     }
@@ -49,6 +51,7 @@ impl<'a> NativeOperate<'a> {
             connection: self.connection,
             service_defaults,
             service: self.service,
+            prober: self.prober,
             login_link: self.login_link,
         }
     }
@@ -66,7 +69,7 @@ impl<'a, D> NativeOperate<'a, D> {
             remote: &kkt_remote_access_tailscale::Tailscale,
             clients: &super::client_config::ClientHost,
             client_command: &kkt_client_command_claude::Claude,
-            prober: &super::diagnostics::DiagnosticProber,
+            prober: &self.prober,
             lanes: &crate::commands::lanes::LaneDisk,
             lines: &crate::terminal::TerminalLines,
             config_file: &NativeConfigText,

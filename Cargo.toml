@@ -30,7 +30,6 @@ members = [
     "crates/kkt-entropy",
     "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
-    "crates/kkt-diagnostics-os",
     "crates/kkt-events",
     "crates/kkt-hash",
     "crates/kkt-hosts",
@@ -47,6 +46,8 @@ members = [
     "crates/kkt-mcp-formatter",
     "crates/kkt-names",
     "crates/kkt-operate",
+    "crates/kkt-probe",
+    "crates/kkt-probe-reqwest",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
     "crates/kkt-remote-access-tailscale",
@@ -99,7 +100,6 @@ default-members = [
     "crates/kkt-entropy",
     "crates/kkt-entropy-os",
     "crates/kkt-diagnostics",
-    "crates/kkt-diagnostics-os",
     "crates/kkt-events",
     "crates/kkt-hash",
     "crates/kkt-hosts",
@@ -116,6 +116,8 @@ default-members = [
     "crates/kkt-mcp-formatter",
     "crates/kkt-names",
     "crates/kkt-operate",
+    "crates/kkt-probe",
+    "crates/kkt-probe-reqwest",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
     "crates/kkt-remote-access-tailscale",
@@ -175,7 +177,7 @@ thiserror = "2.0.21"
 # dev-dependency. Other libraries turn it on too, so some kkt crates have
 # tokio's timers anyway: built alone, kkt-mcp, kkt-server and kkt-web (through
 # axum, reqwest, rmcp, hyper-util, tower and tokio-stream), and with `real`,
-# kkt-agent-client-rmcp and kkt-diagnostics (through reqwest, rmcp, hyper-util,
+# kkt-agent-client-rmcp and kkt-probe-reqwest (through reqwest, rmcp, hyper-util,
 # tower and tokio-stream). The compiler does not stop them from calling a
 # timer; clippy's disallowed-methods list (clippy.toml) does.
 tokio = { version = "1.54.1", features = ["fs", "io-std", "io-util", "macros", "net", "parking_lot", "process", "rt", "rt-multi-thread", "signal", "sync"] }
@@ -230,7 +232,7 @@ kkt-container-docker = { path = "crates/kkt-container-docker", features = ["real
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics" }
-kkt-diagnostics-os = { path = "crates/kkt-diagnostics-os", features = ["real"] }
+kkt-probe-reqwest = { path = "crates/kkt-probe-reqwest", features = ["real"] }
 kkt-events = { path = "crates/kkt-events" }
 kkt-mcp-formatter = { path = "crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "crates/kkt-hosts" }

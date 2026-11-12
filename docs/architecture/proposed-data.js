@@ -262,14 +262,6 @@ window.KKT_PROPOSED = {
       "to": "kkt-client-config::Host"
      },
      {
-      "adapts": "kkt-diagnostics-os::OsProber",
-      "large": false,
-      "methods": 2,
-      "note": "2 methods; key_file and probe translate kkt-diagnostics-os' own KeyFile and Check into kkt-diagnostics', and the adapter fills kkt-diagnostics-os' Settings (step 2.5)",
-      "status": "decided",
-      "to": "kkt-diagnostics::Prober"
-     },
-     {
       "adapts": "kkt-lane-files-os::OsDisk",
       "large": false,
       "methods": 6,
@@ -599,20 +591,6 @@ window.KKT_PROPOSED = {
        {
         "at": "codex_password_store_hint",
         "param": "host"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-diagnostics",
-      "impl": "kkt-diagnostics-os::OsProber",
-      "note": "kkt doctor, kkt setup",
-      "through_adapter": [
-       "kkt-diagnostics::Prober"
-      ],
-      "to": [
-       {
-        "at": "Inspector::new",
-        "param": "prober"
        }
       ]
      },
@@ -1442,15 +1420,6 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-diagnostics-os"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
@@ -1537,6 +1506,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-operate"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-probe-reqwest"
    },
    {
     "from": "kashkeshet",
@@ -2020,6 +1998,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-admission"
+   },
+   {
+    "from": "kkt-diagnostics",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-probe"
    },
    {
     "from": "kkt-entropy-os",
@@ -2749,6 +2736,15 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
+    "to": "kkt-probe"
+   },
+   {
+    "from": "kkt-operate",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-provenance"
    },
    {
@@ -2786,6 +2782,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-setup"
+   },
+   {
+    "from": "kkt-probe-reqwest",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-probe"
    },
    {
     "from": "kkt-provenance",
@@ -3491,7 +3496,6 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "roles_after": [
-     "implements",
      "uses"
     ],
     "roles_before": [
@@ -5168,7 +5172,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "fills kkt-diagnostics-os' Settings from kkt-diagnostics' (step 2.5)"
+      "text": "builds HttpProber with kkt-diagnostics' settings and injects it directly (steps 2.5 and 12.5b)"
      },
      {
       "status": "decided",
@@ -5373,6 +5377,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Builds Systemd for its platform and hands it directly to kkt-operate (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-probe in its code: the program builds kkt-probe-reqwest's HttpProber and names the probe contract nowhere (12.5b)."
      }
     ]
    },
@@ -7249,7 +7257,23 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "OsProber moves to kkt-diagnostics-os"
+      "text": "OsProber moves to kkt-probe-reqwest"
+     },
+     {
+      "status": "decided",
+      "text": "Check moves to kkt-probe: the probe's contract moves to its own crate (step 12.5b)"
+     },
+     {
+      "status": "decided",
+      "text": "KeyFile moves to kkt-probe: the probe's contract moves to its own crate (step 12.5b)"
+     },
+     {
+      "status": "decided",
+      "text": "Prober moves to kkt-probe: the probe's contract moves to its own crate (step 12.5b)"
+     },
+     {
+      "status": "decided",
+      "text": "Probing moves to kkt-probe: the probe's contract moves to its own crate (step 12.5b)"
      },
      {
       "status": "decided",
@@ -7297,44 +7321,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its real feature moves to kkt-diagnostics-os"
-     }
-    ]
-   },
-   {
-    "crate": "kkt-diagnostics-os",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-diagnostics"
+      "text": "its real feature moves to kkt-probe-reqwest"
      },
      {
       "status": "decided",
-      "text": "OsProber comes here from kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Check"
-     },
-     {
-      "status": "decided",
-      "text": "new struct KeyFile"
-     },
-     {
-      "status": "decided",
-      "text": "new type Probing"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Settings"
-     },
-     {
-      "status": "decided",
-      "text": "OsProber no longer implements kkt-diagnostics::Prober"
-     },
-     {
-      "status": "decided",
-      "text": "takes the real feature from kkt-diagnostics"
+      "text": "its checks are made through the probe contract (12.5b)."
      }
     ]
    },
@@ -8627,6 +8618,76 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OperateParts takes the client command (step 12.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "OperateParts takes the prober; doctor and setup word checks (12.5b)."
+     }
+    ]
+   },
+   {
+    "crate": "kkt-probe",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "Check comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "KeyFile comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "Prober comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "Probing comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "testing::Memory implements kkt-probe::Prober: The contract owns its testing stand-in (12.5b)."
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.5b)."
+     }
+    ]
+   },
+   {
+    "crate": "kkt-probe-reqwest",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "OsProber comes here from kkt-diagnostics as HttpProber"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "HttpProber implements kkt-probe::Prober: A wrapper implements its scope contract directly (step 12.5b)."
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "The named wrapper implements the scope contract directly (12.5b)."
      }
     ]
    },
@@ -11336,16 +11397,10 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-diagnostics": {
-    "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server. It declares the `Prober` it checks through; the real one is in kkt-diagnostics-os, adapted by the program.",
+    "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server. It checks through kkt-probe's `Prober`, which the program injects.",
     "kind": "logic",
     "layer": "operations",
     "must_not": "Change anything, or touch the machine except through `Prober`.",
-    "status": "decided"
-   },
-   "kkt-diagnostics-os": {
-    "concern": "Key file reads and network probes: `OsProber`, a plain type that implements nothing; the program adapts it to kkt-diagnostics's `Prober`. kkt-diagnostics's `real` feature moves here.",
-    "kind": "effect",
-    "layer": "operations",
     "status": "decided"
    },
    "kkt-entropy": {
@@ -11474,6 +11529,18 @@ window.KKT_PROPOSED = {
     "concern": "The operator's commands on this machine: `kkt setup` and `kkt switch`, `kkt service`, `kkt status`, `kkt upgrade`, `kkt uninstall`, `kkt backup`, `kkt doctor`, `kkt lanes`, `kkt key` and `kkt agent`, with the setup record, the unfinished note, installs with no record, and where the operator's keys are. It takes its effects and the local server's facts in `OperateParts`, mostly as the contracts its logic crates already declare, and depends on no `-os` crate and no other assembly.",
     "kind": "composition",
     "layer": "assembly",
+    "status": "decided"
+   },
+   "kkt-probe": {
+    "concern": "The project's contract for probing a kkt server and reading its key files (Prober, KeyFile, Check, Probing), with its testing stand-in; no HTTP library (step 12.5b).",
+    "kind": "contract",
+    "layer": "operations",
+    "status": "decided"
+   },
+   "kkt-probe-reqwest": {
+    "concern": "Implements kkt-probe's Prober directly: the HTTP probe and MCP handshake with reqwest, whose types stay inside, and key files read from disk, with the settings the program passes (step 12.5b, option a).",
+    "kind": "effect",
+    "layer": "operations",
     "status": "decided"
    },
    "kkt-provenance": {
@@ -13892,15 +13959,6 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-diagnostics-os::OsProber",
-      "crate": "kashkeshet",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "Prober",
-      "trait_crate": "kkt-diagnostics",
-      "type": null
-     },
-     {
       "adapts": "kkt-lane-files-os::OsDisk",
       "crate": "kashkeshet",
       "kind": "normal",
@@ -14696,7 +14754,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "fills kkt-diagnostics-os' Settings from kkt-diagnostics' (step 2.5)"
+      "text": "builds HttpProber with kkt-diagnostics' settings and injects it directly (steps 2.5 and 12.5b)"
      },
      {
       "status": "decided",
@@ -14901,6 +14959,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Builds Systemd for its platform and hands it directly to kkt-operate (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-probe in its code: the program builds kkt-probe-reqwest's HttpProber and names the probe contract nowhere (12.5b)."
      }
     ],
     "released_program": true,
@@ -21259,17 +21321,7 @@ window.KKT_PROPOSED = {
    {
     "bins": [],
     "builds": [],
-    "contracts": [
-     {
-      "implementors": [
-       {
-        "crate": "kashkeshet",
-        "type": null
-       }
-      ],
-      "trait": "Prober"
-     }
-    ],
+    "contracts": [],
     "crate_doc": "Read-only connection diagnostics.",
     "dev_only": false,
     "features": {},
@@ -21287,29 +21339,14 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "",
-      "fields": [
-       "name",
-       "ok",
-       "detail",
-       "fix"
-      ],
-      "kind": "struct",
-      "methods": [
-       "ok",
-       "problem"
-      ],
-      "path": "Check"
-     },
-     {
-      "doc": "The most bytes of an MCP response a probe reads; the program passes it to kkt-diagnostics-os' Settings (step 3.1c-1, follow-up)",
+      "doc": "The most bytes of an MCP response a probe reads; the program passes it to kkt-probe-reqwest's Settings (step 3.1c-1, follow-up)",
       "kind": "const",
       "path": "DOCTOR_MAX_RESPONSE_BYTES",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "The MCP protocol version a probe asks for; the program passes it to kkt-diagnostics-os' Settings (step 3.1c-1, follow-up)",
+      "doc": "The MCP protocol version a probe asks for; the program passes it to kkt-probe-reqwest's Settings (step 3.1c-1, follow-up)",
       "kind": "const",
       "path": "DOCTOR_PROTOCOL_VERSION",
       "proposed_item": true,
@@ -21332,15 +21369,6 @@ window.KKT_PROPOSED = {
       "doc": "The name of the check that the server accepted the key.",
       "kind": "const",
       "path": "KEY_CHECK"
-     },
-     {
-      "doc": "What a `Prober` found in a key file.",
-      "fields": [
-       "mode",
-       "text"
-      ],
-      "kind": "struct",
-      "path": "KeyFile"
      },
      {
       "doc": "An operator key file doctor checks on this machine, and the fix for a problem with it, which depends on how the server is run.",
@@ -21367,20 +21395,6 @@ window.KKT_PROPOSED = {
        "checks"
       ],
       "path": "Plan"
-     },
-     {
-      "doc": "What the checks do to the machine.",
-      "kind": "trait",
-      "methods": [
-       "key_file",
-       "probe"
-      ],
-      "path": "Prober"
-     },
-     {
-      "doc": "The server checks a `Prober` makes, once they are done.",
-      "kind": "type",
-      "path": "Probing"
      },
      {
       "doc": "The name of the check that the server answered at all.",
@@ -21511,7 +21525,23 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "OsProber moves to kkt-diagnostics-os"
+      "text": "OsProber moves to kkt-probe-reqwest"
+     },
+     {
+      "status": "decided",
+      "text": "Check moves to kkt-probe: the probe's contract moves to its own crate (step 12.5b)"
+     },
+     {
+      "status": "decided",
+      "text": "KeyFile moves to kkt-probe: the probe's contract moves to its own crate (step 12.5b)"
+     },
+     {
+      "status": "decided",
+      "text": "Prober moves to kkt-probe: the probe's contract moves to its own crate (step 12.5b)"
+     },
+     {
+      "status": "decided",
+      "text": "Probing moves to kkt-probe: the probe's contract moves to its own crate (step 12.5b)"
      },
      {
       "status": "decided",
@@ -21559,7 +21589,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its real feature moves to kkt-diagnostics-os"
+      "text": "its real feature moves to kkt-probe-reqwest"
+     },
+     {
+      "status": "decided",
+      "text": "its checks are made through the probe contract (12.5b)."
      }
     ],
     "released_program": false,
@@ -21570,7 +21604,7 @@ window.KKT_PROPOSED = {
       "name": "prober",
       "traits": [
        {
-        "crate": "kkt-diagnostics",
+        "crate": "kkt-probe",
         "trait": "Prober"
        }
       ]
@@ -21582,7 +21616,7 @@ window.KKT_PROPOSED = {
         "crate": "kkt-diagnostics",
         "traits": [
          {
-          "crate": "kkt-diagnostics",
+          "crate": "kkt-probe",
           "trait": "Prober"
          }
         ],
@@ -21600,7 +21634,7 @@ window.KKT_PROPOSED = {
         "crate": "kkt-diagnostics",
         "traits": [
          {
-          "crate": "kkt-diagnostics",
+          "crate": "kkt-probe",
           "trait": "Prober"
          }
         ],
@@ -21629,7 +21663,7 @@ window.KKT_PROPOSED = {
         "crate": "kkt-diagnostics",
         "traits": [
          {
-          "crate": "kkt-diagnostics",
+          "crate": "kkt-probe",
           "trait": "Prober"
          }
         ],
@@ -21644,102 +21678,6 @@ window.KKT_PROPOSED = {
     "third_party": [
      "serde_json",
      "url"
-    ]
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": [
-      "dep:reqwest"
-     ]
-    },
-    "holders": [],
-    "implements": [],
-    "items": [
-     {
-      "doc": "One check's result, in kkt-diagnostics-os' own terms; its probe still words the checks, and the program maps them to kkt-diagnostics' Check (step 2.5)",
-      "kind": "struct",
-      "path": "Check",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "A key file's mode and text, in kkt-diagnostics-os' own terms; the program maps it to kkt-diagnostics' KeyFile (step 2.5)",
-      "kind": "struct",
-      "path": "KeyFile",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "The real `Prober`: reads files with `std::fs` and probes over HTTP.",
-      "feature": "real",
-      "kind": "struct",
-      "moved_from": "kkt-diagnostics",
-      "path": "OsProber",
-      "status": "decided"
-     },
-     {
-      "doc": "A probe under way, giving kkt-diagnostics-os' own checks (step 2.5)",
-      "kind": "type",
-      "path": "Probing",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "What the probe takes from the program (its timeout, response limit, protocol version and the checks' names); it chooses no defaults (step 2.5)",
-      "kind": "struct",
-      "path": "Settings",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_diagnostics_os",
-    "name": "kkt-diagnostics-os",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "OsProber comes here from kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Check"
-     },
-     {
-      "status": "decided",
-      "text": "new struct KeyFile"
-     },
-     {
-      "status": "decided",
-      "text": "new type Probing"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Settings"
-     },
-     {
-      "status": "decided",
-      "text": "OsProber no longer implements kkt-diagnostics::Prober"
-     },
-     {
-      "status": "decided",
-      "text": "takes the real feature from kkt-diagnostics"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": [
-     "reqwest"
     ]
    },
    {
@@ -25290,6 +25228,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OperateParts takes the client command (step 12.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "OperateParts takes the prober; doctor and setup word checks (12.5b)."
      }
     ],
     "released_program": false,
@@ -25387,7 +25329,7 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "traits": [
        {
-        "crate": "kkt-diagnostics",
+        "crate": "kkt-probe",
         "trait": "Prober"
        }
       ]
@@ -25552,6 +25494,218 @@ window.KKT_PROPOSED = {
      }
     ],
     "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [
+     {
+      "implementors": [
+       {
+        "crate": "kkt-probe",
+        "type": "testing::Memory"
+       },
+       {
+        "crate": "kkt-probe-reqwest",
+        "type": "HttpProber"
+       }
+      ],
+      "trait": "Prober"
+     }
+    ],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "testing": []
+    },
+    "holders": [],
+    "implements": [
+     {
+      "crate": "kkt-probe",
+      "status": "decided",
+      "trait": "Prober",
+      "trait_crate": "kkt-probe",
+      "type": "testing::Memory"
+     }
+    ],
+    "items": [
+     {
+      "doc": "",
+      "fields": [
+       "name",
+       "ok",
+       "detail",
+       "fix"
+      ],
+      "kind": "struct",
+      "methods": [
+       "ok",
+       "problem"
+      ],
+      "moved_from": "kkt-diagnostics",
+      "path": "Check",
+      "status": "decided"
+     },
+     {
+      "doc": "What a `Prober` found in a key file.",
+      "fields": [
+       "mode",
+       "text"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-diagnostics",
+      "path": "KeyFile",
+      "status": "decided"
+     },
+     {
+      "doc": "What the checks do to the machine.",
+      "kind": "trait",
+      "methods": [
+       "key_file",
+       "probe"
+      ],
+      "moved_from": "kkt-diagnostics",
+      "path": "Prober",
+      "status": "decided"
+     },
+     {
+      "doc": "The server checks a `Prober` makes, once they are done.",
+      "kind": "type",
+      "moved_from": "kkt-diagnostics",
+      "path": "Probing",
+      "status": "decided"
+     },
+     {
+      "doc": "Key files and servers, held in memory (step 12.5b).",
+      "feature": "testing",
+      "kind": "struct",
+      "methods": [
+       "new",
+       "key",
+       "server"
+      ],
+      "path": "testing::Memory",
+      "proposed_item": true,
+      "status": "decided"
+     }
+    ],
+    "kind": "contract",
+    "lib": "kkt_probe",
+    "name": "kkt-probe",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "Check comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "KeyFile comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "Prober comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "Probing comes here from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "testing::Memory implements kkt-probe::Prober: The contract owns its testing stand-in (12.5b)."
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.5b)."
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "real": [
+      "dep:reqwest"
+     ]
+    },
+    "holders": [],
+    "implements": [
+     {
+      "crate": "kkt-probe-reqwest",
+      "status": "decided",
+      "trait": "Prober",
+      "trait_crate": "kkt-probe",
+      "type": "HttpProber"
+     }
+    ],
+    "items": [
+     {
+      "doc": "The real `Prober`: reads files with `std::fs` and probes over HTTP.",
+      "feature": "real",
+      "kind": "struct",
+      "moved_from": "kkt-diagnostics",
+      "path": "HttpProber",
+      "status": "decided"
+     },
+     {
+      "doc": "What the probe takes from the program (its timeout, response limit, protocol version and the checks' names); it chooses no defaults (steps 2.5 and 12.5b)",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
+      "status": "decided"
+     }
+    ],
+    "kind": "effect",
+    "lib": "kkt_probe_reqwest",
+    "name": "kkt-probe-reqwest",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "OsProber comes here from kkt-diagnostics as HttpProber"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "HttpProber implements kkt-probe::Prober: A wrapper implements its scope contract directly (step 12.5b)."
+     },
+     {
+      "status": "decided",
+      "text": "takes the real feature from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "The named wrapper implements the scope contract directly (12.5b)."
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": [
+     "reqwest"
+    ]
    },
    {
     "bins": [],
@@ -32394,14 +32548,8 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "implements",
+    "role": "uses",
     "roles": [
-     {
-      "detail": [
-       "adapter for kkt-diagnostics-os::OsProber implements Prober"
-      ],
-      "role": "implements"
-     },
      {
       "detail": [
        "Plan",
@@ -32418,40 +32566,6 @@ window.KKT_PROPOSED = {
      "inspect_admin_key"
     ],
     "to": "kkt-diagnostics"
-   },
-   {
-    "features": [
-     "real"
-    ],
-    "from": "kashkeshet",
-    "items": [
-     "OsProber",
-     "Settings"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Settings"
-      ],
-      "role": "uses"
-     },
-     {
-      "detail": [
-       "OsProber"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-diagnostics-os"
    },
    {
     "features": [
@@ -32858,6 +32972,40 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-operate"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kashkeshet",
+    "items": [
+     "HttpProber",
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     },
+     {
+      "detail": [
+       "HttpProber"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-probe-reqwest"
    },
    {
     "features": [],
@@ -35351,6 +35499,35 @@ window.KKT_PROPOSED = {
      "testing::FixedClock"
     ],
     "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-diagnostics",
+    "items": [
+     "Check",
+     "KeyFile",
+     "Prober"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Check",
+       "KeyFile",
+       "Prober"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-probe"
    },
    {
     "features": [],
@@ -38383,10 +38560,8 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-operate",
     "items": [
-     "Check",
      "Inspector",
      "KeyToCheck",
-     "Prober",
      "ServerLines",
      "ThisMachine",
      "inspect"
@@ -38398,10 +38573,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Check",
        "Inspector",
        "KeyToCheck",
-       "Prober",
        "ServerLines",
        "ThisMachine",
        "inspect"
@@ -38508,6 +38681,33 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-names"
+   },
+   {
+    "features": [],
+    "from": "kkt-operate",
+    "items": [
+     "Check",
+     "Prober"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Check",
+       "Prober"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-probe"
    },
    {
     "features": [],
@@ -38687,6 +38887,42 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-setup"
+   },
+   {
+    "features": [],
+    "from": "kkt-probe-reqwest",
+    "items": [
+     "Check",
+     "KeyFile",
+     "Prober",
+     "Probing"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "HttpProber implements Prober"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "Check",
+       "KeyFile",
+       "Probing"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-probe"
    },
    {
     "features": [],
@@ -41926,10 +42162,11 @@ window.KKT_PROPOSED = {
     }
    ],
    "new": [
-    "kkt-diagnostics-os"
+    "kkt-probe",
+    "kkt-probe-reqwest"
    ],
    "path": "Prober",
-   "result": "Declared by its consumer, kkt-diagnostics. OsProber moves to kkt-diagnostics-os as a plain type that implements nothing; kkt-diagnostics's real feature moves with it, and the program adapts it.",
+   "result": "Moved to its own contract crate, kkt-probe, with KeyFile, Check and Probing. The named wrapper kkt-probe-reqwest implements it directly, and the program only injects it (step 12.5b).",
    "rule": "declared by its consumers",
    "test_only": [],
    "trait": "kkt-diagnostics::Prober",

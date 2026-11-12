@@ -1,0 +1,12 @@
+[package]
+name = "kkt-probe"
+description = "The contract for probing a kkt server and reading its key files"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# `testing::Memory`, key files and probe answers in memory for consumers' tests.
+testing = []

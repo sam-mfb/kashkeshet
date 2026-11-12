@@ -18,6 +18,7 @@ kkt-clock = { path = "../kkt-clock" }
 kkt-config-file = { path = "../kkt-config-file" }
 kkt-container = { path = "../kkt-container" }
 kkt-diagnostics = { path = "../kkt-diagnostics" }
+kkt-probe = { path = "../kkt-probe" }
 kkt-lane-files = { path = "../kkt-lane-files" }
 kkt-machine = { path = "../kkt-machine" }
 kkt-names = { path = "../kkt-names" }
