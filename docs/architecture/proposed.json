@@ -1245,21 +1245,21 @@
    "item": "kashkeshet::commands::agent",
    "to": "kkt-operate",
    "status": "decided",
-   "as": "agents",
+   "as": "agent",
    "note": "phase 10, step 10.2a"
   },
   {
    "item": "kashkeshet::commands::agent::AgentAction",
    "to": "kkt-operate",
    "status": "decided",
-   "as": "agents::AgentAction",
+   "as": "agent::AgentAction",
    "note": "phase 10, step 10.2a"
   },
   {
    "item": "kashkeshet::commands::agent::run",
    "to": "kkt-operate",
    "status": "decided",
-   "as": "agents::run",
+   "as": "agent::run",
    "note": "phase 10, step 10.2a"
   },
   {
@@ -1823,6 +1823,11 @@
   {
    "item": "kkt-config::Limits",
    "status": "decided"
+  },
+  {
+   "item": "kkt-rules::testing::swarms_stay_apart",
+   "status": "decided",
+   "note": "becomes swarms_stay_apart_in, which takes the database to check (step 11.2)"
   }
  ],
  "method_moves": [
@@ -3569,10 +3574,10 @@
   },
   {
    "crate": "kashkeshet",
-   "path": "commands::serve::new_server_run",
+   "path": "machine::server_run::new_server_run",
    "kind": "fn",
    "status": "decided",
-   "doc": "What produced a run, kkt-provenance's ServerRun, as kkt-rules' start records it, a NewServerRun (step 9.2)."
+   "doc": "What produced a run, kkt-provenance's ServerRun, as kkt-rules' start records it, a NewServerRun; public for the integration tests' harness, which records a run as kkt serve does (steps 9.2, 9.3)."
   },
   {
    "crate": "kkt-admission",
@@ -3596,126 +3601,6 @@
    "status": "decided",
    "feature": "testing",
    "doc": "A new database in memory, with the core's tables, for other crates' tests: for a program that starts its own rules, or for the operator's `crate::CommandLine` (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::read",
-   "kind": "fn",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "Runs `f` over a view of one state of `db`, for the tests that pin the store's reads (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::write",
-   "kind": "fn",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "Runs `f` inside one transaction of `db`, for the tests that write rows into a database file directly (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::Reader",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "The store's questions, over one state of the database, for the program's tests that pin what a 0.10.0 database answers (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::Writer",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "The store's changes, inside one transaction, for the program's tests that write rows into a database file (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::ChannelFilter",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "Which channels `Reader::channel_ids` returns, in name order (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::ChannelKind",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "The stored facts that decide whether a viewer may use a channel: whether it is hidden or open, and whether the viewer is in it or owns it (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::ChannelScope",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "Which channels a query covers: those in one swarm whose kind, for the viewer, is one of the allowed kinds (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::MessageRange",
-   "kind": "enum",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "Which messages of a channel to return, and in what order (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::NewAgentRecord",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "An avatar as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::NewChannelRecord",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "A channel as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::NewMessageRecord",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "A message as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::NewServerRunRecord",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "A server run as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::NewerFilter",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "Which messages `Reader::newer_messages` and `Reader::count_newer_messages` cover (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::SearchFilter",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "Which messages Reader::search_messages looks at (step 5.6b)."
-  },
-  {
-   "crate": "kkt-rules",
-   "path": "testing::SentFilter",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "Which messages `Reader::latest_message_from` looks at (step 5.6b)."
   },
   {
    "crate": "kkt-server",
@@ -3878,6 +3763,152 @@
    "kind": "trait",
    "status": "decided",
    "doc": "Standard output and error (step 10.3)."
+  },
+  {
+   "crate": "kkt-format",
+   "path": "Problem",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "An invalid formatter setting and the owner's check that found it. (step 9.1)"
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::every_store_read",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "Every read the store offers, asked on `db` with `probes`, one answer per line, in one state of the database. (step 11.4)"
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::Probes",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "What to ask about: the avatars, channels and message IDs of the database, some missing on purpose, and the tokens and recovery codes of some avatars, as written, whose hashes the store keeps. (step 11.4)"
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::rules_on",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "The rules over `db`, a database the test opened itself, such as a file or one an older release left, after `crate::start` records a test run in it, as `memory` starts them on a new one. (step 11.4)"
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::swarms_stay_apart_in",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "Checks, in one write, that two swarms stay apart in `db`, a new database with the core's tables and nothing in them yet: every question and change the store makes, over whichever backend `db` is on. (step 11.2)"
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::scenarios",
+   "kind": "mod",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "The rules' scenarios that run on the real backend too, for the program's test that runs them on kkt-db-sqlite (11.3). (step 11.3)"
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::scenarios::run_all",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "Runs every scenario, each over new databases that `new_backend` makes with the core's tables, as a database the program opens is. (step 11.3)"
+  },
+  {
+   "crate": "kkt-db",
+   "path": "testing::FastPlace",
+   "kind": "struct",
+   "status": "decided",
+   "methods": [
+    "new",
+    "open"
+   ],
+   "feature": "testing",
+   "doc": "Where a fast in-memory database lives. (step 11.1)"
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "Problem",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A setting the rules cannot run with: its name, which check found it (its `floor`, or the other setting it is bounded by), and the rule it breaks. (step 9.1)"
+  },
+  {
+   "crate": "kkt-backup",
+   "path": "Problem",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "An invalid backup setting and the owner's check that found it. (step 9.1)"
+  },
+  {
+   "crate": "kkt-web",
+   "path": "Problem",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "An invalid page setting and the owner's check that found it. (step 9.1)"
+  },
+  {
+   "crate": "kkt-server",
+   "path": "CheckedSettings",
+   "kind": "struct",
+   "status": "decided",
+   "methods": [
+    "settings"
+   ],
+   "doc": "An immutable snapshot whose settings and host policy passed the startup checks together. (step 9.2)"
+  },
+  {
+   "crate": "kkt-server",
+   "path": "SettingError",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A setting's refusal, as worded by the owner of its check. (step 9.2)"
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "ServiceDefaults",
+   "kind": "trait",
+   "status": "decided",
+   "methods": [
+    "matches_defaults"
+   ],
+   "doc": "Required only by commands that inspect an unrecorded service. (step 10.2a)"
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "ServiceInputs",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "Inputs to the service plan, plus a deferred check with opaque program context. (step 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "CheckService",
+   "kind": "trait",
+   "status": "decided",
+   "methods": [
+    "check"
+   ],
+   "doc": "The program checks the plan against its whole serving surface, with its source context. (step 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "CheckedService",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What the service command needs after the program's settings check. (step 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "Config",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The facts these commands read from the program's serve configuration. (step 10.2a)"
   }
  ],
  "declared": [],
@@ -4180,7 +4211,7 @@
    "kind": "dev",
    "remove": true,
    "status": "decided",
-   "note": "its tests use kkt-rules' in-memory database instead. Its own tests still use kkt-db-sqlite's, for speed (step 5.3b), a difference the proposal's rule cannot draw: the scorecard counts it as a break"
+   "note": "its tests run on kkt-db's testing::FastPlace instead (step 11.2); the program's tests run the store and a chosen part of the rules' scenarios on kkt-db-sqlite (steps 11.2, 11.3)"
   },
   {
    "from": "kkt-identity",
@@ -7455,24 +7486,15 @@
    "kind": "dev",
    "add": {
     "uses": [
-     "testing::Reader",
-     "testing::read",
-     "testing::write",
-     "testing::ChannelFilter",
-     "testing::ChannelKind",
-     "testing::ChannelScope",
-     "testing::MessageRange",
-     "testing::NewAgentRecord",
-     "testing::NewChannelRecord",
-     "testing::NewMessageRecord",
-     "testing::NewServerRunRecord",
-     "testing::NewerFilter",
-     "testing::SearchFilter",
-     "testing::SentFilter"
+     "testing::every_store_read",
+     "testing::Probes",
+     "testing::rules_on",
+     "testing::swarms_stay_apart_in",
+     "testing::scenarios::run_all"
     ]
    },
    "status": "decided",
-   "note": "the 0.10.0 migration test and the database-file tests reach the store through kkt-rules' testing: Reader through testing::read, and testing::write, with the records and filters they take (step 5.6b)"
+   "note": "the program's tests pin a 0.10.0 database's reads through every_store_read, run the store's swarm check and the rules' scenarios on kkt-db-sqlite (steps 11.2, 11.3, 11.4)"
   },
   {
    "from": "kkt-server",
@@ -9168,10 +9190,6 @@
    "doc": "For other crates' tests: Rules over an in-memory database, the fail-a-write hook, and the check that two swarms stay apart."
   },
   {
-   "item": "kkt-rules::testing::swarms_stay_apart",
-   "doc": "Checks that two swarms stay apart in a database that holds no avatars or channels yet: a swarm sees and changes nothing of another."
-  },
-  {
    "item": "kkt-rules::Db",
    "doc": "The core's database, private to kkt-rules but for opening it: the program gives Db::new a kkt-db backend."
   },
@@ -9985,7 +10003,7 @@
        "kkt-server::ServerSettings",
        "kkt-rules::Settings",
        "kkt-provenance::ServerRun",
-       "kashkeshet::commands::serve::new_server_run",
+       "kashkeshet::machine::server_run::new_server_run",
        "kkt-rules::NewServerRun",
        "kkt-rules::Startup",
        "kkt-rules::start"

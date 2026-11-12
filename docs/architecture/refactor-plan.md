@@ -13,17 +13,20 @@ The plan has five parts: the rules every step follows; how progress is
 measured; how parallel work avoids collisions; the steps; and what needs
 Sam, each with the default we proceed on.
 
-The refactor's phases 0 to 8 are done. Sam then decided that kkt-settings
-goes too (2026-11-12): phase 9 removes it. He also decided that the
-program's tools leave its library as two assemblies, kkt-operate and
-kkt-agent-commands, while the program keeps composing the server
-(2026-11-12): phase 10, which runs together with phase 9. What is left for Sam comes first, below; the scorecards are at
-the end.
+The refactor's phases 0 to 11 are done. After phase 8, Sam decided three
+more (2026-11-12). Phase 9 removed kkt-settings: each owner checks and words
+its own settings, and kkt-server takes them checked. Phase 10 moved the
+program's tools out of its library into two assemblies, kkt-operate and
+kkt-agent-commands, while the program keeps composing the server. Phase 11
+gave kkt-db a fast test stand-in, so kkt-rules' tests no longer use an effect
+crate. What is left for Sam comes first, below; the scorecards are at the
+end.
 
 ## Awaiting Sam
 
-Every row below is decided by Sam, or is on the list at the end of this
-section, to show him again after phases 9 to 11. They were the questions
+Every row below is decided by Sam, or is on one of the two lists at the end
+of this section: the differences to show him again now that phases 9 to 11
+are done, and the new ones those phases made. They were the questions
 left after phases 0 to 8: every difference from the proposed map then
 awaiting Sam, and the open items of "What needs Sam". They are grouped by
 how much they change. Each line gives the step and the answer, with the
@@ -111,19 +114,32 @@ it was, or names something the proposal left unnamed.
 | macOS in CI | 7 | **Accepted by Sam, 2026-11-12, and done sooner:** the macOS checks came back on `refactor` (#486), then went off again the same day, since GitHub's macOS runners are short (see "Temporary breaks") |
 | The proposed map after the refactor | 8 | **Accepted by Sam, 2026-11-12.** The proposal is kept as a record, and "Current" is the code |
 
-**To re-show Sam after phases 9 to 11.** Today's decisions overtake these
-differences; each is shown to Sam again once the step that replaces it
-merges.
+**To show Sam again, now that phases 9 to 11 are done.** Sam's decisions of
+2026-11-12 overtook these differences. Each step that replaced one has
+merged; the last column says how it ended.
 
-| Difference | Step | Replaced by |
+| Difference | Step | How it ended |
 |---|---|---|
-| `serve_bind` stays in the program; kkt-service's `check_bind`; kkt-keymode keeps four refusal messages | 3.5b | 9.3: the serve pieces stay in the programs, which keep the serve surface; kkt has no kkt-serve (Sam, 2026-11-12) |
-| No `SettingsSource`: the programs turn `Config` into `ServeOptions` | 3.3, 3.5c | 9.3: kkt-settings goes, and the serve surface is each program's |
-| Each program keeps `check_settings`, about 25 lines in both kkt and kkt-keymode | 3.5c | 9.2 and 9.3: kkt-server keeps the order of the checks, and each program maps its keys onto `ServerSettings` |
-| kkt-settings words the run's settings; kkt-provenance depends only on kkt-hash | 3.5c | 9.2: kkt-server words them (`ServerSettings::record_lines`); kkt-provenance still depends only on kkt-hash |
-| `start` takes `NewServerRun` and `Startup`; `Parts::new` takes the `Rules`; the program makes the events bus | 5.6a | 9.2: `Parts` takes an `Arc<dyn AdminApi>`, and `NewServerRun` moves to whoever calls `start` |
-| `local_web_key` and `local_operator_key` stay in the program | 7.3b | 10.2a: they move to kkt-operate, still outside kkt-setup |
-| `kkt_rules::testing` gives the program's tests the store's `Reader`, `Writer`, records and filters, with `read` and `write`; `testing::database` gives other tests a bare `Db` | 5.6b | 11.4, in phase 11 (kkt-db's test stand-in) |
+| `serve_bind` stays in the program; kkt-service's `check_bind`; kkt-keymode keeps four refusal messages | 3.5b | 9.3 (#495): the serve surface is each program's. kkt's `serve_bind` is in its `machine::settings`, the service's bind check is still kkt-service's `check_bind`, and kkt-keymode keeps its own surface and messages. There is no kkt-serve |
+| No `SettingsSource`: the programs turn `Config` into `ServeOptions` | 3.3, 3.5c | 9.3 (#495): kkt-settings is gone. Each program turns kkt-config-file's `Config` and its flags into its own `ServeOptions` |
+| Each program keeps `check_settings`, about 25 lines in both kkt and kkt-keymode | 3.5c | 9.1 (#484, #485), 9.2 (#494): each owner checks its own settings and reports a `Problem`; kkt-server's `ServerSettings::check` asks them in today's order and returns a `CheckedSettings`, which `Parts::new` takes. kkt's `check_settings` passes it kkt-rules' and kkt-backup's problems and its own (the bind and the log level), then reads the instructions and key files |
+| kkt-settings words the run's settings; kkt-provenance depends only on kkt-hash | 3.5c | 9.1, 9.2 (#494): each owner words its own lines, and `ServerSettings::record_lines` orders them with the program's. kkt-provenance still depends only on kkt-hash |
+| `start` takes `NewServerRun` and `Startup`; `Parts::new` takes the `Rules`; the program makes the events bus | 5.6a | 9.2 (#494): `Parts` takes an `Arc<dyn AdminApi>`, so kkt-server no longer depends on kkt-rules, and `new_server_run` is the caller's of `start` (kkt's `machine::server_run`, and kkt-keymode's own) |
+| `local_web_key` and `local_operator_key` stay in the program | 7.3b | 10.2a (#496): they are kkt-operate's (`keys`), still outside kkt-setup, and ask the local server's facts through `ServeFacts` |
+| `kkt_rules::testing` gives the program's tests the store's `Reader`, `Writer`, records and filters, with `read` and `write`; `testing::database` gives other tests a bare `Db` | 5.6b | 11.4 (#492): `testing` names no store type. The program's tests use purpose-named functions (`every_store_read`, `rules_on`, `swarms_stay_apart_in`, `scenarios::run_all`); `testing::database` stays |
+
+**New differences for Sam from phases 9 to 11.** Each has a row in the
+differences table below, and is charted into the proposal.
+
+| Difference | Step | Recommended |
+|---|---|---|
+| `ServerSettings::check` returns an opaque `CheckedSettings`, which `Parts::new` takes, so a server cannot be built from settings never checked | 9.2 (#494) | Accept: asked for in 9.2's review |
+| kkt's `new_server_run` is public, in `machine::server_run`, so the integration tests' harness records a run as `kkt serve` does | 9.2, 9.3 | Accept: one mapping, not a copy in the tests |
+| `ServiceDefaults`: only operator parts built with the service-file parser can ask whether an installed service runs the defaults | 10.2a (#496) | Accept: the compiler refuses the question where no parser was given, in place of a refusal at run time |
+| `ServeFacts::service_settings` gives the service plan's inputs and a deferred `CheckService`, which keeps the program's whole check until the plan is made | 10.2b (#498) | Accept: the check runs in the same order as before, and the assembly sees nothing of the program's settings |
+| kkt-container's `tailscale_auth_key` and `docker_env` take a possibly unsized `Host` | 10.2b (#499) | Accept: every earlier caller still compiles |
+| kkt-operate's module for `kkt agent` is `agent`, not `agents` | 10.2a (#496) | Accept: a name only |
+| kkt-agent-commands takes the admin endpoint's path in `AgentParts`, with no arrow to kkt-mcp | 10.3 (#497) | Accept: one arrow fewer, and kkt-mcp's build script stays out of the assembly's build |
 
 ## Rules for every step
 
@@ -233,7 +249,7 @@ this list; one that is not on it blocks.
 
 | Break | Introduced by | Removed by |
 |---|---|---|
-| The macOS Rust checks are off in CI: `macos-15` is out of `ci.yml`'s list of systems, so platform-specific code is reviewed by hand again | Sam, 2026-11-12: GitHub's macOS runners are short, and #497's job never got one (this pull request) | Adding `macos-15` back to the list, as its comment says, or a self-hosted macOS runner |
+| The macOS Rust checks are off in CI: `macos-15` is out of `ci.yml`'s list of systems, so platform-specific code is reviewed by hand again | Sam, 2026-11-12: GitHub's macOS runners are short, and #497's job never got one (#501) | Adding `macos-15` back to the list, as its comment says, or a self-hosted macOS runner |
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
@@ -255,9 +271,12 @@ the last column says so.
 | kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | accepted by Sam, 2026-11-12 | yes |
 | One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | accepted by Sam, 2026-11-12 | yes |
 | kkt-container's `tailscale_auth_key` and `docker_env` accept a possibly unsized `Host` | 10.2b (setup) | Setup now passes the plan's injected host trait object to the existing file readers; the widening accepts all previous callers and changes no reads or output | awaiting Sam | no arrow or slot change |
-| `ServeFacts::service_settings` returns service-plan inputs and a deferred `CheckService`, which retains opaque program options and their source context | 10.2b (service) | The assembly owns planning and its ordered check/install sequence; the program alone knows and validates its whole serving surface. No serving option type or assembly dependency crosses the boundary | awaiting Sam | to chart at 10.4 |
-| `ServiceDefaults::matches_defaults(args)` answers the installed/default settings comparison; only service-capable `OperateParts` can ask it | 10.2a | Both serving surfaces stay in the program. A service-capable adapter requires `ServeArgs` at construction; record/config-only parts have no such capability. Installed arguments are resolved before defaults; the assembly retains the service-file check and refusal wrapping | required by the 10.2a review; awaiting Sam for the narrowed question | to chart at 10.4 |
-| `ServerSettings::check` returns opaque `CheckedSettings` containing the immutable settings and their host policy; `Parts::new` consumes that one value | 9.2 | The constructor cannot skip validation or combine settings with a different host policy; the program reads the checked values for its record. The integration harness uses the program's own run-record mapping | requested in the 9.2 review; awaiting Sam for the constructor detail | to chart at 10.4 |
+| `ServeFacts::service_settings` returns service-plan inputs and a deferred `CheckService`, which retains opaque program options and their source context | 10.2b (service) | The assembly owns planning and its ordered check/install sequence; the program alone knows and validates its whole serving surface. No serving option type or assembly dependency crosses the boundary | awaiting Sam | yes (10.4) |
+| `ServiceDefaults::matches_defaults(args)` answers the installed/default settings comparison; only service-capable `OperateParts` can ask it | 10.2a | Both serving surfaces stay in the program. A service-capable adapter requires `ServeArgs` at construction; record/config-only parts have no such capability. Installed arguments are resolved before defaults; the assembly retains the service-file check and refusal wrapping | required by the 10.2a review; awaiting Sam for the narrowed question | yes (10.4) |
+| `ServerSettings::check` returns opaque `CheckedSettings` containing the immutable settings and their host policy; `Parts::new` consumes that one value | 9.2 | The constructor cannot skip validation or combine settings with a different host policy; the program reads the checked values for its record. The integration harness uses the program's own run-record mapping | requested in the 9.2 review; awaiting Sam for the constructor detail | yes (10.4) |
+| kkt's `new_server_run` is in `machine::server_run`, public, not in `commands::serve` | 9.2, 9.3 | The integration tests' harness records a run as `kkt serve` does, with the program's own mapping, in place of a third copy of it (the 9.2 review) | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.4) |
+| kkt-operate's module for `kkt agent` is `agent`, not `agents` | 10.2a (#496) | It holds one command, `kkt agent`, as `lanes` and `key` hold theirs | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.4) |
+| kkt-agent-commands takes the admin endpoint's path in `AgentParts` (`admin_path`), and has no arrow to kkt-mcp | 10.3 (#497) | The arrow was for one constant, `MCP_ADMIN_PATH`, and brought kkt-mcp's build script into the assembly's build; kkt-setup's `admin_endpoint` already takes the path from its caller | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.3) |
 | kkt-service-os reports with its own `Finished`, which the program translates to kkt-service's in `run` and `run_attached` | 2.2 (#427) | So kkt-service-os depends on neither kkt-service nor kkt-config; two adapter methods translate | accepted by Sam, 2026-11-12 | yes |
 | kkt-remote-access-os returns its own output and I/O error, which the program maps to the remote-access host contract | 2.3 (#436) | The effect has no dependencies; the adapter preserves all output fields and launch-failure advice | accepted by Sam, 2026-11-12 | yes |
 | kkt-client-config-os states its own 0600 private-file mode beside the file operations | 2.4 (#437) | The same fixed value moves with its writer early, so the effect depends on neither client-config nor config | accepted by Sam, 2026-11-12 | not a map change |
@@ -271,7 +290,7 @@ the last column says so.
 | A package's own `testing` feature may turn on a workspace dependency's `testing` (check-crates rule 3) | 5.2b-1 | kkt-rules' test helpers need kkt-db's in-memory database; `testing` is still reached only from dev-dependencies | decided by Sam, 2026-11-11 | not a map change |
 | kkt-config-file-os has five readers and writers, not three: `read` (setup's edit: a missing file is empty), `read_default` (`kkt serve`'s default file: skipped if it cannot be seen), `read_named` (a `--config` file: must be there), `read_instructions` and `write`, with its own `ReadError` and `WriteError` | 3.3 (#445) | Each keeps the behaviour and messages its caller had; the error types are the crate's own, not std's | accepted by Sam, 2026-11-12 | yes |
 | kkt-config-file's `parse_file` takes the caller's log-level check, and `Config` carries what it makes of the levels; kkt-container's `ConfigReader` returns its own `ContainerConfig` | 3.3 (#445) | kkt-config-file need not know kkt-logs, and of two bad settings the first by name is still the one named, as before | accepted by Sam, 2026-11-12 | yes |
-| `config_home` is a method of kkt-machine's `Env`, with `absolute_xdg_config_home` and `absolute_xdg_data_home`, not a function of kkt-config-file; `config_dir` and `config_file` take the optional config-home folder, with no kkt-config-file dependency on kkt-machine; `kkt_admission::access_key_file` and kkt-setup's record paths take the config folder, not `Env`; the program has `NewKey` and `NewAvatar` | 3.4 (#448) | `config_home` is shared by other programs' config (kkt-service's and kkt-client-config's), and the XDG values count only when absolute, so `Env` gives them in one place; a path inside kkt's config folder takes that folder; `NewKey` and `NewAvatar` group two commands' arguments to stay within clippy's limit | decided by Sam, 2026-11-12: kkt-config-file takes the folder, not Env; other placements accepted by Sam, 2026-11-12 | removed dependency to be charted |
+| `config_home` is a method of kkt-machine's `Env`, with `absolute_xdg_config_home` and `absolute_xdg_data_home`, not a function of kkt-config-file; `config_dir` and `config_file` take the optional config-home folder, with no kkt-config-file dependency on kkt-machine; `kkt_admission::access_key_file` and kkt-setup's record paths take the config folder, not `Env`; the program has `NewKey` and `NewAvatar` | 3.4 (#448) | `config_home` is shared by other programs' config (kkt-service's and kkt-client-config's), and the XDG values count only when absolute, so `Env` gives them in one place; a path inside kkt's config folder takes that folder; `NewKey` and `NewAvatar` group two commands' arguments to stay within clippy's limit | decided by Sam, 2026-11-12: kkt-config-file takes the folder, not Env; other placements accepted by Sam, 2026-11-12 | yes: the arrow is gone (10.4) |
 | `kkt_service::Manager::for_this_os` takes the optional home and config-home paths, not `Env`; kkt-service no longer depends on kkt-machine. kkt-setup, kkt-client-config and kkt-container keep the environment record | 3.4 follow-up (audit msg 2788) | The service chooses one path per supported target; each of the other three reads several facts. The caller passes `env.home` and `env.config_home()`; platform choices, missing-home and unsupported-target behaviour stay the same | decided by Sam, 2026-11-12 | yes |
 | `serve_bind` stays in the program; the service's bind check is kkt-service's `check_bind`, supplied with kkt-service-os's `try_bind` by the program; kkt-keymode keeps four key-refusal messages of its own beside kkt-admission's `key_refusal` | 3.5b (#449) | `serve_bind` gathers the settings from the machine, which kkt-hosts cannot; `check_bind` decides and words the refusal, and trying the address is an effect of service-os (7.3a); kkt-keymode's messages differ from kkt's, and its output stays the same | to re-show Sam after 9.3 | yes |
 | kkt-settings has no `SettingsSource`: kkt and kkt-keymode turn kkt-config-file's `Config` and the flags each into kkt-settings' `ServeOptions`, which kkt-settings combines; `Sources`, `Loaded` and `read_config` stay in the program | 3.3 (#445), 3.5c (#450) | `ServeOptions` already is a plain record of one source's optional settings; a trait over it would add a method and two adapters with no new behaviour | to re-show Sam after 9.3 | yes |
@@ -288,7 +307,7 @@ the last column says so.
 | Terminal supplies flush_output, message and output_is_terminal beside output and errors | 7.1a | Preserves prompt flushing, each watch message's locked write and flush, and the browser's separate stdout-terminal check | accepted by Sam, 2026-11-12 | yes |
 | Terminal::interactive checks stdin, while output_is_terminal checks stdout separately | 7.1b | Preserves setup asking when stdin is a terminal even if stdout is redirected; browser opening still requires both | accepted by Sam, 2026-11-12 | yes |
 | Key-file helpers take a caller-supplied key factory; make_default_key reports its created path, write_admin_name takes bound text, and KeyFiles adds read, read_optional and create_dir_all with ReadError retaining its path and I/O cause | 7.2 | Keeps admission-os dependent only on admission; the program preserves its info-event target and admin-name wording, and the two KeyTexts adapters translate native read errors into each program's existing refusal messages | accepted by Sam, 2026-11-12 | yes |
-| kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's, not kkt-db's `MemoryPlace` | 5.3b; undone in 11.2 | Speed: the 200 tests took under 5 seconds on SQLite in memory and over 10 minutes on kkt-db's `MemoryPlace`, which copies the whole database on every change. Since 11.2 they run on kkt-db's `FastPlace` (11.1) in about 6 seconds, and kkt-rules no longer depends on kkt-db-sqlite at all | not accepted by Sam, 2026-11-12: a fast stand-in instead (msg 2815) | the break is gone: chart the arrow's removal |
+| kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's, not kkt-db's `MemoryPlace` | 5.3b; undone in 11.2 | Speed: the 200 tests took under 5 seconds on SQLite in memory and over 10 minutes on kkt-db's `MemoryPlace`, which copies the whole database on every change. Since 11.2 they run on kkt-db's `FastPlace` (11.1) in about 6 seconds, and kkt-rules no longer depends on kkt-db-sqlite at all | not accepted by Sam, 2026-11-12: a fast stand-in instead (msg 2815) | yes: the arrow is gone, and kkt-db's `testing::FastPlace` is charted (10.4) |
 | Two combined traits: kkt-api-operator's `OperatorApi` (`Api` + `Views` + `Changes` + `Lanes` + `Server`, with `in_swarm_operator`) and kkt-api-admin's `AdminApi` (`OperatorApi` + `Admin`, with `in_swarm_admin`); kkt-api-admin depends on kkt-api-operator | 5.4b | An endpoint that moves into the caller's swarm needs every operation it uses in that swarm, which `Api::in_swarm` alone cannot give; `Rules` implements both, so no adapter (msg 2562) | accepted by Sam, 2026-11-12 | yes |
 | kkt-mcp-formatter no longer depends on kkt-rules (only its tests do, for kkt-rules' default settings) | 5.5 | The proposal kept the arrow from the old map; with the wording in kkt-rules and the records in the kkt-api crates, the formatter's library uses nothing of kkt-rules (msg 2580) | accepted by Sam, 2026-11-12 | yes |
 | kkt-web's `Sessions<T>` is generic over what a session holds (bound by its `Held`), `Gate::SignedIn` (kkt-server's `Principal`, the preview's `()`); `Gate::admits` takes kkt-web's `Session<T>` (absent, ended or live) and `Gate::sign_in` returns `SignIn<T>` (admitted, or refused with a reason) in place of a session ID; `Sessions::new` takes an `Access` (open or sign-in), from which the page knows whether sign-in is required; the lifetime is `session_lifetime` in kkt-web's `Settings`, so kkt-server's `AppConfig` loses `sessions` and the program's `session_settings` goes (its `web_settings` fills the lifetime); kkt-web's `testing::Door` holds a gate and its sessions for the page scenarios | 6.1 | The page keeps the sessions, so the gate is asked about what a session holds, not its ID; form tokens need to know whether sign-in is required, so the sessions know it from construction and `Gate` drops `sign_in_required`; one settings value per crate | accepted by Sam, 2026-11-12 | yes |
@@ -299,7 +318,7 @@ the last column says so.
 | The preview keeps its simulated world in records of its own (kkt-api-sim's private `records`, the old contract's records) and translates them to the kkt-api crates' records in its `api` module; it refuses every operation the page never asks; it makes a world for each swarm asked for, the first time | 6.2, kept in 6.3 | Changes the preview's internals as little as possible; a world per swarm lets kkt-web's own test see that each request reads its viewer's swarm | accepted by Sam, 2026-11-12 | yes |
 | kkt-web's `testing` scenarios take an `App` (an `OperatorApi` and the operator the scenario checks as) in place of a `Source` | 6.2 | The scenarios read the application to check what the page did, and every operator operation takes the operator | accepted by Sam, 2026-11-12 | yes |
 | kkt-rules' `start` takes `NewServerRun` and a `Startup` (the rules' `Deps` without the run, which `start` fills in) and returns the `Rules`; `Rules::run_id` gives the run's ID, for the program's log line; kkt-server's `new_server_run` turns kkt-provenance's `ServerRun` into a `NewServerRun`; kkt-server's `Parts` holds the `Rules`, the clock and entropy the page's sessions use, `identify`, `log` and the formatter, and `Parts::new` takes those, in place of the database, wording, events settings and run ID; `AppConfig` loses `rules` (the settings go into `Startup`); the program makes the events bus and stops it with the server's stop; kkt-server's `Deps` wiring leaves assembly.json, and each program's wiring goes to `Startup` and `Parts::new (rules)` | 5.6a | The proposal names `start` and `NewServerRun` but not how `start` gets the rest of `Deps`; one `Startup` struct keeps `Deps` as it is for tests that build `Rules` directly; kkt-rules may not know kkt-provenance, and kkt-server already does, so it maps the run; the program now builds the rules, so it owns the bus the rules hear on, and kkt-server depends on kkt-events only in its tests; kkt-keymode depends on kkt-api-agent for the swarm it names in `Startup` (`SwarmId::main`) | to re-show Sam after 9.2 | yes |
-| kkt-server's `Parts` holds the concrete `Rules`, so kkt-server does not name kkt-api-admin's traits; the proposal's arrow kkt-server → kkt-api-admin is missing | 5.6a (#476) | `Parts` passes the one `Rules` to each surface, which takes it as its own contract (`Api`, `OperatorApi`, `AdminApi`); naming the traits in `Parts` would add a type parameter or a boxed value without changing what any surface can reach | decided by Sam, 2026-11-12: `Parts` takes the contract, an `Arc<dyn AdminApi>` (9.2) | not charted: the proposal keeps the arrow kkt-server → kkt-api-admin, which 9.2 makes |
+| kkt-server's `Parts` holds the concrete `Rules`, so kkt-server does not name kkt-api-admin's traits; the proposal's arrow kkt-server → kkt-api-admin is missing | 5.6a (#476) | `Parts` passes the one `Rules` to each surface, which takes it as its own contract (`Api`, `OperatorApi`, `AdminApi`); naming the traits in `Parts` would add a type parameter or a boxed value without changing what any surface can reach | decided by Sam, 2026-11-12: `Parts` takes the contract, an `Arc<dyn AdminApi>` (9.2) | yes: 9.2 made the arrow kkt-server → kkt-api-admin (10.4) |
 | The store goes private except through kkt-rules' `testing`: the program's tests that pin what a 0.10.0 database answers (`tests/migrations/v0_10_0.rs`, every `Reader` question) and that write rows into a database file (`tests/database_files.rs`) reach `Reader`, `Writer`, the records and filters they take, and `testing::read` and `testing::write`; `testing::database` gives a `Db` for a program's own `start` (the fake product's tests) and the operator's `CommandLine`; `testing::memory` takes a `testing::Memory` (`Startup` without the database, with defaults from `Memory::new`); `Reader::recent_messages`, which no rule asks any more, is behind `testing` | 5.6b (#477); narrowed in 11.4 | The 0.10.0 fixture must answer every pinned read (CLAUDE.md), and those reads are the store's questions, which the kkt-api operations do not ask one by one; the file tests write rows to check how a file is kept, not what a rule does. Behind `testing`, a released build reaches none of it | decided by Sam, 2026-11-12: narrowed to purpose-named functions (11.4): `every_store_read` with `Probes`, `rules_on`, `swarms_stay_apart_in`, `memory`, `database`, `fail_next_write` | yes |
 | Credential readers take a CredentialCheck over named CredentialFileFacts and a warning callback; CredentialFile takes a cleanup-warning callback; PrivateMode and CredentialFileFix carry the checked mode, advice and warning, and FileLock exposes LockRefused | 7.4 | Keeps agent-client independent of setup and terminal effects; setup owns the rule over caller-quoted paths, both owner checks and warning-before-read ordering stay intact, and cleanup warnings keep their original log target | accepted by Sam, 2026-11-12 | yes |
 | kkt-web-preview is a program only, a binary with no library (kind composition, not logic): its arrows are [dependencies] of the binary, not dev arrows of an example, and its `SettingError` is the binary's own, not a public item; the preview's tests (the page scenarios over `Preview`, and tests of its world, feed and gate) are kkt-api-sim's unit tests, beside the stand-in they test; the program's own tests are of its flags | 6.3 | Decision 39 leaves kkt-web-preview only the program (A7: it counts as a program), and check-crates.sh lets a dev-only program, not an example, turn on `testing`; tests of a stand-in sit beside it | accepted by Sam, 2026-11-12, with its reliance on rule 3's dev-only `testing` exception | yes |
@@ -982,8 +1001,8 @@ for the shared constructors: one at a time.
   kkt-build-c's change to kkt-config-file (msg 2779), which touches the
   same file. After 9.2. kkt-build-b, after its 11.1; 11.x does not run
   beside it.
-- **9.4 Chart what differs.** Folded into 10.4, which charts phases 9 and
-  10 together.
+- **9.4 Chart what differs.** Folded into 10.4, which charted phases 9 to
+  11 together.
 
 ### Phase 10: the program's tools become assemblies (Sam, 2026-11-12)
 
@@ -1222,10 +1241,10 @@ crate's paperwork (workspace members, CLAUDE.md's row, `concerns.json`,
 | 9.1 | Each owner checks and words its own settings | S | (done: #484, #485) | kkt-build-b, kkt-build-c |
 | 9.2 | kkt-server's `ServerSettings`; `Parts` takes `Arc<dyn AdminApi>` | M | (done: #494) | kkt-build-c |
 | 9.3 | The programs keep the serve surface (kkt, and kkt-keymode's own smaller one); kkt-settings goes | M | (done: #495) | kkt-build-b |
-| 10.2a | kkt-operate, with `OperateParts`: the record, the operator's key finders, doctor, lanes, `kkt key` and `kkt agent` | L in lines, M in substance | 9.3 | kkt-build-c (msg 2896: swapped from kkt-build-b, who took 9.3 and then 11.3) |
-| 10.2b | setup, service and lifecycle move into kkt-operate | M | 10.2a | kkt-build-c, with kkt-build-b taking one of its moves on a branch stacked on it |
-| 10.3 | kkt-agent-commands, with `AgentParts`: register, reclaim, watch, connect | M | 9.3; beside 10.2a and 10.2b | kkt-mt-step1 |
-| 10.4 | `main.rs` builds the two `Parts` in one place; CLAUDE.md's tables; chart what differs (9.4 folds in here) and the scorecard | S | 10.2b, 10.3 | kkt-mt-step1 |
+| 10.2a | kkt-operate, with `OperateParts`: the record, the operator's key finders, doctor, lanes, `kkt key` and `kkt agent` | L in lines, M in substance | (done: #496) | kkt-build-c (msg 2896: swapped from kkt-build-b, who took 9.3 and then 11.3) |
+| 10.2b | setup, service and lifecycle move into kkt-operate | M | (done: #498, #499, #500) | kkt-build-c, with kkt-build-b taking one of its moves on a branch stacked on it |
+| 10.3 | kkt-agent-commands, with `AgentParts`: register, reclaim, watch, connect | M | (done: #497) | kkt-mt-step1 |
+| 10.4 | `main.rs` builds the two `Parts` in one place; CLAUDE.md's tables; chart what differs (9.4 folds in here) and the scorecard | S | (done: #502, and this plan's closing pull request) | kkt-mt-step1 |
 
 10.2a comes before 10.2b, not beside it: setup calls lanes' checks and
 import and doctor's server fix, lifecycle calls lanes' `existing_db` and
@@ -1238,6 +1257,22 @@ lines each: rebase, not conflict.
 
 10.1 was dropped (msg 2876): it was kkt-serve, and the serving code now
 stays in kashkeshet. The other steps keep their numbers.
+
+### Phase 11: kkt-db's test stand-in (Sam, 2026-11-12)
+
+**Why.** kkt-rules' tests ran on kkt-db-sqlite's in-memory database, an
+effect crate's, for speed (5.3b's row). Sam did not accept the exception
+(msg 2805): a fast stand-in in kkt-db's `testing` replaces it, and the
+program's tests run what matters on the real backend.
+
+| Step | What | Pull request | Who |
+|---|---|---|---|
+| 11.1 | kkt-db's `testing::FastPlace`: a stand-in on SQLite in memory with its own translation, checked against `MemoryPlace` by a differential test | #487 | kkt-build-b |
+| 11.2 | kkt-rules' tests run on `FastPlace`; kkt-rules no longer depends on kkt-db-sqlite; the program's `tests/store_on_sqlite.rs` runs the store's whole surface, in two swarms, on kkt-db-sqlite (`testing::swarms_stay_apart_in`) | #490 | kkt-build-b |
+| 11.4 | `kkt_rules::testing` names no store type: the program's tests use `every_store_read`, `rules_on` and `database` | #492 | kkt-build-b |
+| 11.3 | A chosen 50 of the rules' scenarios (`testing::scenarios::run_all`) run on kkt-db-sqlite from the program's `tests/rules_on_sqlite.rs`, with 3 dropped where a real-backend test already covers them | #493 | kkt-build-b |
+
+11.4 merged before 11.3, which needed its narrower `testing`.
 
 ## Order at a glance
 
@@ -1321,7 +1356,21 @@ Each has the default we proceed on, so nothing waits.
 
 ## Final scorecard
 
-On the code at the end of the refactor (`progress.py`, step 8.1):
+On the code at the end of phases 9 to 11, at 1be030c (#502 merged), against
+the proposal with phases 9 to 11 charted (`progress.py`, step 10.4):
+
+- crates: 61 of 61 proposed crates exist; none missing; none to remove;
+- items: 813 of 813 proposed items are in their proposed crate;
+- arrows: 238 of 238 proposed arrows exist; none missing; none extra;
+- rules: no kind check fails; no break of the proposal's rules.
+
+The one temporary break left is CI's, not the code's: macOS is out of CI
+again (#501) for want of GitHub runners, until it comes back or a
+self-hosted runner takes it.
+
+### At the end of phase 8
+
+On the code at step 8.1:
 
 - crates: 60 of 60 proposed crates exist; none missing; none to remove;
 - items: 797 of 797 proposed items are in their proposed crate;
