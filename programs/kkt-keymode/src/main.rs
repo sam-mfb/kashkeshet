@@ -16,11 +16,12 @@
 use kkt_admission::AccessKey;
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
-use kkt_clock::Clock;
+use kkt_api_agent::SwarmId;
 use kkt_clock_system::SystemClock;
 use kkt_config_file_os as config_file_os;
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
+use kkt_events::Events;
 use kkt_hosts::AllowedHosts;
 use kkt_identity_keymode::KeyMode;
 use kkt_logs::{LogLevel, LogPolicy};
@@ -113,7 +114,6 @@ async fn run(args: &[String]) -> Result<(), String> {
         admission,
         web_admission,
         admin_admission: admin_key.map(AdminAdmission::SharedKey),
-        rules: rules_settings(&limits),
         web: web_settings(&limits),
         mcp: kkt_mcp::Settings::DEFAULT,
         allowed_origins: allow_origins,
@@ -149,26 +149,37 @@ async fn run(args: &[String]) -> Result<(), String> {
     );
     let clock = Arc::new(SystemClock);
     let db = open(&db)?;
-    let run_id = app::record_run(&db, &run, clock.now())
-        .await
-        .map_err(|e| format!("could not record this server run: {e}"))?;
     let shutdown = Shutdown::new();
+    let entropy = Arc::new(OsEntropy);
+    let rules = kkt_rules::start(
+        app::new_server_run(&run),
+        kkt_rules::Startup {
+            db,
+            // Each call acts in the swarm its caller is in; key mode has one.
+            swarm: SwarmId::main(),
+            events: Events::new(kkt_events::Settings::DEFAULT).until_stopped(shutdown.clone()),
+            clock: clock.clone(),
+            entropy: entropy.clone(),
+            settings: rules_settings(&limits),
+            wording: Arc::new(kkt_rules::DefaultWording),
+        },
+    )
+    .await
+    .map_err(|e| format!("could not record this server run: {e}"))?;
+    let run_id = rules.run_id();
     let signals =
         StopSignals::listen().map_err(|e| format!("could not listen for stop signals: {e}"))?;
     // Key mode: each call is the avatar its token names, or the operator
     // the admin key makes, in the one swarm.
     let parts = Parts::new(
-        db,
+        rules,
         clock,
-        Arc::new(OsEntropy),
+        entropy,
         Arc::new(KeyMode::new(admin_name)),
         Arc::new(kkt_logs_os::TracingLog),
-        Arc::new(kkt_rules::DefaultWording),
         &kkt_mcp_formatter::Settings {
             max_response_bytes: limits.max_response_bytes,
         },
-        &kkt_events::Settings::DEFAULT,
-        run_id,
     );
     let server = app::build(parts, config, shutdown.clone());
     let listening = kkt_server_listen::listen(server, bind)

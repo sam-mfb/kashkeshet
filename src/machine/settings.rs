@@ -415,7 +415,6 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         web_admission,
         // kkt's admin endpoint takes its admin key, as before.
         admin_admission: admin_key.map(AdminAdmission::SharedKey),
-        rules: rules_settings(&limits),
         web: web_settings(&limits),
         mcp: kkt_mcp::Settings::DEFAULT,
         allowed_origins: allow_origins,

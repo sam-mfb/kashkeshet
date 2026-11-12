@@ -122,7 +122,6 @@ impl TestConfig {
                     SharedKey::new(ServerKey::Admin, text, KEY_SOURCE).expect("key"),
                 )
             }),
-            rules: rules_settings(&self.limits),
             web: web_settings(&self.limits),
             mcp: kkt_mcp::Settings::DEFAULT,
             allowed_origins: self.allowed_origins.clone(),
@@ -216,19 +215,29 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
         Build::CURRENT,
         &run_settings(&limits, &config, admin_name.as_ref()),
     );
-    let run_id = app::record_run(&db, &run, clock.now())
-        .await
-        .expect("record run");
+    let entropy = Arc::new(OsEntropy);
+    let rules = kkt_rules::start(
+        app::new_server_run(&run),
+        kkt_rules::Startup {
+            db,
+            swarm: kkt_api_agent::SwarmId::main(),
+            events: kkt_events::Events::new(kkt_events::Settings::DEFAULT)
+                .until_stopped(shutdown.clone()),
+            clock: clock.clone(),
+            entropy: entropy.clone(),
+            settings: rules_settings(&limits),
+            wording: Arc::new(kkt_rules::DefaultWording),
+        },
+    )
+    .await
+    .expect("record run");
     let parts = Parts::new(
-        db,
+        rules,
         clock,
-        Arc::new(OsEntropy),
+        entropy,
         Arc::new(KeyMode::new(admin_name)),
         Arc::new(kkt_logs_os::TracingLog),
-        Arc::new(kkt_rules::DefaultWording),
         &format_settings(&limits),
-        &kkt_events::Settings::DEFAULT,
-        run_id,
     );
     let server = app::build(parts, config, shutdown.child());
     let listening = kkt_server_listen::listen(server, "127.0.0.1:0".parse().expect("address"))

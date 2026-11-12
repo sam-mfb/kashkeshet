@@ -13,15 +13,17 @@
 //! of a release; see `[package.metadata.kkt]` in Cargo.toml.
 
 use kkt_admission::{AdminAdmission, Admission, Principal};
+use kkt_api_admin::Swarms;
 use kkt_api_agent::Api;
 use kkt_api_agent::{Agent, Audit, Code, Operator, Permission, Permissions, RuleError, SwarmId};
 use kkt_clock::Clock;
 use kkt_entropy::Entropy;
+use kkt_events::Events;
 use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_names::AdminName;
-use kkt_rules::{Db, NewServerRunRecord};
+use kkt_rules::{Db, NewServerRun, Startup};
 use kkt_server::{AppConfig, Parts};
 use kkt_shutdown::Shutdown;
 use kkt_terminal_os::Terminal;
@@ -202,7 +204,8 @@ pub struct Product {
 
 impl Product {
     /// Starts the product with `settings`, over `db`, a new database with
-    /// the core's tables, in which it makes the second swarm. Its time comes
+    /// the core's tables: it records its run and makes the second swarm
+    /// through the rules (`Swarms::create_swarm`). Its time comes
     /// from `clock` and its randomness from `entropy`: the system's, or a
     /// test's fixed clock and seeded entropy, so two runs can be compared.
     pub async fn start(
@@ -211,44 +214,48 @@ impl Product {
         entropy: Arc<dyn Entropy>,
         settings: Settings,
     ) -> Product {
-        let now = kkt_clock::to_text(clock.now());
-        let run_id = db
-            .write(move |w| {
-                let run_id = w.insert_server_run(&NewServerRunRecord {
-                    started_at: now.clone(),
-                    version: "fake".into(),
-                    git_commit: "fake".into(),
-                    settings: "fake".into(),
-                    instructions_sha256: "fake".into(),
-                })?;
-                w.insert_swarm(&other(), &now, run_id)?;
-                Ok::<_, kkt_rules::StoreError>(run_id)
-            })
+        let shutdown = Shutdown::new();
+        let rules = kkt_rules::start(
+            NewServerRun {
+                version: "fake".into(),
+                git_commit: "fake".into(),
+                settings: "fake".into(),
+                instructions_sha256: "fake".into(),
+            },
+            Startup {
+                db,
+                swarm: SwarmId::main(),
+                events: Events::new(settings.events).until_stopped(shutdown.clone()),
+                clock: clock.clone(),
+                entropy: entropy.clone(),
+                settings: settings.rules,
+                wording: Arc::new(kkt_rules::DefaultWording),
+            },
+        )
+        .await
+        .expect("a server run");
+        Swarms::create_swarm(&rules, other())
             .await
-            .expect("a server run and the second swarm");
+            .expect("the second swarm");
         let parts = Parts::new(
-            db,
+            rules,
             clock,
             entropy,
             Arc::new(FakeIdentify),
             Arc::new(kkt_logs_os::TracingLog),
-            Arc::new(kkt_rules::DefaultWording),
             &settings.fmt,
-            &settings.events,
-            run_id,
         );
         let config = AppConfig {
             admission: Admission::Bearer,
             web_admission: Admission::Bearer,
             admin_admission: Some(AdminAdmission::Bearer),
-            rules: settings.rules,
             web: settings.web,
             mcp: settings.mcp,
             allowed_origins: Vec::new(),
             allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
             instructions: None,
         };
-        Product::serve(parts, config, Shutdown::new()).await
+        Product::serve(parts, config, shutdown).await
     }
 
     /// Serves the product assembled from `parts` and `config` on a loopback
