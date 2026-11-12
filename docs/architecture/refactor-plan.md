@@ -96,7 +96,7 @@ left unnamed.
 | kkt-server's and kkt-web's tests use kkt-api-sim and kkt-shutdown | 6.3 | Accept: test arrows to stand-ins |
 | `Http` returns an opaque `HttpReply`; `SqlitePlace::create` reports `CreateError` | 7.5 | Accept: no library type leaves its crate |
 | Setup's connection records, path callback and lazy readers | 7.3a | Accept: keeps the first read and its error |
-| kkt-setup-os' path and note functions; `is_file` on two contracts | 7.3a | Accept: path work stays in effect crates |
+| kkt-setup-os' path and note functions; kkt-container's `Host` (a trait) and kkt-admission-os' `KeyFiles` (a native provider) expose `is_file` | 7.3a | Accept: path work stays in effect crates |
 | `docker_env` returns the read refusal, not an absent value | 7.3a | Accept: upgrade refuses a missing `.env` as before |
 | Setup returns plain doctor and lane-import values | 7.3b | Accept: setup depends on no implementation crate |
 | Setup's status, backup, uninstall, key-naming and lane-limit functions | 7.3b | Accept: decisions move to their owner, messages unchanged |
