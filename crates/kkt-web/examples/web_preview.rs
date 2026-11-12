@@ -17,7 +17,7 @@ use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use kkt_web::{
     self as web, PREVIEW_BIND, PREVIEW_SEED, PREVIEW_SESSION_LIFETIME, Preview, PreviewGate,
-    PreviewSettings, SameSource,
+    PreviewSettings,
 };
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -125,14 +125,16 @@ async fn run(args: Args) -> Result<(), String> {
         tokio::spawn(async move { preview.run(shutdown).await })
     };
     let router = web::router(
-        Arc::new(SameSource::<()>::new(preview)),
+        preview,
         hosts,
         Arc::new(gate),
         Arc::new(sessions),
         Arc::new(kkt_logs_os::TracingLog),
         web::Settings {
-            page_messages: settings.page_messages,
-            member_excerpt_chars: web::Settings::DEFAULT.member_excerpt_chars,
+            page: web::PageLimits {
+                page_messages: settings.page_messages,
+                ..web::PageLimits::DEFAULT
+            },
             keep_alive: web::Settings::DEFAULT.keep_alive,
             session_lifetime: PREVIEW_SESSION_LIFETIME,
         },

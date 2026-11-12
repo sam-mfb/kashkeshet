@@ -1,14 +1,13 @@
 //! Two swarms on one web page. A viewer that `Identify` puts in another
-//! swarm reads the server through the same `RulesSources` as key mode's
-//! viewer: it must see nothing of `sw_main` on any page or in the live
+//! swarm reads the same rules as key mode's viewer, in its own swarm: it must see nothing of `sw_main` on any page or in the live
 //! feed, and its forms must change nothing there. Lanes, the server
 //! announcement and server runs belong to the server, not a swarm, and are
 //! the same for both until orgs arrive (phase 2).
 
-use super::{AdmissionGate, RulesSources, WebViewer};
+use super::AdmissionGate;
 use kkt_admission::{Admission, Principal, WebAdmission};
 use kkt_api_agent::{Actor, Agent, NewChannel, Operator, SwarmId};
-use kkt_api_operator::LaneSave;
+use kkt_api_operator::{LaneSave, OperatorApi};
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::SeqEntropy;
@@ -18,9 +17,9 @@ use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_rules::NewServerRunRecord;
 use kkt_rules::{Deps, Rules};
-use kkt_web::Sources;
+use kkt_web::Viewer;
 use kkt_web::testing::{
-    ACTIVITY_BUCKET, ACTIVITY_WINDOW, form_token_in, get, post, post_for_page, start_time,
+    ACTIVITY_BUCKET, ACTIVITY_WINDOW, App, form_token_in, get, post, post_for_page, start_time,
 };
 use std::sync::Arc;
 
@@ -116,13 +115,14 @@ struct OtherSwarm {
 struct World {
     rules: Rules,
     clock: Arc<FixedClock>,
-    sources: Arc<RulesSources>,
+    /// The rules, as the page reads them.
+    api: Arc<dyn OperatorApi>,
     main: Main,
     other: OtherSwarm,
     /// Key mode's viewer, in `sw_main`.
-    main_viewer: WebViewer,
+    main_viewer: Viewer,
     /// The viewer `InOther` makes, in `sw_other`.
-    other_viewer: WebViewer,
+    other_viewer: Viewer,
 }
 
 /// A database with two swarms. `sw_main` has two agents, an open, a closed
@@ -250,7 +250,7 @@ async fn world() -> World {
         .expect("announcement");
 
     World {
-        sources: Arc::new(RulesSources::new(rules.clone())),
+        api: Arc::new(rules.clone()),
         rules,
         clock,
         main: Main {
@@ -268,11 +268,22 @@ async fn world() -> World {
 }
 
 /// The viewer the server's gate makes of `principal` through `identify`.
-async fn viewer(principal: Principal, identify: &dyn Identify) -> WebViewer {
+async fn viewer(principal: Principal, identify: &dyn Identify) -> Viewer {
     let who = identify.operator(&principal).await.expect("an operator");
-    WebViewer {
+    Viewer {
         swarm: who.swarm,
         operator: who.actor,
+    }
+}
+
+impl World {
+    /// The rules as `viewer` reads them through the page: in the viewer's
+    /// swarm, as the viewer's operator.
+    fn app(&self, viewer: &Viewer) -> App {
+        App::new(
+            self.api.in_swarm_operator(viewer.swarm.clone()),
+            viewer.operator.clone(),
+        )
     }
 }
 
@@ -289,7 +300,7 @@ fn other_site(world: &World) -> axum::Router {
         Arc::new(InOther),
     );
     kkt_web::router(
-        world.sources.clone(),
+        world.api.clone(),
         AllowedHosts::new(&[]).expect("loopback hosts"),
         Arc::new(gate),
         Arc::new(sessions),
@@ -301,7 +312,7 @@ fn other_site(world: &World) -> axum::Router {
 /// Everything key mode's viewer can read of `sw_main`, to compare before
 /// and after the other swarm's forms.
 async fn main_state(world: &World) -> String {
-    let source = world.sources.source(&world.main_viewer);
+    let source = world.app(&world.main_viewer);
     let mut state = format!(
         "{:?}\n{:?}\n",
         source
@@ -317,7 +328,7 @@ async fn main_state(world: &World) -> String {
         state += &format!(
             "{:?}\n",
             source
-                .channel(id.clone(), None, kkt_web::Settings::DEFAULT.page_messages)
+                .channel(id.clone(), None, kkt_web::PageLimits::DEFAULT.page_messages)
                 .await
         );
     }
@@ -385,8 +396,8 @@ async fn no_page_shows_another_swarm() {
 #[tokio::test]
 async fn the_live_feed_carries_only_the_viewers_swarm() {
     let world = world().await;
-    let mut theirs = world.sources.source(&world.other_viewer).live();
-    let mut ours = world.sources.source(&world.main_viewer).live();
+    let mut theirs = world.app(&world.other_viewer).live().await;
+    let mut ours = world.app(&world.main_viewer).live().await;
 
     // Everything that happens in `sw_main` that the page shows live.
     let reg = world.rules.register().await.expect("register");
@@ -559,12 +570,12 @@ async fn no_form_changes_another_swarm() {
     assert_eq!(main_state(&world).await, before, "sw_main changed");
     let (_, front) = get(&site, "/").await;
     assert!(front.contains("made-elsewhere"));
-    let other_member = world.sources.source(&world.other_viewer);
+    let other_member = world.app(&world.other_viewer);
     let channel = other_member
         .channel(
             world.other.channel.clone(),
             None,
-            kkt_web::Settings::DEFAULT.page_messages,
+            kkt_web::PageLimits::DEFAULT.page_messages,
         )
         .await
         .expect("the other swarm's channel");

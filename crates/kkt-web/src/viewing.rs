@@ -1,47 +1,53 @@
 //! Who is viewing each request. [`admit`] asks the [`Gate`] about every
-//! request to a page or the live feed and puts the [`Source`] that
-//! [`Sources`] gives the admitted viewer on the request, where [`Pages`]
-//! finds it. A viewer who has not signed in goes to the login form, or gets
+//! request to a page or the live feed and puts the application's
+//! operations in the admitted viewer's swarm, with the viewer's operator,
+//! on the request ([`ViewerApi`]), where [`Pages`] finds them. A viewer who has not signed in goes to the login form, or gets
 //! `401` on the live feed; any other refusal gets `403` with the gate's
-//! reason, since there is nothing to sign in to. The viewer's type is the gate's own: only this
-//! file sees it, so the pages and forms are written once for any gate.
+//! reason, since there is nothing to sign in to. What a session holds is
+//! the gate's own type: only this file sees it, so the pages and forms are
+//! written once for any gate.
 //!
 //! [`Forms`] is the rest, which needs no viewer: sign-in, sign-out and form
 //! tokens, over the page's own [`Sessions`] and the gate's sign-in check.
 //!
 //! [`Pages`]: super::Pages
 
+use super::gate::{Admit, Gate, SignIn};
 use super::sessions::{Held, Sessions};
 use super::sign_in::{EVENTS_PATH, LOGIN_PATH, session_cookie};
-use super::source::{Admit, Gate, SignIn, Source, Sources, Viewer};
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Redirect, Response};
 use futures::future::BoxFuture;
+use kkt_api_agent::Operator;
+use kkt_api_operator::OperatorApi;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// The gate, the sessions and the sources for viewers of type `V`, whose
-/// sessions hold `S`.
-pub(crate) struct Viewing<V, S> {
-    pub gate: Arc<dyn Gate<Viewer = V, SignedIn = S>>,
+/// The gate, the sessions (which hold `S`) and the application, in any
+/// swarm.
+pub(crate) struct Viewing<S> {
+    pub gate: Arc<dyn Gate<SignedIn = S>>,
     pub sessions: Arc<Sessions<S>>,
-    pub sources: Arc<dyn Sources<Viewer = V>>,
+    pub api: Arc<dyn OperatorApi>,
 }
 
-/// The source the admitted viewer of this request reads, put on the
-/// request by [`admit`].
+/// The application in the swarm of this request's admitted viewer, and
+/// the operator the viewer acts as, put on the request by [`admit`].
 #[derive(Clone)]
-pub(crate) struct ViewerSource(pub Arc<dyn Source>);
+pub(crate) struct ViewerApi {
+    pub api: Arc<dyn OperatorApi>,
+    pub operator: Operator,
+}
 
-/// Lets a request through only once the gate admits its viewer, with that
-/// viewer's source on the request. A viewer who must sign in is sent to the
+/// Lets a request through only once the gate admits its viewer, with the
+/// application in that viewer's swarm on the request. A viewer who must sign in is sent to the
 /// login form, or gets `401` on the live feed. A viewer refused otherwise
 /// gets `403` and the reason: one the gate refused though they were let
 /// in, or any refusal where there is no sign-in.
-pub(crate) async fn admit<V: Viewer, S: Held>(
-    State(viewing): State<Arc<Viewing<V, S>>>,
+pub(crate) async fn admit<S: Held>(
+    State(viewing): State<Arc<Viewing<S>>>,
     mut request: Request,
     next: Next,
 ) -> Response {
@@ -49,8 +55,11 @@ pub(crate) async fn admit<V: Viewer, S: Held>(
     let session = viewing.sessions.session(session_id.as_deref());
     match viewing.gate.admits(session).await {
         Admit::Yes(viewer) => {
-            let source = viewing.sources.source(&viewer);
-            request.extensions_mut().insert(ViewerSource(source));
+            let api = viewing.api.in_swarm_operator(viewer.swarm);
+            request.extensions_mut().insert(ViewerApi {
+                api,
+                operator: viewer.operator,
+            });
             next.run(request).await
         }
         Admit::No(reason) if !viewing.sessions.sign_in_required() => {
@@ -91,12 +100,12 @@ pub(crate) trait Forms: Send + Sync {
 }
 
 /// A gate's [`Forms`], over the page's sessions.
-pub(crate) struct GateForms<V, S> {
-    pub gate: Arc<dyn Gate<Viewer = V, SignedIn = S>>,
+pub(crate) struct GateForms<S> {
+    pub gate: Arc<dyn Gate<SignedIn = S>>,
     pub sessions: Arc<Sessions<S>>,
 }
 
-impl<V: Viewer, S: Held> Forms for GateForms<V, S> {
+impl<S: Held> Forms for GateForms<S> {
     fn let_in<'a>(&'a self, session_id: Option<&'a str>) -> BoxFuture<'a, bool> {
         Box::pin(async move {
             let session = self.sessions.session(session_id);
