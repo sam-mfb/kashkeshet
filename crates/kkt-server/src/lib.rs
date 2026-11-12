@@ -16,7 +16,7 @@
 
 mod settings;
 mod web_real;
-pub use settings::{ServerSettings, SettingError};
+pub use settings::{CheckedSettings, ServerSettings, SettingError};
 
 pub use crate::web_real::AdmissionGate;
 
@@ -91,8 +91,8 @@ pub struct Parts {
 
 impl Parts {
     /// The usual parts around `rules`, `clock`, `entropy`, `identify` and
-    /// `log`, with the assembly's `settings` and the host policy returned by
-    /// `ServerSettings::check`. `clock` and `entropy` are the
+    /// `log`, with the checked snapshot returned by `ServerSettings::check`.
+    /// `clock` and `entropy` are the
     /// ones the rules were built with.
     pub fn new(
         rules: Arc<dyn AdminApi>,
@@ -100,9 +100,9 @@ impl Parts {
         entropy: Arc<dyn Entropy>,
         identify: Arc<dyn Identify>,
         log: Arc<dyn Log>,
-        settings: &ServerSettings,
-        hosts: AllowedHosts,
+        checked: CheckedSettings,
     ) -> Parts {
+        let (settings, hosts) = checked.into_parts();
         Parts {
             rules,
             identify,
@@ -114,7 +114,7 @@ impl Parts {
             ),
             clock,
             entropy,
-            settings: settings.clone(),
+            settings,
             hosts,
         }
     }

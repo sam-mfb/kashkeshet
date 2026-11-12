@@ -73,7 +73,6 @@ mod tests {
     use kkt_admission::Admission;
     use kkt_clock::testing::FixedClock;
     use kkt_entropy::testing::SeqEntropy;
-    use kkt_hosts::AllowedHosts;
     use kkt_identity_keymode::KeyMode;
     use kkt_server::{AppConfig, Parts, build};
     use kkt_shutdown::Shutdown;
@@ -98,8 +97,9 @@ mod tests {
             entropy,
             Arc::new(KeyMode::new(None)),
             Arc::new(kkt_log::testing::CapturedLog::default()),
-            &kkt_server::ServerSettings::DEFAULT,
-            AllowedHosts::new(&[]).expect("loopback hosts"),
+            kkt_server::ServerSettings::DEFAULT
+                .check([])
+                .expect("default settings"),
         );
         let config = AppConfig {
             admission: Admission::Open,

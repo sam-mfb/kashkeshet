@@ -8,11 +8,10 @@ use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
 use kkt_config_file::Config;
 use kkt_config_file_os as config_file_os;
-use kkt_hosts::AllowedHosts;
 use kkt_logs::LogLevel;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
-use kkt_server::{AppConfig, ServerSettings};
+use kkt_server::{AppConfig, CheckedSettings, ServerSettings};
 use kkt_settings::{InvalidSetting, Limits, ServeOptions, ServeSettings};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -366,8 +365,7 @@ pub struct Checked {
     pub db_path: PathBuf,
     pub bind: SocketAddr,
     pub config: AppConfig,
-    pub server_settings: ServerSettings,
-    pub allowed_hosts: AllowedHosts,
+    pub server_settings: CheckedSettings,
     /// Every limit, as gathered: for the formatter, the backups before an
     /// upgrade and the record of the server run. `config` holds the rest's
     /// share.
@@ -426,7 +424,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     if let Err(p) = kkt_logs::check_dependency_log_level(dependency_log_level) {
         problems.push((p.name, "check_dependency_log_level", p.rule));
     }
-    let allowed_hosts = server_settings
+    let server_settings = server_settings
         .check(problems)
         .map_err(|e| sources.invalid(e))?;
     // None configured: the server sends its built-in instructions.
@@ -452,7 +450,6 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         bind,
         config,
         server_settings,
-        allowed_hosts,
         limits,
         admin_name,
         allow_any_bind,

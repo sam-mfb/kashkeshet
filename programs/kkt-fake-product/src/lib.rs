@@ -19,7 +19,6 @@ use kkt_api_agent::{Agent, Audit, Code, Operator, Permission, Permissions, RuleE
 use kkt_clock::Clock;
 use kkt_entropy::Entropy;
 use kkt_events::Events;
-use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_names::AdminName;
@@ -243,15 +242,14 @@ impl Product {
             mcp: settings.mcp,
             ..kkt_server::ServerSettings::DEFAULT
         };
-        let hosts = AllowedHosts::new(&[]).expect("loopback hosts");
+        let server_settings = server_settings.check([]).expect("valid server settings");
         let parts = Parts::new(
             Arc::new(rules),
             clock,
             entropy,
             Arc::new(FakeIdentify),
             Arc::new(kkt_logs_os::TracingLog),
-            &server_settings,
-            hosts,
+            server_settings,
         );
         let config = AppConfig {
             admission: Admission::Bearer,

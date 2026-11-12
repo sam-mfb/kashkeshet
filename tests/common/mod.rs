@@ -13,9 +13,8 @@
 // Each test file builds this module on its own, and none uses every helper.
 #![allow(dead_code)]
 
-mod record;
 pub mod serving;
-use record::{RecordedSettings, new_server_run};
+use kashkeshet::machine::server_run::{RecordedSettings, new_server_run};
 
 use kashkeshet::machine::settings::{
     backup_settings, format_settings, rules_settings, web_settings,
@@ -24,7 +23,6 @@ use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
 use kkt_entropy_os::OsEntropy;
-use kkt_hosts::AllowedHosts;
 use kkt_identity_keymode::KeyMode;
 use kkt_logs::{LogLevel, LogPolicy};
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
@@ -218,11 +216,16 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
         allowed_origins: config.allowed_origins.clone(),
         allowed_hosts: config.allowed_hosts.clone(),
     };
-    let hosts = AllowedHosts::new(&config.allowed_hosts).expect("allowed hosts");
+    let server_settings = server_settings.check([]).expect("valid server settings");
     let config = config.app_config();
     let run = ServerRun::new(
         Build::CURRENT,
-        &run_settings(&limits, &config, admin_name.as_ref(), &server_settings),
+        &run_settings(
+            &limits,
+            &config,
+            admin_name.as_ref(),
+            server_settings.settings(),
+        ),
     );
     let entropy = Arc::new(OsEntropy);
     let rules = kkt_rules::start(
@@ -246,8 +249,7 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
         entropy,
         Arc::new(KeyMode::new(admin_name)),
         Arc::new(kkt_logs_os::TracingLog),
-        &server_settings,
-        hosts,
+        server_settings,
     );
     let server = app::build(parts, config, shutdown.child());
     let listening = kkt_server_listen::listen(server, "127.0.0.1:0".parse().expect("address"))
