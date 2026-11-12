@@ -789,4 +789,186 @@ mod tests {
         let err = serve_settings(&env, TEST_PLATFORM, None, flags).expect_err("bad pack");
         assert!(!err.contains("(set in"), "{err}");
     }
+
+    /// Of several bad settings, the check names one, always the same, in an
+    /// order nothing else pins: kkt-settings' removal (phase 9) must keep
+    /// it. Every setting starts bad; each run names the next, which is then
+    /// fixed. `max_memory_chars` and `web_page_messages` are named twice:
+    /// first for their floor, then for their bound against another setting.
+    #[test]
+    fn of_several_bad_settings_the_same_one_is_named_first() {
+        use std::time::Duration;
+        type Fix = fn(&mut ServeSettings);
+        let mut settings = ServeSettings {
+            db: PathBuf::from("kkt.db"),
+            bind: "0.0.0.0:7420".parse().expect("an address"),
+            allow_any_bind: false,
+            limits: Limits {
+                max_response_bytes: 0,
+                default_limit: 0,
+                max_limit: 0,
+                max_body_bytes: 0,
+                max_channel_name_chars: 0,
+                max_purpose_chars: 0,
+                max_description_chars: 0,
+                max_note_chars: 0,
+                max_server_announcement_chars: 0,
+                max_memory_entry_chars: 0,
+                max_memory_chars: 0,
+                max_lane_chars: 0,
+                sends_per_minute: 0,
+                registrations_per_minute: 0,
+                max_agents: 0,
+                max_wait: Duration::from_secs(10),
+                waiting_grace: Duration::from_secs(20),
+                web_page_messages: 0,
+                web_member_excerpt_chars: 0,
+                web_session_lifetime: Duration::ZERO,
+                upgrade_backups_kept: 0,
+                ..Limits::DEFAULT
+            },
+            allow_origins: Vec::new(),
+            allow_hosts: vec!["not a host!".into()],
+            instructions: None,
+            access_key: AccessKey::None,
+            web_key: AccessKey::None,
+            admin_key: None,
+            log_file: None,
+            log_level: LogLevel::Info,
+            dependency_log_level: LogLevel::Debug,
+        };
+        let d = Limits::DEFAULT;
+        let fixes: [(&str, Fix); 26] = [
+            ("bind", |s| {
+                s.bind = "127.0.0.1:7420".parse().expect("an address")
+            }),
+            ("dependency_log_level", |s| {
+                s.dependency_log_level = LogLevel::Warn
+            }),
+            ("default_limit", |s| {
+                s.limits.default_limit = Limits::DEFAULT.default_limit
+            }),
+            ("max_body_bytes", |s| {
+                s.limits.max_body_bytes = Limits::DEFAULT.max_body_bytes
+            }),
+            ("max_channel_name_chars", |s| {
+                s.limits.max_channel_name_chars = Limits::DEFAULT.max_channel_name_chars
+            }),
+            ("max_purpose_chars", |s| {
+                s.limits.max_purpose_chars = Limits::DEFAULT.max_purpose_chars
+            }),
+            ("max_description_chars", |s| {
+                s.limits.max_description_chars = Limits::DEFAULT.max_description_chars
+            }),
+            ("max_note_chars", |s| {
+                s.limits.max_note_chars = Limits::DEFAULT.max_note_chars
+            }),
+            ("max_server_announcement_chars", |s| {
+                s.limits.max_server_announcement_chars =
+                    Limits::DEFAULT.max_server_announcement_chars
+            }),
+            ("max_memory_entry_chars", |s| {
+                s.limits.max_memory_entry_chars = Limits::DEFAULT.max_memory_entry_chars
+            }),
+            // Past its floor, but still below max_memory_entry_chars.
+            ("max_memory_chars", |s| s.limits.max_memory_chars = 1),
+            ("max_lane_chars", |s| {
+                s.limits.max_lane_chars = Limits::DEFAULT.max_lane_chars
+            }),
+            ("sends_per_minute", |s| {
+                s.limits.sends_per_minute = Limits::DEFAULT.sends_per_minute
+            }),
+            ("registrations_per_minute", |s| {
+                s.limits.registrations_per_minute = Limits::DEFAULT.registrations_per_minute
+            }),
+            ("max_agents", |s| {
+                s.limits.max_agents = Limits::DEFAULT.max_agents
+            }),
+            // Past its floor, but over the page ceiling.
+            ("web_page_messages", |s| {
+                s.limits.web_page_messages = kkt_web::MAX_WEB_PAGE_MESSAGES + 1
+            }),
+            ("web_member_excerpt_chars", |s| {
+                s.limits.web_member_excerpt_chars = Limits::DEFAULT.web_member_excerpt_chars
+            }),
+            ("upgrade_backups_kept", |s| {
+                s.limits.upgrade_backups_kept = Limits::DEFAULT.upgrade_backups_kept
+            }),
+            ("max_response_bytes", |s| {
+                s.limits.max_response_bytes = Limits::DEFAULT.max_response_bytes
+            }),
+            ("max_limit", |s| {
+                s.limits.max_limit = Limits::DEFAULT.max_limit
+            }),
+            ("max_memory_chars", |s| {
+                s.limits.max_memory_chars = Limits::DEFAULT.max_memory_chars
+            }),
+            ("web_page_messages", |s| {
+                s.limits.web_page_messages = Limits::DEFAULT.web_page_messages
+            }),
+            ("web_session_lifetime", |s| {
+                s.limits.web_session_lifetime = Limits::DEFAULT.web_session_lifetime
+            }),
+            ("waiting_grace", |s| {
+                s.limits.waiting_grace = Limits::DEFAULT.waiting_grace
+            }),
+            ("max_wait", |s| s.limits.max_wait = Limits::DEFAULT.max_wait),
+            ("allow_host", |s| s.allow_hosts.clear()),
+        ];
+        assert!(
+            d.max_wait > Duration::from_secs(10),
+            "the start is bad for max_wait"
+        );
+        let sources = Sources {
+            flags: ServeOptions::NONE,
+            file: None,
+        };
+        let mut named = Vec::new();
+        for (expected, fix) in fixes {
+            let err = match check_settings(settings.clone(), &sources) {
+                Ok(_) => panic!("{expected} is still bad, but the check passed"),
+                Err(e) => e,
+            };
+            let rest = err
+                .strip_prefix("invalid setting: ")
+                .unwrap_or_else(|| panic!("an invalid setting: {err}"));
+            named.push(rest.split(' ').next().unwrap_or_default().to_string());
+            fix(&mut settings);
+        }
+        assert_eq!(
+            named,
+            [
+                "bind",
+                "dependency_log_level",
+                "default_limit",
+                "max_body_bytes",
+                "max_channel_name_chars",
+                "max_purpose_chars",
+                "max_description_chars",
+                "max_note_chars",
+                "max_server_announcement_chars",
+                "max_memory_entry_chars",
+                "max_memory_chars",
+                "max_lane_chars",
+                "sends_per_minute",
+                "registrations_per_minute",
+                "max_agents",
+                "web_page_messages",
+                "web_member_excerpt_chars",
+                "upgrade_backups_kept",
+                "max_response_bytes",
+                "max_limit",
+                "max_memory_chars",
+                "web_page_messages",
+                "web_session_lifetime",
+                "waiting_grace",
+                "max_wait",
+                "allow_host",
+            ]
+        );
+        assert!(
+            check_settings(settings, &sources).is_ok(),
+            "every setting fixed"
+        );
+    }
 }
