@@ -63,8 +63,9 @@ dependant must change.
 
 - Remove `refactor` from `.github/workflows/ci.yml`'s branch lists, under
   both `pull_request` and `push`.
-- Put `macos-15` back in the Rust checks' matrix (`os: [ubuntu-24.04,
-  macos-15]`), and remove the comment that says it is off.
+
+The macOS checks are back in the Rust checks' matrix since #486, on
+`refactor` itself, so the merge's pull request need not touch them.
 
 The jobs the refactor added stay: the crate outside the workspace that
 builds against the shared crates by git (`outside-crate`), and the check
@@ -73,7 +74,8 @@ that the programs do no machine work (`programs-do-no-machine-work`).
 ## What to watch on macOS
 
 The macOS checks were off for most of the refactor, so its macOS code was
-reviewed by hand only. The code it touched that decides by platform:
+reviewed by hand only until #486 turned them back on. Watch their first
+runs. The code the refactor touched that decides by platform:
 
 - `crates/kkt-machine-os/src/lib.rs`: `OsMachine::platform` says whether
   this build is macOS or follows XDG. It replaces `Platform::CURRENT` in

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "b73c7c4",
+ "commit": "0e0f970",
  "crates": [
   {
    "bins": [
@@ -3066,6 +3066,28 @@ window.KKT_GRAPH = {
      "path": "Layout"
     },
     {
+     "doc": "An invalid backup setting and the owner's check that found it.",
+     "fields": [
+      "name",
+      "check",
+      "rule"
+     ],
+     "kind": "struct",
+     "path": "Problem"
+    },
+    {
+     "doc": "How many completed backups to keep when upgrading a database.",
+     "fields": [
+      "upgrade_backups_kept"
+     ],
+     "kind": "struct",
+     "methods": [
+      "problems",
+      "record_lines"
+     ],
+     "path": "Settings"
+    },
+    {
      "doc": "The names, copies, metadata and privacy for a backup, without reading or writing its files.",
      "kind": "fn",
      "path": "layout"
@@ -3087,7 +3109,9 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-backup",
    "released_program": false,
    "slots": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -7263,11 +7287,25 @@ window.KKT_GRAPH = {
      "path": "MIN_RESPONSE_BYTES"
     },
     {
+     "doc": "An invalid formatter setting and the owner's check that found it.",
+     "fields": [
+      "name",
+      "check",
+      "rule"
+     ],
+     "kind": "struct",
+     "path": "Problem"
+    },
+    {
      "doc": "The formatter's own settings.",
      "fields": [
       "max_response_bytes"
      ],
      "kind": "struct",
+     "methods": [
+      "problems",
+      "record_lines"
+     ],
      "path": "Settings"
     }
    ],
@@ -7292,7 +7330,8 @@ window.KKT_GRAPH = {
    "third_party": [
     "schemars",
     "serde",
-    "serde_json"
+    "serde_json",
+    "thiserror"
    ]
   },
   {
@@ -7946,6 +7985,11 @@ window.KKT_GRAPH = {
      "path": "Deps"
     },
     {
+     "doc": "The name of the check that a count must be at least 1.",
+     "kind": "const",
+     "path": "FLOOR"
+    },
+    {
      "doc": "",
      "fields": [
       "name",
@@ -7997,6 +8041,16 @@ window.KKT_GRAPH = {
       "operator"
      ],
      "path": "OperatorWording"
+    },
+    {
+     "doc": "A setting the rules cannot run with: its name, which check found it (its `floor`, or the other setting it is bounded by), and the rule it breaks.",
+     "fields": [
+      "name",
+      "check",
+      "rule"
+     ],
+     "kind": "struct",
+     "path": "Problem"
     },
     {
      "doc": "The result of a revocation.",
@@ -8115,7 +8169,9 @@ window.KKT_GRAPH = {
      "kind": "struct",
      "methods": [
       "limit",
-      "limits"
+      "limits",
+      "problems",
+      "record_lines"
      ],
      "path": "Settings"
     },
@@ -11642,6 +11698,16 @@ window.KKT_GRAPH = {
      "path": "PageLimits"
     },
     {
+     "doc": "An invalid page setting and the owner's check that found it.",
+     "fields": [
+      "name",
+      "check",
+      "rule"
+     ],
+     "kind": "struct",
+     "path": "Problem"
+    },
+    {
      "doc": "The session a request presents, as `Sessions::session` finds it.",
      "kind": "enum",
      "path": "Session",
@@ -11675,6 +11741,10 @@ window.KKT_GRAPH = {
       "session_lifetime"
      ],
      "kind": "struct",
+     "methods": [
+      "problems",
+      "record_lines"
+     ],
      "path": "Settings"
     },
     {
@@ -12863,6 +12933,7 @@ window.KKT_GRAPH = {
     "futures",
     "serde",
     "serde_json",
+    "thiserror",
     "tokio",
     "tower"
    ]
@@ -13903,7 +13974,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "MAX_ADMIN_NAME_CHARS"
+    "MAX_ADMIN_NAME_CHARS",
+    "NamePack"
    ],
    "to": "kkt-names"
   },
@@ -14599,7 +14671,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "MAX_WEB_PAGE_MESSAGES"
+   ],
    "to": "kkt-web"
   },
   {
@@ -15598,6 +15672,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Settings",
       "testing",
       "testing::administration_works",
       "testing::announcement_editor_works",
@@ -19590,8 +19665,14 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
+    {
+     "detail": [
+      "Settings"
+     ],
+     "role": "uses"
+    },
     {
      "detail": [
       "Formatter"
@@ -19732,6 +19813,7 @@ window.KKT_GRAPH = {
       "Admit",
       "Held",
       "Session",
+      "Settings",
       "SignIn",
       "router"
      ],
@@ -20043,6 +20125,7 @@ window.KKT_GRAPH = {
       "Access",
       "Admit",
       "Session",
+      "Settings",
       "SignIn",
       "router",
       "testing",
@@ -20454,27 +20537,6 @@ window.KKT_GRAPH = {
     "testing::FixedClock"
    ],
    "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-service",
-   "items": [
-    "Env"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Env"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-machine"
   },
   {
    "features": [
@@ -21662,7 +21724,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "MAX_WEB_PAGE_MESSAGES"
+      "MAX_WEB_PAGE_MESSAGES",
+      "Settings"
      ],
      "role": "uses"
     },
@@ -21730,7 +21793,7 @@ window.KKT_CONCERNS = {
    "must_not": "Be in a release, or anything but a stand-in."
   },
   "kkt-backup": {
-   "concern": "Backup folders: their names, contents, file modes, and pruning.",
+   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
    "kind": "logic",
    "layer": "operations",
    "must_not": "Read the clock or copy the database itself: the caller passes both."
@@ -21911,7 +21974,7 @@ window.KKT_CONCERNS = {
    "must_not": "Touch the database except through the rules, hold tool text in Rust, or decide who a caller is except through `Identify`."
   },
   "kkt-mcp-formatter": {
-   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`.",
+   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
    "kind": "logic",
    "layer": "surfaces",
    "must_not": "Decide permissions or read the database."
@@ -21971,7 +22034,7 @@ window.KKT_CONCERNS = {
    "must_not": "Decide how the server is assembled."
   },
   "kkt-service": {
-   "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs, from the settings it needs, which the program gives and checks.",
+   "concern": "Running kkt as a service under launchd or systemd, choosing its manager from the supplied optional home and config-home paths (`Manager::for_this_os`), and the plan of what the service runs, from the settings it needs, which the program gives and checks.",
    "kind": "logic",
    "layer": "operations",
    "must_not": "Touch the machine except through its `System` contract."
@@ -22025,7 +22088,7 @@ window.KKT_CONCERNS = {
    "must_not": "Reach the server, the time, its place or its output except through what is injected."
   },
   "kkt-web": {
-   "concern": "The human's pages, over the operator's operations (kkt-api-operator's `OperatorApi`) in each viewer's swarm, rendering the kkt-api crates' records. Its own contract is only `Gate`, which says who is viewing each request (a swarm and an operator) and whom a key signs in; every change is a checked form post. It keeps the limits only the page applies (`PageLimits`). It keeps its own sessions: their IDs, hashing, expiry, sign-out and form tokens.",
+   "concern": "The human's pages, over the operator's operations (kkt-api-operator's `OperatorApi`) in each viewer's swarm, rendering the kkt-api crates' records. Its own contract is only `Gate`, which says who is viewing each request (a swarm and an operator) and whom a key signs in; every change is a checked form post. It keeps the limits only the page applies (`PageLimits`). It keeps its own sessions: their IDs, hashing, expiry, sign-out and form tokens; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
    "kind": "logic",
    "layer": "surfaces",
    "must_not": "Depend on the rules, the store, admission or identity: kkt-server adapts them to its gate."
