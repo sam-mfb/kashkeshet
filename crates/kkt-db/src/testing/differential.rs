@@ -431,6 +431,31 @@ async fn the_fast_database_answers_as_the_memory_database_does() {
     }
 }
 
+/// Two tables may declare indexes whose names, joined to their tables',
+/// read the same: `a` with `index_x` and `a_index` with `x`.
+#[test]
+fn indexes_of_two_tables_never_clash() {
+    use crate::{Column, Set, Step, Table};
+    let set = Set {
+        name: "indexes",
+        migrations: vec![vec![
+            Step::AddTable(
+                Table::new("a", vec![Column::text("id")], vec!["id"]).index("index_x", vec!["id"]),
+            ),
+            Step::AddTable(
+                Table::new("a_index", vec![Column::text("id")], vec!["id"]).index("x", vec!["id"]),
+            ),
+            Step::AddTable(
+                Table::new("a_key", vec![Column::text("id").unique()], vec!["id"])
+                    .index("unique_id", vec!["id"]),
+            ),
+        ]],
+    };
+    assert!(MemoryPlace::new().open(std::slice::from_ref(&set)).is_ok());
+    let fast = FastPlace::new().and_then(|p| p.open(&[set]));
+    assert!(fast.is_ok(), "{:?}", fast.err());
+}
+
 /// A table may declare an index of any name: it never clashes with the
 /// stand-in's own indexes, for the key, unique columns and declared ones.
 #[test]
