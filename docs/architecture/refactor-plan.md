@@ -1274,6 +1274,95 @@ program's tests run what matters on the real backend.
 
 11.4 merged before 11.3, which needed its narrower `testing`.
 
+### Survey: outside tools behind contracts (Sam's review of the map, 2026-11-12)
+
+A survey, not yet a plan: nothing below is decided, and no code has
+changed.
+
+**What Sam found.** kkt-remote-access, a logic crate, declares
+`Host::run(args)`: "run `tailscale` with these arguments". kkt-remote-access-os
+runs the command and implements nothing, and the program holds a 17-line
+adapter between them. Sam reads the principles as asking for the opposite
+shape (ARCHITECTURE.md 1.2.2, 2.3.2, 3.1.2.1, 3.2.3.1, the `vpn` and
+`vpn-tailscale` example):
+
+- a contract crate named for the scope;
+- a crate named for the tool that implements that contract directly;
+- the program only choosing the implementation and injecting it.
+
+He also noted that a contract phrased in the tool's own terms abstracts
+nothing.
+
+**Why the code has the other shape.** The proposal's third rule says it:
+a contract used by two crates or fewer is declared by each consumer, and
+the program adapts the implementation to it (msgs 2019, 2020). Only a
+contract used by more than two crates gets a crate of its own, with
+implementations that implement it directly (model: kkt-db and
+kkt-db-sqlite). Sam accepted the effect crates that depend on nothing
+(2.1 to 2.4 in "Awaiting Sam", group c). So Sam's reading is a change to
+that rule for outside tools, not a fix to a few crates.
+
+**The pairs.** One row for each pair where the program holds an adapter,
+then the pairs already in Sam's shape.
+
+| Pair | What the effect wraps | Contract phrased in | Tool knowledge in the logic crate | The program's adapter | Recommended | Wrapper's name |
+|---|---|---|---|---|---|---|
+| remote-access | The `tailscale` command | The tool's terms: `Host::run(args)` | All of it: `tailscale status --json`, the serve arguments, the failures (275 lines, 342 of tests) | 17 lines: copies three fields, and words a failure to run Tailscale with advice | **Contract and wrapper.** Sam's case: the contract becomes prepare, serve, served and stop, with `Node`; everything that knows Tailscale moves out | kkt-remote-access-tailscale |
+| container | The `docker` and `docker compose` commands, and the managed folder's files | The machine's terms: run a command, read and write a file, say a line | All of it: the Compose files, every Docker command and its output, the Tailscale sidecar's status (about 1,900 lines, 2,500 of tests) | 63 lines: copies fields | **Contract and wrapper** (Sam: at least this one). The contract is what kkt-operate and kkt-setup ask: provision, status, up, down, backup, lanes in and out, upgrade, `existing`, the key checks, with `Folder` and the records | kkt-container-docker |
+| service | launchd (`launchctl`, the plist) and systemd (`systemctl`, the unit file) | The machine's terms: files, commands, the user ID | All of it, both systems in one crate (launchd 467 lines, systemd 248), chosen by `Manager::for_this_os` | 48 lines: copies fields | **Contract and two wrappers**: the case 1.2.2 names. The plan (what a service runs, from its settings) and the bind check use no tool; they stay logic, as functions on the contract's own values (3.2.5) or in kkt-operate | kkt-service-launchd, kkt-service-systemd |
+| lane-files | The machine's files, and the `git` command | `Disk` in the project's terms (it already asks for the folder's commit); `git::Git` in git's: run git with these arguments | git's meaning: expected absences, the dirty suffix, the wording (56 lines). Sam accepted keeping it there (2.6) | 45 lines: copies fields | **A wrapper for git**: git's meaning moves out, and the wrapper implements `Disk`. This reverses 2.6 | kkt-lane-files-git |
+| client-config | Five AI clients' config files, and Claude Code's `claude` command | The project's terms for the files (read, write, rename, restrict); the tool's for `claude(args)` | The five file formats and where each client keeps them: that is the crate's concern, not a tool it runs | 45 lines: forwarding only | **Leave the logic.** The effect crate could implement `Host` directly, so the adapter goes. The one `claude` method is too small for a crate of its own | (none) |
+| diagnostics | HTTP and kkt's MCP handshake, through reqwest | The project's terms: read a key file, probe an address and get checks | None. The effect crate reads the server's answers (2.5, accepted) | 44 lines: copies fields, passes the doctor's constants | **Leave.** The effect crate could implement `Prober` directly, so the adapter goes | (kkt-diagnostics-http, if renamed) |
+| admission | The machine's key files | The project's terms (`KeyTexts`, kkt-operate's `KeyFiles`, kkt-agent-commands' `KeyText`) | None | About 40 lines that word each read error with its setting's name, which each program does its own way; the rest forwards | **Leave**: the wording belongs to each program | (none) |
+| setup, backup, config-file | The machine's files: the setup record and note, `PATH`; the backup folders; the config and instructions files | The project's terms, as kkt-operate declares them (`SetupFiles`, `BackupWriter`, `ConfigText`) | None | 10 to 43 lines each, forwarding | **Leave**: the contracts are kkt-operate's, and an effect crate may not depend on an assembly. Moving them into kkt-setup and kkt-backup would let the effect crates implement them directly | (none) |
+| terminal | The terminal, and the browser opener (`open`, `xdg-open`) | Each consumer's own terms: `Lines` (kkt-setup), `LoginLink` (kkt-container), `Output` (kkt-operate, kkt-agent-commands), `Report` (kkt-watch) | None | 20 to 30 lines each | **Leave**: four consumers each declare only what they use (3.1.1) | (none) |
+| agent-client | rmcp and reqwest, reaching kkt's MCP endpoints | The project's terms: kkt's tools (register, reclaim, read, wait) | None in the consumers | `WatchServer` (about 105 lines), `McpServers` (about 85) and the credential files (about 75, which also apply kkt-setup's credential-file rule): copy records, map failures | **Leave**: one implementation and two consumers, each declaring its own (3.3.2) | (none) |
+
+**Already in Sam's shape.** These implement a project contract directly,
+and the program only injects them:
+- kkt-db-sqlite (kkt-db's `Backend`);
+- kkt-clock-system (`Clock`);
+- kkt-entropy-os (`Entropy`, over rand);
+- kkt-machine-os (`Machine`);
+- kkt-logs-os (kkt-log's `Log`, over tracing).
+
+By 2.3.2, kkt-entropy-os and kkt-logs-os could be named for what they wrap
+(kkt-entropy-rand, kkt-log-tracing). The recommendation is to keep the
+names: a rename changes the shared crates' surface for kkt-pro and gains
+little. kkt-shutdown-os and kkt-server-listen have no contract and no
+adapter; the program calls them, and they stay.
+
+**What would change in the rules and checks.**
+
+- **The proposal's third rule.** It gains an exception, in Sam's words. Suggested: an outside tool, a program kkt runs or a library, is wrapped by a crate named for it. That crate implements a contract crate named for the scope, however many crates use the contract (2.3.2, 3.1.2.1). The rule text is in `proposed.json` and quoted in `decisions.md`.
+- **Kinds** (`concerns.json`, `proposed.json`, `kinds.py`'s checks). kkt-remote-access, kkt-container and kkt-service go from logic to contract. A contract may compute on its own values, but not run or wire anything (`kinds.py`'s `beyond_values`). So their tool logic must leave them, which is the point. check-crates.sh's check 6 already keeps `real` out of a contract crate.
+- **The wrapper crates are effect crates.** Each has a `real` feature around the command it runs. Its tool knowledge is pure, and its tests run over a private seam inside the crate, as kkt-container's do over a fake `Host` today.
+  - This is in tension with 4.5.2, which says complex adapter logic SHOULD be a separate logic module. Docker's 1,900 lines are complex.
+  - Recommended: one crate per tool, since the tool's knowledge and its runner change together.
+  - The other choice is a logic crate and a runner per tool, which is today's shape renamed and under a contract.
+  - Sam to choose.
+- **Stand-ins.** Each new contract crate gets a `testing` stand-in (3.2.4), which kkt-operate's tests use in place of the fakes they build today.
+- **No change to** check-crates.sh's checks 1 to 5, the release guard or the third-party list. check-programs loses three adapters.
+- **The shared crates' surface changes for kkt-pro:** kkt-container's, kkt-service's and kkt-remote-access's public items. That needs a CHANGELOG entry, as the refactor's has.
+- **Existing installs: none expected.** The Compose files, service files, commands and their output stay byte for byte. The Docker, launchd and systemd tests that pin them move with the code.
+
+**Steps, if Sam takes the recommendations.** Each step is one pull request
+into `refactor`. The step numbers are new.
+
+| Step | What | Size |
+|---|---|---|
+| 12.0 | The proposal's rule and the targets charted; the plan's steps | S |
+| 12.1 | kkt-remote-access as a contract; kkt-remote-access-tailscale; the program's adapter goes. The smallest pair, which proves the pattern | S |
+| 12.2 | kkt-container as a contract; kkt-container-docker with the Docker logic, its tests and the sidecar's Tailscale status; kkt-operate and kkt-setup use the contract | L |
+| 12.3 | kkt-service as a contract; kkt-service-launchd and kkt-service-systemd; the program picks one by platform | M to L |
+| 12.4 | kkt-lane-files-git, implementing `Disk` (optional: reverses 2.6) | S |
+| 12.5 | client-config and diagnostics: the effect crates implement their logic crates' contracts directly, and the adapters go (optional) | S |
+| 12.6 | Chart what differs, and the scorecard | S |
+
+12.1 goes first. 12.2 and 12.3 can run side by side after it: both change
+one field each of kkt-operate's `OperateParts`, a rebase and not a conflict.
+12.4 and 12.5 can run beside either.
+
 ## Order at a glance
 
 ```
