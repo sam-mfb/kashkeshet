@@ -33,7 +33,7 @@
 use super::*;
 use crate::{DefaultWording, OperatorWording, Rules, Settings, Startup};
 use kkt_clock::Clock;
-use kkt_db::testing::{FaultyBackend, MemoryPlace};
+use kkt_db::testing::{FastPlace, FaultyBackend};
 use kkt_entropy::Entropy;
 use kkt_events::Events;
 use std::fmt::Debug;
@@ -119,7 +119,7 @@ pub async fn memory(memory: Memory) -> Result<Rules, StoreError> {
 /// tests: for a program that starts its own rules, or for the operator's
 /// [`crate::CommandLine`].
 pub fn database() -> Result<Db, StoreError> {
-    let backend = MemoryPlace::new().open(&[schema()])?;
+    let backend = FastPlace::new()?.open(&[schema()])?;
     let faults = FaultyBackend::new(backend);
     let mut db = Db::new(Arc::new(faults.clone()));
     db.faults = Some(faults);
@@ -149,6 +149,17 @@ struct Seeded {
     agents: Vec<String>,
     channels: Vec<String>,
     messages: Vec<i64>,
+}
+
+/// Checks, in one write, that two swarms stay apart in `db`, a new database
+/// with the core's tables and nothing in them yet: every question and
+/// change the store makes, over whichever backend `db` is on. `Err` says
+/// what leaked or failed. For a test that runs the store on another backend
+/// than the stand-in, such as the program's on kkt-db-sqlite.
+pub async fn swarms_stay_apart_in(db: &Db) -> Result<(), String> {
+    db.write(|w| Ok::<_, StoreError>(swarms_stay_apart(w)))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// Checks that two swarms stay apart in `store`, which must hold no
