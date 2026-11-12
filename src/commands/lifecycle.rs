@@ -228,7 +228,8 @@ pub async fn upgrade(
                     key.display()
                 ));
             }
-            let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
+            let manager = Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref())
+                .map_err(|e| e.to_string())?;
             for line in manager
                 .install(
                     &ServiceSystem,
