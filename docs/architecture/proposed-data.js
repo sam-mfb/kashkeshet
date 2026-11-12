@@ -1352,7 +1352,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-client-command-claude"
+    "to": "kkt-client-command"
    },
    {
     "from": "kashkeshet",
@@ -1849,15 +1849,6 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "to": "kkt-backup"
-   },
-   {
-    "from": "kkt-client-command-claude",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-client-command"
    },
    {
     "from": "kkt-client-config",
@@ -5390,7 +5381,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program injects Claude Code's command as it is (step 12.5c)"
+      "text": "the program turns on kkt-client-command's real and injects Claude Code's command as it is (steps 12.5c and 13.7)"
      },
      {
       "status": "decided",
@@ -6575,7 +6566,7 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "new contract crate, from kkt-client-config"
+      "text": "new contract and effect crate, from kkt-client-config"
      },
      {
       "status": "decided",
@@ -6591,19 +6582,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "gains a testing feature: its Recorder stand-in (step 12.5c)"
-     }
-    ]
-   },
-   {
-    "crate": "kkt-client-command-claude",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-client-config-os"
-     },
-     {
-      "status": "decided",
       "text": "new struct Claude"
      },
      {
@@ -6612,7 +6590,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it implements the contract directly (step 12.5c)"
+      "text": "gains a testing feature: its Recorder stand-in (step 12.5c)"
      }
     ]
    },
@@ -6693,7 +6671,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Host loses claude: Claude Code's command is kkt-client-command's ClientCommand, implemented by kkt-client-command-claude (step 12.5c)"
+      "text": "Host loses claude: Claude Code's command is kkt-client-command's ClientCommand, implemented in the same crate by Claude, behind real (steps 12.5c and 13.7)"
      },
      {
       "status": "decided",
@@ -11385,14 +11363,8 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-client-command": {
-    "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand, with the testing Recorder (step 12.5c).",
-    "kind": "contract",
-    "layer": "operations",
-    "status": "decided"
-   },
-   "kkt-client-command-claude": {
-    "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json, CLAUDE_CONFIG_DIR and the wording, over a private runner; running claude is behind real (step 12.5c).",
-    "kind": "effect",
+    "concern": "Configuring an MCP client through that client's own command line: the ClientCommand contract in the open, with its testing Recorder, and its one implementation, Claude, behind real: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner (steps 12.5c and 13.7).",
+    "kind": "contract and effect",
     "layer": "operations",
     "status": "decided"
    },
@@ -15011,7 +14983,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program injects Claude Code's command as it is (step 12.5c)"
+      "text": "the program turns on kkt-client-command's real and injects Claude Code's command as it is (steps 12.5c and 13.7)"
      },
      {
       "status": "decided",
@@ -19100,11 +19072,20 @@ window.KKT_PROPOSED = {
     "crate_doc": "",
     "dev_only": false,
     "features": {
+     "real": [],
      "testing": []
     },
     "holders": [],
     "implements": [],
     "items": [
+     {
+      "doc": "Claude Code's own command, which the program injects as ClientCommand; behind real. (steps 12.5c and 13.7)",
+      "feature": "real",
+      "kind": "struct",
+      "path": "Claude",
+      "proposed_item": true,
+      "status": "decided"
+     },
      {
       "doc": "A client's own command, as kkt-client-config asks it: remove kkt's server, add it as the client's own entry. (step 12.5c)",
       "kind": "trait",
@@ -19133,7 +19114,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      }
     ],
-    "kind": "contract",
+    "kind": "contract and effect",
     "lib": "kkt_client_command",
     "name": "kkt-client-command",
     "path": "(proposed)",
@@ -19141,7 +19122,7 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "new contract crate, from kkt-client-config"
+      "text": "new contract and effect crate, from kkt-client-config"
      },
      {
       "status": "decided",
@@ -19157,46 +19138,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "gains a testing feature: its Recorder stand-in (step 12.5c)"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [],
-    "items": [
-     {
-      "doc": "Claude Code's own command, which the program injects as ClientCommand. (step 12.5c)",
-      "feature": "real",
-      "kind": "struct",
-      "path": "Claude",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_client_command_claude",
-    "name": "kkt-client-command-claude",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-client-config-os"
-     },
-     {
-      "status": "decided",
       "text": "new struct Claude"
      },
      {
@@ -19205,7 +19146,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it implements the contract directly (step 12.5c)"
+      "text": "gains a testing feature: its Recorder stand-in (step 12.5c)"
      }
     ],
     "released_program": false,
@@ -19411,7 +19352,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Host loses claude: Claude Code's command is kkt-client-command's ClientCommand, implemented by kkt-client-command-claude (step 12.5c)"
+      "text": "Host loses claude: Claude Code's command is kkt-client-command's ClientCommand, implemented in the same crate by Claude, behind real (steps 12.5c and 13.7)"
      },
      {
       "status": "decided",
@@ -32454,7 +32395,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-browser"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kashkeshet",
     "items": [
      "Claude"
@@ -32476,7 +32419,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-client-command-claude"
+    "to": "kkt-client-command"
    },
    {
     "features": [],
@@ -34993,31 +34936,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-backup"
-   },
-   {
-    "features": [],
-    "from": "kkt-client-command-claude",
-    "items": [
-     "ClientCommand"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "ClientCommand"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-client-command"
    },
    {
     "features": [],
@@ -42220,7 +42138,8 @@ window.KKT_PROPOSED = {
   "kind_mismatches": [
    "kkt-service-launchd is marked effect but has no `real` feature and no I/O dependency",
    "kkt-service-systemd is marked effect but has no `real` feature and no I/O dependency",
-   "kkt-lane-commit-git is marked effect but has no `real` feature and no I/O dependency"
+   "kkt-lane-commit-git is marked effect but has no `real` feature and no I/O dependency",
+   "kkt-client-command is marked contract and effect but nothing in it implements its own contract"
   ],
   "pending": []
  },

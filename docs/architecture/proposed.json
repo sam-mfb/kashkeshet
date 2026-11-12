@@ -373,18 +373,10 @@
   {
    "name": "kkt-client-command",
    "layer": "operations",
-   "kind": "contract",
+   "kind": "contract and effect",
    "from": "kkt-client-config",
    "status": "decided",
-   "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand, with the testing Recorder (step 12.5c)."
-  },
-  {
-   "name": "kkt-client-command-claude",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kkt-client-config-os",
-   "status": "decided",
-   "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json, CLAUDE_CONFIG_DIR and the wording, over a private runner; running claude is behind real (step 12.5c)."
+   "concern": "Configuring an MCP client through that client's own command line: the ClientCommand contract in the open, with its testing Recorder, and its one implementation, Claude, behind real: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner (steps 12.5c and 13.7)."
   },
   {
    "name": "kkt-browser",
@@ -4310,11 +4302,11 @@
    "feature": "testing"
   },
   {
-   "crate": "kkt-client-command-claude",
+   "crate": "kkt-client-command",
    "path": "Claude",
    "kind": "struct",
    "status": "decided",
-   "doc": "Claude Code's own command, which the program injects as ClientCommand. (step 12.5c)",
+   "doc": "Claude Code's own command, which the program injects as ClientCommand; behind real. (steps 12.5c and 13.7)",
    "feature": "real"
   },
   {
@@ -8979,28 +8971,19 @@
    "status": "decided"
   },
   {
-   "from": "kkt-client-command-claude",
-   "to": "kkt-client-command",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "ClientCommand"
-    ]
-   },
-   "note": "it implements the contract directly (step 12.5c)",
-   "status": "decided"
-  },
-  {
    "from": "kashkeshet",
-   "to": "kkt-client-command-claude",
+   "to": "kkt-client-command",
    "kind": "normal",
    "add": {
     "uses": [
      "Claude"
     ]
    },
-   "note": "the program injects Claude Code's command as it is (step 12.5c)",
-   "status": "decided"
+   "note": "the program turns on kkt-client-command's real and injects Claude Code's command as it is (steps 12.5c and 13.7)",
+   "status": "decided",
+   "features": [
+    "real"
+   ]
   },
   {
    "from": "kashkeshet",
@@ -12476,7 +12459,7 @@
     "claude"
    ],
    "status": "decided",
-   "note": "Claude Code's command is kkt-client-command's ClientCommand, implemented by kkt-client-command-claude (step 12.5c)"
+   "note": "Claude Code's command is kkt-client-command's ClientCommand, implemented in the same crate by Claude, behind real (steps 12.5c and 13.7)"
   }
  ],
  "slot_removes": [
@@ -13092,7 +13075,7 @@
    "note": "what reaches the server or the machine (step 12.4)"
   },
   {
-   "crate": "kkt-client-command-claude",
+   "crate": "kkt-client-command",
    "feature": "real",
    "status": "decided",
    "note": "running the host's claude (step 12.5c)"

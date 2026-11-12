@@ -256,15 +256,9 @@
   },
   "kkt-client-command": {
    "layer": "operations",
-   "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand (remove kkt's server, add it as the client's own entry), with the testing Recorder.",
-   "must_not": "Know a client's command, its arguments or output; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-client-command-claude": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner; running claude is behind real.",
-   "must_not": "Echo the command's output, which may hold credentials."
+   "concern": "Configuring an MCP client through that client's own command line: the ClientCommand contract in the open (remove kkt's server, add it as the client's own entry), with the testing Recorder, and its one implementation behind real, Claude: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner.",
+   "must_not": "Echo the command's output, which may hold credentials; let a consumer reach Claude without real.",
+   "kind": "contract and effect"
   },
   "kkt-diagnostics": {
    "layer": "operations",

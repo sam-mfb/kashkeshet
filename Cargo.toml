@@ -16,7 +16,6 @@ members = [
     "crates/kkt-backup-os",
     "crates/kkt-browser",
     "crates/kkt-client-command",
-    "crates/kkt-client-command-claude",
     "crates/kkt-client-config",
     "crates/kkt-client-config-os",
     "crates/kkt-clock",
@@ -88,7 +87,6 @@ default-members = [
     "crates/kkt-backup-os",
     "crates/kkt-browser",
     "crates/kkt-client-command",
-    "crates/kkt-client-command-claude",
     "crates/kkt-client-config",
     "crates/kkt-client-config-os",
     "crates/kkt-clock",
@@ -225,7 +223,7 @@ kkt-api-agent = { path = "crates/kkt-api-agent" }
 kkt-backup = { path = "crates/kkt-backup" }
 kkt-backup-os = { path = "crates/kkt-backup-os", features = ["real"] }
 kkt-browser = { path = "crates/kkt-browser", features = ["real"] }
-kkt-client-command-claude = { path = "crates/kkt-client-command-claude", features = ["real"] }
+kkt-client-command = { path = "crates/kkt-client-command", features = ["real"] }
 kkt-client-config = { path = "crates/kkt-client-config" }
 kkt-client-config-os = { path = "crates/kkt-client-config-os", features = ["real"] }
 kkt-clock = { path = "crates/kkt-clock" }

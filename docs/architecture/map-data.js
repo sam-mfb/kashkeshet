@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "69275e8",
+ "commit": "efd72ba",
  "crates": [
   {
    "bins": [
@@ -3912,11 +3912,11 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-client-command",
-       "type": "testing::Recorder"
+       "type": "Claude"
       },
       {
-       "crate": "kkt-client-command-claude",
-       "type": "Claude"
+       "crate": "kkt-client-command",
+       "type": "testing::Recorder"
       }
      ],
      "trait": "ClientCommand"
@@ -3925,6 +3925,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Configuring an MCP client through that client's own command line, in kkt's terms: removing kkt's server from the client's settings, and adding it as the client's own entry.",
    "dev_only": false,
    "features": {
+    "real": [],
     "testing": []
    },
    "holders": [],
@@ -3933,10 +3934,22 @@ window.KKT_GRAPH = {
      "crate": "kkt-client-command",
      "trait": "ClientCommand",
      "trait_crate": "kkt-client-command",
+     "type": "Claude"
+    },
+    {
+     "crate": "kkt-client-command",
+     "trait": "ClientCommand",
+     "trait_crate": "kkt-client-command",
      "type": "testing::Recorder"
     }
    ],
    "items": [
+    {
+     "doc": "Claude Code's own command, which the program injects as the `ClientCommand`.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Claude"
+    },
     {
      "doc": "A client's own command, as kkt-client-config asks it.",
      "kind": "trait",
@@ -3974,50 +3987,14 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_client_command",
-   "machine_work": {},
-   "name": "kkt-client-command",
-   "optional_third_party": {},
-   "path": "crates/kkt-client-command",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "kkt-client-command for Claude Code: `claude mcp remove` and `claude mcp add-json`, at user scope, under the name `kkt`, with `CLAUDE_CONFIG_DIR` set to the profile's folder or unset for the default.",
-   "dev_only": false,
-   "features": {
-    "real": []
-   },
-   "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-client-command-claude",
-     "trait": "ClientCommand",
-     "trait_crate": "kkt-client-command",
-     "type": "Claude"
-    }
-   ],
-   "items": [
-    {
-     "doc": "Claude Code's own command, which the program injects as kkt-client-command's `ClientCommand`.",
-     "feature": "real",
-     "kind": "struct",
-     "path": "Claude"
-    }
-   ],
-   "lib": "kkt_client_command_claude",
    "machine_work": {
-    "src/runner.rs": [
+    "src/claude/runner.rs": [
      "process::Command::new"
     ]
    },
-   "name": "kkt-client-command-claude",
+   "name": "kkt-client-command",
    "optional_third_party": {},
-   "path": "crates/kkt-client-command-claude",
+   "path": "crates/kkt-client-command",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -16888,7 +16865,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-client-command-claude"
+   "to": "kkt-client-command"
   },
   {
    "features": [],
@@ -19627,27 +19604,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-scratch"
-  },
-  {
-   "features": [],
-   "from": "kkt-client-command-claude",
-   "items": [
-    "ClientCommand"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "Claude implements ClientCommand"
-     ],
-     "role": "implements"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-client-command"
   },
   {
    "features": [],
@@ -26839,16 +26795,10 @@ window.KKT_CONCERNS = {
    "must_not": "Name an opener program in the contract; wait for the browser; repeat the link in a message."
   },
   "kkt-client-command": {
-   "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand (remove kkt's server, add it as the client's own entry), with the testing Recorder.",
-   "kind": "contract",
+   "concern": "Configuring an MCP client through that client's own command line: the ClientCommand contract in the open (remove kkt's server, add it as the client's own entry), with the testing Recorder, and its one implementation behind real, Claude: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner.",
+   "kind": "contract and effect",
    "layer": "operations",
-   "must_not": "Know a client's command, its arguments or output; touch the machine."
-  },
-  "kkt-client-command-claude": {
-   "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner; running claude is behind real.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Echo the command's output, which may hold credentials."
+   "must_not": "Echo the command's output, which may hold credentials; let a consumer reach Claude without real."
   },
   "kkt-client-config": {
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through kkt-client-command's ClientCommand, and its file restored if that fails.",
@@ -28231,7 +28181,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-client-command-claude::Claude",
+     "impl": "kkt-client-command::Claude",
      "note": "kkt setup: Claude Code's own command, injected as it is",
      "to": [
       {
@@ -28242,7 +28192,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-agent-commands",
-     "impl": "kkt-client-command-claude::Claude",
+     "impl": "kkt-client-command::Claude",
      "note": "kkt connect: Claude Code's own command, injected as it is",
      "to": [
       {

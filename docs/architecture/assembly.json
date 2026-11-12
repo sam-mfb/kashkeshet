@@ -771,7 +771,7 @@
      ]
     },
     {
-     "impl": "kkt-client-command-claude::Claude",
+     "impl": "kkt-client-command::Claude",
      "crate": "kkt-operate",
      "to": [
       {
@@ -782,7 +782,7 @@
      "note": "kkt setup: Claude Code's own command, injected as it is"
     },
     {
-     "impl": "kkt-client-command-claude::Claude",
+     "impl": "kkt-client-command::Claude",
      "crate": "kkt-agent-commands",
      "to": [
       {
