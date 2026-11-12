@@ -321,8 +321,8 @@ window.KKT_PROPOSED = {
     "also": [
      {
       "items": [
-       "kkt-agent-client-rmcp::Remote",
-       "kkt-agent-client-rmcp::AdminRemote",
+       "kkt-agent-client::Remote",
+       "kkt-agent-client::AdminRemote",
        "kkt-watch::run",
        "kkt-clock-system::SystemClock"
       ],
@@ -499,7 +499,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-watch",
-      "impl": "kkt-agent-client-rmcp::Remote",
+      "impl": "kkt-agent-client::Remote",
       "note": "kkt watch",
       "to": [
        {
@@ -510,7 +510,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-watch",
-      "impl": "kkt-agent-client-rmcp::AdminRemote",
+      "impl": "kkt-agent-client::AdminRemote",
       "note": "kkt watch --admin",
       "to": [
        {
@@ -1293,24 +1293,6 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kashkeshet",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-agent-client"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-agent-client-rmcp"
-   },
-   {
-    "from": "kashkeshet",
     "kind": "normal",
     "role": "uses",
     "statuses": [
@@ -1650,24 +1632,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-admission"
-   },
-   {
-    "from": "kkt-agent-client-rmcp",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-agent-client"
-   },
-   {
-    "from": "kkt-agent-client-rmcp",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-clock"
    },
    {
     "from": "kkt-agent-commands",
@@ -2051,7 +2015,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-agent-client-rmcp"
+    "to": "kkt-agent-client"
    },
    {
     "from": "kkt-fake-product",
@@ -3402,6 +3366,27 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-admission"
+   },
+   {
+    "from": "kashkeshet",
+    "items_gone": [],
+    "items_new": [
+     "Mcp",
+     "Settings"
+    ],
+    "kind": "normal",
+    "roles_after": [
+     "uses",
+     "wires"
+    ],
+    "roles_before": [
+     "uses",
+     "wires"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-agent-client"
    },
    {
     "from": "kashkeshet",
@@ -5414,14 +5399,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-agent-client in its code: the program names the contract only in its tests (step 12.4)"
-     },
-     {
-      "status": "decided",
-      "text": "the register tests read through Watched (step 12.4)"
-     },
-     {
-      "status": "decided",
       "text": "the program injects Claude Code's command as it is (step 12.5c)"
      },
      {
@@ -5629,18 +5606,6 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "Client moves to kkt-agent-client-rmcp: the MCP client implements kkt-agent-client's contract (step 12.4)"
-     },
-     {
-      "status": "decided",
-      "text": "Remote moves to kkt-agent-client-rmcp: the MCP client implements kkt-agent-client's contract (step 12.4)"
-     },
-     {
-      "status": "decided",
-      "text": "AdminRemote moves to kkt-agent-client-rmcp: the MCP client implements kkt-agent-client's contract (step 12.4)"
-     },
-     {
-      "status": "decided",
       "text": "WATCH_ADMIN_NAME comes here from kkt-config, private"
      },
      {
@@ -5677,6 +5642,18 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Http"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct HttpReply"
+     },
+     {
+      "status": "decided",
       "text": "new trait Servers"
      },
      {
@@ -5705,60 +5682,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the contract names no transport: rmcp, reqwest and the JSON go to kkt-agent-client-rmcp (step 12.4)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-watch in its code: kkt-agent-client stops depending on kkt-watch"
-     }
-    ]
-   },
-   {
-    "crate": "kkt-agent-client-rmcp",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "Client comes here from kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "Remote comes here from kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "AdminRemote comes here from kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Http"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Settings"
-     },
-     {
-      "status": "decided",
-      "text": "new struct HttpReply"
-     },
-     {
-      "status": "decided",
       "text": "new struct Mcp"
      },
      {
       "status": "decided",
-      "text": "gains a real feature: what reaches the server or the machine (step 12.4)"
+      "text": "Mcp implements kkt-agent-client::Servers: the crate's one implementation of its own contract, behind real (step 13.6)"
      },
      {
       "status": "decided",
-      "text": "it implements the contract directly (step 12.4)"
+      "text": "Client implements kkt-agent-client::Avatars: the crate's one implementation of its own contract, behind real (step 13.6)"
      },
      {
       "status": "decided",
-      "text": "the admin watch's polling (step 12.4)"
+      "text": "Remote implements kkt-agent-client::Watched: the crate's one implementation of its own contract, behind real (step 13.6)"
+     },
+     {
+      "status": "decided",
+      "text": "AdminRemote implements kkt-agent-client::Watched: the crate's one implementation of its own contract, behind real (step 13.6)"
+     },
+     {
+      "status": "decided",
+      "text": "rmcp, reqwest, serde_json and tokio are optional, behind real: a crate that depends on kkt-agent-client without real gets the contract alone (step 13.6)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-watch in its code: kkt-agent-client stops depending on kkt-watch"
      }
     ]
    },
@@ -7633,7 +7581,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its tests drive the running product over HTTP with kkt-agent-client-rmcp's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
+      "text": "its tests drive the running product over HTTP with kkt-agent-client's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
      }
     ]
    },
@@ -10903,12 +10851,6 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "kind": "normal",
     "role": "uses",
-    "to": "kkt-agent-client"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "uses",
     "to": "kkt-config"
    },
    {
@@ -11400,14 +11342,8 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-agent-client": {
-    "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (read with their owner and mode, which the caller's `CredentialCheck` judges as named `CredentialFileFacts`, and made private as its `PrivateMode` says, with warnings through the caller's callbacks; in kkt the check is kkt-setup's rule), watch's state file and its lock, reaching the server as an agent or admin through plain methods with its own types, and plain HTTP for probes. It knows nothing of kkt-watch; the program adapts it.",
-    "kind": "contract",
-    "layer": "clients",
-    "status": "decided"
-   },
-   "kkt-agent-client-rmcp": {
-    "concern": "Implements kkt-agent-client's contract directly over MCP, through rmcp and reqwest: Mcp, Client, Remote and AdminRemote, with Settings; plain Http requests for a program's test client. Everything that reaches the server is behind real (step 12.4).",
-    "kind": "effect",
+    "concern": "A client of kkt's server. The contract, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records, Failure and Settings; the testing Memory stand-in. Its one implementation, over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), and plain Http requests for a program's test client, are behind real, which only programs turn on (step 13.6, merging kkt-agent-client-rmcp back).",
+    "kind": "contract and effect",
     "layer": "clients",
     "status": "decided"
    },
@@ -15099,14 +15035,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-agent-client in its code: the program names the contract only in its tests (step 12.4)"
-     },
-     {
-      "status": "decided",
-      "text": "the register tests read through Watched (step 12.4)"
-     },
-     {
-      "status": "decided",
       "text": "the program injects Claude Code's command as it is (step 12.5c)"
      },
      {
@@ -15817,15 +15745,34 @@ window.KKT_PROPOSED = {
     "builds": [],
     "contracts": [
      {
-      "implementors": [],
+      "implementors": [
+       {
+        "crate": "kkt-agent-client",
+        "type": "Client"
+       }
+      ],
       "trait": "Avatars"
      },
      {
-      "implementors": [],
+      "implementors": [
+       {
+        "crate": "kkt-agent-client",
+        "type": "Mcp"
+       }
+      ],
       "trait": "Servers"
      },
      {
-      "implementors": [],
+      "implementors": [
+       {
+        "crate": "kkt-agent-client",
+        "type": "AdminRemote"
+       },
+       {
+        "crate": "kkt-agent-client",
+        "type": "Remote"
+       }
+      ],
       "trait": "Watched"
      }
     ],
@@ -15837,8 +15784,47 @@ window.KKT_PROPOSED = {
       "dep:rmcp"
      ]
     },
-    "holders": [],
-    "implements": [],
+    "holders": [
+     {
+      "holds": [
+       {
+        "crate": "kkt-clock",
+        "trait": "Clock"
+       }
+      ],
+      "type": "AdminRemote"
+     }
+    ],
+    "implements": [
+     {
+      "crate": "kkt-agent-client",
+      "status": "decided",
+      "trait": "Avatars",
+      "trait_crate": "kkt-agent-client",
+      "type": "Client"
+     },
+     {
+      "crate": "kkt-agent-client",
+      "status": "decided",
+      "trait": "Servers",
+      "trait_crate": "kkt-agent-client",
+      "type": "Mcp"
+     },
+     {
+      "crate": "kkt-agent-client",
+      "status": "decided",
+      "trait": "Watched",
+      "trait_crate": "kkt-agent-client",
+      "type": "AdminRemote"
+     },
+     {
+      "crate": "kkt-agent-client",
+      "status": "decided",
+      "trait": "Watched",
+      "trait_crate": "kkt-agent-client",
+      "type": "Remote"
+     }
+    ],
     "items": [
      {
       "doc": "A server, as a client reaches it: its MCP endpoint and the key it is reached with. (step 12.4)",
@@ -15846,6 +15832,15 @@ window.KKT_PROPOSED = {
       "path": "Address",
       "proposed_item": true,
       "status": "decided"
+     },
+     {
+      "doc": "The watch contract over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included.",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "new"
+      ],
+      "path": "AdminRemote"
      },
      {
       "doc": "What a client asks of a server for an avatar: register, reclaim, describe. (step 12.4)",
@@ -15867,6 +15862,19 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "The server at `url`, reached with the access key `key` (if it needs one), with no agent credentials held in the transport.",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "describe_key",
+       "new",
+       "reclaim",
+       "register",
+       "set_description"
+      ],
+      "path": "Client"
+     },
+     {
       "doc": "Why a call to the server failed.",
       "kind": "enum",
       "path": "Failure",
@@ -15875,6 +15883,42 @@ window.KKT_PROPOSED = {
        "Refused",
        "KeyRefused"
       ]
+     },
+     {
+      "doc": "Plain HTTP requests, for the fake product's tests: a GET or POST, with redirects off and TCP_NODELAY on, giving an HttpReply whose HTTP library stays private (step 7.5).",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "get",
+       "new",
+       "post"
+      ],
+      "path": "Http",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A response whose HTTP library and streaming body stay private (step 7.5).",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "bytes_stream",
+       "header",
+       "header_text",
+       "status",
+       "text"
+      ],
+      "path": "HttpReply",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "kkt's servers over MCP, which the program injects as kkt-agent-client's Servers (step 12.4).",
+      "feature": "real",
+      "kind": "struct",
+      "path": "Mcp",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "A message the client reads.",
@@ -15910,6 +15954,16 @@ window.KKT_PROPOSED = {
       "path": "Registered"
      },
      {
+      "doc": "",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "from_client",
+       "new"
+      ],
+      "path": "Remote"
+     },
+     {
       "doc": "Clients of a server: Avatars and Watched for an Address. (step 12.4)",
       "kind": "trait",
       "methods": [
@@ -15918,6 +15972,13 @@ window.KKT_PROPOSED = {
        "admin"
       ],
       "path": "Servers",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "How much the watch asks for at a time, and how often it asks the admin endpoint. (step 3.1c-1)",
+      "kind": "struct",
+      "path": "Settings",
       "proposed_item": true,
       "status": "decided"
      },
@@ -15971,25 +16032,27 @@ window.KKT_PROPOSED = {
       "status": "decided"
      }
     ],
-    "kind": "contract",
+    "kind": "contract and effect",
     "lib": "kkt_agent_client",
     "machine_work": {},
     "name": "kkt-agent-client",
+    "optional_third_party": {
+     "reqwest": [
+      "real"
+     ],
+     "rmcp": [
+      "real"
+     ],
+     "serde_json": [
+      "real"
+     ],
+     "tokio": [
+      "real"
+     ]
+    },
     "path": "crates/kkt-agent-client",
     "proposed": "changed",
     "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "Client moves to kkt-agent-client-rmcp: the MCP client implements kkt-agent-client's contract (step 12.4)"
-     },
-     {
-      "status": "decided",
-      "text": "Remote moves to kkt-agent-client-rmcp: the MCP client implements kkt-agent-client's contract (step 12.4)"
-     },
-     {
-      "status": "decided",
-      "text": "AdminRemote moves to kkt-agent-client-rmcp: the MCP client implements kkt-agent-client's contract (step 12.4)"
-     },
      {
       "status": "decided",
       "text": "WATCH_ADMIN_NAME comes here from kkt-config, private"
@@ -16028,6 +16091,18 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Http"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "new struct HttpReply"
+     },
+     {
+      "status": "decided",
       "text": "new trait Servers"
      },
      {
@@ -16056,162 +16131,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the contract names no transport: rmcp, reqwest and the JSON go to kkt-agent-client-rmcp (step 12.4)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-watch in its code: kkt-agent-client stops depending on kkt-watch"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": [
-     "futures"
-    ]
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [],
-    "items": [
-     {
-      "doc": "The watch contract over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included.",
-      "feature": "real",
-      "kind": "struct",
-      "methods": [
-       "new"
-      ],
-      "moved_from": "kkt-agent-client",
-      "path": "AdminRemote",
-      "status": "decided"
-     },
-     {
-      "doc": "The server at `url`, reached with the access key `key` (if it needs one), with no agent credentials held in the transport.",
-      "feature": "real",
-      "kind": "struct",
-      "methods": [
-       "describe_key",
-       "new",
-       "reclaim",
-       "register",
-       "set_description"
-      ],
-      "moved_from": "kkt-agent-client",
-      "path": "Client",
-      "status": "decided"
-     },
-     {
-      "doc": "Plain HTTP requests, for the fake product's tests: a GET or POST, with redirects off and TCP_NODELAY on, giving an HttpReply whose HTTP library stays private (step 7.5).",
-      "feature": "real",
-      "kind": "struct",
-      "methods": [
-       "get",
-       "new",
-       "post"
-      ],
-      "path": "Http",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "A response whose HTTP library and streaming body stay private (step 7.5).",
-      "feature": "real",
-      "kind": "struct",
-      "methods": [
-       "bytes_stream",
-       "header",
-       "header_text",
-       "status",
-       "text"
-      ],
-      "path": "HttpReply",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "kkt's servers over MCP, which the program injects as kkt-agent-client's Servers (step 12.4).",
-      "feature": "real",
-      "kind": "struct",
-      "path": "Mcp",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "",
-      "feature": "real",
-      "kind": "struct",
-      "methods": [
-       "from_client",
-       "new"
-      ],
-      "moved_from": "kkt-agent-client",
-      "path": "Remote",
-      "status": "decided"
-     },
-     {
-      "doc": "How much the watch asks for at a time, and how often it asks the admin endpoint. (step 3.1c-1)",
-      "kind": "struct",
-      "path": "Settings",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_agent_client_rmcp",
-    "name": "kkt-agent-client-rmcp",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "Client comes here from kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "Remote comes here from kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "AdminRemote comes here from kkt-agent-client"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Http"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Settings"
-     },
-     {
-      "status": "decided",
-      "text": "new struct HttpReply"
-     },
-     {
-      "status": "decided",
       "text": "new struct Mcp"
      },
      {
       "status": "decided",
-      "text": "gains a real feature: what reaches the server or the machine (step 12.4)"
+      "text": "Mcp implements kkt-agent-client::Servers: the crate's one implementation of its own contract, behind real (step 13.6)"
      },
      {
       "status": "decided",
-      "text": "it implements the contract directly (step 12.4)"
+      "text": "Client implements kkt-agent-client::Avatars: the crate's one implementation of its own contract, behind real (step 13.6)"
      },
      {
       "status": "decided",
-      "text": "the admin watch's polling (step 12.4)"
+      "text": "Remote implements kkt-agent-client::Watched: the crate's one implementation of its own contract, behind real (step 13.6)"
+     },
+     {
+      "status": "decided",
+      "text": "AdminRemote implements kkt-agent-client::Watched: the crate's one implementation of its own contract, behind real (step 13.6)"
+     },
+     {
+      "status": "decided",
+      "text": "rmcp, reqwest, serde_json and tokio are optional, behind real: a crate that depends on kkt-agent-client without real gets the contract alone (step 13.6)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-watch in its code: kkt-agent-client stops depending on kkt-watch"
      }
     ],
     "released_program": false,
@@ -22570,7 +22514,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its tests drive the running product over HTTP with kkt-agent-client-rmcp's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
+      "text": "its tests drive the running product over HTTP with kkt-agent-client's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
      }
     ],
     "released_program": false,
@@ -32297,31 +32241,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-admission-os"
    },
    {
-    "features": [],
-    "from": "kashkeshet",
-    "items": [
-     "Watched"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Watched"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-agent-client"
-   },
-   {
     "features": [
      "real"
     ],
@@ -32329,18 +32248,20 @@ window.KKT_PROPOSED = {
     "items": [
      "AdminRemote",
      "Client",
+     "Failure",
      "Mcp",
      "Remote",
      "Settings"
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "new",
+    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
        "Client",
+       "Failure",
        "Mcp",
        "Settings"
       ],
@@ -32359,7 +32280,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-agent-client-rmcp"
+    "to": "kkt-agent-client"
    },
    {
     "features": [],
@@ -34134,78 +34055,6 @@ window.KKT_PROPOSED = {
       ],
       "role": "uses"
      }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-clock"
-   },
-   {
-    "features": [],
-    "from": "kkt-agent-client-rmcp",
-    "items": [
-     "Address",
-     "Avatars",
-     "Channel",
-     "Failure",
-     "Message",
-     "NewerLane",
-     "Reclaimed",
-     "Registered",
-     "Servers",
-     "Waited",
-     "Watched"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Address",
-       "Avatars",
-       "Channel",
-       "Failure",
-       "Message",
-       "NewerLane",
-       "Reclaimed",
-       "Registered",
-       "Servers",
-       "Waited",
-       "Watched"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-agent-client"
-   },
-   {
-    "features": [],
-    "from": "kkt-agent-client-rmcp",
-    "items": [
-     "Clock",
-     "Span"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Clock",
-       "Span"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -36097,7 +35946,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-agent-client-rmcp"
+    "to": "kkt-agent-client"
    },
    {
     "features": [],
@@ -42430,7 +42279,6 @@ window.KKT_PROPOSED = {
    }
   ],
   "kind_mismatches": [
-   "kkt-agent-client is marked contract but has an effect: a `real` feature or an I/O dependency",
    "kkt-service-launchd is marked effect but has no `real` feature and no I/O dependency",
    "kkt-service-systemd is marked effect but has no `real` feature and no I/O dependency",
    "kkt-lane-commit-git is marked effect but has no `real` feature and no I/O dependency"

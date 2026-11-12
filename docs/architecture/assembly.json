@@ -85,12 +85,12 @@
    "also": [
     {
      "title": "The agents' commands",
-     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-rmcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files-os' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client's Mcp, injected as it is as its Servers, kkt-agent-files-os' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
      "items": [
       "kashkeshet::machine::agent_parts::agent_parts",
       "kkt-agent-commands::AgentParts",
       "kashkeshet::machine::connection::ConnectionReads",
-      "kkt-agent-client-rmcp::Mcp",
+      "kkt-agent-client::Mcp",
       "kkt-agent-client::Servers",
       "kkt-agent-client::Watched",
       "kkt-agent-commands::register",
@@ -304,7 +304,7 @@
       }
      ],
      "note": "kkt register, reclaim and watch: injected as it is, with no adapter",
-     "impl": "kkt-agent-client-rmcp::Mcp"
+     "impl": "kkt-agent-client::Mcp"
     },
     {
      "own": "CredentialFiles, applying kkt-setup's credential-file rule to kkt-agent-files-os' credential and state files",

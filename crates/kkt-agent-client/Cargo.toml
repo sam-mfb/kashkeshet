@@ -1,6 +1,6 @@
 [package]
 name = "kkt-agent-client"
-description = "The contract for a client of kkt's server: avatars, and watching for messages"
+description = "A client of kkt's server: the contract (avatars, and watching for messages), and its implementation over MCP behind `real`"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,8 +10,17 @@ publish = false
 [dependencies]
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
+# Written out rather than left to the program: rmcp's client transport talks
+# TLS through reqwest's `rustls` (reorganization plan, risk 4).
+reqwest = { workspace = true, optional = true, features = ["rustls", "stream"] }
+rmcp = { workspace = true, optional = true, features = ["client", "transport-streamable-http-client-reqwest"] }
+serde_json = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
 
 [features]
+# `Mcp`, `Client`, `Remote`, `AdminRemote` and `Http`: they reach the server
+# over HTTP. Only programs turn it on.
+real = ["dep:reqwest", "dep:rmcp", "dep:serde_json", "dep:tokio"]
 # `testing`: `testing::Memory`, a stand-in server in memory.
 testing = []
 

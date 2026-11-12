@@ -51,10 +51,10 @@ kkt-terminal-os = { path = "../../crates/kkt-terminal-os", features = ["real"] }
 tokio.workspace = true
 
 [dev-dependencies]
-# The tests drive the running product over HTTP with kkt-agent-client-rmcp's
+# The tests drive the running product over HTTP with kkt-agent-client's
 # client, which only `real` builds. Tests should not turn on `real`; this is
 # a documented exception (.github/scripts/real-exceptions.json).
-kkt-agent-client-rmcp = { path = "../../crates/kkt-agent-client-rmcp", features = ["real"] }
+kkt-agent-client = { path = "../../crates/kkt-agent-client", features = ["real"] }
 futures.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
