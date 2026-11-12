@@ -1,0 +1,19 @@
+[package]
+name = "kkt-browser-os"
+description = "kkt-browser with the system's own opener: open on macOS, xdg-open elsewhere"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# Start the system's opener; the opener's choice and the failure wording
+# stay testable without it.
+real = []
+
+[dependencies]
+kkt-browser = { path = "../kkt-browser" }
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }

@@ -166,7 +166,9 @@ impl LoginLink for FakeLogin {
     fn open_requested(&self) -> bool {
         self.requests.borrow_mut().pop_front().unwrap_or(false)
     }
+}
 
+impl kkt_browser::Browser for FakeLogin {
     fn open(&self, url: &str) -> io::Result<()> {
         self.opened.borrow_mut().push(url.to_string());
         if self.open_fails.get() {
@@ -352,7 +354,10 @@ async fn a_local_setup_writes_the_files_starts_kkt_and_saves_the_key_privately()
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &FakeLogin::default(),
+        LinkAndBrowser {
+            link: &FakeLogin::default(),
+            browser: &FakeLogin::default(),
+        },
         &folder(),
         &plain(),
         Path::new("/keys/docker"),
@@ -414,7 +419,10 @@ async fn a_tailscale_setup_shows_the_login_link_once_and_uses_the_nodes_own_name
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &login,
+        LinkAndBrowser {
+            link: &login,
+            browser: &login,
+        },
         &folder(),
         &with_tailscale(None),
         Path::new("/keys/docker"),
@@ -461,7 +469,10 @@ async fn an_auth_key_goes_only_in_the_private_settings_file() {
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &FakeLogin::default(),
+        LinkAndBrowser {
+            link: &FakeLogin::default(),
+            browser: &FakeLogin::default(),
+        },
         &folder(),
         &with_tailscale(Some("tskey-auth-xyz")),
         Path::new("/keys/docker"),
@@ -482,7 +493,10 @@ async fn disabled_https_stops_setup_before_kkt_starts() {
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &FakeLogin::default(),
+        LinkAndBrowser {
+            link: &FakeLogin::default(),
+            browser: &FakeLogin::default(),
+        },
         &folder(),
         &with_tailscale(None),
         Path::new("/keys/docker"),
@@ -502,7 +516,10 @@ async fn waiting_for_a_login_gives_up_after_the_deadline() {
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &FakeLogin::default(),
+        LinkAndBrowser {
+            link: &FakeLogin::default(),
+            browser: &FakeLogin::default(),
+        },
         &folder(),
         &with_tailscale(None),
         Path::new("/keys/docker"),
@@ -527,7 +544,10 @@ async fn kkt_that_never_makes_a_key_is_a_start_timeout() {
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &FakeLogin::default(),
+        LinkAndBrowser {
+            link: &FakeLogin::default(),
+            browser: &FakeLogin::default(),
+        },
         &folder(),
         &plain(),
         Path::new("/keys/docker"),
@@ -545,7 +565,10 @@ async fn missing_docker_is_said_plainly_and_nothing_is_written() {
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &FakeLogin::default(),
+        LinkAndBrowser {
+            link: &FakeLogin::default(),
+            browser: &FakeLogin::default(),
+        },
         &folder(),
         &plain(),
         Path::new("/keys/docker"),
@@ -570,7 +593,10 @@ async fn a_failing_command_is_an_error_naming_it() {
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &FakeLogin::default(),
+        LinkAndBrowser {
+            link: &FakeLogin::default(),
+            browser: &FakeLogin::default(),
+        },
         &folder(),
         &plain(),
         Path::new("/keys/docker"),
@@ -1978,7 +2004,10 @@ async fn setup_saves_no_admin_key_for_a_server_without_one() {
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &FakeLogin::default(),
+        LinkAndBrowser {
+            link: &FakeLogin::default(),
+            browser: &FakeLogin::default(),
+        },
         &folder(),
         &plain(),
         Path::new("/keys/docker-access-key"),
@@ -2117,7 +2146,10 @@ async fn both_keys_go_in_a_folder_that_did_not_exist_yet() {
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &FakeLogin::default(),
+        LinkAndBrowser {
+            link: &FakeLogin::default(),
+            browser: &FakeLogin::default(),
+        },
         &folder(),
         &plain(),
         Path::new("/home/me/.config/kkt/docker-access-key"),
@@ -2188,7 +2220,10 @@ async fn the_link_is_opened_when_asked_and_setup_goes_on_watching_for_the_login(
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &login,
+        LinkAndBrowser {
+            link: &login,
+            browser: &login,
+        },
         &folder(),
         &with_tailscale(None),
         Path::new("/keys/docker"),
@@ -2229,7 +2264,10 @@ async fn a_link_that_cannot_be_opened_is_said_and_setup_carries_on() {
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &login,
+        LinkAndBrowser {
+            link: &login,
+            browser: &login,
+        },
         &folder(),
         &with_tailscale(None),
         Path::new("/keys/docker"),
@@ -2253,7 +2291,10 @@ async fn no_link_is_shown_when_no_login_is_needed() {
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &login,
+        LinkAndBrowser {
+            link: &login,
+            browser: &login,
+        },
         &folder(),
         &with_tailscale(Some("tskey-auth-xyz")),
         Path::new("/keys/docker"),
@@ -2284,7 +2325,10 @@ async fn an_opener_that_fails_after_starting_is_said_while_setup_goes_on_waiting
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &login,
+        LinkAndBrowser {
+            link: &login,
+            browser: &login,
+        },
         &folder(),
         &with_tailscale(None),
         Path::new("/keys/docker"),
@@ -2388,7 +2432,10 @@ async fn a_machine_that_needs_a_login_again_gets_its_container_restarted_for_a_l
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &login,
+        LinkAndBrowser {
+            link: &login,
+            browser: &login,
+        },
         &folder(),
         &with_tailscale(None),
         Path::new("/keys/docker"),
@@ -2433,7 +2480,10 @@ async fn a_new_machine_whose_link_comes_within_a_few_seconds_is_not_restarted() 
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &FakeLogin::default(),
+        LinkAndBrowser {
+            link: &FakeLogin::default(),
+            browser: &FakeLogin::default(),
+        },
         &folder(),
         &with_tailscale(None),
         Path::new("/keys/docker"),
@@ -2451,7 +2501,10 @@ async fn a_machine_that_is_already_logged_in_is_not_restarted_or_shown_a_link() 
         &host,
         &*host.clock,
         Settings::DEFAULT,
-        &login,
+        LinkAndBrowser {
+            link: &login,
+            browser: &login,
+        },
         &folder(),
         &with_tailscale(None),
         Path::new("/keys/docker"),

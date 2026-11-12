@@ -13,6 +13,7 @@ real = []
 
 [dependencies]
 futures.workspace = true
+kkt-browser = { path = "../kkt-browser" }
 kkt-container = { path = "../kkt-container" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-config-file = { path = "../kkt-config-file" }

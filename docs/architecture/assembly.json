@@ -738,7 +738,7 @@
      ]
     },
     {
-     "own": "TerminalLink, adapting the native browser link",
+     "own": "TerminalLink, adapting the terminal's half of the login link",
      "supplier": "kkt-terminal-os::BrowserLink",
      "crate": "kkt-operate",
      "to": [
@@ -791,6 +791,17 @@
       }
      ],
      "note": "kkt connect: Claude Code's own command, injected as it is"
+    },
+    {
+     "impl": "kkt-browser-os::SystemBrowser",
+     "crate": "kkt-container-docker",
+     "to": [
+      {
+       "at": "Docker::new",
+       "param": "browser"
+      }
+     ],
+     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener, given to the Docker wrapper as it is"
     }
    ],
    "inferred": false

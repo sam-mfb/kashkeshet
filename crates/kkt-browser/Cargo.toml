@@ -1,0 +1,12 @@
+[package]
+name = "kkt-browser"
+description = "The contract for opening a link in the person's browser"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# `testing`: `testing::Recorder`, which records each link and can fail.
+testing = []

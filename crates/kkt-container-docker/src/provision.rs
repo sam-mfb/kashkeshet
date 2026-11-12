@@ -18,6 +18,14 @@ use std::time::Duration;
 /// must belong to it.
 const DOCKER_IMAGE_USER_ID: u32 = 10001;
 
+/// A sharing setup's login: the link shown to the person (the caller's), and
+/// the browser it opens in when they ask (the wrapper's).
+#[derive(Clone, Copy)]
+pub struct LinkAndBrowser<'a> {
+    pub link: &'a dyn LoginLink,
+    pub browser: &'a dyn kkt_browser::Browser,
+}
+
 /// Writes the files for `inputs` into `folder`, starts kkt (and Tailscale)
 /// and saves the access key at `key_file` and the web key beside it, both
 /// readable only by their owner. It waits on the containers as `settings`
@@ -27,7 +35,7 @@ pub async fn provision(
     host: &dyn Runner,
     clock: &dyn Clock,
     settings: Settings,
-    login: &dyn LoginLink,
+    login: LinkAndBrowser<'_>,
     folder: &Folder,
     inputs: &Inputs,
     key_file: &Path,
@@ -242,9 +250,13 @@ async fn log_in(
     host: &dyn Runner,
     clock: &dyn Clock,
     settings: Settings,
-    login: &dyn LoginLink,
+    login: LinkAndBrowser<'_>,
     folder: &Folder,
 ) -> Result<(String, String), DockerError> {
+    let LinkAndBrowser {
+        link: login,
+        browser,
+    } = login;
     let status = tailscale_status(folder);
     let mut said_link = false;
     // Polls spent logged out with no link, and whether the container has been
@@ -283,14 +295,14 @@ async fn log_in(
                         said_link = true;
                     }
                     if login.open_requested() {
-                        match login.open(url) {
+                        match browser.open(url) {
                             Ok(()) => host.say("Opening the link in your browser..."),
                             Err(e) => host.say(&format!(
                                 "Could not open a browser ({e}); open the link above yourself."
                             )),
                         }
                     }
-                    if let Some(why) = login.open_failure() {
+                    if let Some(why) = browser.open_failure() {
                         host.say(&format!(
                             "Could not open a browser ({why}); open the link above yourself."
                         ));
