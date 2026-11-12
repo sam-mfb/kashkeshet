@@ -318,14 +318,6 @@ window.KKT_PROPOSED = {
       "to": "kkt-container::LoginLink"
      },
      {
-      "adapts": "kkt-lane-files-os::OsDisk",
-      "large": false,
-      "methods": 1,
-      "note": "1 method: runs git through OsDisk and translates its output to Ran (step 2.6)",
-      "status": "decided",
-      "to": "kkt-lane-files::git::Git"
-     },
-     {
       "adapts": "kkt-agent-files-os::StateFile",
       "large": false,
       "methods": 2,
@@ -651,8 +643,7 @@ window.KKT_PROPOSED = {
       "impl": "kkt-lane-files-os::OsDisk",
       "note": "kkt lanes import and export, kkt setup --lanes",
       "through_adapter": [
-       "kkt-lane-files::Disk",
-       "kkt-lane-files::git::Git"
+       "kkt-lane-files::Disk"
       ],
       "to": [
        {
@@ -1492,6 +1483,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-identity-keymode"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-lane-commit-git"
    },
    {
     "from": "kashkeshet",
@@ -2513,6 +2513,24 @@ window.KKT_PROPOSED = {
     "to": "kkt-web"
    },
    {
+    "from": "kkt-lane-commit-git",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-lane-commit"
+   },
+   {
+    "from": "kkt-lane-files",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-lane-commit"
+   },
+   {
     "from": "kkt-logs-os",
     "kind": "dev",
     "role": "uses",
@@ -2741,6 +2759,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-diagnostics"
+   },
+   {
+    "from": "kkt-operate",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-lane-commit"
    },
    {
     "from": "kkt-operate",
@@ -5403,6 +5430,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Builds Git and hands it directly to kkt-operate (12.5a)."
+     },
+     {
+      "status": "decided",
       "text": "the program gives the Docker wrapper the system's opener as it is (step 12.5d)"
      }
     ]
@@ -7829,6 +7860,52 @@ window.KKT_PROPOSED = {
     ]
    },
    {
+    "crate": "kkt-lane-commit",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-lane-files"
+     },
+     {
+      "status": "decided",
+      "text": "new trait LaneCommit"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "testing::Memory implements kkt-lane-commit::LaneCommit: The contract owns its testing stand-in (12.5a)."
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.5a)."
+     }
+    ]
+   },
+   {
+    "crate": "kkt-lane-commit-git",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-lane-files"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Git"
+     },
+     {
+      "status": "decided",
+      "text": "Git implements kkt-lane-commit::LaneCommit: A tool wrapper implements its scope contract directly (step 12.5a)."
+     },
+     {
+      "status": "decided",
+      "text": "The named wrapper implements the scope contract directly (12.5a)."
+     }
+    ]
+   },
+   {
     "crate": "kkt-lane-files",
     "notes": [
      {
@@ -7837,23 +7914,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new mod git"
-     },
-     {
-      "status": "decided",
-      "text": "new trait git::Git"
-     },
-     {
-      "status": "decided",
-      "text": "new struct git::Ran"
-     },
-     {
-      "status": "decided",
-      "text": "new fn git::commit"
-     },
-     {
-      "status": "decided",
       "text": "its real feature moves to kkt-lane-files-os"
+     },
+     {
+      "status": "decided",
+      "text": "read_folder asks the folder's commit (12.5a)."
      }
     ]
    },
@@ -7867,14 +7932,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsDisk comes here from kkt-lane-files"
-     },
-     {
-      "status": "decided",
-      "text": "OsDisk gains git: runs a git command and gives its output; the program adapts it to kkt-lane-files' Git"
-     },
-     {
-      "status": "decided",
-      "text": "new struct GitOutput"
      },
      {
       "status": "decided",
@@ -8639,6 +8696,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "OperateParts takes lane_commit: injected by the program: git, directly (step 12.5a)"
+     },
+     {
+      "status": "decided",
       "text": "what its commands use of kkt-setup (steps 10.2b and 10.2a)"
      },
      {
@@ -8704,6 +8765,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OperateParts takes the client command (step 12.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "OperateParts takes the lane folder's commit (12.5a)."
      }
     ]
    },
@@ -11494,15 +11559,27 @@ window.KKT_PROPOSED = {
     "must_not": "Do machine work itself: files, the terminal and the log go through the effect crates.",
     "status": "decided"
    },
+   "kkt-lane-commit": {
+    "concern": "The project's contract for the commit a lane folder is at (LaneCommit), with its testing stand-in; no tool knowledge (step 12.5a).",
+    "kind": "contract",
+    "layer": "operations",
+    "status": "decided"
+   },
+   "kkt-lane-commit-git": {
+    "concern": "Implements LaneCommit directly with git: its commands, what their answers mean and the wording of a failure, tested against a private runner; running git is behind real (step 12.5a, option a).",
+    "kind": "effect",
+    "layer": "operations",
+    "status": "decided"
+   },
    "kkt-lane-files": {
-    "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit. It declares the `Disk` it works through; the real one is in kkt-lane-files-os, adapted by the program.",
+    "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit it is at from kkt-lane-commit's LaneCommit. It declares the `Disk` it works through; the real one is in kkt-lane-files-os, adapted by the program.",
     "kind": "logic",
     "layer": "operations",
     "must_not": "Touch the disk except through `Disk`.",
     "status": "decided"
    },
    "kkt-lane-files-os": {
-    "concern": "The disk and git under a lane folder: `OsDisk`, a plain type that implements nothing; the program adapts it to kkt-lane-files's `Disk`. kkt-lane-files's `real` feature moves here.",
+    "concern": "The disk under a lane folder: `OsDisk`, a plain type that implements nothing; the program adapts it to kkt-lane-files's `Disk`. The folder's git commit went to kkt-lane-commit-git (step 12.5a).",
     "kind": "effect",
     "layer": "operations",
     "status": "decided"
@@ -13999,15 +14076,6 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-lane-files-os::OsDisk",
-      "crate": "kashkeshet",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "git::Git",
-      "trait_crate": "kkt-lane-files",
-      "type": null
-     },
-     {
       "crate": "kashkeshet",
       "trait": "AdoptSteps",
       "trait_crate": "kkt-setup",
@@ -14990,6 +15058,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Builds Systemd for its platform and hands it directly to kkt-operate (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "Builds Git and hands it directly to kkt-operate (12.5a)."
      },
      {
       "status": "decided",
@@ -23052,12 +23124,145 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kashkeshet",
-        "type": null
+        "crate": "kkt-lane-commit",
+        "type": "testing::Memory"
+       },
+       {
+        "crate": "kkt-lane-commit-git",
+        "type": "Git"
        }
       ],
-      "trait": "Disk"
+      "trait": "LaneCommit"
+     }
+    ],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "testing": []
+    },
+    "holders": [],
+    "implements": [
+     {
+      "crate": "kkt-lane-commit",
+      "status": "decided",
+      "trait": "LaneCommit",
+      "trait_crate": "kkt-lane-commit",
+      "type": "testing::Memory"
+     }
+    ],
+    "items": [
+     {
+      "doc": "The commit a lane folder is at (step 12.5a).",
+      "kind": "trait",
+      "methods": [
+       "commit"
+      ],
+      "path": "LaneCommit",
+      "proposed_item": true,
+      "status": "decided"
      },
+     {
+      "doc": "Folders and the commits they are at, in memory (step 12.5a).",
+      "feature": "testing",
+      "kind": "struct",
+      "methods": [
+       "new",
+       "at"
+      ],
+      "path": "testing::Memory",
+      "proposed_item": true,
+      "status": "decided"
+     }
+    ],
+    "kind": "contract",
+    "lib": "kkt_lane_commit",
+    "name": "kkt-lane-commit",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-lane-files"
+     },
+     {
+      "status": "decided",
+      "text": "new trait LaneCommit"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "testing::Memory implements kkt-lane-commit::LaneCommit: The contract owns its testing stand-in (12.5a)."
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.5a)."
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {},
+    "holders": [],
+    "implements": [
+     {
+      "crate": "kkt-lane-commit-git",
+      "status": "decided",
+      "trait": "LaneCommit",
+      "trait_crate": "kkt-lane-commit",
+      "type": "Git"
+     }
+    ],
+    "items": [
+     {
+      "doc": "The machine's git, asked where a lane folder is (step 12.5a).",
+      "feature": "real",
+      "kind": "struct",
+      "path": "Git",
+      "proposed_item": true,
+      "status": "decided"
+     }
+    ],
+    "kind": "effect",
+    "lib": "kkt_lane_commit_git",
+    "name": "kkt-lane-commit-git",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-lane-files"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Git"
+     },
+     {
+      "status": "decided",
+      "text": "Git implements kkt-lane-commit::LaneCommit: A tool wrapper implements its scope contract directly (step 12.5a)."
+     },
+     {
+      "status": "decided",
+      "text": "The named wrapper implements the scope contract directly (12.5a)."
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [
      {
       "implementors": [
        {
@@ -23065,7 +23270,7 @@ window.KKT_PROPOSED = {
         "type": null
        }
       ],
-      "trait": "git::Git"
+      "trait": "Disk"
      }
     ],
     "crate_doc": "Lanes as files on disk: a folder with one Markdown file per lane, `<lane>.md` (see `format`), which `kkt lanes export` writes and `kkt lanes import` reads, and the folder's git commit, which an import records.",
@@ -23141,37 +23346,6 @@ window.KKT_PROPOSED = {
       "path": "file_name"
      },
      {
-      "doc": "What git's answers mean for a lane folder: its commit, a dirty suffix, an expected absence, and the error wording.",
-      "kind": "mod",
-      "path": "git",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Runs one git command in a folder and gives back what it printed; kkt-lane-files' own contract.",
-      "kind": "trait",
-      "methods": [
-       "run"
-      ],
-      "path": "git::Git",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "What one git command gave back: its exit code and output.",
-      "kind": "struct",
-      "path": "git::Ran",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "The folder's commit, from git's answers, with a dirty suffix when it has changes; none outside git.",
-      "kind": "fn",
-      "path": "git::commit",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "Reads a lane file whose name, without `.md`, is `stem`.",
       "kind": "fn",
       "path": "parse"
@@ -23214,23 +23388,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new mod git"
-     },
-     {
-      "status": "decided",
-      "text": "new trait git::Git"
-     },
-     {
-      "status": "decided",
-      "text": "new struct git::Ran"
-     },
-     {
-      "status": "decided",
-      "text": "new fn git::commit"
-     },
-     {
-      "status": "decided",
       "text": "its real feature moves to kkt-lane-files-os"
+     },
+     {
+      "status": "decided",
+      "text": "read_folder asks the folder's commit (12.5a)."
      }
     ],
     "released_program": false,
@@ -23273,20 +23435,9 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "What running git gave back, in kkt-lane-files-os' own terms; the program translates it to kkt-lane-files' Ran.",
-      "feature": "real",
-      "kind": "struct",
-      "path": "GitOutput",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "The machine's files, and its `git`.",
       "feature": "real",
       "kind": "struct",
-      "methods": [
-       "git"
-      ],
       "moved_from": "kkt-lane-files",
       "path": "OsDisk",
       "status": "decided"
@@ -23305,14 +23456,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OsDisk comes here from kkt-lane-files"
-     },
-     {
-      "status": "decided",
-      "text": "OsDisk gains git: runs a git command and gives its output; the program adapts it to kkt-lane-files' Git"
-     },
-     {
-      "status": "decided",
-      "text": "new struct GitOutput"
      },
      {
       "status": "decided",
@@ -25437,6 +25580,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "OperateParts takes lane_commit: injected by the program: git, directly (step 12.5a)"
+     },
+     {
+      "status": "decided",
       "text": "what its commands use of kkt-setup (steps 10.2b and 10.2a)"
      },
      {
@@ -25502,6 +25649,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "OperateParts takes the client command (step 12.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "OperateParts takes the lane folder's commit (12.5a)."
      }
     ],
     "released_program": false,
@@ -25615,10 +25766,6 @@ window.KKT_PROPOSED = {
        {
         "crate": "kkt-lane-files",
         "trait": "Disk"
-       },
-       {
-        "crate": "kkt-lane-files",
-        "trait": "git::Git"
        }
       ]
      },
@@ -25759,6 +25906,20 @@ window.KKT_PROPOSED = {
        {
         "crate": "kkt-operate",
         "trait": "Output"
+       }
+      ]
+     },
+     {
+      "at": "OperateParts",
+      "kind": "param",
+      "name": "lane_commit",
+      "note": "injected by the program: git, directly (step 12.5a)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-lane-commit",
+        "trait": "LaneCommit"
        }
       ]
      }
@@ -32832,6 +32993,31 @@ window.KKT_PROPOSED = {
    {
     "features": [],
     "from": "kashkeshet",
+    "items": [
+     "Git"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "Git"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-lane-commit-git"
+   },
+   {
+    "features": [],
+    "from": "kashkeshet",
     "items": [],
     "kind": "normal",
     "optional": false,
@@ -32840,8 +33026,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "adapter for kkt-lane-files-os::OsDisk implements Disk",
-       "adapter for kkt-lane-files-os::OsDisk implements git::Git"
+       "adapter for kkt-lane-files-os::OsDisk implements Disk"
       ],
       "role": "implements"
      }
@@ -37707,6 +37892,56 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
+    "from": "kkt-lane-commit-git",
+    "items": [
+     "LaneCommit"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "Git implements LaneCommit"
+      ],
+      "role": "implements"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-lane-commit"
+   },
+   {
+    "features": [],
+    "from": "kkt-lane-files",
+    "items": [
+     "LaneCommit"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "LaneCommit"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-lane-commit"
+   },
+   {
+    "features": [],
     "from": "kkt-logs",
     "items": [
      "OutOfRange",
@@ -38707,12 +38942,36 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-operate",
     "items": [
+     "LaneCommit"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "LaneCommit"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-lane-commit"
+   },
+   {
+    "features": [],
+    "from": "kkt-operate",
+    "items": [
      "Disk",
      "LaneFile",
      "Read",
      "Skipped",
      "file_name",
-     "git::Git",
      "read_folder",
      "write_folder"
     ],
@@ -38728,7 +38987,6 @@ window.KKT_PROPOSED = {
        "Read",
        "Skipped",
        "file_name",
-       "git::Git",
        "read_folder",
        "write_folder"
       ],
@@ -41938,7 +42196,8 @@ window.KKT_PROPOSED = {
   "kind_mismatches": [
    "kkt-agent-client is marked contract but has an effect: a `real` feature or an I/O dependency",
    "kkt-service-launchd is marked effect but has no `real` feature and no I/O dependency",
-   "kkt-service-systemd is marked effect but has no `real` feature and no I/O dependency"
+   "kkt-service-systemd is marked effect but has no `real` feature and no I/O dependency",
+   "kkt-lane-commit-git is marked effect but has no `real` feature and no I/O dependency"
   ],
   "pending": []
  },

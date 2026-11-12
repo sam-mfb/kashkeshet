@@ -70,6 +70,14 @@ The shared crates are reorganized so that every dependency is injected and each 
   Claude Code. `kkt_client_config::Host` and kkt-client-config-os' `OsHost`
   lose `claude`, and `configure` takes a `&dyn ClientCommand` after the
   host. The commands run and their messages are unchanged.
+- **Lane folder commit contract.** `kkt-lane-commit::LaneCommit` asks the
+  commit a lane folder is at, in kkt's terms, with `testing::Memory` for
+  tests. `kkt-lane-commit-git::Git` (behind `real`) implements it directly,
+  with git's meaning, which moves out of kkt-lane-files (its `git` module and
+  `Git`, `Ran` and `commit` go). `kkt_lane_files::Disk` loses `git_commit`,
+  `read_folder` takes the `LaneCommit` beside the `Disk`, and
+  `kkt-lane-files-os` loses `git` and `GitOutput`. `OperateParts` gains
+  `lane_commit`. Messages and the commits recorded are unchanged.
 - **Browser contract.** `kkt-browser::Browser` (start opening a link; say
   later, once, if that failed; `testing::Recorder`) is how a sharing
   setup's login link opens. `kkt-browser-os::SystemBrowser` (behind `real`)
