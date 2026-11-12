@@ -49,10 +49,10 @@
   <section class="canvas" aria-label="Crate graph">
     <div class="layers-all" role="group" aria-label="Every layer at once">Layers: <button type="button" id="layers-show" class="linkish-button">Show all</button><span aria-hidden="true">|</span><button type="button" id="layers-hide" class="linkish-button">Hide all</button></div>
     <svg id="graph" role="img" aria-labelledby="graph-title">
-      <title id="graph-title">The workspace's crates by layer, with arrows from each crate to its dependencies</title>
+      <title id="graph-title">The workspace's crates by layer, with arrows between each crate and its dependencies</title>
     </svg>
     <div class="legend key-legend" id="key" aria-label="Key"></div>
-    <p class="hint muted">Click a crate for its details in the panel. Tick the box on its corner to light up its arrows, neighbours and delivery lines; tick several to see them together. Click the eye on a program to hide it, and a layer's name to hide that layer. Arrows point from a crate to what it depends on; hover an arrow for its roles and what flows along it.</p>
+    <p class="hint muted">Click a crate for its details in the panel. Tick the box on its corner to light up its arrows, neighbours and delivery lines; tick several to see them together. Click the eye on a program to hide it, and a layer's name to hide that layer. Arrows run from a crate to the crates that use or build it, and from an implementer to its contract; hover an arrow for its roles and what flows along it.</p>
   </section>
   <aside id="panel" class="panel" aria-live="polite"></aside>
 </main>

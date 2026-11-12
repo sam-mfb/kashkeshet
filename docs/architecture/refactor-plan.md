@@ -1627,46 +1627,40 @@ earlier ruling of 2026-11-12.
 - **`real-exceptions.json`:** the fake product's entry names
   kkt-agent-client again (13.6).
 
-**The map: a merged crate's two kinds of dependency** (a proposal; nothing
-built yet). Sam wants the map to show which dependency on a merged crate
-is on its contract only (built without `real`), and which is on its
-implementation (turning `real` on). For the drawing, the data already
-holds what is needed: each arrow records the features it turns on, and
-each item whether it is behind `real`. (The kind's check needs more data;
+**The map: a merged crate's two kinds of dependency** (built in 13.9).
+Sam wants the map to show which dependency on a merged crate is on its
+contract only (built without `real`), and which is on its implementation
+(turning `real` on). The data already holds what the drawing needs: each
+arrow records the features it turns on and whether it is optional, and
+each item whether it is behind `real`. (The kind's check needed more data;
 see 13.0 above.)
 
-- **The box:** a merged crate is drawn in two parts, one above the other,
-  with a thin divider.
-  - The top part is the contract: its name and the items outside `real`.
-  - The bottom part is the implementation: the items behind `real`,
-    labelled with the tool.
+- **The box,** as built: split left and right, not top and bottom as first
+  proposed. Every arrow into a merged crate comes from a layer above it,
+  so with the parts stacked, an arrow to the lower part would cross the
+  upper one. Side by side, each part has its own top and bottom edge.
+  - The left part is the contract: the crate's name and its subtitle.
+  - The right part is a tinted strip labelled `real`: the implementation.
 - **The arrows:**
-  - An arrow that does not turn `real` on (a consumer's grey "uses") lands
-    on the contract part.
+  - An arrow that does not turn `real` on (a consumer's grey "uses") meets
+    the contract part.
   - An arrow that turns it on (the program's amber "wires", or the fake
-    product's dashed test arrow) lands on the implementation part.
-- **The crate's own implementation:** a small green hollow-triangle mark
-  inside the box, from the bottom part to the top. Today an
-  implementation of a crate's own trait is not drawn, so a merged crate
-  would otherwise show no "implements" at all.
-- **The panel** lists the two parts' items under two headings, and says
-  which crates depend on each part.
-- **generate.py:** each crate gets `parts` (the contract's items and the
-  implementation's, from each item's feature) when its kind is "contract
-  and effect". Each arrow into such a crate gets `lands`: "implementation"
-  if its features include `real`, else "contract". Each `implements` of a
-  crate's own trait is kept for these crates.
-- **map.js:**
-  - such a box is drawn taller, split, with the endpoint of each arrow on
-    the part named by `lands`;
-  - the inner mark is drawn;
-  - the panel shows the two lists;
-  - the key explains the split box.
-- **page-test.js:** a check that a merged crate's box has both parts, and
-  that a consumer's arrow and the program's arrow land on different parts.
+    product's dashed test arrow) meets the implementation part.
+  - The merged crate's own optional dependencies, which only `real` turns
+    on, leave from the implementation part; its others from the contract.
+- **The crate's own implementation:** a small hollow green triangle on the
+  divider, pointing from the implementation at the contract. An
+  implementation of a crate's own trait is not drawn as an arrow, so a
+  merged crate would otherwise show no "implements" at all.
+- **The panel** lists the two parts' items, and which crates include each
+  part ("Its two parts").
+- **generate.py:** nothing. map.js reads the crate's kind, each arrow's
+  features and whether it is optional.
+- **page-test.js:** checks that a merged crate's box has its
+  implementation part, that a consumer's arrow and the program's meet
+  different parts, and that the panel lists both parts.
 
-**Which way the arrows point** (Sam, msg 3155; a proposal, nothing built
-yet). The map draws "A depends on B" as A → B. Sam reads a dependency the
+**Which way the arrows point** (Sam, msg 3155; built in 13.9). The map draws "A depends on B" as A → B. Sam reads a dependency the
 other way: B is included in A, so the arrow runs from the thing to where
 it goes. Proposed as the default:
 
@@ -1720,6 +1714,8 @@ later, if Sam wants the same reading there.
 - **index.html:** the hint.
 - **README.md:** the arrows' section.
 - **page-test.js:** a check that a "uses" arrow's head is at the user.
+  It also picks the "logic" kind in the Crates menu by name: since 13.0
+  and 13.6, "contract and effect" is listed before it.
 - **generate.py:** nothing.
 
 **Steps.** One pull request each into `refactor`. Each
@@ -1739,7 +1735,7 @@ kkt-review-b, and its plan and map work by kkt-review-373.
 | 13.6 | kkt-agent-client merges with kkt-agent-client-rmcp | M | kkt-mt-step1 | kkt-review-b |
 | 13.7 | kkt-client-command merges with kkt-client-command-claude (Sam's answer 1) | S | kkt-mt-step1 | kkt-review-b |
 | 13.8 | kkt-machine's `Machine` trait and `FixedMachine` go; kkt-machine-os gives `env()` and `platform()` as plain functions (Sam's answer 3) | S | kkt-mt-step1 | kkt-review-b |
-| 13.9 | The map: split boxes and the arrows' direction (generate.py, map.js, index.html, README.md, page-test.js) | M | kkt-mt-step1 | kkt-review-373 |
+| 13.9 | The map: split boxes and the arrows' direction (map.js, map.css, index.html, README.md, page-test.js) | M | kkt-mt-step1 | kkt-review-373 |
 | 13.10 | Chart what differs, and the scorecard | S | kkt-mt-step1 | kkt-review-373 |
 
 13.0 comes first. 13.1 to 13.8 can then run side by side: each touches its

@@ -60,6 +60,32 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       const home = await places();
       check(m("nothing ticked, every arrow faint"), (await p.$$eval("path.edge:not(.faint)", (x) => x.length)) === 0);
 
+      // A merged crate's box is split, and an arrow that turns its `real`
+      // on meets the implementation part, right of one that does not.
+      const merged = "kkt-agent-client";
+      check(m("a merged crate's box has its implementation part"),
+        (await p.$$eval(`${node(merged)} .impl-part`, (x) => x.length)) === 1);
+      const endX = (from) => p.$eval(`path.edge[data-edge='${from}>${merged}>normal'][data-head]`, (path) => {
+        const box = path.ownerSVGElement.querySelector(`.node[aria-label^='${path.dataset.edge.split(">")[1]}:']`);
+        const at = path.getPointAtLength(path.getTotalLength());
+        return at.x - box.transform.baseVal[0].matrix.e;
+      });
+      const contractX = await endX("kkt-agent-commands");
+      const implementationX = await endX("kashkeshet");
+      check(m("a consumer's arrow meets the contract, the program's the implementation"),
+        contractX < implementationX - 40, { contractX, implementationX });
+      // A "uses" arrow's head is at the user: drawn from the used crate.
+      const head = await p.$eval(`path.edge[data-edge='kkt-agent-commands>${merged}>normal'][data-head]`,
+        (path) => [path.getAttribute("marker-start"), path.getAttribute("marker-end"), path.dataset.head]);
+      check(m("a uses arrow points at the crate that uses"),
+        head[0] === "url(#head-uses)" && head[1] === null && head[2] === "kkt-agent-commands", head);
+      // Its panel lists the two parts, and which crates include each.
+      await p.click(`${node(merged)} > rect`);
+      const parts = await p.$eval("#panel", (panel) => panel.innerText);
+      check(m("a merged crate's panel lists its two parts"),
+        /Contract \(\d+\): .*Servers/.test(parts) && /Implementation, behind real \(\d+\): .*Mcp/.test(parts)
+          && /turning real on: .*kashkeshet/.test(parts) && /the contract only: .*kkt-agent-commands/.test(parts), parts.slice(0, 200));
+
       // Clicking a box shows it in the panel and highlights nothing.
       await p.click(`${node("kkt-hosts")} > rect`);
       const panel = (await read()).panel;
@@ -111,10 +137,13 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
 
       // Every filter, then undone.
       await p.click("#crates-button");
-      await p.click("#kind-filters input >> nth=1");
+      // The logic kind, by name: which kinds are listed, and in what order,
+      // follows the crates the map has.
+      const logic = "#kind-filters input[data-key='kind:logic']";
+      await p.click(logic);
       await same(m("a kind hidden"), "kkt-server", panel);
       await unmoved(m("a kind hidden"), home);
-      await p.click("#kind-filters input >> nth=1");
+      await p.click(logic);
       await same(m("the kind back"), both, panel);
       await unmoved(m("the kind back"), home);
       await p.click("#show-dev-crates");
