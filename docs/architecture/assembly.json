@@ -93,6 +93,24 @@
       "kkt-clock-system::SystemClock",
       "kkt-terminal-os::Terminal"
      ]
+    },
+    {
+     "title": "The operator's base commands",
+     "text": "The program supplies native containers, services, client files, probes, lane disk, clock, setup/key files, database and terminal through OperateParts. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults; the program constructs that capability with ServeArgs, while record/config-only parts cannot ask it. CLI parsing and serving remain in the program.",
+     "items": [
+      "kkt-operate::OperateParts",
+      "kkt-operate::ServeFacts",
+      "kkt-operate::ServiceDefaults",
+      "kkt-operate::SetupFiles",
+      "kkt-operate::KeyFiles",
+      "kkt-operate::Databases",
+      "kkt-operate::Output",
+      "kkt-setup::connection::ConnectionSource",
+      "kkt-operate::agent::run",
+      "kkt-operate::doctor::run",
+      "kkt-operate::lanes::run",
+      "kkt-operate::key::create"
+     ]
     }
    ],
    "wiring": [
@@ -665,6 +683,138 @@
       }
      ],
      "note": "The MCP endpoints and web page share the program's log."
+    },
+    {
+     "own": "ContainerHost",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "container"
+      }
+     ],
+     "supplier": "kkt-container-os::OsHost"
+    },
+    {
+     "own": "ContainerConfigs",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "container_configs"
+      }
+     ]
+    },
+    {
+     "own": "ServiceSystem",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "service"
+      }
+     ],
+     "supplier": "kkt-service-os::OsSystem"
+    },
+    {
+     "own": "RemoteHost",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "remote"
+      }
+     ]
+    },
+    {
+     "own": "ClientHost",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "clients"
+      }
+     ]
+    },
+    {
+     "own": "DiagnosticProber",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "prober"
+      }
+     ]
+    },
+    {
+     "own": "LaneDisk",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "lanes"
+      }
+     ]
+    },
+    {
+     "own": "ServeReads, answering the program's serving questions lazily",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "serve"
+      }
+     ]
+    },
+    {
+     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "setup_files"
+      }
+     ]
+    },
+    {
+     "own": "NativeKeyFiles, forwarding key files to kkt-admission-os and generation to kkt-entropy-os",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "key_files"
+      }
+     ]
+    },
+    {
+     "own": "NativeDatabases, opening this program's database",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "database"
+      }
+     ]
+    },
+    {
+     "own": "NativeOutput, adapting kkt-terminal-os",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "output"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "clock"
+      }
+     ]
     }
    ],
    "inferred": false

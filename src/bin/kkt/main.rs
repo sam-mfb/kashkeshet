@@ -4,8 +4,8 @@
 
 mod cli;
 
-use kashkeshet::commands::agent::{self, AgentAction};
-use kashkeshet::commands::lanes::{self, LanesAction};
+use kashkeshet::commands::agent;
+use kashkeshet::commands::lanes;
 use kashkeshet::commands::lifecycle;
 use kashkeshet::commands::serve;
 use kashkeshet::commands::service::{self, ServiceAction, ServiceInstall};
@@ -13,7 +13,6 @@ use kashkeshet::commands::setup::InstallOptions;
 use kashkeshet::commands::watch::{self, WatchTask};
 use kashkeshet::commands::{self, connect, doctor, key};
 use kashkeshet::machine::connection::ConnectionOptions;
-use kashkeshet::machine::keys::KeyKind;
 use kashkeshet::machine::record::check_setup;
 use kashkeshet::machine::settings::ServeArgs;
 use kashkeshet::machine::settings::ServeOptions;
@@ -22,6 +21,9 @@ use kkt_logs::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
 use kkt_logs_os::{init_logging, init_stderr_logging};
 use kkt_machine::{Env, Machine, Platform};
 use kkt_machine_os::OsMachine;
+use kkt_operate::agent::AgentAction;
+use kkt_operate::keys::KeyKind;
+use kkt_operate::lanes::LanesAction;
 use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
 use kkt_terminal_os::end_on_closed_output;
@@ -184,7 +186,7 @@ async fn run(
             env,
             platform,
             serve_args,
-            key::NewKey {
+            kkt_operate::key::NewKey {
                 kind,
                 path,
                 name: name.as_deref(),

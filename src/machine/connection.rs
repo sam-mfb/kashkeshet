@@ -15,9 +15,9 @@ pub use setup::connection::{Connection, ConnectionOptions};
 use setup::connection::{ConnectionSource, ServeConnection};
 use std::path::Path;
 
-struct ConnectionReads<'a> {
-    env: &'a Env,
-    platform: Platform,
+pub(crate) struct ConnectionReads<'a> {
+    pub(crate) env: &'a Env,
+    pub(crate) platform: Platform,
 }
 
 impl ConnectionSource for ConnectionReads<'_> {
