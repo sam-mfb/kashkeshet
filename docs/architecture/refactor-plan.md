@@ -1284,6 +1284,32 @@ adapter. This holds even with one implementation. Step 12.1, remote-access,
 is the pilot (kkt-build-c). No other conversion starts until Sam has seen the
 table below.
 
+**Sam's answers to the survey's questions (2026-11-12, msg 3047).**
+
+1. **Libraries.** RUST.md rule 7 already answers it: every third-party
+   crate is wrapped by project crates, and its types stay inside them;
+   language-shaping crates are exempt. No new rule.
+2. **Programs that come with the system count**, the browser opener
+   included. The point is easy testing as well as swapping. So the opener
+   splits.
+3. **Still open: what is inside a tool's wrapper.** Two options are before
+   Sam:
+   - (a) One crate per tool. It holds the tool's knowledge as pure code,
+     and the runner that spawns the program behind `real`, with a private
+     fake for its tests.
+   - (b) The wrapper is pure logic. It knows the tool and implements the
+     scope's contract, and it takes one shared "run a program" contract,
+     which an OS crate implements.
+
+   12.1 keeps the Tailscale knowledge cleanly apart from the code that
+   spawns the process, so either answer is a small change. 12.1 is not put
+   up for final review until this is settled.
+4. **No renames.** kkt-entropy-os and kkt-logs-os keep `-os`: `-os` says
+   the work is the operating system's, and a tool's name is for a third
+   party such as Tailscale.
+5. **The five client config formats are not five implementations.** Only
+   the `claude` command gets a wrapper.
+
 **What Sam found.** kkt-remote-access, a logic crate, declared
 `Host::run(args)`: "run `tailscale` with these arguments". kkt-remote-access-os
 ran the command and implemented nothing, and the program held a 17-line
@@ -1313,8 +1339,8 @@ third-party.
 | lane-files | The machine's files, and the `git` command | Yes, for git | `Disk` in the project's terms (it already asks for the folder's commit); `git::Git` in git's: run git with these arguments | git's meaning: expected absences, the dirty suffix, the wording (56 lines). Sam accepted keeping it there (2.6); his ruling reverses that | 45 lines: copies fields | **Split.** The contract is the lane folder's files and the commit it is at, in the project's terms; the wrapper runs git and holds its meaning | kkt-lane-files-git |
 | agent-client | rmcp and reqwest, reaching kkt's MCP endpoints | Yes | The project's terms: kkt's tools (register, reclaim, describe, read, wait) | None: kkt-watch and kkt-agent-commands each declare a small client contract of their own | `WatchServer` (about 105 lines), `McpServers` (about 85) and the credential files (about 75, which also apply kkt-setup's credential-file rule): copy records, map failures | **Split.** A contract crate for a client of kkt's server, which kkt-watch, kkt-agent-commands and the fake product's tests depend on in place of their own; the rmcp client implements it. The credential and state files are the machine's files, and stay where they are | kkt-agent-client-rmcp (the contract keeps the name kkt-agent-client) |
 | diagnostics | HTTP and kkt's MCP handshake, through reqwest | Yes | The project's terms: read a key file, probe an address and get checks | None. The effect crate reads the server's answers (2.5, accepted) | 44 lines: copies fields, passes the doctor's constants | **Split.** The contract (`Prober`, `KeyFile`, `Check`) moves from kkt-diagnostics, the logic that uses it, into a contract crate; the reqwest prober implements it, and the adapter goes | Contract: kkt-probe. Wrapper: kkt-probe-reqwest |
-| client-config | Five AI clients' config files, and Claude Code's `claude` command | Yes for `claude`. The five file formats are other programs' formats, which kkt-client-config implements as external contracts (2.3); the files are reached through the standard library | The project's terms for the files (read, write, rename, restrict); the tool's for `claude(args)` | The five formats and where each client keeps them: the crate's concern | 45 lines: forwarding only | **Split the `claude` command only.** A contract method in the project's terms, "register kkt with this client through its own command", implemented by a wrapper. The file operations are not third-party: the effect crate implements `Host` directly, and the adapter goes. Sam to say whether the formats count as five implementations (1.2.2) | kkt-client-config-claude |
-| terminal | The terminal, and the browser opener (`open`, `xdg-open`) | The terminal: no. The opener runs programs the system provides | Each consumer's own terms: `Lines` (kkt-setup), `LoginLink` (kkt-container), `Output` (kkt-operate, kkt-agent-commands), `Report` (kkt-watch) | None | 20 to 30 lines each | **Leave the terminal.** The opener is about 30 lines; Sam to say whether the system's own programs count. If they do, it splits like the others | (kkt-browser-open, if split) |
+| client-config | Five AI clients' config files, and Claude Code's `claude` command | Yes for `claude`. The five file formats are other programs' formats, which kkt-client-config implements as external contracts (2.3); the files are reached through the standard library | The project's terms for the files (read, write, rename, restrict); the tool's for `claude(args)` | The five formats and where each client keeps them: the crate's concern | 45 lines: forwarding only | **Split the `claude` command only.** A contract method in the project's terms, "register kkt with this client through its own command", implemented by a wrapper. The file operations are not third-party: the effect crate implements `Host` directly, and the adapter goes. The five formats are not five implementations (Sam, answer 5) | kkt-client-config-claude |
+| terminal | The terminal, and the browser opener (`open`, `xdg-open`) | The terminal: no. The opener runs programs the system provides | Each consumer's own terms: `Lines` (kkt-setup), `LoginLink` (kkt-container), `Output` (kkt-operate, kkt-agent-commands), `Report` (kkt-watch) | None | 20 to 30 lines each | **Split the opener; leave the terminal.** Programs that come with the system count (Sam, answer 2). The opener's contract is in the project's terms (show a link, open it in a browser if asked); its wrapper runs `open` or `xdg-open`. It is about 30 lines. The terminal is the machine's own | Contract: kkt-browser. Wrapper: kkt-browser-os, since the work is the operating system's (answer 4) |
 | admission | The machine's key files | No | The project's terms (`KeyTexts`, kkt-operate's `KeyFiles`, kkt-agent-commands' `KeyText`) | None | About 40 lines that word each read error with its setting's name, which each program does its own way; the rest forwards | **Leave**: not third-party | (none) |
 | setup, backup, config-file | The machine's files: the setup record and note, `PATH`; the backup folders; the config and instructions files | No | The project's terms, as kkt-operate declares them (`SetupFiles`, `BackupWriter`, `ConfigText`) | None | 10 to 43 lines each, forwarding | **Leave**: not third-party. An effect crate may not depend on an assembly, so these adapters stay in the program unless the contracts move into kkt-setup and kkt-backup | (none) |
 
@@ -1326,39 +1352,27 @@ program only injects them:
 - kkt-logs-os (kkt-log's `Log`, over tracing);
 - kkt-machine-os (`Machine`, over the standard library: not third-party).
 
-Under "named for the tool", two names would change: kkt-entropy-os to
-kkt-entropy-rand, and kkt-logs-os to kkt-log-tracing. kkt-logs-os also
-writes the log files, which is the machine's own.
+They keep their names (Sam, answer 4): `-os` says the work is the
+operating system's. A tool's name is for a third party, such as Tailscale
+or Docker. launchd and systemd come with the system, but there are two of
+them, so their wrappers take their names to tell them apart (1.2.2).
 
-**Third-party libraries outside these pairs: a question for Sam.** Read
-literally, the ruling covers every crates.io library. Some live in logic
-or contract crates, wrapped by the crate that owns their concern, as
-CLAUDE.md's rule that third-party types stay inside their wrapper asks:
-- axum: kkt-web, kkt-mcp, kkt-server, kkt-server-listen;
-- rmcp and schemars: kkt-mcp, which implements MCP, an external contract (2.3);
-- askama: kkt-web;
-- chrono: kkt-clock;
-- sha2: kkt-hash;
-- toml and toml_edit: kkt-config-file, kkt-setup, kkt-client-config;
-- serde, serde_json, semver and url: several crates;
-- tokio, futures and thiserror: many crates.
-
-kkt-shutdown-os (tokio's signals) and kkt-server-listen (axum's serving)
-are effect crates with no contract, which the programs call directly.
-
-Recommended: the ruling applies to tools kkt runs and to libraries that
-reach the machine or the network: rusqlite, reqwest, rand, libc, tracing,
-rmcp's client, and tokio's signals and sockets. Data-format and language
-libraries stay wrapped by the crate that owns the format, as today.
+**Third-party libraries outside these pairs.** RUST.md rule 7 already
+covers them (Sam, answer 1). Every third-party crate is wrapped by project
+crates, and its types stay inside them: for example axum in kkt-web, kkt-mcp,
+kkt-server and kkt-server-listen; rmcp in kkt-mcp; askama in kkt-web;
+chrono in kkt-clock; and toml in kkt-config-file. Language-shaping crates
+(serde, tokio, futures, thiserror) are exempt.
 
 **What changes in the rules and checks.** 12.1 makes the first changes;
 the later steps repeat its pattern.
 
 - **The proposal's third rule.** Its new text is Sam's ruling. `decisions.md` quotes it, and the plan's differences table marks 2.1 to 2.4 and 2.6 as overtaken.
 - **Kinds** (`concerns.json`, `proposed.json`, `kinds.py`). The scope crates become contracts: kkt-remote-access, kkt-container, kkt-service, kkt-agent-client, and a new crate for the lane folder and one for the probe. A contract may compute on its own values but not run or wire anything (`kinds.py`'s `beyond_values`). check-crates.sh's check 6 keeps `real` out of a contract crate.
-- **Wrappers are effect crates.** Each has a `real` feature around the command or connection it makes. The tool's knowledge stays testable inside the crate without `real`, over a private runner and a private fake, as Sam asked for 12.1.
-  - This is in tension with ARCHITECTURE.md 4.5.2, which says complex adapter logic SHOULD be its own logic module. Docker's 1,900 lines are complex.
-  - Recommended: one crate per tool, since the tool's knowledge and its runner change together. A separate logic crate per tool would be today's shape renamed.
+- **What a wrapper is depends on Sam's open answer 3.**
+  - Under (a), each wrapper is an effect crate. It has a `real` feature around the command or connection it makes, and the tool's knowledge is tested inside it, without `real`, over a private runner and fake.
+  - Under (b), each wrapper is a logic crate. A new contract crate declares "run a program" in the project's terms, and one OS crate implements it, which every wrapper of a command shares. That shared crate is one more split pair, and it suits ARCHITECTURE.md 4.5.2, which says complex adapter logic SHOULD be its own logic module (Docker's 1,900 lines are complex).
+  - Either way, the wrappers that reach the network or a library (the rmcp client, the reqwest probe) keep their I/O behind `real`. Only the wrappers of commands would share the runner.
 - **Stand-ins.** Each contract crate has its `testing` stand-in (3.2.4). kkt-operate's and kkt-agent-commands' tests use those stand-ins in place of the fakes they build now.
 - **No change to** check-crates.sh's checks 1 to 5, the release guard or the third-party list. check-programs loses each adapter that goes.
 - **The shared crates' public surface changes for kkt-pro**, which needs a CHANGELOG entry.
@@ -1373,13 +1387,14 @@ started; the rest wait for Sam's look at the table.
 | 12.2 | container: contract and kkt-container-docker, with the Docker logic, its tests and the sidecar's status | L | |
 | 12.3 | service: contract, kkt-service-launchd and kkt-service-systemd | M to L | |
 | 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | |
-| 12.5 | lane-files' git, the probe and the `claude` command: three small splits | S each | |
-| 12.6 | Names for the tool: kkt-entropy-rand, kkt-log-tracing | S | |
-| 12.7 | Chart what differs, and the scorecard | S | |
+| 12.5 | lane-files' git, the probe, the `claude` command and the browser opener: four small splits | S each | |
+| 12.6 | Chart what differs, and the scorecard | S | |
 
 12.2, 12.3 and 12.4 can run side by side after 12.1. 12.2 and 12.3 each
 change one field of kkt-operate's `OperateParts`, and 12.4 changes
-kkt-agent-commands' `AgentParts`. 12.5 and 12.6 can run beside any of them.
+kkt-agent-commands' `AgentParts`. 12.5 can run beside any of them. If Sam
+chooses (b) for answer 3, the shared "run a program" contract and its OS
+crate come first, in 12.1 or a step before 12.2.
 
 ## Order at a glance
 
