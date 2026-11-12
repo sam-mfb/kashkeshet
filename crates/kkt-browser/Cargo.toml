@@ -1,6 +1,6 @@
 [package]
 name = "kkt-browser"
-description = "The contract for opening a link in the person's browser"
+description = "Opening a link in the person's browser: the contract, and the system's own opener behind `real`"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,5 +8,11 @@ repository.workspace = true
 publish = false
 
 [features]
+# `SystemBrowser`: starts the system's opener. The opener's choice and the
+# failure wording stay testable without it. Only programs turn it on.
+real = []
 # `testing`: `testing::Recorder`, which records each link and can fail.
 testing = []
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }
