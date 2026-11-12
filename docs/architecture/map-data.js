@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "01045aa",
+ "commit": "484d549",
  "crates": [
   {
    "bins": [
@@ -21944,7 +21944,7 @@ window.KKT_CONCERNS = {
    "concern": "What produced a server run: the build, its git commit, and the settings that shape the run, as lines of a name and a value that the program words.",
    "kind": "logic",
    "layer": "foundations",
-   "must_not": "Store the run record: kkt-server does."
+   "must_not": "Store the run record: kkt-rules' `start` does."
   },
   "kkt-remote-access": {
    "concern": "Sharing a service-mode server over the machine's existing Tailscale login.",
