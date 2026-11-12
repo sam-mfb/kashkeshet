@@ -42,7 +42,10 @@ The shared crates are reorganized so that every dependency is injected and each 
   (behind `real`) implement it directly, each holding its own manager's files
   and commands; the program picks one by platform and injects it into
   `OperateParts::service`, in place of its adapter. `kkt-service-os` keeps
-  only `try_bind`. `kkt_operate::service::run` no longer takes the `Env`. The
+  only `try_bind`. launchd's waits (`removal_wait`, `reload_retry`) move from
+  `kkt_service::Settings` to `kkt_service_launchd::Settings`, given to
+  `Launchd::new`, and `ServiceError::ReloadFailed` holds the text launchd's
+  wrapper words. `kkt_operate::service::run` no longer takes the `Env`. The
   service files, commands and messages are unchanged.
 - **Effects in `-os` crates.** What touches the machine moves out of each crate's `real` feature into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-shutdown-os` (`StopSignals`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-logs-os`, `kkt-machine-os`, `kkt-terminal-os`, `kkt-admission-os`, `kkt-config-file-os`, `kkt-setup-os`, `kkt-container-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-diagnostics-os`, `kkt-backup-os` and `kkt-lane-files-os`. A logic crate no longer has a `real` feature.
 - **Starting the server.** `kkt_rules::start(run, startup)` records the run and returns `Rules`; `Startup` holds the database, swarm, event bus, clock, entropy, rules settings and wording. Each program maps its `ServerRun` into `kkt_rules::NewServerRun`; `kkt_server::new_server_run` is gone. `Parts::new(api, clock, entropy, identify, log, checked)` takes an `Arc<dyn AdminApi>` and the opaque `CheckedSettings` returned by `ServerSettings::check`. kkt-server no longer has a normal dependency on kkt-rules. `AppConfig` holds only admissions and instructions; `ServerSettings` holds formatter, web, MCP, origins and hosts, and orders the owners' checks and run-record lines with the program's plain values. `kkt_settings::RecordedSettings` is gone; call `ServerSettings::record_lines` with program lines instead.

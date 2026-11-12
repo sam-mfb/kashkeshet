@@ -4089,7 +4089,7 @@
    ],
    "feature": "real",
    "status": "decided",
-   "doc": "The launchd user agent of the user whose home folder it is given (step 12.3)."
+   "doc": "The launchd user agent of the user whose home folder it is given, waiting for launchd as its Settings say (step 12.3)."
   },
   {
    "crate": "kkt-service-systemd",
@@ -4101,6 +4101,13 @@
    "feature": "real",
    "status": "decided",
    "doc": "The systemd user unit of the user whose config base it is given (step 12.3)."
+  },
+  {
+   "crate": "kkt-service-launchd",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How long installing the service again waits for launchd to let the new one load; the program passes its DEFAULT (step 12.3)."
   }
  ],
  "declared": [],

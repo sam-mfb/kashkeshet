@@ -207,11 +207,11 @@ fn at_once<F: Future>(future: F) -> F::Output {
 
 /// Installs `spec` with `manager`, which must not wait on the clock.
 fn install(manager: &Agent, system: &dyn System, spec: &Spec) -> Result<Vec<String>, ServiceError> {
-    at_once(manager.install(system, &clock(), Settings::DEFAULT, spec))
+    at_once(manager.install(system, &clock(), spec))
 }
 
 fn mac() -> Agent {
-    Agent::new(Path::new("/Users/sam"))
+    Agent::new(Path::new("/Users/sam"), crate::Settings::DEFAULT)
 }
 
 fn mac_spec() -> Spec {
@@ -368,15 +368,15 @@ fn launchd_install_tries_again_while_launchd_removes_the_old_service() {
         .then_answer(PRINT, NOT_FOUND, GONE);
     let clock = clock();
     let (manager, spec) = (mac(), mac_spec());
-    let mut future = std::pin::pin!(manager.install(&system, &clock, Settings::DEFAULT, &spec));
+    let mut future = std::pin::pin!(manager.install(&system, &clock, &spec));
     assert!(poll(future.as_mut()).is_pending());
     assert_eq!(system.ran(), [PRINT, BOOTOUT, &bootstrap, PRINT]);
     assert_eq!(clock.sleepers(), 1);
     // Not before the retry interval is up.
-    advance(&clock, Settings::DEFAULT.launchd_reload_retry / 2);
+    advance(&clock, crate::Settings::DEFAULT.reload_retry / 2);
     assert!(poll(future.as_mut()).is_pending());
     assert_eq!(system.ran().len(), 4);
-    advance(&clock, Settings::DEFAULT.launchd_reload_retry / 2);
+    advance(&clock, crate::Settings::DEFAULT.reload_retry / 2);
     // The second try fails too, but the old service is gone now: one more
     // try, without waiting, and it works.
     let Poll::Ready(said) = poll(future.as_mut()) else {
@@ -410,18 +410,7 @@ fn launchd_install_fails_at_once_when_bootstrap_fails_after_the_removal() {
         system.ran(),
         [PRINT, BOOTOUT, &bootstrap, PRINT, &bootstrap]
     );
-    assert!(
-        matches!(
-            &err,
-            ServiceError::ReloadFailed {
-                command,
-                tries: 2,
-                still_removing_for: None,
-                ..
-            } if *command == bootstrap
-        ),
-        "{err:?}"
-    );
+    assert!(matches!(&err, ServiceError::ReloadFailed(_)), "{err:?}");
     assert_eq!(
         err.to_string(),
         format!(
@@ -443,40 +432,32 @@ fn launchd_install_gives_up_when_the_old_service_is_still_there_after_the_wait()
     let clock = clock();
     let began = clock.now();
     let (manager, spec) = (mac(), mac_spec());
-    let mut future = std::pin::pin!(manager.install(&system, &clock, Settings::DEFAULT, &spec));
+    let mut future = std::pin::pin!(manager.install(&system, &clock, &spec));
     let err = loop {
         match poll(future.as_mut()) {
             Poll::Ready(result) => break result.expect_err("bootstrap never works"),
-            Poll::Pending => advance(&clock, Settings::DEFAULT.launchd_reload_retry),
+            Poll::Pending => advance(&clock, crate::Settings::DEFAULT.reload_retry),
         }
     };
     // One try at the start, then one each interval, the last as the wait
     // runs out; the old service is looked for after each failed try.
-    let expected = (Settings::DEFAULT.launchd_removal_wait.as_millis()
-        / Settings::DEFAULT.launchd_reload_retry.as_millis())
+    let expected = (crate::Settings::DEFAULT.removal_wait.as_millis()
+        / crate::Settings::DEFAULT.reload_retry.as_millis())
         + 1;
     let ran = system.ran();
     let tries = ran.iter().filter(|c| **c == bootstrap).count();
     let looks = ran.iter().filter(|c| *c == PRINT).count();
     assert_eq!((tries as u128, looks as u128), (expected, expected + 1));
-    assert_eq!(clock.now(), began + Settings::DEFAULT.launchd_removal_wait);
-    assert!(
-        matches!(
-            &err,
-            ServiceError::ReloadFailed { command, tries, still_removing_for, .. }
-                if *command == bootstrap
-                    && u128::from(*tries) == expected
-                    && *still_removing_for == Some(Settings::DEFAULT.launchd_removal_wait)
-        ),
-        "{err:?}"
-    );
+    assert_eq!(clock.now(), began + crate::Settings::DEFAULT.removal_wait);
+    // The text names the command, the tries and the wait.
+    assert!(matches!(&err, ServiceError::ReloadFailed(_)), "{err:?}");
     let text = err.to_string();
     assert!(
         text.starts_with(&format!(
             "`{bootstrap}` failed on each of {expected} tries over {} seconds, while launchd was \
              still removing the old service: Bootstrap failed: 5: Input/output error. kashkeshet \
              is stopped: ",
-            Settings::DEFAULT.launchd_removal_wait.as_secs()
+            crate::Settings::DEFAULT.removal_wait.as_secs()
         )),
         "{text}"
     );
@@ -623,8 +604,7 @@ fn launchd_unloads_a_server_that_did_not_stay_up() {
 #[test]
 fn a_dry_run_changes_nothing_but_still_asks() {
     let real = Fake::default().not_loaded();
-    let actions =
-        at_once(mac().dry_run(&real, &clock(), Settings::DEFAULT, &mac_spec())).expect("dry run");
+    let actions = at_once(mac().dry_run(&real, &clock(), &mac_spec())).expect("dry run");
     assert!(real.files.borrow().is_empty());
     assert!(real.dirs.borrow().is_empty());
     // The query ran for real; the change did not.

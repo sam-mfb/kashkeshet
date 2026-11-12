@@ -5,13 +5,15 @@
 use crate::{Pending, Service, ServiceError, ServiceState, Settings, Spec};
 use kkt_clock::Clock;
 use std::cell::RefCell;
-use std::path::Path;
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
 
 /// One service, held in memory.
 #[derive(Default)]
 pub struct Memory {
     args: RefCell<Option<Vec<String>>>,
     running: RefCell<bool>,
+    keys: RefCell<BTreeSet<PathBuf>>,
     done: RefCell<Vec<String>>,
 }
 
@@ -27,6 +29,7 @@ impl Memory {
         Self {
             args: RefCell::new(Some(args)),
             running: RefCell::new(running),
+            keys: RefCell::new(BTreeSet::new()),
             done: RefCell::new(Vec::new()),
         }
     }
@@ -123,10 +126,16 @@ impl Service for Memory {
         key: &Path,
         make: &dyn Fn(&Path) -> Result<(), String>,
     ) -> Result<bool, ServiceError> {
-        make(key).map_err(ServiceError::Key)?;
+        // A key it gave the server before is not made again, but the
+        // restart runs, as a real service manager's does.
+        let made = !self.keys.borrow().contains(key);
+        if made {
+            make(key).map_err(ServiceError::Key)?;
+            self.keys.borrow_mut().insert(key.to_path_buf());
+        }
         self.stop()?;
         self.start()?;
-        Ok(true)
+        Ok(made)
     }
 
     fn state(&self) -> Result<ServiceState, ServiceError> {
@@ -177,5 +186,20 @@ mod tests {
         assert_eq!(service.done(), ["stop", "start", "uninstall"]);
         assert!(!service.state().expect("state").installed);
         assert!(matches!(service.start(), Err(ServiceError::NotInstalled)));
+    }
+
+    #[test]
+    fn a_key_is_made_once_and_the_service_restarted_each_time() {
+        let service = Memory::installed(vec!["serve".into()], true);
+        let made = std::cell::Cell::new(0);
+        let make = |_: &Path| {
+            made.set(made.get() + 1);
+            Ok(())
+        };
+        let key = Path::new("/k/admin-key");
+        assert!(service.add_key(key, &make).expect("added"));
+        assert!(!service.add_key(key, &make).expect("added again"));
+        assert_eq!(made.get(), 1);
+        assert_eq!(service.done(), ["stop", "start", "stop", "start"]);
     }
 }

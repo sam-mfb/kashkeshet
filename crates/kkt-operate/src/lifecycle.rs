@@ -321,16 +321,18 @@ fn local_backup<D>(
 mod tests {
     use super::*;
     use std::cell::RefCell;
-    use std::time::Duration;
 
     #[test]
     fn an_upgrade_whose_service_would_not_load_says_to_run_it_again() {
-        let error = ServiceError::ReloadFailed {
-            command: "launchctl bootstrap gui/501 kkt.plist".to_string(),
-            detail: "Bootstrap failed: 5: Input/output error".to_string(),
-            tries: 141,
-            still_removing_for: Some(Duration::from_secs(35)),
-        };
+        // As kkt-service-launchd words it.
+        let error = ServiceError::ReloadFailed(
+            "`launchctl bootstrap gui/501 kkt.plist` failed on each of 141 tries over 35 seconds, \
+             while launchd was still removing the old service: Bootstrap failed: 5: \
+             Input/output error. kashkeshet is stopped: the old service was unloaded, and the new \
+             one is installed but not loaded. Once the old service is gone, run `kkt service \
+             start` to load the new one, and `kkt service status` to check."
+                .to_string(),
+        );
         let said = unrecorded_upgrade(error);
         assert!(
             said.starts_with(

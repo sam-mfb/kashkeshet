@@ -33,8 +33,9 @@ pub const SERVICE_RESTART_DELAY: Duration = Duration::from_secs(5);
 /// kills it.
 pub const SERVICE_STOP_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// How long installing and starting the service wait. The program passes
-/// [`Settings::DEFAULT`].
+/// How long installing the service waits before checking that its server
+/// started. The program passes [`Settings::DEFAULT`]. A service manager's
+/// own waits are its wrapper's settings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Settings {
     /// How long `kkt service install` waits after starting the service
@@ -44,25 +45,12 @@ pub struct Settings {
     /// restart delay (5 seconds), so the service manager has not yet started
     /// such a server again when the check is made.
     pub service_start_check: Duration,
-    /// How long `kkt service install` waits for launchd to remove the old
-    /// service after unloading it, trying to load the new one meanwhile.
-    /// `launchctl bootout` returns before launchd has finished removing the
-    /// service, and a `bootstrap` before it has fails ("Operation already in
-    /// progress", which launchctl shows as "Input/output error").
-    pub launchd_removal_wait: Duration,
-    /// How long to wait between those tries.
-    pub launchd_reload_retry: Duration,
 }
 
 impl Settings {
-    /// A start check after 3 seconds. launchd gets 35 seconds to remove the
-    /// old service: the old server has the 30 seconds of the service's stop
-    /// timeout to exit, and the rest is a margin for launchd's own work
-    /// after that. Loading is tried every 250 milliseconds meanwhile.
+    /// A start check after 3 seconds.
     pub const DEFAULT: Settings = Settings {
         service_start_check: Duration::from_secs(3),
-        launchd_removal_wait: Duration::from_secs(SERVICE_STOP_TIMEOUT.as_secs() + 5),
-        launchd_reload_retry: Duration::from_millis(250),
     };
 }
 const _: () =
@@ -105,9 +93,8 @@ pub trait Service {
 
     /// Writes the service file, starts the service, and has it start at
     /// each login. Installing again replaces the file and restarts it, which
-    /// may wait on `clock` as `settings` say, such as while launchd removes
-    /// the old service; when that still fails, the error is
-    /// [`ServiceError::ReloadFailed`].
+    /// may wait on `clock` while the service manager lets the new service
+    /// load; when that still fails, the error is [`ServiceError::ReloadFailed`].
     fn install<'a>(
         &'a self,
         clock: &'a dyn Clock,
@@ -249,25 +236,18 @@ pub enum ServiceError {
     Run { command: String, source: io::Error },
     #[error("`{command}` failed: {detail}")]
     Failed { command: String, detail: String },
-    /// Loading the new launchd service failed after the old one was
-    /// unloaded, so the server is stopped (see `Manager::install`). With
-    /// `still_removing_for`, launchd was still removing the old service
-    /// when the tries over that long ran out; without it, the old service
-    /// was gone, and the failure is the new service's own. Either way the
-    /// new service file is in place, and `kkt service start` loads it.
-    #[error("{}", reload_failed(command, detail, *tries, *still_removing_for))]
-    ReloadFailed {
-        command: String,
-        detail: String,
-        tries: u32,
-        still_removing_for: Option<Duration>,
-    },
+    /// Installing again unloaded the old service, and loading the new one
+    /// failed, so the server is stopped. The new service file is in place,
+    /// and `kkt service start` loads it. The text, worded by the service
+    /// manager's wrapper, says why and how to finish.
+    #[error("{0}")]
+    ReloadFailed(String),
     /// Making a key file failed; the text says how.
     #[error("{0}")]
     Key(String),
     /// The server was not running `checked_after` (the settings'
     /// [`Settings::service_start_check`]) after the service started it (see
-    /// `Manager::check_started`). The service was then stopped, unless
+    /// [`Service::check_started`]). The service was then stopped, unless
     /// `stop_failed` says how stopping it failed.
     #[error("{}", did_not_stay_up(*checked_after, stop_failed.as_deref()))]
     DidNotStayUp {
@@ -295,25 +275,6 @@ fn did_not_stay_up(checked_after: Duration, stop_failed: Option<&str>) -> String
          in the `bind` setting. The service is still installed and starts again at the next \
          login; once the cause is fixed, run `kkt service start`."
     )
-}
-
-/// [`ServiceError::ReloadFailed`]'s text.
-fn reload_failed(
-    command: &str,
-    detail: &str,
-    tries: u32,
-    still_removing_for: Option<Duration>,
-) -> String {
-    const STOPPED: &str = "kashkeshet is stopped: the old service was unloaded, and the new one is installed but not loaded.";
-    match still_removing_for {
-        Some(waited) => format!(
-            "`{command}` failed on each of {tries} tries over {} seconds, while launchd was still removing the old service: {detail}. {STOPPED} Once the old service is gone, run `kkt service start` to load the new one, and `kkt service status` to check.",
-            waited.as_secs()
-        ),
-        None => format!(
-            "`{command}` failed after launchd removed the old service: {detail}. {STOPPED} Run `kkt service start` to load it, and `kkt service status` to check."
-        ),
-    }
 }
 
 /// A path as service-file text. Paths that aren't valid UTF-8 can't be

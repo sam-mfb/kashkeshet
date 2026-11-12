@@ -9354,6 +9354,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
       "text": "Launchd implements kkt-service::Service: A tool wrapper implements its scope contract directly (step 12.3)."
      },
      {
@@ -27744,13 +27748,20 @@ window.KKT_PROPOSED = {
     ],
     "items": [
      {
-      "doc": "The launchd user agent of the user whose home folder it is given (step 12.3).",
+      "doc": "The launchd user agent of the user whose home folder it is given, waiting for launchd as its Settings say (step 12.3).",
       "feature": "real",
       "kind": "struct",
       "methods": [
        "new"
       ],
       "path": "Launchd",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "How long installing the service again waits for launchd to let the new one load; the program passes its DEFAULT (step 12.3).",
+      "kind": "struct",
+      "path": "Settings",
       "proposed_item": true,
       "status": "decided"
      }
@@ -27768,6 +27779,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Launchd"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
      },
      {
       "status": "decided",
