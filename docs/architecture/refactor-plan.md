@@ -13,14 +13,16 @@ The plan has five parts: the rules every step follows; how progress is
 measured; how parallel work avoids collisions; the steps; and what needs
 Sam, each with the default we proceed on.
 
-The refactor's phases 0 to 11 are done. After phase 8, Sam decided three
+The refactor's phases 0 to 12 are done. After phase 8, Sam decided four
 more (2026-11-12). Phase 9 removed kkt-settings: each owner checks and words
 its own settings, and kkt-server takes them checked. Phase 10 moved the
 program's tools out of its library into two assemblies, kkt-operate and
 kkt-agent-commands, while the program keeps composing the server. Phase 11
 gave kkt-db a fast test stand-in, so kkt-rules' tests no longer use an effect
-crate. What is left for Sam comes first, below; the scorecards are at the
-end.
+crate. Phase 12 split every third-party dependency into a contract crate in
+kkt's terms and a wrapper named for the tool, which the program injects
+with no adapter. What is left for Sam comes first, below; the scorecards
+are at the end.
 
 ## Awaiting Sam
 
@@ -59,12 +61,12 @@ it was, or names something the proposal left unnamed.
 
 | Difference | Step | Sam |
 |---|---|---|
-| kkt-lane-files declares a narrow git contract | 2.6 | **Accepted by Sam, 2026-11-12**: git's meaning stays in logic |
-| One watch adapter, an enum over `Remote` and `AdminRemote` | 1.9 | **Accepted by Sam, 2026-11-12**: fewer methods, same arrows |
-| kkt-service-os reports with its own `Finished` | 2.2 | **Accepted by Sam, 2026-11-12**: the effect depends on nothing |
-| kkt-remote-access-os returns its own output and error | 2.3 | **Accepted by Sam, 2026-11-12**: the effect depends on nothing |
+| kkt-lane-files declares a narrow git contract | 2.6 | **Accepted by Sam, 2026-11-12**: git's meaning stays in logic. Overtaken by 12.5a (Sam's ruling, msg 3041): git's meaning is kkt-lane-commit-git's |
+| One watch adapter, an enum over `Remote` and `AdminRemote` | 1.9 | **Accepted by Sam, 2026-11-12**: fewer methods, same arrows. Overtaken by 12.4: the adapter is gone |
+| kkt-service-os reports with its own `Finished` | 2.2 | **Accepted by Sam, 2026-11-12**: the effect depends on nothing. Overtaken by 12.3: the launchd and systemd wrappers implement `Service` directly |
+| kkt-remote-access-os returns its own output and error | 2.3 | **Accepted by Sam, 2026-11-12**: the effect depends on nothing. Overtaken by 12.1: kkt-remote-access-tailscale implements `RemoteAccess` directly |
 | kkt-client-config-os states its own file mode | 2.4 | **Accepted by Sam, 2026-11-12**: the same fixed value, kept with its writer |
-| kkt-container-os takes and returns its own values, and states its own file mode | 2.1 | **Accepted by Sam, 2026-11-12**: the effect depends on nothing |
+| kkt-container-os takes and returns its own values, and states its own file mode | 2.1 | **Accepted by Sam, 2026-11-12**: the effect depends on nothing. Overtaken by 12.2: kkt-container-docker implements `Container` directly |
 | Each crate's own `Settings` with a `DEFAULT`, in place of item 7's constants | 3.1a, 3.1b, 3.1c-1 | **Accepted by Sam, 2026-11-12**: it is how a crate takes injected values |
 | kkt-diagnostics' two public doctor constants; kkt-agent-client's `Settings` outside `real` | 3.1c-1 | **Accepted by Sam, 2026-11-12**: the effect chooses no values |
 | Backup logic gives a fixed layout for backup-os to write | 2.7 | **Accepted by Sam, 2026-11-12**: the decisions stay in logic |
@@ -140,6 +142,67 @@ differences table below, and is charted into the proposal.
 | kkt-container's `tailscale_auth_key` and `docker_env` take a possibly unsized `Host` | 10.2b (#499) | Accept: every earlier caller still compiles |
 | kkt-operate's module for `kkt agent` is `agent`, not `agents` | 10.2a (#496) | Accept: a name only |
 | kkt-agent-commands takes the admin endpoint's path in `AgentParts`, with no arrow to kkt-mcp | 10.3 (#497) | Accept: one arrow fewer, and kkt-mcp's build script stays out of the assembly's build |
+
+**Phase 12, for Sam: the crates it made.** Each third-party dependency is
+now a contract crate in kkt's terms and a wrapper that implements it, and
+the program injects the wrapper with no adapter (msg 3041). Wrappers are
+named for the tool, or `-os` where the work is the operating system's own
+(survey answer 4).
+
+| Contract crate | Wrapper | What the wrapper wraps | Step |
+|---|---|---|---|
+| kkt-remote-access (was logic) | kkt-remote-access-tailscale (replaces kkt-remote-access-os) | The `tailscale` command | 12.1 (#507) |
+| kkt-container (was logic) | kkt-container-docker (replaces kkt-container-os) | `docker` and `docker compose` | 12.2 (#510) |
+| kkt-service (was logic) | kkt-service-launchd, kkt-service-systemd | `launchctl` and the plist; `systemctl`, `journalctl` and the unit file | 12.3 (#509) |
+| kkt-agent-client (was effect) | kkt-agent-client-rmcp (the old crate, moved) | rmcp and reqwest, reaching kkt's MCP endpoints | 12.4 (#508) |
+| kkt-lane-commit (new) | kkt-lane-commit-git | The `git` command | 12.5a (#512) |
+| kkt-probe (new) | kkt-probe-reqwest (kkt-diagnostics-os, renamed) | reqwest, for `kkt doctor`'s HTTP probe | 12.5b (#514) |
+| kkt-client-command (new) | kkt-client-command-claude | Claude Code's `claude` command | 12.5c (#511) |
+| kkt-browser (new) | kkt-browser-os | The system's opener, `open` or `xdg-open` | 12.5d (#513) |
+
+The crates that already implemented a project contract directly before phase 12 are listed under "Already split" in the survey below: kkt-db-sqlite, kkt-clock-system, kkt-entropy-os, kkt-logs-os and kkt-machine-os.
+
+One crate is new without being a wrapper: **kkt-agent-files-os**, the agent
+credential and watch-state files (12.4). They are the machine's own, but
+they had to leave kkt-agent-client, which became a contract and may hold
+no `real`.
+
+**Phase 12, for Sam: where it differs from the survey's table.**
+
+| Difference | Step | Why |
+|---|---|---|
+| The git split is kkt-lane-commit and kkt-lane-commit-git, not kkt-lane-files-git; the lane files stay behind kkt-lane-files' `Disk`, with the program's adapter | 12.5a (#512, msg 3120) | A crate named for git that also read and wrote the folder's files would be misnamed, and the files are the machine's own, outside the ruling |
+| The `claude` split is kkt-client-command and kkt-client-command-claude, not kkt-client-config-claude; the client files stay behind kkt-client-config's `Host`, with the program's adapter | 12.5c (#511, msg 3084) | The tentative name read as an implementation of kkt-client-config, a logic crate; an effect crate may not implement a logic crate's own contract, and the files are the machine's own |
+| kkt-agent-files-os is new: the credential and state files leave kkt-agent-client | 12.4 (#508) | A contract may hold no `real`; the files are the machine's own, so they take an `-os` crate |
+| kkt-service-os stays, holding only `try_bind`; launchd's waits and its retry wording move into kkt-service-launchd | 12.3 (#509) | Whether an address can be bound is the machine's own; the waits and wording are launchd's, not the contract's |
+| kkt-container's contract fields are `sharing`, not `tailscale`; the setup record's stored `tailscale` field is unchanged | 12.2 (#510, msg 3093) | A contract names no tool; the stored record is an existing install's |
+| The browser is given to the Docker wrapper at construction (`Docker::new`), not through `OperateParts`; kkt-container's `LoginLink` keeps the terminal's half | 12.5d (#513, msg 3115) | The wrapper opens the link while it waits for the login, so the contract's calls do not change |
+| The probe's wrapper is kkt-diagnostics-os renamed, not a new crate | 12.5b (#514) | It already wrapped reqwest; it now implements kkt-probe's `Prober` directly |
+
+**Phase 12, for Sam: the adapters the program still holds, and why.**
+After phase 12 none of them stands between kkt and a third-party tool or
+library: each reaches the machine's own files, terminal or paths, or the
+program's own serving code. They adapt contracts that a logic crate or an
+assembly declares, which an effect crate may not implement (the strict
+rule), so the program does. kkt-service-os is kept for one thing only:
+`try_bind`, whether the service's server could listen on its address,
+which the program passes to kkt-operate as a plain function, with no
+adapter.
+
+| Adapter (in the program) | Contract it answers | What it reaches | Why it stays |
+|---|---|---|---|
+| `ServeReads`, `ServiceArgs`, `ServiceCheck` (`machine/operate.rs`) | kkt-operate's `ServeFacts`, `ServiceDefaults`, `CheckService` | The program's own serving settings and config file (`machine/settings.rs`) | The local server's facts are the program's (msg 2876) |
+| `ConnectionReads` (`machine/connection.rs`) | kkt-setup's `ConnectionSource` | The setup record and the serving settings | The same: how a client reaches the local server |
+| `AdminKeyHere` (`machine/agent_parts.rs`) | kkt-agent-commands' `AdminKey` | kkt-operate's key finder, over the operator's parts | Assemblies may not depend on each other, so the program asks one for the other |
+| `NativeDatabases` (`machine/operate.rs`) | kkt-operate's `Databases` | The program's `machine/database.rs`, over kkt-db-sqlite | Choosing and opening the database is serving; kkt-db-sqlite already implements kkt-db's contract directly |
+| `NativeSetupFiles`, `NativeKeyFiles`, `NativeConfigText`, `NativeBackups` (`machine/operate.rs`) | kkt-operate's `SetupFiles`, `KeyFiles`, `ConfigText`, `BackupWriter` | kkt-setup-os, kkt-admission-os (with kkt-entropy-os for new keys), kkt-config-file-os, kkt-backup-os | The machine's own files; the contracts are an assembly's |
+| `ServerKeyFiles` (`machine/keys.rs`) | kkt-admission's `KeyTexts` | kkt-admission-os' key files | The machine's own files; each program words its key errors itself |
+| `KeyFiles`, `ThisProgram` (`machine/agent_parts.rs`) | kkt-agent-commands' `KeyText`, `Program` | kkt-admission-os' key files; kkt-setup-os' path of `kkt` | The machine's own files and paths |
+| `CredentialFiles`, `CredentialFile`, `StateFile` (`machine/credentials.rs`) | kkt-agent-commands' `Credentials` and `CredentialSlot`, kkt-watch's `Place` | kkt-agent-files-os | The machine's own files; it applies kkt-setup's credential-file rule |
+| `ClientHost` (`machine/client_config.rs`) | kkt-client-config's `Host` | kkt-client-config-os | The machine's own files (msg 3084) |
+| `LaneDisk` (`commands/lanes/disk.rs`) | kkt-lane-files' `Disk` | kkt-lane-files-os | The machine's own files (msg 3120) |
+| `ContainerConfigs` (`machine/settings.rs`) | kkt-container's `ConfigReader` | The program's own reading of kkt's config file | kkt's own format; toml stays inside kkt-config-file (RUST.md rule 7) |
+| `TerminalLines`, `TerminalLink`, `WatchOutput`, `TerminalOutput`, `NativeOutput` | kkt-setup's `Lines`, kkt-container's `LoginLink`, kkt-watch's `Report`, the assemblies' `Output` | kkt-terminal-os | The machine's own terminal; each consumer declares only what it uses (3.1.1) |
 
 ## Rules for every step
 
@@ -268,7 +331,7 @@ the last column says so.
 
 | Difference | Step | Why | Sam | On the map |
 |---|---|---|---|---|
-| kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | accepted by Sam, 2026-11-12 | yes |
+| kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | accepted by Sam, 2026-11-12 | overtaken by 12.5a: git's meaning is kkt-lane-commit-git's, behind kkt-lane-commit's contract |
 | One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | accepted by Sam, 2026-11-12 | overtaken by 12.4: the adapter is gone, and kkt-agent-client-rmcp's `Remote` and `AdminRemote` implement kkt-agent-client's `Watched` directly |
 | kkt-container's `tailscale_auth_key` and `docker_env` accept a possibly unsized `Host` | 10.2b (setup) | Setup now passes the plan's injected host trait object to the existing file readers; the widening accepts all previous callers and changes no reads or output | awaiting Sam | no arrow or slot change |
 | `ServeFacts::service_settings` returns service-plan inputs and a deferred `CheckService`, which retains opaque program options and their source context | 10.2b (service) | The assembly owns planning and its ordered check/install sequence; the program alone knows and validates its whole serving surface. No serving option type or assembly dependency crosses the boundary | awaiting Sam | yes (10.4) |
@@ -279,15 +342,15 @@ the last column says so.
 | kkt-operate's module for `kkt agent` is `agent`, not `agents` | 10.2a (#496) | It holds one command, `kkt agent`, as `lanes` and `key` hold theirs | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.4) |
 | kkt-agent-commands takes the admin endpoint's path in `AgentParts` (`admin_path`), and has no arrow to kkt-mcp | 10.3 (#497) | The arrow was for one constant, `MCP_ADMIN_PATH`, and brought kkt-mcp's build script into the assembly's build; kkt-setup's `admin_endpoint` already takes the path from its caller | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.3) |
 | The agent credential and watch-state files leave kkt-agent-client for a crate of their own, kkt-agent-files-os, and the program keeps adapting them to kkt-agent-commands' `Credentials` | 12.4 | kkt-agent-client becomes a contract, which may hold no `real`; the files are the machine's, not a third-party tool's, so they take an `-os` crate (Sam's answer 4), and kkt-setup's credential-file rule stays the program's to apply | to show Sam with phase 12 | yes (12.4) |
-| kkt-service-os reports with its own `Finished`, which the program translates to kkt-service's in `run` and `run_attached` | 2.2 (#427) | So kkt-service-os depends on neither kkt-service nor kkt-config; two adapter methods translate | accepted by Sam, 2026-11-12 | yes |
-| kkt-remote-access-os returns its own output and I/O error, which the program maps to the remote-access host contract | 2.3 (#436) | The effect has no dependencies; the adapter preserves all output fields and launch-failure advice | accepted by Sam, 2026-11-12 | yes |
+| kkt-service-os reports with its own `Finished`, which the program translates to kkt-service's in `run` and `run_attached` | 2.2 (#427) | So kkt-service-os depends on neither kkt-service nor kkt-config; two adapter methods translate | accepted by Sam, 2026-11-12 | overtaken by 12.3: kkt-service-launchd and kkt-service-systemd implement kkt-service's `Service` directly; kkt-service-os keeps only `try_bind` |
+| kkt-remote-access-os returns its own output and I/O error, which the program maps to the remote-access host contract | 2.3 (#436) | The effect has no dependencies; the adapter preserves all output fields and launch-failure advice | accepted by Sam, 2026-11-12 | overtaken by 12.1: kkt-remote-access-tailscale implements `RemoteAccess` directly, and the adapter is gone |
 | kkt-client-config-os states its own 0600 private-file mode beside the file operations | 2.4 (#437) | The same fixed value moves with its writer early, so the effect depends on neither client-config nor config | accepted by Sam, 2026-11-12 | not a map change |
-| kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding | accepted by Sam, 2026-11-12 | yes |
+| kkt-container-os' command runner takes and returns values of its own, which the program translates to kkt-container's `Command` and `Finished`, and it states its own private file mode | 2.1 (#422) | So kkt-container-os depends on neither kkt-container nor kkt-config; two adapter methods translate instead of forwarding | accepted by Sam, 2026-11-12 | overtaken by 12.2: kkt-container-docker implements `Container` directly, and the adapter is gone |
 | kkt, kkt-keymode and kkt-fake-product depend on kkt-format (later kkt-mcp-formatter), kkt-web, kkt-events and kkt-mcp, arrows the proposal does not draw | 3.1d (#424), 3.1a (#429), 3.1b (#431) | The program fills each crate's own settings, so it names their types; the proposal draws those types only from kkt-server | accepted by Sam, 2026-11-11 | yes |
 | Each crate takes its tuning values as its own `Settings` (kkt-db-sqlite's `Options`) with a `DEFAULT`, which the program passes, where the proposal shows item 7's constants; a constant only other crates' tests read sits in its crate's `testing` module; the fake product fills each part's settings itself and does not depend on kkt-settings | 3.1a (#429), 3.1b (#431), 3.1c-1 (#445) | Item 7 marked these values "injected"; a settings struct with its default is how a crate takes them, and the program can still pass the default unchanged | accepted by Sam, 2026-11-12 | yes |
 | kkt-diagnostics has public `DOCTOR_MAX_RESPONSE_BYTES` and `DOCTOR_PROTOCOL_VERSION`, which the program passes to kkt-diagnostics-os' `Settings`; kkt-agent-client's `Settings` is outside `real` | 3.1c-1 follow-up (#445) | kkt-diagnostics-os chooses no values of its own, and depends on no other crate (2.5); the client's settings are plain data, which the program fills without `real` | accepted by Sam, 2026-11-12 | yes |
 | The 0.10.0 migration test stays in the program's tests; only `legacy()`'s facts move into kkt-rules | 5.2b-1 | It builds real SQLite files, and F16 keeps effect crates out of kkt-rules' tests | accepted by Sam, 2026-11-11 | not a map change |
-| kkt-diagnostics-os' probe still interprets the server's answers (status meanings, advice text) as it sends them | 2.5 | Splitting it needs the probe's sequence to move into kkt-diagnostics; a candidate follow-up | accepted by Sam, 2026-11-11 | yes |
+| kkt-diagnostics-os' probe still interprets the server's answers (status meanings, advice text) as it sends them | 2.5 | Splitting it needs the probe's sequence to move into kkt-diagnostics; a candidate follow-up | accepted by Sam, 2026-11-11 | yes; since 12.5b the probe is kkt-probe-reqwest, which implements kkt-probe's `Prober` directly and still reads the answers |
 | Backup logic supplies an immutable Layout (names, copies, metadata, modes); backup-os writes it and asks logic which old names to remove | 2.7 (#440) | Keeps backup decisions in logic while the effect depends only on backup, as the proposal draws | accepted by Sam, 2026-11-12 | yes |
 | A package's own `testing` feature may turn on a workspace dependency's `testing` (check-crates rule 3) | 5.2b-1 | kkt-rules' test helpers need kkt-db's in-memory database; `testing` is still reached only from dev-dependencies | decided by Sam, 2026-11-11 | not a map change |
 | kkt-config-file-os has five readers and writers, not three: `read` (setup's edit: a missing file is empty), `read_default` (`kkt serve`'s default file: skipped if it cannot be seen), `read_named` (a `--config` file: must be there), `read_instructions` and `write`, with its own `ReadError` and `WriteError` | 3.3 (#445) | Each keeps the behaviour and messages its caller had; the error types are the crate's own, not std's | accepted by Sam, 2026-11-12 | yes |
@@ -1332,14 +1395,14 @@ third-party.
 
 | Pair | What the effect wraps | Third-party? | Contract phrased in | Tool knowledge in the logic crate | The program's adapter | Recommended | Wrapper's name |
 |---|---|---|---|---|---|---|---|
-| remote-access | The `tailscale` command | Yes | The tool's terms: `Host::run(args)` | All of it: `tailscale status --json`, the serve arguments, the failures (275 lines, 342 of tests) | 17 lines: copies three fields, and words a failure to run Tailscale with advice | **Split: step 12.1, in progress.** The contract becomes preparing, serving, checking and stopping the sharing of a server, with their records | kkt-remote-access-tailscale |
-| container | The `docker` and `docker compose` commands, and the managed folder's files | Yes | The machine's terms: run a command, read and write a file, say a line | All of it: the Compose files, every Docker command and its output, and the Tailscale sidecar's status (about 1,900 lines, 2,500 of tests) | 63 lines: copies fields | **Split** (Sam: at least this one). The contract is what kkt-operate and kkt-setup ask: provision, status, up, down, backup, lanes in and out, upgrade, `existing`, the key checks, with `Folder` and the records. The sidecar's Tailscale status (54 lines) goes with the Docker wrapper, which runs it | kkt-container-docker |
-| service | launchd (`launchctl`, the plist) and systemd (`systemctl`, the unit file) | Yes: programs kkt runs, though they come with the system | The machine's terms: files, commands, the user ID | All of it, both systems in one crate (launchd 467 lines, systemd 248), chosen by `Manager::for_this_os` | 48 lines: copies fields | **Split, with two wrappers**: the case 1.2.2 names. The program picks one by platform. The plan (what a service runs, from its settings) and the bind check use no tool; they stay logic, as functions on the contract's own values (3.2.5) or in kkt-operate | kkt-service-launchd, kkt-service-systemd |
-| lane-files | The machine's files, and the `git` command | Yes, for git | `Disk` in the project's terms (it already asks for the folder's commit); `git::Git` in git's: run git with these arguments | git's meaning: expected absences, the dirty suffix, the wording (56 lines). Sam accepted keeping it there (2.6); his ruling reverses that | 45 lines: copies fields | **Split.** The contract is the lane folder's files and the commit it is at, in the project's terms; the wrapper runs git and holds its meaning | kkt-lane-files-git |
-| agent-client | rmcp and reqwest, reaching kkt's MCP endpoints | Yes | The project's terms: kkt's tools (register, reclaim, describe, read, wait) | None: kkt-watch and kkt-agent-commands each declare a small client contract of their own | `WatchServer` (about 105 lines), `McpServers` (about 85) and the credential files (about 75, which also apply kkt-setup's credential-file rule): copy records, map failures | **Split.** A contract crate for a client of kkt's server, which kkt-watch, kkt-agent-commands and the fake product's tests depend on in place of their own; the rmcp client implements it. The credential and state files are the machine's files, and stay where they are | kkt-agent-client-rmcp (the contract keeps the name kkt-agent-client) |
-| diagnostics | HTTP and kkt's MCP handshake, through reqwest | Yes | The project's terms: read a key file, probe an address and get checks | None. The effect crate reads the server's answers (2.5, accepted) | 44 lines: copies fields, passes the doctor's constants | **Split.** The contract (`Prober`, `KeyFile`, `Check`) moves from kkt-diagnostics, the logic that uses it, into a contract crate; the reqwest prober implements it, and the adapter goes | Contract: kkt-probe. Wrapper: kkt-probe-reqwest |
-| client-config | Five AI clients' config files, and Claude Code's `claude` command | Yes for `claude`. The five file formats are other programs' formats, which kkt-client-config implements as external contracts (2.3); the files are reached through the standard library | The project's terms for the files (read, write, rename, restrict); the tool's for `claude(args)` | The five formats and where each client keeps them: the crate's concern | 45 lines: forwarding only | **Split the `claude` command only** (done in 12.5c). A contract crate in the project's terms, "remove kkt's server; add it as the client's own entry", implemented by a wrapper. The files stay behind `Host`, with the program's adapter (msg 3084): they are the machine's own, outside Sam's ruling, and an effect crate may not implement a logic crate's own contract. The five formats are not five implementations (Sam, answer 5) | Contract: kkt-client-command. Wrapper: kkt-client-command-claude |
-| terminal | The terminal, and the browser opener (`open`, `xdg-open`) | The terminal: no. The opener runs programs the system provides | Each consumer's own terms: `Lines` (kkt-setup), `LoginLink` (kkt-container), `Output` (kkt-operate, kkt-agent-commands), `Report` (kkt-watch) | None | 20 to 30 lines each | **Split the opener; leave the terminal** (done in 12.5d). Programs that come with the system count (Sam, answer 2). The opener's contract is in the project's terms (show a link, open it in a browser if asked); its wrapper runs `open` or `xdg-open`. It is about 30 lines. The terminal is the machine's own The Docker wrapper, which opens the link, is built with the browser (`Docker::new`); the container contract's `LoginLink` keeps the terminal's half (msg 3115) | Contract: kkt-browser. Wrapper: kkt-browser-os, since the work is the operating system's (answer 4) |
+| remote-access | The `tailscale` command | Yes | The tool's terms: `Host::run(args)` | All of it: `tailscale status --json`, the serve arguments, the failures (275 lines, 342 of tests) | 17 lines: copies three fields, and words a failure to run Tailscale with advice | **Split** (done in 12.1 (#507)). The contract becomes preparing, serving, checking and stopping the sharing of a server, with their records | kkt-remote-access-tailscale |
+| container | The `docker` and `docker compose` commands, and the managed folder's files | Yes | The machine's terms: run a command, read and write a file, say a line | All of it: the Compose files, every Docker command and its output, and the Tailscale sidecar's status (about 1,900 lines, 2,500 of tests) | 63 lines: copies fields | **Split** (done in 12.2 (#510)) (Sam: at least this one). The contract is what kkt-operate and kkt-setup ask: provision, status, up, down, backup, lanes in and out, upgrade, `existing`, the key checks, with `Folder` and the records. The sidecar's Tailscale status (54 lines) goes with the Docker wrapper, which runs it | kkt-container-docker |
+| service | launchd (`launchctl`, the plist) and systemd (`systemctl`, the unit file) | Yes: programs kkt runs, though they come with the system | The machine's terms: files, commands, the user ID | All of it, both systems in one crate (launchd 467 lines, systemd 248), chosen by `Manager::for_this_os` | 48 lines: copies fields | **Split, with two wrappers** (done in 12.3 (#509)): the case 1.2.2 names. The program picks one by platform. The plan (what a service runs, from its settings) and the bind check use no tool; they stay logic, as functions on the contract's own values (3.2.5) or in kkt-operate | kkt-service-launchd, kkt-service-systemd |
+| lane-files | The machine's files, and the `git` command | Yes, for git | `Disk` in the project's terms (it already asks for the folder's commit); `git::Git` in git's: run git with these arguments | git's meaning: expected absences, the dirty suffix, the wording (56 lines). Sam accepted keeping it there (2.6); his ruling reverses that | 45 lines: copies fields | **Split** (done in 12.5a (#512)). The contract is the commit a lane folder is at, in the project's terms; the wrapper runs git and holds its meaning. The lane files stay behind kkt-lane-files' `Disk`, with the program's adapter (msg 3120) | Contract: kkt-lane-commit. Wrapper: kkt-lane-commit-git |
+| agent-client | rmcp and reqwest, reaching kkt's MCP endpoints | Yes | The project's terms: kkt's tools (register, reclaim, describe, read, wait) | None: kkt-watch and kkt-agent-commands each declare a small client contract of their own | `WatchServer` (about 105 lines), `McpServers` (about 85) and the credential files (about 75, which also apply kkt-setup's credential-file rule): copy records, map failures | **Split** (done in 12.4 (#508)). A contract crate for a client of kkt's server, which kkt-watch, kkt-agent-commands and the fake product's tests depend on in place of their own; the rmcp client implements it. The credential and state files are the machine's files, and stay where they are | kkt-agent-client-rmcp (the contract keeps the name kkt-agent-client) |
+| diagnostics | HTTP and kkt's MCP handshake, through reqwest | Yes | The project's terms: read a key file, probe an address and get checks | None. The effect crate reads the server's answers (2.5, accepted) | 44 lines: copies fields, passes the doctor's constants | **Split** (done in 12.5b (#514)). The contract (`Prober`, `KeyFile`, `Check`) moves from kkt-diagnostics, the logic that uses it, into a contract crate; the reqwest prober implements it, and the adapter goes | Contract: kkt-probe. Wrapper: kkt-probe-reqwest |
+| client-config | Five AI clients' config files, and Claude Code's `claude` command | Yes for `claude`. The five file formats are other programs' formats, which kkt-client-config implements as external contracts (2.3); the files are reached through the standard library | The project's terms for the files (read, write, rename, restrict); the tool's for `claude(args)` | The five formats and where each client keeps them: the crate's concern | 45 lines: forwarding only | **Split the `claude` command only** (done in 12.5c (#511)). A contract crate in the project's terms, "remove kkt's server; add it as the client's own entry", implemented by a wrapper. The files stay behind `Host`, with the program's adapter (msg 3084): they are the machine's own, outside Sam's ruling, and an effect crate may not implement a logic crate's own contract. The five formats are not five implementations (Sam, answer 5) | Contract: kkt-client-command. Wrapper: kkt-client-command-claude |
+| terminal | The terminal, and the browser opener (`open`, `xdg-open`) | The terminal: no. The opener runs programs the system provides | Each consumer's own terms: `Lines` (kkt-setup), `LoginLink` (kkt-container), `Output` (kkt-operate, kkt-agent-commands), `Report` (kkt-watch) | None | 20 to 30 lines each | **Split the opener; leave the terminal** (done in 12.5d (#513)). Programs that come with the system count (Sam, answer 2). The opener's contract is in the project's terms (show a link, open it in a browser if asked); its wrapper runs `open` or `xdg-open`. It is about 30 lines. The terminal is the machine's own. The Docker wrapper, which opens the link, is built with the browser (`Docker::new`); the container contract's `LoginLink` keeps the terminal's half (msg 3115) | Contract: kkt-browser. Wrapper: kkt-browser-os, since the work is the operating system's (answer 4) |
 | admission | The machine's key files | No | The project's terms (`KeyTexts`, kkt-operate's `KeyFiles`, kkt-agent-commands' `KeyText`) | None | About 40 lines that word each read error with its setting's name, which each program does its own way; the rest forwards | **Leave**: not third-party | (none) |
 | setup, backup, config-file | The machine's files: the setup record and note, `PATH`; the backup folders; the config and instructions files | No | The project's terms, as kkt-operate declares them (`SetupFiles`, `BackupWriter`, `ConfigText`) | None | 10 to 43 lines each, forwarding | **Leave**: not third-party. An effect crate may not depend on an assembly, so these adapters stay in the program unless the contracts move into kkt-setup and kkt-backup | (none) |
 
@@ -1383,14 +1446,14 @@ by kkt-review-373).
 | Step | What | Size | Builds | Reviews |
 |---|---|---|---|---|
 | 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (#507, merged) | kkt-review-373 |
-| 12.2 | container: contract and kkt-container-docker, with the Docker logic, its tests and the sidecar's status | L | kkt-build-c, after 12.1: the same pattern, and it knows kkt-operate's parts | kkt-review-373 |
-| 12.3 | service: contract, kkt-service-launchd and kkt-service-systemd | M to L | kkt-build-b | kkt-review-b |
-| 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | kkt-mt-step1 (#508) | kkt-review-b |
-| 12.5a | lane-files' git: kkt-lane-files-git | S | kkt-build-b, after 12.3 | kkt-review-b |
-| 12.5b | The probe: kkt-probe and kkt-probe-reqwest | S | kkt-build-b, after 12.5a | kkt-review-b |
+| 12.2 | container: contract and kkt-container-docker, with the Docker logic, its tests and the sidecar's status | L | kkt-build-c (#510, merged) | kkt-review-373 |
+| 12.3 | service: contract, kkt-service-launchd and kkt-service-systemd | M to L | kkt-build-b (#509, merged) | kkt-review-b |
+| 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | kkt-mt-step1 (#508, merged) | kkt-review-b |
+| 12.5a | lane-files' git: kkt-lane-commit and kkt-lane-commit-git | S | kkt-build-b (#512, merged) | kkt-review-b |
+| 12.5b | The probe: kkt-probe and kkt-probe-reqwest | S | kkt-build-b (#514, merged) | kkt-review-b |
 | 12.5c | The `claude` command: kkt-client-command and kkt-client-command-claude | S | kkt-mt-step1 (#511, merged) | kkt-review-b |
-| 12.5d | The browser opener: kkt-browser and kkt-browser-os | S | kkt-mt-step1 (this pull request) | kkt-review-b |
-| 12.6 | Chart what differs, and the scorecard | S | kkt-mt-step1 | kkt-review-373 |
+| 12.5d | The browser opener: kkt-browser and kkt-browser-os | S | kkt-mt-step1 (#513, merged) | kkt-review-b |
+| 12.6 | Chart what differs, and the scorecard | S | kkt-mt-step1 (this pull request) | kkt-review-373 |
 
 12.2, 12.3 and 12.4 run side by side after 12.1: three builders, each on
 its own pair. 12.2 and 12.3 each change one field of kkt-operate's
@@ -1480,17 +1543,21 @@ Each has the default we proceed on, so nothing waits.
 
 ## Final scorecard
 
-On the code at the end of phases 9 to 11, at 1be030c (#502 merged), against
-the proposal with phases 9 to 11 charted (`progress.py`, step 10.4):
+On the code at the end of phase 12, at 1007e1a (#514 merged), against the
+proposal with phases 9 to 12 charted (`progress.py`, step 12.6):
 
-- crates: 61 of 61 proposed crates exist; none missing; none to remove;
-- items: 813 of 813 proposed items are in their proposed crate;
-- arrows: 238 of 238 proposed arrows exist; none missing; none extra;
+- crates: 72 of 72 proposed crates exist; none missing; none to remove;
+- items: 794 of 794 proposed items are in their proposed crate;
+- arrows: 267 of 267 proposed arrows exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
 
 The one temporary break left is CI's, not the code's: macOS is out of CI
-again (#501) for want of GitHub runners, until it comes back or a
-self-hosted runner takes it.
+(#501), until it comes back or a self-hosted runner takes it.
+
+### At the end of phases 9 to 11
+
+On the code at 1be030c (#502 merged): 61 of 61 crates, 813 of 813 items,
+238 of 238 arrows, none extra, no break.
 
 ### At the end of phase 8
 

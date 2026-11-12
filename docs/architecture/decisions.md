@@ -336,11 +336,21 @@ The two differences left at step 8.1 are gone:
   program's tests run the store and a chosen part of the rules' scenarios on
   kkt-db-sqlite.
 
-The final scorecard, on the code at the end of phases 9 to 11 (1be030c):
+Then Sam ruled that every third-party dependency is split: a contract crate
+named for the scope declares what kkt needs in its own terms, and a wrapper
+crate named for the tool implements it directly, holding the tool's
+knowledge and the code that runs it; the program only injects the wrapper
+(msgs 3041, 3047, 3050). Phase 12 did that for Tailscale, Docker, launchd
+and systemd, the MCP client, git, the doctor's HTTP probe, Claude Code's
+command and the system's browser opener. The adapters the program still
+holds reach only the machine's own files, terminal and paths, or its own
+serving code; the plan lists each one and why.
 
-- crates: 61 of 61 proposed crates exist; none missing; none to remove;
-- items: 813 of 813 proposed items are in their proposed crate;
-- arrows: 238 of 238 proposed arrows exist; none missing; none extra;
+The final scorecard, on the code at the end of phase 12 (1007e1a):
+
+- crates: 72 of 72 proposed crates exist; none missing; none to remove;
+- items: 794 of 794 proposed items are in their proposed crate;
+- arrows: 267 of 267 proposed arrows exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
 
 The plan's "Temporary breaks" table has one row, and it is CI's: macOS is
