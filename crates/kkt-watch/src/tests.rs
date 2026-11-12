@@ -1,4 +1,5 @@
 use super::*;
+use futures::future::BoxFuture;
 use kkt_clock::testing::FixedClock;
 use std::collections::VecDeque;
 use std::sync::Mutex;
@@ -59,7 +60,7 @@ impl<'c> FakeServer<'c> {
     }
 }
 
-impl Server for FakeServer<'_> {
+impl Watched for FakeServer<'_> {
     fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         Box::pin(async { Ok(Vec::new()) })
     }
@@ -174,7 +175,7 @@ fn answer_unless<T: Send + 'static>(stalled: bool, answer: T) -> BoxFuture<'stat
     }
 }
 
-impl Server for Stalled {
+impl Watched for Stalled {
     fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         answer_unless(false, Ok(Vec::new()))
     }

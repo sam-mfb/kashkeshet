@@ -1,5 +1,10 @@
-//! Agent credentials and watch state on disk. The program supplies the
-//! credential-file rule and where its warnings are sent.
+//! Agent credentials and watch state on disk: the token and recovery-code
+//! files `kkt register` and `kkt reclaim` write, the token file `kkt watch`
+//! reads, and its state file. The program supplies the credential-file rule
+//! and where its warnings are sent. All of it touches the machine, so all of
+//! it is behind `real`.
+
+#![cfg(feature = "real")]
 
 use std::io;
 use std::path::{Path, PathBuf};

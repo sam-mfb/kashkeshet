@@ -35,6 +35,17 @@ The shared crates are reorganized so that every dependency is injected and each 
   the program adapter. Callers inject that implementation into `OperateParts`;
   the contract's `testing::Memory` supplies sharing without a real network.
   Tailscale behaviour and messages are unchanged.
+- **Agent client contract.** `kkt-agent-client` is now the contract for a
+  client of kkt's server: `Servers`, `Avatars` and `Watched`, with `Address`
+  and the records and `Failure` it already had, and `testing::Memory`.
+  `kkt-agent-client-rmcp` (`Mcp`, `Client`, `Remote`, `AdminRemote`,
+  `Settings`, `Http`, `HttpReply`; behind `real`) implements it directly.
+  The credential and watch-state files move to `kkt-agent-files-os`.
+  kkt-watch's `Server`, `Channel`, `Message`, `Waited`, `NewerLane` and
+  `Failure`, and kkt-agent-commands' `Servers`, `Avatars`, `Address`,
+  `Registered`, `Reclaimed` and `Failure`, give way to the contract's;
+  `Remote` and `AdminRemote` implement `Watched` in place of their own
+  methods. Messages and files are unchanged.
 - **Service contract.** `kkt-service::Service` replaces `Manager`, `System`,
   `DryRun`, `Command` and `Finished`: what kkt asks of the service manager, in
   kkt's terms, with `Unsupported` for other systems and `testing::Memory` for

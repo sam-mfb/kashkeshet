@@ -1,9 +1,5 @@
-//! The program's adapters for `kkt watch`, which kkt-agent-commands runs:
-//! the MCP client as kkt-watch's `Server`, and the terminal as its
-//! `Report`.
-
-mod server;
-pub use server::WatchServer;
+//! The terminal as kkt-watch's `Report`, for `kkt watch`, which
+//! kkt-agent-commands runs.
 
 use kkt_terminal_os::Terminal;
 use kkt_watch as watch;
