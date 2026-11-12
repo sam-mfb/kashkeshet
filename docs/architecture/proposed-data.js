@@ -398,6 +398,7 @@ window.KKT_PROPOSED = {
        "kashkeshet::machine::settings::ServeOptions",
        "kashkeshet::machine::settings::ServeSettings",
        "kkt-server::ServerSettings",
+       "kkt-rules::Settings",
        "kkt-hosts::DEFAULT_BIND",
        "kkt-logs::DEFAULT_LOG_LEVEL",
        "kkt-backup::Settings",
@@ -405,7 +406,7 @@ window.KKT_PROPOSED = {
        "kkt-admission::server_keys::ServerKeys"
       ],
       "proposed_step": true,
-      "text": "Flags over the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) over the defaults (kkt-server's ServerSettings::DEFAULT, kkt-hosts' address, kkt-logs' levels, kkt-backup's Settings and kkt-setup's default database) become the program's ServeSettings, which hold kkt-server's ServerSettings. ServerSettings::check names the first bad setting, with the program's own problems placed by name; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+      "text": "Flags over the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) over the defaults (kkt-server's ServerSettings::DEFAULT, kkt-hosts' address, kkt-logs' levels, kkt-backup's Settings and kkt-setup's default database) become the program's ServeSettings, which hold kkt-server's ServerSettings, kkt-rules' Settings and kkt-backup's Settings. ServerSettings::check names the first bad setting, with the program's own problems (kkt-rules' and kkt-backup's among them) placed in it; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
       "title": "Settings"
      },
      {
@@ -425,6 +426,7 @@ window.KKT_PROPOSED = {
      {
       "items": [
        "kkt-server::ServerSettings",
+       "kkt-rules::Settings",
        "kkt-provenance::ServerRun",
        "kkt-server::new_server_run",
        "kkt-rules::NewServerRun",
@@ -432,7 +434,7 @@ window.KKT_PROPOSED = {
        "kkt-rules::start"
       ],
       "proposed_step": true,
-      "text": "What produced this run, with its settings worded by kkt-server's ServerSettings::record_lines (the program's own settings as name and value lines in their places), goes to kkt-rules' start in its terms (new_server_run), which records it and builds the Rules, with ServerSettings' rules settings, over the store; new rows carry its ID.",
+      "text": "What produced this run, with its settings worded by kkt-server's ServerSettings::record_lines (each owner words its own lines; the program's, kkt-rules' and kkt-backup's among them, come in as name and value pairs and take their places), goes to kkt-rules' start in its terms (new_server_run), which records it and builds the Rules, with the kkt-rules Settings the program filled, over the store; new rows carry its ID.",
       "title": "Run record"
      },
      {
@@ -1250,10 +1252,11 @@ window.KKT_PROPOSED = {
        "kkt-config-file-os::read_named",
        "kkt-config-file::parse_file",
        "kkt-server::ServerSettings",
+       "kkt-rules::Settings",
        "kkt-admission::server_keys::check"
       ],
       "proposed_step": true,
-      "text": "The same config file as kkt serve, read through kkt-config-file-os and parsed by kkt-config-file, mapped by its own smaller surface onto kkt-server's ServerSettings and checked by it, and the same key check.",
+      "text": "The same config file as kkt serve, read through kkt-config-file-os and parsed by kkt-config-file, mapped by its own smaller surface onto kkt-server's ServerSettings and kkt-rules' Settings and checked by ServerSettings::check, and the same key check.",
       "title": "Settings"
      },
      {
@@ -3461,6 +3464,7 @@ window.KKT_PROPOSED = {
      "CORE",
      "Db",
      "DefaultWording",
+     "Settings",
      "Startup",
      "legacy",
      "schema",
@@ -4263,8 +4267,7 @@ window.KKT_PROPOSED = {
     ],
     "items_new": [
      "DefaultWording",
-     "NewServerRun",
-     "Settings"
+     "NewServerRun"
     ],
     "kind": "normal",
     "roles_after": [
@@ -4980,6 +4983,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "finds the name pack a flag or the config file names (phase 9)"
+     },
+     {
+      "status": "decided",
+      "text": "fills kkt-rules' Settings for the Rules it builds, and passes its problems and record lines to kkt-server as plain values (phase 9)"
      }
     ]
    },
@@ -6978,6 +6985,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "finds the name pack a flag or the config file names (phase 9)"
+     },
+     {
+      "status": "decided",
+      "text": "fills kkt-rules' Settings for the Rules it builds, and passes its problems and record lines to kkt-server as plain values (phase 9)"
      }
     ]
    },
@@ -8226,10 +8237,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests take a database for a start of their own from testing::database, and build rules with testing::memory from a testing::Memory (step 5.6b)"
-     },
-     {
-      "status": "decided",
-      "text": "ServerSettings holds the rules' Settings, since kkt-server passes the Rules on to every surface (phase 9)"
      },
      {
       "status": "decided",
@@ -10183,7 +10190,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-server": {
-    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits, and `page` builds the web page alone, over any `OperatorApi` and gate, for a program that serves only the page (kkt-web-preview). Binding the socket is in kkt-server-listen. It holds `ServerSettings`, the settings of what it builds or passes on, each an owner's own `Settings`: their default, the order in which a bad one is named, and the run record's wording. It knows nothing of flags, files or how they layer.",
+    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits, and `page` builds the web page alone, over any `OperatorApi` and gate, for a program that serves only the page (kkt-web-preview). Binding the socket is in kkt-server-listen. It holds `ServerSettings`, the settings of what it builds or passes on, each an owner's own `Settings`, and puts in a fixed order the problems and run-record lines that the owners and the program give it. It knows nothing of flags, files or how they layer.",
     "kind": "composition",
     "layer": "assembly",
     "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
@@ -10350,39 +10357,43 @@ window.KKT_PROPOSED = {
   "about": "For each public item of today's kkt-config, where it lives in the proposed map and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts live in the crate that owns them, private there or public when others use them; tuning values are settings fields; operator settings and defaults are in kkt-settings or the program; Nothing stays in kkt-config: it goes, and its last items live with their owners. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. Crates are named as the proposed map names them; used_by and test_only name today's users.",
   "limits": {
    "gathered_in": "kkt-settings",
-   "note": "Limits was what kkt-settings gathered from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate. In phase 9 kkt-settings and the gathered Limits go: kkt-server's ServerSettings holds the parts' settings, and upgrade_backups_kept is kkt-backup's Settings, which the program fills",
+   "note": "Limits was what kkt-settings gathered from flags, the config file and defaults; its fields split into per-crate settings structs, each checked and worded for the run record by its own crate. In phase 9 kkt-settings and the gathered Limits go: kkt-server's ServerSettings holds the settings of what it builds or passes on (the formatter's and the page's), and the program fills kkt-rules' Settings, for the Rules it builds, and kkt-backup's",
    "parts": [
     {
      "crate": "kkt-rules",
-     "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars; problems() gives every bad setting it holds, each named, by its own check (step 9.1).",
+     "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
      "kind": "struct",
      "methods": [
-      "problems"
+      "problems",
+      "record_lines"
      ],
      "path": "Settings"
     },
     {
      "crate": "kkt-mcp-formatter",
-     "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes; problems() gives every bad setting it holds, each named, by its own check (step 9.1).",
+     "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
      "kind": "struct",
      "methods": [
-      "problems"
+      "problems",
+      "record_lines"
      ],
      "path": "Settings"
     },
     {
      "crate": "kkt-web",
-     "doc": "kkt-web's share of today's Limits: page (a PageLimits of web_page_messages and web_member_excerpt_chars: step 6.2) and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules; problems() gives every bad setting it holds, each named, by its own check (step 9.1).",
+     "doc": "kkt-web's share of today's Limits: page (a PageLimits of web_page_messages and web_member_excerpt_chars: step 6.2) and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
      "kind": "struct",
      "methods": [
-      "problems"
+      "problems",
+      "record_lines"
      ],
      "path": "Settings"
     }
    ],
    "users": {
     "kashkeshet": [
-     "kkt-server::ServerSettings"
+     "kkt-server::ServerSettings",
+     "kkt-rules::Settings"
     ],
     "kkt-container": [
      "kkt-settings::DEFAULT_NAME_PACK"
@@ -11346,7 +11357,7 @@ window.KKT_PROPOSED = {
     "how": "injected",
     "item": "Limits",
     "kind": "struct",
-    "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes and session lifetime (step 6.1), kkt-backup's upgrade_backups_kept (step 9.1)), each with its own check; kkt-server's ServerSettings holds those of the parts it builds or passes on, and the gathered Limits goes with kkt-settings (phase 9)",
+    "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes and session lifetime (step 6.1), kkt-backup's upgrade_backups_kept (step 9.1)), each with its own check and record lines; kkt-server's ServerSettings holds those of the parts it builds or passes on, the program fills the rest, and the gathered Limits goes with kkt-settings (phase 9)",
     "test_only": [
      "kkt-mcp-formatter",
      "kkt-identity"
@@ -13603,6 +13614,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "finds the name pack a flag or the config file names (phase 9)"
+     },
+     {
+      "status": "decided",
+      "text": "fills kkt-rules' Settings for the Rules it builds, and passes its problems and record lines to kkt-server as plain values (phase 9)"
      }
     ],
     "released_program": true,
@@ -16758,10 +16773,11 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "How many of the backups made before upgrading the database are kept (upgrade_backups_kept), with its default and its check (step 9.1).",
+      "doc": "How many of the backups made before upgrading the database are kept (upgrade_backups_kept), with its default, its check and its line in the run record (step 9.1).",
       "kind": "struct",
       "methods": [
-       "problems"
+       "problems",
+       "record_lines"
       ],
       "path": "Settings",
       "proposed_item": true,
@@ -20960,6 +20976,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "finds the name pack a flag or the config file names (phase 9)"
+     },
+     {
+      "status": "decided",
+      "text": "fills kkt-rules' Settings for the Rules it builds, and passes its problems and record lines to kkt-server as plain values (phase 9)"
      }
     ],
     "released_program": false,
@@ -22323,10 +22343,11 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes; problems() gives every bad setting it holds, each named, by its own check (step 9.1).",
+      "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
       "kind": "struct",
       "methods": [
-       "problems"
+       "problems",
+       "record_lines"
       ],
       "path": "Settings",
       "proposed_item": true,
@@ -23303,10 +23324,11 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars; problems() gives every bad setting it holds, each named, by its own check (step 9.1).",
+      "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
       "kind": "struct",
       "methods": [
-       "problems"
+       "problems",
+       "record_lines"
       ],
       "path": "Settings",
       "proposed_item": true,
@@ -24383,7 +24405,7 @@ window.KKT_PROPOSED = {
       "path": "Parts"
      },
      {
-      "doc": "The settings of what kkt-server builds or passes on, each one owner's own Settings (kkt-rules', kkt-mcp-formatter's, kkt-web's, kkt-mcp's) or a plain value it uses itself (the allowed origins and hosts); DEFAULT is built from the owners' DEFAULTs, check names the first bad setting in a fixed order, with the program's own problems placed by name, and record_lines words the run record, with the program's own name and value lines in their places (step 9.2).",
+      "doc": "The settings of what kkt-server builds or passes on, each one owner's own Settings (kkt-mcp-formatter's, kkt-web's, kkt-mcp's) or a plain value it uses itself (the allowed origins and hosts). DEFAULT is built from the owners' DEFAULTs. check takes the program's problems as plain values and names the first of all of them in a fixed order of (setting, check) pairs; record_lines takes the program's lines as plain name and value pairs and puts every line, its own fields' from their owners, in a fixed order by name (step 9.2).",
       "kind": "struct",
       "methods": [
        "check",
@@ -24591,10 +24613,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests take a database for a start of their own from testing::database, and build rules with testing::memory from a testing::Memory (step 5.6b)"
-     },
-     {
-      "status": "decided",
-      "text": "ServerSettings holds the rules' Settings, since kkt-server passes the Rules on to every surface (phase 9)"
      },
      {
       "status": "decided",
@@ -27758,10 +27776,11 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "kkt-web's share of today's Limits: page (a PageLimits of web_page_messages and web_member_excerpt_chars: step 6.2) and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules; problems() gives every bad setting it holds, each named, by its own check (step 9.1).",
+      "doc": "kkt-web's share of today's Limits: page (a PageLimits of web_page_messages and web_member_excerpt_chars: step 6.2) and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
       "kind": "struct",
       "methods": [
-       "problems"
+       "problems",
+       "record_lines"
       ],
       "path": "Settings",
       "proposed_item": true,
@@ -30296,6 +30315,7 @@ window.KKT_PROPOSED = {
      "LaneImport",
      "LaneOutcome",
      "Revoked",
+     "Settings",
      "Startup",
      "check_lane_import",
      "check_retire_missing",
@@ -30315,6 +30335,7 @@ window.KKT_PROPOSED = {
        "LaneImport",
        "LaneOutcome",
        "Revoked",
+       "Settings",
        "Startup",
        "check_lane_import",
        "check_retire_missing",
@@ -34246,6 +34267,7 @@ window.KKT_PROPOSED = {
     "items": [
      "Db",
      "DefaultWording",
+     "Settings",
      "Startup",
      "schema",
      "start"
@@ -34257,6 +34279,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Settings",
        "Startup",
        "schema",
        "start"
@@ -36438,8 +36461,7 @@ window.KKT_PROPOSED = {
     "from": "kkt-server",
     "items": [
      "DefaultWording",
-     "NewServerRun",
-     "Settings"
+     "NewServerRun"
     ],
     "kind": "normal",
     "optional": false,
@@ -36448,8 +36470,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "NewServerRun",
-       "Settings"
+       "NewServerRun"
       ],
       "role": "uses"
      },

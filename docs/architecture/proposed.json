@@ -3437,7 +3437,7 @@
     "check",
     "record_lines"
    ],
-   "doc": "The settings of what kkt-server builds or passes on, each one owner's own Settings (kkt-rules', kkt-mcp-formatter's, kkt-web's, kkt-mcp's) or a plain value it uses itself (the allowed origins and hosts); DEFAULT is built from the owners' DEFAULTs, check names the first bad setting in a fixed order, with the program's own problems placed by name, and record_lines words the run record, with the program's own name and value lines in their places (step 9.2)."
+   "doc": "The settings of what kkt-server builds or passes on, each one owner's own Settings (kkt-mcp-formatter's, kkt-web's, kkt-mcp's) or a plain value it uses itself (the allowed origins and hosts). DEFAULT is built from the owners' DEFAULTs. check takes the program's problems as plain values and names the first of all of them in a fixed order of (setting, check) pairs; record_lines takes the program's lines as plain name and value pairs and puts every line, its own fields' from their owners, in a fixed order by name (step 9.2)."
   },
   {
    "crate": "kkt-backup",
@@ -3445,9 +3445,10 @@
    "kind": "struct",
    "status": "decided",
    "methods": [
-    "problems"
+    "problems",
+    "record_lines"
    ],
-   "doc": "How many of the backups made before upgrading the database are kept (upgrade_backups_kept), with its default and its check (step 9.1)."
+   "doc": "How many of the backups made before upgrading the database are kept (upgrade_backups_kept), with its default, its check and its line in the run record (step 9.1)."
   },
   {
    "crate": "kashkeshet",
@@ -7098,18 +7099,6 @@
   },
   {
    "from": "kkt-server",
-   "to": "kkt-rules",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Settings"
-    ]
-   },
-   "status": "decided",
-   "note": "ServerSettings holds the rules' Settings, since kkt-server passes the Rules on to every surface (phase 9)"
-  },
-  {
-   "from": "kkt-server",
    "to": "kkt-hosts",
    "kind": "normal",
    "add": {
@@ -7245,6 +7234,30 @@
    },
    "status": "decided",
    "note": "finds the name pack a flag or the config file names (phase 9)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "fills kkt-rules' Settings for the Rules it builds, and passes its problems and record lines to kkt-server as plain values (phase 9)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "fills kkt-rules' Settings for the Rules it builds, and passes its problems and record lines to kkt-server as plain values (phase 9)"
   }
  ],
  "decisions": {
@@ -7676,7 +7689,7 @@
   },
   {
    "id": "53",
-   "text": "Msgs 2773 and 2775 (phase 9): kkt-settings goes, as kkt-config did, since it gathered other crates' concerns under one name. Each crate's own Settings, DEFAULT and check are the only copy, and Limits goes. kkt-server's ServerSettings holds the settings of what kkt-server builds or passes on, each an owner's own Settings or a plain value it uses itself, with DEFAULT built from the owners', check naming the first bad setting in today's order (the program's own problems placed by name) and record_lines wording the run record (the program's own lines in their places); Parts::new takes it. The serve surface (flags, config keys, layering, the key files and the database) is each program's; settings only the program uses, such as the log and the upgrade backups, stay with it."
+   "text": "Msgs 2773 and 2775 (phase 9): kkt-settings goes, as kkt-config did, since it gathered other crates' concerns under one name. Each crate's own Settings, DEFAULT, check (problems) and run-record wording (record_lines) are the only copy, and Limits goes. kkt-server's ServerSettings holds only the settings of what kkt-server builds or passes on (the formatter's, the page's, the MCP transport's, the allowed origins and hosts), with DEFAULT built from the owners', check naming the first bad setting in today's order of (setting, check) pairs (the program's problems passed in as plain values) and record_lines putting every line in today's order (the program's lines passed in as plain values); Parts::new takes it. The program builds the Rules, so kkt-rules' Settings is the program's, as are the log and the upgrade backups; the serve surface (flags, config keys, layering, the key files and the database) is each program's."
   }
  ],
  "not_traits": [
@@ -8427,7 +8440,7 @@
   },
   "kkt-server": {
    "status": "decided",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits, and `page` builds the web page alone, over any `OperatorApi` and gate, for a program that serves only the page (kkt-web-preview). Binding the socket is in kkt-server-listen. It holds `ServerSettings`, the settings of what it builds or passes on, each an owner's own `Settings`: their default, the order in which a bad one is named, and the run record's wording. It knows nothing of flags, files or how they layer."
+   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits, and `page` builds the web page alone, over any `OperatorApi` and gate, for a program that serves only the page (kkt-web-preview). Binding the socket is in kkt-server-listen. It holds `ServerSettings`, the settings of what it builds or passes on, each an owner's own `Settings`, and puts in a fixed order the problems and run-record lines that the owners and the program give it. It knows nothing of flags, files or how they layer."
   },
   "kkt-agent-client": {
    "status": "decided",
@@ -8636,9 +8649,10 @@
       "fills": "kkt-rules::Db::new (database)"
      },
      "Run record": {
-      "text": "What produced this run, with its settings worded by kkt-server's ServerSettings::record_lines (the program's own settings as name and value lines in their places), goes to kkt-rules' start in its terms (new_server_run), which records it and builds the Rules, with ServerSettings' rules settings, over the store; new rows carry its ID.",
+      "text": "What produced this run, with its settings worded by kkt-server's ServerSettings::record_lines (each owner words its own lines; the program's, kkt-rules' and kkt-backup's among them, come in as name and value pairs and take their places), goes to kkt-rules' start in its terms (new_server_run), which records it and builds the Rules, with the kkt-rules Settings the program filled, over the store; new rows carry its ID.",
       "items": [
        "kkt-server::ServerSettings",
+       "kkt-rules::Settings",
        "kkt-provenance::ServerRun",
        "kkt-server::new_server_run",
        "kkt-rules::NewServerRun",
@@ -8658,7 +8672,7 @@
       "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log)"
      },
      "Settings": {
-      "text": "Flags over the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) over the defaults (kkt-server's ServerSettings::DEFAULT, kkt-hosts' address, kkt-logs' levels, kkt-backup's Settings and kkt-setup's default database) become the program's ServeSettings, which hold kkt-server's ServerSettings. ServerSettings::check names the first bad setting, with the program's own problems placed by name; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+      "text": "Flags over the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) over the defaults (kkt-server's ServerSettings::DEFAULT, kkt-hosts' address, kkt-logs' levels, kkt-backup's Settings and kkt-setup's default database) become the program's ServeSettings, which hold kkt-server's ServerSettings, kkt-rules' Settings and kkt-backup's Settings. ServerSettings::check names the first bad setting, with the program's own problems (kkt-rules' and kkt-backup's among them) placed in it; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
       "items": [
        "kkt-machine-os::OsMachine",
        "kkt-config-file::config_file",
@@ -8668,6 +8682,7 @@
        "kashkeshet::machine::settings::ServeOptions",
        "kashkeshet::machine::settings::ServeSettings",
        "kkt-server::ServerSettings",
+       "kkt-rules::Settings",
        "kkt-hosts::DEFAULT_BIND",
        "kkt-logs::DEFAULT_LOG_LEVEL",
        "kkt-backup::Settings",
@@ -8912,11 +8927,12 @@
       ]
      },
      "Settings": {
-      "text": "The same config file as kkt serve, read through kkt-config-file-os and parsed by kkt-config-file, mapped by its own smaller surface onto kkt-server's ServerSettings and checked by it, and the same key check.",
+      "text": "The same config file as kkt serve, read through kkt-config-file-os and parsed by kkt-config-file, mapped by its own smaller surface onto kkt-server's ServerSettings and kkt-rules' Settings and checked by ServerSettings::check, and the same key check.",
       "items": [
        "kkt-config-file-os::read_named",
        "kkt-config-file::parse_file",
        "kkt-server::ServerSettings",
+       "kkt-rules::Settings",
        "kkt-admission::server_keys::check"
       ]
      }

@@ -710,9 +710,12 @@ composition (msgs 2773 and 2775).
 
 **The design.**
 
-1. **Defaults and bounds stay with their owners.** Each crate's own
-   `Settings`, `DEFAULT` and check are the only copy. `Limits` and its
-   repeated defaults go, with the tests that compared the two.
+1. **Defaults, bounds and record lines stay with their owners.** Each
+   crate's own `Settings`, `DEFAULT` and check are the only copy. Each
+   owner's `Settings` gains `problems()`, every bad setting it holds, and
+   `record_lines()`, its own name and value lines for the run record, byte
+   for byte as today. `Limits` and its repeated defaults go, with the tests
+   that compared the two.
 2. **The serve surface is composition**, in no logic crate: which flags and
    config keys `kkt serve` has, how a flag, the file and a default layer, the
    order in which bad settings are reported, and the run record's wording.
@@ -721,17 +724,22 @@ composition (msgs 2773 and 2775).
    next kkt-settings. Each field is one owner's own `Settings`, or a plain
    value kkt-server uses itself.
    - `DEFAULT` is built only from the owners' `DEFAULT`s.
-   - `check` asks each owner for its problems and names the first in today's
-     order. Each owner's `Settings` gains `problems()`: every bad setting it
-     holds, each as the setting's name and its rule, worded by the owner. The
-     check stays the owner's. kkt-server keeps the order as a list of setting
-     names only. The program's own settings join that list by name: the
-     program passes its own problems as plain (name, rule) values, and
-     kkt-server places them by name, without knowing the program's crates.
-   - `record_lines` words the run record. The wording moves byte for byte
-     from kkt-settings' `RecordedSettings`. The program's own settings appear
-     as plain name and value lines, in the places they have today, which
-     `record_lines` takes as an argument and places by name.
+   - `check` asks its fields' owners for their problems, takes the
+     program's problems as plain values, and names the first of all of them
+     in today's order. A problem is the setting's name, which of the
+     owner's checks found it (a short check name the owner states, such as
+     a floor or a bound against another setting), and the rule as the
+     owner words it. The checks stay the owners'. kkt-server keeps the
+     order as a list of (setting, check) pairs, and knows nothing of the
+     program's crates: the program passes kkt-rules', kkt-backup's and its
+     own problems in as plain values.
+   - `record_lines` puts every line of the run record in today's order, by
+     name. Its own fields' lines come from their owners' `record_lines()`;
+     the program passes its lines in as plain name and value pairs
+     (kkt-rules' and kkt-backup's `record_lines()`, and its own). Only the
+     allowed origins and hosts, kkt-server's own plain values, are worded
+     by kkt-server. With the owners' lines, the text is byte for byte what
+     kkt-settings' `RecordedSettings` writes today.
    - `Parts::new` takes `&ServerSettings` in place of today's separate
      settings argument (the formatter's). kkt-server learns nothing of flags,
      files or how they layer.
@@ -753,7 +761,7 @@ field of `ServeOptions` and `ServeSettings`:
 
 | Setting | Side | Field and owner | Why |
 |---|---|---|---|
-| `name_pack`, `default_limit`, `max_limit`, `max_body_bytes`, `max_channel_name_chars`, `max_purpose_chars`, `max_description_chars`, `max_note_chars`, `max_server_announcement_chars`, `max_memory_entry_chars`, `max_memory_chars`, `max_lane_chars`, `sends_per_minute`, `registrations_per_minute`, `max_agents`, `default_wait`, `max_wait`, `waiting_grace` (`waiting_grace_seconds`), `member_preview`, `purpose_preview_chars` | kkt-server | `rules`, kkt-rules' `Settings` | kkt-server passes the `Rules` on to every surface, and the `Rules` enforce these. The program reads `rules` for `kkt_rules::Startup`, since it builds the `Rules` (5.6a) |
+| `name_pack`, `default_limit`, `max_limit`, `max_body_bytes`, `max_channel_name_chars`, `max_purpose_chars`, `max_description_chars`, `max_note_chars`, `max_server_announcement_chars`, `max_memory_entry_chars`, `max_memory_chars`, `max_lane_chars`, `sends_per_minute`, `registrations_per_minute`, `max_agents`, `default_wait`, `max_wait`, `waiting_grace` (`waiting_grace_seconds`), `member_preview`, `purpose_preview_chars` | program | kkt-rules' `Settings`, which the program puts in `kkt_rules::Startup` | The program builds the `Rules` (5.6a); kkt-server receives them built and never reads their settings |
 | `max_response_bytes` | kkt-server | `formatter`, kkt-mcp-formatter's `Settings` | `Parts::new` builds the formatter |
 | `web_session_lifetime`, `web_page_messages`, `web_member_excerpt_chars` | kkt-server | `web`, kkt-web's `Settings` | kkt-server builds the page and its sessions |
 | (no key) the MCP event streams' timing | kkt-server | `mcp`, kkt-mcp's `Settings` | kkt-server builds the transport; not an operator setting, so it is never recorded |
@@ -767,9 +775,12 @@ field of `ServeOptions` and `ServeSettings`:
 | `log_file`, `log_level`, `dependency_log_level`, and the log file's `LogPolicy` | program | the level defaults in kkt-logs, beside `LogLevel` | The program starts the log |
 | the config file's path (recorded as `config_file`) | program | | The program reads it |
 
-So kkt-server uses three program-side things, all as built values and none
-as settings: the instructions text and the three admissions, in
-`AppConfig`, and the run record's program lines, in `record_lines`.
+So `ServerSettings` holds `formatter`, `web`, `mcp`, `allowed_origins`
+and `allowed_hosts`. kkt-server uses program-side things only as built
+values or plain values: the `Rules` (built with kkt-rules' `Settings`), the
+instructions text and the three admissions in `AppConfig`, and the
+program's problems and record lines, which `check` and `record_lines`
+order.
 `AppConfig` keeps the admissions and the instructions text and loses `web`,
 `mcp`, `allowed_origins` and `allowed_hosts`, which `ServerSettings` holds.
 kkt-server makes `AllowedHosts` from the list `check` passed; 9.2 chooses
@@ -795,10 +806,11 @@ kkt-backup's for the backups.
 **The order of the check.** Today a setting can be named at two places:
 `max_memory_chars` and `web_page_messages` are each checked once against
 their floor, among the "must be at least 1" checks, and once more later
-(against `max_memory_entry_chars`, and against the page ceiling). So
-kkt-server's list names those two twice: the first place takes the problem
-"must be at least 1", the second any other. Today's order, which the list
-keeps:
+(against `max_memory_entry_chars`, and against the page ceiling). That is
+why each problem carries the name of the owner's check that found it, and
+kkt-server's list holds (setting, check) pairs: those two settings appear
+twice, once with their floor check and once with the other. Today's order,
+which the list keeps:
 
 1. Before the check, as now, the program's own: the database, the key file
    (`no_access_key`, `access_key_file`) and the name pack, while resolving;
@@ -864,9 +876,10 @@ keeps:
   `a_run_records_whether_any_address_may_be_bound`,
   `a_run_records_the_key_files`,
   `a_run_records_the_admin_key_file_and_name`,
-  `a_run_records_its_log_file_and_how_it_is_bounded`). They move with the
-  wording to kkt-server in 9.2, unchanged except for how they build the
-  settings.
+  `a_run_records_its_log_file_and_how_it_is_bounded`). They move to
+  kkt-server in 9.2 and keep their expected text, building the program's
+  lines from kkt-rules' and kkt-backup's `record_lines()`; each owner's
+  `record_lines()` gets a test of its own lines in 9.1.
 
 Existing installs: nothing on disk changes. The config file, the flags, the
 service files and the database stay as they are, and a run's record is the
@@ -876,32 +889,43 @@ same text, so its hash is too.
 change kkt-server's `Parts::new` and `AppConfig`, so they follow the rule
 for the shared constructors: one at a time.
 
-- **9.1 Each owner checks its own settings.** S. Parallel: two builders,
-  disjoint crates.
+- **9.1 Each owner checks and words its own settings.** S. Parallel: two
+  builders, disjoint crates.
   - **kkt-build-b:** first, a test that pins which setting today's code
     names first when several are bad (through `src/machine/settings.rs`'
     `check_settings`, so `bind`, `dependency_log_level`, the limits and
     `allow_host` are all in it, including both places of `max_memory_chars`
-    and `web_page_messages`); then kkt-rules' `Settings::problems()`.
-  - **kkt-build-c:** `problems()` for kkt-mcp-formatter's and kkt-web's
-    `Settings`, and kkt-backup's new `Settings` (`upgrade_backups_kept`,
-    default 5, at least 1), the one default only `Limits` holds today.
+    and `web_page_messages`); then kkt-rules' `Settings::problems()` and
+    `Settings::record_lines()`.
+  - **kkt-build-c:** `problems()` and `record_lines()` for
+    kkt-mcp-formatter's and kkt-web's `Settings`, and kkt-backup's new
+    `Settings` (`upgrade_backups_kept`, default 5, at least 1, its one
+    record line), the one default only `Limits` holds today.
 
-  Each owner's tests show its `problems()` gives the same names and rules
-  as `Limits::check` for its fields. Nothing calls `problems()` yet.
+  Each problem carries the setting's name, the owner's name for the check
+  that found it, and the rule. Each owner's tests show its `problems()`
+  gives the same names and rules as `Limits::check` for its fields, and its
+  `record_lines()` the same lines as `RecordedSettings` today. Nothing calls
+  them yet.
 - **9.2 kkt-server's `ServerSettings`.** M. Constructor work in kkt-server,
-  one builder. `ServerSettings` with `DEFAULT`, `check` (the order above,
-  with the program's problems by name) and `record_lines` (the golden and
-  order tests move here from kkt-settings, and keep their expected text);
+  one builder. `ServerSettings` holds `formatter`, `web`, `mcp`,
+  `allowed_origins` and `allowed_hosts`; its `DEFAULT`, `check` and
+  `record_lines` compose the owners': `check` orders its fields' owners'
+  problems and the program's by (setting, check), and `record_lines` orders
+  its fields' owners' lines and the program's by name (the golden and order
+  tests move here from kkt-settings, and keep their expected text).
   `Parts::new` takes `&ServerSettings`; `AppConfig` loses `web`, `mcp`,
   `allowed_origins` and `allowed_hosts`. The three programs and
-  `tests/common` follow; kkt and kkt-keymode build `ServerSettings` from
-  `Limits` for now, and `Limits::check` gives way to `ServerSettings::check`.
-  After 9.1.
+  `tests/common` follow; kkt and kkt-keymode build `ServerSettings`,
+  kkt-rules' `Settings` and kkt-backup's from `Limits` for now, and
+  `Limits::check` gives way to `ServerSettings::check`. After 9.1.
 - **9.3 The programs keep the surface; kkt-settings goes.** M. `ServeOptions`,
   `resolve`, `ServeSettings` and the program's checks move into kkt
   (`src/machine/settings.rs`) and kkt-keymode, which map each key onto a
-  `ServerSettings` field or a program setting. kkt-settings is deleted, with
+  `ServerSettings` field or a program setting (kkt-rules' `Settings`,
+  kkt-backup's, or its own). Each program passes kkt-rules' and
+  kkt-backup's problems and record lines, and its own, to kkt-server's
+  `check` and `record_lines`. kkt-settings is deleted, with
   `Limits` and the tests that compared its defaults with the owners'
   (`each_parts_defaults_are_the_gathered_defaults`, in kkt and in
   kkt-keymode). The users of `Limits::DEFAULT` (`cli.rs`, `kkt status`,

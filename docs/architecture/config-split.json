@@ -953,7 +953,7 @@
    ],
    "to": "split",
    "how": "injected",
-   "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes and session lifetime (step 6.1), kkt-backup's upgrade_backups_kept (step 9.1)), each with its own check; kkt-server's ServerSettings holds those of the parts it builds or passes on, and the gathered Limits goes with kkt-settings (phase 9)"
+   "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes and session lifetime (step 6.1), kkt-backup's upgrade_backups_kept (step 9.1)), each with its own check and record lines; kkt-server's ServerSettings holds those of the parts it builds or passes on, the program fills the rest, and the gathered Limits goes with kkt-settings (phase 9)"
   },
   {
    "item": "LogLevel",
@@ -2104,39 +2104,43 @@
    "kkt-provenance": [],
    "kkt-settings": [],
    "kashkeshet": [
-    "kkt-server::ServerSettings"
+    "kkt-server::ServerSettings",
+    "kkt-rules::Settings"
    ],
    "kkt-fake-product": [
     "kkt-settings::Limits"
    ]
   },
-  "note": "Limits was what kkt-settings gathered from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate. In phase 9 kkt-settings and the gathered Limits go: kkt-server's ServerSettings holds the parts' settings, and upgrade_backups_kept is kkt-backup's Settings, which the program fills",
+  "note": "Limits was what kkt-settings gathered from flags, the config file and defaults; its fields split into per-crate settings structs, each checked and worded for the run record by its own crate. In phase 9 kkt-settings and the gathered Limits go: kkt-server's ServerSettings holds the settings of what it builds or passes on (the formatter's and the page's), and the program fills kkt-rules' Settings, for the Rules it builds, and kkt-backup's",
   "parts": [
    {
     "crate": "kkt-rules",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars; problems() gives every bad setting it holds, each named, by its own check (step 9.1).",
+    "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
     "methods": [
-     "problems"
+     "problems",
+     "record_lines"
     ]
    },
    {
     "crate": "kkt-mcp-formatter",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes; problems() gives every bad setting it holds, each named, by its own check (step 9.1).",
+    "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
     "methods": [
-     "problems"
+     "problems",
+     "record_lines"
     ]
    },
    {
     "crate": "kkt-web",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-web's share of today's Limits: page (a PageLimits of web_page_messages and web_member_excerpt_chars: step 6.2) and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules; problems() gives every bad setting it holds, each named, by its own check (step 9.1).",
+    "doc": "kkt-web's share of today's Limits: page (a PageLimits of web_page_messages and web_member_excerpt_chars: step 6.2) and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
     "methods": [
-     "problems"
+     "problems",
+     "record_lines"
     ]
    }
   ]
