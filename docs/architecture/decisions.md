@@ -326,20 +326,21 @@ kkt-settings and its arrows as extra until phase 9 lands.
 
 Apart from phase 9, the code matches the proposal, as last amended, except
 for two differences that `progress.py --list` reports. Each has a row in the
-plan's differences table, and Sam has not yet ruled on either.
+plan's differences table, and Sam has ruled on both (2026-11-12).
 
 - **The arrow kkt-server → kkt-api-admin is missing** (step 5.6a). kkt-server's
   `Parts` holds the concrete `Rules` and passes it to each surface, which
-  takes it as its own contract (`Api`, `OperatorApi`, `AdminApi`). Naming the
-  traits in `Parts` would add a type parameter or a boxed value and change
-  nothing any surface can reach.
+  takes it as its own contract (`Api`, `OperatorApi`, `AdminApi`). Sam
+  decided that `Parts` takes the contract, an `Arc<dyn AdminApi>`, so
+  kkt-server no longer depends on kkt-rules in its code (step 9.2, msg 2837).
 - **kkt-rules' tests depend on the effect crate kkt-db-sqlite** (step 5.3b),
   a break of the rule that keeps effect crates out of other crates' tests.
   The reason is speed: kkt-rules' 200 tests take under 5 seconds on SQLite in
   memory and over 10 minutes on kkt-db's `MemoryPlace`, which copies the
   whole database on every change. kkt-db's conformance checks keep the two
   backends in step, and kkt-rules' `testing::memory` still serves other
-  crates' tests.
+  crates' tests. Sam did not accept this: a fast stand-in replaces it
+  (msg 2805).
 
 The final scorecard, on the code at the end of the refactor:
 
@@ -386,6 +387,38 @@ whether Sam has accepted it.
   maps one failure type to the other.
 - Operator and admin names stay in kkt-names; tying an admin name to its key's
   hash moves to kkt-admission.
+
+## The program's library (phase 10)
+
+- **The library splits by who uses each part** (msgs 2789, 2794, 2803
+  and 2825): kkt-operate (the operator's commands) and kkt-agent-commands
+  (the agents' commands), composition crates beside kkt-server. Each takes
+  its effects in a `Parts` value. No assembly depends on another or on an
+  `-os` crate; kashkeshet chooses every implementation, keeps the adapters
+  and `cli.rs` (the flags are the program's), and keeps a long dependency
+  list on purpose, since it shows every choice in one place.
+- **No kkt-serve** (msg 2876). The serving wiring stays in kashkeshet:
+  choosing the database, reading the keys, resolving the settings,
+  starting the rules and listening. kkt-server is already the server's
+  assembly, and composing a server from the implementations it chooses is
+  what the program is for. As a crate, kkt-serve would have one user,
+  since kkt-keymode must not use it. So kashkeshet composes the server and
+  the two assemblies of tools. (Phase 10 first planned kkt-serve as a third
+  assembly; its step, 10.1, is dropped.)
+- **The local server's facts are questions, not values.** Each assembly
+  declares the small question its commands ask, and kashkeshet answers it
+  from its own serving code or with kkt-operate's functions. Today each
+  fact is read only by the command that needs it, and a missing record or
+  a bad config file is reported only then, with its own text; a value
+  worked out up front would change that. The one fact both assemblies ask,
+  how a client reaches the server, is kkt-setup's `ConnectionSource`,
+  which neither copies.
+- **`Parts` takes the contract** (msg 2837): kkt-server's `Parts` takes an
+  `Arc<dyn AdminApi>`, and `new_server_run` belongs to whoever calls
+  `start`, so kkt-server no longer depends on kkt-rules in its code.
+- **kkt-service's `Manager::for_this_os` takes plain paths** (msg 2829),
+  the home folder and the config home folder, so kkt-service no longer
+  depends on kkt-machine.
 
 ## Accepted assumptions
 
