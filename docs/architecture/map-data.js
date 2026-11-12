@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "f66d006",
+ "commit": "cc3188e",
  "crates": [
   {
    "bins": [
@@ -1558,6 +1558,10 @@ window.KKT_GRAPH = {
        "trait": "Host"
       },
       {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      },
+      {
        "crate": "kkt-agent-commands",
        "trait": "Program"
       },
@@ -1597,6 +1601,7 @@ window.KKT_GRAPH = {
       "credentials",
       "key_files",
       "clients",
+      "client_command",
       "program",
       "report",
       "output",
@@ -1729,6 +1734,17 @@ window.KKT_GRAPH = {
     {
      "at": "AgentParts",
      "kind": "field",
+     "name": "client_command",
+     "traits": [
+      {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      }
+     ]
+    },
+    {
+     "at": "AgentParts",
+     "kind": "field",
      "name": "clients",
      "traits": [
       {
@@ -1841,6 +1857,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-agent-commands",
          "trait": "Program"
         },
@@ -1894,6 +1914,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-agent-commands",
@@ -1951,6 +1975,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-agent-commands",
          "trait": "Program"
         },
@@ -2004,6 +2032,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-agent-commands",
@@ -3801,6 +3833,123 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
+       "crate": "kkt-client-command",
+       "type": "testing::Recorder"
+      },
+      {
+       "crate": "kkt-client-command-claude",
+       "type": "Claude"
+      }
+     ],
+     "trait": "ClientCommand"
+    }
+   ],
+   "crate_doc": "Configuring an MCP client through that client's own command line, in kkt's terms: removing kkt's server from the client's settings, and adding it as the client's own entry.",
+   "dev_only": false,
+   "features": {
+    "testing": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-client-command",
+     "trait": "ClientCommand",
+     "trait_crate": "kkt-client-command",
+     "type": "testing::Recorder"
+    }
+   ],
+   "items": [
+    {
+     "doc": "A client's own command, as kkt-client-config asks it.",
+     "kind": "trait",
+     "methods": [
+      "add_server",
+      "remove_server"
+     ],
+     "path": "ClientCommand"
+    },
+    {
+     "doc": "A stand-in client command, for tests of the crates that ask one: it records each call, and fails every call when told to.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "One call, as `Recorder` keeps it.",
+     "feature": "testing",
+     "kind": "enum",
+     "path": "testing::Call",
+     "variants": [
+      "Remove",
+      "Add"
+     ]
+    },
+    {
+     "doc": "Records each call.",
+     "feature": "testing",
+     "fields": [
+      "calls",
+      "fails"
+     ],
+     "kind": "struct",
+     "path": "testing::Recorder"
+    }
+   ],
+   "lib": "kkt_client_command",
+   "machine_work": {},
+   "name": "kkt-client-command",
+   "path": "crates/kkt-client-command",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "kkt-client-command for Claude Code: `claude mcp remove` and `claude mcp add-json`, at user scope, under the name `kkt`, with `CLAUDE_CONFIG_DIR` set to the profile's folder or unset for the default.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-client-command-claude",
+     "trait": "ClientCommand",
+     "trait_crate": "kkt-client-command",
+     "type": "Claude"
+    }
+   ],
+   "items": [
+    {
+     "doc": "Claude Code's own command, which the program injects as kkt-client-command's `ClientCommand`.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Claude"
+    }
+   ],
+   "lib": "kkt_client_command_claude",
+   "machine_work": {
+    "src/runner.rs": [
+     "process::Command::new"
+    ]
+   },
+   "name": "kkt-client-command-claude",
+   "path": "crates/kkt-client-command-claude",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
        "crate": "kashkeshet",
        "type": "machine::client_config::ClientHost"
       }
@@ -3844,7 +3993,6 @@ window.KKT_GRAPH = {
      "methods": [
       "absolute",
       "canonicalize",
-      "claude",
       "create_dir_all",
       "create_private",
       "exists",
@@ -3959,6 +4107,17 @@ window.KKT_GRAPH = {
     {
      "at": "configure",
      "kind": "param",
+     "name": "command",
+     "traits": [
+      {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      }
+     ]
+    },
+    {
+     "at": "configure",
+     "kind": "param",
      "name": "host",
      "traits": [
       {
@@ -3979,7 +4138,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's client-config files and `claude` command, as plain OsHost methods adapted by the program to the client-config logic.",
+   "crate_doc": "The machine's client-config files, as plain OsHost methods adapted by the program to the client-config logic.",
    "dev_only": false,
    "features": {
     "real": []
@@ -3994,7 +4153,6 @@ window.KKT_GRAPH = {
      "methods": [
       "absolute",
       "canonicalize",
-      "claude",
       "create_dir_all",
       "create_private",
       "exists",
@@ -4022,8 +4180,6 @@ window.KKT_GRAPH = {
      "os::unix::fs::OpenOptionsExt",
      "os::unix::fs::PermissionsExt",
      "path::absolute",
-     "process::Command",
-     "process::Command::new",
      "process::id",
      "Path::canonicalize",
      "Path::exists"
@@ -8327,6 +8483,10 @@ window.KKT_GRAPH = {
        "trait": "Host"
       },
       {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      },
+      {
        "crate": "kkt-diagnostics",
        "trait": "Prober"
       },
@@ -8488,6 +8648,7 @@ window.KKT_GRAPH = {
       "try_bind",
       "remote",
       "clients",
+      "client_command",
       "prober",
       "lanes",
       "lines",
@@ -8894,6 +9055,17 @@ window.KKT_GRAPH = {
     {
      "at": "OperateParts",
      "kind": "field",
+     "name": "client_command",
+     "traits": [
+      {
+       "crate": "kkt-client-command",
+       "trait": "ClientCommand"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
      "name": "clients",
      "traits": [
       {
@@ -9109,6 +9281,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -9194,6 +9370,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9287,6 +9467,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -9378,6 +9562,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -9467,6 +9655,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9571,6 +9763,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -9656,6 +9852,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9756,6 +9956,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -9845,6 +10049,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -9960,6 +10168,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -10045,6 +10257,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10134,6 +10350,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -10219,6 +10439,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10308,6 +10532,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -10393,6 +10621,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10486,6 +10718,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -10575,6 +10811,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10745,6 +10985,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -10834,6 +11078,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -10938,6 +11186,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -11025,6 +11277,10 @@ window.KKT_GRAPH = {
          "trait": "Host"
         },
         {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
+        },
+        {
          "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
@@ -11110,6 +11366,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -11201,6 +11461,10 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-client-config",
          "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-command",
+         "trait": "ClientCommand"
         },
         {
          "crate": "kkt-diagnostics",
@@ -16576,6 +16840,29 @@ window.KKT_GRAPH = {
    "to": "kkt-backup-os"
   },
   {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "Claude"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "Claude"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command-claude"
+  },
+  {
    "features": [],
    "from": "kashkeshet",
    "items": [
@@ -18268,6 +18555,29 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-agent-commands",
    "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "testing::Recorder"
+   ],
+   "to": "kkt-client-command"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
     "Client",
     "Host",
     "Setup",
@@ -18448,6 +18758,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-admission"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-agent-commands",
+   "items": [
+    "testing::Recorder"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "testing::Recorder"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
   },
   {
    "features": [
@@ -19315,6 +19648,27 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-client-command-claude",
+   "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Claude implements ClientCommand"
+     ],
+     "role": "implements"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
+  },
+  {
+   "features": [],
    "from": "kkt-client-config",
    "items": [
     "check_access_key"
@@ -19338,6 +19692,29 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-client-config",
    "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "testing::Call"
+   ],
+   "to": "kkt-client-command"
+  },
+  {
+   "features": [],
+   "from": "kkt-client-config",
+   "items": [
     "Env"
    ],
    "kind": "normal",
@@ -19354,6 +19731,31 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-machine"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-client-config",
+   "items": [
+    "ClientCommand",
+    "testing::Call"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand",
+      "testing::Call"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
   },
   {
    "features": [],
@@ -22493,6 +22895,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-backup"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "ClientCommand"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ClientCommand"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-command"
   },
   {
    "features": [],
@@ -25944,14 +26367,26 @@ window.KKT_CONCERNS = {
    "layer": "operations",
    "must_not": "Choose backup names, contents, modes or retention."
   },
+  "kkt-client-command": {
+   "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand (remove kkt's server, add it as the client's own entry), with the testing Recorder.",
+   "kind": "contract",
+   "layer": "operations",
+   "must_not": "Know a client's command, its arguments or output; touch the machine."
+  },
+  "kkt-client-command-claude": {
+   "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner; running claude is behind real.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Echo the command's output, which may hold credentials."
+  },
   "kkt-client-config": {
-   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
+   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through kkt-client-command's ClientCommand, and its file restored if that fails.",
    "kind": "logic",
    "layer": "operations",
-   "must_not": "Touch the machine except through `Host`."
+   "must_not": "Touch the machine except through `Host` and `ClientCommand`."
   },
   "kkt-client-config-os": {
-   "concern": "The machine's client-config files and claude command: plain OsHost methods, adapted by the program.",
+   "concern": "The machine's client-config files: plain OsHost methods, adapted by the program.",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Decide a client config's content."
@@ -27420,6 +27855,28 @@ window.KKT_ASSEMBLY = {
       {
        "at": "OperateParts",
        "param": "config_file"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "impl": "kkt-client-command-claude::Claude",
+     "note": "kkt setup: Claude Code's own command, injected as it is",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "client_command"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-agent-commands",
+     "impl": "kkt-client-command-claude::Claude",
+     "note": "kkt connect: Claude Code's own command, injected as it is",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "client_command"
       }
      ]
     }

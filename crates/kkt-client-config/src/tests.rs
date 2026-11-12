@@ -2,6 +2,7 @@
 
 use super::fake::{FakeHost, File};
 use super::*;
+use kkt_client_command::testing::Call;
 
 const HOME: &str = "/home/sam";
 const KEY: &str = "0123456789abcdef0123456789abcdef";
@@ -147,7 +148,8 @@ fn writing_backs_up_the_old_config_under_a_free_name_and_replaces_it_whole() {
     host.put(&path, old);
     host.put(beside(&path, ".bak"), "an older backup");
 
-    let out = configure(Client::Codex, &setup(&env, &path, None), true, &host).expect("write");
+    let out =
+        configure(Client::Codex, &setup(&env, &path, None), true, &host, &host).expect("write");
     assert_eq!(out, format!("Configured: {}", path.display()));
     let written = host.file(&path).expect("config").text;
     assert!(written.starts_with(old), "{written}");
@@ -165,7 +167,8 @@ fn writing_backs_up_the_old_config_under_a_free_name_and_replaces_it_whole() {
         [path.clone(), beside(&path, ".bak"), beside(&path, ".bak.1")]
     );
 
-    let again = configure(Client::Codex, &setup(&env, &path, None), true, &host).expect("again");
+    let again =
+        configure(Client::Codex, &setup(&env, &path, None), true, &host, &host).expect("again");
     assert_eq!(again, format!("Already configured: {}", path.display()));
     assert!(host.file(beside(&path, ".bak.2")).is_none());
 }
@@ -178,8 +181,8 @@ fn a_failed_replacement_removes_its_temporary_file_and_keeps_the_config() {
     let old = "model = \"o3\"\n";
     host.put(&path, old);
     host.rename_fails.set(true);
-    let error =
-        configure(Client::Codex, &setup(&env, &path, None), true, &host).expect_err("refused");
+    let error = configure(Client::Codex, &setup(&env, &path, None), true, &host, &host)
+        .expect_err("refused");
     assert_eq!(
         error,
         format!(
@@ -200,11 +203,11 @@ fn a_client_that_copies_the_key_reads_it_and_keeps_its_config_private() {
     host.put(key_file, &format!("{KEY}\n"));
     let muse = setup(&env, &path, Some(key_file));
 
-    let preview = configure(Client::MuseCode, &muse, false, &host).expect("preview");
+    let preview = configure(Client::MuseCode, &muse, false, &host, &host).expect("preview");
     assert!(!preview.contains(KEY), "{preview}");
     assert!(host.file(&path).is_none(), "a preview writes nothing");
 
-    configure(Client::MuseCode, &muse, true, &host).expect("write");
+    configure(Client::MuseCode, &muse, true, &host, &host).expect("write");
     let written = host.file(&path).expect("config");
     assert!(written.private);
     assert!(written.text.contains(KEY), "{}", written.text);
@@ -215,7 +218,7 @@ fn a_client_that_copies_the_key_reads_it_and_keeps_its_config_private() {
         .get_mut(&path)
         .expect("config")
         .private = false;
-    let again = configure(Client::MuseCode, &muse, true, &host).expect("again");
+    let again = configure(Client::MuseCode, &muse, true, &host, &host).expect("again");
     assert!(again.starts_with("Already configured"), "{again}");
     assert!(host.file(&path).expect("config").private);
 }
@@ -229,28 +232,36 @@ fn claude_code_is_configured_through_its_command_and_restored_if_it_fails() {
     host.put(&path, old);
 
     host.claude_fails.set(true);
-    let error =
-        configure(Client::ClaudeCode, &setup(&env, &path, None), true, &host).expect_err("fails");
+    let error = configure(
+        Client::ClaudeCode,
+        &setup(&env, &path, None),
+        true,
+        &host,
+        &host,
+    )
+    .expect_err("fails");
     assert_eq!(error, "claude mcp failed");
     assert_eq!(host.file(&path), Some(private(old)), "restored whole");
 
     host.claude_fails.set(false);
     host.claude_runs.borrow_mut().clear();
-    configure(Client::ClaudeCode, &setup(&env, &path, None), true, &host).expect("write");
+    configure(
+        Client::ClaudeCode,
+        &setup(&env, &path, None),
+        true,
+        &host,
+        &host,
+    )
+    .expect("write");
     let runs = host.claude_runs.borrow();
     assert_eq!(runs.len(), 2);
-    assert_eq!(runs[0].0, ["mcp", "remove", "--scope", "user", "kkt"]);
-    assert_eq!(
-        runs[1].0[..5],
-        ["mcp", "add-json", "--scope", "user", "kkt"]
-    );
-    assert!(
-        runs[1].0[5].contains("http://localhost:7420/mcp"),
-        "{}",
-        runs[1].0[5]
-    );
-    // The default config under HOME: CLAUDE_CONFIG_DIR is unset.
-    assert!(runs.iter().all(|(_, dir)| dir.is_none()));
+    assert_eq!(runs[0], Call::Remove { config_dir: None });
+    let Call::Add { entry, config_dir } = &runs[1] else {
+        panic!("{:?}", runs[1]);
+    };
+    assert!(entry.contains("http://localhost:7420/mcp"), "{entry}");
+    // The default config under HOME: no profile folder is given.
+    assert_eq!(config_dir, &None);
 }
 
 #[test]
@@ -263,15 +274,25 @@ fn a_new_claude_code_config_is_removed_if_its_command_fails() {
     // The command writes the file, then fails.
     *host.claude_writes.borrow_mut() = Some(path.clone());
     host.claude_fails.set(true);
-    let error =
-        configure(Client::ClaudeCode, &setup(&env, &path, None), true, &host).expect_err("fails");
+    let error = configure(
+        Client::ClaudeCode,
+        &setup(&env, &path, None),
+        true,
+        &host,
+        &host,
+    )
+    .expect_err("fails");
     assert_eq!(error, "claude mcp failed");
     assert!(host.file(&path).is_none());
     // Nothing to remove first, and a profile outside HOME is passed as
     // CLAUDE_CONFIG_DIR.
     let runs = host.claude_runs.borrow();
     assert_eq!(runs.len(), 1);
-    assert_eq!(runs[0].1.as_deref(), Some(dir));
+    assert!(
+        matches!(&runs[0], Call::Add { config_dir: Some(d), .. } if d == dir),
+        "{:?}",
+        runs[0]
+    );
 }
 
 #[test]
@@ -410,7 +431,7 @@ fn rewriting_a_json_config_keeps_the_order_of_its_keys() {
     allow_kkt(Client::OpenCode, &env, &host).expect("allowed");
     let file = Path::new("/home/sam/.config/opencode/opencode.json");
     let configured = setup(&env, file, None);
-    configure(Client::OpenCode, &configured, true, &host).expect("connected");
+    configure(Client::OpenCode, &configured, true, &host, &host).expect("connected");
     let text = host.file(&path).expect("config").text;
     let at = |needle: &str| {
         text.find(needle)

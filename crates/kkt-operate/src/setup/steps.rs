@@ -339,6 +339,7 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
         connect(
             self.env,
             self.parts.clients,
+            self.parts.client_command,
             self.parts.setup_files,
             client,
             record,
@@ -378,6 +379,7 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> 
         connect(
             self.env,
             self.parts.clients,
+            self.parts.client_command,
             self.parts.setup_files,
             client,
             record,
@@ -408,6 +410,7 @@ fn connected_clients(env: &Env, host: &dyn clients::Host) -> Result<Vec<Client>,
 fn connect(
     env: &Env,
     host: &dyn clients::Host,
+    command: &dyn kkt_client_command::ClientCommand,
     program: &dyn crate::SetupFiles,
     client: Client,
     record: &setup::Record,
@@ -423,7 +426,7 @@ fn connect(
         client_config: &client_config,
         source: client.source(env),
     };
-    clients::configure(client, &setup, true, host)
+    clients::configure(client, &setup, true, host, command)
 }
 
 /// Checks, changing nothing, that a server answers at `url` and accepts its

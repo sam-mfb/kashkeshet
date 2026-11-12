@@ -1048,6 +1048,7 @@ dependencies = [
  "kkt-api-agent",
  "kkt-backup",
  "kkt-backup-os",
+ "kkt-client-command-claude",
  "kkt-client-config",
  "kkt-client-config-os",
  "kkt-clock",
@@ -1144,6 +1145,7 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-agent-client",
+ "kkt-client-command",
  "kkt-client-config",
  "kkt-clock",
  "kkt-machine",
@@ -1220,10 +1222,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-client-command"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-client-command-claude"
+version = "0.10.0"
+dependencies = [
+ "kkt-client-command",
+]
+
+[[package]]
 name = "kkt-client-config"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
+ "kkt-client-command",
  "kkt-machine",
  "serde",
  "serde_json",
@@ -1553,6 +1567,7 @@ dependencies = [
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-backup",
+ "kkt-client-command",
  "kkt-client-config",
  "kkt-clock",
  "kkt-config-file",

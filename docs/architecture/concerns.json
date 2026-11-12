@@ -238,15 +238,27 @@
   },
   "kkt-client-config": {
    "layer": "operations",
-   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
-   "must_not": "Touch the machine except through `Host`.",
+   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through kkt-client-command's ClientCommand, and its file restored if that fails.",
+   "must_not": "Touch the machine except through `Host` and `ClientCommand`.",
    "kind": "logic"
   },
   "kkt-client-config-os": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "The machine's client-config files and claude command: plain OsHost methods, adapted by the program.",
+   "concern": "The machine's client-config files: plain OsHost methods, adapted by the program.",
    "must_not": "Decide a client config's content."
+  },
+  "kkt-client-command": {
+   "layer": "operations",
+   "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand (remove kkt's server, add it as the client's own entry), with the testing Recorder.",
+   "must_not": "Know a client's command, its arguments or output; touch the machine.",
+   "kind": "contract"
+  },
+  "kkt-client-command-claude": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner; running claude is behind real.",
+   "must_not": "Echo the command's output, which may hold credentials."
   },
   "kkt-diagnostics": {
    "layer": "operations",

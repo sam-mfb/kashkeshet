@@ -1,6 +1,9 @@
-//! A [`Host`] in memory, for this crate's unit tests.
+//! A [`Host`] in memory, for this crate's unit tests, which is also the
+//! client's own command: a call can write a file, as Claude Code's does.
 
 use super::Host;
+use kkt_client_command::ClientCommand;
+use kkt_client_command::testing::Call;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
@@ -20,11 +23,11 @@ pub struct File {
 pub struct FakeHost {
     pub files: RefCell<BTreeMap<PathBuf, File>>,
     dirs: RefCell<BTreeSet<PathBuf>>,
-    /// Each run of `claude`: its arguments and `CLAUDE_CONFIG_DIR`.
-    pub claude_runs: RefCell<Vec<(Vec<String>, Option<PathBuf>)>>,
-    /// Every run of `claude` fails.
+    /// Each call of the client's command.
+    pub claude_runs: RefCell<Vec<Call>>,
+    /// Every call of the client's command fails.
     pub claude_fails: Cell<bool>,
-    /// Every run of `claude` first writes `{}` to this file.
+    /// Every call of the client's command first writes `{}` to this file.
     pub claude_writes: RefCell<Option<PathBuf>>,
     /// Every rename fails.
     pub rename_fails: Cell<bool>,
@@ -130,12 +133,11 @@ impl Host for FakeHost {
     fn process_id(&self) -> u32 {
         7
     }
+}
 
-    fn claude(&self, args: &[&str], config_dir: Option<&Path>) -> Result<(), String> {
-        self.claude_runs.borrow_mut().push((
-            args.iter().map(|a| a.to_string()).collect(),
-            config_dir.map(Path::to_path_buf),
-        ));
+impl FakeHost {
+    fn command(&self, call: Call) -> Result<(), String> {
+        self.claude_runs.borrow_mut().push(call);
         if let Some(path) = self.claude_writes.borrow().clone() {
             self.put(path, "{}");
         }
@@ -143,5 +145,19 @@ impl Host for FakeHost {
             return Err("claude mcp failed".into());
         }
         Ok(())
+    }
+}
+
+impl ClientCommand for FakeHost {
+    fn remove_server(&self, config_dir: Option<&Path>) -> Result<(), String> {
+        self.command(Call::Remove {
+            config_dir: config_dir.map(Path::to_path_buf),
+        })
+    }
+    fn add_server(&self, entry: &str, config_dir: Option<&Path>) -> Result<(), String> {
+        self.command(Call::Add {
+            entry: entry.to_string(),
+            config_dir: config_dir.map(Path::to_path_buf),
+        })
     }
 }

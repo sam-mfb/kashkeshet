@@ -904,6 +904,28 @@
        "param": "config_file"
       }
      ]
+    },
+    {
+     "impl": "kkt-client-command-claude::Claude",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "client_command"
+      }
+     ],
+     "note": "kkt setup: Claude Code's own command, injected as it is"
+    },
+    {
+     "impl": "kkt-client-command-claude::Claude",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "client_command"
+      }
+     ],
+     "note": "kkt connect: Claude Code's own command, injected as it is"
     }
    ],
    "inferred": false
