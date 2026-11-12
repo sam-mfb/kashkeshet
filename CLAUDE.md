@@ -111,8 +111,8 @@ has none.
 | `kkt-container-os` | The machine's Docker commands, files and terminal, as plain `OsHost` methods | Decide what Docker setup does | `real`: `OsHost` |
 | `kkt-service` | Running kkt as a service (launchd, systemd), choosing its manager from the supplied optional home and config-home paths (`Manager::for_this_os`), the plan of what the service runs, from the settings it needs of the flags and the config file (`ServiceSettings`), and whether its server could listen on its address (`check_bind`, from the program's try) | Touch the machine except through `System`; check the server's settings: the program does | none |
 | `kkt-service-os` | The machine's service files and commands, as plain `OsSystem` methods | Decide what a service command does | `real`: `OsSystem`, `try_bind` |
-| `kkt-remote-access` | Sharing a service-mode server over Tailscale | Change the Tailscale login, DNS preferences, kkt's config or its service | none |
-| `kkt-remote-access-os` | The machine's `tailscale` command, as plain `OsHost` methods | Decide how the server is shared | `real`: `OsHost` |
+| `kkt-remote-access` | The project's `RemoteAccess` contract for preparing, serving, checking and stopping private-network sharing, and its `Node` record | Know a tool, its arguments or output; touch the machine | `testing`: `Memory`, sharing in memory |
+| `kkt-remote-access-tailscale` | Implements `RemoteAccess` directly: Tailscale arguments, parsing and messages, with a private runner for its own tests | Change login, DNS preferences, unrelated sharing, kkt's config or its service | `real`: `Tailscale`, running the host's command |
 | `kkt-client-config` | Client MCP configs and their file formats | Touch the machine except through `Host` | none |
 | `kkt-client-config-os` | The machine's client-config files and `claude` command, as plain `OsHost` methods | Decide a client config's content | `real`: `OsHost` |
 | `kkt-diagnostics` | `kkt doctor`'s checks and their plan; setup's wait for a new server | Change anything; touch the machine except through `Prober` | none |
@@ -261,6 +261,16 @@ as `{max_limit}`. After an intended change, run
 - axum is the HTTP framework of `kkt-web`, `kkt-mcp`, `kkt-server` and `kkt-server-listen` only; its types do not leave those four.
 
 **Public surface.** Make an item public only when another crate or the program needs it.
+
+**Third-party tools and libraries (Sam, 2026-11-12).** Each has a contract
+crate named for the project's scope and a wrapper named for the tool. The
+Language-shaping libraries retain RUST.md rule 7's exemption. The
+wrapper implements the contract directly even with one implementation;
+the program only builds and injects it, with no forwarding adapter. The
+wrapper is an effect crate that also owns its tool's logic, tested against
+a private runner; running the tool is behind `real`. This is Sam's explicit
+exception to one-kind-per-crate for named tool wrappers. The remote-access
+pilot is the first conversion; the plan's phase 12 lists the remaining work.
 
 **Dependencies between crates.** Add one only for a real reason. A crate
 that depends on another for something minor, such as one small helper, is

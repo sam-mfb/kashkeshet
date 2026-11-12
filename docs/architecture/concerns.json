@@ -226,15 +226,15 @@
   },
   "kkt-remote-access": {
    "layer": "operations",
-   "concern": "Sharing a service-mode server over the machine's existing Tailscale login.",
-   "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service.",
-   "kind": "logic"
+   "concern": "The project's contract for preparing, serving, checking and stopping private-network sharing of this machine's server; its Node record and testing Memory stand-in.",
+   "must_not": "Know a sharing tool, its commands or output format; touch the machine.",
+   "kind": "contract"
   },
-  "kkt-remote-access-os": {
+  "kkt-remote-access-tailscale": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "The machine's tailscale command: plain OsHost methods, adapted by the program.",
-   "must_not": "Decide how the server is shared."
+   "concern": "Implements RemoteAccess through the host's existing Tailscale login: arguments, parsing and messages tested against a private runner; the process runner is behind real.",
+   "must_not": "Change login, DNS preferences, unrelated sharing, kkt's config or its service."
   },
   "kkt-client-config": {
    "layer": "operations",

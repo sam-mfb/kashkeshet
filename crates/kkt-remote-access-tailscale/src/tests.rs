@@ -21,7 +21,7 @@ impl Fake {
     }
 }
 
-impl Host for Fake {
+impl Runner for Fake {
     fn run(&self, args: &[String]) -> Result<Output, String> {
         self.calls.borrow_mut().push(args.to_vec());
         self.replies

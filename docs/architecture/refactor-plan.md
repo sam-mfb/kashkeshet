@@ -272,6 +272,7 @@ the last column says so.
 | One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | accepted by Sam, 2026-11-12 | yes |
 | kkt-container's `tailscale_auth_key` and `docker_env` accept a possibly unsized `Host` | 10.2b (setup) | Setup now passes the plan's injected host trait object to the existing file readers; the widening accepts all previous callers and changes no reads or output | awaiting Sam | no arrow or slot change |
 | `ServeFacts::service_settings` returns service-plan inputs and a deferred `CheckService`, which retains opaque program options and their source context | 10.2b (service) | The assembly owns planning and its ordered check/install sequence; the program alone knows and validates its whole serving surface. No serving option type or assembly dependency crosses the boundary | awaiting Sam | yes (10.4) |
+| A third-party tool has a project-scope contract plus a named wrapper implementing it directly, regardless of consumer count; the program only injects it. The effect wrapper owns tool knowledge and a private runner, with running behind `real` | 12.1 | The scope is the abstraction consumers use; keeping one tool's knowledge and execution together avoids a shared process concern. The remote-access pilot replaces `Host::run` and the program adapter with `RemoteAccess` and `Tailscale` | decided by Sam, 2026-11-12 (msgs 3041, 3050) | yes |
 | `ServiceDefaults::matches_defaults(args)` answers the installed/default settings comparison; only service-capable `OperateParts` can ask it | 10.2a | Both serving surfaces stay in the program. A service-capable adapter requires `ServeArgs` at construction; record/config-only parts have no such capability. Installed arguments are resolved before defaults; the assembly retains the service-file check and refusal wrapping | required by the 10.2a review; awaiting Sam for the narrowed question | yes (10.4) |
 | `ServerSettings::check` returns opaque `CheckedSettings` containing the immutable settings and their host policy; `Parts::new` consumes that one value | 9.2 | The constructor cannot skip validation or combine settings with a different host policy; the program reads the checked values for its record. The integration harness uses the program's own run-record mapping | requested in the 9.2 review; awaiting Sam for the constructor detail | yes (10.4) |
 | kkt's `new_server_run` is in `machine::server_run`, public, not in `commands::serve` | 9.2, 9.3 | The integration tests' harness records a run as `kkt serve` does, with the program's own mapping, in place of a third copy of it (the 9.2 review) | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.4) |
@@ -1561,3 +1562,28 @@ With 10.2a (kkt-operate's base) and 10.3 (kkt-agent-commands) merged:
   kkt-agent-commands → kkt-mcp in 10.3); 1 missing (kkt-operate →
   kkt-backup, which 10.2b adds); none extra;
 - rules: no kind check fails; no break of the proposal's rules.
+
+### 12.1 pilot: remote sharing through its scope contract
+
+`kkt-remote-access` now declares `RemoteAccess`: prepare, serve, served and
+stop, in project terms, with `Node` and its `testing::Memory` stand-in.
+`kkt-remote-access-tailscale` implements it directly. Its private runner
+separates process execution (behind `real`) from arguments, parsing,
+refusals and messages; the original decision tests use a private fake with
+no `real` feature. It replaces kkt-remote-access-os and the program's
+`machine/remote_access.rs` adapter. The program injects `Tailscale` directly
+into `kkt_operate::OperateParts::remote`.
+
+The rule text gains Sam's third-party exception, including the explicit
+exception allowing tool knowledge inside an effect wrapper. The existing
+checks already allow any implementation of a contract crate: they do not
+count its consumers. Their conditions need no relaxation. Contract kinds
+still reject injected behaviour, wiring and `real`; check-crates still
+keeps `real` and gated items out of contracts, and requires only programs
+to activate another crate's `real`. The scope becomes contract, and the
+named implementation stays effect. No file in `principles/` changes.
+
+The map's existing direct-implementation detection is used: the program's
+arrow to the constructed implementation is wiring, and the hand-written
+injection entry targets the receiving `OperateParts::remote` slot. The
+fresh generated map is checked for both before publishing this pilot.

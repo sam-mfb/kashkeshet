@@ -39,6 +39,8 @@
 #    with a binary target is a program and is not held to this.
 # 6. A crate docs/architecture/concerns.json marks as a contract has no
 #    `real` feature and no item behind one (CLAUDE.md's C5).
+#    A named tool wrapper may implement that contract directly; its own
+#    `real` feature stays in the wrapper, never in the contract (phase 12).
 #
 # Checks 2 to 6 are in check-crates.jq, tested by test_check_crates.py,
 # except check 6's search of a contract crate's sources for items behind

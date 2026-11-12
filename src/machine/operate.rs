@@ -60,7 +60,7 @@ impl<'a, D> NativeOperate<'a, D> {
             login_link: &self.login_link,
             service: &super::service::ServiceSystem,
             try_bind: &kkt_service_os::try_bind,
-            remote: &super::remote_access::RemoteHost,
+            remote: &kkt_remote_access_tailscale::Tailscale,
             clients: &super::client_config::ClientHost,
             prober: &super::diagnostics::DiagnosticProber,
             lanes: &crate::commands::lanes::LaneDisk,

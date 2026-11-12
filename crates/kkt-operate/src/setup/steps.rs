@@ -61,7 +61,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     ) -> Result<setup::Installed, String> {
         // Before anything changes: Tailscale must be logged in, with HTTPS.
         let node = match tailscale {
-            true => Some(kkt_remote_access::prepare(self.parts.remote)?),
+            true => Some(self.parts.remote.prepare()?),
             false => None,
         };
         if let Some(node) = &node {
@@ -85,7 +85,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             connection::serve_connection(self.parts.connection, ConnectionOptions::NONE, false)?;
         let url = match &node {
             Some(node) => {
-                kkt_remote_access::serve(self.parts.remote, self.parts.serve.bind()?)?;
+                self.parts.remote.serve(self.parts.serve.bind()?)?;
                 format!("https://{}/mcp", node.dns_name)
             }
             None => connection.url,

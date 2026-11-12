@@ -1,0 +1,17 @@
+[package]
+name = "kkt-remote-access-tailscale"
+description = "Remote sharing through the host's existing Tailscale login"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# Run the host's tailscale command; tool decisions remain testable without it.
+real = []
+
+[dependencies]
+kkt-remote-access = { path = "../kkt-remote-access" }
+serde.workspace = true
+serde_json.workspace = true

@@ -106,7 +106,7 @@ fn unrecorded_service<D: crate::ServiceDefaults>(
         .serve
         .bind()
         .map_err(|e| found(format!("its settings could not be read: {e}")))?;
-    let shared = kkt_remote_access::served(parts.remote, bind).map_err(|e| {
+    let shared = parts.remote.served(bind).map_err(|e| {
         found(format!(
             "whether it is shared over Tailscale is not known: {e}"
         ))

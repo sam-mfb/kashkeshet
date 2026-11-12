@@ -100,6 +100,9 @@ def check(crates, edges, kind_of, mixed_allowed):
                 mismatches.append(f"{c['name']} is marked contract but has an effect: a `real` feature or an I/O dependency")
         if kind == "logic" and turns_on_real(c, edges):
             mismatches.append(f"{c['name']} is marked logic but turns on `real`")
+        # Named tool wrappers remain effects even though they also own their
+        # tool's decisions, tested over a private runner (Sam, phase 12).
+        # The contract stays effect-free; implementing it directly is allowed.
         if kind == "effect" and not turns_on_real(c, edges) and not IO_CRATES & set(c["third_party"]):
             mismatches.append(f"{c['name']} is marked effect but has no `real` feature and no I/O dependency")
         if kind == "composition":

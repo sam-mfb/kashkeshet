@@ -32,7 +32,7 @@ window.KKT_PROPOSED = {
     "to": "their consumers' Host, System, Prober and Disk",
     "translate": 7,
     "where": "kkt",
-    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1). kkt-remote-access-os' run returns its own Output and I/O error, which the adapter translates (step 2.3). kkt-diagnostics-os' key_file and probe return its own KeyFile and Check, which the adapter translates (step 2.5)."
+    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1). kkt-remote-access-os' run returns its own Output and I/O error, which the adapter translates (step 2.3). kkt-diagnostics-os' key_file and probe return its own KeyFile and Check, which the adapter translates (step 2.5). This is the historical adapter census before phase 12. The remote-access adapter goes in the pilot; its wrapper implements the scope contract directly."
    },
    {
     "adapter": "kkt-config-file::parse_file",
@@ -284,14 +284,6 @@ window.KKT_PROPOSED = {
       "note": "8 methods; run and run_attached translate kkt-service-os' own Finished into kkt-service's (step 2.2)",
       "status": "decided",
       "to": "kkt-service::System"
-     },
-     {
-      "adapts": "kkt-remote-access-os::OsHost",
-      "large": false,
-      "methods": 1,
-      "note": "1 method; run translates kkt-remote-access-os' own Output and I/O error into kkt-remote-access' Output and the launch-failure advice (step 2.3)",
-      "status": "decided",
-      "to": "kkt-remote-access::Host"
      },
      {
       "adapts": "kkt-client-config-os::OsHost",
@@ -775,32 +767,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-remote-access",
-      "impl": "kkt-remote-access-os::OsHost",
-      "note": "kkt setup with Tailscale, status, uninstall",
-      "through_adapter": [
-       "kkt-remote-access::Host"
-      ],
-      "to": [
-       {
-        "at": "prepare",
-        "param": "host"
-       },
-       {
-        "at": "serve",
-        "param": "host"
-       },
-       {
-        "at": "served",
-        "param": "host"
-       },
-       {
-        "at": "stop",
-        "param": "host"
-       }
-      ]
-     },
-     {
       "crate": "kkt-client-config",
       "impl": "kkt-client-config-os::OsHost",
       "note": "kkt connect, kkt setup, kkt doctor",
@@ -1066,6 +1032,18 @@ window.KKT_PROPOSED = {
        {
         "at": "Parts::new",
         "param": "log"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-operate",
+      "impl": "kkt-remote-access-tailscale::Tailscale",
+      "note": "The program directly injects the named sharing implementation into the operator assembly.",
+      "status": "decided",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "remote"
        }
       ]
      }
@@ -1751,7 +1729,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-remote-access-os"
+    "to": "kkt-remote-access-tailscale"
    },
    {
     "from": "kashkeshet",
@@ -2895,6 +2873,15 @@ window.KKT_PROPOSED = {
     "to": "kkt-hash"
    },
    {
+    "from": "kkt-remote-access-tailscale",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-remote-access"
+   },
+   {
     "from": "kkt-rules",
     "kind": "normal",
     "role": "implements",
@@ -3671,26 +3658,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-names"
-   },
-   {
-    "from": "kashkeshet",
-    "items_gone": [
-     "OsHost"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "implements",
-     "uses"
-    ],
-    "roles_before": [
-     "uses",
-     "wires"
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-remote-access"
    },
    {
     "from": "kashkeshet",
@@ -5444,6 +5411,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "builds AgentParts from the implementations it chooses and runs the commands; answers its questions about the local server from its own serving code (step 10.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-remote-access in its code: The program no longer implements or names the sharing contract; it injects Tailscale into OperateParts (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "Builds and hands Tailscale directly to kkt-operate (12.1)."
      }
     ]
    },
@@ -8409,10 +8384,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-remote-access (steps 10.2b and 10.2a)"
-     },
-     {
-      "status": "decided",
       "text": "what its commands use of kkt-client-config (steps 10.2b and 10.2a)"
      },
      {
@@ -8458,6 +8429,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "what its commands use of kkt-provenance (steps 10.2b and 10.2a)"
+     },
+     {
+      "status": "decided",
+      "text": "The operator assembly asks sharing operations in project terms (12.1)."
      }
     ]
    },
@@ -8479,20 +8454,64 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "OsHost moves to kkt-remote-access-os"
-     },
-     {
-      "status": "decided",
       "text": "TAILSCALE_HTTPS_PORT comes here from kkt-config, private"
      },
      {
       "status": "decided",
-      "text": "its real feature moves to kkt-remote-access-os"
+      "text": "Host is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "Output is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "OsHost is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "prepare is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "serve is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "served is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "stop is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "new trait RemoteAccess"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "testing::Memory implements kkt-remote-access::RemoteAccess: The contract owns its testing stand-in (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-remote-access-tailscale"
+     },
+     {
+      "status": "decided",
+      "text": "All tool parsing moves into the named wrapper (12.1)."
      }
     ]
    },
    {
-    "crate": "kkt-remote-access-os",
+    "crate": "kkt-remote-access-tailscale",
     "notes": [
      {
       "status": "decided",
@@ -8500,19 +8519,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "OsHost comes here from kkt-remote-access"
+      "text": "new struct Tailscale"
      },
      {
       "status": "decided",
-      "text": "new struct Output"
-     },
-     {
-      "status": "decided",
-      "text": "OsHost no longer implements kkt-remote-access::Host"
+      "text": "Tailscale implements kkt-remote-access::RemoteAccess: A tool wrapper implements its scope contract directly, independent of consumer count (step 12.1)."
      },
      {
       "status": "decided",
       "text": "takes the real feature from kkt-remote-access"
+     },
+     {
+      "status": "decided",
+      "text": "The named wrapper implements the scope contract directly (12.1)."
      }
     ]
    },
@@ -10365,6 +10384,12 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "kind": "normal",
     "role": "uses",
+    "to": "kkt-remote-access"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "uses",
     "to": "kkt-settings"
    },
    {
@@ -11099,14 +11124,14 @@ window.KKT_PROPOSED = {
     "must_not": "Store the run record: kkt-server does."
    },
    "kkt-remote-access": {
-    "concern": "Sharing a service-mode server over the machine's existing Tailscale login. It declares the `Host` it works through; the real one is in kkt-remote-access-os, adapted by the program.",
-    "kind": "logic",
+    "concern": "The project's sharing contract RemoteAccess, Node and its testing stand-in; no tool knowledge.",
+    "kind": "contract",
     "layer": "operations",
     "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service.",
     "status": "decided"
    },
-   "kkt-remote-access-os": {
-    "concern": "The machine's `tailscale`: `OsHost`, a plain type that implements nothing; the program adapts it to kkt-remote-access's `Host`. kkt-remote-access's `real` feature moves here.",
+   "kkt-remote-access-tailscale": {
+    "concern": "Implements the project's RemoteAccess contract directly; owns Tailscale arguments, parsing, messages and its private process runner behind real (step 12.1, option a).",
     "kind": "effect",
     "layer": "operations",
     "status": "decided"
@@ -13532,15 +13557,6 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-remote-access-os::OsHost",
-      "crate": "kashkeshet",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "Host",
-      "trait_crate": "kkt-remote-access",
-      "type": null
-     },
-     {
       "adapts": "kkt-service-os::OsSystem",
       "crate": "kashkeshet",
       "kind": "normal",
@@ -14526,6 +14542,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "builds AgentParts from the implementations it chooses and runs the commands; answers its questions about the local server from its own serving code (step 10.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-remote-access in its code: The program no longer implements or names the sharing contract; it injects Tailscale into OperateParts (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "Builds and hands Tailscale directly to kkt-operate (12.1)."
      }
     ],
     "released_program": true,
@@ -24751,10 +24775,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-remote-access (steps 10.2b and 10.2a)"
-     },
-     {
-      "status": "decided",
       "text": "what its commands use of kkt-client-config (steps 10.2b and 10.2a)"
      },
      {
@@ -24800,6 +24820,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "what its commands use of kkt-provenance (steps 10.2b and 10.2a)"
+     },
+     {
+      "status": "decided",
+      "text": "The operator assembly asks sharing operations in project terms (12.1)."
      }
     ],
     "released_program": false,
@@ -24870,7 +24894,7 @@ window.KKT_PROPOSED = {
       "traits": [
        {
         "crate": "kkt-remote-access",
-        "trait": "Host"
+        "trait": "RemoteAccess"
        }
       ]
      },
@@ -25145,29 +25169,35 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kashkeshet",
-        "type": null
+        "crate": "kkt-remote-access",
+        "type": "testing::Memory"
+       },
+       {
+        "crate": "kkt-remote-access-tailscale",
+        "type": "Tailscale"
        }
       ],
-      "trait": "Host"
+      "trait": "RemoteAccess"
      }
     ],
     "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login.",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "testing": []
+    },
     "holders": [],
-    "implements": [],
+    "implements": [
+     {
+      "crate": "kkt-remote-access",
+      "status": "decided",
+      "trait": "RemoteAccess",
+      "trait_crate": "kkt-remote-access",
+      "type": "testing::Memory"
+     }
+    ],
     "items": [
      {
-      "doc": "The host's Tailscale CLI, injected so tests never change a real tailnet.",
-      "kind": "trait",
-      "methods": [
-       "run"
-      ],
-      "path": "Host"
-     },
-     {
-      "doc": "The exact node name, including any suffix assigned by Tailscale.",
+      "doc": "The network name by which clients reach this machine.",
       "fields": [
        "dns_name"
       ],
@@ -25175,37 +25205,31 @@ window.KKT_PROPOSED = {
       "path": "Node"
      },
      {
-      "doc": "",
-      "fields": [
-       "success",
-       "stdout",
-       "stderr"
+      "doc": "Preparing and managing the secure sharing of this machine's server.",
+      "kind": "trait",
+      "methods": [
+       "prepare",
+       "serve",
+       "served",
+       "stop"
       ],
+      "path": "RemoteAccess",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A machine with the given network name, initially sharing nothing.",
+      "feature": "testing",
       "kind": "struct",
-      "path": "Output"
-     },
-     {
-      "doc": "Check the existing login and HTTPS setting; never runs `tailscale up`.",
-      "kind": "fn",
-      "path": "prepare"
-     },
-     {
-      "doc": "Install a persistent HTTPS root proxy.",
-      "kind": "fn",
-      "path": "serve"
-     },
-     {
-      "doc": "The node whose HTTPS root Tailscale Serve proxies to the server at `bind`, as `serve` sets it up, if there is one.",
-      "kind": "fn",
-      "path": "served"
-     },
-     {
-      "doc": "Remove the matching root proxy, preserving other paths, ports and login.",
-      "kind": "fn",
-      "path": "stop"
+      "methods": [
+       "new"
+      ],
+      "path": "testing::Memory",
+      "proposed_item": true,
+      "status": "decided"
      }
     ],
-    "kind": "logic",
+    "kind": "contract",
     "lib": "kkt_remote_access",
     "machine_work": {
      "src/os.rs": [
@@ -25220,68 +25244,64 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "OsHost moves to kkt-remote-access-os"
-     },
-     {
-      "status": "decided",
       "text": "TAILSCALE_HTTPS_PORT comes here from kkt-config, private"
      },
      {
       "status": "decided",
-      "text": "its real feature moves to kkt-remote-access-os"
+      "text": "Host is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "Output is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "OsHost is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "prepare is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "serve is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "served is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "stop is no longer public: The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "new trait RemoteAccess"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "testing::Memory implements kkt-remote-access::RemoteAccess: The contract owns its testing stand-in (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-remote-access-tailscale"
+     },
+     {
+      "status": "decided",
+      "text": "All tool parsing moves into the named wrapper (12.1)."
      }
     ],
     "released_program": false,
-    "slots": [
-     {
-      "at": "prepare",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-remote-access",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "serve",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-remote-access",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "served",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-remote-access",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "stop",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-remote-access",
-        "trait": "Host"
-       }
-      ]
-     }
-    ],
-    "third_party": [
-     "serde",
-     "serde_json"
-    ]
+    "slots": [],
+    "third_party": []
    },
    {
     "bins": [],
@@ -25293,27 +25313,28 @@ window.KKT_PROPOSED = {
      "real": []
     },
     "holders": [],
-    "implements": [],
+    "implements": [
+     {
+      "crate": "kkt-remote-access-tailscale",
+      "status": "decided",
+      "trait": "RemoteAccess",
+      "trait_crate": "kkt-remote-access",
+      "type": "Tailscale"
+     }
+    ],
     "items": [
      {
-      "doc": "",
+      "doc": "Shares this machine's server through its existing Tailscale login.",
       "feature": "real",
       "kind": "struct",
-      "moved_from": "kkt-remote-access",
-      "path": "OsHost",
-      "status": "decided"
-     },
-     {
-      "doc": "What the tailscale command gave back, in kkt-remote-access-os' own terms; the program maps it, and a failure to run, to kkt-remote-access' Host (step 2.3)",
-      "kind": "struct",
-      "path": "Output",
+      "path": "Tailscale",
       "proposed_item": true,
       "status": "decided"
      }
     ],
     "kind": "effect",
-    "lib": "kkt_remote_access_os",
-    "name": "kkt-remote-access-os",
+    "lib": "kkt_remote_access_tailscale",
+    "name": "kkt-remote-access-tailscale",
     "path": "(proposed)",
     "proposed": "new",
     "proposed_notes": [
@@ -25323,24 +25344,27 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "OsHost comes here from kkt-remote-access"
+      "text": "new struct Tailscale"
      },
      {
       "status": "decided",
-      "text": "new struct Output"
-     },
-     {
-      "status": "decided",
-      "text": "OsHost no longer implements kkt-remote-access::Host"
+      "text": "Tailscale implements kkt-remote-access::RemoteAccess: A tool wrapper implements its scope contract directly, independent of consumer count (step 12.1)."
      },
      {
       "status": "decided",
       "text": "takes the real feature from kkt-remote-access"
+     },
+     {
+      "status": "decided",
+      "text": "The named wrapper implements the scope contract directly (12.1)."
      }
     ],
     "released_program": false,
     "slots": [],
-    "third_party": []
+    "third_party": [
+     "serde",
+     "serde_json"
+    ]
    },
    {
     "bins": [],
@@ -32315,49 +32339,12 @@ window.KKT_PROPOSED = {
     "to": "kkt-provenance"
    },
    {
-    "features": [],
-    "from": "kashkeshet",
-    "items": [
-     "prepare",
-     "serve",
-     "served",
-     "stop"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "adapter for kkt-remote-access-os::OsHost implements Host"
-      ],
-      "role": "implements"
-     },
-     {
-      "detail": [
-       "prepare",
-       "serve",
-       "served",
-       "stop"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-remote-access"
-   },
-   {
     "features": [
      "real"
     ],
     "from": "kashkeshet",
     "items": [
-     "OsHost"
+     "Tailscale"
     ],
     "kind": "normal",
     "optional": false,
@@ -32366,7 +32353,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "OsHost"
+       "Tailscale"
       ],
       "role": "wires"
      }
@@ -32376,7 +32363,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-remote-access-os"
+    "to": "kkt-remote-access-tailscale"
    },
    {
     "features": [
@@ -37673,11 +37660,8 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-operate",
     "items": [
-     "Host",
-     "prepare",
-     "serve",
-     "served",
-     "stop"
+     "Node",
+     "RemoteAccess"
     ],
     "kind": "normal",
     "optional": false,
@@ -37686,11 +37670,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Host",
-       "prepare",
-       "serve",
-       "served",
-       "stop"
+       "Node",
+       "RemoteAccess"
       ],
       "role": "uses"
      }
@@ -37881,6 +37862,38 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-names"
+   },
+   {
+    "features": [],
+    "from": "kkt-remote-access-tailscale",
+    "items": [
+     "Node",
+     "RemoteAccess"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "Tailscale implements RemoteAccess"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "Node"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-remote-access"
    },
    {
     "features": [],
@@ -40604,10 +40617,11 @@ window.KKT_PROPOSED = {
  "rule": [
   "Every trait a crate depends on is a contract, declared by the crates that use it, not by the crate that implements it. A crate uses a contract when its code calls the contract's methods; naming a trait only to wire an implementation in, or to implement it, is not use.",
   "A contract used by more than two crates lives in a contract-only crate of its own (traits, plain value types with pure behaviour on them, and test doubles behind `testing`). Any crate may implement a shared contract crate's contract directly. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
-  "A contract used by two crates or fewer is declared by each of them. No implementation implements a contract another crate declares for itself: the program adapts the implementation to it. kkt-server, the assembly the three server programs share, writes the adapters they would each write, once, and decides nothing.",
+  "For dependencies other than named third-party wrappers, a contract used by two crates or fewer is declared by each consumer. The program adapts the implementation; kkt-server may share those adapters between its programs.",
   "A crate may implement its own traits (FixedClock implements Clock, DryRun implements System).",
-  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect.",
-  "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three."
+  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect. Named tool wrappers are the explicit exception: effect crates also hold tool knowledge, tested through a private runner (phase 12, option a).",
+  "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three.",
+  "For a third-party tool or library, always split the scope contract from a named wrapper that implements it directly, independent of consumer count. The program only injects it. A tool wrapper is an effect crate holding tool knowledge and a private runner, with process execution behind real (phase 12). Language-shaping libraries retain the RUST rule 7 exemption."
  ],
  "table": [
   {
@@ -40969,10 +40983,10 @@ window.KKT_PROPOSED = {
     }
    ],
    "new": [
-    "kkt-remote-access-os"
+    "kkt-remote-access-tailscale"
    ],
    "path": "Host",
-   "result": "Declared by its consumer, kkt-remote-access. OsHost moves to kkt-remote-access-os as a plain type that implements nothing; kkt-remote-access's real feature moves with it, and the program adapts it.",
+   "result": "Removed: the project-level RemoteAccess scope contract replaces run-a-command. The named Tailscale wrapper implements it directly, and the program only injects it (step 12.1).",
    "rule": "declared by its consumers",
    "test_only": [],
    "trait": "kkt-remote-access::Host",
