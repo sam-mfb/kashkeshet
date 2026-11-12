@@ -147,7 +147,7 @@ pub trait Output {
 /// Commands that inspect an unrecorded service require `D: ServiceDefaults`;
 /// record/config-only commands may use `()` and cannot ask that question.
 pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
-    pub container: &'a dyn kkt_container::Host,
+    pub container: &'a dyn kkt_container::Container,
     pub container_configs: &'a dyn kkt_container::ConfigReader,
     pub login_link: &'a dyn kkt_container::LoginLink,
     pub service: &'a dyn kkt_service::System,

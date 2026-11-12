@@ -4,7 +4,7 @@
 
 use std::io;
 
-/// What setup does with the login link. [`provision`](super::provision) shows
+/// What setup does with the login link. [`Container::provision`](super::Container::provision) shows
 /// the link once, then at each check for the login asks `open_requested` and
 /// `open_failure`, so waiting for a key press never stops it watching for the
 /// login.

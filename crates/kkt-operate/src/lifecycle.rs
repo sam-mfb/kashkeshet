@@ -30,12 +30,10 @@ pub fn backup<D>(
     let mode = read_setup(env, parts.setup_files)?.map(|record| record.mode);
     match setup::backup_of(mode.as_ref(), folder, db.is_some() || config.is_some())? {
         setup::BackupOf::Docker { folder, into } => {
-            let written = kkt_container::backup(
-                parts.container,
-                &kkt_container::Folder(folder),
-                into.as_deref(),
-            )
-            .map_err(|e| e.to_string())?;
+            let written = parts
+                .container
+                .backup(&kkt_container::Folder(folder), into.as_deref())
+                .map_err(|e| e.to_string())?;
             parts
                 .output
                 .output(format_args!("Backed up to {}\n", written.display()));
@@ -108,13 +106,14 @@ pub async fn status<D: ServiceDefaults>(
         }
         setup::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
-            let state = kkt_container::status(
-                parts.container,
-                &folder,
-                parts.container_configs,
-                kkt_rules::Settings::DEFAULT.name_pack.name(),
-            )
-            .map_err(|e| e.to_string())?;
+            let state = parts
+                .container
+                .status(
+                    &folder,
+                    parts.container_configs,
+                    kkt_rules::Settings::DEFAULT.name_pack.name(),
+                )
+                .map_err(|e| e.to_string())?;
             for line in setup::docker_status_lines(&state, folder.path()) {
                 parts.output.output(format_args!("{line}"));
             }
@@ -136,10 +135,7 @@ pub async fn upgrade<D: ServiceDefaults>(
     let record = recorded_setup(parts, env, platform)?;
     let running = match setup::running_version(&record)? {
         setup::RunningVersion::DockerSettings(folder) => {
-            let path = folder.join(kkt_container::ENV_FILE);
-            let text = kkt_container::docker_env(parts.container, &folder)?;
-            kkt_container::version_in_env(&text)
-                .ok_or_else(|| format!("{} has no KKT_VERSION", path.display()))?
+            parts.container.version(&kkt_container::Folder(folder))?
         }
         setup::RunningVersion::Recorded(version) => version,
     };
@@ -150,16 +146,16 @@ pub async fn upgrade<D: ServiceDefaults>(
     };
     match how {
         setup::Replace::Docker { folder, key_file } => {
-            kkt_container::upgrade(
-                parts.container,
-                parts.clock.as_ref(),
-                kkt_container::Settings::DEFAULT,
-                &kkt_container::Folder(folder),
-                Build::CURRENT.version,
-                key_file.as_deref(),
-            )
-            .await
-            .map_err(|e| e.to_string())?;
+            parts
+                .container
+                .upgrade(
+                    parts.clock.as_ref(),
+                    &kkt_container::Folder(folder),
+                    Build::CURRENT.version,
+                    key_file.as_deref(),
+                )
+                .await
+                .map_err(|e| e.to_string())?;
         }
         setup::Replace::Service => {
             // Validate the replacement service before doing anything. Its
@@ -219,12 +215,10 @@ pub async fn uninstall<D: ServiceDefaults>(
     let stays_client = setup::uninstall_record(&record, Build::CURRENT.version);
     match record.mode {
         setup::Mode::Docker(install) => {
-            kkt_container::down(
-                parts.container,
-                &kkt_container::Folder(install.folder),
-                false,
-            )
-            .map_err(|e| e.to_string())?;
+            parts
+                .container
+                .down(&kkt_container::Folder(install.folder), false)
+                .map_err(|e| e.to_string())?;
         }
         setup::Mode::Service { tailscale: shared } => {
             stop_sharing(shared, parts.serve, parts.remote)?;
@@ -440,41 +434,6 @@ mod tests {
         fn refused<T>(&self, what: &'static str) -> Result<T, String> {
             self.0.borrow_mut().push(what);
             Err("not asked here".into())
-        }
-    }
-
-    impl kkt_container::Host for Untouched {
-        fn run(&self, _: &kkt_container::Command) -> std::io::Result<kkt_container::Finished> {
-            self.asked("container.run")
-        }
-        fn run_attached(
-            &self,
-            _: &kkt_container::Command,
-        ) -> std::io::Result<kkt_container::Finished> {
-            self.asked("container.run_attached")
-        }
-        fn exists(&self, _: &Path) -> bool {
-            self.0.borrow_mut().push("container.exists");
-            false
-        }
-        fn is_file(&self, _: &Path) -> bool {
-            self.0.borrow_mut().push("container.is_file");
-            false
-        }
-        fn read_file(&self, _: &Path) -> std::io::Result<String> {
-            self.asked("container.read_file")
-        }
-        fn create_dir_all(&self, _: &Path) -> std::io::Result<()> {
-            self.asked("container.create_dir_all")
-        }
-        fn write_file(&self, _: &Path, _: &str, _: bool) -> std::io::Result<()> {
-            self.asked("container.write_file")
-        }
-        fn say(&self, _: &str) {
-            self.0.borrow_mut().push("container.say");
-        }
-        fn working_dir(&self) -> std::io::Result<PathBuf> {
-            self.asked("container.working_dir")
         }
     }
 
@@ -839,8 +798,9 @@ mod tests {
         let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> {
             panic!("uninstall tried an address")
         };
+        let container = kkt_container::testing::Memory::new(None, String::new());
         let parts = OperateParts {
-            container: &untouched,
+            container: &container,
             container_configs: &untouched,
             service: &service,
             try_bind: &try_bind,
@@ -865,6 +825,7 @@ mod tests {
             .expect("the service and its record are removed");
         assert!(serve.0.borrow().is_empty(), "asked {:?}", serve.0.borrow());
         assert!(remote.0.borrow().is_empty(), "ran {:?}", remote.0.borrow());
+        assert!(container.calls().is_empty(), "{:?}", container.calls());
         assert!(
             untouched.0.borrow().is_empty(),
             "{:?}",

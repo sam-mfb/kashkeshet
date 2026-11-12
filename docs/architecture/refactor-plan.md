@@ -1381,7 +1381,7 @@ by kkt-review-373).
 
 | Step | What | Size | Builds | Reviews |
 |---|---|---|---|---|
-| 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (in progress) | kkt-review-373 |
+| 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (#507, merged) | kkt-review-373 |
 | 12.2 | container: contract and kkt-container-docker, with the Docker logic, its tests and the sidecar's status | L | kkt-build-c, after 12.1: the same pattern, and it knows kkt-operate's parts | kkt-review-373 |
 | 12.3 | service: contract, kkt-service-launchd and kkt-service-systemd | M to L | kkt-build-b | kkt-review-b |
 | 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | kkt-mt-step1, who built kkt-agent-commands (10.3) | kkt-review-b |
@@ -1587,3 +1587,17 @@ The map's existing direct-implementation detection is used: the program's
 arrow to the constructed implementation is wiring, and the hand-written
 injection entry targets the receiving `OperateParts::remote` slot. The
 fresh generated map is checked for both before publishing this pilot.
+
+### 12.2: container contract and Docker wrapper
+
+`kkt-container::Container` is the installation boundary. Its operations cover
+provisioning, status, existing installs, keys, starting and stopping, backup,
+upgrade, lanes and the managed settings questions. `testing::Memory` provides
+installations in memory. The contract carries requests and results, plus the
+existing config parser and login link contracts. It has no process or file I/O.
+
+`kkt-container-docker::Docker` implements it directly behind `real`. The old
+Docker decisions, timings, Compose assets, commands, messages and sidecar status
+move into that wrapper, with a private `Runner` and the old fake and native tests.
+The program's adapter and `kkt-container-os` go. The program wires `Docker` into
+`kkt-operate::OperateParts.container`. No check condition or rule text changes.

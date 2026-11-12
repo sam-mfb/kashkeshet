@@ -44,12 +44,14 @@ fn unrecorded_docker<D>(
             folder.display()
         )
     };
-    let existing =
-        match kkt_container::existing(parts.container, &kkt_container::Folder(folder.clone())) {
-            Ok(Some(existing)) => existing,
-            Ok(None) => return Ok(None),
-            Err(e) => return Err(found(e.to_string())),
-        };
+    let existing = match parts
+        .container
+        .existing(&kkt_container::Folder(folder.clone()))
+    {
+        Ok(Some(existing)) => existing,
+        Ok(None) => return Ok(None),
+        Err(e) => return Err(found(e.to_string())),
+    };
     let key_file = config_dir.join(DOCKER_KEY_FILE_NAME);
     if !parts.key_files.is_file(&key_file) {
         return Err(found(format!(
@@ -124,7 +126,7 @@ fn unrecorded_service<D: crate::ServiceDefaults>(
 pub fn read_unfinished(
     env: &Env,
     files: &dyn SetupFiles,
-    container: &dyn kkt_container::Host,
+    container: &dyn kkt_container::Container,
     service: &dyn kkt_service::System,
 ) -> Result<Option<setup::Unfinished>, String> {
     let Some(config_dir) = kkt_config_file::config_dir(env.config_home().as_deref()) else {
@@ -136,7 +138,7 @@ pub fn read_unfinished(
     let present = match unfinished.install_check() {
         setup::InstallCheck::Keep => true,
         setup::InstallCheck::DockerFolder(folder) => {
-            container.is_file(&folder.join(kkt_container::ENV_FILE))
+            container.settings_file(&kkt_container::Folder(folder))
         }
         setup::InstallCheck::Service => {
             Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref())

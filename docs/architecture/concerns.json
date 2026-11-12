@@ -214,15 +214,9 @@
   },
   "kkt-container": {
    "layer": "operations",
-   "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it.",
+   "concern": "The container installation contract, its requests and results, config parsing and login-link contracts, and an in-memory testing stand-in.",
    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
-   "kind": "logic"
-  },
-  "kkt-container-os": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "The machine's Docker commands, files and terminal: plain OsHost methods, adapted by the program.",
-   "must_not": "Decide what Docker setup does."
+   "kind": "contract"
   },
   "kkt-remote-access": {
    "layer": "operations",
@@ -411,6 +405,12 @@
    "kind": "effect",
    "concern": "The machine's service files and commands: plain OsSystem methods, adapted by the program.",
    "must_not": "Decide what a service command does."
+  },
+  "kkt-container-docker": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "Docker and Compose implement Container directly; all Docker files, commands, output and sidecar status, tested over a private runner.",
+   "must_not": "Decide what Docker setup does."
   }
  },
  "kinds": [

@@ -5,7 +5,6 @@
 pub mod agent_parts;
 pub mod client_config;
 pub mod connection;
-pub(crate) mod container;
 pub(crate) mod credentials;
 pub mod database;
 pub mod diagnostics;
