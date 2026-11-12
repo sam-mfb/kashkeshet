@@ -398,6 +398,11 @@ whether Sam has accepted it.
   chooses every implementation, keeps the adapters and `cli.rs` (the flags
   are the program's), and keeps a long dependency list on purpose, since it
   shows every choice in one place.
+- **kkt-keymode does not use kkt-serve** (review of #489). kkt-keymode
+  assembles key mode again from the shared crates with none of the kkt
+  program's code, so the end-to-end tests, which run against both
+  programs, check two separate assemblies. It keeps its own, smaller serve
+  surface, as phase 9 has it.
 - **The local server's facts are questions, not values.** Each assembly
   declares the small question its commands ask, and kashkeshet answers it
   with kkt-serve's or kkt-operate's functions. Today each fact is read only

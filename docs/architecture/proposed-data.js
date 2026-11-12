@@ -1282,13 +1282,12 @@ window.KKT_PROPOSED = {
       "items": [
        "kkt-server::ServerSettings",
        "kkt-provenance::ServerRun",
-       "kkt-serve::new_server_run",
        "kkt-rules::NewServerRun",
        "kkt-rules::Startup",
        "kkt-rules::start"
       ],
       "proposed_step": true,
-      "text": "The run is recorded, worded by ServerSettings::record_lines, and the Rules built, as kkt serve's are.",
+      "text": "The run is recorded, mapped for start by the program's own new_server_run, worded by ServerSettings::record_lines, and the Rules built, as kkt serve's are.",
       "title": "Run record"
      },
      {
@@ -1301,13 +1300,10 @@ window.KKT_PROPOSED = {
        "kkt-server::AdmissionGate",
        "kkt-server::AppConfig",
        "kkt-admission::AdminAdmission",
-       "kkt-hosts::AllowedHosts",
-       "kkt-serve::ServeParts",
-       "kkt-serve::start",
-       "kkt-serve::settings::ServeOptions"
+       "kkt-hosts::AllowedHosts"
       ],
       "proposed_step": true,
-      "text": "kkt-keymode reads its config file through kkt-serve's surface, with its own arguments and key refusals, and serves through kkt-serve's start, with its own output and its own ServeParts. The same parts as kkt serve, with KeyMode adapted to kkt-mcp's Identify; the admin key, if there is one, is the admin admission.",
+      "text": "The same parts as kkt serve, with KeyMode adapted to kkt-mcp's Identify; the admin key, if there is one, is the admin admission.",
       "title": "Parts and config"
      },
      {
@@ -2430,11 +2426,38 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-agent"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-backup"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
     ],
     "to": "kkt-clock-system"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-config-file"
    },
    {
     "from": "kkt-keymode",
@@ -2457,6 +2480,42 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-events"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-mcp-formatter"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-identity-keymode"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-logs"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
@@ -2470,7 +2529,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-rules"
+    "to": "kkt-mcp"
    },
    {
     "from": "kkt-keymode",
@@ -2479,7 +2538,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-serve"
+    "to": "kkt-rules"
    },
    {
     "from": "kkt-keymode",
@@ -2507,6 +2566,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-terminal-os"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-web"
    },
    {
     "from": "kkt-logs-os",
@@ -4255,12 +4323,14 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "items_gone": [
-     "AdminAdmission",
-     "server_keys::KeyTexts",
-     "server_keys::ServerKeys",
-     "server_keys::check"
+     "server_keys::KeyTexts"
     ],
-    "items_new": [],
+    "items_new": [
+     "AccessKey",
+     "SettingError",
+     "admin_name_path",
+     "key_refusal"
+    ],
     "kind": "normal",
     "roles_after": [
      "implements",
@@ -4274,6 +4344,22 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-admission"
+   },
+   {
+    "from": "kkt-keymode",
+    "items_gone": [
+     "SystemClock"
+    ],
+    "items_new": [],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "wires"
+    ],
+    "statuses": [],
+    "to": "kkt-clock"
    },
    {
     "from": "kkt-keymode",
@@ -4292,19 +4378,59 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-keymode",
-    "items_gone": [
-     "AppConfig",
-     "Parts",
-     "build",
-     "listen",
-     "record_run"
-    ],
+    "items_gone": [],
     "items_new": [
-     "App"
+     "DEFAULT_ALLOW_ANY_BIND",
+     "DEFAULT_BIND",
+     "SettingError",
+     "check_bind"
     ],
     "kind": "normal",
     "roles_after": [
      "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-hosts"
+   },
+   {
+    "from": "kkt-keymode",
+    "items_gone": [
+     "OsEntropy"
+    ],
+    "items_new": [
+     "NamePack",
+     "PACKS"
+    ],
+    "kind": "normal",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "wires"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-names"
+   },
+   {
+    "from": "kkt-keymode",
+    "items_gone": [
+     "listen",
+     "record_run"
+    ],
+    "items_new": [
+     "ServerSettings"
+    ],
+    "kind": "normal",
+    "roles_after": [
+     "uses",
+     "wires"
     ],
     "roles_before": [
      "uses",
@@ -4876,131 +5002,131 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "commands::setup moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::setup moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::setup::InstallOptions moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::setup::InstallOptions moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::setup::run moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::setup::run moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::setup::run_switch moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::setup::run_switch moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service::ServiceAction moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service::ServiceAction moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service::ServiceInstall moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service::ServiceInstall moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service::ServicePlan moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service::ServicePlan moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service::run moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service::run moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service::service_plan moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service::service_plan moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::lifecycle moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::lifecycle moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::lifecycle::backup moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::lifecycle::backup moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::lifecycle::status moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::lifecycle::status moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::lifecycle::uninstall moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::lifecycle::uninstall moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::lifecycle::upgrade moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::lifecycle::upgrade moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::doctor moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::doctor moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::doctor::run moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::doctor::run moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::lanes moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::lanes moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::lanes::LanesAction moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::lanes::LanesAction moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::lanes::run moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::lanes::run moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::key moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::key moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::key::create moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::key::create moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::key::header moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::key::header moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::key::show moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::key::show moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::agent moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::agent moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::agent::AgentAction moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::agent::AgentAction moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::agent::run moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::agent::run moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "machine::record moves to kkt-operate: phase 10, step 10.2b"
+      "text": "machine::record moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "machine::record::check_setup moves to kkt-operate: phase 10, step 10.2b"
+      "text": "machine::record::check_setup moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "machine::record::read_unrecorded moves to kkt-operate: phase 10, step 10.2b"
+      "text": "machine::record::read_unrecorded moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "machine::keys::local_operator_key moves to kkt-operate: phase 10, step 10.2b"
+      "text": "machine::keys::local_operator_key moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "machine::keys::local_web_key moves to kkt-operate: phase 10, step 10.2b"
+      "text": "machine::keys::local_web_key moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
@@ -5536,7 +5662,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "builds OperateParts from the implementations it chooses and runs the commands; answers the other assemblies' questions with it (steps 10.2a and 10.2b)"
+      "text": "builds OperateParts from the implementations it chooses and runs the commands; answers the other assemblies' questions with it (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
@@ -7687,75 +7813,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "kkt-serve uses the rest of kkt-admission for it; it keeps what its adapters name (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-api-agent in its code: kkt-serve uses kkt-api-agent for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-backup in its code: kkt-serve uses kkt-backup for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-clock in its code: kkt-serve uses kkt-clock for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-config-file in its code: kkt-serve uses kkt-config-file for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-events in its code: kkt-serve uses kkt-events for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-format in its code: kkt-serve uses kkt-format for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-hosts in its code: kkt-serve uses kkt-hosts for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-identity-keymode in its code: kkt-serve uses kkt-identity-keymode for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-logs in its code: kkt-serve uses kkt-logs for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-mcp in its code: kkt-serve uses kkt-mcp for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-names in its code: kkt-serve uses kkt-names for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-provenance in its code: kkt-serve uses kkt-provenance for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "kkt-serve uses the rest of kkt-rules for it; it keeps what its adapters name (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "kkt-serve uses the rest of kkt-server for it; it keeps what its adapters name (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-web in its code: kkt-serve uses kkt-web for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "its listening adapter hands kkt-server's App to kkt-server-listen (step 10.1)"
-     },
-     {
-      "status": "decided",
-      "text": "its settings through kkt-serve's surface, with its own arguments, and the server through start, with its own output (steps 9.3 and 10.1)"
+      "text": "its own new_server_run maps the run for start, as kkt-serve's does for kkt; it shares no code with kkt (step 9.2)"
      }
     ]
    },
@@ -8474,139 +8532,139 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "OperateParts takes container: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes container: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes container_configs: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes container_configs: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes login_link: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes login_link: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes service: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes service: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes remote: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes remote: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes clients: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes clients: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes prober: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes prober: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes lanes: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes lanes: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes lines: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes lines: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes connection: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes connection: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes clock: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes clock: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes serve: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes serve: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes setup_files: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes setup_files: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes key_files: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes key_files: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes config_file: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes config_file: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes database: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes database: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes backups: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes backups: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes output: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes output: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-setup (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-setup (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-container (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-container (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-service (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-service (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-remote-access (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-remote-access (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-client-config (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-client-config (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-diagnostics (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-diagnostics (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-lane-files (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-lane-files (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-backup (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-backup (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-admission (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-admission (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-names (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-names (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-rules (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-rules (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-api-agent (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-api-agent (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-api-operator (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-api-operator (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-config-file (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-config-file (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-machine (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-machine (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-provenance (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-provenance (steps 10.2b and 10.2a)"
      }
     ]
    },
@@ -9213,14 +9271,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct ServeParts"
-     },
-     {
-      "status": "decided",
-      "text": "new fn start"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Started"
      },
      {
       "status": "decided",
@@ -10974,38 +11024,14 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "kind": "normal",
-    "role": "wires",
-    "to": "kkt-clock"
-   },
-   {
-    "from": "kkt-keymode",
-    "kind": "normal",
     "role": "uses",
     "to": "kkt-config"
    },
    {
     "from": "kkt-keymode",
     "kind": "normal",
-    "role": "uses",
-    "to": "kkt-hosts"
-   },
-   {
-    "from": "kkt-keymode",
-    "kind": "normal",
     "role": "wires",
     "to": "kkt-identity"
-   },
-   {
-    "from": "kkt-keymode",
-    "kind": "normal",
-    "role": "wires",
-    "to": "kkt-names"
-   },
-   {
-    "from": "kkt-keymode",
-    "kind": "normal",
-    "role": "uses",
-    "to": "kkt-provenance"
    },
    {
     "from": "kkt-keymode",
@@ -11555,7 +11581,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-serve": {
-    "concern": "What `kkt serve` runs: the serve settings (the flags and config keys, layering flag over file over the defaults, mapping each onto a `ServerSettings` field or a setting of its own, and the checks), the server's keys, the backup before the database is upgraded, recording the run, building the `Rules` and kkt-server's `Parts`, and listening until a stop. `start`, the part after the settings, is shared with kkt-keymode. It takes its effects in `ServeParts` and depends on no `-os` crate and no other assembly; it gives other commands the local server's facts as `kkt serve` would see them.",
+    "concern": "What `kkt serve` runs: the serve settings (the flags and config keys, layering flag over file over the defaults, mapping each onto a `ServerSettings` field or a setting of its own, and the checks), the server's keys, the backup before the database is upgraded, recording the run, building the `Rules` and kkt-server's `Parts`, and listening until a stop. It is kkt's alone: kkt-keymode assembles key mode again from the shared crates, with none of kkt's code. It takes its effects in `ServeParts` and depends on no `-os` crate and no other assembly; it gives other commands the local server's facts as `kkt serve` would see them.",
     "kind": "composition",
     "layer": "assembly",
     "status": "decided"
@@ -14228,131 +14254,131 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "commands::setup moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::setup moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::setup::InstallOptions moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::setup::InstallOptions moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::setup::run moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::setup::run moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::setup::run_switch moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::setup::run_switch moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service::ServiceAction moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service::ServiceAction moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service::ServiceInstall moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service::ServiceInstall moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service::ServicePlan moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service::ServicePlan moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service::run moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service::run moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::service::service_plan moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::service::service_plan moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::lifecycle moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::lifecycle moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::lifecycle::backup moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::lifecycle::backup moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::lifecycle::status moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::lifecycle::status moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::lifecycle::uninstall moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::lifecycle::uninstall moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::lifecycle::upgrade moves to kkt-operate: phase 10, step 10.2a"
+      "text": "commands::lifecycle::upgrade moves to kkt-operate: phase 10, step 10.2b"
      },
      {
       "status": "decided",
-      "text": "commands::doctor moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::doctor moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::doctor::run moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::doctor::run moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::lanes moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::lanes moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::lanes::LanesAction moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::lanes::LanesAction moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::lanes::run moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::lanes::run moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::key moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::key moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::key::create moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::key::create moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::key::header moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::key::header moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::key::show moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::key::show moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::agent moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::agent moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::agent::AgentAction moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::agent::AgentAction moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "commands::agent::run moves to kkt-operate: phase 10, step 10.2b"
+      "text": "commands::agent::run moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "machine::record moves to kkt-operate: phase 10, step 10.2b"
+      "text": "machine::record moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "machine::record::check_setup moves to kkt-operate: phase 10, step 10.2b"
+      "text": "machine::record::check_setup moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "machine::record::read_unrecorded moves to kkt-operate: phase 10, step 10.2b"
+      "text": "machine::record::read_unrecorded moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "machine::keys::local_operator_key moves to kkt-operate: phase 10, step 10.2b"
+      "text": "machine::keys::local_operator_key moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
-      "text": "machine::keys::local_web_key moves to kkt-operate: phase 10, step 10.2b"
+      "text": "machine::keys::local_web_key moves to kkt-operate: phase 10, step 10.2a"
      },
      {
       "status": "decided",
@@ -14888,7 +14914,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "builds OperateParts from the implementations it chooses and runs the commands; answers the other assemblies' questions with it (steps 10.2a and 10.2b)"
+      "text": "builds OperateParts from the implementations it chooses and runs the commands; answers the other assemblies' questions with it (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
@@ -22694,75 +22720,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "kkt-serve uses the rest of kkt-admission for it; it keeps what its adapters name (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-api-agent in its code: kkt-serve uses kkt-api-agent for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-backup in its code: kkt-serve uses kkt-backup for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-clock in its code: kkt-serve uses kkt-clock for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-config-file in its code: kkt-serve uses kkt-config-file for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-events in its code: kkt-serve uses kkt-events for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-format in its code: kkt-serve uses kkt-format for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-hosts in its code: kkt-serve uses kkt-hosts for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-identity-keymode in its code: kkt-serve uses kkt-identity-keymode for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-logs in its code: kkt-serve uses kkt-logs for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-mcp in its code: kkt-serve uses kkt-mcp for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-names in its code: kkt-serve uses kkt-names for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-provenance in its code: kkt-serve uses kkt-provenance for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "kkt-serve uses the rest of kkt-rules for it; it keeps what its adapters name (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "kkt-serve uses the rest of kkt-server for it; it keeps what its adapters name (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-web in its code: kkt-serve uses kkt-web for it (phase 10)"
-     },
-     {
-      "status": "decided",
-      "text": "its listening adapter hands kkt-server's App to kkt-server-listen (step 10.1)"
-     },
-     {
-      "status": "decided",
-      "text": "its settings through kkt-serve's surface, with its own arguments, and the server through start, with its own output (steps 9.3 and 10.1)"
+      "text": "its own new_server_run maps the run for start, as kkt-serve's does for kkt; it shares no code with kkt (step 9.2)"
      }
     ],
     "released_program": false,
@@ -24505,56 +24463,56 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "Writes kkt-backup's layout of a backup (step 10.2a).",
+      "doc": "Writes kkt-backup's layout of a backup (step 10.2b).",
       "kind": "trait",
       "path": "BackupWriter",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "The default config file's text, read and written, for setup's allowed hosts (step 10.2a).",
+      "doc": "The default config file's text, read and written, for setup's allowed hosts (step 10.2b).",
       "kind": "trait",
       "path": "ConfigText",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "Whether a database file is there, opening it for the operator's commands, and copying it (step 10.2b).",
+      "doc": "Whether a database file is there, opening it for the operator's commands, and copying it (step 10.2a).",
       "kind": "trait",
       "path": "Databases",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "Key files read, probed and written, with the admin name beside an admin key (step 10.2b).",
+      "doc": "Key files read, probed and written, with the admin name beside an admin key (step 10.2a).",
       "kind": "trait",
       "path": "KeyFiles",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "The effects and facts the operator's commands take: the contracts kkt-container, kkt-service, kkt-remote-access, kkt-client-config, kkt-diagnostics, kkt-lane-files and kkt-setup declare, the clock, and its own contracts for the local server's facts, setup's files, the key files, the config file's text, the database files, the backups and the terminal (steps 10.2a and 10.2b).",
+      "doc": "The effects and facts the operator's commands take: the contracts kkt-container, kkt-service, kkt-remote-access, kkt-client-config, kkt-diagnostics, kkt-lane-files and kkt-setup declare, the clock, and its own contracts for the local server's facts, setup's files, the key files, the config file's text, the database files, the backups and the terminal (steps 10.2b and 10.2a).",
       "kind": "struct",
       "path": "OperateParts",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "Standard output and error (step 10.2b).",
+      "doc": "Standard output and error (step 10.2a).",
       "kind": "trait",
       "path": "Output",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "The local server's facts as kkt serve would see them, each asked only where a command needs it: the config file and what it gives, the configured access key, the database in effect, the address, the settings a service runs with and their check, and the default access key file (step 10.2b).",
+      "doc": "The local server's facts as kkt serve would see them, each asked only where a command needs it: the config file and what it gives, the configured access key, the database in effect, the address, the settings a service runs with and their check, and the default access key file (step 10.2a).",
       "kind": "trait",
       "path": "ServeFacts",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "The setup record and the unfinished note, read, written and removed; paths made absolute or canonical; this program's path (step 10.2b).",
+      "doc": "The setup record and the unfinished note, read, written and removed; paths made absolute or canonical; this program's path (step 10.2a).",
       "kind": "trait",
       "path": "SetupFiles",
       "proposed_item": true,
@@ -24649,7 +24607,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Where the key of a kind is: the path given, else the record, the unfinished note, an install with no record and the serve config, each read only if the one before leaves it open (step 10.2b).",
+      "doc": "Where the key of a kind is: the path given, else the record, the unfinished note, an install with no record and the serve config, each read only if the one before leaves it open (step 10.2a).",
       "kind": "fn",
       "path": "keys::selected_key_path",
       "proposed_item": true,
@@ -25011,139 +24969,139 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "OperateParts takes container: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes container: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes container_configs: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes container_configs: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes login_link: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes login_link: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes service: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes service: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes remote: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes remote: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes clients: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes clients: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes prober: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes prober: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes lanes: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes lanes: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes lines: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes lines: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes connection: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes connection: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes clock: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes clock: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes serve: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes serve: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes setup_files: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes setup_files: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes key_files: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes key_files: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes config_file: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes config_file: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes database: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes database: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes backups: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes backups: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "OperateParts takes output: injected by the program (steps 10.2a and 10.2b)"
+      "text": "OperateParts takes output: injected by the program (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-setup (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-setup (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-container (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-container (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-service (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-service (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-remote-access (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-remote-access (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-client-config (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-client-config (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-diagnostics (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-diagnostics (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-lane-files (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-lane-files (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-backup (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-backup (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-admission (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-admission (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-names (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-names (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-rules (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-rules (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-api-agent (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-api-agent (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-api-operator (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-api-operator (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-config-file (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-config-file (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-machine (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-machine (steps 10.2b and 10.2a)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-provenance (steps 10.2a and 10.2b)"
+      "text": "what its commands use of kkt-provenance (steps 10.2b and 10.2a)"
      }
     ],
     "released_program": false,
@@ -25152,7 +25110,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "container",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25166,7 +25124,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "container_configs",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25180,7 +25138,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "login_link",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25194,7 +25152,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "service",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25208,7 +25166,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "remote",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25222,7 +25180,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "clients",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25236,7 +25194,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "prober",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25250,7 +25208,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "lanes",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25268,7 +25226,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "lines",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25282,7 +25240,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "connection",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25296,7 +25254,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "clock",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25310,7 +25268,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "serve",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25324,7 +25282,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "setup_files",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25338,7 +25296,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "key_files",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25352,7 +25310,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "config_file",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25366,7 +25324,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "database",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25380,7 +25338,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "backups",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -25394,7 +25352,7 @@ window.KKT_PROPOSED = {
       "at": "OperateParts",
       "kind": "param",
       "name": "output",
-      "note": "injected by the program (steps 10.2a and 10.2b)",
+      "note": "injected by the program (steps 10.2b and 10.2a)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -27131,18 +27089,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "A server that is listening: its run, the address bound, and serving until a stop (step 10.1).",
-      "kind": "struct",
-      "methods": [
-       "address",
-       "run_id",
-       "serve_until"
-      ],
-      "path": "Started",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "Stops a Shutdown on the system's stop signals (step 10.1).",
       "kind": "trait",
       "path": "StopSignals",
@@ -27285,13 +27231,6 @@ window.KKT_PROPOSED = {
       "path": "settings::server_settings",
       "proposed_item": true,
       "status": "decided"
-     },
-     {
-      "doc": "The server after its settings are checked: records the run, builds the Rules and kkt-server's Parts in key mode, and listens, giving what started, for kkt serve and kkt-keymode (step 10.1).",
-      "kind": "fn",
-      "path": "start",
-      "proposed_item": true,
-      "status": "decided"
      }
     ],
     "kind": "composition",
@@ -27367,14 +27306,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct ServeParts"
-     },
-     {
-      "status": "decided",
-      "text": "new fn start"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Started"
      },
      {
       "status": "decided",
@@ -36788,9 +36719,16 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
+     "AccessKey",
+     "AdminAdmission",
+     "SettingError",
+     "admin_name_path",
+     "key_refusal",
      "server_keys",
      "server_keys::KeyRefusal",
-     "server_keys::KeyText"
+     "server_keys::KeyText",
+     "server_keys::ServerKeys",
+     "server_keys::check"
     ],
     "kind": "normal",
     "optional": false,
@@ -36805,9 +36743,16 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
+       "AccessKey",
+       "AdminAdmission",
+       "SettingError",
+       "admin_name_path",
+       "key_refusal",
        "server_keys",
        "server_keys::KeyRefusal",
-       "server_keys::KeyText"
+       "server_keys::KeyText",
+       "server_keys::ServerKeys",
+       "server_keys::check"
       ],
       "role": "uses"
      }
@@ -36845,6 +36790,78 @@ window.KKT_PROPOSED = {
     "to": "kkt-admission-os"
    },
    {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "SwarmId"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "SwarmId"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-agent"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-backup"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Clock"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "changed",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Clock"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-clock"
+   },
+   {
     "features": [
      "real"
     ],
@@ -36870,6 +36887,35 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-clock-system"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Config",
+     "ConfigError",
+     "parse_file"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Config",
+       "ConfigError",
+       "parse_file"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-config-file"
    },
    {
     "features": [],
@@ -36955,6 +37001,145 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy-os"
    },
    {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Events",
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Events",
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-events"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-mcp-formatter"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "AllowedHosts",
+     "DEFAULT_ALLOW_ANY_BIND",
+     "DEFAULT_BIND",
+     "SettingError",
+     "check_bind"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "changed",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "AllowedHosts",
+       "DEFAULT_ALLOW_ANY_BIND",
+       "DEFAULT_BIND",
+       "SettingError",
+       "check_bind"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-hosts"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "KeyMode"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "KeyMode"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-identity-keymode"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "DEFAULT_DEPENDENCY_LOG_LEVEL",
+     "DEFAULT_LOG_LEVEL",
+     "LogPolicy"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "DEFAULT_DEPENDENCY_LOG_LEVEL",
+       "DEFAULT_LOG_LEVEL",
+       "LogPolicy"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-logs"
+   },
+   {
     "features": [
      "real"
     ],
@@ -36985,8 +37170,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
-     "Db",
-     "schema"
+     "Settings"
     ],
     "kind": "normal",
     "optional": false,
@@ -36995,13 +37179,101 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "schema"
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-mcp"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "NamePack",
+     "PACKS"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "changed",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "NamePack",
+       "PACKS"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-names"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Build",
+     "RunSettings",
+     "ServerRun"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Build",
+       "RunSettings",
+       "ServerRun"
+      ],
+      "role": "uses"
+     }
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-provenance"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Db",
+     "DefaultWording",
+     "NewServerRun",
+     "Settings",
+     "Startup",
+     "schema",
+     "start"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "NewServerRun",
+       "Settings",
+       "Startup",
+       "schema",
+       "start"
       ],
       "role": "uses"
      },
      {
       "detail": [
-       "Db"
+       "Db",
+       "DefaultWording"
       ],
       "role": "wires"
      }
@@ -37017,40 +37289,10 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
-     "ServeParts",
-     "Started",
-     "settings::ServeOptions",
-     "settings::ServeSettings",
-     "start"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "ServeParts",
-       "Started",
-       "settings::ServeOptions",
-       "settings::ServeSettings",
-       "start"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-serve"
-   },
-   {
-    "features": [],
-    "from": "kkt-keymode",
-    "items": [
-     "App"
+     "AppConfig",
+     "Parts",
+     "ServerSettings",
+     "build"
     ],
     "kind": "normal",
     "optional": false,
@@ -37059,9 +37301,17 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "App"
+       "AppConfig",
+       "ServerSettings",
+       "build"
       ],
       "role": "uses"
+     },
+     {
+      "detail": [
+       "Parts"
+      ],
+      "role": "wires"
      }
     ],
     "statuses": [
@@ -37171,6 +37421,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-terminal-os"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "Settings"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Settings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-web"
    },
    {
     "features": [],
