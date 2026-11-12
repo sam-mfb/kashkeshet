@@ -1,8 +1,8 @@
 //! Facts about the machine kkt runs on: the folders its environment names
-//! ([`Env`]) and its platform ([`Platform`]), and [`Machine`], which gives
-//! them. The crates that place files on the machine take these facts and
-//! build their own paths from them; none reads the environment itself.
-//! kkt-machine-os reads them for this process, and the program wires it in.
+//! ([`Env`]) and its platform ([`Platform`]), as plain values. The crates
+//! that place files on the machine take these facts and build their own
+//! paths from them; none reads the environment itself. kkt-machine-os reads
+//! them for this process, and the program passes them on.
 
 use std::path::{Path, PathBuf};
 
@@ -62,38 +62,8 @@ fn absolute(path: &Option<PathBuf>) -> Option<&Path> {
     path.as_deref().filter(|p| p.is_absolute())
 }
 
-/// Gives the machine's facts: its [`Env`] and its [`Platform`].
-pub trait Machine {
-    fn env(&self) -> Env;
-    fn platform(&self) -> Platform;
-}
-
-#[cfg(any(test, feature = "testing"))]
-pub mod testing {
-    use super::{Env, Machine, Platform};
-
-    /// A stand-in [`Machine`] for tests: the [`Env`] and [`Platform`] it is
-    /// given.
-    #[derive(Clone, Debug, PartialEq, Eq)]
-    pub struct FixedMachine {
-        pub env: Env,
-        pub platform: Platform,
-    }
-
-    impl Machine for FixedMachine {
-        fn env(&self) -> Env {
-            self.env.clone()
-        }
-
-        fn platform(&self) -> Platform {
-            self.platform
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::testing::FixedMachine;
     use super::*;
 
     fn env(config: Option<&str>, data: Option<&str>) -> Env {
@@ -143,15 +113,5 @@ mod tests {
             ..env(Some("/xdg/config"), None)
         };
         assert_eq!(homeless.config_home(), Some(PathBuf::from("/xdg/config")));
-    }
-
-    #[test]
-    fn a_fixed_machine_gives_what_it_was_given() {
-        let machine = FixedMachine {
-            env: env(None, None),
-            platform: Platform::MacOs,
-        };
-        assert_eq!(machine.env(), env(None, None));
-        assert_eq!(machine.platform(), Platform::MacOs);
     }
 }

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "69275e8",
+ "commit": "efd72ba",
  "crates": [
   {
    "bins": [
@@ -7480,35 +7480,12 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [
-    {
-     "implementors": [
-      {
-       "crate": "kkt-machine",
-       "type": "testing::FixedMachine"
-      },
-      {
-       "crate": "kkt-machine-os",
-       "type": "OsMachine"
-      }
-     ],
-     "trait": "Machine"
-    }
-   ],
-   "crate_doc": "Facts about the machine kkt runs on: the folders its environment names (`Env`) and its platform (`Platform`), and `Machine`, which gives them.",
+   "contracts": [],
+   "crate_doc": "Facts about the machine kkt runs on: the folders its environment names (`Env`) and its platform (`Platform`), as plain values.",
    "dev_only": false,
-   "features": {
-    "testing": []
-   },
+   "features": {},
    "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-machine",
-     "trait": "Machine",
-     "trait_crate": "kkt-machine",
-     "type": "testing::FixedMachine"
-    }
-   ],
+   "implements": [],
    "items": [
     {
      "doc": "The environment values that decide default paths, kkt's own and the clients' it configures.",
@@ -7528,15 +7505,6 @@ window.KKT_GRAPH = {
      "path": "Env"
     },
     {
-     "doc": "Gives the machine's facts: its `Env` and its `Platform`.",
-     "kind": "trait",
-     "methods": [
-      "env",
-      "platform"
-     ],
-     "path": "Machine"
-    },
-    {
      "doc": "The platform, which decides where per-user data goes.",
      "kind": "enum",
      "path": "Platform",
@@ -7549,22 +7517,6 @@ window.KKT_GRAPH = {
      "doc": "`$XDG_CONFIG_HOME` when it is not set, under the home directory.",
      "kind": "const",
      "path": "XDG_CONFIG_HOME_DEFAULT"
-    },
-    {
-     "doc": "",
-     "feature": "testing",
-     "kind": "mod",
-     "path": "testing"
-    },
-    {
-     "doc": "A stand-in `Machine` for tests: the `Env` and `Platform` it is given.",
-     "feature": "testing",
-     "fields": [
-      "env",
-      "platform"
-     ],
-     "kind": "struct",
-     "path": "testing::FixedMachine"
     }
    ],
    "lib": "kkt_machine",
@@ -7581,26 +7533,25 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's facts as this process sees them: `OsMachine` reads the environment and the platform this program was built for, and implements kkt-machine's `Machine`.",
+   "crate_doc": "The machine's facts as this process sees them: `env` reads the environment, and `platform` gives the platform this program was built for, as kkt-machine's `Env` and `Platform`.",
    "dev_only": false,
    "features": {
     "real": []
    },
    "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-machine-os",
-     "trait": "Machine",
-     "trait_crate": "kkt-machine",
-     "type": "OsMachine"
-    }
-   ],
+   "implements": [],
    "items": [
     {
-     "doc": "The machine as this process sees it: `$HOME` and the folders the environment names, and the platform it runs on.",
+     "doc": "The environment as this process sees it: `$HOME` and the folders the environment names.",
      "feature": "real",
-     "kind": "struct",
-     "path": "OsMachine"
+     "kind": "fn",
+     "path": "env"
+    },
+    {
+     "doc": "The platform this program was built for.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "platform"
     }
    ],
    "lib": "kkt_machine_os",
@@ -17422,7 +17373,6 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Env",
-    "Machine",
     "Platform"
    ],
    "kind": "normal",
@@ -17432,7 +17382,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Env",
-      "Machine",
       "Platform"
      ],
      "role": "uses"
@@ -17448,17 +17397,19 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
-    "OsMachine"
+    "env",
+    "platform"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
     {
      "detail": [
-      "OsMachine"
+      "env",
+      "platform"
      ],
-     "role": "wires"
+     "role": "uses"
     }
    ],
    "target": null,
@@ -22284,19 +22235,12 @@ window.KKT_GRAPH = {
    "from": "kkt-machine-os",
    "items": [
     "Env",
-    "Machine",
     "Platform"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "uses",
    "roles": [
-    {
-     "detail": [
-      "OsMachine implements Machine"
-     ],
-     "role": "implements"
-    },
     {
      "detail": [
       "Env",
@@ -27009,13 +26953,13 @@ window.KKT_CONCERNS = {
    "must_not": "Choose rollover or pruning rules; read a real clock itself."
   },
   "kkt-machine": {
-   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, and `Machine`, which gives them, with a stand-in behind `testing`. The crates that place files on the machine take these facts; none reads them.",
+   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
    "kind": "contract",
    "layer": "foundations",
    "must_not": "Read the environment, or hold any of kkt's paths."
   },
   "kkt-machine-os": {
-   "concern": "The machine's facts as this process sees them: `OsMachine` reads the environment and the platform, and implements kkt-machine's `Machine`. The program wires it in.",
+   "concern": "The machine's facts as this process sees them: `env` reads the environment and `platform` gives the platform this program was built for, as kkt-machine's values. The program asks once and passes them on.",
    "kind": "effect",
    "layer": "foundations"
   },
@@ -27517,7 +27461,8 @@ window.KKT_ASSEMBLY = {
    "steps": [
     {
      "items": [
-      "kkt-machine-os::OsMachine",
+      "kkt-machine-os::env",
+      "kkt-machine-os::platform",
       "kkt-config-file::config_file",
       "kkt-config-file-os::read",
       "kkt-config-file::parse_file",

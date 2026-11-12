@@ -8,7 +8,8 @@
      "title": "Settings",
      "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "items": [
-      "kkt-machine-os::OsMachine",
+      "kkt-machine-os::env",
+      "kkt-machine-os::platform",
       "kkt-config-file::config_file",
       "kkt-config-file-os::read",
       "kkt-config-file::parse_file",
