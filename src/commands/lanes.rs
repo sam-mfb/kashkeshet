@@ -16,7 +16,8 @@ pub async fn run(
     kkt_operate::lanes::run(&native.parts(), env, command, db, config).await
 }
 
-pub(crate) fn existing_db(
+#[cfg(test)]
+fn existing_db(
     env: &Env,
     platform: Platform,
     db: Option<PathBuf>,

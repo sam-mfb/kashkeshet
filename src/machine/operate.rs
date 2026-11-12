@@ -4,7 +4,9 @@ use super::connection::ConnectionReads;
 use super::settings::{self, DefaultDb, Report, ServeArgs, ServeOptions};
 use kkt_admission::{AccessKey, SharedKey};
 use kkt_machine::{Env, Platform};
-use kkt_operate::{Config, Databases, KeyFiles, OperateParts, Output, ServeFacts, SetupFiles};
+use kkt_operate::{
+    BackupWriter, Config, Databases, KeyFiles, OperateParts, Output, ServeFacts, SetupFiles,
+};
 use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -65,6 +67,7 @@ impl<'a, D> NativeOperate<'a, D> {
             setup_files: &NativeSetupFiles,
             key_files: &NativeKeyFiles,
             database: &NativeDatabases,
+            backups: &NativeBackups,
             output: &NativeOutput,
         }
     }
@@ -77,10 +80,14 @@ struct ServeReads<'a> {
 
 impl ServeFacts for ServeReads<'_> {
     fn config(&self, file: Option<PathBuf>) -> Result<Config, String> {
-        let (_, options) = settings::read_config(self.env, file)?;
+        let (file, options) = settings::read_config(self.env, file)?;
         Ok(Config {
+            file,
             max_lane_chars: options.lane_limit(),
+            name_pack: options.name_pack_name().to_string(),
             db: options.db,
+            access_key_file: options.access_key_file,
+            no_access_key: options.no_access_key,
         })
     }
     fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
@@ -245,6 +252,9 @@ impl SetupFiles for NativeSetupFiles {
     fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
         kkt_setup_os::canonicalize(path)
     }
+    fn remove_record(&self, dir: &Path) -> Result<(), String> {
+        kkt_setup_os::remove_record(dir)
+    }
 }
 
 pub(crate) struct NativeKeyFiles;
@@ -257,6 +267,9 @@ impl KeyFiles for NativeKeyFiles {
     }
     fn exists(&self, path: &Path) -> bool {
         kkt_admission_os::KeyFiles::exists(path)
+    }
+    fn try_exists(&self, path: &Path) -> std::io::Result<bool> {
+        kkt_admission_os::KeyFiles::try_exists(path)
     }
     fn is_file(&self, path: &Path) -> bool {
         kkt_admission_os::KeyFiles::is_file(path)
@@ -310,5 +323,14 @@ impl kkt_operate::ConfigText for NativeConfigText {
     }
     fn write(&self, path: &Path, text: &str) -> Result<(), String> {
         kkt_config_file_os::write(path, text).map_err(|e| e.to_string())
+    }
+}
+
+/// Backups written to the machine's files, the database copied with
+/// SQLite's online backup.
+pub(crate) struct NativeBackups;
+impl BackupWriter for NativeBackups {
+    fn write(&self, folder: &Path, layout: &kkt_backup::Layout<'_>) -> Result<PathBuf, String> {
+        kkt_backup_os::write(folder, layout, super::database::copy)
     }
 }
