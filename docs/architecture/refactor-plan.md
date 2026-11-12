@@ -126,10 +126,10 @@ this list; one that is not on it blocks.
 | kkt-web's tests depend on kkt-shutdown-os (the preview example's stop signals) | 1.4 | 6.3 |
 | kkt-web's tests depend on kkt-logs-os (the preview example's real tracing log) | 4.2 | 6.3 |
 | kkt-web depends on kkt-shutdown, an extra arrow (the preview's stop signal) | 1.4 | 6.3 |
-| kkt-rules' `testing::memory` gives a `Db`, not `Rules`: other crates' tests still set up their data through the store's `Writer` | 5.2b-1 | 5.3 |
+| kkt-rules' `testing::memory` gives a `Db`, not `Rules`: other crates' tests still set up their data through the store's `Writer` | 5.2b-1 | not yet scheduled: a follow-up after phase 6, when other crates' tests set up through the kkt-api traits |
 | The fake product still makes its second swarm through the store's `Writer`, not kkt-api-admin's `Swarms::create_swarm`: kkt-server builds the `Rules` inside `build`, after the product would need them | 5.4b | when kkt-rules' `start` builds the `Rules` before serving |
 | `Views` has no `subscribe`: kkt-web still calls `Rules::subscribe` for live notices, since naming kkt-events' `Subscription` in a contract would add a contract-to-logic arrow (msg 2503) | 5.4a | 6.2 |
-| kkt-rules' store records, `Reader`, `Writer` and `Db::read`/`Db::write` stay public: other crates' test setup and the program's 0.10.0 migration test still use them | 5.2b-2 | 5.3 |
+| kkt-rules' store records, `Reader`, `Writer` and `Db::read`/`Db::write` stay public: other crates' test setup and the program's 0.10.0 migration test still use them | 5.2b-2 | not yet scheduled: the same follow-up after phase 6 |
 | kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
 | The preview has its own copy of the access-key check (kkt-web may not depend on kkt-admission); since 6.1 it uses kkt-web's sessions, so the session ID length is no longer copied | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
 | `kashkeshet` does machine work in `src/commands/lifecycle.rs`, `src/commands/service.rs`, `src/commands/setup/steps.rs`, `src/machine/record.rs`, `src/machine/settings.rs` and `src/process.rs` | before the refactor | 7.3a, 7.3b |
@@ -491,7 +491,7 @@ kkt-api-sim's `testing` (see "What needs Sam"). Depends on 6.2.
 
 These change the program's commands, so they collide with each other in
 `src/`. 7.1a goes first; after it, 7.1b, 7.2, 7.4, 7.5 and 7.6 can run in
-parallel, and 7.3 runs alone.
+parallel, 7.7 follows 7.2, and 7.3 runs alone.
 
 **7.1 kkt-terminal-os.** L, split in two:
 
@@ -542,6 +542,13 @@ fixture that writes files moves into a test-only module, so the
 program-machine-work check sees no machine work there. Found by 8.2's
 check (msg 2597).
 
+**7.7 The admin name's key binding.** S. `admin_name_line`, `bound_to` and
+`bound_in`, which tie an admin name to the hash of its key, move into
+kkt-admission's `server_keys`, as the proposal has them (decided item 33's
+split of `AdminName`). The name rules stay in kkt-names. Today the program
+calls kkt-names' `AdminName::bound_to` and `bound_in` and keeps
+`admin_name_line`; no earlier step moved them. After 7.2.
+
 Done for the phase when kinds.py reports no machine work in any program's
 own code.
 
@@ -578,7 +585,7 @@ lane A: 1.3 → 1.1 → 1.6 → 1.7    lane B: 1.2 → 1.4 → 1.5 → 1.9    an
 1.8 → 5.1a → 5.1b → 5.2a → 5.2b → 5.3a → 5.3b → 5.4a → 5.4b
 5.5                           after 1.6, beside 5.1 and 5.2
 6.1 (after 3.1b) → 6.2 (after 5.4) → 6.3
-7.1a (after phase 3) → 7.1b, 7.2, 7.4, 7.5, 7.6 in parallel; 7.3a → 7.3b
+7.1a (after phase 3) → 7.1b, 7.2, 7.4, 7.5, 7.6 in parallel; 7.2 → 7.7; 7.3a → 7.3b
 8.1 → 8.2
 ```
 
