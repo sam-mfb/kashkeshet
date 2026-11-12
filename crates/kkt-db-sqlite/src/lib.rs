@@ -32,7 +32,7 @@ mod tests;
 #[cfg(any(test, feature = "testing"))]
 pub use open::MemoryPlace;
 #[cfg(any(test, feature = "real"))]
-pub use open::{SqlitePlace, copy_database};
+pub use open::{CreateError, SqlitePlace, copy_database};
 
 use std::time::Duration;
 

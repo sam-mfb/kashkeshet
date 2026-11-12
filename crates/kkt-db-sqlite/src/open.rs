@@ -377,6 +377,34 @@ fn open_with(
     }))))
 }
 
+/// Why creating a new database file did not succeed.
+#[cfg(any(test, feature = "real"))]
+#[derive(Debug)]
+pub enum CreateError {
+    /// A file or folder already exists at that path; it was not opened.
+    Exists,
+    /// Opening a missing path failed.
+    Open(DbError),
+}
+#[cfg(any(test, feature = "real"))]
+impl std::fmt::Display for CreateError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Exists => f.write_str("a database file already exists"),
+            Self::Open(error) => std::fmt::Display::fmt(error, f),
+        }
+    }
+}
+#[cfg(any(test, feature = "real"))]
+impl std::error::Error for CreateError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Exists => None,
+            Self::Open(error) => Some(error),
+        }
+    }
+}
+
 /// A database file.
 #[cfg(any(test, feature = "real"))]
 pub struct SqlitePlace {
@@ -416,6 +444,14 @@ impl SqlitePlace {
                 .map_err(failed),
             Found::Ready => Ok(None),
         }
+    }
+
+    /// Opens a new database file, refusing an existing path before opening it.
+    pub fn create(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, CreateError> {
+        if self.path.exists() {
+            return Err(CreateError::Exists);
+        }
+        self.open(sets).map_err(CreateError::Open)
     }
 
     /// Opens the file (creating it if needed) and brings its tables up to

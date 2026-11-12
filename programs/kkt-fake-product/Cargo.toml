@@ -22,8 +22,8 @@ dist = false
 dev-only = true
 
 [dependencies]
-futures.workspace = true
 kkt-admission = { path = "../../crates/kkt-admission" }
+kkt-agent-client = { path = "../../crates/kkt-agent-client", features = ["real"] }
 kkt-api-agent = { path = "../../crates/kkt-api-agent" }
 # The real clock, so agents' waits end on time.
 kkt-clock = { path = "../../crates/kkt-clock" }
@@ -46,11 +46,13 @@ kkt-server-listen = { path = "../../crates/kkt-server-listen", features = ["real
 kkt-shutdown = { path = "../../crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }
 kkt-web = { path = "../../crates/kkt-web" }
-reqwest = { workspace = true, features = ["form", "stream"] }
-serde_json.workspace = true
+kkt-terminal-os = { path = "../../crates/kkt-terminal-os", features = ["real"] }
 tokio.workspace = true
 
 [dev-dependencies]
+futures.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
 # The tests' store, in memory.
 kkt-rules = { path = "../../crates/kkt-rules", features = ["testing"] }
 # Seeded randomness, so two runs can be compared.
