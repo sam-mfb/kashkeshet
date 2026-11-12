@@ -74,8 +74,8 @@ has none.
 | `kkt-api-agent` | What any registered agent may do: `Api` and its areas (`Agents`, `Channels`, `Messages`, `Memory`, `Lanes`), which `kkt-rules` implements, with `Limits`; and the records every level shares: agents, channels, messages, memory, lanes, the queries, who acts (`Actor`, `Agent`, `Operator`, `Audit`, `Permissions`) and the errors (`RuleError`, `Code`) | | none |
 | `kkt-api-operator` | What the human who runs the server may do, by area (`Views`, `Changes`, `Lanes`, `Server`), with the records only they use, and `OperatorApi`, all of it in one swarm; the notices the operator hears as things happen (`Notice`, and `Notices`, which `Views::subscribe` gives); `kkt-rules` implements it | Name kkt-events or any other logic crate | none |
 | `kkt-api-admin` | What /mcp-admin's administrator does: the admin reads (`Admin`), creating a swarm (`Swarms`), `AdminChannel`, and `AdminApi`, every operation /mcp-admin uses in one swarm; `kkt-rules` implements it | | none |
-| `kkt-db` | The database contract, for any database: values; declaring tables, keys, references, indexes and constraints; the questions and changes a store may make (a narrow language, not SQL); transactions (a read sees one state, a write runs as if alone); search: what a search asks for (`Search`, `Excerpt`) and finds (`Hit`); migrations as additions, recorded per named set; `Legacy`, a database from before migrations were tracked, in no backend's terms; the `Backend` and `Evolve` traits a backend implements, and `BackendExt`, the typed read and write a store calls on any backend | Know a product's tables; name a database or use a database library | `testing`: `MemoryPlace`, a database in memory that keeps the contract; `conformance`, the checks every backend must pass, over a `Place` that gives it fresh databases; `FaultyBackend`, a backend that wraps another and fails a change on cue |
-| `kkt-db-sqlite` | kkt-db over SQLite, the only crate that knows SQLite: SQL written from kkt-db's operations, one writer behind a lock and read-only readers, constraints as triggers, search indexes as FTS5 over kkt-search's words, migrations recorded in `kkt_db_versions`, adopting a database from before kkt-db as the caller's kkt-db `Legacy` describes, reading SQLite's `user_version` itself (`SqlitePlace::adopting`), `copy_database` | Know a product's tables; let a rusqlite type out of the crate | `real`: `SqlitePlace` (including `create`, which refuses an existing path), `CreateError` and `copy_database`, which open database files. `testing`: `MemoryPlace`, a SQLite database in memory |
+| `kkt-db` | The database contract, for any database: values; declaring tables, keys, references, indexes and constraints; the questions and changes a store may make (a narrow language, not SQL); transactions (a read sees one state, a write runs as if alone); search: what a search asks for (`Search`, `Excerpt`) and finds (`Hit`); migrations as additions, recorded per named set; `Legacy`, a database from before migrations were tracked, in no backend's terms; the `Backend` and `Evolve` traits a backend implements, and `BackendExt`, the typed read and write a store calls on any backend | Know a product's tables; name a database or use a database library, except in its `testing` stand-in `FastPlace` | `testing`: `MemoryPlace`, a database in memory that keeps the contract, plainly and slowly; `FastPlace`, a fast stand-in for stores' tests, built on SQLite in memory with a translation of its own (it shares nothing with kkt-db-sqlite); `conformance`, the checks every backend must pass, over a `Place` that gives it fresh databases; `FaultyBackend`, a backend that wraps another and fails a change on cue |
+| `kkt-db-sqlite` | kkt-db over SQLite, the only crate that knows SQLite outside tests: SQL written from kkt-db's operations, one writer behind a lock and read-only readers, constraints as triggers, search indexes as FTS5 over kkt-search's words, migrations recorded in `kkt_db_versions`, adopting a database from before kkt-db as the caller's kkt-db `Legacy` describes, reading SQLite's `user_version` itself (`SqlitePlace::adopting`), `copy_database` | Know a product's tables; let a rusqlite type out of the crate | `real`: `SqlitePlace` (including `create`, which refuses an existing path), `CreateError` and `copy_database`, which open database files. `testing`: `MemoryPlace`, a SQLite database in memory |
 | `kkt-search` | Search as text: the words of a text (FTS5 `unicode61`'s rule, as a table of our own), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given | Know a database | none |
 | `kkt-mcp-formatter` | The MCP tools' results turned into text or JSON, within the response size cap; its own `Settings`, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`) | Decide permissions; read the database | none |
 | `kkt-mcp` | The agent and admin MCP tools; what the two share; the endpoints' HTTP transport; their text | Touch the database except through the rules; hold tool or parameter text in Rust; decide who a caller is except through `kkt_identity::Identify` | none |
@@ -157,8 +157,10 @@ neither the core's tables nor any database. kkt-rules' storage module
 and asks and changes them in kkt-db's terms, through `Reader` and
 `Writer`; it knows no
 database, holds no SQL and is handed a `kkt_db::Backend`. `kkt-db-sqlite` knows SQLite and no product's tables;
-it is the only crate that imports rusqlite, apart from the program's tests
-that inspect database files. The program opens the file through it and
+it is the only crate that imports rusqlite, apart from kkt-db's `testing`
+stand-in (`FastPlace`, its own translation, on only in tests:
+`check-release-packages.sh` keeps every `testing` out of a release) and the
+program's tests that inspect database files. The program opens the file through it and
 adopts the databases from before kkt-db that `kkt_rules::legacy`
 describes (`src/machine/database.rs`). A
 question kkt-db cannot ask is a reason to add an operation to kkt-db, with
@@ -204,7 +206,8 @@ product's tests hold the shared crates to this.
 true` (`kkt-scratch`, `kkt-api-sim`, `kkt-keymode`, `kkt-fake-product`, `kkt-web-preview`) is never part of a release:
 `.github/scripts/check-release-packages.sh` fails if one is in the normal
 or build dependencies of a released program (one with a binary target and no
-`dist = false`).
+`dist = false`), and if any workspace package's `testing` feature is on
+there.
 
 **The operator.** The operator, the human on the web page or an admin
 agent at `/mcp-admin`, is an actor in `rules` (`Actor::Operator`), beside

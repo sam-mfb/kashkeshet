@@ -1,12 +1,17 @@
 //! For tests: [`MemoryPlace`], a database held in memory that keeps the
-//! contract; [`conformance`], the checks every backend must pass; and
+//! contract, plainly and slowly; [`FastPlace`], a fast stand-in on SQLite in
+//! memory, for stores' tests; [`conformance`], the checks every backend must pass; and
 //! [`FaultyBackend`], which wraps a backend and makes a change fail on
 //! purpose.
 
 mod conformance;
+#[cfg(test)]
+mod differential;
+mod fast;
 mod memory;
 
 pub use conformance::{Place, conformance};
+pub use fast::FastPlace;
 pub use memory::MemoryPlace;
 
 use crate::search::{Hit, Search};
@@ -147,5 +152,10 @@ mod tests {
     #[tokio::test]
     async fn the_memory_database_keeps_the_contract() {
         conformance(|| Box::new(MemoryPlace::new())).await;
+    }
+
+    #[tokio::test]
+    async fn the_fast_database_keeps_the_contract() {
+        conformance(|| Box::new(FastPlace::new().expect("a fast database"))).await;
     }
 }
