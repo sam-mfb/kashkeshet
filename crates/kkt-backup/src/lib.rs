@@ -1,6 +1,10 @@
 //! Backup layouts, names, file modes and pruning choices, with no file I/O.
 //! The caller supplies the time and source paths, then performs the layout.
 
+mod settings;
+
+pub use settings::{Problem, Settings};
+
 use kkt_clock::Time;
 use std::path::Path;
 

@@ -263,14 +263,17 @@ impl setup::Steps for OsSteps<'_> {
                 // A key file that cannot be inspected is not replaced:
                 // `new_key_file` refuses to write over one. Only a new key
                 // is given the name.
-                let made = Manager::for_this_os(self.env)
-                    .and_then(|manager| {
-                        manager.add_key(&ServiceSystem, &admin, &|path| {
-                            let key = new_key_file(path, false)?;
-                            write_admin_name(path, &key, Some(name)).map(drop)
-                        })
+                let made = Manager::for_this_os(
+                    self.env.home.as_deref(),
+                    self.env.config_home().as_deref(),
+                )
+                .and_then(|manager| {
+                    manager.add_key(&ServiceSystem, &admin, &|path| {
+                        let key = new_key_file(path, false)?;
+                        write_admin_name(path, &key, Some(name)).map(drop)
                     })
-                    .map_err(|e| e.to_string())?;
+                })
+                .map_err(|e| e.to_string())?;
                 Terminal.output(format_args!(
                     "{} admin key for /mcp-admin is in {}, and the server was restarted to use it. Read it with `kkt key show --admin`.\n",
                     if made { "A new" } else { "The" },

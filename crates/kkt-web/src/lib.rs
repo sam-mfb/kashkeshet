@@ -26,7 +26,7 @@ mod viewing;
 
 pub use gate::{Admit, Gate, SignIn, Viewer};
 pub use sessions::{Access, Held, Session, Sessions, WEB_SESSION_ID_CHARS};
-pub use settings::{MAX_WEB_PAGE_MESSAGES, PageLimits, Settings};
+pub use settings::{MAX_WEB_PAGE_MESSAGES, PageLimits, Problem, Settings};
 
 use askama::Template;
 use axum::Json;

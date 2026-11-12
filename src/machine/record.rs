@@ -86,7 +86,7 @@ pub(crate) fn unrecorded_service(
     platform: Platform,
     serve_args: ServeArgs,
 ) -> Result<Option<setup::Unrecorded>, String> {
-    let manager = match Manager::for_this_os(env) {
+    let manager = match Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref()) {
         Ok(manager) => manager,
         // No service can be installed here.
         Err(ServiceError::NoHome | ServiceError::Unsupported) => return Ok(None),
@@ -140,7 +140,7 @@ pub fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
             kkt_container::Host::is_file(&ContainerHost, &folder.join(kkt_container::ENV_FILE))
         }
         setup::InstallCheck::Service => {
-            Manager::for_this_os(env)
+            Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref())
                 .and_then(|manager| manager.state(&ServiceSystem))
                 .map_err(|e| e.to_string())?
                 .installed
@@ -165,7 +165,8 @@ pub fn check_setup(env: &Env) -> Result<(), String> {
     let record = read_setup(env)?;
     let service_running = match record.as_ref().map(|r| &r.mode) {
         Some(setup::Mode::Service { .. }) => {
-            let state = Manager::for_this_os(env).and_then(|m| m.state(&ServiceSystem));
+            let state = Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref())
+                .and_then(|m| m.state(&ServiceSystem));
             match state {
                 Ok(state) => Some(state.running),
                 Err(e) => {
