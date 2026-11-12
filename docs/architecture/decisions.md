@@ -388,6 +388,30 @@ whether Sam has accepted it.
 - Operator and admin names stay in kkt-names; tying an admin name to its key's
   hash moves to kkt-admission.
 
+## The program's library (phase 10)
+
+- **The library becomes three assemblies, by who uses each part** (msgs
+  2789, 2794, 2803 and 2825): kkt-serve (serving), kkt-operate (the
+  operator's commands) and kkt-agent-commands (the agents' commands),
+  composition crates beside kkt-server. Each takes its effects in a `Parts`
+  value. No assembly depends on another or on an `-os` crate; kashkeshet
+  chooses every implementation, keeps the adapters and `cli.rs` (the flags
+  are the program's), and keeps a long dependency list on purpose, since it
+  shows every choice in one place.
+- **The local server's facts are questions, not values.** Each assembly
+  declares the small question its commands ask, and kashkeshet answers it
+  with kkt-serve's or kkt-operate's functions. Today each fact is read only
+  by the command that needs it, and a missing record or a bad config file
+  is reported only then, with its own text; a value worked out up front
+  would change that. The one fact both assemblies ask, how a client reaches
+  the server, is kkt-setup's `ConnectionSource`, which neither copies.
+- **`Parts` takes the contract** (msg 2837): kkt-server's `Parts` takes an
+  `Arc<dyn AdminApi>`, and `new_server_run` belongs to whoever calls
+  `start`, so kkt-server no longer depends on kkt-rules in its code.
+- **kkt-service's `Manager::for_this_os` takes plain paths** (msg 2829),
+  the home folder and the config home folder, so kkt-service no longer
+  depends on kkt-machine.
+
 ## Accepted assumptions
 
 - SeededEntropy (repeatable randomness for the preview and the fake product's

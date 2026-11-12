@@ -1373,3 +1373,29 @@ expected until phase 9 and kkt-build-c's change land:
   kkt-config-file → kkt-machine until kkt-build-c's change merges);
 - rules: no kind check fails; 1 break of the proposal's rules (kkt-rules'
   tests on kkt-db-sqlite, 5.3b's row).
+
+### Against phases 9 and 10's proposal
+
+With phase 10 charted, with 9.2's `Parts` taking `AdminApi` and with
+kkt-service's `Manager::for_this_os` taking plain paths (msg 2829), the
+code at 9282567 (#483 merged) scores lower again, as expected until phases
+9 and 10 land:
+
+- crates: 59 of 62 proposed crates exist; 3 missing (kkt-serve,
+  kkt-operate, kkt-agent-commands); 1 to remove (kkt-settings);
+- items: 732 of 821 proposed items are in their proposed crate. Missing:
+  phase 9's 6 in the owners (kkt-server's `ServerSettings`, kkt-backup's
+  `Settings`, kkt-hosts' two defaults, kkt-logs' two defaults), and the
+  83 in the three assemblies: their `Parts`, the contracts they declare,
+  `start`, `Started`, `new_server_run`, the commands that move out of
+  kashkeshet, and the serve surface 9.3 puts in kkt-serve;
+- arrows: 192 of 244 proposed arrows exist; 52 missing (the assemblies' 45,
+  kashkeshet's 3 to them and kkt-keymode's to kkt-serve, kashkeshet's to
+  kkt-entropy and kkt-log, and kkt-server → kkt-api-admin, which 9.2
+  makes); 28 extra
+  (the 9 kashkeshet and 12 kkt-keymode arrows phase 10 moves into the
+  assemblies, kashkeshet's and kkt-keymode's to kkt-settings among them,
+  kkt-settings' 5, kkt-server → kkt-rules until 9.2, and kkt-service →
+  kkt-machine until #488 merges);
+- rules: no kind check fails; 1 break of the proposal's rules (kkt-rules'
+  tests on kkt-db-sqlite, until kkt-build-b's stand-in replaces it).
