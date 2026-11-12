@@ -165,6 +165,22 @@ tool, which implements the contract directly. The program only injects it.
    may be worth addressing in the principles. His reason for the shape: the
    scope's contract is the abstraction other developers use, and only
    whoever works on the wrapper thinks about the tool.
+6. **A consumer-declared dependency costs an adapter in Rust** (from the
+   contract audit, #516). 3.1.1 has the consumer declare each dependency
+   in its own terms, which assumes a language where a type meets an
+   interface by its shape, as in Go. Rust has no such typing: a type meets
+   a trait only through an `impl`, which must sit beside the trait or the
+   type. So a consumer-declared trait always costs a forwarding adapter, a
+   new type with one forwarding method per trait method, in a third crate.
+   For a dependency with one implementation, the shape that fits Rust is
+   one crate that holds the contract (the trait, its records and its
+   stand-in) in the open and the implementation behind a feature, which
+   only programs turn on. A separate contract crate fits a dependency with
+   many consumers or several implementations. 3.2.4 (where stand-ins
+   live), 3.3 (when to use a contract module) and 4 (one kind per module),
+   and RUST.md, should say which shape applies when. This would revise
+   Sam's ruling of 2026-11-12, which always splits a third-party
+   dependency into a contract crate and a named wrapper.
 
 ### Candidates to revisit (not decided)
 
