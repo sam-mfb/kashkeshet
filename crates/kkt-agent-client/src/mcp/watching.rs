@@ -1,7 +1,7 @@
 //! Message and channel reads over the shared MCP client.
 use super::{Client, Settings};
+use crate::{Channel, Failure, Message, NewerLane, Waited, Watched};
 use futures::future::BoxFuture;
-use kkt_agent_client::{Channel, Failure, Message, NewerLane, Waited, Watched};
 use kkt_clock::{Clock, Span};
 use serde_json::{Map, Value, json};
 use std::sync::Arc;

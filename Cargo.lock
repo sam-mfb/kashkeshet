@@ -1041,7 +1041,6 @@ dependencies = [
  "kkt-admission",
  "kkt-admission-os",
  "kkt-agent-client",
- "kkt-agent-client-rmcp",
  "kkt-agent-commands",
  "kkt-agent-files-os",
  "kkt-api-admin",
@@ -1126,15 +1125,6 @@ name = "kkt-agent-client"
 version = "0.10.0"
 dependencies = [
  "futures",
- "kkt-clock",
-]
-
-[[package]]
-name = "kkt-agent-client-rmcp"
-version = "0.10.0"
-dependencies = [
- "futures",
- "kkt-agent-client",
  "kkt-clock",
  "reqwest",
  "rmcp",
@@ -1383,7 +1373,7 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-admission",
- "kkt-agent-client-rmcp",
+ "kkt-agent-client",
  "kkt-api-admin",
  "kkt-api-agent",
  "kkt-clock",

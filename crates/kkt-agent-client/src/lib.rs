@@ -1,8 +1,10 @@
 //! A client of kkt's server, as kkt's commands use it: registering and
 //! reclaiming avatars, and watching for an agent's new messages or, with
 //! the admin key, for every channel's. In kkt's terms only: nothing here
-//! names a transport or a library. kkt-agent-client-rmcp implements it over
-//! MCP; `testing::Memory` is a stand-in.
+//! names a transport or a library. Its one implementation, over MCP through
+//! rmcp and reqwest (`Mcp`, `Client`, `Remote`, `AdminRemote`, and `Http` for
+//! a program's test client), is behind `real`, which only programs turn on;
+//! `Settings` are plain values. `testing::Memory` is a stand-in.
 
 use futures::future::BoxFuture;
 use kkt_clock::Clock;
@@ -153,6 +155,14 @@ pub struct Reclaimed {
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
+
+mod settings;
+pub use settings::Settings;
+
+#[cfg(feature = "real")]
+mod mcp;
+#[cfg(feature = "real")]
+pub use mcp::{AdminRemote, Client, Http, HttpReply, Mcp, Remote};
 
 #[cfg(test)]
 mod tests {
