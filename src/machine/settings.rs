@@ -1041,10 +1041,9 @@ mod tests {
             |l| l.max_note_chars = 0,
             |l| l.max_server_announcement_chars = 0,
             |l| l.max_memory_entry_chars = 0,
-            |l| {
-                l.max_memory_chars = 0;
-                l.max_memory_entry_chars = 0;
-            },
+            // Only max_memory_chars: its floor comes first; its bound
+            // against max_memory_entry_chars is broken too, and later.
+            |l| l.max_memory_chars = 0,
             |l| l.max_lane_chars = 0,
             |l| l.sends_per_minute = 0,
             |l| l.registrations_per_minute = 0,
