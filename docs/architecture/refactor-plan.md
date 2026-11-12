@@ -1499,10 +1499,11 @@ kkt-setup needs only kkt-container's records, and must not gain what
 kkt-container-docker uses. Per merge:
 - 13.1: kkt-config-file, kkt-machine, serde_json and thiserror, from
   kkt-container-docker;
-- 13.2: what kkt-remote-access-tailscale adds beyond the contract;
+- 13.2: serde and serde_json, from kkt-remote-access-tailscale;
 - 13.3: kkt-browser becomes optional in the merged kkt-container, since
   only `Docker::new` takes a browser;
-- 13.4, 13.5: what the git and reqwest wrappers add;
+- 13.4: nothing (kkt-lane-commit-git adds no dependency);
+- 13.5: reqwest and serde_json, from kkt-probe-reqwest;
 - 13.6: rmcp, reqwest, tokio and libc.
 
 A dependency that the open contract itself uses stays a normal one. A
