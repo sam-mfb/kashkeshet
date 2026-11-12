@@ -332,7 +332,7 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
                 if let Some(name) = config.admin_name() {
                     write(
                         &kkt_admission::admin_name_path(&admin_path),
-                        &name.bound_to(admin),
+                        &kkt_admission::server_keys::bound_to(&name, admin),
                     );
                 }
             }
