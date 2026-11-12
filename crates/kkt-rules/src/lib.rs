@@ -91,6 +91,8 @@ mod rate;
 mod settings;
 pub use settings::Settings;
 mod stale;
+mod startup;
+pub use startup::{NewServerRun, Startup, start};
 
 mod waiting;
 mod wording;
@@ -143,7 +145,7 @@ pub struct Deps {
     pub events: Events,
     pub clock: Arc<dyn Clock>,
     pub entropy: Arc<dyn Entropy>,
-    /// This server run, from `provenance::record`. New agents and messages
+    /// This server run, which [`start`] records. New agents and messages
     /// are stamped with it.
     pub run_id: i64,
     /// What the rules enforce and fill in.
@@ -209,6 +211,11 @@ impl Rules {
             inner,
             swarm,
         }
+    }
+
+    /// The server run these rules stamp the rows they make with.
+    pub fn run_id(&self) -> i64 {
+        self.inner.deps.run_id
     }
 
     /// What these rules enforce and fill in.

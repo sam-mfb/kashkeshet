@@ -5,11 +5,12 @@ use crate::commands::lifecycle::backup_before_upgrade;
 use crate::machine::keys::make_default_key;
 use crate::machine::settings::{
     Checked, DefaultDb, NO_HOME_TO_KEEP_DB, Report, Sources, check_settings, format_settings,
-    load_serve_options, resolve,
+    load_serve_options, resolve, rules_settings,
 };
-use kkt_clock::Clock;
+use kkt_api_agent::SwarmId;
 use kkt_clock_system::SystemClock;
 use kkt_entropy_os::OsEntropy;
+use kkt_events::Events;
 use kkt_identity_keymode::KeyMode;
 use kkt_logs::{LogPolicy, check_dependency_log_level};
 use kkt_logs_os::init_logging;
@@ -139,24 +140,35 @@ async fn serve(
         Some(file) => format!(", config {file}"),
         None => String::new(),
     };
-    let run_id = app::record_run(&db, &run, clock.now())
-        .await
-        .map_err(|e| format!("could not record this server run: {e}"))?;
     let shutdown = Shutdown::new();
+    let entropy = Arc::new(OsEntropy);
+    let rules = kkt_rules::start(
+        app::new_server_run(&run),
+        kkt_rules::Startup {
+            db,
+            // Each call acts in the swarm its caller is in; key mode has one.
+            swarm: SwarmId::main(),
+            events: Events::new(kkt_events::Settings::DEFAULT).until_stopped(shutdown.clone()),
+            clock: clock.clone(),
+            entropy: entropy.clone(),
+            settings: rules_settings(&limits),
+            wording: Arc::new(kkt_rules::DefaultWording),
+        },
+    )
+    .await
+    .map_err(|e| format!("could not record this server run: {e}"))?;
+    let run_id = rules.run_id();
     let signals =
         StopSignals::listen().map_err(|e| format!("could not listen for shutdown signals: {e}"))?;
     // Key mode: each call is the avatar its token names, or the operator
     // the admin key makes, in the one swarm.
     let parts = Parts::new(
-        db,
+        rules,
         clock,
-        Arc::new(OsEntropy),
+        entropy,
         Arc::new(KeyMode::new(admin_name)),
         Arc::new(kkt_logs_os::TracingLog),
-        Arc::new(kkt_rules::DefaultWording),
         &format_settings(&limits),
-        &kkt_events::Settings::DEFAULT,
-        run_id,
     );
     let server = app::build(parts, config, shutdown.clone());
     let listening = kkt_server_listen::listen(server, bind)
