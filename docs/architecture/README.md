@@ -35,6 +35,21 @@ first sentence, public fields, methods and variants, and what a feature adds
 to them. It never shows private items, private module paths or function
 bodies. A crate's "must not" appears only where CLAUDE.md states one.
 
+## Reading the page after the refactor
+
+The page has two maps, switched by the toggle in its header.
+
+- **Current** is the code. `generate.py` builds it from the code into
+  `map-data.js`; regenerate it after a change to crates, dependencies or
+  public items.
+- **Proposed** is the refactor's plan, as it was last amended while the
+  refactor ran, kept as a record. `propose.py` rebuilds it from
+  `proposal-base-data.js` (the map the proposal was made from, at 27f1d11),
+  `proposed.json` and `config-split.json`. Nothing changes it any more.
+
+`decisions.md` says where the two still differ, and why, in "After the
+refactor".
+
 | File | What it is |
 |---|---|
 | `index.html`, `map.css`, `map.js` | The page |
@@ -43,7 +58,7 @@ bodies. A crate's "must not" appears only where CLAUDE.md states one.
 | `page-test.js` | A headless check of the page: ticks and the panel's crate kept by name through every filter and a switch of map, Reset view clearing them, no box moving when a filter changes, and only full-strength arrows answering the pointer. Needs Playwright with Chromium; from the repository's root, once: `npm install --prefix target/tmp/page-test playwright` and `target/tmp/page-test/node_modules/.bin/playwright install chromium`; then `NODE_PATH=target/tmp/page-test/node_modules node docs/architecture/page-test.js`. CI does not run it |
 | `assembly.json` | Written by hand: how each program (kkt, kkt-keymode, the fake product) assembles the server, step by step; every item a step names is checked against the code |
 | `generate.py` | Writes `map-data.js` from the code; its docstring says where each part comes from; with `--out FILE` it writes the map to that file instead and leaves `map-data.js` as it is |
-| `progress.py` | The refactor's scorecard: builds the map from the code into `target/tmp` and compares it with the proposed map, by crates, items, arrows and rules. `--list` names every missing or extra entry. While the refactor runs, `map-data.js` stays at the map the proposal was made from, and the proposal is updated as deliberate differences merge; see `refactor-plan.md` |
+| `progress.py` | The refactor's scorecard: builds the map from the code into `target/tmp` and compares it with the proposed map, by crates, items, arrows and rules. `--list` names every missing or extra entry. While the refactor ran, `map-data.js` stayed at the map the proposal was made from, and the proposal was updated as deliberate differences merged; see `refactor-plan.md` |
 | `check-programs.py` | CI's check that the programs do no machine work (step 8.2): builds the map from the code into `target/tmp` and fails on machine work in a composition crate's own code, file by file and library by library, unless the plan's "Temporary breaks" table lists it in a row such as "`kkt-keymode` does machine work in `src/main.rs`". A listed file that no longer does any also fails, so the step that moves the work out removes the row. `test_check_programs.py` tests it |
 | `map-data.js` | Generated: the crates, arrows and public items, with `concerns.json` |
 
@@ -147,8 +162,8 @@ a change to public items there is never held up by the map.
 ## The proposed map
 
 The page's "Proposed" toggle shows the workspace reorganized by one
-dependency-injection rule and Sam's decisions on it, for planning a refactor.
-It is a chart, not a change to the code. Every change on it carries a status:
+dependency-injection rule and Sam's decisions on it. It was made to plan the
+refactor, and is now its record. It is a chart, not a change to the code. Every change on it carries a status:
 decided by Sam, or recommended pending Sam. It includes item 7, kkt-config
 broken up by domain, which Sam accepted; its per-item table opens from the
 proposed overview.
@@ -158,11 +173,13 @@ proposed overview.
 | `decisions.md` | Written by hand: the decisions behind the proposed map, with their reasons, the accepted assumptions and the rejected options. The page states only what is or is proposed and does not link here |
 | `proposed.json` | Written by hand: the rule and Sam's strict reading of it (no implementation implements another crate's contract, though a crate may implement its own traits; the program, or a composition, adapts), and how they apply here: new crates, renamed crates, moves, items made private or added, methods that move, features that move, new slots, traits consumers declare, implementations in other crates that stop implementing a trait, code that moves with a moved type, adapters (with their size), adapters shared from composition crates, implementations that stay because their crate is itself the adapter, functions that become a trait's provided methods, every adapter measured method by method (forwarding or translating) before and after the reshape of msg 2009, slots that take one value meeting several contracts, the types a slot holds, arrow edits, the programs' flows as they change, a decision for every trait, the conflicts and how they are resolved, and the assumptions. Every entry has a status, kept for the checks and decisions.md; the page shows descriptions only, with references to decisions and discussions taken out |
 | `config-split.json` | Written by hand (drafted from each item's users, then decided item by item): item 7, accepted by Sam, where each of kkt-config's public items goes, and whether it stays a constant, becomes injected, or is test-visible |
-| `propose.py` | Applies both to `map-data.js` and writes `proposed-data.js`; its docstring says what it derives |
+| `proposal-base-data.js` | A copy of `map-data.js` as it was at 27f1d11, the map the proposal was made from. It does not change |
+| `propose.py` | Applies both to `proposal-base-data.js` and writes `proposed-data.js`; its docstring says what it derives |
 | `proposed-data.js` | Generated: the proposed map (with item 7), the table of traits with their consumers, the item 7 table, and what changed |
 
-Run `python3 docs/architecture/propose.py` after `generate.py` (with
-`--check` to compare without writing). It stops if a trait in the map has no
+Run `python3 docs/architecture/propose.py` (with `--check` to compare
+without writing). It reads `proposal-base-data.js`, not `map-data.js`, so
+regenerating the current map does not change the proposal. It stops if a trait in the map has no
 decision, a kkt-config item is missing from `config-split.json`, an item made
 private is still used elsewhere, or anything named is not in the map, including
 every item and slot the programs' proposed flows name. The
