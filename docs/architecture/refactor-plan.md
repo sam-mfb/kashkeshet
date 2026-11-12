@@ -126,7 +126,6 @@ this list; one that is not on it blocks.
 | kkt-web's tests depend on kkt-shutdown-os (the preview example's stop signals) | 1.4 | 6.3 |
 | kkt-web's tests depend on kkt-logs-os (the preview example's real tracing log) | 4.2 | 6.3 |
 | kkt-web depends on kkt-shutdown, an extra arrow (the preview's stop signal) | 1.4 | 6.3 |
-| kkt-mcp-formatter's `NoticeWording` implements kkt-rules' `OperatorWording` (a contract of a logic crate) | before the refactor | 5.5 |
 | kkt-rules' `testing::memory` gives a `Db`, not `Rules`: other crates' tests still set up their data through the store's `Writer` | 5.2b-1 | 5.3 |
 | The fake product still makes its second swarm through the store's `Writer`, not kkt-api-admin's `Swarms::create_swarm`: kkt-server builds the `Rules` inside `build`, after the product would need them | 5.4b | when kkt-rules' `start` builds the `Rules` before serving |
 | `Views` has no `subscribe`: kkt-web still calls `Rules::subscribe` for live notices, since naming kkt-events' `Subscription` in a contract would add a contract-to-logic arrow (msg 2503) | 5.4a | 6.2 |
@@ -134,8 +133,8 @@ this list; one that is not on it blocks.
 | kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
 | The preview has its own copy of the access-key check (kkt-web may not depend on kkt-admission); since 6.1 it uses kkt-web's sessions, so the session ID length is no longer copied | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
 | `kashkeshet` does machine work in `src/commands/lifecycle.rs`, `src/commands/service.rs`, `src/commands/setup/steps.rs`, `src/machine/record.rs`, `src/machine/settings.rs` and `src/process.rs` | before the refactor | 7.3a, 7.3b |
-| `kashkeshet` does machine work in `src/machine/connection.rs` | before the refactor | a follow-up: it reads the client's key file, which the proposal gives kkt-admission-os, and neither 7.2 nor 7.4 moved it |
-| `kashkeshet` does machine work in `src/machine/service.rs` | 2.2 (#427), whose program adapter writes the service file and sets its mode itself | a follow-up that moves those file writes into kkt-service-os |
+| `kashkeshet` does machine work in `src/machine/connection.rs` | before the refactor | 7.3a: it reads the client's key file, which goes through kkt-admission-os' key files (msg 2619) |
+| `kashkeshet` does machine work in `src/machine/service.rs` | 2.2 (#427); the adapter hands its writes to kkt-service-os, and what the check finds is the Unix permission fixture in its tests, which writes files | 7.6 |
 | `kkt-fake-product` does machine work in `src/lib.rs` and `src/main.rs`, with `reqwest` | before the refactor | 7.5 |
 | `kkt-keymode` does machine work in `src/main.rs` | before the refactor | 7.5 |
 
@@ -182,13 +181,13 @@ the last column says so.
 | kkt-api-operator's operations return an `Answer`, a boxed future of their result; since 5.3b the type is kkt-api-agent's, shared by all three kkt-api crates | 5.4a (#455), 5.3b | So the traits work through `dyn`, as kkt-identity's `Identify` does; found when charting, with no row of its own | awaiting Sam | yes |
 | Terminal supplies flush_output, message and output_is_terminal beside output and errors | 7.1a | Preserves prompt flushing, each watch message's locked write and flush, and the browser's separate stdout-terminal check | awaiting Sam | yes |
 | Terminal::interactive checks stdin, while output_is_terminal checks stdout separately | 7.1b | Preserves setup asking when stdin is a terminal even if stdout is redirected; browser opening still requires both | awaiting Sam | yes |
-| Key-file helpers take a caller-supplied key factory; make_default_key reports its created path, write_admin_name takes bound text, and KeyFiles adds read, read_optional and create_dir_all with ReadError retaining its path and I/O cause | 7.2 | Keeps admission-os dependent only on admission; the program preserves its info-event target and admin-name wording, and the two KeyTexts adapters translate native read errors into each program's existing refusal messages | awaiting Sam | after it merges |
-| kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's, not kkt-db's `MemoryPlace` | 5.3b | Speed: the 200 tests take under 5 seconds on SQLite in memory and over 10 minutes on kkt-db's `MemoryPlace`, which copies the whole database on every change. kkt-db's conformance checks keep both in step, and kkt-rules' `testing::memory` still serves other crates (msg 2498) | awaiting Sam | |
-| Two combined traits: kkt-api-operator's `OperatorApi` (`Api` + `Views` + `Changes` + `Lanes` + `Server`, with `in_swarm_operator`) and kkt-api-admin's `AdminApi` (`OperatorApi` + `Admin`, with `in_swarm_admin`); kkt-api-admin depends on kkt-api-operator | 5.4b | An endpoint that moves into the caller's swarm needs every operation it uses in that swarm, which `Api::in_swarm` alone cannot give; `Rules` implements both, so no adapter (msg 2562) | | |
-| kkt-mcp-formatter no longer depends on kkt-rules (only its tests do, for kkt-rules' default settings) | 5.5 | The proposal kept the arrow from the old map; with the wording in kkt-rules and the records in the kkt-api crates, the formatter's library uses nothing of kkt-rules (msg 2580) | | |
-| kkt-web's `Sessions<T>` is generic over what a session holds (bound by its `Held`), `Gate::SignedIn` (kkt-server's `Principal`, the preview's `()`); `Gate::admits` takes kkt-web's `Session<T>` (absent, ended or live) and `Gate::sign_in` returns `SignIn<T>` (admitted, or refused with a reason) in place of a session ID; `Sessions::new` takes an `Access` (open or sign-in), from which the page knows whether sign-in is required; the lifetime is `session_lifetime` in kkt-web's `Settings`, so kkt-server's `AppConfig` loses `sessions` and the program's `session_settings` goes (its `web_settings` fills the lifetime); kkt-web's `testing::Door` holds a gate and its sessions for the page scenarios | 6.1 | The page keeps the sessions, so the gate is asked about what a session holds, not its ID; form tokens need to know whether sign-in is required, so the sessions know it from construction and `Gate` drops `sign_in_required`; one settings value per crate | awaiting Sam | after it merges |
-| kkt-admission's `WebAdmission` decides over its own `WebSession` (absent, ended or live with a `Principal`), and `WebAdmission::sign_in` returns a `Decision`; its `SignIn` and `Settings` go | 6.1 | kkt-admission keeps the access decision and its refusal texts ("sign in first", "the session has ended; sign in again") without knowing kkt-web's sessions | awaiting Sam | after it merges |
-| Credential readers take a CredentialCheck over named CredentialFileFacts and a warning callback; CredentialFile takes a cleanup-warning callback; PrivateMode and CredentialFileFix carry the checked mode, advice and warning, and FileLock exposes LockRefused | 7.4 | Keeps agent-client independent of setup and terminal effects; setup owns the rule over caller-quoted paths, both owner checks and warning-before-read ordering stay intact, and cleanup warnings keep their original log target | awaiting Sam | after it merges |
+| Key-file helpers take a caller-supplied key factory; make_default_key reports its created path, write_admin_name takes bound text, and KeyFiles adds read, read_optional and create_dir_all with ReadError retaining its path and I/O cause | 7.2 | Keeps admission-os dependent only on admission; the program preserves its info-event target and admin-name wording, and the two KeyTexts adapters translate native read errors into each program's existing refusal messages | awaiting Sam | yes |
+| kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's, not kkt-db's `MemoryPlace` | 5.3b | Speed: the 200 tests take under 5 seconds on SQLite in memory and over 10 minutes on kkt-db's `MemoryPlace`, which copies the whole database on every change. kkt-db's conformance checks keep both in step, and kkt-rules' `testing::memory` still serves other crates (msg 2498) | awaiting Sam | noted on the arrow the proposal removes: its rule keeps effect crates out of a logic crate's tests, so the scorecard counts this as a break |
+| Two combined traits: kkt-api-operator's `OperatorApi` (`Api` + `Views` + `Changes` + `Lanes` + `Server`, with `in_swarm_operator`) and kkt-api-admin's `AdminApi` (`OperatorApi` + `Admin`, with `in_swarm_admin`); kkt-api-admin depends on kkt-api-operator | 5.4b | An endpoint that moves into the caller's swarm needs every operation it uses in that swarm, which `Api::in_swarm` alone cannot give; `Rules` implements both, so no adapter (msg 2562) | awaiting Sam | yes |
+| kkt-mcp-formatter no longer depends on kkt-rules (only its tests do, for kkt-rules' default settings) | 5.5 | The proposal kept the arrow from the old map; with the wording in kkt-rules and the records in the kkt-api crates, the formatter's library uses nothing of kkt-rules (msg 2580) | awaiting Sam | yes |
+| kkt-web's `Sessions<T>` is generic over what a session holds (bound by its `Held`), `Gate::SignedIn` (kkt-server's `Principal`, the preview's `()`); `Gate::admits` takes kkt-web's `Session<T>` (absent, ended or live) and `Gate::sign_in` returns `SignIn<T>` (admitted, or refused with a reason) in place of a session ID; `Sessions::new` takes an `Access` (open or sign-in), from which the page knows whether sign-in is required; the lifetime is `session_lifetime` in kkt-web's `Settings`, so kkt-server's `AppConfig` loses `sessions` and the program's `session_settings` goes (its `web_settings` fills the lifetime); kkt-web's `testing::Door` holds a gate and its sessions for the page scenarios | 6.1 | The page keeps the sessions, so the gate is asked about what a session holds, not its ID; form tokens need to know whether sign-in is required, so the sessions know it from construction and `Gate` drops `sign_in_required`; one settings value per crate | awaiting Sam | yes |
+| kkt-admission's `WebAdmission` decides over its own `WebSession` (absent, ended or live with a `Principal`), and `WebAdmission::sign_in` returns a `Decision`; its `SignIn` and `Settings` go | 6.1 | kkt-admission keeps the access decision and its refusal texts ("sign in first", "the session has ended; sign in again") without knowing kkt-web's sessions | awaiting Sam | yes |
+| Credential readers take a CredentialCheck over named CredentialFileFacts and a warning callback; CredentialFile takes a cleanup-warning callback; PrivateMode and CredentialFileFix carry the checked mode, advice and warning, and FileLock exposes LockRefused | 7.4 | Keeps agent-client independent of setup and terminal effects; setup owns the rule over caller-quoted paths, both owner checks and warning-before-read ordering stay intact, and cleanup warnings keep their original log target | awaiting Sam | yes |
 
 ## The steps
 
@@ -491,7 +490,7 @@ kkt-api-sim's `testing` (see "What needs Sam"). Depends on 6.2.
 ### Phase 7: the programs do no machine work (F1)
 
 These change the program's commands, so they collide with each other in
-`src/`. 7.1a goes first; after it, 7.1b, 7.2, 7.4 and 7.5 can run in
+`src/`. 7.1a goes first; after it, 7.1b, 7.2, 7.4, 7.5 and 7.6 can run in
 parallel, and 7.3 runs alone.
 
 **7.1 kkt-terminal-os.** L, split in two:
@@ -520,7 +519,9 @@ after 7.1a:
   program's path and PATH move to kkt-setup-os. Which server and key a client
   uses, and the record's rules, move to kkt-setup. The Docker folder's
   `.env` and the Tailscale auth key file are read through kkt-container's
-  `Host`. M.
+  `Host`. The client's key file, which `src/machine/connection.rs` reads,
+  is read through the shared key-file provider, kkt-admission-os (msg 2619).
+  M.
 - **7.3b** Doctor's checks, the status lines, the backup folders, uninstall's
   record and the per-server key file's name move to kkt-setup. M.
 
@@ -534,6 +535,12 @@ kkt-agent-client's `StateFile`, which the program adapts to kkt-watch's
 its tests, through kkt-agent-client's `Http`. Its main uses `Terminal` and
 `SqlitePlace::create`. kkt-keymode uses the shared key files and checks.
 Depends on 7.1a and 7.2.
+
+**7.6 The service file's test fixture.** S. kkt's `src/machine/service.rs`
+adapter already hands its writes to kkt-service-os; the Unix permission
+fixture that writes files moves into a test-only module, so the
+program-machine-work check sees no machine work there. Found by 8.2's
+check (msg 2597).
 
 Done for the phase when kinds.py reports no machine work in any program's
 own code.
@@ -571,7 +578,7 @@ lane A: 1.3 → 1.1 → 1.6 → 1.7    lane B: 1.2 → 1.4 → 1.5 → 1.9    an
 1.8 → 5.1a → 5.1b → 5.2a → 5.2b → 5.3a → 5.3b → 5.4a → 5.4b
 5.5                           after 1.6, beside 5.1 and 5.2
 6.1 (after 3.1b) → 6.2 (after 5.4) → 6.3
-7.1a (after phase 3) → 7.1b, 7.2, 7.4, 7.5 in parallel; 7.3a → 7.3b
+7.1a (after phase 3) → 7.1b, 7.2, 7.4, 7.5, 7.6 in parallel; 7.3a → 7.3b
 8.1 → 8.2
 ```
 
