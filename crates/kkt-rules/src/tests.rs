@@ -75,7 +75,7 @@ async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) -> World {
     let db = Db::new(Arc::new(faults.clone()));
     let run_id = db
         .write(|w| {
-            w.insert_server_run(&crate::NewServerRunRecord {
+            w.insert_server_run(&crate::store::NewServerRunRecord {
                 started_at: "2026-10-23T14:00:00Z".into(),
                 version: TEST_RUN.into(),
                 git_commit: TEST_RUN.into(),
@@ -7060,7 +7060,7 @@ async fn the_stores_channel_filters_agree_with_decide() {
     let db = memory_db();
     let setup = kinds.clone();
     db.write(move |w| {
-        let run_id = w.insert_server_run(&crate::NewServerRunRecord {
+        let run_id = w.insert_server_run(&crate::store::NewServerRunRecord {
             started_at: AT.into(),
             version: TEST_RUN.into(),
             git_commit: TEST_RUN.into(),

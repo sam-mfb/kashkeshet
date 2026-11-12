@@ -17,18 +17,108 @@
 //! the first's; the check seeds the first swarm completely before the
 //! second, so its IDs are the same in both rounds.
 //!
-//! For other crates' tests, [`memory`] gives a store over kkt-db's
-//! in-memory database with the core's tables, and [`fail_next_write`]
-//! makes a change to it fail on cue.
+//! For other crates' tests, [`memory`] gives the rules over kkt-db's
+//! in-memory database with the core's tables, after recording a test run;
+//! the tests set up their data through the kkt-api crates' operations.
+//! [`database`] gives the database alone, for a program that starts its own
+//! rules ([`crate::start`]), and [`fail_next_write`] makes a change to it
+//! fail on cue.
+//!
+//! The store's questions and changes are the rules' own. The tests that pin
+//! what a database from an older release answers, and that write rows into
+//! a database file to check how it is kept, ask and change it directly: for
+//! them only, this module gives [`Reader`], [`Writer`], the records they
+//! take, and [`read`] and [`write`].
 
 use super::*;
+use crate::{DefaultWording, OperatorWording, Rules, Settings, Startup};
+use kkt_clock::Clock;
 use kkt_db::testing::{FaultyBackend, MemoryPlace};
+use kkt_entropy::Entropy;
+use kkt_events::Events;
 use std::fmt::Debug;
 
-/// A store over kkt-db's in-memory database, with the core's tables, for
-/// other crates' tests. It becomes Rules over the same database when the
-/// operations move to kkt-api-agent (step 5.3).
-pub fn memory() -> Result<Db, StoreError> {
+pub use super::{
+    ChannelFilter, ChannelKind, ChannelScope, MessageRange, NewAgentRecord, NewChannelRecord,
+    NewMessageRecord, NewServerRunRecord, NewerFilter, Reader, SearchFilter, SentFilter, Writer,
+};
+
+/// Runs `f` over a view of one state of `db`, for the tests that pin the
+/// store's reads.
+pub async fn read<T, E, F>(db: &Db, f: F) -> Result<T, E>
+where
+    T: Send + 'static,
+    E: From<StoreError> + Send + 'static,
+    F: FnOnce(&Reader<'_>) -> Result<T, E> + Send + 'static,
+{
+    db.read(f).await
+}
+
+/// Runs `f` inside one transaction of `db`, for the tests that write rows
+/// into a database file directly.
+pub async fn write<T, E, F>(db: &Db, f: F) -> Result<T, E>
+where
+    T: Send + 'static,
+    E: From<StoreError> + Send + 'static,
+    F: FnOnce(&Writer<'_>) -> Result<T, E> + Send + 'static,
+{
+    db.write(f).await
+}
+
+/// What a test's rules are made from: the rules' startup without the
+/// database. [`Memory::new`] fills in the rest as a server in key mode
+/// would: the one swarm, a new events bus, the default settings and
+/// wording.
+pub struct Memory {
+    pub swarm: SwarmId,
+    pub events: Events,
+    pub clock: Arc<dyn Clock>,
+    pub entropy: Arc<dyn Entropy>,
+    pub settings: Settings,
+    pub wording: Arc<dyn OperatorWording>,
+}
+
+impl Memory {
+    /// The usual startup, timed by `clock` and drawn from `entropy`.
+    pub fn new(clock: Arc<dyn Clock>, entropy: Arc<dyn Entropy>) -> Memory {
+        Memory {
+            swarm: SwarmId::main(),
+            events: Events::new(kkt_events::Settings::DEFAULT),
+            clock,
+            entropy,
+            settings: Settings::DEFAULT,
+            wording: Arc::new(DefaultWording),
+        }
+    }
+}
+
+/// The rules over a new in-memory database with the core's tables, built by
+/// [`crate::start`] after it records a test run at `memory.clock`'s now.
+pub async fn memory(memory: Memory) -> Result<Rules, StoreError> {
+    crate::start(
+        crate::NewServerRun {
+            version: "test".into(),
+            git_commit: "test".into(),
+            settings: "test".into(),
+            instructions_sha256: "test".into(),
+        },
+        Startup {
+            db: database()?,
+            swarm: memory.swarm,
+            events: memory.events,
+            clock: memory.clock,
+            entropy: memory.entropy,
+            settings: memory.settings,
+            wording: memory.wording,
+        },
+    )
+    .await
+}
+
+/// A new database in memory, with the core's tables, for other crates'
+/// tests: for a program that starts its own rules, or for the operator's
+/// [`crate::CommandLine`].
+pub fn database() -> Result<Db, StoreError> {
     let backend = MemoryPlace::new().open(&[schema()])?;
     let faults = FaultyBackend::new(backend);
     let mut db = Db::new(Arc::new(faults.clone()));
@@ -36,9 +126,9 @@ pub fn memory() -> Result<Db, StoreError> {
     Ok(db)
 }
 
-/// Makes the next change to `table` through `db`, a store [`memory`] made,
-/// fail, for tests of what a failed write leaves. Fails for a store
-/// [`memory`] did not make.
+/// Makes the next change to `table` through `db`, a database [`database`]
+/// made, fail, for tests of what a failed write leaves. Fails for one
+/// [`database`] did not make.
 pub fn fail_next_write(db: &Db, table: &'static str) -> Result<(), StoreError> {
     match &db.faults {
         Some(faults) => {
@@ -46,7 +136,7 @@ pub fn fail_next_write(db: &Db, table: &'static str) -> Result<(), StoreError> {
             Ok(())
         }
         None => Err(StoreError::Database(
-            "fail_next_write takes a store testing::memory made".into(),
+            "fail_next_write takes a database testing::database made".into(),
         )),
     }
 }

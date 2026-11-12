@@ -112,31 +112,17 @@ async fn rules() -> Rules {
         }
     }
 
-    let db = kkt_rules::testing::memory().expect("an in-memory store");
-    let run_id = db
-        .write(|w| {
-            w.insert_server_run(&kkt_rules::NewServerRunRecord {
-                started_at: "2026-11-10T00:00:00Z".into(),
-                version: "test".into(),
-                git_commit: "test".into(),
-                settings: "test".into(),
-                instructions_sha256: "test".into(),
-            })
-        })
-        .await
-        .expect("a server run");
-    Rules::new(kkt_rules::Deps {
-        db,
-        swarm: SwarmId::main(),
-        events: kkt_events::Events::new(kkt_events::Settings::DEFAULT),
-        clock: Arc::new(FixedClock::new(
-            Time::from_parts(2026, 11, 10, 0, 0, 0).unwrap(),
-        )),
-        entropy: Arc::new(SeqEntropy::new(1)),
-        run_id,
-        settings: kkt_rules::Settings::DEFAULT,
+    kkt_rules::testing::memory(kkt_rules::testing::Memory {
         wording: Arc::new(Plain),
+        ..kkt_rules::testing::Memory::new(
+            Arc::new(FixedClock::new(
+                Time::from_parts(2026, 11, 10, 0, 0, 0).unwrap(),
+            )),
+            Arc::new(SeqEntropy::new(1)),
+        )
     })
+    .await
+    .expect("rules over a new database")
 }
 
 #[tokio::test]

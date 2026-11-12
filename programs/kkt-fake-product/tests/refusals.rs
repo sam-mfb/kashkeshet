@@ -147,7 +147,7 @@ async fn a_handle_taken_in_the_other_swarm_is_taken_and_nothing_more() {
 
 /// A new database in memory, with the core's tables.
 fn memory() -> kkt_rules::Db {
-    kkt_rules::testing::memory().expect("an in-memory store")
+    kkt_rules::testing::database().expect("an in-memory database")
 }
 
 fn system_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {

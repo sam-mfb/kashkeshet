@@ -4,7 +4,9 @@
 
 use kashkeshet::machine::database;
 use kkt_api_agent::SwarmId;
-use kkt_rules::{NewAgentRecord, NewChannelRecord, NewMessageRecord, NewServerRunRecord};
+use kkt_rules::testing::{
+    self, NewAgentRecord, NewChannelRecord, NewMessageRecord, NewServerRunRecord,
+};
 use kkt_scratch as scratch;
 
 const T: &str = "2026-10-23T14:00:00Z";
@@ -30,7 +32,7 @@ async fn file_database_reopens_without_rerunning_migrations() {
     let path = dir.join("test.db");
 
     let db = database::open(&path).expect("open");
-    db.write(|w| {
+    testing::write(&db, |w| {
         let run_id = w.insert_server_run(&run("1.0.0"))?;
         w.insert_agent(
             &SwarmId::main(),
@@ -49,16 +51,19 @@ async fn file_database_reopens_without_rerunning_migrations() {
     drop(db);
 
     let db = database::open(&path).expect("reopen");
-    let found = db
-        .read(|r| r.agent(&SwarmId::main(), "a"))
+    let found = testing::read(&db, |r| r.agent(&SwarmId::main(), "a"))
         .await
         .expect("read");
     assert_eq!(found.map(|a| a.name), Some("a".to_string()));
     assert!(
-        db.read(|r| r.agent_by_recovery_hash(&SwarmId::main(), "a", &[42]))
-            .await
-            .expect("recovery lookup after restart")
-            .is_some()
+        testing::read(&db, |r| r.agent_by_recovery_hash(
+            &SwarmId::main(),
+            "a",
+            &[42]
+        ))
+        .await
+        .expect("recovery lookup after restart")
+        .is_some()
     );
 }
 
@@ -68,7 +73,7 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
     let dir = scratch_dir("copy");
     let path = dir.join("live.db");
     let db = database::open(&path).expect("open");
-    db.write(|w| {
+    testing::write(&db, |w| {
         let run_id = w.insert_server_run(&run("1.0.0"))?;
         w.insert_agent(
             &SwarmId::main(),
@@ -102,7 +107,7 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
         let db = db.clone();
         tokio::spawn(async move {
             for i in 0..MESSAGES {
-                db.write(move |w| {
+                testing::write(&db, move |w| {
                     w.insert_message(
                         &SwarmId::main(),
                         &NewMessageRecord {
@@ -154,8 +159,7 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
         counts.push(count);
         drop(conn);
         let reopened = database::open(copy).expect("a copy opens as a database");
-        let agent = reopened
-            .read(|r| r.agent(&SwarmId::main(), "a"))
+        let agent = testing::read(&reopened, |r| r.agent(&SwarmId::main(), "a"))
             .await
             .expect("read copy");
         assert!(agent.is_some());

@@ -31,7 +31,6 @@ kkt-log = { path = "../kkt-log", features = ["testing"] }
 # Key mode, the identity the tests run the surfaces with.
 kkt-identity-keymode = { path = "../kkt-identity-keymode" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-events = { path = "../kkt-events" }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
 kkt-rules = { path = "../kkt-rules", features = ["testing"] }
 tower.workspace = true
