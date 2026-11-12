@@ -46,7 +46,8 @@ pub(super) struct OsSteps<'a> {
 /// Adds `host` to `allow_hosts` in the default config file, making the file
 /// if there is none.
 fn allow_host_in_config(env: &Env, host: &str) -> Result<(), String> {
-    let path = kkt_config_file::config_file(env).ok_or("set HOME to keep kkt's config file")?;
+    let path = kkt_config_file::config_file(env.config_home().as_deref())
+        .ok_or("set HOME to keep kkt's config file")?;
     let text = config_file_os::read(&path)
         .map_err(|e| e.to_string())?
         .unwrap_or_else(String::new);
@@ -113,7 +114,7 @@ impl setup::Steps for OsSteps<'_> {
     ) -> Result<(setup::Installed, setup::DockerSetup), String> {
         let options = &self.options;
         let folder = docker_folder(self.env, self.platform)?;
-        let key_file = kkt_config_file::config_dir(self.env)
+        let key_file = kkt_config_file::config_dir(self.env.config_home().as_deref())
             .ok_or("set HOME to keep the access key")?
             .join(DOCKER_KEY_FILE_NAME);
         let tailscale_inputs = match tailscale {
@@ -162,7 +163,7 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn stage_key(&self, key: &str) -> Result<PathBuf, String> {
-        let dir = kkt_config_file::config_dir(self.env)
+        let dir = kkt_config_file::config_dir(self.env.config_home().as_deref())
             .ok_or("set HOME to keep the key in ~/.config/kkt")?;
         kkt_admission_os::KeyFiles::create_dir_all(&dir)?;
         let path = setup::staged_client_key(&dir);
@@ -227,13 +228,14 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn save_unfinished(&self, unfinished: &setup::Unfinished) -> Result<(), String> {
-        let config_dir =
-            kkt_config_file::config_dir(self.env).ok_or("set HOME to note the install")?;
+        let config_dir = kkt_config_file::config_dir(self.env.config_home().as_deref())
+            .ok_or("set HOME to note the install")?;
         kkt_setup_os::write_unfinished(&config_dir, unfinished)
     }
 
     fn forget_unfinished(&self) -> Result<(), String> {
-        let Some(config_dir) = kkt_config_file::config_dir(self.env) else {
+        let Some(config_dir) = kkt_config_file::config_dir(self.env.config_home().as_deref())
+        else {
             return Ok(());
         };
         kkt_setup_os::remove_unfinished(&config_dir)
