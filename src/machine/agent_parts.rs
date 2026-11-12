@@ -6,7 +6,7 @@ use crate::commands::watch::{WatchOutput, WatchServer};
 use crate::machine::client_config::ClientHost;
 use crate::machine::connection::ConnectionReads;
 use crate::machine::credentials::CredentialFiles;
-use crate::machine::keys::{KeyKind, selected_key_path};
+use crate::machine::operate::NativeOperate;
 use crate::machine::settings::ServeArgs;
 use futures::future::BoxFuture;
 use kkt_agent_client as client;
@@ -46,7 +46,8 @@ pub fn agent_parts(
     }
 }
 
-/// Where `kkt key show --admin` finds the admin key.
+/// Where `kkt key show --admin` finds the admin key: kkt-operate's key
+/// finder.
 struct AdminKeyHere {
     env: Env,
     platform: Platform,
@@ -55,12 +56,16 @@ struct AdminKeyHere {
 
 impl AdminKey for AdminKeyHere {
     fn path(&self, given: Option<PathBuf>) -> Result<PathBuf, String> {
-        selected_key_path(
+        // kkt-operate's key finder answers, over the operator's parts on
+        // this machine: kkt-agent-commands depends on no other assembly.
+        let native =
+            NativeOperate::new(&self.env, self.platform).with_service_args(self.serve_args);
+        kkt_operate::keys::selected_key_path(
+            &native.parts(),
             &self.env,
             self.platform,
-            self.serve_args,
             given,
-            KeyKind::Admin,
+            kkt_operate::keys::KeyKind::Admin,
         )
     }
 }

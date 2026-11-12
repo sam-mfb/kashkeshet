@@ -278,7 +278,7 @@ fn serve_options(config: Config<LogLevel>) -> ServeOptions {
 
 /// Parses the kkt container's config file for kkt-container, as `kkt serve`
 /// in the container would: a setting `kkt serve` would refuse is refused.
-pub struct ContainerConfigs;
+pub(crate) struct ContainerConfigs;
 
 impl kkt_container::ConfigReader for ContainerConfigs {
     fn settings(

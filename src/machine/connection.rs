@@ -3,7 +3,7 @@
 //! answered on this machine (`ConnectionReads`).
 
 use crate::machine::keys::{make_default_key, read_key};
-use crate::machine::record::read_setup;
+use crate::machine::operate::NativeSetupFiles;
 use crate::machine::settings::ServeOptions;
 use crate::machine::settings::Sources;
 use crate::machine::settings::serve_settings_and_sources;
@@ -11,7 +11,9 @@ use kkt_admission::AccessKey;
 use kkt_diagnostics as diagnostics;
 use kkt_machine::{Env, Platform};
 use kkt_setup as setup;
-pub use setup::connection::{Connection, ConnectionOptions};
+#[cfg(test)]
+use setup::connection::Connection;
+pub use setup::connection::ConnectionOptions;
 use setup::connection::{ConnectionSource, ServeConnection};
 use std::path::Path;
 
@@ -32,7 +34,7 @@ impl ConnectionSource for ConnectionReads<'_> {
     type KeySource = Sources;
 
     fn record(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.env)
+        kkt_operate::record::read_setup(self.env, &NativeSetupFiles)
     }
 
     fn serve(&self, flags: ConnectionOptions) -> Result<ServeConnection<Sources>, String> {
@@ -68,27 +70,11 @@ impl ConnectionSource for ConnectionReads<'_> {
     }
 }
 
-pub fn client_connection(
-    env: &Env,
-    platform: Platform,
-    flags: ConnectionOptions,
-    create: bool,
-) -> Result<Connection, String> {
-    setup::connection::client_connection(&ConnectionReads { env, platform }, flags, create)
-}
-
-pub fn recorded_connection(
-    server: setup::Server,
-    flags: ConnectionOptions,
-) -> Result<Connection, String> {
-    setup::connection::recorded_connection(
-        |path| kkt_setup_os::absolute(path).map_err(|e| format!("could not resolve key path: {e}")),
-        server,
-        flags,
-    )
-}
-
-pub fn serve_connection(
+/// How clients reach the server `kkt serve` would run with these settings,
+/// as kkt-setup works it out over this machine's reads: for the tests of
+/// those reads.
+#[cfg(test)]
+fn serve_connection(
     env: &Env,
     platform: Platform,
     flags: ConnectionOptions,

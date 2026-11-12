@@ -1,18 +1,17 @@
-//! The server's key reads, and program adapters for the operator's key commands.
-use crate::machine::settings::{ServeArgs, Sources};
+//! The server's key reads, for `kkt serve` and the service check: the key
+//! files its settings name, checked as kkt-admission checks them, and the
+//! default key made if it is missing. (The operator's key finders and
+//! writers are kkt-operate's.)
+use crate::machine::settings::Sources;
 use kkt_admission::server_keys::{self, KeyText, KeyTexts, ServerKeys};
 use kkt_admission::{AccessKey, ServerKey, SharedKey};
 use kkt_admission_os::{KeyFiles, ReadError};
 use kkt_entropy_os::OsEntropy;
-use kkt_machine::{Env, Platform};
-use kkt_names::AdminName;
-pub use kkt_operate::keys::{KeyKind, admin_key_collision};
-use kkt_setup as setup;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Makes the default key file if it is the one in use and does not exist
 /// yet, and logs where it is (never the key).
-pub fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
+pub(crate) fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
     if let Some(path) =
         kkt_admission_os::make_default_key(access_key, || SharedKey::generate(&OsEntropy))?
     {
@@ -108,78 +107,38 @@ pub(crate) fn read_key(path: &Path, sources: &Sources) -> Result<SharedKey, Stri
         .map_err(|e| sources.invalid(e))
 }
 
-pub(crate) fn selected_key_path(
-    env: &Env,
-    platform: Platform,
-    serve_args: ServeArgs,
-    path: Option<PathBuf>,
-    kind: KeyKind,
-) -> Result<PathBuf, String> {
-    let native =
-        crate::machine::operate::NativeOperate::new(env, platform).with_service_args(serve_args);
-    kkt_operate::keys::selected_key_path(&native.parts(), env, platform, path, kind)
-}
-
-#[cfg(test)]
-fn optional_key_path(
-    env: &Env,
-    platform: Platform,
-    serve_args: ServeArgs,
-    path: Option<PathBuf>,
-    kind: KeyKind,
-) -> Result<Option<PathBuf>, String> {
-    let native =
-        crate::machine::operate::NativeOperate::new(env, platform).with_service_args(serve_args);
-    kkt_operate::keys::optional_key_path(&native.parts(), env, platform, path, kind)
-}
-
-pub fn local_web_key(
-    env: &Env,
-    platform: Platform,
-    unfinished: Option<&setup::Unfinished>,
-    unrecorded: Option<&setup::Unrecorded>,
-) -> Result<Option<PathBuf>, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform);
-    kkt_operate::keys::local_web_key(&native.parts(), env, unfinished, unrecorded)
-}
-
-pub fn local_operator_key(
-    env: &Env,
-    platform: Platform,
-    unfinished: Option<&setup::Unfinished>,
-    unrecorded: Option<&setup::Unrecorded>,
-    kind: KeyKind,
-) -> Result<Option<PathBuf>, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform);
-    kkt_operate::keys::local_operator_key(&native.parts(), env, unfinished, unrecorded, kind)
-}
-
-pub fn admin_name_line(path: &Path, key: &str, label: &str) -> Result<Option<String>, String> {
-    kkt_operate::keys::admin_name_line(&crate::machine::operate::NativeKeyFiles, path, key, label)
-}
-
-pub fn write_admin_name(
-    path: &Path,
-    key: &str,
-    name: Option<&AdminName>,
-) -> Result<String, String> {
-    kkt_operate::keys::write_admin_name(&crate::machine::operate::NativeKeyFiles, path, key, name)
-}
-
-pub fn new_key_file(path: &Path, force: bool) -> Result<String, String> {
-    kkt_operate::keys::new_key_file(&crate::machine::operate::NativeKeyFiles, path, force)
-}
-
-pub fn write_key_file(path: &Path, key: &str, force: bool) -> Result<(), String> {
-    kkt_operate::keys::write_key_file(&crate::machine::operate::NativeKeyFiles, path, key, force)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::machine::settings::ServeOptions;
+    use crate::machine::operate::NativeOperate;
+    use crate::machine::settings::{ServeArgs, ServeOptions};
     use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};
     use crate::scratch;
+    use kkt_machine::{Env, Platform};
+    use kkt_operate::keys::KeyKind;
+    use std::path::PathBuf;
+
+    // kkt-operate's key finders, over this program's real parts.
+    fn optional_key_path(
+        env: &Env,
+        platform: Platform,
+        serve_args: ServeArgs,
+        path: Option<PathBuf>,
+        kind: KeyKind,
+    ) -> Result<Option<PathBuf>, String> {
+        let native = NativeOperate::new(env, platform).with_service_args(serve_args);
+        kkt_operate::keys::optional_key_path(&native.parts(), env, platform, path, kind)
+    }
+
+    fn local_operator_key(
+        env: &Env,
+        platform: Platform,
+        unfinished: Option<&kkt_setup::Unfinished>,
+        unrecorded: Option<&kkt_setup::Unrecorded>,
+        kind: KeyKind,
+    ) -> Result<Option<PathBuf>, String> {
+        let native = NativeOperate::new(env, platform);
+        kkt_operate::keys::local_operator_key(&native.parts(), env, unfinished, unrecorded, kind)
+    }
 
     fn unused_args(_: &[String]) -> Result<(Option<PathBuf>, ServeOptions), String> {
         Err("not used".into())

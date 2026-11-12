@@ -81,7 +81,7 @@
   "kkt-operate": {
    "layer": "assembly",
    "kind": "composition",
-   "concern": "The operator's commands and this machine's setup record and key selection; effects and lazy serving facts are supplied through OperateParts.",
+   "concern": "The operator's commands, including the install's lifecycle (status, upgrade, uninstall and backup), and this machine's setup record and key selection; effects, backup writing and lazy serving facts are supplied through OperateParts.",
    "must_not": "Choose native implementations, depend on an effect or another assembly, or parse command-line flags."
   },
   "kkt-server": {

@@ -1,18 +1,15 @@
-//! `cli` defines the command line and turns it into plain inputs; the
-//! library `kashkeshet` has one module per command, what kkt keeps on this
-//! machine, and the terminal; everything else is in the `kkt-*` crates.
+//! `cli` defines the command line and turns it into plain inputs. `run`
+//! builds the parts of kkt's two assemblies in one place, kkt-operate's for
+//! the operator's commands and kkt-agent-commands' for the agents', from
+//! the implementations this program chooses, and runs each command; `kkt
+//! serve` is composed by the library's `commands::serve` over kkt-server.
 
 mod cli;
 
-use kashkeshet::commands::agent;
-use kashkeshet::commands::lanes;
-use kashkeshet::commands::lifecycle;
 use kashkeshet::commands::serve;
-use kashkeshet::commands::service;
-use kashkeshet::commands::{self, doctor, key};
 use kashkeshet::machine::agent_parts::agent_parts;
 use kashkeshet::machine::connection::ConnectionOptions;
-use kashkeshet::machine::record::check_setup;
+use kashkeshet::machine::operate::NativeOperate;
 use kashkeshet::machine::settings::ServeArgs;
 use kashkeshet::machine::settings::ServeOptions;
 use kkt_agent_commands::{self as agent_commands, connect, watch::WatchTask};
@@ -167,6 +164,11 @@ async fn run(
     serve_args: ServeArgs,
     task: Task,
 ) -> Result<std::process::ExitCode, String> {
+    // The two assemblies' parts, built once, here. Neither reads anything
+    // until a command asks.
+    let native = NativeOperate::new(env, platform).with_service_args(serve_args);
+    let operate = native.parts();
+    let mut agents = agent_parts(env, platform, serve_args);
     let done = match task {
         Task::Serve {
             config,
@@ -174,7 +176,12 @@ async fn run(
             options,
         } => {
             if !ignore_setup {
-                check_setup(env)?;
+                kkt_operate::record::check_setup(
+                    env,
+                    operate.setup_files,
+                    operate.service,
+                    operate.output,
+                )?;
             }
             serve::run(env, platform, config, options).await
         }
@@ -184,10 +191,10 @@ async fn run(
             show,
             kind,
             name,
-        } => key::create(
+        } => kkt_operate::key::create(
+            &operate,
             env,
             platform,
-            serve_args,
             kkt_operate::key::NewKey {
                 kind,
                 path,
@@ -196,40 +203,39 @@ async fn run(
             force,
             show,
         ),
-        Task::Agent { action, db, config } => agent::run(env, platform, action, db, config).await,
-        Task::Lanes { action, db, config } => lanes::run(env, platform, action, db, config).await,
-        Task::Service(action) => service::run(env, platform, action).await,
+        Task::Agent { action, db, config } => {
+            kkt_operate::agent::run(&operate, action, db, config).await
+        }
+        Task::Lanes { action, db, config } => {
+            kkt_operate::lanes::run(&operate, env, action, db, config).await
+        }
+        Task::Service(action) => kkt_operate::service::run(&operate, env, action).await,
         Task::Backup { folder, db, config } => {
-            lifecycle::backup(env, platform, folder.as_deref(), db, config)
+            kkt_operate::lifecycle::backup(&operate, env, folder.as_deref(), db, config)
         }
-        Task::Status => lifecycle::status(env, platform, serve_args).await,
+        Task::Status => kkt_operate::lifecycle::status(&operate, env, platform).await,
         Task::Upgrade { allow_downgrade } => {
-            lifecycle::upgrade(env, platform, serve_args, allow_downgrade).await
+            kkt_operate::lifecycle::upgrade(&operate, env, platform, allow_downgrade).await
         }
-        Task::Uninstall => lifecycle::uninstall(env, platform, serve_args).await,
-        Task::Switch(how) => commands::setup::run_switch(env, platform, how).await,
+        Task::Uninstall => kkt_operate::lifecycle::uninstall(&operate, env, platform).await,
+        Task::Switch(how) => kkt_operate::setup::run_switch(&operate, env, how).await,
         Task::KeyHeader { key_file, json } => {
-            key::header(env, platform, serve_args, key_file, json)
+            kkt_operate::key::header(&operate, env, platform, key_file, json)
         }
         Task::KeyShow { key_file, kind } => {
-            return key::show(env, platform, serve_args, key_file, kind);
+            return kkt_operate::key::show(&operate, env, platform, key_file, kind);
         }
         Task::Connect {
             client,
             connection,
             client_config,
             write,
-        } => connect::run(
-            &agent_parts(env, platform, serve_args),
-            env,
-            &client,
-            connection,
-            client_config,
-            write,
-        ),
-        Task::Doctor(connection) => doctor::run(env, platform, serve_args, connection).await,
+        } => connect::run(&agents, env, &client, connection, client_config, write),
+        Task::Doctor(connection) => {
+            kkt_operate::doctor::run(&operate, env, platform, connection).await
+        }
         Task::Setup { answers, options } => {
-            commands::setup::run(env, platform, serve_args, answers, options).await
+            kkt_operate::setup::run(env, platform, &operate, answers, options).await
         }
         Task::Register {
             token_file,
@@ -240,7 +246,7 @@ async fn run(
             connection,
         } => {
             agent_commands::register(
-                &agent_parts(env, platform, serve_args),
+                &agents,
                 connection,
                 token_file,
                 recovery_file,
@@ -257,20 +263,10 @@ async fn run(
             recovery_file,
             token_file,
             connection,
-        } => {
-            agent_commands::reclaim(
-                &agent_parts(env, platform, serve_args),
-                connection,
-                &handle,
-                recovery_file,
-                token_file,
-            )
-            .await
-        }
+        } => agent_commands::reclaim(&agents, connection, &handle, recovery_file, token_file).await,
         // The only command with an exit code of its own.
         Task::Watch(task) => {
-            return agent_commands::watch::run(&mut agent_parts(env, platform, serve_args), task)
-                .await;
+            return agent_commands::watch::run(&mut agents, task).await;
         }
     };
     done.map(|()| std::process::ExitCode::SUCCESS)

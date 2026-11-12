@@ -1,15 +1,22 @@
-//! Adapts this program's native providers and serving settings to operator commands.
+//! kkt-operate's parts on this machine: the program's native providers and
+//! its serving settings, adapted to the operator's commands. `main.rs` builds
+//! one `NativeOperate` and gives every operator command its `parts`.
 
 use super::connection::ConnectionReads;
 use super::settings::{self, DefaultDb, Report, ServeArgs, ServeOptions};
 use kkt_admission::{AccessKey, SharedKey};
 use kkt_machine::{Env, Platform};
-use kkt_operate::{Config, Databases, KeyFiles, OperateParts, Output, ServeFacts, SetupFiles};
+use kkt_operate::{
+    BackupWriter, Config, Databases, KeyFiles, OperateParts, Output, ServeFacts, SetupFiles,
+};
 use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-pub(crate) struct NativeOperate<'a, D = ()> {
+/// The operator's parts on this machine, from the implementations the
+/// program chooses. `D` is whether the parts can ask what an installed
+/// service runs with (`with_service_args`), or `()` if not.
+pub struct NativeOperate<'a, D = ()> {
     serve: ServeReads<'a>,
     connection: ConnectionReads<'a>,
     service_defaults: D,
@@ -17,7 +24,8 @@ pub(crate) struct NativeOperate<'a, D = ()> {
 }
 
 impl<'a> NativeOperate<'a> {
-    pub(crate) fn new(env: &'a Env, platform: Platform) -> Self {
+    /// The parts for `env` and `platform`, without the service capability.
+    pub fn new(env: &'a Env, platform: Platform) -> Self {
         Self {
             serve: ServeReads { env, platform },
             connection: ConnectionReads { env, platform },
@@ -26,10 +34,9 @@ impl<'a> NativeOperate<'a> {
         }
     }
 
-    pub(crate) fn with_service_args(
-        self,
-        serve_args: ServeArgs,
-    ) -> NativeOperate<'a, ServiceArgs<'a>> {
+    /// The same parts, able to ask what an installed service runs with, by
+    /// reading its arguments as `kkt serve`'s command line (`serve_args`).
+    pub fn with_service_args(self, serve_args: ServeArgs) -> NativeOperate<'a, ServiceArgs<'a>> {
         let service_defaults = ServiceArgs {
             env: self.serve.env,
             platform: self.serve.platform,
@@ -45,7 +52,8 @@ impl<'a> NativeOperate<'a> {
 }
 
 impl<'a, D> NativeOperate<'a, D> {
-    pub(crate) fn parts(&self) -> OperateParts<'_, ConnectionReads<'a>, D> {
+    /// The parts, as kkt-operate's commands take them.
+    pub fn parts(&self) -> OperateParts<'_, ConnectionReads<'a>, D> {
         OperateParts {
             container: &super::container::ContainerHost,
             container_configs: &settings::ContainerConfigs,
@@ -65,6 +73,7 @@ impl<'a, D> NativeOperate<'a, D> {
             setup_files: &NativeSetupFiles,
             key_files: &NativeKeyFiles,
             database: &NativeDatabases,
+            backups: &NativeBackups,
             output: &NativeOutput,
         }
     }
@@ -77,10 +86,14 @@ struct ServeReads<'a> {
 
 impl ServeFacts for ServeReads<'_> {
     fn config(&self, file: Option<PathBuf>) -> Result<Config, String> {
-        let (_, options) = settings::read_config(self.env, file)?;
+        let (file, options) = settings::read_config(self.env, file)?;
         Ok(Config {
+            file,
             max_lane_chars: options.lane_limit(),
+            name_pack: options.name_pack_name().to_string(),
             db: options.db,
+            access_key_file: options.access_key_file,
+            no_access_key: options.no_access_key,
         })
     }
     fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
@@ -147,7 +160,9 @@ impl ServeFacts for ServeReads<'_> {
     }
 }
 
-pub(crate) struct ServiceArgs<'a> {
+/// The service capability: what an installed service runs with, compared
+/// with the defaults, as `kkt serve` would read its arguments.
+pub struct ServiceArgs<'a> {
     env: &'a Env,
     platform: Platform,
     serve_args: ServeArgs,
@@ -245,6 +260,9 @@ impl SetupFiles for NativeSetupFiles {
     fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
         kkt_setup_os::canonicalize(path)
     }
+    fn remove_record(&self, dir: &Path) -> Result<(), String> {
+        kkt_setup_os::remove_record(dir)
+    }
 }
 
 pub(crate) struct NativeKeyFiles;
@@ -257,6 +275,9 @@ impl KeyFiles for NativeKeyFiles {
     }
     fn exists(&self, path: &Path) -> bool {
         kkt_admission_os::KeyFiles::exists(path)
+    }
+    fn try_exists(&self, path: &Path) -> std::io::Result<bool> {
+        kkt_admission_os::KeyFiles::try_exists(path)
     }
     fn is_file(&self, path: &Path) -> bool {
         kkt_admission_os::KeyFiles::is_file(path)
@@ -310,5 +331,14 @@ impl kkt_operate::ConfigText for NativeConfigText {
     }
     fn write(&self, path: &Path, text: &str) -> Result<(), String> {
         kkt_config_file_os::write(path, text).map_err(|e| e.to_string())
+    }
+}
+
+/// Backups written to the machine's files, the database copied with
+/// SQLite's online backup.
+pub(crate) struct NativeBackups;
+impl BackupWriter for NativeBackups {
+    fn write(&self, folder: &Path, layout: &kkt_backup::Layout<'_>) -> Result<PathBuf, String> {
+        kkt_backup_os::write(folder, layout, super::database::copy)
     }
 }
