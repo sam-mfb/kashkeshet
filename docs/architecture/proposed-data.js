@@ -2659,15 +2659,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-entropy"
    },
    {
-    "from": "kkt-names",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-hash"
-   },
-   {
     "from": "kkt-provenance",
     "kind": "normal",
     "role": "uses",
@@ -3201,7 +3192,7 @@ window.KKT_PROPOSED = {
      "admin_name_path",
      "key_refusal",
      "server_keys::admin_name_line",
-     "server_keys::bound_in",
+     "server_keys::admin_name_written",
      "server_keys::bound_to",
      "web_key_path"
     ],
@@ -5020,6 +5011,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it maps the run for start (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7)"
      }
     ]
    },
@@ -5129,6 +5124,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new enum WebSession"
+     },
+     {
+      "status": "decided",
+      "text": "new fn server_keys::admin_name_written"
      },
      {
       "status": "decided",
@@ -7491,7 +7490,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "AdminName's bound_to, bound_in move to kkt-admission: the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission"
+      "text": "AdminName's bound_to, bound_in move to kkt-admission: the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission, as the free functions server_keys::bound_to and bound_in, since a crate cannot add methods to another's type (step 7.7)"
      },
      {
       "status": "decided",
@@ -7503,15 +7502,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "hashes through kkt-hash"
+      "text": "it hashes nothing: tying an admin name to its key's hash is kkt-admission's, so kkt-names depends on neither sha2 nor kkt-hash (step 7.7)"
      },
      {
       "status": "decided",
       "text": "channel_id draws through Entropy's random_chars with its own character set"
-     },
-     {
-      "status": "decided",
-      "text": "hashes through kkt-hash, not sha2"
      }
     ]
    },
@@ -13568,6 +13563,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it maps the run for start (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7)"
      }
     ],
     "released_program": true,
@@ -13912,14 +13911,21 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The admin name a name file binds to this admin key, if any; from AdminName::bound_in.",
+      "doc": "What to say after the admin name file is written or removed, worded as before (step 7.7).",
+      "kind": "fn",
+      "path": "server_keys::admin_name_written",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The name in a name file if it is tied to this admin key, None if it is tied to another; a free function over kkt-names' AdminName (step 7.7).",
       "kind": "fn",
       "path": "server_keys::bound_in",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "Ties an admin name to the hash of the admin key it names; from AdminName::bound_to.",
+      "doc": "The text of a name file that ties an admin name to the admin key alone: the name, then a line with the key's hash; a free function over kkt-names' AdminName (step 7.7).",
       "kind": "fn",
       "path": "server_keys::bound_to",
       "proposed_item": true,
@@ -14063,6 +14069,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new enum WebSession"
+     },
+     {
+      "status": "decided",
+      "text": "new fn server_keys::admin_name_written"
      },
      {
       "status": "decided",
@@ -22473,7 +22483,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "AdminName's bound_to, bound_in move to kkt-admission: the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission"
+      "text": "AdminName's bound_to, bound_in move to kkt-admission: the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission, as the free functions server_keys::bound_to and bound_in, since a crate cannot add methods to another's type (step 7.7)"
      },
      {
       "status": "decided",
@@ -22485,15 +22495,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "hashes through kkt-hash"
+      "text": "it hashes nothing: tying an admin name to its key's hash is kkt-admission's, so kkt-names depends on neither sha2 nor kkt-hash (step 7.7)"
      },
      {
       "status": "decided",
       "text": "channel_id draws through Entropy's random_chars with its own character set"
-     },
-     {
-      "status": "decided",
-      "text": "hashes through kkt-hash, not sha2"
      }
     ],
     "released_program": false,
@@ -28853,7 +28859,7 @@ window.KKT_PROPOSED = {
      "server_keys::KeyText",
      "server_keys::ServerKeys",
      "server_keys::admin_name_line",
-     "server_keys::bound_in",
+     "server_keys::admin_name_written",
      "server_keys::bound_to",
      "server_keys::check",
      "web_key_path"
@@ -28885,7 +28891,7 @@ window.KKT_PROPOSED = {
        "server_keys::KeyText",
        "server_keys::ServerKeys",
        "server_keys::admin_name_line",
-       "server_keys::bound_in",
+       "server_keys::admin_name_written",
        "server_keys::bound_to",
        "server_keys::check",
        "web_key_path"
@@ -35056,31 +35062,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-entropy"
-   },
-   {
-    "features": [],
-    "from": "kkt-names",
-    "items": [
-     "sha256"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "sha256"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-hash"
    },
    {
     "features": [],

@@ -1529,7 +1529,7 @@
    ],
    "to": "kkt-admission",
    "status": "decided",
-   "note": "the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission"
+   "note": "the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission, as the free functions server_keys::bound_to and bound_in, since a crate cannot add methods to another's type (step 7.7)"
   },
   {
    "type": "kkt-machine::Env",
@@ -1551,14 +1551,14 @@
    "path": "server_keys::bound_to",
    "kind": "fn",
    "status": "decided",
-   "doc": "Ties an admin name to the hash of the admin key it names; from AdminName::bound_to."
+   "doc": "The text of a name file that ties an admin name to the admin key alone: the name, then a line with the key's hash; a free function over kkt-names' AdminName (step 7.7)."
   },
   {
    "crate": "kkt-admission",
    "path": "server_keys::bound_in",
    "kind": "fn",
    "status": "decided",
-   "doc": "The admin name a name file binds to this admin key, if any; from AdminName::bound_in."
+   "doc": "The name in a name file if it is tied to this admin key, None if it is tied to another; a free function over kkt-names' AdminName (step 7.7)."
   },
   {
    "crate": "kkt-rules",
@@ -3298,6 +3298,13 @@
    "kind": "fn",
    "status": "decided",
    "doc": "What produced a run, kkt-provenance's ServerRun, as kkt-rules' start records it, a NewServerRun (step 5.6a)."
+  },
+  {
+   "crate": "kkt-admission",
+   "path": "server_keys::admin_name_written",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "What to say after the admin name file is written or removed, worded as before (step 7.7)."
   }
  ],
  "declared": [],
@@ -4955,18 +4962,6 @@
   },
   {
    "from": "kkt-admission",
-   "to": "kkt-hash",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "sha256"
-    ]
-   },
-   "status": "decided",
-   "note": "hashes through kkt-hash, not sha2"
-  },
-  {
-   "from": "kkt-names",
    "to": "kkt-hash",
    "kind": "normal",
    "add": {
@@ -6955,6 +6950,21 @@
    ],
    "status": "decided",
    "note": "new_server_run gives kkt-rules' NewServerRun; Parts takes the Rules start built, not the wording or the rules' settings (step 5.6a)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "server_keys::admin_name_written"
+    ]
+   },
+   "drop": [
+    "server_keys::bound_in"
+   ],
+   "status": "decided",
+   "note": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7)"
   }
  ],
  "decisions": {
@@ -9551,7 +9561,7 @@
     "sha2"
    ],
    "status": "decided",
-   "note": "hashes through kkt-hash"
+   "note": "it hashes nothing: tying an admin name to its key's hash is kkt-admission's, so kkt-names depends on neither sha2 nor kkt-hash (step 7.7)"
   },
   {
    "crate": "kkt-provenance",
