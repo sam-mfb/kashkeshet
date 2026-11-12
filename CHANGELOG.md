@@ -88,7 +88,7 @@ The shared crates are reorganized so that every dependency is injected and each 
   `lane_commit`. Messages and the commits recorded are unchanged.
 - **Browser contract.** `kkt-browser::Browser` (start opening a link; say
   later, once, if that failed; `testing::Recorder`) is how a sharing
-  setup's login link opens. `kkt-browser-os::SystemBrowser` (behind `real`)
+  setup's login link opens. `kkt-browser::SystemBrowser` (behind `real`)
   implements it with `open` or `xdg-open`, moved from kkt-terminal-os.
   `kkt_container::LoginLink` and kkt-terminal-os' `BrowserLink` keep only
   `show` and `open_requested`; `kkt_container_docker::Docker` is now built
