@@ -390,26 +390,29 @@ whether Sam has accepted it.
 
 ## The program's library (phase 10)
 
-- **The library becomes three assemblies, by who uses each part** (msgs
-  2789, 2794, 2803 and 2825): kkt-serve (serving), kkt-operate (the
-  operator's commands) and kkt-agent-commands (the agents' commands),
-  composition crates beside kkt-server. Each takes its effects in a `Parts`
-  value. No assembly depends on another or on an `-os` crate; kashkeshet
-  chooses every implementation, keeps the adapters and `cli.rs` (the flags
-  are the program's), and keeps a long dependency list on purpose, since it
-  shows every choice in one place.
-- **kkt-keymode does not use kkt-serve** (review of #489). kkt-keymode
-  assembles key mode again from the shared crates with none of the kkt
-  program's code, so the end-to-end tests, which run against both
-  programs, check two separate assemblies. It keeps its own, smaller serve
-  surface, as phase 9 has it.
+- **The library splits by who uses each part** (msgs 2789, 2794, 2803
+  and 2825): kkt-operate (the operator's commands) and kkt-agent-commands
+  (the agents' commands), composition crates beside kkt-server. Each takes
+  its effects in a `Parts` value. No assembly depends on another or on an
+  `-os` crate; kashkeshet chooses every implementation, keeps the adapters
+  and `cli.rs` (the flags are the program's), and keeps a long dependency
+  list on purpose, since it shows every choice in one place.
+- **No kkt-serve** (msg 2876). The serving wiring stays in kashkeshet:
+  choosing the database, reading the keys, resolving the settings,
+  starting the rules and listening. kkt-server is already the server's
+  assembly, and composing a server from the implementations it chooses is
+  what the program is for. As a crate, kkt-serve would have one user,
+  since kkt-keymode must not use it. So kashkeshet composes the server and
+  the two assemblies of tools. (Phase 10 first planned kkt-serve as a third
+  assembly; its step, 10.1, is dropped.)
 - **The local server's facts are questions, not values.** Each assembly
   declares the small question its commands ask, and kashkeshet answers it
-  with kkt-serve's or kkt-operate's functions. Today each fact is read only
-  by the command that needs it, and a missing record or a bad config file
-  is reported only then, with its own text; a value worked out up front
-  would change that. The one fact both assemblies ask, how a client reaches
-  the server, is kkt-setup's `ConnectionSource`, which neither copies.
+  from its own serving code or with kkt-operate's functions. Today each
+  fact is read only by the command that needs it, and a missing record or
+  a bad config file is reported only then, with its own text; a value
+  worked out up front would change that. The one fact both assemblies ask,
+  how a client reaches the server, is kkt-setup's `ConnectionSource`,
+  which neither copies.
 - **`Parts` takes the contract** (msg 2837): kkt-server's `Parts` takes an
   `Arc<dyn AdminApi>`, and `new_server_run` belongs to whoever calls
   `start`, so kkt-server no longer depends on kkt-rules in its code.
