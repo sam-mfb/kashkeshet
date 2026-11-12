@@ -1362,11 +1362,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1390,11 +1390,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1404,11 +1404,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1418,11 +1418,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1432,11 +1432,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1446,11 +1446,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1460,11 +1460,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1474,11 +1474,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1488,11 +1488,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1502,11 +1502,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1516,11 +1516,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1530,11 +1530,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1558,11 +1558,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1572,11 +1572,11 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
+   "to": "kkt-api-sim",
    "how": "constant, private",
-   "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+   "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
    "user_moves": {
-    "kkt-web": "kkt-web-preview"
+    "kkt-web": "kkt-api-sim"
    }
   },
   {
@@ -1586,9 +1586,9 @@
     "kkt-web"
    ],
    "test_only": [],
-   "to": "kkt-web-preview",
-   "how": "injected, public",
-   "note": "the preview's settings, with the preview (proposed: kkt-web-preview)"
+   "to": "kkt-api-sim",
+   "how": "injected, public, test-visible (behind testing)",
+   "note": "the simulation's settings, with the simulation in kkt-api-sim (step 6.3)"
   },
   {
    "item": "RECLAIM_MEMORY_NAMES",
@@ -2140,7 +2140,7 @@
     "crate": "kkt-web",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-web's share of today's Limits: web_page_messages, web_member_excerpt_chars and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules."
+    "doc": "kkt-web's share of today's Limits: page (a PageLimits of web_page_messages and web_member_excerpt_chars: step 6.2) and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules."
    }
   ]
  }
