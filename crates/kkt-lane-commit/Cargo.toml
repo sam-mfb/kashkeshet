@@ -1,0 +1,12 @@
+[package]
+name = "kkt-lane-commit"
+description = "The contract for the commit a kkt lane folder is at"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# `testing::Memory`, commits in memory for consumers' tests.
+testing = []
