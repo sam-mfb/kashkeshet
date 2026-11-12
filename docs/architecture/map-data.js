@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "71eed44",
+ "commit": "6bb24ad",
  "crates": [
   {
    "bins": [
@@ -182,12 +182,6 @@ window.KKT_GRAPH = {
      "crate": "kashkeshet",
      "trait": "SetupFiles",
      "trait_crate": "kkt-operate",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "System",
-     "trait_crate": "kkt-service",
      "type": null
     },
     {
@@ -8261,7 +8255,7 @@ window.KKT_GRAPH = {
       },
       {
        "crate": "kkt-service",
-       "trait": "System"
+       "trait": "Service"
       },
       {
        "crate": "kkt-remote-access",
@@ -9013,7 +9007,7 @@ window.KKT_GRAPH = {
      "traits": [
       {
        "crate": "kkt-service",
-       "trait": "System"
+       "trait": "Service"
       }
      ]
     },
@@ -9059,7 +9053,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -9150,7 +9144,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -9245,7 +9239,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -9340,7 +9334,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -9435,7 +9429,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -9541,7 +9535,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -9632,7 +9626,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -9734,7 +9728,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -9829,7 +9823,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -9946,7 +9940,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -10037,7 +10031,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -10128,7 +10122,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -10219,7 +10213,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -10310,7 +10304,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -10401,7 +10395,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -10496,7 +10490,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -10591,7 +10585,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -10695,7 +10689,7 @@ window.KKT_GRAPH = {
      "traits": [
       {
        "crate": "kkt-service",
-       "trait": "System"
+       "trait": "Service"
       }
      ]
     },
@@ -10739,7 +10733,7 @@ window.KKT_GRAPH = {
      "traits": [
       {
        "crate": "kkt-service",
-       "trait": "System"
+       "trait": "Service"
       }
      ]
     },
@@ -10763,7 +10757,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -10858,7 +10852,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -10964,7 +10958,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -11055,7 +11049,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -11146,7 +11140,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -11241,7 +11235,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-service",
-         "trait": "System"
+         "trait": "Service"
         },
         {
          "crate": "kkt-remote-access",
@@ -13002,96 +12996,50 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kashkeshet",
-       "type": null
+       "crate": "kkt-service",
+       "type": "Unsupported"
       },
       {
        "crate": "kkt-service",
-       "type": "DryRun"
-      }
-     ],
-     "trait": "System"
-    }
-   ],
-   "crate_doc": "Running the server as a background service of the user's login: a launchd user agent on macOS, a systemd user unit on Linux.",
-   "dev_only": false,
-   "features": {},
-   "holders": [
-    {
-     "holds": [
+       "type": "testing::Memory"
+      },
       {
-       "crate": "kkt-service",
-       "trait": "System"
+       "crate": "kkt-service-launchd",
+       "type": "Launchd"
+      },
+      {
+       "crate": "kkt-service-systemd",
+       "type": "Systemd"
       }
      ],
-     "type": "DryRun"
+     "trait": "Service"
     }
    ],
+   "crate_doc": "Running the server as a background service of the user's login, as a contract: `Service`, what kkt asks of the service manager, in kkt's terms, with the values it takes and gives (`Spec`, `ServiceState`, `Settings`) and its errors (`Serv...",
+   "dev_only": false,
+   "features": {
+    "testing": []
+   },
+   "holders": [],
    "implements": [
     {
      "crate": "kkt-service",
-     "trait": "System",
+     "trait": "Service",
      "trait_crate": "kkt-service",
-     "type": "DryRun"
+     "type": "Unsupported"
+    },
+    {
+     "crate": "kkt-service",
+     "trait": "Service",
+     "trait_crate": "kkt-service",
+     "type": "testing::Memory"
     }
    ],
    "items": [
     {
-     "doc": "A program to run and its arguments.",
-     "fields": [
-      "program",
-      "args",
-      "query"
-     ],
-     "kind": "struct",
-     "path": "Command"
-    },
-    {
-     "doc": "Looks at the real system but changes nothing: each change, and each command that changes something, is written down instead and taken as succeeding.",
-     "kind": "struct",
-     "methods": [
-      "actions",
-      "new"
-     ],
-     "path": "DryRun"
-    },
-    {
-     "doc": "How a command ended.",
-     "fields": [
-      "code",
-      "stdout",
-      "stderr"
-     ],
-     "kind": "struct",
-     "methods": [
-      "success"
-     ],
-     "path": "Finished"
-    },
-    {
-     "doc": "The service manager of one platform.",
-     "kind": "enum",
-     "methods": [
-      "add_key",
-      "check_started",
-      "for_this_os",
-      "install",
-      "installed_args",
-      "launchd",
-      "logs",
-      "render",
-      "start",
-      "state",
-      "status",
-      "stop",
-      "systemd",
-      "uninstall"
-     ],
-     "path": "Manager",
-     "variants": [
-      "Launchd",
-      "Systemd"
-     ]
+     "doc": "An answer that comes after waiting, such as for the service manager to load a service, on the clock it is given.",
+     "kind": "type",
+     "path": "Pending"
     },
     {
      "doc": "The plan for the service, before its arguments are written out.",
@@ -13128,6 +13076,35 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Request"
+    },
+    {
+     "doc": "How long the service manager waits before starting the server again after it failed.",
+     "kind": "const",
+     "path": "SERVICE_RESTART_DELAY"
+    },
+    {
+     "doc": "How long the service manager waits for the server to stop before it kills it.",
+     "kind": "const",
+     "path": "SERVICE_STOP_TIMEOUT"
+    },
+    {
+     "doc": "What kkt asks of this machine's service manager.",
+     "kind": "trait",
+     "methods": [
+      "add_key",
+      "check_started",
+      "dry_run",
+      "install",
+      "installed_args",
+      "logs",
+      "ready",
+      "start",
+      "state",
+      "status",
+      "stop",
+      "uninstall"
+     ],
+     "path": "Service"
     },
     {
      "doc": "",
@@ -13167,11 +13144,9 @@ window.KKT_GRAPH = {
      "path": "ServiceState"
     },
     {
-     "doc": "How long installing and starting the service wait.",
+     "doc": "How long installing the service waits before checking that its server started.",
      "fields": [
-      "service_start_check",
-      "launchd_removal_wait",
-      "launchd_reload_retry"
+      "service_start_check"
      ],
      "kind": "struct",
      "path": "Settings"
@@ -13187,19 +13162,9 @@ window.KKT_GRAPH = {
      "path": "Spec"
     },
     {
-     "doc": "What the service needs from the system; the program adapts its real one.",
-     "kind": "trait",
-     "methods": [
-      "create_dir_all",
-      "exists",
-      "read_file",
-      "remove_file",
-      "run",
-      "run_attached",
-      "user_id",
-      "write_file"
-     ],
-     "path": "System"
+     "doc": "The service on a system with no service manager kkt works with: every question is answered with `ServiceError::Unsupported`.",
+     "kind": "struct",
+     "path": "Unsupported"
     },
     {
      "doc": "Refuses to install a service whose server could not listen on `bind`, such as an address another program has, before anything is written: installed, it would fail and be started again every few seconds.",
@@ -13207,9 +13172,36 @@ window.KKT_GRAPH = {
      "path": "check_bind"
     },
     {
+     "doc": "A path as service-file text.",
+     "kind": "fn",
+     "path": "path_text"
+    },
+    {
+     "doc": "Refuses text with control characters (such as newlines), which neither a plist nor a unit file can hold safely.",
+     "kind": "fn",
+     "path": "plain_text"
+    },
+    {
      "doc": "Works out the plan.",
      "kind": "fn",
      "path": "plan"
+    },
+    {
+     "doc": "A service manager in memory, for consumers' tests: it keeps one service's arguments and whether it is installed and running, writes down what it is asked to change, and never touches the machine.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "One service, held in memory.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "done",
+      "installed",
+      "new"
+     ],
+     "path": "testing::Memory"
     }
    ],
    "lib": "kkt_service",
@@ -13217,151 +13209,7 @@ window.KKT_GRAPH = {
    "name": "kkt-service",
    "path": "crates/kkt-service",
    "released_program": false,
-   "slots": [
-    {
-     "at": "DryRun::new",
-     "kind": "param",
-     "name": "real",
-     "traits": [
-      {
-       "crate": "kkt-service",
-       "trait": "System"
-      }
-     ]
-    },
-    {
-     "at": "Manager::add_key",
-     "kind": "param",
-     "name": "system",
-     "traits": [
-      {
-       "crate": "kkt-service",
-       "trait": "System"
-      }
-     ]
-    },
-    {
-     "at": "Manager::check_started",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    },
-    {
-     "at": "Manager::check_started",
-     "kind": "param",
-     "name": "system",
-     "traits": [
-      {
-       "crate": "kkt-service",
-       "trait": "System"
-      }
-     ]
-    },
-    {
-     "at": "Manager::install",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    },
-    {
-     "at": "Manager::install",
-     "kind": "param",
-     "name": "system",
-     "traits": [
-      {
-       "crate": "kkt-service",
-       "trait": "System"
-      }
-     ]
-    },
-    {
-     "at": "Manager::installed_args",
-     "kind": "param",
-     "name": "system",
-     "traits": [
-      {
-       "crate": "kkt-service",
-       "trait": "System"
-      }
-     ]
-    },
-    {
-     "at": "Manager::logs",
-     "kind": "param",
-     "name": "system",
-     "traits": [
-      {
-       "crate": "kkt-service",
-       "trait": "System"
-      }
-     ]
-    },
-    {
-     "at": "Manager::start",
-     "kind": "param",
-     "name": "system",
-     "traits": [
-      {
-       "crate": "kkt-service",
-       "trait": "System"
-      }
-     ]
-    },
-    {
-     "at": "Manager::state",
-     "kind": "param",
-     "name": "system",
-     "traits": [
-      {
-       "crate": "kkt-service",
-       "trait": "System"
-      }
-     ]
-    },
-    {
-     "at": "Manager::status",
-     "kind": "param",
-     "name": "system",
-     "traits": [
-      {
-       "crate": "kkt-service",
-       "trait": "System"
-      }
-     ]
-    },
-    {
-     "at": "Manager::stop",
-     "kind": "param",
-     "name": "system",
-     "traits": [
-      {
-       "crate": "kkt-service",
-       "trait": "System"
-      }
-     ]
-    },
-    {
-     "at": "Manager::uninstall",
-     "kind": "param",
-     "name": "system",
-     "traits": [
-      {
-       "crate": "kkt-service",
-       "trait": "System"
-      }
-     ]
-    }
-   ],
+   "slots": [],
    "testing_third_party": [],
    "third_party": [
     "thiserror"
@@ -13371,7 +13219,66 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Files and commands used by the machine's service manager.",
+   "crate_doc": "kkt's service as a launchd user agent on macOS: `Launchd` implements kkt-service's `Service` over the user's `gui/<uid>` domain, writing the plist and running `launchctl`, `tail` and `id`.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-service-launchd",
+     "trait": "Service",
+     "trait_crate": "kkt-service",
+     "type": "Launchd"
+    }
+   ],
+   "items": [
+    {
+     "doc": "The launchd user agent of the user whose home folder it is given, waiting for launchd as `settings` say.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "Launchd"
+    },
+    {
+     "doc": "How long installing the service again waits for launchd to let the new one load.",
+     "feature": "real",
+     "fields": [
+      "removal_wait",
+      "reload_retry"
+     ],
+     "kind": "struct",
+     "path": "Settings"
+    }
+   ],
+   "lib": "kkt_service_launchd",
+   "machine_work": {
+    "src/system.rs": [
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::write",
+     "process::Command::new",
+     "process::Stdio",
+     "process::Stdio::null",
+     "Path::try_exists"
+    ]
+   },
+   "name": "kkt-service-launchd",
+   "path": "crates/kkt-service-launchd",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Whether the service's server could listen on its address, tried on this machine: `try_bind` listens and lets the address go at once.",
    "dev_only": false,
    "features": {
     "real": []
@@ -13379,32 +13286,6 @@ window.KKT_GRAPH = {
    "holders": [],
    "implements": [],
    "items": [
-    {
-     "doc": "How the raw process ended, with captured output when requested.",
-     "fields": [
-      "code",
-      "stdout",
-      "stderr"
-     ],
-     "kind": "struct",
-     "path": "Finished"
-    },
-    {
-     "doc": "The real system: files on disk and real commands.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "create_dir_all",
-      "exists",
-      "read_file",
-      "remove_file",
-      "run",
-      "run_attached",
-      "user_id",
-      "write_file"
-     ],
-     "path": "OsSystem"
-    },
     {
      "doc": "Listens on the address and lets it go at once, as the service bind check requires.",
      "feature": "real",
@@ -13415,19 +13296,60 @@ window.KKT_GRAPH = {
    "lib": "kkt_service_os",
    "machine_work": {
     "src/lib.rs": [
+     "net::TcpListener::bind"
+    ]
+   },
+   "name": "kkt-service-os",
+   "path": "crates/kkt-service-os",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "kkt's service as a systemd user unit on Linux: `Systemd` implements kkt-service's `Service` with the user's systemd, writing the unit file and running `systemctl` and `journalctl`.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-service-systemd",
+     "trait": "Service",
+     "trait_crate": "kkt-service",
+     "type": "Systemd"
+    }
+   ],
+   "items": [
+    {
+     "doc": "The systemd user unit of the user whose config base (`$XDG_CONFIG_HOME`, or `~/.config`) it is given.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "Systemd"
+    }
+   ],
+   "lib": "kkt_service_systemd",
+   "machine_work": {
+    "src/system.rs": [
      "fs::create_dir_all",
      "fs::read_to_string",
      "fs::remove_file",
      "fs::write",
-     "net::TcpListener::bind",
      "process::Command::new",
      "process::Stdio",
      "process::Stdio::null",
      "Path::try_exists"
     ]
    },
-   "name": "kkt-service-os",
-   "path": "crates/kkt-service-os",
+   "name": "kkt-service-systemd",
+   "path": "crates/kkt-service-systemd",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -17615,39 +17537,32 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Command",
-    "Finished",
     "Plan",
     "Request",
+    "Service",
     "ServiceSettings",
-    "System"
+    "Unsupported"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "uses",
    "roles": [
     {
      "detail": [
-      "a type of its own implements System"
+      "Plan"
      ],
-     "role": "implements"
+     "role": "uses"
     },
     {
      "detail": [
-      "Command",
-      "Finished",
-      "Plan",
-      "Request",
-      "ServiceSettings"
+      "Unsupported"
      ],
-     "role": "uses"
+     "role": "wires"
     }
    ],
    "target": null,
    "test_items": [
-    "Manager",
     "ServiceError",
-    "Spec",
     "check_bind"
    ],
    "to": "kkt-service"
@@ -17658,8 +17573,30 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
-    "Finished",
-    "OsSystem",
+    "Launchd",
+    "Settings"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "Launchd"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-service-launchd"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
     "try_bind"
    ],
    "kind": "normal",
@@ -17668,8 +17605,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Finished",
-      "OsSystem",
       "try_bind"
      ],
      "role": "uses"
@@ -17678,6 +17613,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-service-os"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "Systemd"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "Systemd"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-service-systemd"
   },
   {
    "features": [],
@@ -23220,15 +23178,13 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operate",
    "items": [
-    "DryRun",
-    "Manager",
     "Plan",
     "Request",
+    "Service",
     "ServiceError",
     "ServiceSettings",
     "Settings",
     "Spec",
-    "System",
     "check_bind",
     "plan"
    ],
@@ -23238,25 +23194,22 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Manager",
       "Plan",
+      "Request",
+      "Service",
       "ServiceError",
+      "ServiceSettings",
+      "Settings",
+      "Spec",
       "check_bind",
       "plan"
      ],
      "role": "uses"
-    },
-    {
-     "detail": [
-      "DryRun"
-     ],
-     "role": "wires"
     }
    ],
    "target": null,
    "test_items": [
-    "Command",
-    "Finished"
+    "testing::Memory"
    ],
    "to": "kkt-service"
   },
@@ -23470,6 +23423,30 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-container"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-operate",
+   "items": [
+    "ServiceSettings",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-service"
   },
   {
    "features": [],
@@ -25148,6 +25125,46 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-service",
+   "items": [],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-service-launchd",
+   "items": [
+    "Clock"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
    "test_items": [
     "Span",
     "from_text",
@@ -25156,10 +25173,54 @@ window.KKT_GRAPH = {
    "to": "kkt-clock"
   },
   {
+   "features": [],
+   "from": "kkt-service-launchd",
+   "items": [
+    "Pending",
+    "SERVICE_RESTART_DELAY",
+    "SERVICE_STOP_TIMEOUT",
+    "Service",
+    "ServiceError",
+    "ServiceState",
+    "Settings",
+    "Spec",
+    "path_text",
+    "plain_text"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Launchd implements Service"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Pending",
+      "SERVICE_RESTART_DELAY",
+      "SERVICE_STOP_TIMEOUT",
+      "ServiceError",
+      "ServiceState",
+      "Settings",
+      "Spec",
+      "path_text",
+      "plain_text"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-service"
+  },
+  {
    "features": [
     "testing"
    ],
-   "from": "kkt-service",
+   "from": "kkt-service-launchd",
    "items": [
     "Clock",
     "Span",
@@ -25187,6 +25248,128 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-service-systemd",
+   "items": [
+    "Clock"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Span",
+    "from_text",
+    "testing::FixedClock"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-service-systemd",
+   "items": [
+    "Pending",
+    "SERVICE_RESTART_DELAY",
+    "SERVICE_STOP_TIMEOUT",
+    "Service",
+    "ServiceError",
+    "ServiceState",
+    "Settings",
+    "Spec",
+    "path_text",
+    "plain_text"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Systemd implements Service"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Pending",
+      "SERVICE_RESTART_DELAY",
+      "SERVICE_STOP_TIMEOUT",
+      "ServiceError",
+      "ServiceState",
+      "Settings",
+      "Spec",
+      "path_text",
+      "plain_text"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-service"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-service-systemd",
+   "items": [
+    "Span",
+    "from_text",
+    "testing::FixedClock"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Span",
+      "from_text"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::FixedClock"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-service-systemd",
+   "items": [
+    "Dir"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Dir"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-scratch"
   },
   {
    "features": [],
@@ -26564,16 +26747,28 @@ window.KKT_CONCERNS = {
    "must_not": "Decide how the server is assembled."
   },
   "kkt-service": {
-   "concern": "Running kkt as a service under launchd or systemd, choosing its manager from the supplied optional home and config-home paths (`Manager::for_this_os`), and the plan of what the service runs, from the settings it needs, which the program gives and checks.",
-   "kind": "logic",
+   "concern": "The project's contract for running kkt as a service of the user's login (`Service`: install, check it started, start, stop, status, logs, add a key, uninstall), with the values it takes and gives and its errors; `Unsupported` for a system with no service manager kkt works with; the plan of what the service runs, from the settings it needs, and the bind check, both on plain values; its testing Memory stand-in.",
+   "kind": "contract",
    "layer": "operations",
-   "must_not": "Touch the machine except through its `System` contract."
+   "must_not": "Know a service manager, its commands or file formats; touch the machine."
   },
-  "kkt-service-os": {
-   "concern": "The machine's service files and commands: plain OsSystem methods, adapted by the program.",
+  "kkt-service-launchd": {
+   "concern": "Implements Service as a launchd user agent on macOS: the plist, launchctl's commands and answers, the log file and the retries while launchd removes an old service, tested against a private system; the real files and commands are behind real.",
    "kind": "effect",
    "layer": "operations",
-   "must_not": "Decide what a service command does."
+   "must_not": "Decide what the service runs or check the server's settings."
+  },
+  "kkt-service-os": {
+   "concern": "Trying whether the service's server could listen on its address (`try_bind`), which the program passes to kkt-service's bind check.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Decide what the answer means, or work a service manager."
+  },
+  "kkt-service-systemd": {
+   "concern": "Implements Service as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system; the real files and commands are behind real.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Decide what the service runs or check the server's settings."
   },
   "kkt-setup": {
    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
@@ -26710,7 +26905,7 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install). \"injectors\" lists the wiring that a shared crate does itself (kkt-server, which assembles the server), in the same form; an entry that passes on what it was given names it in \"own\" and its supplier in \"supplier\".",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself (kkt-server, which assembles the server), in the same form; an entry that passes on what it was given names it in \"own\" and its supplier in \"supplier\".",
  "injectors": {
   "kkt-agent-commands": {
    "wiring": [
@@ -27341,80 +27536,6 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-service",
-     "note": "kkt service, setup, upgrade, status and doctor",
-     "own": "ServiceSystem, adapting kkt-service-os's OsSystem",
-     "supplier": "kkt-service-os's OsSystem",
-     "to": [
-      {
-       "at": "Manager::install",
-       "param": "system"
-      },
-      {
-       "at": "Manager::state",
-       "param": "system"
-      },
-      {
-       "at": "Manager::check_started",
-       "param": "system"
-      },
-      {
-       "at": "Manager::uninstall",
-       "param": "system"
-      },
-      {
-       "at": "Manager::start",
-       "param": "system"
-      },
-      {
-       "at": "Manager::stop",
-       "param": "system"
-      },
-      {
-       "at": "Manager::status",
-       "param": "system"
-      },
-      {
-       "at": "Manager::logs",
-       "param": "system"
-      },
-      {
-       "at": "Manager::add_key",
-       "param": "system"
-      },
-      {
-       "at": "Manager::installed_args",
-       "param": "system"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-service",
-     "impl": "kkt-service::DryRun",
-     "note": "kkt service install --dry-run",
-     "to": [
-      {
-       "at": "Manager::install",
-       "param": "system"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-service",
-     "impl": "kkt-clock-system::SystemClock",
-     "note": "kkt service install, kkt upgrade",
-     "to": [
-      {
-       "at": "Manager::install",
-       "param": "clock"
-      },
-      {
-       "at": "Manager::check_started",
-       "param": "clock"
-      }
-     ]
-    },
-    {
      "crate": "kkt-client-config",
      "note": "kkt setup, kkt doctor",
      "own": "ClientHost, adapting kkt-client-config-os's OsHost",
@@ -27561,8 +27682,30 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "ServiceSystem",
-     "supplier": "kkt-service-os::OsSystem",
+     "impl": "kkt-service-launchd::Launchd",
+     "note": "On macOS: the program picks the service manager by platform and injects it directly (12.3).",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "service"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "impl": "kkt-service-systemd::Systemd",
+     "note": "On Linux (12.3).",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "service"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "impl": "kkt-service::Unsupported",
+     "note": "On any other system (12.3).",
      "to": [
       {
        "at": "OperateParts",
