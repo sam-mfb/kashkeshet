@@ -347,6 +347,12 @@ The final scorecard, on the code at the end of the refactor:
 The plan's "Temporary breaks" table is empty: every break a step left for
 a later one was removed by that later step.
 
+Tests SHOULD NOT turn on `real` (Sam, 2026-11-12). A test that must is a
+documented exception, listed with its reason in
+`.github/scripts/real-exceptions.json`, which check-crates.sh reads: today,
+only the fake product's tests, which drive it over HTTP with
+kkt-agent-client, so its arrow to kkt-agent-client is a test arrow.
+
 Every other difference was made on purpose during the refactor and charted
 into the proposal, so the proposed map shows it. The plan's "Differences
 from the proposed map" table lists each one, with its step, its reason and

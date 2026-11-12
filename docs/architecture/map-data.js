@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "484d549",
+ "commit": "2715da9",
  "crates": [
   {
    "bins": [
@@ -16435,28 +16435,6 @@ window.KKT_GRAPH = {
    "to": "kkt-admission"
   },
   {
-   "features": [
-    "real"
-   ],
-   "from": "kkt-fake-product",
-   "items": [],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Http",
-    "HttpReply"
-   ],
-   "to": "kkt-agent-client"
-  },
-  {
    "features": [],
    "from": "kkt-fake-product",
    "items": [
@@ -16997,6 +16975,31 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-web"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kkt-fake-product",
+   "items": [
+    "Http",
+    "HttpReply"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Http",
+      "HttpReply"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-agent-client"
   },
   {
    "features": [

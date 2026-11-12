@@ -2065,7 +2065,7 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-fake-product",
-    "kind": "normal",
+    "kind": "dev",
     "role": "uses",
     "statuses": [
      "decided"
@@ -6754,7 +6754,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its tests' HTTP client goes through kkt-agent-client's HTTP"
+      "text": "its tests drive the running product over HTTP with kkt-agent-client's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
      },
      {
       "status": "decided",
@@ -6783,14 +6783,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-settings in its code: the fake product gives each part its own settings (its Settings) and gathers none (steps 3.1d to 3.5c)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-agent-client in its tests: the dependency is a normal one, with real, which only its integration tests use (step 7.5)"
-     },
-     {
-      "status": "decided",
-      "text": "a normal dependency with real, which only its integration tests use: real is allowed in dev-dependencies only for examples (step 7.5)"
      },
      {
       "status": "decided",
@@ -20494,7 +20486,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its tests' HTTP client goes through kkt-agent-client's HTTP"
+      "text": "its tests drive the running product over HTTP with kkt-agent-client's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
      },
      {
       "status": "decided",
@@ -20523,14 +20515,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-settings in its code: the fake product gives each part its own settings (its Settings) and gathers none (steps 3.1d to 3.5c)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-agent-client in its tests: the dependency is a normal one, with real, which only its integration tests use (step 7.5)"
-     },
-     {
-      "status": "decided",
-      "text": "a normal dependency with real, which only its integration tests use: real is allowed in dev-dependencies only for examples (step 7.5)"
      },
      {
       "status": "decided",
@@ -32724,7 +32708,7 @@ window.KKT_PROPOSED = {
      "Http",
      "HttpReply"
     ],
-    "kind": "normal",
+    "kind": "dev",
     "optional": false,
     "proposed": "new",
     "role": "uses",

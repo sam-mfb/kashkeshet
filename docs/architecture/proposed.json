@@ -5163,14 +5163,15 @@
    "kind": "dev",
    "add": {
     "uses": [
-     "Http"
+     "Http",
+     "HttpReply"
     ]
    },
    "status": "decided",
    "features": [
     "real"
    ],
-   "note": "its tests' HTTP client goes through kkt-agent-client's HTTP"
+   "note": "its tests drive the running product over HTTP with kkt-agent-client's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
   },
   {
    "from": "kashkeshet",
@@ -6755,30 +6756,6 @@
    "remove": true,
    "status": "decided",
    "note": "its tests already use only stand-ins and need nothing the simulation gives (step 6.3)"
-  },
-  {
-   "from": "kkt-fake-product",
-   "to": "kkt-agent-client",
-   "kind": "dev",
-   "remove": true,
-   "status": "decided",
-   "note": "the dependency is a normal one, with real, which only its integration tests use (step 7.5)"
-  },
-  {
-   "from": "kkt-fake-product",
-   "to": "kkt-agent-client",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Http",
-     "HttpReply"
-    ]
-   },
-   "status": "decided",
-   "features": [
-    "real"
-   ],
-   "note": "a normal dependency with real, which only its integration tests use: real is allowed in dev-dependencies only for examples (step 7.5)"
   },
   {
    "from": "kkt-fake-product",
