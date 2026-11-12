@@ -116,7 +116,7 @@ async fn run(args: &[String]) -> Result<(), String> {
     if let Err(p) = kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None) {
         problems.push((p.name, "check_bind", p.rule));
     }
-    let allowed_hosts = server_settings.check(problems).map_err(invalid)?;
+    let server_settings = server_settings.check(problems).map_err(invalid)?;
     let instructions = instructions
         .as_deref()
         .map(|path| config_file_os::read_instructions(path).map_err(|e| e.to_string()))
@@ -144,7 +144,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         &RunSettings {
             settings: RecordedSettings {
                 allow_any_bind,
-                server: &server_settings,
+                server: server_settings.settings(),
                 rules: rules.clone(),
                 backup: backups,
                 log_level,
@@ -195,8 +195,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         entropy,
         Arc::new(KeyMode::new(admin_name)),
         Arc::new(kkt_logs_os::TracingLog),
-        &server_settings,
-        allowed_hosts,
+        server_settings,
     );
     let server = app::build(parts, config, shutdown.clone());
     let listening = kkt_server_listen::listen(server, bind)

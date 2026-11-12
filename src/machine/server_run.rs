@@ -1,11 +1,12 @@
 //! The program's run-record values. Owners word their own settings;
-//! kkt-server orders these plain lines with its own settings' lines.
+//! kkt-server orders these plain lines with its own settings' lines. The
+//! integration-test harness uses this same program mapping.
 
 use kkt_logs::{LogLevel, LogPolicy};
 use kkt_provenance::ServerRun;
 use kkt_server::ServerSettings;
 
-pub(crate) struct RecordedSettings<'a> {
+pub struct RecordedSettings<'a> {
     pub server: &'a ServerSettings,
     pub rules: kkt_rules::Settings,
     pub backup: kkt_backup::Settings,
@@ -22,7 +23,7 @@ pub(crate) struct RecordedSettings<'a> {
 }
 
 impl RecordedSettings<'_> {
-    pub(crate) fn lines(&self) -> Vec<(String, String)> {
+    pub fn lines(&self) -> Vec<(String, String)> {
         let Self {
             server,
             rules,
@@ -78,7 +79,7 @@ fn line(name: &str, value: impl std::fmt::Display) -> (String, String) {
 }
 
 /// What produced this run, as the rules record it at startup.
-pub(crate) fn new_server_run(run: &ServerRun) -> kkt_rules::NewServerRun {
+pub fn new_server_run(run: &ServerRun) -> kkt_rules::NewServerRun {
     kkt_rules::NewServerRun {
         version: run.version.clone(),
         git_commit: run.commit.clone(),

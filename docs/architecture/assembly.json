@@ -49,16 +49,17 @@
     },
     {
      "title": "Parts",
-     "text": "The Rules start built, the system clock and the operating system's randomness they were built with, and key mode's identity go into the server's parts. Parts takes the API as Arc<dyn AdminApi>, the server settings and the checked host policy.",
+     "text": "The Rules start built, the system clock and the operating system's randomness they were built with, and key mode's identity go into the server's parts. Parts takes the API as Arc<dyn AdminApi>, the checked settings snapshot.",
      "items": [
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy",
       "kkt-identity-keymode::KeyMode",
       "kkt-server::ServerSettings",
-      "kkt-api-admin::AdminApi"
+      "kkt-api-admin::AdminApi",
+      "kkt-server::CheckedSettings"
      ],
-     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, settings, hosts)"
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, checked)"
     },
     {
      "title": "Config",
@@ -708,7 +709,7 @@
     },
     {
      "title": "Parts and config",
-     "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission. Parts takes the API as Arc<dyn AdminApi>, the server settings and the checked host policy.",
+     "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission. Parts takes the API as Arc<dyn AdminApi>, the checked settings snapshot.",
      "items": [
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
@@ -718,9 +719,10 @@
       "kkt-admission::AdminAdmission",
       "kkt-hosts::AllowedHosts",
       "kkt-server::ServerSettings",
-      "kkt-api-admin::AdminApi"
+      "kkt-api-admin::AdminApi",
+      "kkt-server::CheckedSettings"
      ],
-     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, settings, hosts)"
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, checked)"
     },
     {
      "title": "Build and run",
@@ -875,7 +877,7 @@
     },
     {
      "title": "Parts",
-     "text": "kkt-rules' start records the product's run and builds the Rules, which make the second swarm (Swarms::create_swarm); the Rules, the clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role), go into the server's parts. Parts takes the API as Arc<dyn AdminApi>, the server settings and the checked host policy.",
+     "text": "kkt-rules' start records the product's run and builds the Rules, which make the second swarm (Swarms::create_swarm); the Rules, the clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role), go into the server's parts. Parts takes the API as Arc<dyn AdminApi>, the checked settings snapshot.",
      "items": [
       "kkt-rules::start",
       "kkt-rules::Startup",
@@ -884,9 +886,10 @@
       "kkt-server::Parts",
       "kkt-fake-product::FakeIdentify",
       "kkt-server::ServerSettings",
-      "kkt-api-admin::AdminApi"
+      "kkt-api-admin::AdminApi",
+      "kkt-server::CheckedSettings"
      ],
-     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, settings, hosts)"
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, checked)"
     },
     {
      "title": "Config",

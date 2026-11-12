@@ -9,11 +9,10 @@ use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
 use kkt_config_file::Config;
 use kkt_config_file_os as config_file_os;
-use kkt_hosts::AllowedHosts;
 use kkt_logs::LogLevel;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
-use kkt_server::{AppConfig, ServerSettings};
+use kkt_server::{AppConfig, CheckedSettings};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -237,7 +236,7 @@ pub fn read_config(
     }
 }
 
-/// The settings in a config file's `text`, as kkt-settings takes them: the
+/// The settings in a config file's `text`, as [`ServeOptions`]: the
 /// file parsed by kkt-config-file, with kkt-logs' log levels.
 pub(crate) fn parse_config(
     text: &str,
@@ -250,7 +249,7 @@ pub(crate) fn parse_config(
     Ok(serve_options(config))
 }
 
-/// What a parsed config file says, as kkt-settings' options.
+/// What a parsed config file says, as [`ServeOptions`].
 fn serve_options(config: Config<LogLevel>) -> ServeOptions {
     ServeOptions {
         log_level: config.log_level,
@@ -366,8 +365,7 @@ pub struct Checked {
     pub db_path: PathBuf,
     pub bind: SocketAddr,
     pub config: AppConfig,
-    pub server_settings: ServerSettings,
-    pub allowed_hosts: AllowedHosts,
+    pub server_settings: CheckedSettings,
     /// The rules' settings, which the program starts the rules with.
     pub rules: kkt_rules::Settings,
     /// How many backups to keep before an upgrade.
@@ -419,7 +417,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     if let Err(p) = kkt_logs::check_dependency_log_level(dependency_log_level) {
         problems.push((p.name, "check_dependency_log_level", p.rule));
     }
-    let allowed_hosts = server_settings
+    let server_settings = server_settings
         .check(problems)
         .map_err(|e| sources.invalid(e))?;
     // None configured: the server sends its built-in instructions.
@@ -445,7 +443,6 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         bind,
         config,
         server_settings,
-        allowed_hosts,
         rules,
         backups,
         admin_name,
@@ -493,6 +490,7 @@ mod test_support {
 mod tests {
     use super::*;
     use crate::scratch;
+    use kkt_server::ServerSettings;
 
     fn config_path_env(home: Option<&str>, config: Option<&str>) -> Env {
         Env {
@@ -750,7 +748,8 @@ mod tests {
     }
 
     /// Of several bad settings, the check names one, always the same, in an
-    /// order nothing else pins: it was kkt-settings' order, and must stay. Every setting starts bad; each run names the next, which is then
+    /// order nothing else pins: it was kkt-settings' order, and must stay.
+    /// Every setting starts bad; each run names the next, which is then
     /// fixed. `max_memory_chars` and `web_page_messages` are named twice:
     /// first for their floor, then for their bound against another setting.
     #[test]

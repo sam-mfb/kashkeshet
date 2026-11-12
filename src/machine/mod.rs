@@ -12,6 +12,6 @@ pub mod keys;
 pub mod record;
 pub(crate) mod remote_access;
 mod serve_options;
-pub(crate) mod server_run;
+pub mod server_run;
 pub(crate) mod service;
 pub mod settings;

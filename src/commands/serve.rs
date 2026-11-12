@@ -76,7 +76,6 @@ async fn serve(
         bind,
         config,
         server_settings,
-        allowed_hosts,
         rules,
         backups,
         admin_name,
@@ -94,7 +93,7 @@ async fn serve(
         &RunSettings {
             settings: RecordedSettings {
                 allow_any_bind,
-                server: &server_settings,
+                server: server_settings.settings(),
                 rules: rules.clone(),
                 backup: backups,
                 log_level,
@@ -172,8 +171,7 @@ async fn serve(
         entropy,
         Arc::new(KeyMode::new(admin_name)),
         Arc::new(kkt_logs_os::TracingLog),
-        &server_settings,
-        allowed_hosts,
+        server_settings,
     );
     let server = app::build(parts, config, shutdown.clone());
     let listening = kkt_server_listen::listen(server, bind)

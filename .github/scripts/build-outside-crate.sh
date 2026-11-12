@@ -79,6 +79,11 @@ pub fn limits(parts: &Parts) -> kkt_api_agent::Limits {
 pub fn settings() -> kkt_server::ServerSettings {
     kkt_server::ServerSettings::DEFAULT
 }
+/// Only the checker constructs the value the server constructor consumes.
+pub fn checked() -> Result<kkt_server::CheckedSettings, kkt_server::SettingError> {
+    kkt_server::ServerSettings::DEFAULT.check([])
+}
+
 RUST
 cd "$dir"
 cargo build

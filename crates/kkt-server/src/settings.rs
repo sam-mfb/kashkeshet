@@ -14,6 +14,25 @@ pub struct ServerSettings {
     pub allowed_hosts: Vec<String>,
 }
 
+/// An immutable snapshot whose settings and host policy passed the startup
+/// checks together. Only `ServerSettings::check` constructs it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CheckedSettings {
+    settings: ServerSettings,
+    hosts: AllowedHosts,
+}
+
+impl CheckedSettings {
+    /// The checked values, for the program's run record.
+    pub fn settings(&self) -> &ServerSettings {
+        &self.settings
+    }
+
+    pub(crate) fn into_parts(self) -> (ServerSettings, AllowedHosts) {
+        (self.settings, self.hosts)
+    }
+}
+
 /// A setting's refusal, as worded by the owner of its check.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[error("{name} {rule}")]
@@ -31,14 +50,14 @@ impl ServerSettings {
         allowed_hosts: Vec::new(),
     };
 
-    /// The first problem in the startup order, or the checked host policy
+    /// The first problem in the startup order, or one checked snapshot
     /// for Parts::new. Program problems are (setting, owner's check, rule).
     /// All checks stay with their owners; this method only orders them.
     /// Problems outside the known order follow it, in the order supplied.
     pub fn check(
-        &self,
+        self,
         program: impl IntoIterator<Item = (&'static str, &'static str, String)>,
-    ) -> Result<AllowedHosts, SettingError> {
+    ) -> Result<CheckedSettings, SettingError> {
         let mut problems: Vec<_> = program.into_iter().collect();
         problems.extend(
             self.formatter
@@ -68,9 +87,13 @@ impl ServerSettings {
             let (name, _, rule) = problems.swap_remove(index);
             return Err(SettingError { name, rule });
         }
-        hosts.map_err(|error| SettingError {
+        let hosts = hosts.map_err(|error| SettingError {
             name: error.name,
             rule: error.rule,
+        })?;
+        Ok(CheckedSettings {
+            settings: self,
+            hosts,
         })
     }
 
@@ -203,12 +226,15 @@ mod tests {
     }
 
     #[test]
-    fn check_returns_the_host_policy_for_the_parts() {
+    fn check_keeps_the_values_and_host_policy_together() {
         let settings = ServerSettings {
             allowed_hosts: vec!["HOST.example:7420".into()],
             ..ServerSettings::DEFAULT
         };
-        let hosts = settings.check([]).expect("checked host policy");
+        let expected = settings.allowed_hosts.clone();
+        let checked = settings.check([]).expect("checked snapshot");
+        assert_eq!(checked.settings().allowed_hosts, expected);
+        let (settings, hosts) = checked.into_parts();
         assert!(hosts.allows("host.example:7420"));
         assert!(!hosts.allows("host.example:7421"));
         assert_eq!(hosts.extra(), settings.allowed_hosts);
