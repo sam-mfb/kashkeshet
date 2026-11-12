@@ -78,7 +78,7 @@ impl<'a, D> NativeOperate<'a, D> {
             client_command: &kkt_client_command_claude::Claude,
             prober: &self.prober,
             lanes: &crate::commands::lanes::LaneDisk,
-            lane_commit: &kkt_lane_commit_git::Git,
+            lane_commit: &kkt_lane_commit::Git,
             lines: &crate::terminal::TerminalLines,
             config_file: &NativeConfigText,
             connection: &self.connection,

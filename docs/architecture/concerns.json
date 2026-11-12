@@ -304,15 +304,9 @@
   },
   "kkt-lane-commit": {
    "layer": "operations",
-   "concern": "The project's contract for the commit a lane folder is at (`LaneCommit`), and its testing Memory stand-in.",
-   "must_not": "Know a version-control tool, its commands or output; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-lane-commit-git": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Implements LaneCommit with git: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner; running git is behind real.",
-   "must_not": "Read or write the lane files."
+   "concern": "The commit a lane folder is at: the `LaneCommit` contract in the open, with its testing Memory stand-in, and its one implementation behind real, `Git`: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner.",
+   "must_not": "Read or write the lane files; let a consumer reach `Git` without real.",
+   "kind": "contract and effect"
   },
   "kkt-agent-client": {
    "layer": "clients",

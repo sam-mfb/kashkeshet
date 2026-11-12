@@ -79,8 +79,9 @@ The shared crates are reorganized so that every dependency is injected and each 
   checks and their messages are unchanged.
 - **Lane folder commit contract.** `kkt-lane-commit::LaneCommit` asks the
   commit a lane folder is at, in kkt's terms, with `testing::Memory` for
-  tests. `kkt-lane-commit-git::Git` (behind `real`) implements it directly,
-  with git's meaning, which moves out of kkt-lane-files (its `git` module and
+  tests, and its one implementation in the same crate: `kkt_lane_commit::Git`
+  (behind `real`, which only the program turns on), with git's meaning,
+  which moves out of kkt-lane-files (its `git` module and
   `Git`, `Ran` and `commit` go). `kkt_lane_files::Disk` loses `git_commit`,
   `read_folder` takes the `LaneCommit` beside the `Disk`, and
   `kkt-lane-files-os` loses `git` and `GitOutput`. `OperateParts` gains

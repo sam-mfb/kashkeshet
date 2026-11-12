@@ -130,18 +130,10 @@
   {
    "name": "kkt-lane-commit",
    "layer": "operations",
-   "kind": "contract",
+   "kind": "contract and effect",
    "from": "kkt-lane-files",
    "status": "decided",
-   "concern": "The project's contract for the commit a lane folder is at (LaneCommit), with its testing stand-in; no tool knowledge (step 12.5a)."
-  },
-  {
-   "name": "kkt-lane-commit-git",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kkt-lane-files",
-   "status": "decided",
-   "concern": "Implements LaneCommit directly with git: its commands, what their answers mean and the wording of a failure, tested against a private runner; running git is behind real (step 12.5a, option a)."
+   "concern": "The commit a lane folder is at: the LaneCommit contract in the open, with its testing stand-in, and its one implementation, Git, behind real, with git's commands, what their answers mean and the failures' wording, tested over a private runner (steps 12.5a and 13.4)."
   },
   {
    "name": "kkt-web-preview",
@@ -4486,12 +4478,12 @@
    "doc": "Folders and the commits they are at, in memory (step 12.5a)."
   },
   {
-   "crate": "kkt-lane-commit-git",
+   "crate": "kkt-lane-commit",
    "path": "Git",
    "kind": "struct",
    "feature": "real",
    "status": "decided",
-   "doc": "The machine's git, asked where a lane folder is (step 12.5a)."
+   "doc": "The machine's git, asked where a lane folder is; behind real (steps 12.5a and 13.4)."
   },
   {
    "crate": "kkt-browser",
@@ -9194,7 +9186,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-lane-commit-git",
+   "to": "kkt-lane-commit",
    "kind": "normal",
    "add": {
     "wires": [
@@ -9205,19 +9197,7 @@
     "real"
    ],
    "status": "decided",
-   "note": "Builds Git and hands it directly to kkt-operate (12.5a)."
-  },
-  {
-   "from": "kkt-lane-commit-git",
-   "to": "kkt-lane-commit",
-   "kind": "normal",
-   "add": {
-    "implements": [
-     "LaneCommit"
-    ]
-   },
-   "status": "decided",
-   "note": "The named wrapper implements the scope contract directly (12.5a)."
+   "note": "Turns on kkt-lane-commit's real and hands its Git directly to kkt-operate (12.5a, 13.4)."
   },
   {
    "from": "kkt-lane-files",
@@ -12775,12 +12755,12 @@
    "note": "The contract's own answer for other systems (12.3)."
   },
   {
-   "type": "kkt-lane-commit-git::Git",
+   "type": "kkt-lane-commit::Git",
    "to": [
     "kkt-lane-commit::LaneCommit"
    ],
    "status": "decided",
-   "note": "A tool wrapper implements its scope contract directly (step 12.5a)."
+   "note": "The crate's one implementation of its own contract, behind real (steps 12.5a and 13.4)."
   },
   {
    "type": "kkt-lane-commit::testing::Memory",
@@ -13195,6 +13175,12 @@
    "feature": "testing",
    "status": "decided",
    "note": "The scope contract supplies its own in-memory stand-in (12.5b)."
+  },
+  {
+   "crate": "kkt-lane-commit",
+   "feature": "real",
+   "status": "decided",
+   "note": "Git, its one implementation, which only the program turns on (13.4)."
   }
  ]
 }
