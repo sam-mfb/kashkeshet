@@ -1529,7 +1529,7 @@
    ],
    "to": "kkt-admission",
    "status": "decided",
-   "note": "the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission"
+   "note": "the name rules stay in kkt-names; tying a name to the key's hash moves to kkt-admission, as the free functions server_keys::bound_to and bound_in, since a crate cannot add methods to another's type (step 7.7)"
   },
   {
    "type": "kkt-machine::Env",
@@ -1551,14 +1551,14 @@
    "path": "server_keys::bound_to",
    "kind": "fn",
    "status": "decided",
-   "doc": "Ties an admin name to the hash of the admin key it names; from AdminName::bound_to."
+   "doc": "The text of a name file that ties an admin name to the admin key alone: the name, then a line with the key's hash; a free function over kkt-names' AdminName (step 7.7)."
   },
   {
    "crate": "kkt-admission",
    "path": "server_keys::bound_in",
    "kind": "fn",
    "status": "decided",
-   "doc": "The admin name a name file binds to this admin key, if any; from AdminName::bound_in."
+   "doc": "The name in a name file if it is tied to this admin key, None if it is tied to another; a free function over kkt-names' AdminName (step 7.7)."
   },
   {
    "crate": "kkt-rules",
@@ -1572,7 +1572,8 @@
    "path": "testing::memory",
    "kind": "fn",
    "status": "decided",
-   "doc": "Rules over kkt-db's in-memory database with the core's tables, for other crates' tests, which set up their data through kkt-api-agent's operations."
+   "doc": "The rules over a new in-memory database with the core's tables, built by start from a testing::Memory, for other crates' tests, which set up their data through the kkt-api crates (step 5.6b).",
+   "feature": "testing"
   },
   {
    "crate": "kkt-rules",
@@ -3298,6 +3299,149 @@
    "kind": "fn",
    "status": "decided",
    "doc": "What produced a run, kkt-provenance's ServerRun, as kkt-rules' start records it, a NewServerRun (step 5.6a)."
+  },
+  {
+   "crate": "kkt-admission",
+   "path": "server_keys::admin_name_written",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "What to say after the admin name file is written or removed, worded as before (step 7.7)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::Memory",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "What a test's rules are made from: the rules' startup without the database (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::database",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "A new database in memory, with the core's tables, for other crates' tests: for a program that starts its own rules, or for the operator's `crate::CommandLine` (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::read",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "Runs `f` over a view of one state of `db`, for the tests that pin the store's reads (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::write",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "Runs `f` inside one transaction of `db`, for the tests that write rows into a database file directly (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::Reader",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "The store's questions, over one state of the database, for the program's tests that pin what a 0.10.0 database answers (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::Writer",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "The store's changes, inside one transaction, for the program's tests that write rows into a database file (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::ChannelFilter",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "Which channels `Reader::channel_ids` returns, in name order (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::ChannelKind",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "The stored facts that decide whether a viewer may use a channel: whether it is hidden or open, and whether the viewer is in it or owns it (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::ChannelScope",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "Which channels a query covers: those in one swarm whose kind, for the viewer, is one of the allowed kinds (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::MessageRange",
+   "kind": "enum",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "Which messages of a channel to return, and in what order (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::NewAgentRecord",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "An avatar as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::NewChannelRecord",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "A channel as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::NewMessageRecord",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "A message as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::NewServerRunRecord",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "A server run as the store saves it; a record the store's Writer takes, for the program's tests that write rows into a database file (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::NewerFilter",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "Which messages `Reader::newer_messages` and `Reader::count_newer_messages` cover (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::SearchFilter",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "Which messages Reader::search_messages looks at (step 5.6b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "testing::SentFilter",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "testing",
+   "doc": "Which messages `Reader::latest_message_from` looks at (step 5.6b)."
   }
  ],
  "declared": [],
@@ -4955,18 +5099,6 @@
   },
   {
    "from": "kkt-admission",
-   "to": "kkt-hash",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "sha256"
-    ]
-   },
-   "status": "decided",
-   "note": "hashes through kkt-hash, not sha2"
-  },
-  {
-   "from": "kkt-names",
    "to": "kkt-hash",
    "kind": "normal",
    "add": {
@@ -6955,6 +7087,114 @@
    ],
    "status": "decided",
    "note": "new_server_run gives kkt-rules' NewServerRun; Parts takes the Rules start built, not the wording or the rules' settings (step 5.6a)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "server_keys::admin_name_written"
+    ]
+   },
+   "drop": [
+    "server_keys::bound_in"
+   ],
+   "status": "decided",
+   "note": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7)"
+  },
+  {
+   "from": "kkt-identity-keymode",
+   "to": "kkt-rules",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::Memory"
+    ]
+   },
+   "status": "decided",
+   "note": "its tests build their rules with testing::memory from a testing::Memory (step 5.6b)"
+  },
+  {
+   "from": "kkt-identity-keymode",
+   "to": "kkt-events",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "testing::memory makes the events bus its rules hear on (step 5.6b)"
+  },
+  {
+   "from": "kkt-mcp",
+   "to": "kkt-rules",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::Memory"
+    ]
+   },
+   "status": "decided",
+   "note": "its tests build their rules with testing::memory from a testing::Memory (step 5.6b)"
+  },
+  {
+   "from": "kkt-mcp",
+   "to": "kkt-events",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "testing::memory makes the events bus its rules hear on (step 5.6b)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-rules",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::Memory",
+     "testing::database"
+    ]
+   },
+   "status": "decided",
+   "note": "its tests take a database for a start of their own from testing::database, and build rules with testing::memory from a testing::Memory (step 5.6b)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-rules",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::database"
+    ]
+   },
+   "drop": [
+    "testing::memory"
+   ],
+   "status": "decided",
+   "note": "its tests take a database from testing::database and start the product's own rules on it (step 5.6b)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-rules",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::Reader",
+     "testing::read",
+     "testing::write",
+     "testing::ChannelFilter",
+     "testing::ChannelKind",
+     "testing::ChannelScope",
+     "testing::MessageRange",
+     "testing::NewAgentRecord",
+     "testing::NewChannelRecord",
+     "testing::NewMessageRecord",
+     "testing::NewServerRunRecord",
+     "testing::NewerFilter",
+     "testing::SearchFilter",
+     "testing::SentFilter"
+    ]
+   },
+   "status": "decided",
+   "note": "the 0.10.0 migration test and the database-file tests reach the store through kkt-rules' testing: Reader through testing::read, and testing::write, with the records and filters they take (step 5.6b)"
   }
  ],
  "decisions": {
@@ -9551,7 +9791,7 @@
     "sha2"
    ],
    "status": "decided",
-   "note": "hashes through kkt-hash"
+   "note": "it hashes nothing: tying an admin name to its key's hash is kkt-admission's, so kkt-names depends on neither sha2 nor kkt-hash (step 7.7)"
   },
   {
    "crate": "kkt-provenance",

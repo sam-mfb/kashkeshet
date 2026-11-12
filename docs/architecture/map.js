@@ -1024,13 +1024,13 @@
     const newCrates = graph.crates.filter((c) => c.proposed === "new").length;
     return [
       el("h2", {}, "The proposed map"),
-      el("p", {}, "The workspace as it is proposed, for planning the refactor. A crate that is new or changes carries a small tag in its box, and new or changed arrows are drawn thicker, so the map shows how the proposal differs from today's code; outlines show each crate's kind. ", source("proposal")),
+      el("p", {}, "The workspace as the refactor planned it, with the plan's last amendments, kept as a record; the current map is the code. A crate that is new or changes carries a small tag in its box, and new or changed arrows are drawn thicker, so the map shows how the proposal differs from the code it was made from (at 27f1d11); outlines show each crate's kind. ", source("proposal")),
       el("h3", {}, "The rules it follows"),
       el("ol", {}, proposed.rule.map((r) => el("li", {}, prose(r)))),
       el("p", {}, `${newCrates} new crates, ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`),
       el("div", { class: "actions" },
         el("button", { class: "action", type: "button", onclick: showTable }, `Every trait (${proposed.table.length})`),
-        el("button", { class: "action", type: "button", onclick: showChanges }, "How it differs from today"),
+        el("button", { class: "action", type: "button", onclick: showChanges }, "How it differs from the code at 27f1d11"),
         el("button", { class: "action", type: "button", onclick: showCensus }, `Adapters (${proposed.adapters.after_totals.methods} methods)`),
         el("button", { class: "action", type: "button", onclick: showConfigTable }, `kkt-config, item by item (${proposed.config_split.table.length})`)),
       shown.violations.length
@@ -1038,7 +1038,7 @@
         : el("p", { class: "muted" }, "Checked: no crate but a program or a composition depends on an effect crate or implements a contract that another crate declares for itself, and no crate mixes logic or a contract with an effect."),
       kindChecks(graph.kind_mismatches),
       el("h3", {}, "Where this comes from"),
-      el("p", { class: "muted" }, "The consumer counts, the proposed arrows and the differences from today are derived (propose.py) from the generated current map. How the rules apply is written by hand in proposed.json, and the kkt-config breakdown in config-split.json."),
+      el("p", { class: "muted" }, "The consumer counts, the proposed arrows and the differences from the code at 27f1d11 are derived (propose.py) from the map generated then (proposal-base-data.js). How the rules apply is written by hand in proposed.json, and the kkt-config breakdown in config-split.json."),
     ];
   }
 
@@ -1079,7 +1079,7 @@
     const ch = shownProposal().changes;
     const tags = (a) => (a.statuses || []).map((s) => [" ", statusChip(s)]);
     const arrow = (a) => el("li", {}, crateLink(a.from), " → ", crateLink(a.to), " ", el("span", { class: "muted", title: `Cargo's ${DEP_CARGO[a.kind]}` }, `${DEP_WORDS[a.kind] || a.kind}, ${a.role || ""}`), tags(a));
-    openDialog("How it differs from today",
+    openDialog("How it differs from the code at 27f1d11",
       el("p", { class: "muted" }, "Compared with the current map, derived by comparing the two."),
       (ch.gone || []).length ? [el("h3", {}, `Crates gone (${ch.gone.length})`), el("p", {}, ch.gone.join(", "), el("span", { class: "muted" }, ": see the notes of the crate each merged into."))] : null,
       el("h3", {}, `Crates (${ch.crates.length})`),
@@ -1115,7 +1115,7 @@
       el("p", {}, prose(i7.about)),
       el("p", {}, el("strong", {}, "Limits: "), prose(i7.limits.note), "."),
       el("ul", {}, i7.limits.parts.map((p) => el("li", {}, el("code", {}, `${p.crate}::${p.path}`), ": ", prose(p.doc)))),
-      el("p", { class: "muted" }, "Where each item of today's kkt-config lives in the proposed map. Used by: derived from the current map; the rest is written by hand (config-split.json)."),
+      el("p", { class: "muted" }, "Where each item of kkt-config, as it was at 27f1d11, lives in the proposed map. Used by: derived from the current map; the rest is written by hand (config-split.json)."),
       el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
         el("thead", {}, el("tr", {}, ["Item", "Kind", "Used by", "Test-only", "Goes to", "Constant or injected", "Why"].map((h) => el("th", {}, h)))),
         el("tbody", {}, i7.table.map((r) => el("tr", {},
@@ -1203,7 +1203,7 @@
         el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
       el("p", { class: "muted" }, "The flow and what the program passes to which slot are written by hand, from the code; every item and slot they name is checked to exist when the map is generated. Where pairs are shown below them, folded, they are inferred by matching names."),
       el("h3", {}, "The flow ", source(state.mode === "proposed" ? "proposal" : "assembly")),
-      state.mode === "proposed" ? el("p", { class: "muted" }, "Steps marked proposed are rewritten for the proposal; the others describe today's assembly, with each item in its proposed crate. Each implementation reaches its slot through an adapter listed below: the program's own, or one shared from a composition crate.") : null,
+      state.mode === "proposed" ? el("p", { class: "muted" }, "Steps marked proposed are rewritten for the proposal; the others describe the assembly at 27f1d11, with each item in its proposed crate. Each implementation reaches its slot through an adapter listed below: the program's own, or one shared from a composition crate.") : null,
       stepList(flow.steps),
       flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
       (flow.adapters || []).length

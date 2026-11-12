@@ -318,6 +318,40 @@ Message numbers are given only where they help to find a discussion in
   watch adapter, 2.2's own service output, 2.6's git contract and 3.1d's
   program arrows to the formatter's and the page's settings.
 
+## After the refactor
+
+The code matches the proposal, as last amended, except for two differences
+that `progress.py --list` reports. Each has a row in the plan's differences
+table, and Sam has not yet ruled on either.
+
+- **The arrow kkt-server → kkt-api-admin is missing** (step 5.6a). kkt-server's
+  `Parts` holds the concrete `Rules` and passes it to each surface, which
+  takes it as its own contract (`Api`, `OperatorApi`, `AdminApi`). Naming the
+  traits in `Parts` would add a type parameter or a boxed value and change
+  nothing any surface can reach.
+- **kkt-rules' tests depend on the effect crate kkt-db-sqlite** (step 5.3b),
+  a break of the rule that keeps effect crates out of other crates' tests.
+  The reason is speed: kkt-rules' 200 tests take under 5 seconds on SQLite in
+  memory and over 10 minutes on kkt-db's `MemoryPlace`, which copies the
+  whole database on every change. kkt-db's conformance checks keep the two
+  backends in step, and kkt-rules' `testing::memory` still serves other
+  crates' tests.
+
+The final scorecard, on the code at the end of the refactor:
+
+- crates: 60 of 60 proposed crates exist; none missing; none to remove;
+- items: 797 of 797 proposed items are in their proposed crate;
+- arrows: 222 of 223 proposed arrows exist; 1 missing; none extra;
+- rules: no kind check fails; 1 break of the proposal's rules.
+
+The plan's "Temporary breaks" table is empty: every break a step left for
+a later one was removed by that later step.
+
+Every other difference was made on purpose during the refactor and charted
+into the proposal, so the proposed map shows it. The plan's "Differences
+from the proposed map" table lists each one, with its step, its reason and
+whether Sam has accepted it.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.

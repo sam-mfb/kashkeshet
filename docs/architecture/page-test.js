@@ -158,16 +158,29 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     }
 
     // A crate ticked in one map and missing from the other stays ticked, is
-    // listed without a link there, and its panel cannot be opened.
-    await p.click('input[value="current"]');
-    await p.click(`${node("kkt-config")} .pick-hit`, { force: true });
-    await p.click('input[value="proposed"]');
-    const other = await read();
-    check("a crate only the current map has, in the proposed map",
-      other.list.includes("kkt-config (not in this map)") &&
-      (await p.$$eval(".selection-list button.crate-link", (x) => x.length)) === 0, other);
-    await p.click('input[value="current"]');
-    check("back in the current map, it is still ticked", (await read()).ticked === "kkt-config");
+    // listed without a link there, and its panel cannot be opened. Since the
+    // refactor, both maps may have the same crates; the check then says so.
+    const only = await p.evaluate(() => {
+      const names = (g) => new Set(g.crates.map((c) => c.name));
+      const cur = names(window.KKT_GRAPH), pro = names(window.KKT_PROPOSED.graph);
+      const a = [...cur].find((n) => !pro.has(n));
+      if (a) return { name: a, from: "current", to: "proposed" };
+      const b = [...pro].find((n) => !cur.has(n));
+      return b ? { name: b, from: "proposed", to: "current" } : null;
+    });
+    if (only) {
+      await p.click(`input[value="${only.from}"]`);
+      await p.click(`${node(only.name)} .pick-hit`, { force: true });
+      await p.click(`input[value="${only.to}"]`);
+      const other = await read();
+      check(`a crate only the ${only.from} map has, in the ${only.to} map`,
+        other.list.includes(`${only.name} (not in this map)`) &&
+        (await p.$$eval(".selection-list button.crate-link", (x) => x.length)) === 0, other);
+      await p.click(`input[value="${only.from}"]`);
+      check(`back in the ${only.from} map, it is still ticked`, (await read()).ticked === only.name);
+    } else {
+      console.log(`${width}/${scheme} a crate only one map has: skipped, both maps have the same crates`);
+    }
     await p.click("#reset-view");
     await context.close();
   }

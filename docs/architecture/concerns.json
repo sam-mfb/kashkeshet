@@ -367,7 +367,7 @@
   "kkt-provenance": {
    "layer": "foundations",
    "concern": "What produced a server run: the build, its git commit, and the settings that shape the run, as lines of a name and a value that the program words.",
-   "must_not": "Store the run record: kkt-server does.",
+   "must_not": "Store the run record: kkt-rules' `start` does.",
    "kind": "logic"
   },
   "kkt-scratch": {

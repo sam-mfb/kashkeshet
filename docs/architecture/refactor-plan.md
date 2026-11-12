@@ -13,6 +13,106 @@ The plan has five parts: the rules every step follows; how progress is
 measured; how parallel work avoids collisions; the steps; and what needs
 Sam, each with the default we proceed on.
 
+The refactor is done. What is left for Sam comes first, below; the final
+scorecard is at the end.
+
+## Awaiting Sam
+
+The refactor is done, and these questions are left for Sam: every row of
+"Differences from the proposed map" still marked "awaiting Sam", and the
+items of "What needs Sam" that are still open. They are grouped by how much
+they change, so the last group can be accepted in one go. Each line gives
+the step, a recommended answer and its reason, from kkt-mt-step1, the
+plan's author. Where a difference is a compromise, the line says so.
+
+**(a) Changes to a rule, or to which crate may depend on which.**
+
+| Difference | Step | Recommended |
+|---|---|---|
+| The shared crates' public surface changes for kkt-pro, which builds on them by git ("What needs Sam" 2) | all | Accept: the CHANGELOG entry says what a dependant must change, and the outside-crate CI job still builds |
+| check-crates rule 3 lets a dev-only program turn on another package's `testing` (the web preview, kkt-api-sim) ("What needs Sam" 4; the 6.3 row on kkt-web-preview) | 6.3 | Accept: a dev-only package can never be in a release, and check-release-packages.sh enforces that |
+| The fake product depends on kkt-agent-client with `real` as a normal dependency, not a dev one | 7.5 | Accept, with a later fix: it is a compromise, since check-crates allows `real` in dev-dependencies only for examples; letting a dev-only package's dev-dependencies turn on `real` would make the arrow a test arrow again |
+| A contract crate depends on a contract crate: kkt-api-admin on kkt-api-operator (`AdminApi` extends `OperatorApi`) | 5.4b | Accept: an endpoint moved into a swarm needs every operation it uses there, and contracts depending on contracts adds no effect or logic |
+| kkt-settings depends on kkt-admission, kkt-logs, kkt-mcp-formatter, kkt-web and kkt-names | 3.1b, 3.5b, 3.5c | Accept, as a compromise: its values hold those crates' types and `Limits::check` reads their bounds; none of them depends on kkt-settings and only programs do, so no cycle can form |
+| kkt-config-file depends on kkt-machine, and `config_home` is a method of `Env` | 3.4 | Accept: a logic crate may depend on a contract, and `config_home` is shared by other programs' config |
+
+**(b) Differences that leave a rule broken.** The scorecard counts the
+first two.
+
+| Difference | Step | Recommended |
+|---|---|---|
+| kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's | 5.3b | Accept, with a later fix: it breaks the rule for speed (under 5 seconds in place of over 10 minutes); a faster kkt-db `MemoryPlace` would let the tests use it, and kkt-db's conformance checks keep the two in step meanwhile |
+| The arrow kkt-server → kkt-api-admin is missing: `Parts` holds the concrete `Rules` | 5.6a | Accept, and drop the arrow from the proposal: naming the traits in `Parts` would change nothing a surface can reach |
+| `kkt_rules::testing` gives the program's tests the store's `Reader`, `Writer`, records and filters, with `read` and `write`; `testing::database` gives other tests (the fake product's, for its own `start`, and `CommandLine`) a bare `Db` | 5.6b | Accept: the 0.10.0 fixture must answer every pinned read, which are the store's questions, and a released build reaches none of it; the cost is that changing a store question can break those tests, which is what they are for |
+
+**(c) Names, placements and extra items only.** Recommended: accept all
+in one go. None changes what a crate may depend on or breaks a rule; each
+keeps a behaviour or a message as it was, or names something the proposal
+left unnamed.
+
+| Difference | Step | Recommended |
+|---|---|---|
+| kkt-lane-files declares a narrow git contract | 2.6 | Accept: git's meaning stays in logic |
+| One watch adapter, an enum over `Remote` and `AdminRemote` | 1.9 | Accept: fewer methods, same arrows |
+| kkt-service-os reports with its own `Finished` | 2.2 | Accept: the effect depends on nothing |
+| kkt-remote-access-os returns its own output and error | 2.3 | Accept: the effect depends on nothing |
+| kkt-client-config-os states its own file mode | 2.4 | Accept: the same fixed value, kept with its writer |
+| kkt-container-os takes and returns its own values, and states its own file mode | 2.1 | Accept: the effect depends on nothing |
+| Each crate's own `Settings` with a `DEFAULT`, in place of item 7's constants | 3.1a, 3.1b, 3.1c-1 | Accept: it is how a crate takes injected values |
+| kkt-diagnostics' two public doctor constants; kkt-agent-client's `Settings` outside `real` | 3.1c-1 | Accept: the effect chooses no values |
+| Backup logic gives a fixed layout for backup-os to write | 2.7 | Accept: the decisions stay in logic |
+| kkt-config-file-os has five readers and writers, not three | 3.3 | Accept: each keeps its caller's behaviour and messages |
+| `parse_file` takes the caller's log-level check; `ConfigReader` returns its own `ContainerConfig` | 3.3 | Accept: kkt-config-file need not know kkt-logs |
+| `serve_bind` stays in the program; kkt-service's `check_bind`; kkt-keymode keeps four refusal messages | 3.5b | Accept: each piece sits with what it reads or words |
+| No `SettingsSource`: the programs turn `Config` into `ServeOptions` | 3.3, 3.5c | Accept: a trait would add code and no behaviour |
+| Each program keeps `check_settings`, about 25 lines in both kkt and kkt-keymode | 3.5c | Accept, as a compromise: no crate may own the mapping, so it is written twice |
+| kkt-settings words the run's settings; kkt-provenance depends only on kkt-hash | 3.5c | Accept: the run record stays byte for byte the same |
+| kkt-logs gives rollover and pruning plans, which kkt-logs-os carries out | 4.1 | Accept: the rules stay in logic |
+| kkt-logs' plans' names; `LOG_PRUNE_INTERVAL` stays private; kkt-logs' own `SettingError` | 3.1c-2, 4.1 | Accept: names for what the plans do |
+| The log contract's field records, `Level::Trace` and `testing::Entry` | 4.2 | Accept: keeps every level and field without tracing's types |
+| `Audit::AdminEndpoint` holds the admin name as text, not `AdminName` | 5.3a | Accept, as a compromise: the contract depends on no kkt crate, at the cost of a checked type |
+| kkt-api-agent holds `LaneSource` | 5.3a | Accept: a shared record holds it |
+| kkt-api-operator holds `Overview`, `ChannelView`, `LaneHistory` and their parts | 5.4a | Accept: a contract owns what it returns |
+| The operations return kkt-api-agent's `Answer`, a boxed future | 5.4a, 5.3b | Accept: the traits work through `dyn` |
+| `Terminal` adds `flush_output`, `message` and `output_is_terminal` | 7.1a | Accept: keeps prompt and watch output as they were |
+| `Terminal::interactive` checks input, `output_is_terminal` output | 7.1b | Accept: setup asks as it did before |
+| The key-file helpers take a key maker and keep each read error's path and cause | 7.2 | Accept: each program's refusal messages stay the same |
+| kkt-mcp-formatter no longer depends on kkt-rules | 5.5 | Accept: one arrow fewer |
+| kkt-web's `Sessions<T>`, `Gate::admits` and `Gate::sign_in` | 6.1 | Accept: the page keeps its sessions |
+| kkt-admission's `WebAdmission` decides over its own `WebSession` | 6.1 | Accept: the access decision and its texts stay in kkt-admission |
+| `Views::subscribe` gives the operator's `Notices`, with records of its own | 6.2 | Accept: a contract may not name kkt-events, and the live feed is unchanged |
+| kkt-web's `Gate` admits kkt-web's `Viewer` record; `WebViewer` goes | 6.2 | Accept: the page must read the swarm and the operator |
+| kkt-web's `Settings` holds `PageLimits` | 6.2 | Accept: one settings value per crate |
+| The preview keeps its own records and translates them | 6.2, 6.3 | Accept, as a compromise: more code in kkt-api-sim, in place of rewriting the simulation |
+| kkt-web's test scenarios take an `App` in place of a `Source` | 6.2 | Accept: the scenarios read the application |
+| `start` takes `NewServerRun` and `Startup`; `Parts::new` takes the `Rules`; the program makes the events bus | 5.6a | Accept: `Deps` stays as it is for tests that build `Rules` directly |
+| The agent credential readers' checks, facts and callbacks | 7.4 | Accept: kkt-agent-client stays free of setup and the terminal |
+| kkt-web-preview is a program only, and the preview's tests are kkt-api-sim's | 6.3 | Accept: tests sit beside the stand-in they test (its `testing` is in group (a)) |
+| kkt-server's `page`; the preview depends on kkt-server and kkt-server-listen | 6.3 | Accept: axum stays in its four crates, and the program binds no socket itself |
+| The preview logs through kkt-logs-os and reads its key through kkt-admission-os | 6.3 | Accept: the program does no machine work itself |
+| kkt-api-sim's `PreviewSettings` and `SettingError`; the page size is the preview's flag | 6.3 | Accept: each crate declares its own settings |
+| kkt-api-sim depends on kkt-shutdown; kkt-web no longer on kkt-events | 6.3 | Accept: the stop is the caller's |
+| kkt-mcp's tests do not use kkt-api-sim | 6.3 | Accept: they need nothing it gives |
+| kkt-server's and kkt-web's tests use kkt-api-sim and kkt-shutdown | 6.3 | Accept: test arrows to stand-ins |
+| `Http` returns an opaque `HttpReply`; `SqlitePlace::create` reports `CreateError` | 7.5 | Accept: no library type leaves its crate |
+| Setup's connection records, path callback and lazy readers | 7.3a | Accept: keeps the first read and its error |
+| kkt-setup-os' path and note functions; kkt-container's `Host` (a trait) and kkt-admission-os' `KeyFiles` (a native provider) expose `is_file` | 7.3a | Accept: path work stays in effect crates |
+| `docker_env` returns the read refusal, not an absent value | 7.3a | Accept: upgrade refuses a missing `.env` as before |
+| Setup returns plain doctor and lane-import values | 7.3b | Accept: setup depends on no implementation crate |
+| Setup's status, backup, uninstall, key-naming and lane-limit functions | 7.3b | Accept: decisions move to their owner, messages unchanged |
+| `local_web_key` and `local_operator_key` stay in the program | 7.3b | Accept: what is left is reads; kkt-setup decides |
+| `bound_to` and `bound_in` are free functions; `admin_name_line` takes a reader; `admin_name_written` | 7.7 | Accept: a crate cannot add methods to another's type |
+
+**(d) The merge, from "What needs Sam".**
+
+| Question | Item | Recommended |
+|---|---|---|
+| Remove `refactor` from CI's branch lists | 1 | In the pull request that merges `refactor` into `next` (`refactor-merge.md`) |
+| Log output | 5 | Accept the default: the same events, targets, levels and fields reach the log |
+| How `refactor` merges into `next` | 6 | One merge commit, no force-push, after a final review of the whole diff and a full CI run |
+| macOS in CI | 7 | Turn the macOS job back on in the merge's pull request, and check the files `refactor-merge.md` lists |
+| The proposed map after the refactor | 8 | Accept the default, now done: the proposal is kept as a record, and "Current" is the code |
+
 ## Rules for every step
 
 - **The full checks pass:** `cargo test`, `cargo clippy --all-targets -- -D
@@ -125,6 +225,10 @@ this list; one that is not on it blocks.
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
 
+With the refactor done, the table guards later changes: `check-programs.py`
+runs in CI, and a program that does machine work in its own code again fails
+it unless a row here names the program and the file.
+
 ## Differences from the proposed map
 
 Some steps end up differing from the proposed map on purpose, for good, not
@@ -178,7 +282,7 @@ the last column says so.
 | kkt-web's `testing` scenarios take an `App` (an `OperatorApi` and the operator the scenario checks as) in place of a `Source` | 6.2 | The scenarios read the application to check what the page did, and every operator operation takes the operator | awaiting Sam | yes |
 | kkt-rules' `start` takes `NewServerRun` and a `Startup` (the rules' `Deps` without the run, which `start` fills in) and returns the `Rules`; `Rules::run_id` gives the run's ID, for the program's log line; kkt-server's `new_server_run` turns kkt-provenance's `ServerRun` into a `NewServerRun`; kkt-server's `Parts` holds the `Rules`, the clock and entropy the page's sessions use, `identify`, `log` and the formatter, and `Parts::new` takes those, in place of the database, wording, events settings and run ID; `AppConfig` loses `rules` (the settings go into `Startup`); the program makes the events bus and stops it with the server's stop; kkt-server's `Deps` wiring leaves assembly.json, and each program's wiring goes to `Startup` and `Parts::new (rules)` | 5.6a | The proposal names `start` and `NewServerRun` but not how `start` gets the rest of `Deps`; one `Startup` struct keeps `Deps` as it is for tests that build `Rules` directly; kkt-rules may not know kkt-provenance, and kkt-server already does, so it maps the run; the program now builds the rules, so it owns the bus the rules hear on, and kkt-server depends on kkt-events only in its tests; kkt-keymode depends on kkt-api-agent for the swarm it names in `Startup` (`SwarmId::main`) | awaiting Sam | yes |
 | kkt-server's `Parts` holds the concrete `Rules`, so kkt-server does not name kkt-api-admin's traits; the proposal's arrow kkt-server → kkt-api-admin is missing | 5.6a (#476) | `Parts` passes the one `Rules` to each surface, which takes it as its own contract (`Api`, `OperatorApi`, `AdminApi`); naming the traits in `Parts` would add a type parameter or a boxed value without changing what any surface can reach | awaiting Sam | not charted: the scorecard counts it as one missing arrow, recorded for 8.1 |
-| The store goes private except through kkt-rules' `testing`: the program's tests that pin what a 0.10.0 database answers (`tests/migrations/v0_10_0.rs`, every `Reader` question) and that write rows into a database file (`tests/database_files.rs`) reach `Reader`, `Writer`, the records and filters they take, and `testing::read` and `testing::write`; `testing::database` gives a `Db` for a program's own `start` (the fake product's tests) and the operator's `CommandLine`; `testing::memory` takes a `testing::Memory` (`Startup` without the database, with defaults from `Memory::new`); `Reader::recent_messages`, which no rule asks any more, is behind `testing` | 5.6b | The 0.10.0 fixture must answer every pinned read (CLAUDE.md), and those reads are the store's questions, which the kkt-api operations do not ask one by one; the file tests write rows to check how a file is kept, not what a rule does. Behind `testing`, a released build reaches none of it | awaiting Sam | after it merges |
+| The store goes private except through kkt-rules' `testing`: the program's tests that pin what a 0.10.0 database answers (`tests/migrations/v0_10_0.rs`, every `Reader` question) and that write rows into a database file (`tests/database_files.rs`) reach `Reader`, `Writer`, the records and filters they take, and `testing::read` and `testing::write`; `testing::database` gives a `Db` for a program's own `start` (the fake product's tests) and the operator's `CommandLine`; `testing::memory` takes a `testing::Memory` (`Startup` without the database, with defaults from `Memory::new`); `Reader::recent_messages`, which no rule asks any more, is behind `testing` | 5.6b (#477) | The 0.10.0 fixture must answer every pinned read (CLAUDE.md), and those reads are the store's questions, which the kkt-api operations do not ask one by one; the file tests write rows to check how a file is kept, not what a rule does. Behind `testing`, a released build reaches none of it | awaiting Sam | yes |
 | Credential readers take a CredentialCheck over named CredentialFileFacts and a warning callback; CredentialFile takes a cleanup-warning callback; PrivateMode and CredentialFileFix carry the checked mode, advice and warning, and FileLock exposes LockRefused | 7.4 | Keeps agent-client independent of setup and terminal effects; setup owns the rule over caller-quoted paths, both owner checks and warning-before-read ordering stay intact, and cleanup warnings keep their original log target | awaiting Sam | yes |
 | kkt-web-preview is a program only, a binary with no library (kind composition, not logic): its arrows are [dependencies] of the binary, not dev arrows of an example, and its `SettingError` is the binary's own, not a public item; the preview's tests (the page scenarios over `Preview`, and tests of its world, feed and gate) are kkt-api-sim's unit tests, beside the stand-in they test; the program's own tests are of its flags | 6.3 | Decision 39 leaves kkt-web-preview only the program (A7: it counts as a program), and check-crates.sh lets a dev-only program, not an example, turn on `testing`; tests of a stand-in sit beside it | awaiting Sam | yes |
 | kkt-server has `page`, which builds an `App` of the web page alone over any `OperatorApi` and gate; kkt-web-preview serves it through kkt-server-listen, so it depends on kkt-server and kkt-server-listen, arrows the proposal does not draw | 6.3 | So the preview program serves the page without naming axum, which stays in kkt-web, kkt-mcp, kkt-server and kkt-server-listen, and without binding a socket in its own code | awaiting Sam | yes |
@@ -195,7 +299,7 @@ the last column says so.
 | Setup adds status-formatting, backup-folder, uninstall-record, key-naming and lane-limit functions; setup-os removes records, SqlitePlace checks file presence and KeyFiles::try_exists retains probe errors | 7.3b | Moves the remaining program-work decisions and file probes to their owners while preserving read order, messages and missing-file semantics, including path calls the original scanner missed | awaiting Sam | yes: the proposal's `server_key_file_name` is `client_key`, with `staged_client_key` |
 | kkt's `local_web_key` and `local_operator_key` stay in the program, not kkt-setup: they read the record, the config folder and the configured key in kkt-setup's order, and kkt-setup's `operator_key` and `configured_key` decide | 7.3b (#473) | Found when charting, with no row of its own: the decision is already kkt-setup's, and what is left is the reads | awaiting Sam | yes |
 | kkt-server's tests use kkt-api-sim's `Preview`, `PreviewGate` and `PreviewSettings`, and kkt-web's tests stop the simulated feed with kkt-shutdown's `Shutdown` (test arrows the proposal does not draw) | 6.3 (#470) | Found when charting, with no row of its own: the page tests over the simulated application moved with it, and a manual stop is one of the stand-ins the proposal gives kkt-web's tests | awaiting Sam | yes |
-| Admission's `server_keys::bound_to` and `server_keys::bound_in` are free functions over names' `AdminName`, and names drops its hash dependency; `server_keys::admin_name_line` takes the Docker-copy fact and a lazy name-text reader, and `server_keys::admin_name_written` formats the native write result | 7.7 | Binding belongs to admission while name validation stays in names; cross-crate inherent methods are not possible, and the callback preserves the host-copy no-read rule without an admission-to-container/native dependency | awaiting Sam | after it merges |
+| Admission's `server_keys::bound_to` and `server_keys::bound_in` are free functions over names' `AdminName`, and names drops its hash dependency; `server_keys::admin_name_line` takes the Docker-copy fact and a lazy name-text reader, and `server_keys::admin_name_written` formats the native write result | 7.7 (#475) | Binding belongs to admission while name validation stays in names; cross-crate inherent methods are not possible, and the callback preserves the host-copy no-read rule without an admission-to-container/native dependency | awaiting Sam | yes |
 
 
 ## The steps
@@ -667,3 +771,17 @@ Each has the default we proceed on, so nothing waits.
 8. **The proposed map after the refactor.** Default: step 8.1 keeps the
    proposal as a record of what was planned, with the scorecard at the end,
    and the page's "Current" map shows the code.
+
+## Final scorecard
+
+On the code at the end of the refactor (`progress.py`, step 8.1):
+
+- crates: 60 of 60 proposed crates exist; none missing; none to remove;
+- items: 797 of 797 proposed items are in their proposed crate;
+- arrows: 222 of 223 proposed arrows exist; 1 missing (kkt-server →
+  kkt-api-admin, 5.6a's row); none extra;
+- rules: no kind check fails; 1 break of the proposal's rules (kkt-rules'
+  tests on kkt-db-sqlite, 5.3b's row).
+
+`decisions.md` ("After the refactor") gives each remaining difference with
+its reason.
