@@ -56,7 +56,10 @@ crate named for the area (e.g. `kkt-search`), not for a kind of code
 Features: code that touches the machine (files, network, processes, the
 clock, randomness, signals) is behind a `real` feature; plain data types
 stay outside it. Only programs (binaries and examples) turn on `real`, and
-a contract crate never has one. Tests SHOULD NOT turn on `real`; a test
+a contract crate never has one. A merged crate (concerns.json's kind
+"contract and effect") holds a contract in the open and its one
+implementation behind `real`: a crate that depends on it without `real`
+depends on the contract alone. Tests SHOULD NOT turn on `real`; a test
 that must is a documented exception, listed with its reason in
 `.github/scripts/real-exceptions.json` (today, the fake product's tests,
 which drive it over HTTP with kkt-agent-client-rmcp). Stand-ins and other test
@@ -134,7 +137,7 @@ has none.
 | `kkt-agent-client` | The project's contract for a client of kkt's server, in kkt's terms: `Servers`, which makes `Avatars` (register, reclaim, describe) and `Watched` (an agent's or the admin's view: handle, channels, latest ID, a message, a wait) for an `Address`; their records and `Failure` | Know a transport, a protocol library or its errors; touch the machine | `testing`: `Memory`, a server in memory |
 | `kkt-agent-client-rmcp` | Implements kkt-agent-client directly over MCP, through rmcp and reqwest (`Mcp`, `Client`, `Remote`, `AdminRemote`), with what it asks for at a time (`Settings`); plain HTTP requests for a program's test client (`Http`, `HttpReply`) | Let an rmcp or reqwest type out of the crate | `real`: everything that reaches the server (turns on `reqwest` and `rmcp`) |
 | `kkt-agent-files-os` | Agent credential files and `kkt watch`'s state files on this machine: reserving and saving a token or recovery code, reading a token file under the caller's credential-file rule, file locks, claiming a state file | Choose the credential-file rule or where its warnings go | `real`: all of it (turns on `libc`) |
-| `kkt-agent-commands` | The agents' commands: `kkt register` and `kkt reclaim` (with `NewAvatar`, and the wording of what the server refuses), `kkt watch` (`watch::run`, `WatchTask` and its timed-out exit code) and `kkt connect`; how a client reaches the server or the local admin endpoint, through kkt-setup's `ConnectionSource`; `AgentParts`, the effects and facts the program passes in, as its own contracts (`AdminKey`, `Credentials`, `KeyText`, `Program`, `Output`) and kkt-agent-client's (`Servers`), kkt-watch's and kkt-client-config's | Depend on an `-os` crate, on a contract's implementation (such as kkt-agent-client-rmcp) or on another assembly; touch the machine except through `AgentParts` | none |
+| `kkt-agent-commands` | The agents' commands: `kkt register` and `kkt reclaim` (with `NewAvatar`, and the wording of what the server refuses), `kkt watch` (`watch::run`, `WatchTask` and its timed-out exit code) and `kkt connect`; how a client reaches the server or the local admin endpoint, through kkt-setup's `ConnectionSource`; `AgentParts`, the effects and facts the program passes in, as its own contracts (`AdminKey`, `Credentials`, `KeyText`, `Program`, `Output`) and kkt-agent-client's (`Servers`), kkt-watch's and kkt-client-config's | Depend on an `-os` crate, on a contract's implementation (such as kkt-agent-client-rmcp), turn on another crate's `real`, or depend on another assembly; touch the machine except through `AgentParts` | none |
 | `kkt-hash` | Hashing: `sha256`, the SHA-256 digest of some bytes; the one crate that uses sha2 | | none |
 | `kkt-scratch` | Tests' scratch folders under `target/tmp` | Be anything but a dev-dependency | none |
 | `kkt-api-sim` | A simulated application, for tests and the web preview: `Preview`, the kkt-api crates' operations the web page uses over a world made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, open or with an access key checked as kkt-admission checks one | Be in a release | `testing`: all of it |
@@ -273,15 +276,17 @@ as `{max_limit}`. After an intended change, run
 
 **Public surface.** Make an item public only when another crate or the program needs it.
 
-**Third-party tools and libraries (Sam, 2026-11-12).** Each has a contract
-crate named for the project's scope and a wrapper named for the tool. The
-Language-shaping libraries retain RUST.md rule 7's exemption. The
-wrapper implements the contract directly even with one implementation;
-the program only builds and injects it, with no forwarding adapter. The
-wrapper is an effect crate that also owns its tool's logic, tested against
-a private runner; running the tool is behind `real`. This is Sam's explicit
-exception to one-kind-per-crate for named tool wrappers. The remote-access
-pilot is the first conversion; the plan's phase 12 lists the remaining work.
+**Third-party tools and libraries (Sam, 2026-11-12, revised for phase
+13).** A third-party tool or library with one implementation is one crate
+named for the scope: its contract in the open, and the implementation
+behind `real`. The implementation owns its tool's logic, tested against a
+private runner without `real`. Several implementations, or a contract many
+crates share, keep a contract crate with named implementations, as
+kkt-service and kkt-db do. Either way the program injects the
+implementation, with no forwarding adapter. Language-shaping libraries
+retain RUST.md rule 7's exemption. This is Sam's explicit exception to
+one-kind-per-crate. Phase 12 split each tool into a contract crate and a
+wrapper; the plan's phase 13 merges the pairs with one implementation.
 
 **Dependencies between crates.** Add one only for a real reason. A crate
 that depends on another for something minor, such as one small helper, is

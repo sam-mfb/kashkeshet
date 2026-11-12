@@ -558,7 +558,11 @@ def main():
                 feature_doc = rustdoc(name, lib, feature)
                 _, with_feature, feature_ids = public_items(feature_doc)
                 more_takes, more_gives = signatures(feature_doc, with_feature, feature_ids)
-                takes += [t for t in more_takes if t not in takes]
+                # A slot only a feature brings (a merged crate's
+                # implementation, behind `real`) records that feature
+                # (kinds.py).
+                takes += [dict(t, feature=feature) for t in more_takes
+                          if not any({k: v for k, v in x.items() if k != "feature"} == t for x in takes)]
                 gives += [g for g in more_gives if g not in gives]
                 for path, entry in with_feature.items():
                     if path not in items:
@@ -602,6 +606,16 @@ def main():
                               if d["name"] not in packages and d["kind"] is None]
         third_party = sorted({d["name"] for d in normal_third_party if not testing_only(d)})
         testing_third_party = sorted({d["name"] for d in normal_third_party if testing_only(d)})
+        # The features that turn each optional third-party dependency on
+        # (a merged crate's I/O dependencies are behind `real`; kinds.py).
+        optional_third_party = {}
+        for d in normal_third_party:
+            if d.get("optional") and not testing_only(d):
+                key = d.get("rename") or d["name"]
+                optional_third_party[d["name"]] = sorted(
+                    f for f, wants in p["features"].items() if f != "default"
+                    and any(w == f"dep:{key}" or w == key or w.startswith(f"{key}/") or w.startswith(f"{key}?/")
+                            for w in wants))
         crates.append({
             "name": name,
             "lib": lib,
@@ -613,6 +627,7 @@ def main():
             "crate_doc": doc_summary,
             "third_party": third_party,
             "testing_third_party": testing_third_party,
+            "optional_third_party": optional_third_party,
             "items": sorted(items.values(), key=lambda e: e["path"]),
         })
 
@@ -824,6 +839,8 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
                     holds.append({"crate": pkg, "type": path, "traits": holders[(pkg, path)]})
             if traits or holds:
                 slot = {"at": entry["at"], "name": entry["name"], "kind": entry["kind"], "traits": traits}
+                if entry.get("feature"):
+                    slot["feature"] = entry["feature"]
                 if holds:
                     slot["holds"] = holds
                 if slot not in slots:

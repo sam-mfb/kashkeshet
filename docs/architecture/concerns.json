@@ -486,6 +486,11 @@
    "about": "Traits and plain values, with pure behaviour on its own value types (such as Time arithmetic, query checks and search matching), and no effect or wiring."
   },
   {
+   "id": "contract and effect",
+   "title": "contract and effect",
+   "about": "A contract in the open and its one implementation behind real, which only programs turn on (phase 13). A crate that depends on it without real depends on the contract alone."
+  },
+  {
    "id": "logic",
    "title": "logic",
    "about": "Behaviour, with every effect injected. Protocol translation counts as logic."

@@ -41,6 +41,10 @@
 #    `real` feature and no item behind one (CLAUDE.md's C5).
 #    A named tool wrapper may implement that contract directly; its own
 #    `real` feature stays in the wrapper, never in the contract (phase 12).
+#    A merged crate, kind "contract and effect" (phase 13), holds its
+#    contract and its one implementation behind `real`; this check does not
+#    apply to it. Check 2 keeps every crate but a program off its `real`,
+#    and kinds.py checks the rest.
 #
 # Checks 2 to 6 are in check-crates.jq, tested by test_check_crates.py,
 # except check 6's search of a contract crate's sources for items behind
