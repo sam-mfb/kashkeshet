@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "82bcea8",
+ "commit": "fdd1c02",
  "crates": [
   {
    "bins": [
@@ -3820,11 +3820,11 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-browser",
-       "type": "testing::Recorder"
+       "type": "SystemBrowser"
       },
       {
-       "crate": "kkt-browser-os",
-       "type": "SystemBrowser"
+       "crate": "kkt-browser",
+       "type": "testing::Recorder"
       }
      ],
      "trait": "Browser"
@@ -3833,10 +3833,17 @@ window.KKT_GRAPH = {
    "crate_doc": "Opening a link in the person's browser, in kkt's terms: start opening it now, and say later, once, if that failed.",
    "dev_only": false,
    "features": {
+    "real": [],
     "testing": []
    },
    "holders": [],
    "implements": [
+    {
+     "crate": "kkt-browser",
+     "trait": "Browser",
+     "trait_crate": "kkt-browser",
+     "type": "SystemBrowser"
+    },
     {
      "crate": "kkt-browser",
      "trait": "Browser",
@@ -3853,6 +3860,15 @@ window.KKT_GRAPH = {
       "open_failure"
      ],
      "path": "Browser"
+    },
+    {
+     "doc": "The system's opener, which the program injects as the `Browser`.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "SystemBrowser"
     },
     {
      "doc": "A stand-in browser, for tests of the crates that open links: it records each link, can refuse to start, and can report a later failure once.",
@@ -3873,55 +3889,16 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_browser",
-   "machine_work": {},
-   "name": "kkt-browser",
-   "optional_third_party": {},
-   "path": "crates/kkt-browser",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "kkt-browser with the system's own opener: `open` on macOS, `xdg-open` elsewhere.",
-   "dev_only": false,
-   "features": {
-    "real": []
-   },
-   "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-browser-os",
-     "trait": "Browser",
-     "trait_crate": "kkt-browser",
-     "type": "SystemBrowser"
-    }
-   ],
-   "items": [
-    {
-     "doc": "The system's opener, which the program injects as kkt-browser's `Browser`.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "SystemBrowser"
-    }
-   ],
-   "lib": "kkt_browser_os",
    "machine_work": {
-    "src/lib.rs": [
+    "src/system.rs": [
      "process::Command::new",
      "process::Stdio",
      "process::Stdio::null"
     ]
    },
-   "name": "kkt-browser-os",
+   "name": "kkt-browser",
    "optional_third_party": {},
-   "path": "crates/kkt-browser-os",
+   "path": "crates/kkt-browser",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -16865,7 +16842,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-browser-os"
+   "to": "kkt-browser"
   },
   {
    "features": [
@@ -19609,28 +19586,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-browser-os",
-   "items": [
-    "Browser"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "SystemBrowser implements Browser"
-     ],
-     "role": "implements"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-browser"
-  },
-  {
-   "features": [],
-   "from": "kkt-browser-os",
+   "from": "kkt-browser",
    "items": [
     "Dir"
    ],
@@ -26833,16 +26789,10 @@ window.KKT_CONCERNS = {
    "must_not": "Choose backup names, contents, modes or retention."
   },
   "kkt-browser": {
-   "concern": "The project's contract for opening a link in the person's browser: Browser (start opening it now; say later, once, if that failed), with the testing Recorder.",
-   "kind": "contract",
+   "concern": "Opening a link in the person's browser. The contract: Browser (start opening it now; say later, once, if that failed), with the testing Recorder. Its one implementation, SystemBrowser, with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real (step 13.3).",
+   "kind": "contract and effect",
    "layer": "operations",
-   "must_not": "Know an opener program; touch the machine."
-  },
-  "kkt-browser-os": {
-   "concern": "Implements Browser with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Wait for the browser; repeat the link in a message."
+   "must_not": "Name an opener program in the contract; wait for the browser; repeat the link in a message."
   },
   "kkt-client-command": {
    "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand (remove kkt's server, add it as the client's own entry), with the testing Recorder.",
@@ -28253,7 +28203,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-container-docker",
-     "impl": "kkt-browser-os::SystemBrowser",
+     "impl": "kkt-browser::SystemBrowser",
      "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener, given to the Docker wrapper as it is",
      "to": [
       {

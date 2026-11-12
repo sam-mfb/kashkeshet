@@ -38,9 +38,7 @@ impl<'a> NativeOperate<'a> {
             service: super::service::for_this_os(env),
             prober: super::diagnostics::prober(),
             login_link: crate::terminal::browser_login::TerminalLink::new(),
-            docker: kkt_container_docker::Docker::new(Box::new(
-                kkt_browser_os::SystemBrowser::new(),
-            )),
+            docker: kkt_container_docker::Docker::new(Box::new(kkt_browser::SystemBrowser::new())),
         }
     }
 

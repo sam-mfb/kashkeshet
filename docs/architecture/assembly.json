@@ -793,7 +793,7 @@
      "note": "kkt connect: Claude Code's own command, injected as it is"
     },
     {
-     "impl": "kkt-browser-os::SystemBrowser",
+     "impl": "kkt-browser::SystemBrowser",
      "crate": "kkt-container-docker",
      "to": [
       {

@@ -396,15 +396,9 @@
   },
   "kkt-browser": {
    "layer": "operations",
-   "concern": "The project's contract for opening a link in the person's browser: Browser (start opening it now; say later, once, if that failed), with the testing Recorder.",
-   "must_not": "Know an opener program; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-browser-os": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Implements Browser with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real.",
-   "must_not": "Wait for the browser; repeat the link in a message."
+   "concern": "Opening a link in the person's browser. The contract: Browser (start opening it now; say later, once, if that failed), with the testing Recorder. Its one implementation, SystemBrowser, with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real (step 13.3).",
+   "must_not": "Name an opener program in the contract; wait for the browser; repeat the link in a message.",
+   "kind": "contract and effect"
   },
   "kkt-logs": {
    "layer": "foundations",

@@ -1343,7 +1343,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-browser-os"
+    "to": "kkt-browser"
    },
    {
     "from": "kashkeshet",
@@ -1849,15 +1849,6 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "to": "kkt-backup"
-   },
-   {
-    "from": "kkt-browser-os",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-browser"
    },
    {
     "from": "kkt-client-command-claude",
@@ -6542,7 +6533,7 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "new contract crate, from kkt-terminal-os"
+      "text": "new contract and effect crate, from kkt-terminal-os"
      },
      {
       "status": "decided",
@@ -6554,20 +6545,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "gains a testing feature: its Recorder stand-in (step 12.5d)"
-     }
-    ]
-   },
-   {
-    "crate": "kkt-browser-os",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-terminal-os"
+      "text": "new struct SystemBrowser"
      },
      {
       "status": "decided",
-      "text": "new struct SystemBrowser"
+      "text": "SystemBrowser implements kkt-browser::Browser: the crate's one implementation of its own contract, behind real (step 13.3)"
      },
      {
       "status": "decided",
@@ -6575,7 +6557,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it implements the contract directly (step 12.5d)"
+      "text": "gains a testing feature: its Recorder stand-in (step 12.5d)"
      }
     ]
    },
@@ -11379,14 +11361,8 @@ window.KKT_PROPOSED = {
     "status": "follows"
    },
    "kkt-browser": {
-    "concern": "The project's contract for opening a link in the person's browser: Browser, with the testing Recorder (step 12.5d).",
-    "kind": "contract",
-    "layer": "operations",
-    "status": "decided"
-   },
-   "kkt-browser-os": {
-    "concern": "Implements Browser with the system's own opener: starting it, reaping it, keeping a failure to report once; starting it is behind real (step 12.5d).",
-    "kind": "effect",
+    "concern": "Opening a link in the person's browser: the contract, Browser, with the testing Recorder (step 12.5d), and its one implementation, SystemBrowser, the system's own opener: starting it, reaping it, keeping a failure to report once; starting it is behind real (step 13.3, merging kkt-browser-os back).",
+    "kind": "contract and effect",
     "layer": "operations",
     "status": "decided"
    },
@@ -18992,17 +18968,31 @@ window.KKT_PROPOSED = {
     "builds": [],
     "contracts": [
      {
-      "implementors": [],
+      "implementors": [
+       {
+        "crate": "kkt-browser",
+        "type": "SystemBrowser"
+       }
+      ],
       "trait": "Browser"
      }
     ],
     "crate_doc": "",
     "dev_only": false,
     "features": {
+     "real": [],
      "testing": []
     },
     "holders": [],
-    "implements": [],
+    "implements": [
+     {
+      "crate": "kkt-browser",
+      "status": "decided",
+      "trait": "Browser",
+      "trait_crate": "kkt-browser",
+      "type": "SystemBrowser"
+     }
+    ],
     "items": [
      {
       "doc": "The person's browser: start opening a link, and say later, once, if that failed. (step 12.5d)",
@@ -19016,6 +19006,17 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "The system's own opener, which the program gives the Docker wrapper as kkt-browser's Browser. (step 12.5d)",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "new"
+      ],
+      "path": "SystemBrowser",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "A stand-in that records each link and can fail. (step 12.5d)",
       "feature": "testing",
       "kind": "struct",
@@ -19024,7 +19025,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      }
     ],
-    "kind": "contract",
+    "kind": "contract and effect",
     "lib": "kkt_browser",
     "name": "kkt-browser",
     "path": "(proposed)",
@@ -19032,7 +19033,7 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "new contract crate, from kkt-terminal-os"
+      "text": "new contract and effect crate, from kkt-terminal-os"
      },
      {
       "status": "decided",
@@ -19044,50 +19045,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "gains a testing feature: its Recorder stand-in (step 12.5d)"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [],
-    "items": [
-     {
-      "doc": "The system's own opener, which the program gives the Docker wrapper as kkt-browser's Browser. (step 12.5d)",
-      "feature": "real",
-      "kind": "struct",
-      "methods": [
-       "new"
-      ],
-      "path": "SystemBrowser",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_browser_os",
-    "name": "kkt-browser-os",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-terminal-os"
+      "text": "new struct SystemBrowser"
      },
      {
       "status": "decided",
-      "text": "new struct SystemBrowser"
+      "text": "SystemBrowser implements kkt-browser::Browser: the crate's one implementation of its own contract, behind real (step 13.3)"
      },
      {
       "status": "decided",
@@ -19095,7 +19057,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it implements the contract directly (step 12.5d)"
+      "text": "gains a testing feature: its Recorder stand-in (step 12.5d)"
      }
     ],
     "released_program": false,
@@ -32415,7 +32377,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-backup-os"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kashkeshet",
     "items": [
      "SystemBrowser"
@@ -32437,7 +32401,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-browser-os"
+    "to": "kkt-browser"
    },
    {
     "features": [],
@@ -34981,31 +34945,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-backup"
-   },
-   {
-    "features": [],
-    "from": "kkt-browser-os",
-    "items": [
-     "Browser"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Browser"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-browser"
    },
    {
     "features": [],
