@@ -42,7 +42,7 @@ first two.
 
 | Difference | Step | Recommended |
 |---|---|---|
-| kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's | 5.3b | Accept, with a later fix: it breaks the rule for speed (under 5 seconds in place of over 10 minutes); a faster kkt-db `MemoryPlace` would let the tests use it, and kkt-db's conformance checks keep the two in step meanwhile |
+| kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's | 5.3b | **Not accepted by Sam, 2026-11-12, and no exception:** a fast stand-in replaces it now (kkt-build-b designs it, msg 2805). The recommendation was to accept, with a later fix |
 | The arrow kkt-server → kkt-api-admin is missing: `Parts` holds the concrete `Rules` | 5.6a | Accept, and drop the arrow from the proposal: naming the traits in `Parts` would change nothing a surface can reach |
 | `kkt_rules::testing` gives the program's tests the store's `Reader`, `Writer`, records and filters, with `read` and `write`; `testing::database` gives other tests (the fake product's, for its own `start`, and `CommandLine`) a bare `Db` | 5.6b | Accept: the 0.10.0 fixture must answer every pinned read, which are the store's questions, and a released build reaches none of it; the cost is that changing a store question can break those tests, which is what they are for |
 
