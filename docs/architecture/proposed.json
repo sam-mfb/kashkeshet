@@ -8755,7 +8755,7 @@
   },
   {
    "id": "54",
-   "text": "Msgs 2789, 2794, 2803 and 2825 (phase 10): the program's library becomes three composition crates by who uses each part: kkt-serve (serving, with ServeParts), kkt-operate (the operator's commands, with OperateParts) and kkt-agent-commands (the agents' commands, with AgentParts). No assembly depends on another or on an -os crate; kashkeshet chooses every implementation, keeps the adapters and cli.rs, and answers each assembly's questions about the local server, which stay lazy, with their errors."
+   "text": "Msgs 2789, 2794, 2803 and 2825 (phase 10): the program's library becomes three composition crates by who uses each part: kkt-serve (serving, with ServeParts), kkt-operate (the operator's commands, with OperateParts) and kkt-agent-commands (the agents' commands, with AgentParts). No assembly depends on another or on an -os crate; kashkeshet chooses every implementation, keeps the adapters and cli.rs, and answers each assembly's questions about the local server, which stay lazy, with their errors. (Then; msg 2876 later dropped kkt-serve: see item 57.)"
   },
   {
    "id": "55",
