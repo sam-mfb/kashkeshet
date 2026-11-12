@@ -31,6 +31,8 @@ mod schema;
 mod tests;
 
 #[cfg(any(test, feature = "testing"))]
+mod reads;
+#[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
 pub use schema::{CORE, legacy, schema};
