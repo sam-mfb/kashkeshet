@@ -18,6 +18,8 @@ def default_reach($features):
 | . as $package
 | any(.targets[]; any(.kind[]; . == "bin")) as $program
 | any(.targets[]; any(.kind[]; . == "example")) as $examples
+# A dev-only program: a binary never released, which counts as test code.
+| ($program and (.metadata.kkt["dev-only"] // false) == true) as $dev_program
 | [.dependencies[] | select(.name as $name | any($workspace[]; . == $name))] as $local
 | (
     $local[]
@@ -32,10 +34,12 @@ def default_reach($features):
         then "\($package.name): turns on \($dependency.name)'s real in \($section); only a package with a binary target may (in [dependencies]), or one with an example target (in [dev-dependencies])"
         else empty end
     ),
-    # Check 3: another package's testing only in [dev-dependencies].
+    # Check 3: another package's testing only in [dev-dependencies], or in
+    # a dev-only program's [dependencies].
     (
         if any(.features[]; . == "testing") and $kind != "dev"
-        then "\($package.name): turns on \($dependency.name)'s testing in \($section); only [dev-dependencies] may"
+            and (($kind == "normal" and $dev_program) | not)
+        then "\($package.name): turns on \($dependency.name)'s testing in \($section); only [dev-dependencies] may, or a dev-only program's [dependencies]"
         else empty end
     ),
     # Check 4: kkt-scratch only in [dev-dependencies].

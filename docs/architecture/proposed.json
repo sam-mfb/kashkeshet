@@ -148,7 +148,7 @@
    "kind": "contract",
    "from": "kkt-rules",
    "status": "decided",
-   "concern": "What any registered agent may do, and the records every level shares: the agent's operations by area (Api, Agents, Channels, Messages, Memory, Lanes), the records, queries and errors they and the other levels use, Settings and MAX_LANE_DESCRIPTION_CHARS. One of three contract crates, one per level of authority; kkt-api-operator and kkt-api-admin depend on it for the shared records. kkt-rules implements it; /mcp uses only it."
+   "concern": "What any registered agent may do, and the records every level shares: the agent's operations by area (Api, Agents, Channels, Messages, Memory, Lanes), the records, queries and errors they and the other levels use, Settings and MAX_LANE_DESCRIPTION_CHARS, `Limits`, the limits `Api::limits` reports, and `Answer`, the future every operation of the three levels returns. One of three contract crates, one per level of authority; kkt-api-operator and kkt-api-admin depend on it for the shared records. kkt-rules implements it; /mcp uses only it."
   },
   {
    "name": "kkt-api-admin",
@@ -156,7 +156,7 @@
    "kind": "contract",
    "from": "kkt-rules",
    "status": "decided",
-   "concern": "What /mcp-admin's administrator does: the 12 admin_* reads (Admin), and what is server-wide, creating a swarm (Swarms), with AdminChannel. kkt-rules implements it; kkt-mcp, for /mcp-admin, and kkt-mcp-formatter use it, and the fake product creates its second swarm through it."
+   "concern": "What /mcp-admin's administrator does: the 12 admin_* reads (Admin), and what is server-wide, creating a swarm (Swarms), with AdminChannel, and `AdminApi`, every operation /mcp-admin uses in one swarm: kkt-api-operator's `OperatorApi` and `Admin`, so kkt-api-admin depends on kkt-api-operator. kkt-rules implements it; kkt-mcp, for /mcp-admin, and kkt-mcp-formatter use it, and the fake product creates its second swarm through it."
   },
   {
    "name": "kkt-api-operator",
@@ -164,7 +164,7 @@
    "kind": "contract",
    "from": "kkt-rules",
    "status": "decided",
-   "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (Overview, AgentActivity, ActivityCount, ChannelView, ChannelActivity, LaneHistory, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange), and Answer, the future each operation returns. It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here."
+   "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (Overview, AgentActivity, ActivityCount, ChannelView, ChannelActivity, LaneHistory, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange), and `OperatorApi`, every operation the operator may use in one swarm, the agent level's included. It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here."
   },
   {
    "name": "kkt-config-file",
@@ -183,7 +183,7 @@
    "features": {
     "real": []
    },
-   "concern": "The server's key files on disk: reading the access, web and admin keys and the admin name file, and writing a key file only its owner can read, new or replaced when forced, with kkt-admission's file mode. `KeyFiles` is a plain type; the programs adapt it to kkt-admission's `KeyTexts`, and kkt calls it to make and write keys."
+   "concern": "The server's key files on disk: reading the access, web and admin keys and the admin name file, and writing a key file only its owner can read, new or replaced when forced, with kkt-admission's file mode. `KeyFiles` is a plain type; the programs adapt it to kkt-admission's `KeyTexts`, and kkt calls it to make and write keys, with a key factory the caller gives, so it draws no randomness of its own; a failed read is its own `ReadError`, with the file's path."
   },
   {
    "name": "kkt-setup-os",
@@ -890,7 +890,7 @@
    "to": "kkt-admission-os",
    "status": "decided",
    "as": "make_default_key",
-   "note": "writes a new key made from the entropy it is given",
+   "note": "writes a missing default key; the caller gives the key factory, and it returns the path only when it made the file, so the program reports it (step 7.2)",
    "feature": "real"
   },
   {
@@ -898,7 +898,8 @@
    "to": "kkt-admission-os",
    "status": "decided",
    "as": "new_key_file",
-   "feature": "real"
+   "feature": "real",
+   "note": "the caller gives the key factory, called after the folder is made (step 7.2)"
   },
   {
    "item": "kashkeshet::machine::keys::write_key_file",
@@ -912,7 +913,8 @@
    "to": "kkt-admission-os",
    "status": "decided",
    "as": "write_admin_name",
-   "feature": "real"
+   "feature": "real",
+   "note": "writes the name text the program has already bound to the key, or removes the old name file; the program keeps its own wording (step 7.2)"
   },
   {
    "item": "kashkeshet::machine::record::docker_url",
@@ -1483,6 +1485,11 @@
    "item": "kkt-config-file::XDG_CONFIG_HOME_DEFAULT",
    "status": "decided",
    "note": "kkt-machine's, with Env::config_home (step 3.4)"
+  },
+  {
+   "item": "kkt-admission::SignIn",
+   "status": "decided",
+   "note": "WebAdmission::sign_in returns a Decision; the session is started by kkt-web (step 6.1)"
   }
  ],
  "method_moves": [
@@ -1822,14 +1829,18 @@
    "path": "KeyFiles",
    "kind": "struct",
    "status": "decided",
-   "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text; whether one is there; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts.",
+   "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text, a failed read as ReadError with its path; reading any one key or name file; whether one is there; making a key's folder; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts (step 7.2).",
    "feature": "real",
    "methods": [
     "access",
     "admin",
     "admin_names",
+    "create_dir_all",
     "exists",
     "keep_staged",
+    "new",
+    "read",
+    "read_optional",
     "remove",
     "web"
    ]
@@ -1905,15 +1916,19 @@
    "path": "CredentialFile",
    "kind": "struct",
    "status": "decided",
-   "doc": "A new agent credential file, made only its owner can read and removed unless saved.",
-   "feature": "real"
+   "doc": "A new agent credential file, made only its owner can read and removed unless saved; a failed removal goes to the caller's callback, which keeps the log's target (step 7.4).",
+   "feature": "real",
+   "methods": [
+    "create",
+    "save"
+   ]
   },
   {
    "crate": "kkt-agent-client",
    "path": "read_secret",
    "kind": "fn",
    "status": "decided",
-   "doc": "Reads an agent secret from a file, with the file's owner and mode, for kkt-setup's credential_file_check to judge.",
+   "doc": "Reads an agent secret from the same opened file whose owner and mode the caller's CredentialCheck judges, tightening it as the check's PrivateMode says and passing its warning to the caller's callback (step 7.4).",
    "feature": "real"
   },
   {
@@ -1921,7 +1936,7 @@
    "path": "watch_token",
    "kind": "fn",
    "status": "decided",
-   "doc": "The token kkt watch uses: from its file, else from KKT_TOKEN.",
+   "doc": "The token kkt watch uses: from its file, read as read_secret reads, else from KKT_TOKEN (step 7.4).",
    "feature": "real"
   },
   {
@@ -1930,7 +1945,10 @@
    "kind": "struct",
    "status": "decided",
    "doc": "A lock on a state file, so one watch uses it at a time.",
-   "feature": "real"
+   "feature": "real",
+   "methods": [
+    "take"
+   ]
   },
   {
    "crate": "kkt-agent-client",
@@ -1938,7 +1956,12 @@
    "kind": "struct",
    "status": "decided",
    "doc": "The file where kkt watch keeps the highest message ID it has seen. The program adapts it to kkt-watch's Place.",
-   "feature": "real"
+   "feature": "real",
+   "methods": [
+    "claim",
+    "load",
+    "save"
+   ]
   },
   {
    "crate": "kkt-config-file-os",
@@ -1969,7 +1992,10 @@
    "path": "Limits",
    "kind": "struct",
    "status": "decided",
-   "doc": "The limits the operations enforce, as Api::limits reports them: page sizes, body and text lengths, the announcement's, lanes' and lane descriptions' sizes. A record of values; where they come from is the implementation's."
+   "doc": "The limits the operations enforce, as Api::limits reports them: page sizes, body and text lengths, the announcement's, lanes' and lane descriptions' sizes. A record of values; where they come from is the implementation's.",
+   "methods": [
+    "limit"
+   ]
   },
   {
    "crate": "kkt-config-file",
@@ -2038,7 +2064,7 @@
    "path": "SettingError",
    "kind": "struct",
    "status": "decided",
-   "doc": "Why kkt-admission's settings are refused: a key, the access key setting or the session lifetime."
+   "doc": "Why kkt-admission's settings are refused: a key or the access key setting; the session lifetime is kkt-web's (step 6.1)."
   },
   {
    "crate": "kkt-hosts",
@@ -2125,7 +2151,7 @@
    "path": "credential_file_check",
    "kind": "fn",
    "status": "decided",
-   "doc": "The rule for an agent credential file, from its owner and mode: refuse one another user owns, with the advice to fix it; tighten one others can read, with a warning."
+   "doc": "The rule for an agent credential file, from its owner and mode: refuse one another user owns, with the advice to fix it, quoting the caller's path; tighten one others can read, as a CredentialFileFix with a warning (step 7.4)."
   },
   {
    "crate": "kkt-agent-client",
@@ -2133,7 +2159,7 @@
    "kind": "fn",
    "status": "decided",
    "feature": "real",
-   "doc": "Takes group and other access off an agent credential file."
+   "doc": "Applies the caller's CredentialCheck to an opened credential file: takes group and other access off it as the PrivateMode says, and returns the warning (step 7.4)."
   },
   {
    "crate": "kkt-logs",
@@ -2510,13 +2536,6 @@
   },
   {
    "crate": "kashkeshet",
-   "path": "machine::settings::session_settings",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "The web sessions' share of `limits`. (step 3.5c)"
-  },
-  {
-   "crate": "kashkeshet",
    "path": "machine::settings::BadSetting",
    "kind": "trait",
    "status": "decided",
@@ -2644,11 +2663,11 @@
    "doc": "How many messages a channel got in the stretch starting at `start` (step 5.4a)."
   },
   {
-   "crate": "kkt-api-operator",
+   "crate": "kkt-api-agent",
    "path": "Answer",
    "kind": "type",
    "status": "decided",
-   "doc": "What an operation gives back: a future of its result, so the traits work through dyn (step 5.4a)."
+   "doc": "What an operation gives back: a future of its result, so the traits work through dyn; one type, kkt-api-agent's, for all three kkt-api crates (steps 5.4a and 5.3b)."
   },
   {
    "crate": "kkt-setup",
@@ -2704,6 +2723,109 @@
    "status": "decided",
    "doc": "What tests outside kkt-setup need to know about its questions (step 3.1c-1).",
    "feature": "testing"
+  },
+  {
+   "crate": "kkt-admission-os",
+   "path": "ReadError",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A failed key-file read, retaining its path and underlying I/O error (step 7.2).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "OperatorApi",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Every operation the operator may use, in one swarm: the agent level's and the operator's own (step 5.4b).",
+   "methods": [
+    "in_swarm_operator"
+   ]
+  },
+  {
+   "crate": "kkt-api-admin",
+   "path": "AdminApi",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Every operation /mcp-admin uses, in one swarm: the operator's and the admin reads (step 5.4b).",
+   "methods": [
+    "in_swarm_admin"
+   ]
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "CredentialCheck",
+   "kind": "type",
+   "status": "decided",
+   "doc": "The caller's rule over the path and named file/caller facts (step 7.4).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "CredentialFileFacts",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The inspected file and the caller whose access is checked (step 7.4).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "PrivateMode",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A checked permission change, with caller-supplied advice and warning (step 7.4).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "LockRefused",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "Why a `FileLock` was not taken (step 7.4).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "CredentialFileFix",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The change needed to take group and other access off a credential file (step 7.4)."
+  },
+  {
+   "crate": "kkt-web",
+   "path": "Access",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "Whether viewers sign in to see the page (step 6.1)."
+  },
+  {
+   "crate": "kkt-web",
+   "path": "Held",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "What a session can hold: whatever the gate says a key admits (step 6.1)."
+  },
+  {
+   "crate": "kkt-web",
+   "path": "Session",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "The session a request presents, as `Sessions::session` finds it (step 6.1)."
+  },
+  {
+   "crate": "kkt-web",
+   "path": "testing::Door",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What a site in a scenario is behind: a gate, and the page's sessions, which the caller makes with its own clock and entropy (step 6.1).",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-admission",
+   "path": "WebSession",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "The session a web request presents, as the page found it (step 6.1)."
   }
  ],
  "declared": [],
@@ -2878,22 +3000,13 @@
    "note": "a backend, which kkt-rules' Db runs its work on through BackendExt; there is no Database to build"
   },
   {
-   "slot": "kkt-mcp::endpoint",
-   "param": "rules",
-   "traits": [
-    "kkt-api-agent::Api"
-   ],
-   "status": "decided",
-   "note": "the agent endpoint calls kkt-api-agent, not kkt-rules"
-  },
-  {
    "slot": "kkt-mcp::mcp_admin::endpoint",
    "param": "rules",
    "traits": [
-    "kkt-api-agent::Api"
+    "kkt-api-admin::AdminApi"
    ],
    "status": "decided",
-   "note": "as endpoint"
+   "note": "the admin endpoint takes an Arc<dyn AdminApi> and moves into the caller's swarm with in_swarm_admin (step 5.4b)"
   }
  ],
  "edge_edits": [
@@ -3015,7 +3128,7 @@
    "kind": "dev",
    "remove": true,
    "status": "decided",
-   "note": "its tests use kkt-rules' in-memory database instead"
+   "note": "its tests use kkt-rules' in-memory database instead. Its own tests still use kkt-db-sqlite's, for speed (step 5.3b), a difference the proposal's rule cannot draw: the scorecard counts it as a break"
   },
   {
    "from": "kkt-identity",
@@ -3728,15 +3841,12 @@
    "kind": "normal",
    "add": {
     "uses": [
-     "Changes",
-     "Lanes",
-     "Server",
      "ChannelChange",
      "LaneSave"
     ]
    },
    "status": "decided",
-   "note": "/mcp-admin calls the operator operations it offers: changing channels, hiding agents, lanes and the announcement"
+   "note": "/mcp-admin calls the operator operations it offers: changing channels, hiding agents, lanes and the announcement; it calls them through kkt-api-admin's AdminApi, which includes them, and names only their records (step 5.4b)"
   },
   {
    "from": "kkt-server",
@@ -5351,7 +5461,7 @@
   },
   {
    "from": "kkt-rules",
-   "to": "kkt-api-operator",
+   "to": "kkt-api-agent",
    "kind": "normal",
    "add": {
     "uses": [
@@ -5359,7 +5469,7 @@
     ]
    },
    "status": "decided",
-   "note": "its operator operations give their answers as kkt-api-operator's Answer (step 5.4a)"
+   "note": "its operations give their answers as kkt-api-agent's Answer, shared by the three levels (steps 5.4a and 5.3b)"
   },
   {
    "from": "kashkeshet",
@@ -5389,6 +5499,176 @@
    },
    "status": "decided",
    "note": "the terminal and browser link tests' scratch files (steps 7.1a and 7.1b)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-admission-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ReadError"
+    ]
+   },
+   "status": "decided",
+   "note": "the program's KeyTexts adapter turns a failed read into its own refusal (step 7.2)"
+  },
+  {
+   "from": "kkt-admission-os",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "AccessKey",
+     "admin_name_path",
+     "server_keys::KeyText"
+    ]
+   },
+   "status": "decided",
+   "note": "the key texts it reads, the default key's place and the admin name file's path (step 7.2)"
+  },
+  {
+   "from": "kkt-api-operator",
+   "to": "kkt-api-agent",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Answer",
+     "Api",
+     "Actor"
+    ]
+   },
+   "drop": [
+    "Result",
+    "RuleError"
+   ],
+   "status": "decided",
+   "note": "OperatorApi includes the agent level's Api; the operations return Answer and some take an Actor (steps 5.3b and 5.4b)"
+  },
+  {
+   "from": "kkt-api-admin",
+   "to": "kkt-api-agent",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Answer",
+     "ReadQuery",
+     "WaitResult"
+    ]
+   },
+   "drop": [
+    "Position",
+    "Result",
+    "RuleError"
+   ],
+   "status": "decided",
+   "note": "the admin reads return Answer, which carries the result and its error, and take the agent level's queries (steps 5.3b and 5.4b)"
+  },
+  {
+   "from": "kkt-api-admin",
+   "to": "kkt-api-operator",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "OperatorApi"
+    ]
+   },
+   "status": "decided",
+   "note": "AdminApi includes OperatorApi, the operator's operations in one swarm (step 5.4b)"
+  },
+  {
+   "from": "kkt-format",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "the wording moved to kkt-rules and the records to the kkt-api crates, so the formatter's library uses nothing of kkt-rules (step 5.5)"
+  },
+  {
+   "from": "kkt-format",
+   "to": "kkt-rules",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "its tests read kkt-rules' default settings (step 5.5)"
+  },
+  {
+   "from": "kkt-format",
+   "to": "kkt-api-agent",
+   "kind": "normal",
+   "drop": [
+    "Audit"
+   ],
+   "status": "decided",
+   "note": "the wording, which named the admin endpoint's Audit, moved to kkt-rules (step 5.5)"
+  },
+  {
+   "from": "kkt-format",
+   "to": "kkt-names",
+   "kind": "dev",
+   "drop": [
+    "AdminName"
+   ],
+   "status": "decided",
+   "note": "the wording's tests moved with it to kkt-rules (step 5.5)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-client",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "CredentialFileFacts",
+     "PrivateMode"
+    ]
+   },
+   "drop": [
+    "FileLock",
+    "make_private",
+    "read_secret"
+   ],
+   "status": "decided",
+   "note": "the program's credential check reads the client's CredentialFileFacts and gives its PrivateMode; read_secret, make_private and the lock are the client's own, behind watch_token and StateFile (step 7.4)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Principal",
+     "WebSession"
+    ]
+   },
+   "drop": [
+    "SignIn"
+   ],
+   "status": "decided",
+   "note": "AdmissionGate decides over kkt-admission's WebSession and keeps a Principal in kkt-web's sessions; kkt-admission has no sessions, settings or SignIn of its own (step 6.1)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-web",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Access",
+     "Session"
+    ]
+   },
+   "status": "decided",
+   "note": "it makes the page's sessions with their Access and reads a Session for the gate (step 6.1)"
+  },
+  {
+   "from": "kkt-admission",
+   "to": "kkt-clock",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "the session tests, which used a fixed clock, moved to kkt-web (step 6.1)"
   }
  ],
  "decisions": {
@@ -6056,6 +6336,18 @@
      "Clock"
     ]
    }
+  },
+  {
+   "by": "kkt-admission",
+   "to": "kkt-web",
+   "status": "decided",
+   "note": "the session tests take kkt-clock's fixed clock along to kkt-web (step 6.1)",
+   "uses": {
+    "kkt-clock": [
+     "Span",
+     "testing::FixedClock"
+    ]
+   }
   }
  ],
  "method_adds": [
@@ -6143,6 +6435,24 @@
    ],
    "status": "decided",
    "note": "takes the caller's Lines (step 7.1b)"
+  },
+  {
+   "type": "kkt-rules::Rules",
+   "methods": [
+    "create_swarm"
+   ],
+   "status": "decided",
+   "note": "records a new swarm as made by this server run; Swarms::create_swarm forwards to it (step 5.4b)"
+  },
+  {
+   "type": "kkt-web::Sessions",
+   "methods": [
+    "access",
+    "session",
+    "sign_in_required"
+   ],
+   "status": "decided",
+   "note": "the sessions know from their Access whether sign-in is required, and session finds a request's session, absent, ended or live (step 6.1)"
   }
  ],
  "doc_edits": [
@@ -6156,11 +6466,11 @@
   },
   {
    "item": "kkt-web::Gate",
-   "doc": "Who is viewing: whether a key lets a viewer in (sign_in), and who a signed-in or open viewer is (admits). kkt-web keeps the sessions itself."
+   "doc": "Who is viewing: whether a key lets a viewer in (sign_in), and who a signed-in or open viewer is (admits), asked about what a session holds, its SignedIn (kkt-server's Principal). kkt-web keeps the sessions itself (step 6.1)."
   },
   {
    "item": "kkt-admission::WebAdmission",
-   "doc": "Admission for the web page: whether sign-in is needed, whether a key is good and whom it admits, and the decision for an open page. The sessions are kkt-web's."
+   "doc": "Admission for the web page: whether sign-in is needed, whether a key is good and whom it admits, and the decision for an open page or a session's holder, over its own WebSession. The sessions are kkt-web's (step 6.1)."
   },
   {
    "item": "kkt-rules::testing",
@@ -6252,6 +6562,22 @@
   {
    "item": "kashkeshet::machine::settings::check_settings",
    "doc": "Turns kkt-settings' values into each crate's settings and calls each owner's check, in a fixed order, so the first bad setting is the one named (step 3.5c)."
+  },
+  {
+   "item": "kkt-admission-os::make_default_key",
+   "doc": "Writes a missing default key, drawing a key only after making its folder (step 7.2)."
+  },
+  {
+   "item": "kkt-admission-os::new_key_file",
+   "doc": "Creates a new private key file, making its folder before drawing the key (step 7.2)."
+  },
+  {
+   "item": "kkt-admission-os::write_admin_name",
+   "doc": "Writes already-bound admin-name text beside the key, or removes the old name file (step 7.2)."
+  },
+  {
+   "item": "kkt-web::SignIn",
+   "doc": "The answer to a key typed at sign-in: admitted, with what the session will hold, or refused with a reason (step 6.1)."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -6379,6 +6705,16 @@
    ],
    "status": "decided",
    "note": "where its events go, in place of tracing"
+  },
+  {
+   "crate": "kkt-mcp",
+   "at": "endpoint",
+   "name": "api",
+   "traits": [
+    "kkt-api-agent::Api"
+   ],
+   "status": "decided",
+   "note": "the agent endpoint calls kkt-api-agent, not kkt-rules: an Arc<dyn Api> (step 5.3b)"
   }
  ],
  "renames": [
@@ -6419,11 +6755,11 @@
   },
   "kkt-agent-client": {
    "status": "decided",
-   "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (read with their owner and mode, made private when kkt-setup's rule says so), watch's state file and its lock, reaching the server as an agent or admin through plain methods with its own types, and plain HTTP for probes. It knows nothing of kkt-watch; the program adapts it."
+   "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (read with their owner and mode, which the caller's `CredentialCheck` judges as named `CredentialFileFacts`, and made private as its `PrivateMode` says, with warnings through the caller's callbacks; in kkt the check is kkt-setup's rule), watch's state file and its lock, reaching the server as an agent or admin through plain methods with its own types, and plain HTTP for probes. It knows nothing of kkt-watch; the program adapts it."
   },
   "kkt-mcp": {
    "status": "decided",
-   "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It calls the kkt-api crates directly and depends on no kkt-rules type: kkt-api-agent for /mcp, and for /mcp-admin kkt-api-admin and the operator operations it offers. It declares the `Identify` it asks; kkt-server hands it the program's adapter."
+   "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It calls the kkt-api crates directly and depends on no kkt-rules type: kkt-api-agent's `Api` for /mcp, and for /mcp-admin kkt-api-admin's `AdminApi`, which includes the operator operations it offers. It declares the `Identify` it asks; kkt-server hands it the program's adapter."
   },
   "kashkeshet": {
    "status": "decided",
@@ -6470,7 +6806,7 @@
   },
   "kkt-web": {
    "status": "decided",
-   "concern": "The human's pages, over the application's operations: it calls kkt-api-agent and kkt-api-operator directly and renders their records. Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is. It keeps the sign-in sessions and form tokens itself, the page-only limits (`PageLimits`), and its live updates, which it draws from kkt-api-operator's subscribe. The page scenarios every implementation must pass (`testing`).",
+   "concern": "The human's pages, over the application's operations: it calls kkt-api-agent and kkt-api-operator directly and renders their records. Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is. It keeps the sign-in sessions and form tokens itself (`Sessions`, generic over what the gate says a key admits, and told by its `Access` whether sign-in is required), with their lifetime in its `Settings`, the page-only limits (`PageLimits`), and its live updates, which it draws from kkt-api-operator's subscribe. The page scenarios every implementation must pass (`testing`).",
    "must_not": "Depend on the rules, the store, admission or identity, or on an implementation crate: it uses the agent and operator levels' contracts, and kkt-server implements its Gate."
   },
   "kkt-events": {
@@ -7194,7 +7530,7 @@
       "to": [
        {
         "at": "endpoint",
-        "param": "rules"
+        "param": "api"
        },
        {
         "at": "mcp_admin::endpoint",
@@ -7879,23 +8215,13 @@
    "users": {
     "kkt-mcp": [
      "kkt-api-agent::Api",
-     "kkt-api-agent::Agents",
-     "kkt-api-agent::Channels",
-     "kkt-api-agent::Messages",
-     "kkt-api-agent::Memory",
-     "kkt-api-agent::Lanes",
-     "kkt-api-operator::Changes",
-     "kkt-api-operator::Lanes",
-     "kkt-api-operator::Server",
-     "kkt-api-admin::Admin"
+     "kkt-api-admin::AdminApi"
     ],
     "kkt-identity": [
-     "kkt-api-agent::Api",
-     "kkt-api-agent::Agents"
+     "kkt-api-agent::Api"
     ],
     "kkt-fake-product": [
      "kkt-api-agent::Api",
-     "kkt-api-agent::Agents",
      "kkt-api-admin::Swarms"
     ],
     "kkt-server": [
@@ -8076,6 +8402,15 @@
    ],
    "status": "decided",
    "note": "form tokens and signing out go with the sessions to kkt-web"
+  },
+  {
+   "type": "kkt-web::Sessions",
+   "methods": [
+    "lookup",
+    "secret"
+   ],
+   "status": "decided",
+   "note": "session replaces lookup; the form tokens use the session ID's hash, not a secret of their own (step 6.1)"
   }
  ],
  "slot_removes": [
@@ -8102,6 +8437,12 @@
    "param": "db",
    "status": "decided",
    "note": "as Parts::new"
+  },
+  {
+   "slot": "kkt-mcp::endpoint",
+   "param": "rules",
+   "status": "decided",
+   "note": "the agent endpoint takes api, kkt-api-agent's Api (step 5.3b)"
   }
  ],
  "wires_only": {

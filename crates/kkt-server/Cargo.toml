@@ -29,6 +29,8 @@ kkt-web = { path = "../kkt-web" }
 
 [dev-dependencies]
 kkt-log = { path = "../kkt-log", features = ["testing"] }
+# The simulated application and its gate, for the page served alone.
+kkt-api-sim = { path = "../kkt-api-sim", features = ["testing"] }
 # Key mode, the identity the tests run the surfaces with.
 kkt-identity-keymode = { path = "../kkt-identity-keymode" }
 # The page scenarios (`kkt_web::testing`), run over the rules; a fixed clock,

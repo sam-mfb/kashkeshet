@@ -18,9 +18,7 @@
 /// the ones existing installs hold.
 const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
-mod admin_name;
 mod any_bearer;
-pub use admin_name::{admin_name_line, admin_name_written, bound_in, bound_to};
 mod keys;
 pub mod server_keys;
 mod shared_key;

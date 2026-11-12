@@ -38,13 +38,12 @@ pub(crate) fn unrecorded_docker(
     env: &Env,
     platform: Platform,
 ) -> Result<Option<setup::Unrecorded>, String> {
-    let (Some(_data), Some(config_dir)) = (
-        setup::data_dir(env, platform),
+    let (Ok(folder), Some(config_dir)) = (
+        setup::docker_folder(env, platform),
         kkt_config_file::config_dir(env),
     ) else {
         return Ok(None);
     };
-    let folder = setup::docker_folder(env, platform)?;
     let found = |what: String| {
         format!(
             "Found a kkt server in Docker from {}, not recorded, but {what}.",

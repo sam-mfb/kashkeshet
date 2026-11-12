@@ -150,7 +150,7 @@ window.KKT_PROPOSED = {
       "to": [
        {
         "at": "endpoint",
-        "param": "rules"
+        "param": "api"
        },
        {
         "at": "mcp_admin::endpoint",
@@ -1811,6 +1811,15 @@ window.KKT_PROPOSED = {
     "to": "kkt-api-agent"
    },
    {
+    "from": "kkt-api-admin",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-operator"
+   },
+   {
     "from": "kkt-api-operator",
     "kind": "normal",
     "role": "uses",
@@ -2194,14 +2203,18 @@ window.KKT_PROPOSED = {
     "from": "kkt-mcp-formatter",
     "kind": "dev",
     "role": "uses",
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-names"
    },
    {
     "from": "kkt-mcp-formatter",
-    "kind": "normal",
+    "kind": "dev",
     "role": "uses",
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-rules"
    },
    {
@@ -3102,11 +3115,10 @@ window.KKT_PROPOSED = {
     "items_gone": [],
     "items_new": [
      "CredentialFile",
-     "FileLock",
+     "CredentialFileFacts",
+     "PrivateMode",
      "Settings",
      "StateFile",
-     "make_private",
-     "read_secret",
      "watch_token"
     ],
     "kind": "normal",
@@ -4051,10 +4063,12 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-server",
     "items_gone": [
-     "Sessions"
+     "Sessions",
+     "SignIn"
     ],
     "items_new": [
-     "Settings"
+     "Principal",
+     "WebSession"
     ],
     "kind": "normal",
     "roles_after": [
@@ -4241,7 +4255,9 @@ window.KKT_PROPOSED = {
      "StaleHidden"
     ],
     "items_new": [
+     "Access",
      "PageLimits",
+     "Session",
      "Sessions",
      "Settings"
     ],
@@ -4415,11 +4431,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::keys::make_default_key moves to kkt-admission-os: writes a new key made from the entropy it is given"
+      "text": "machine::keys::make_default_key moves to kkt-admission-os: writes a missing default key; the caller gives the key factory, and it returns the path only when it made the file, so the program reports it (step 7.2)"
      },
      {
       "status": "decided",
-      "text": "machine::keys::new_key_file moves to kkt-admission-os"
+      "text": "machine::keys::new_key_file moves to kkt-admission-os: the caller gives the key factory, called after the folder is made (step 7.2)"
      },
      {
       "status": "decided",
@@ -4427,7 +4443,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::keys::write_admin_name moves to kkt-admission-os"
+      "text": "machine::keys::write_admin_name moves to kkt-admission-os: writes the name text the program has already bound to the key, or removes the old name file; the program keeps its own wording (step 7.2)"
      },
      {
       "status": "decided",
@@ -4580,10 +4596,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn machine::settings::web_settings"
-     },
-     {
-      "status": "decided",
-      "text": "new fn machine::settings::session_settings"
      },
      {
       "status": "decided",
@@ -4848,6 +4860,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program adapts its terminal to setup's Lines; the questions' rules are kkt-setup's Prompter's (step 7.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "the program's KeyTexts adapter turns a failed read into its own refusal (step 7.2)"
+     },
+     {
+      "status": "decided",
+      "text": "the program's credential check reads the client's CredentialFileFacts and gives its PrivateMode; read_secret, make_private and the lock are the client's own, behind watch_token and StateFile (step 7.4)"
      }
     ]
    },
@@ -4924,6 +4944,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "SignIn is no longer public: WebAdmission::sign_in returns a Decision; the session is started by kkt-web (step 6.1)"
+     },
+     {
+      "status": "decided",
       "text": "new fn server_keys::bound_to"
      },
      {
@@ -4952,7 +4976,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new struct Settings"
+      "text": "new enum WebSession"
      },
      {
       "status": "decided",
@@ -4973,6 +4997,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "hashes through kkt-hash, not sha2"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-clock in its tests: the session tests, which used a fixed clock, moved to kkt-web (step 6.1)"
      }
     ]
    },
@@ -5005,7 +5033,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct ReadError"
+     },
+     {
+      "status": "decided",
       "text": "key files are written with kkt-admission's file mode"
+     },
+     {
+      "status": "decided",
+      "text": "the key texts it reads, the default key's place and the admin name file's path (step 7.2)"
      }
     ]
    },
@@ -5090,6 +5126,22 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new type CredentialCheck"
+     },
+     {
+      "status": "decided",
+      "text": "new struct CredentialFileFacts"
+     },
+     {
+      "status": "decided",
+      "text": "new struct PrivateMode"
+     },
+     {
+      "status": "decided",
+      "text": "new enum LockRefused"
+     },
+     {
+      "status": "decided",
       "text": "AdminRemote no longer implements kkt-watch::Server"
      },
      {
@@ -5127,7 +5179,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new trait AdminApi"
+     },
+     {
+      "status": "decided",
       "text": "the admin reads take and return kkt-api-agent's shared records"
+     },
+     {
+      "status": "decided",
+      "text": "the admin reads return Answer, which carries the result and its error, and take the agent level's queries (steps 5.3b and 5.4b)"
+     },
+     {
+      "status": "decided",
+      "text": "AdminApi includes OperatorApi, the operator's operations in one swarm (step 5.4b)"
      }
     ]
    },
@@ -5361,6 +5425,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Limits"
+     },
+     {
+      "status": "decided",
+      "text": "new type Answer"
      }
     ]
    },
@@ -5441,11 +5509,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new type Answer"
+      "text": "new trait OperatorApi"
      },
      {
       "status": "decided",
       "text": "the operator level takes and returns the shared records"
+     },
+     {
+      "status": "decided",
+      "text": "OperatorApi includes the agent level's Api; the operations return Answer and some take an Actor (steps 5.3b and 5.4b)"
      }
     ]
    },
@@ -6857,6 +6929,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "endpoint no longer takes rules: the agent endpoint takes api, kkt-api-agent's Api (step 5.3b)"
+     },
+     {
+      "status": "decided",
       "text": "MCP_SSE_KEEP_ALIVE is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1b)"
      },
      {
@@ -6873,11 +6949,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "endpoint takes one rules value meeting kkt-api-agent::Api"
-     },
-     {
-      "status": "decided",
-      "text": "mcp_admin::endpoint takes one rules value meeting kkt-api-agent::Api"
+      "text": "mcp_admin::endpoint takes one rules value meeting kkt-api-admin::AdminApi"
      },
      {
       "status": "decided",
@@ -6886,6 +6958,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "mcp_admin::endpoint takes log: where its events go, in place of tracing"
+     },
+     {
+      "status": "decided",
+      "text": "endpoint takes api: the agent endpoint calls kkt-api-agent, not kkt-rules: an Arc<dyn Api> (step 5.3b)"
      },
      {
       "status": "decided",
@@ -6901,7 +6977,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "/mcp-admin calls the operator operations it offers: changing channels, hiding agents, lanes and the announcement"
+      "text": "/mcp-admin calls the operator operations it offers: changing channels, hiding agents, lanes and the announcement; it calls them through kkt-api-admin's AdminApi, which includes them, and names only their records (step 5.4b)"
      },
      {
       "status": "decided",
@@ -6959,6 +7035,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-rules in its code: the wording moved to kkt-rules and the records to the kkt-api crates, so the formatter's library uses nothing of kkt-rules (step 5.5)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests read kkt-rules' default settings (step 5.5)"
+     },
+     {
+      "status": "decided",
+      "text": "the wording, which named the admin endpoint's Audit, moved to kkt-rules (step 5.5)"
+     },
+     {
+      "status": "decided",
+      "text": "the wording's tests moved with it to kkt-rules (step 5.5)"
      },
      {
       "status": "decided",
@@ -7371,6 +7463,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Rules gains create_swarm: records a new swarm as made by this server run; Swarms::create_swarm forwards to it (step 5.4b)"
+     },
+     {
+      "status": "decided",
       "text": "new fn legacy"
      },
      {
@@ -7427,7 +7523,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead. Its own tests still use kkt-db-sqlite's, for speed (step 5.3b), a difference the proposal's rule cannot draw: the scorecard counts it as a break"
      },
      {
       "status": "decided",
@@ -7451,7 +7547,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its operator operations give their answers as kkt-api-operator's Answer (step 5.4a)"
+      "text": "its operations give their answers as kkt-api-agent's Answer, shared by the three levels (steps 5.4a and 5.3b)"
      }
     ]
    },
@@ -7590,6 +7686,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests give the parts a CapturedLog (step 4.2)"
+     },
+     {
+      "status": "decided",
+      "text": "AdmissionGate decides over kkt-admission's WebSession and keeps a Principal in kkt-web's sessions; kkt-admission has no sessions, settings or SignIn of its own (step 6.1)"
+     },
+     {
+      "status": "decided",
+      "text": "it makes the page's sessions with their Access and reads a Session for the gate (step 6.1)"
      }
     ]
    },
@@ -8046,6 +8150,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct CredentialFileFix"
+     },
+     {
+      "status": "decided",
       "text": "ask::Prompter::new takes lines: where the questions are asked; the program wires its terminal in"
      },
      {
@@ -8276,11 +8384,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Sessions loses lookup, secret: session replaces lookup; the form tokens use the session ID's hash, not a secret of their own (step 6.1)"
+     },
+     {
+      "status": "decided",
       "text": "router no longer takes sources: the router takes kkt-api-agent's Api instead"
      },
      {
       "status": "decided",
       "text": "Sessions gains form_token, form_token_matches: from kkt-admission's WebAdmission, with the sessions"
+     },
+     {
+      "status": "decided",
+      "text": "Sessions gains access, session, sign_in_required: the sessions know from their Access whether sign-in is required, and session finds a request's session, absent, ended or live (step 6.1)"
      },
      {
       "status": "decided",
@@ -8417,6 +8533,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct PageLimits"
+     },
+     {
+      "status": "decided",
+      "text": "new enum Access"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Held"
+     },
+     {
+      "status": "decided",
+      "text": "new enum Session"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Door"
      },
      {
       "status": "decided",
@@ -8670,6 +8802,12 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "uses",
     "to": "kkt-config"
+   },
+   {
+    "from": "kkt-admission",
+    "kind": "dev",
+    "role": "uses",
+    "to": "kkt-clock"
    },
    {
     "from": "kkt-admission",
@@ -9082,31 +9220,31 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-admission-os": {
-    "concern": "The server's key files on disk: reading the access, web and admin keys and the admin name file, and writing a key file only its owner can read, new or replaced when forced, with kkt-admission's file mode. `KeyFiles` is a plain type; the programs adapt it to kkt-admission's `KeyTexts`, and kkt calls it to make and write keys.",
+    "concern": "The server's key files on disk: reading the access, web and admin keys and the admin name file, and writing a key file only its owner can read, new or replaced when forced, with kkt-admission's file mode. `KeyFiles` is a plain type; the programs adapt it to kkt-admission's `KeyTexts`, and kkt calls it to make and write keys, with a key factory the caller gives, so it draws no randomness of its own; a failed read is its own `ReadError`, with the file's path.",
     "kind": "effect",
     "layer": "access",
     "status": "decided"
    },
    "kkt-agent-client": {
-    "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (read with their owner and mode, made private when kkt-setup's rule says so), watch's state file and its lock, reaching the server as an agent or admin through plain methods with its own types, and plain HTTP for probes. It knows nothing of kkt-watch; the program adapts it.",
+    "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (read with their owner and mode, which the caller's `CredentialCheck` judges as named `CredentialFileFacts`, and made private as its `PrivateMode` says, with warnings through the caller's callbacks; in kkt the check is kkt-setup's rule), watch's state file and its lock, reaching the server as an agent or admin through plain methods with its own types, and plain HTTP for probes. It knows nothing of kkt-watch; the program adapts it.",
     "kind": "effect",
     "layer": "clients",
     "status": "decided"
    },
    "kkt-api-admin": {
-    "concern": "What /mcp-admin's administrator does: the 12 admin_* reads (Admin), and what is server-wide, creating a swarm (Swarms), with AdminChannel. kkt-rules implements it; kkt-mcp, for /mcp-admin, and kkt-mcp-formatter use it, and the fake product creates its second swarm through it.",
+    "concern": "What /mcp-admin's administrator does: the 12 admin_* reads (Admin), and what is server-wide, creating a swarm (Swarms), with AdminChannel, and `AdminApi`, every operation /mcp-admin uses in one swarm: kkt-api-operator's `OperatorApi` and `Admin`, so kkt-api-admin depends on kkt-api-operator. kkt-rules implements it; kkt-mcp, for /mcp-admin, and kkt-mcp-formatter use it, and the fake product creates its second swarm through it.",
     "kind": "contract",
     "layer": "core",
     "status": "decided"
    },
    "kkt-api-agent": {
-    "concern": "What any registered agent may do, and the records every level shares: the agent's operations by area (Api, Agents, Channels, Messages, Memory, Lanes), the records, queries and errors they and the other levels use, Settings and MAX_LANE_DESCRIPTION_CHARS. One of three contract crates, one per level of authority; kkt-api-operator and kkt-api-admin depend on it for the shared records. kkt-rules implements it; /mcp uses only it.",
+    "concern": "What any registered agent may do, and the records every level shares: the agent's operations by area (Api, Agents, Channels, Messages, Memory, Lanes), the records, queries and errors they and the other levels use, Settings and MAX_LANE_DESCRIPTION_CHARS, `Limits`, the limits `Api::limits` reports, and `Answer`, the future every operation of the three levels returns. One of three contract crates, one per level of authority; kkt-api-operator and kkt-api-admin depend on it for the shared records. kkt-rules implements it; /mcp uses only it.",
     "kind": "contract",
     "layer": "core",
     "status": "decided"
    },
    "kkt-api-operator": {
-    "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (Overview, AgentActivity, ActivityCount, ChannelView, ChannelActivity, LaneHistory, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange), and Answer, the future each operation returns. It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here.",
+    "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (Overview, AgentActivity, ActivityCount, ChannelView, ChannelActivity, LaneHistory, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange), and `OperatorApi`, every operation the operator may use in one swarm, the agent level's included. It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here.",
     "kind": "contract",
     "layer": "core",
     "status": "decided"
@@ -9309,7 +9447,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-mcp": {
-    "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It calls the kkt-api crates directly and depends on no kkt-rules type: kkt-api-agent for /mcp, and for /mcp-admin kkt-api-admin and the operator operations it offers. It declares the `Identify` it asks; kkt-server hands it the program's adapter.",
+    "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool. It calls the kkt-api crates directly and depends on no kkt-rules type: kkt-api-agent's `Api` for /mcp, and for /mcp-admin kkt-api-admin's `AdminApi`, which includes the operator operations it offers. It declares the `Identify` it asks; kkt-server hands it the program's adapter.",
     "kind": "logic",
     "layer": "surfaces",
     "must_not": "Touch the database except through the rules, hold tool text in Rust, or decide who a caller is except through `Identify`.",
@@ -9441,7 +9579,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-web": {
-    "concern": "The human's pages, over the application's operations: it calls kkt-api-agent and kkt-api-operator directly and renders their records. Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is. It keeps the sign-in sessions and form tokens itself, the page-only limits (`PageLimits`), and its live updates, which it draws from kkt-api-operator's subscribe. The page scenarios every implementation must pass (`testing`).",
+    "concern": "The human's pages, over the application's operations: it calls kkt-api-agent and kkt-api-operator directly and renders their records. Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is. It keeps the sign-in sessions and form tokens itself (`Sessions`, generic over what the gate says a key admits, and told by its `Access` whether sign-in is required), with their lifetime in its `Settings`, the page-only limits (`PageLimits`), and its live updates, which it draws from kkt-api-operator's subscribe. The page scenarios every implementation must pass (`testing`).",
     "kind": "logic",
     "layer": "surfaces",
     "must_not": "Depend on the rules, the store, admission or identity, or on an implementation crate: it uses the agent and operator levels' contracts, and kkt-server implements its Gate.",
@@ -9559,13 +9697,7 @@ window.KKT_PROPOSED = {
     },
     {
      "crate": "kkt-web",
-     "doc": "kkt-web's share of today's Limits: web_page_messages and web_member_excerpt_chars, and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules.",
-     "kind": "struct",
-     "path": "Settings"
-    },
-    {
-     "crate": "kkt-admission",
-     "doc": "kkt-admission's share of today's Limits: web_session_lifetime.",
+     "doc": "kkt-web's share of today's Limits: web_page_messages, web_member_excerpt_chars and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules.",
      "kind": "struct",
      "path": "Settings"
     }
@@ -9593,8 +9725,7 @@ window.KKT_PROPOSED = {
     "kkt-server": [
      "kkt-rules::Settings",
      "kkt-mcp-formatter::Settings",
-     "kkt-web::Settings",
-     "kkt-admission::Settings"
+     "kkt-web::Settings"
     ],
     "kkt-settings": [
      "kkt-settings::Limits"
@@ -10545,7 +10676,7 @@ window.KKT_PROPOSED = {
     "how": "injected",
     "item": "Limits",
     "kind": "struct",
-    "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes, kkt-admission's session lifetime), each with its own check; kkt-settings gathers them and the program fills them",
+    "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes and session lifetime (step 6.1)), each with its own check; kkt-settings gathers them and the program fills them",
     "test_only": [
      "kkt-mcp-formatter",
      "kkt-identity"
@@ -12240,13 +12371,6 @@ window.KKT_PROPOSED = {
       "path": "machine::settings::serve_bind"
      },
      {
-      "doc": "The web sessions' share of `limits`. (step 3.5c)",
-      "kind": "fn",
-      "path": "machine::settings::session_settings",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "The web page's share of `limits`. (step 3.5c)",
       "kind": "fn",
       "path": "machine::settings::web_settings",
@@ -12303,11 +12427,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::keys::make_default_key moves to kkt-admission-os: writes a new key made from the entropy it is given"
+      "text": "machine::keys::make_default_key moves to kkt-admission-os: writes a missing default key; the caller gives the key factory, and it returns the path only when it made the file, so the program reports it (step 7.2)"
      },
      {
       "status": "decided",
-      "text": "machine::keys::new_key_file moves to kkt-admission-os"
+      "text": "machine::keys::new_key_file moves to kkt-admission-os: the caller gives the key factory, called after the folder is made (step 7.2)"
      },
      {
       "status": "decided",
@@ -12315,7 +12439,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::keys::write_admin_name moves to kkt-admission-os"
+      "text": "machine::keys::write_admin_name moves to kkt-admission-os: writes the name text the program has already bound to the key, or removes the old name file; the program keeps its own wording (step 7.2)"
      },
      {
       "status": "decided",
@@ -12468,10 +12592,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn machine::settings::web_settings"
-     },
-     {
-      "status": "decided",
-      "text": "new fn machine::settings::session_settings"
      },
      {
       "status": "decided",
@@ -12736,6 +12856,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program adapts its terminal to setup's Lines; the questions' rules are kkt-setup's Prompter's (step 7.1b)"
+     },
+     {
+      "status": "decided",
+      "text": "the program's KeyTexts adapter turns a failed read into its own refusal (step 7.2)"
+     },
+     {
+      "status": "decided",
+      "text": "the program's credential check reads the client's CredentialFileFacts and gives its PrivateMode; read_secret, make_private and the lock are the client's own, behind watch_token and StateFile (step 7.4)"
      }
     ],
     "released_program": true,
@@ -12951,16 +13079,9 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "doc": "Why kkt-admission's settings are refused: a key, the access key setting or the session lifetime.",
+      "doc": "Why kkt-admission's settings are refused: a key or the access key setting; the session lifetime is kkt-web's (step 6.1).",
       "kind": "struct",
       "path": "SettingError",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "kkt-admission's share of today's Limits: web_session_lifetime.",
-      "kind": "struct",
-      "path": "Settings",
       "proposed_item": true,
       "status": "decided"
      },
@@ -12976,16 +13097,7 @@ window.KKT_PROPOSED = {
       "path": "SharedKey"
      },
      {
-      "doc": "The answer to a sign-in.",
-      "kind": "enum",
-      "path": "SignIn",
-      "variants": [
-       "Started",
-       "Refused"
-      ]
-     },
-     {
-      "doc": "Admission for the web page: whether sign-in is needed, whether a key is good and whom it admits, and the decision for an open page. The sessions are kkt-web's.",
+      "doc": "Admission for the web page: whether sign-in is needed, whether a key is good and whom it admits, and the decision for an open page or a session's holder, over its own WebSession. The sessions are kkt-web's (step 6.1).",
       "kind": "struct",
       "methods": [
        "decide",
@@ -12994,6 +13106,13 @@ window.KKT_PROPOSED = {
        "sign_in_required"
       ],
       "path": "WebAdmission",
+      "status": "decided"
+     },
+     {
+      "doc": "The session a web request presents, as the page found it (step 6.1).",
+      "kind": "enum",
+      "path": "WebSession",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -13207,6 +13326,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "SignIn is no longer public: WebAdmission::sign_in returns a Decision; the session is started by kkt-web (step 6.1)"
+     },
+     {
+      "status": "decided",
       "text": "new fn server_keys::bound_to"
      },
      {
@@ -13235,7 +13358,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new struct Settings"
+      "text": "new enum WebSession"
      },
      {
       "status": "decided",
@@ -13256,6 +13379,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "hashes through kkt-hash, not sha2"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-clock in its tests: the session tests, which used a fixed clock, moved to kkt-web (step 6.1)"
      }
     ],
     "released_program": false,
@@ -13300,15 +13427,19 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text; whether one is there; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts.",
+      "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text, a failed read as ReadError with its path; reading any one key or name file; whether one is there; making a key's folder; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts (step 7.2).",
       "feature": "real",
       "kind": "struct",
       "methods": [
        "access",
        "admin",
        "admin_names",
+       "create_dir_all",
        "exists",
        "keep_staged",
+       "new",
+       "read",
+       "read_optional",
        "remove",
        "web"
       ],
@@ -13317,7 +13448,15 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "`kkt key create`: writes a new key to a file only the owner can read, and says how to use it.",
+      "doc": "A failed key-file read, retaining its path and underlying I/O error (step 7.2).",
+      "feature": "real",
+      "kind": "struct",
+      "path": "ReadError",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Writes a missing default key, drawing a key only after making its folder (step 7.2).",
       "feature": "real",
       "kind": "fn",
       "moved_from": "kashkeshet",
@@ -13325,7 +13464,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Makes a new random key and writes it to `path`, creating its folder if needed.",
+      "doc": "Creates a new private key file, making its folder before drawing the key (step 7.2).",
       "feature": "real",
       "kind": "fn",
       "moved_from": "kashkeshet",
@@ -13333,7 +13472,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Ties `name` to the new admin key `key`, just written to the file at `path`, in the name file beside it.",
+      "doc": "Writes already-bound admin-name text beside the key, or removes the old name file (step 7.2).",
       "feature": "real",
       "kind": "fn",
       "moved_from": "kashkeshet",
@@ -13381,7 +13520,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct ReadError"
+     },
+     {
+      "status": "decided",
       "text": "key files are written with kkt-admission's file mode"
+     },
+     {
+      "status": "decided",
+      "text": "the key texts it reads, the default key's place and the admin name file's path (step 7.2)"
      }
     ],
     "released_program": false,
@@ -13449,10 +13596,30 @@ window.KKT_PROPOSED = {
       "path": "Client"
      },
      {
-      "doc": "A new agent credential file, made only its owner can read and removed unless saved.",
+      "doc": "The caller's rule over the path and named file/caller facts (step 7.4).",
+      "feature": "real",
+      "kind": "type",
+      "path": "CredentialCheck",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A new agent credential file, made only its owner can read and removed unless saved; a failed removal goes to the caller's callback, which keeps the log's target (step 7.4).",
       "feature": "real",
       "kind": "struct",
+      "methods": [
+       "create",
+       "save"
+      ],
       "path": "CredentialFile",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The inspected file and the caller whose access is checked (step 7.4).",
+      "feature": "real",
+      "kind": "struct",
+      "path": "CredentialFileFacts",
       "proposed_item": true,
       "status": "decided"
      },
@@ -13470,6 +13637,9 @@ window.KKT_PROPOSED = {
       "doc": "A lock on a state file, so one watch uses it at a time.",
       "feature": "real",
       "kind": "struct",
+      "methods": [
+       "take"
+      ],
       "path": "FileLock",
       "proposed_item": true,
       "status": "decided"
@@ -13479,6 +13649,14 @@ window.KKT_PROPOSED = {
       "feature": "real",
       "kind": "struct",
       "path": "Http",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Why a `FileLock` was not taken (step 7.4).",
+      "feature": "real",
+      "kind": "enum",
+      "path": "LockRefused",
       "proposed_item": true,
       "status": "decided"
      },
@@ -13493,6 +13671,14 @@ window.KKT_PROPOSED = {
       "doc": "A newer version of the avatar's lane.",
       "kind": "struct",
       "path": "NewerLane",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A checked permission change, with caller-supplied advice and warning (step 7.4).",
+      "feature": "real",
+      "kind": "struct",
+      "path": "PrivateMode",
       "proposed_item": true,
       "status": "decided"
      },
@@ -13542,6 +13728,11 @@ window.KKT_PROPOSED = {
       "doc": "The file where kkt watch keeps the highest message ID it has seen. The program adapts it to kkt-watch's Place.",
       "feature": "real",
       "kind": "struct",
+      "methods": [
+       "claim",
+       "load",
+       "save"
+      ],
       "path": "StateFile",
       "proposed_item": true,
       "status": "decided"
@@ -13554,7 +13745,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Takes group and other access off an agent credential file.",
+      "doc": "Applies the caller's CredentialCheck to an opened credential file: takes group and other access off it as the PrivateMode says, and returns the warning (step 7.4).",
       "feature": "real",
       "kind": "fn",
       "path": "make_private",
@@ -13562,7 +13753,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Reads an agent secret from a file, with the file's owner and mode, for kkt-setup's credential_file_check to judge.",
+      "doc": "Reads an agent secret from the same opened file whose owner and mode the caller's CredentialCheck judges, tightening it as the check's PrivateMode says and passing its warning to the caller's callback (step 7.4).",
       "feature": "real",
       "kind": "fn",
       "path": "read_secret",
@@ -13570,7 +13761,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The token kkt watch uses: from its file, else from KKT_TOKEN.",
+      "doc": "The token kkt watch uses: from its file, read as read_secret reads, else from KKT_TOKEN (step 7.4).",
       "feature": "real",
       "kind": "fn",
       "path": "watch_token",
@@ -13663,6 +13854,22 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new type CredentialCheck"
+     },
+     {
+      "status": "decided",
+      "text": "new struct CredentialFileFacts"
+     },
+     {
+      "status": "decided",
+      "text": "new struct PrivateMode"
+     },
+     {
+      "status": "decided",
+      "text": "new enum LockRefused"
+     },
+     {
+      "status": "decided",
       "text": "AdminRemote no longer implements kkt-watch::Server"
      },
      {
@@ -13715,6 +13922,10 @@ window.KKT_PROPOSED = {
       "trait": "Admin"
      },
      {
+      "implementors": [],
+      "trait": "AdminApi"
+     },
+     {
       "implementors": [
        {
         "crate": "kkt-rules",
@@ -13748,6 +13959,16 @@ window.KKT_PROPOSED = {
        "admin_recall"
       ],
       "path": "Admin",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Every operation /mcp-admin uses, in one swarm: the operator's and the admin reads (step 5.4b).",
+      "kind": "trait",
+      "methods": [
+       "in_swarm_admin"
+      ],
+      "path": "AdminApi",
       "proposed_item": true,
       "status": "decided"
      },
@@ -13797,7 +14018,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new trait AdminApi"
+     },
+     {
+      "status": "decided",
       "text": "the admin reads take and return kkt-api-agent's shared records"
+     },
+     {
+      "status": "decided",
+      "text": "the admin reads return Answer, which carries the result and its error, and take the agent level's queries (steps 5.3b and 5.4b)"
+     },
+     {
+      "status": "decided",
+      "text": "AdminApi includes OperatorApi, the operator's operations in one swarm (step 5.4b)"
      }
     ],
     "released_program": false,
@@ -13984,6 +14217,13 @@ window.KKT_PROPOSED = {
        "list_agents"
       ],
       "path": "Agents",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "What an operation gives back: a future of its result, so the traits work through dyn; one type, kkt-api-agent's, for all three kkt-api crates (steps 5.4a and 5.3b).",
+      "kind": "type",
+      "path": "Answer",
       "proposed_item": true,
       "status": "decided"
      },
@@ -14235,6 +14475,9 @@ window.KKT_PROPOSED = {
      {
       "doc": "The limits the operations enforce, as Api::limits reports them: page sizes, body and text lengths, the announcement's, lanes' and lane descriptions' sizes. A record of values; where they come from is the implementation's.",
       "kind": "struct",
+      "methods": [
+       "limit"
+      ],
       "path": "Limits",
       "proposed_item": true,
       "status": "decided"
@@ -14856,6 +15099,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Limits"
+     },
+     {
+      "status": "decided",
+      "text": "new type Answer"
      }
     ],
     "released_program": false,
@@ -14891,6 +15138,10 @@ window.KKT_PROPOSED = {
        }
       ],
       "trait": "Lanes"
+     },
+     {
+      "implementors": [],
+      "trait": "OperatorApi"
      },
      {
       "implementors": [
@@ -14936,13 +15187,6 @@ window.KKT_PROPOSED = {
       "doc": "An agent and the channels it is in (step 5.4a).",
       "kind": "struct",
       "path": "AgentActivity",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "What an operation gives back: a future of its result, so the traits work through dyn (step 5.4a).",
-      "kind": "type",
-      "path": "Answer",
       "proposed_item": true,
       "status": "decided"
      },
@@ -15052,6 +15296,16 @@ window.KKT_PROPOSED = {
        "retire_lane"
       ],
       "path": "Lanes",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Every operation the operator may use, in one swarm: the agent level's and the operator's own (step 5.4b).",
+      "kind": "trait",
+      "methods": [
+       "in_swarm_operator"
+      ],
+      "path": "OperatorApi",
       "proposed_item": true,
       "status": "decided"
      },
@@ -15208,11 +15462,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new type Answer"
+      "text": "new trait OperatorApi"
      },
      {
       "status": "decided",
       "text": "the operator level takes and returns the shared records"
+     },
+     {
+      "status": "decided",
+      "text": "OperatorApi includes the agent level's Api; the operations return Answer and some take an Actor (steps 5.3b and 5.4b)"
      }
     ],
     "released_program": false,
@@ -20616,6 +20874,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "endpoint no longer takes rules: the agent endpoint takes api, kkt-api-agent's Api (step 5.3b)"
+     },
+     {
+      "status": "decided",
       "text": "MCP_SSE_KEEP_ALIVE is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1b)"
      },
      {
@@ -20632,11 +20894,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "endpoint takes one rules value meeting kkt-api-agent::Api"
-     },
-     {
-      "status": "decided",
-      "text": "mcp_admin::endpoint takes one rules value meeting kkt-api-agent::Api"
+      "text": "mcp_admin::endpoint takes one rules value meeting kkt-api-admin::AdminApi"
      },
      {
       "status": "decided",
@@ -20645,6 +20903,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "mcp_admin::endpoint takes log: where its events go, in place of tracing"
+     },
+     {
+      "status": "decided",
+      "text": "endpoint takes api: the agent endpoint calls kkt-api-agent, not kkt-rules: an Arc<dyn Api> (step 5.3b)"
      },
      {
       "status": "decided",
@@ -20660,7 +20922,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "/mcp-admin calls the operator operations it offers: changing channels, hiding agents, lanes and the announcement"
+      "text": "/mcp-admin calls the operator operations it offers: changing channels, hiding agents, lanes and the announcement; it calls them through kkt-api-admin's AdminApi, which includes them, and names only their records (step 5.4b)"
      },
      {
       "status": "decided",
@@ -20723,20 +20985,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "at": "endpoint",
-      "holds": [],
-      "kind": "param",
-      "name": "rules",
-      "note": "the agent endpoint calls kkt-api-agent, not kkt-rules",
-      "status": "decided",
-      "traits": [
-       {
-        "crate": "kkt-api-agent",
-        "trait": "Api"
-       }
-      ]
-     },
-     {
       "at": "mcp_admin::endpoint",
       "holds": [
        {
@@ -20770,12 +21018,12 @@ window.KKT_PROPOSED = {
       "holds": [],
       "kind": "param",
       "name": "rules",
-      "note": "as endpoint",
+      "note": "the admin endpoint takes an Arc<dyn AdminApi> and moves into the caller's swarm with in_swarm_admin (step 5.4b)",
       "status": "decided",
       "traits": [
        {
-        "crate": "kkt-api-agent",
-        "trait": "Api"
+        "crate": "kkt-api-admin",
+        "trait": "AdminApi"
        }
       ]
      },
@@ -20804,6 +21052,20 @@ window.KKT_PROPOSED = {
        {
         "crate": "kkt-log",
         "trait": "Log"
+       }
+      ]
+     },
+     {
+      "at": "endpoint",
+      "kind": "param",
+      "name": "api",
+      "note": "the agent endpoint calls kkt-api-agent, not kkt-rules: an Arc<dyn Api> (step 5.3b)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-api-agent",
+        "trait": "Api"
        }
       ]
      }
@@ -20932,6 +21194,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-rules in its code: the wording moved to kkt-rules and the records to the kkt-api crates, so the formatter's library uses nothing of kkt-rules (step 5.5)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests read kkt-rules' default settings (step 5.5)"
+     },
+     {
+      "status": "decided",
+      "text": "the wording, which named the admin endpoint's Audit, moved to kkt-rules (step 5.5)"
+     },
+     {
+      "status": "decided",
+      "text": "the wording's tests moved with it to kkt-rules (step 5.5)"
      },
      {
       "status": "decided",
@@ -21804,6 +22082,7 @@ window.KKT_PROPOSED = {
        "create_channel",
        "create_channel_as_operator",
        "create_lane",
+       "create_swarm",
        "current_server_announcement",
        "forget",
        "get_message",
@@ -21855,7 +22134,8 @@ window.KKT_PROPOSED = {
        "update_lane",
        "wait_for_messages"
       ],
-      "path": "Rules"
+      "path": "Rules",
+      "status": "decided"
      },
      {
       "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars.",
@@ -22195,6 +22475,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Rules gains create_swarm: records a new swarm as made by this server run; Swarms::create_swarm forwards to it (step 5.4b)"
+     },
+     {
+      "status": "decided",
       "text": "new fn legacy"
      },
      {
@@ -22251,7 +22535,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead"
+      "text": "no longer uses kkt-db-sqlite in its tests: its tests use kkt-rules' in-memory database instead. Its own tests still use kkt-db-sqlite's, for speed (step 5.3b), a difference the proposal's rule cannot draw: the scorecard counts it as a break"
      },
      {
       "status": "decided",
@@ -22275,7 +22559,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its operator operations give their answers as kkt-api-operator's Answer (step 5.4a)"
+      "text": "its operations give their answers as kkt-api-agent's Answer, shared by the three levels (steps 5.4a and 5.3b)"
      }
     ],
     "released_program": false,
@@ -22773,6 +23057,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests give the parts a CapturedLog (step 4.2)"
+     },
+     {
+      "status": "decided",
+      "text": "AdmissionGate decides over kkt-admission's WebSession and keeps a Principal in kkt-web's sessions; kkt-admission has no sessions, settings or SignIn of its own (step 6.1)"
+     },
+     {
+      "status": "decided",
+      "text": "it makes the page's sessions with their Access and reads a Session for the gate (step 6.1)"
      }
     ],
     "released_program": false,
@@ -24059,6 +24351,13 @@ window.KKT_PROPOSED = {
       ]
      },
      {
+      "doc": "The change needed to take group and other access off a credential file (step 7.4).",
+      "kind": "struct",
+      "path": "CredentialFileFix",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The Docker install kkt manages.",
       "fields": [
        "folder",
@@ -24551,7 +24850,7 @@ window.KKT_PROPOSED = {
       "path": "create_destination_check"
      },
      {
-      "doc": "The rule for an agent credential file, from its owner and mode: refuse one another user owns, with the advice to fix it; tighten one others can read, with a warning.",
+      "doc": "The rule for an agent credential file, from its owner and mode: refuse one another user owns, with the advice to fix it, quoting the caller's path; tighten one others can read, as a CredentialFileFix with a warning (step 7.4).",
       "kind": "fn",
       "path": "credential_file_check",
       "proposed_item": true,
@@ -24952,6 +25251,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new mod testing"
+     },
+     {
+      "status": "decided",
+      "text": "new struct CredentialFileFix"
      },
      {
       "status": "decided",
@@ -25645,6 +25948,10 @@ window.KKT_PROPOSED = {
       "trait": "Gate"
      },
      {
+      "implementors": [],
+      "trait": "Held"
+     },
+     {
       "implementors": [
        {
         "crate": "kkt-web",
@@ -25673,6 +25980,13 @@ window.KKT_PROPOSED = {
     ],
     "items": [
      {
+      "doc": "Whether viewers sign in to see the page (step 6.1).",
+      "kind": "enum",
+      "path": "Access",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "",
       "kind": "enum",
       "path": "Admit",
@@ -25683,13 +25997,20 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "doc": "Who is viewing: whether a key lets a viewer in (sign_in), and who a signed-in or open viewer is (admits). kkt-web keeps the sessions itself.",
+      "doc": "Who is viewing: whether a key lets a viewer in (sign_in), and who a signed-in or open viewer is (admits), asked about what a session holds, its SignedIn (kkt-server's Principal). kkt-web keeps the sessions itself (step 6.1).",
       "kind": "trait",
       "methods": [
        "admits",
        "sign_in"
       ],
       "path": "Gate",
+      "status": "decided"
+     },
+     {
+      "doc": "What a session can hold: whatever the gate says a key admits (step 6.1).",
+      "kind": "trait",
+      "path": "Held",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -25767,16 +26088,24 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "The session a request presents, as `Sessions::session` finds it (step 6.1).",
+      "kind": "enum",
+      "path": "Session",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The sessions in effect.",
       "kind": "struct",
       "methods": [
+       "access",
        "end",
        "form_token",
        "form_token_matches",
        "lifetime",
-       "lookup",
        "new",
-       "secret",
+       "session",
+       "sign_in_required",
        "start"
       ],
       "moved_from": "kkt-admission",
@@ -25784,14 +26113,14 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "kkt-web's share of today's Limits: web_page_messages and web_member_excerpt_chars, and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules.",
+      "doc": "kkt-web's share of today's Limits: web_page_messages, web_member_excerpt_chars and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules.",
       "kind": "struct",
       "path": "Settings",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "",
+      "doc": "The answer to a key typed at sign-in: admitted, with what the session will hold, or refused with a reason (step 6.1).",
       "kind": "enum",
       "path": "SignIn",
       "variants": [
@@ -25838,6 +26167,14 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "testing::ChannelHidden"
+     },
+     {
+      "doc": "What a site in a scenario is behind: a gate, and the page's sessions, which the caller makes with its own clock and entropy (step 6.1).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::Door",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "",
@@ -26091,11 +26428,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Sessions loses lookup, secret: session replaces lookup; the form tokens use the session ID's hash, not a secret of their own (step 6.1)"
+     },
+     {
+      "status": "decided",
       "text": "router no longer takes sources: the router takes kkt-api-agent's Api instead"
      },
      {
       "status": "decided",
       "text": "Sessions gains form_token, form_token_matches: from kkt-admission's WebAdmission, with the sessions"
+     },
+     {
+      "status": "decided",
+      "text": "Sessions gains access, session, sign_in_required: the sessions know from their Access whether sign-in is required, and session finds a request's session, absent, ended or live (step 6.1)"
      },
      {
       "status": "decided",
@@ -26232,6 +26577,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct PageLimits"
+     },
+     {
+      "status": "decided",
+      "text": "new enum Access"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Held"
+     },
+     {
+      "status": "decided",
+      "text": "new enum Session"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Door"
      },
      {
       "status": "decided",
@@ -26957,6 +27318,7 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "items": [
      "KeyFiles",
+     "ReadError",
      "make_default_key",
      "new_key_file",
      "write_admin_name",
@@ -26970,6 +27332,7 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "KeyFiles",
+       "ReadError",
        "make_default_key",
        "new_key_file",
        "write_admin_name",
@@ -26994,13 +27357,12 @@ window.KKT_PROPOSED = {
      "AdminRemote",
      "Client",
      "CredentialFile",
+     "CredentialFileFacts",
      "Failure",
-     "FileLock",
+     "PrivateMode",
      "Remote",
      "Settings",
      "StateFile",
-     "make_private",
-     "read_secret",
      "watch_token"
     ],
     "kind": "normal",
@@ -27012,12 +27374,11 @@ window.KKT_PROPOSED = {
       "detail": [
        "Client",
        "CredentialFile",
+       "CredentialFileFacts",
        "Failure",
-       "FileLock",
+       "PrivateMode",
        "Settings",
        "StateFile",
-       "make_private",
-       "read_secret",
        "watch_token"
       ],
       "role": "uses"
@@ -28811,38 +29172,6 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-admission",
     "items": [
-     "Span",
-     "Time",
-     "testing::FixedClock"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Span",
-       "Time"
-      ],
-      "role": "uses"
-     },
-     {
-      "detail": [
-       "testing::FixedClock"
-      ],
-      "role": "wires"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-clock"
-   },
-   {
-    "features": [
-     "testing"
-    ],
-    "from": "kkt-admission",
-    "items": [
      "testing::SeqEntropy"
     ],
     "kind": "dev",
@@ -28947,7 +29276,10 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-admission-os",
     "items": [
-     "ACCESS_KEY_FILE_MODE"
+     "ACCESS_KEY_FILE_MODE",
+     "AccessKey",
+     "admin_name_path",
+     "server_keys::KeyText"
     ],
     "kind": "normal",
     "optional": false,
@@ -28956,7 +29288,10 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "ACCESS_KEY_FILE_MODE"
+       "ACCESS_KEY_FILE_MODE",
+       "AccessKey",
+       "admin_name_path",
+       "server_keys::KeyText"
       ],
       "role": "uses"
      }
@@ -28998,6 +29333,7 @@ window.KKT_PROPOSED = {
      "ActivityRow",
      "AgentInfo",
      "AgentView",
+     "Answer",
      "ChannelInfo",
      "ChannelNote",
      "Members",
@@ -29007,10 +29343,9 @@ window.KKT_PROPOSED = {
      "MessagePage",
      "Operator",
      "Page",
-     "Position",
-     "Result",
-     "RuleError",
-     "SwarmId"
+     "ReadQuery",
+     "SwarmId",
+     "WaitResult"
     ],
     "kind": "normal",
     "optional": false,
@@ -29022,6 +29357,7 @@ window.KKT_PROPOSED = {
        "ActivityRow",
        "AgentInfo",
        "AgentView",
+       "Answer",
        "ChannelInfo",
        "ChannelNote",
        "Members",
@@ -29031,10 +29367,9 @@ window.KKT_PROPOSED = {
        "MessagePage",
        "Operator",
        "Page",
-       "Position",
-       "Result",
-       "RuleError",
-       "SwarmId"
+       "ReadQuery",
+       "SwarmId",
+       "WaitResult"
       ],
       "role": "uses"
      }
@@ -29048,10 +29383,38 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
+    "from": "kkt-api-admin",
+    "items": [
+     "OperatorApi"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "OperatorApi"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-operator"
+   },
+   {
+    "features": [],
     "from": "kkt-api-operator",
     "items": [
+     "Actor",
      "AgentInfo",
      "AgentView",
+     "Answer",
+     "Api",
      "ChannelInfo",
      "ChannelRef",
      "Lane",
@@ -29061,8 +29424,6 @@ window.KKT_PROPOSED = {
      "NewChannel",
      "Operator",
      "Page",
-     "Result",
-     "RuleError",
      "ServerAnnouncement",
      "SwarmId"
     ],
@@ -29073,8 +29434,11 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Actor",
        "AgentInfo",
        "AgentView",
+       "Answer",
+       "Api",
        "ChannelInfo",
        "ChannelRef",
        "Lane",
@@ -29084,8 +29448,6 @@ window.KKT_PROPOSED = {
        "NewChannel",
        "Operator",
        "Page",
-       "Result",
-       "RuleError",
        "ServerAnnouncement",
        "SwarmId"
       ],
@@ -30245,7 +30607,6 @@ window.KKT_PROPOSED = {
     "from": "kkt-fake-product",
     "items": [
      "Agent",
-     "Agents",
      "Api",
      "Audit",
      "Code",
@@ -30264,7 +30625,6 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "Agent",
-       "Agents",
        "Api",
        "Audit",
        "Code",
@@ -30943,7 +31303,6 @@ window.KKT_PROPOSED = {
      "AgentInfo",
      "AgentLane",
      "AgentView",
-     "Audit",
      "ChannelInfo",
      "ChannelNote",
      "ChannelRef",
@@ -30980,7 +31339,6 @@ window.KKT_PROPOSED = {
        "AgentInfo",
        "AgentLane",
        "AgentView",
-       "Audit",
        "ChannelInfo",
        "ChannelNote",
        "ChannelRef",
@@ -31113,7 +31471,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-mcp-formatter",
     "items": [
-     "AdminName",
      "MAX_ADMIN_NAME_CHARS"
     ],
     "kind": "dev",
@@ -31123,11 +31480,13 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "AdminName",
        "MAX_ADMIN_NAME_CHARS"
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -31137,19 +31496,22 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-mcp-formatter",
     "items": [
-     "OperatorWording"
+     "Settings"
     ],
-    "kind": "normal",
+    "kind": "dev",
     "optional": false,
     "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "OperatorWording"
+       "Settings"
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -31182,7 +31544,6 @@ window.KKT_PROPOSED = {
     "from": "kkt-identity",
     "items": [
      "Agent",
-     "Agents",
      "Api",
      "Operator",
      "Result",
@@ -31196,7 +31557,6 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "Agent",
-       "Agents",
        "Api",
        "Operator",
        "Result",
@@ -32375,7 +32735,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-mcp",
     "items": [
-     "Admin"
+     "AdminApi"
     ],
     "kind": "normal",
     "optional": false,
@@ -32384,7 +32744,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Admin"
+       "AdminApi"
       ],
       "role": "uses"
      }
@@ -32402,17 +32762,12 @@ window.KKT_PROPOSED = {
     "items": [
      "Actor",
      "Agent",
-     "Agents",
      "Api",
      "Audit",
      "ChannelQuery",
-     "Channels",
      "ClientInfo",
      "Code",
-     "Lanes",
      "Limits",
-     "Memory",
-     "Messages",
      "NewChannel",
      "Operator",
      "Permission",
@@ -32433,17 +32788,12 @@ window.KKT_PROPOSED = {
       "detail": [
        "Actor",
        "Agent",
-       "Agents",
        "Api",
        "Audit",
        "ChannelQuery",
-       "Channels",
        "ClientInfo",
        "Code",
-       "Lanes",
        "Limits",
-       "Memory",
-       "Messages",
        "NewChannel",
        "Operator",
        "Permission",
@@ -32471,11 +32821,8 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-mcp",
     "items": [
-     "Changes",
      "ChannelChange",
-     "LaneSave",
-     "Lanes",
-     "Server"
+     "LaneSave"
     ],
     "kind": "normal",
     "optional": false,
@@ -32484,11 +32831,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Changes",
        "ChannelChange",
-       "LaneSave",
-       "Lanes",
-       "Server"
+       "LaneSave"
       ],
       "role": "uses"
      }
@@ -33013,6 +33357,7 @@ window.KKT_PROPOSED = {
      "AgentLane",
      "AgentStatus",
      "AgentView",
+     "Answer",
      "Audit",
      "ChannelInfo",
      "ChannelNote",
@@ -33080,6 +33425,7 @@ window.KKT_PROPOSED = {
        "AgentLane",
        "AgentStatus",
        "AgentView",
+       "Answer",
        "Audit",
        "ChannelInfo",
        "ChannelNote",
@@ -33136,7 +33482,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-rules",
     "items": [
-     "Answer",
      "ChannelActivity",
      "ChannelChange",
      "Kept",
@@ -33162,7 +33507,6 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
-       "Answer",
        "ChannelActivity",
        "ChannelChange",
        "Kept",
@@ -33541,9 +33885,9 @@ window.KKT_PROPOSED = {
      "Admission",
      "Credentials",
      "Decision",
-     "Settings",
-     "SignIn",
-     "WebAdmission"
+     "Principal",
+     "WebAdmission",
+     "WebSession"
     ],
     "kind": "normal",
     "optional": false,
@@ -33556,8 +33900,8 @@ window.KKT_PROPOSED = {
        "Admission",
        "Credentials",
        "Decision",
-       "Settings",
-       "SignIn"
+       "Principal",
+       "WebSession"
       ],
       "role": "uses"
      },
@@ -33573,7 +33917,6 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [
-     "Principal",
      "ServerKey",
      "SharedKey"
     ],
@@ -34308,10 +34651,12 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-server",
     "items": [
+     "Access",
      "Admit",
      "Gate",
      "LiveEvent",
      "PageLimits",
+     "Session",
      "Sessions",
      "Settings",
      "SignIn",
@@ -34331,9 +34676,11 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
+       "Access",
        "Admit",
        "LiveEvent",
        "PageLimits",
+       "Session",
        "Sessions",
        "Settings",
        "SignIn",

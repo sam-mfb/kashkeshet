@@ -312,7 +312,7 @@ fn local_backup(
             no_access_key: options.no_access_key,
             default: default_access_key.as_deref(),
         },
-        &mut |path| path.try_exists().map_err(|e| e.to_string()),
+        &mut |path| kkt_admission_os::KeyFiles::try_exists(path).map_err(|e| e.to_string()),
     )?;
     let contents = backup::Contents {
         database: &database,

@@ -3,7 +3,7 @@
 
 use super::*;
 use kkt_api_agent::Answer;
-use kkt_api_operator::{Changes, Lanes, Server, Views};
+use kkt_api_operator::{Changes, Lanes, NextNotice, Notice, Notices, Server, Views};
 use std::time::Duration;
 
 impl Views for Rules {
@@ -43,6 +43,85 @@ impl Views for Rules {
 
     fn agent_view<'a>(&'a self, operator: &'a Operator, handle: String) -> Answer<'a, AgentView> {
         Box::pin(Rules::agent_view(self, operator, handle))
+    }
+
+    fn subscribe<'a>(&'a self, operator: &'a Operator) -> Answer<'a, Box<dyn Notices>> {
+        Box::pin(async move {
+            operator.may(Permission::Read)?;
+            let notices: Box<dyn Notices> = Box::new(OperatorNotices(Rules::subscribe(self)));
+            Ok(notices)
+        })
+    }
+}
+
+/// The events part's subscription, as the operator's notices.
+struct OperatorNotices(Subscription);
+
+impl Notices for OperatorNotices {
+    fn next(&mut self) -> NextNotice<'_> {
+        Box::pin(async move { self.0.next().await.map(operator_notice) })
+    }
+}
+
+/// The events part's notice, as the operator hears it.
+fn operator_notice(notice: kkt_events::Notice) -> Notice {
+    use kkt_events::Notice as Heard;
+    match notice {
+        Heard::Message(m) => Notice::Message(Message {
+            id: m.id,
+            channel_id: m.channel_id,
+            channel_name: m.channel_name,
+            agent: m.agent,
+            body: m.body,
+            created_at: m.created_at,
+            run_id: m.run_id,
+        }),
+        Heard::Agent(a) => Notice::Agent(kkt_api_operator::NewAgent {
+            handle: a.handle,
+            created_at: a.created_at,
+        }),
+        Heard::Channel(c) => Notice::Channel(kkt_api_operator::ChannelCreated {
+            id: c.id,
+            name: c.name,
+            open: c.open,
+            created_by: c.created_by,
+            member_count: c.member_count,
+        }),
+        Heard::Joined(j) => Notice::Joined(kkt_api_operator::Joined {
+            agent: j.agent,
+            channel_id: j.channel_id,
+            channel_name: j.channel_name,
+            member_count: j.member_count,
+        }),
+        Heard::Left(l) => Notice::Left(kkt_api_operator::Left {
+            agent: l.agent,
+            channel_id: l.channel_id,
+            channel_name: l.channel_name,
+            member_count: l.member_count,
+            by: l.by,
+            by_operator: l.by_operator,
+        }),
+        Heard::ChannelHidden(h) => Notice::ChannelHidden(kkt_api_operator::ChannelHidden {
+            channel_id: h.channel_id,
+            channel_name: h.channel_name,
+            by: h.by,
+            by_operator: h.by_operator,
+        }),
+        Heard::AgentHidden(h) => Notice::AgentHidden(kkt_api_operator::AgentHidden {
+            agent: h.agent,
+            by: h.by,
+            by_operator: h.by_operator,
+            channels: h
+                .channels
+                .into_iter()
+                .map(|c| kkt_api_operator::ChannelMembers {
+                    channel_id: c.channel_id,
+                    channel_name: c.channel_name,
+                    member_count: c.member_count,
+                })
+                .collect(),
+        }),
+        Heard::Missed => Notice::Missed,
     }
 }
 

@@ -219,7 +219,8 @@ impl Rules {
     /// Hears what happens in this swarm from now on: new messages, agents
     /// and channels, members coming and going, and what is hidden. It hears
     /// nothing from another swarm. Its [`Subscription::closer`] ends it.
-    pub fn subscribe(&self) -> Subscription {
+    /// The operator hears the same through `Views::subscribe`.
+    pub(crate) fn subscribe(&self) -> Subscription {
         self.events.subscribe()
     }
 
