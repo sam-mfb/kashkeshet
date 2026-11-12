@@ -8,8 +8,7 @@ use kashkeshet::commands::agent;
 use kashkeshet::commands::lanes;
 use kashkeshet::commands::lifecycle;
 use kashkeshet::commands::serve;
-use kashkeshet::commands::service::{self, ServiceAction, ServiceInstall};
-use kashkeshet::commands::setup::InstallOptions;
+use kashkeshet::commands::service;
 use kashkeshet::commands::{self, doctor, key};
 use kashkeshet::machine::agent_parts::agent_parts;
 use kashkeshet::machine::connection::ConnectionOptions;
@@ -25,6 +24,8 @@ use kkt_machine_os::OsMachine;
 use kkt_operate::agent::AgentAction;
 use kkt_operate::keys::KeyKind;
 use kkt_operate::lanes::LanesAction;
+use kkt_operate::service::{ServiceAction, ServiceInstall};
+use kkt_operate::setup::InstallOptions;
 use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
 use kkt_terminal_os::end_on_closed_output;
@@ -206,7 +207,7 @@ async fn run(
             lifecycle::upgrade(env, platform, serve_args, allow_downgrade).await
         }
         Task::Uninstall => lifecycle::uninstall(env, platform, serve_args).await,
-        Task::Switch(how) => commands::setup::run_switch(env, how).await,
+        Task::Switch(how) => commands::setup::run_switch(env, platform, how).await,
         Task::KeyHeader { key_file, json } => {
             key::header(env, platform, serve_args, key_file, json)
         }

@@ -7,6 +7,8 @@ pub mod key;
 pub mod keys;
 pub mod lanes;
 pub mod record;
+pub mod service;
+pub mod setup;
 
 use kkt_setup::connection::ConnectionSource;
 use std::fmt::Arguments;
@@ -30,6 +32,28 @@ pub trait ServeFacts {
     ) -> Result<PathBuf, String>;
     fn bind(&self) -> Result<std::net::SocketAddr, String>;
     fn default_access_key(&self) -> Option<PathBuf>;
+    fn service_settings(
+        &self,
+        config: Option<PathBuf>,
+        flags: kkt_service::ServiceSettings,
+    ) -> Result<ServiceInputs<'_>, String>;
+}
+
+/// Inputs to the service plan, plus a deferred check with opaque program context.
+pub struct ServiceInputs<'a> {
+    pub request: kkt_service::Request,
+    pub check: Box<dyn CheckService + 'a>,
+}
+
+/// The program checks the plan against its whole serving surface, with its source context.
+pub trait CheckService {
+    fn check(self: Box<Self>, plan: &kkt_service::Plan) -> Result<CheckedService, String>;
+}
+
+/// What the service command needs after the program's settings check.
+pub struct CheckedService {
+    pub bind: std::net::SocketAddr,
+    pub config_file: Option<String>,
 }
 
 /// Required only by commands that inspect an unrecorded service. The program
@@ -54,7 +78,17 @@ pub trait SetupFiles {
     fn read_record(&self, dir: &Path) -> Result<Option<kkt_setup::Record>, String>;
     fn read_unfinished(&self, dir: &Path) -> Result<Option<kkt_setup::Unfinished>, String>;
     fn write_record(&self, dir: &Path, record: &kkt_setup::Record) -> Result<(), String>;
+    fn write_unfinished(
+        &self,
+        dir: &Path,
+        unfinished: &kkt_setup::Unfinished,
+    ) -> Result<(), String>;
+    fn remove_unfinished(&self, dir: &Path) -> Result<(), String>;
+    fn kkt_path(&self) -> Result<PathBuf, String>;
+    fn path_dirs(&self) -> Vec<PathBuf>;
+    fn on_path(&self, dirs: &[PathBuf], program: &str) -> bool;
     fn absolute(&self, path: &Path) -> std::io::Result<PathBuf>;
+    fn program_path(&self) -> std::io::Result<PathBuf>;
     fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf>;
 }
 
@@ -64,9 +98,18 @@ pub trait KeyFiles {
     fn read_optional(&self, path: &Path) -> std::io::Result<Option<String>>;
     fn exists(&self, path: &Path) -> bool;
     fn is_file(&self, path: &Path) -> bool;
+    fn create_dir_all(&self, dir: &Path) -> Result<(), String>;
+    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String>;
+    fn remove(&self, path: &Path) -> std::io::Result<()>;
     fn new_key(&self, path: &Path, force: bool) -> Result<String, String>;
     fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String>;
     fn write_admin_name(&self, path: &Path, bound: Option<&str>) -> Result<(), String>;
+}
+
+/// Config text read and written by setup when allowing a server host.
+pub trait ConfigText {
+    fn read(&self, path: &Path) -> Result<Option<String>, String>;
+    fn write(&self, path: &Path, text: &str) -> Result<(), String>;
 }
 
 /// The local database chosen by the program, opened only after its path is checked.
@@ -87,11 +130,15 @@ pub trait Output {
 pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     pub container: &'a dyn kkt_container::Host,
     pub container_configs: &'a dyn kkt_container::ConfigReader,
+    pub login_link: &'a dyn kkt_container::LoginLink,
     pub service: &'a dyn kkt_service::System,
+    pub try_bind: &'a dyn Fn(std::net::SocketAddr) -> std::io::Result<()>,
     pub remote: &'a dyn kkt_remote_access::Host,
     pub clients: &'a dyn kkt_client_config::Host,
     pub prober: &'a dyn kkt_diagnostics::Prober,
     pub lanes: &'a dyn kkt_lane_files::Disk,
+    pub lines: &'a dyn kkt_setup::Lines,
+    pub config_file: &'a dyn ConfigText,
     pub connection: &'a C,
     pub clock: Arc<dyn kkt_clock::Clock>,
     pub serve: &'a dyn ServeFacts,

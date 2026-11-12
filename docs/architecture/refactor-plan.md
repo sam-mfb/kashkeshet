@@ -108,7 +108,7 @@ it was, or names something the proposal left unnamed.
 | Remove `refactor` from CI's branch lists | 1 | **Accepted by Sam, 2026-11-12.** In the pull request that merges `refactor` into `next` (`refactor-merge.md`) |
 | Log output | 5 | **Accepted by Sam, 2026-11-12.** The same events, targets, levels and fields reach the log |
 | How `refactor` merges into `next` | 6 | **Accepted by Sam, 2026-11-12.** One merge commit, no force-push, after a final review of the whole diff and a full CI run |
-| macOS in CI | 7 | **Accepted by Sam, 2026-11-12, and done sooner:** the macOS checks are back on `refactor` now (#486); watch the files `refactor-merge.md` lists in their first runs |
+| macOS in CI | 7 | **Accepted by Sam, 2026-11-12, and done sooner:** the macOS checks came back on `refactor` (#486), then went off again the same day, since GitHub's macOS runners are short (see "Temporary breaks") |
 | The proposed map after the refactor | 8 | **Accepted by Sam, 2026-11-12.** The proposal is kept as a record, and "Current" is the code |
 
 **To re-show Sam after phases 9 to 11.** Today's decisions overtake these
@@ -233,6 +233,7 @@ this list; one that is not on it blocks.
 
 | Break | Introduced by | Removed by |
 |---|---|---|
+| The macOS Rust checks are off in CI: `macos-15` is out of `ci.yml`'s list of systems, so platform-specific code is reviewed by hand again | Sam, 2026-11-12: GitHub's macOS runners are short, and #497's job never got one (this pull request) | Adding `macos-15` back to the list, as its comment says, or a self-hosted macOS runner |
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
@@ -253,6 +254,8 @@ the last column says so.
 |---|---|---|---|---|
 | kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | accepted by Sam, 2026-11-12 | yes |
 | One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | accepted by Sam, 2026-11-12 | yes |
+| kkt-container's `tailscale_auth_key` and `docker_env` accept a possibly unsized `Host` | 10.2b (setup) | Setup now passes the plan's injected host trait object to the existing file readers; the widening accepts all previous callers and changes no reads or output | awaiting Sam | no arrow or slot change |
+| `ServeFacts::service_settings` returns service-plan inputs and a deferred `CheckService`, which retains opaque program options and their source context | 10.2b (service) | The assembly owns planning and its ordered check/install sequence; the program alone knows and validates its whole serving surface. No serving option type or assembly dependency crosses the boundary | awaiting Sam | to chart at 10.4 |
 | `ServiceDefaults::matches_defaults(args)` answers the installed/default settings comparison; only service-capable `OperateParts` can ask it | 10.2a | Both serving surfaces stay in the program. A service-capable adapter requires `ServeArgs` at construction; record/config-only parts have no such capability. Installed arguments are resolved before defaults; the assembly retains the service-file check and refusal wrapping | required by the 10.2a review; awaiting Sam for the narrowed question | yes (10.4) |
 | `ServerSettings::check` returns opaque `CheckedSettings` containing the immutable settings and their host policy; `Parts::new` consumes that one value | 9.2 | The constructor cannot skip validation or combine settings with a different host policy; the program reads the checked values for its record. The integration harness uses the program's own run-record mapping | requested in the 9.2 review; awaiting Sam for the constructor detail | yes (10.4) |
 | kkt's `new_server_run` is in `machine::server_run`, public, not in `commands::serve` | 9.2, 9.3 | The integration tests' harness records a run as `kkt serve` does, with the program's own mapping, in place of a third copy of it (the 9.2 review) | to show Sam in 10.4 | yes (10.4) |
@@ -1310,9 +1313,11 @@ Each has the default we proceed on, so nothing waits.
    diff and a full CI run. Accepted by Sam, 2026-11-12.
 7. **macOS in CI.** The macOS Rust checks were off for most of the
    refactor, since GitHub had too little macOS runner capacity, and
-   platform-specific code was reviewed by hand meanwhile. They are back on
-   `refactor` now (#486), so the merge's pull request only removes
-   `refactor` from CI's branch lists. Accepted by Sam, 2026-11-12.
+   platform-specific code was reviewed by hand meanwhile. They came back
+   on `refactor` (#486), then went off again the same day, since GitHub's
+   macOS runners are short; "Temporary breaks" lists it. The merge's pull
+   request removes `refactor` from CI's branch lists. Accepted by Sam,
+   2026-11-12.
 8. **The proposed map after the refactor.** Default: step 8.1 keeps the
    proposal as a record of what was planned, with the scorecard at the end,
    and the page's "Current" map shows the code. Accepted by Sam, 2026-11-12.

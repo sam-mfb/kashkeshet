@@ -1547,6 +1547,7 @@ dependencies = [
  "kkt-rules",
  "kkt-service",
  "kkt-setup",
+ "tokio",
 ]
 
 [[package]]

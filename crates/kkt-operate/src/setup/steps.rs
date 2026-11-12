@@ -1,54 +1,48 @@
 //! [`OsSteps`] and [`OsSwitchSteps`]: what `kkt setup` and `kkt switch` do
-//! to this machine, the program's real implementation of setup's steps.
+//! to this machine, composed from the program's supplied providers.
 
 use super::InstallOptions;
-use crate::commands::doctor::server_fix;
-use crate::commands::lanes::{
-    LaneDisk, check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
+use crate::doctor::server_fix;
+use crate::keys::{admin_key_collision, new_key_file, write_admin_name, write_key_file};
+use crate::lanes::{
+    check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
     local_lane_limit,
 };
-use crate::commands::service::{self, ServiceAction, ServiceInstall};
-use crate::machine::client_config::ClientHost;
-use crate::machine::connection::{ConnectionOptions, serve_connection};
-use crate::machine::container::ContainerHost;
-use crate::machine::diagnostics::DiagnosticProber;
-use crate::machine::keys::{admin_key_collision, new_key_file, write_admin_name, write_key_file};
-use crate::machine::record::{
+use crate::record::{
     DOCKER_KEY_FILE_NAME, docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded,
     write_setup_record,
 };
-use crate::machine::remote_access::RemoteHost;
-use crate::machine::service::ServiceSystem;
-use crate::machine::settings::{ServeArgs, serve_bind};
-use crate::process::kkt_path;
-use crate::terminal::browser_login;
+use crate::service::{self, ServiceAction, ServiceInstall};
 use kkt_client_config::{self as clients, Client, Setup};
-use kkt_clock_system::SystemClock;
-use kkt_config_file_os as config_file_os;
 use kkt_diagnostics::{self as diagnostics, Inspector, point_server_fix_at};
 use kkt_lane_files as lane_files;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_service::Manager;
 use kkt_setup as setup;
-use kkt_terminal_os::Terminal;
+use kkt_setup::connection::{self, ConnectionOptions, ConnectionSource};
 use setup::waiting_note;
 use std::path::{Path, PathBuf};
 
 /// What `kkt setup` does to this machine.
-pub(super) struct OsSteps<'a> {
+pub(super) struct OsSteps<'a, 'p, C: ConnectionSource, D> {
     pub(super) env: &'a Env,
     pub(super) platform: Platform,
-    pub(super) serve_args: ServeArgs,
+    pub(super) parts: &'a crate::OperateParts<'p, C, D>,
     pub(super) options: InstallOptions,
 }
 
 /// Adds `host` to `allow_hosts` in the default config file, making the file
 /// if there is none.
-fn allow_host_in_config(env: &Env, host: &str) -> Result<(), String> {
+fn allow_host_in_config(
+    files: &dyn crate::ConfigText,
+    env: &Env,
+    host: &str,
+) -> Result<(), String> {
     let path = kkt_config_file::config_file(env.config_home().as_deref())
         .ok_or("set HOME to keep kkt's config file")?;
-    let text = config_file_os::read(&path)
+    let text = files
+        .read(&path)
         .map_err(|e| e.to_string())?
         .unwrap_or_else(String::new);
     let updated = kkt_config_file::with_allowed_host(&text, host)
@@ -56,10 +50,10 @@ fn allow_host_in_config(env: &Env, host: &str) -> Result<(), String> {
     if updated == text {
         return Ok(());
     }
-    config_file_os::write(&path, &updated).map_err(|e| e.to_string())
+    files.write(&path, &updated).map_err(|e| e.to_string())
 }
 
-impl setup::Steps for OsSteps<'_> {
+impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_, '_, C, D> {
     fn install_service(
         &self,
         tailscale: bool,
@@ -67,18 +61,18 @@ impl setup::Steps for OsSteps<'_> {
     ) -> Result<setup::Installed, String> {
         // Before anything changes: Tailscale must be logged in, with HTTPS.
         let node = match tailscale {
-            true => Some(kkt_remote_access::prepare(&RemoteHost)?),
+            true => Some(kkt_remote_access::prepare(self.parts.remote)?),
             false => None,
         };
         if let Some(node) = &node {
-            allow_host_in_config(self.env, &node.dns_name)?;
+            allow_host_in_config(self.parts.config_file, self.env, &node.dns_name)?;
         }
         for host in allow_hosts {
-            allow_host_in_config(self.env, host)?;
+            allow_host_in_config(self.parts.config_file, self.env, host)?;
         }
         tokio::runtime::Handle::current().block_on(service::run(
+            self.parts,
             self.env,
-            self.platform,
             ServiceAction::Install(ServiceInstall {
                 config: None,
                 db: None,
@@ -87,16 +81,17 @@ impl setup::Steps for OsSteps<'_> {
                 dry_run: false,
             }),
         ))?;
-        let connection = serve_connection(self.env, self.platform, ConnectionOptions::NONE, false)?;
+        let connection =
+            connection::serve_connection(self.parts.connection, ConnectionOptions::NONE, false)?;
         let url = match &node {
             Some(node) => {
-                kkt_remote_access::serve(&RemoteHost, serve_bind(self.env, self.platform)?)?;
+                kkt_remote_access::serve(self.parts.remote, self.parts.serve.bind()?)?;
                 format!("https://{}/mcp", node.dns_name)
             }
             None => connection.url,
         };
         if let Some(access) = &connection.key_file {
-            Terminal.output(format_args!(
+            self.parts.output.output(format_args!(
                 "The web key is in {}. Read it with `kkt key show --web`.\n",
                 kkt_admission::web_key_path(access).display()
             ));
@@ -121,7 +116,10 @@ impl setup::Steps for OsSteps<'_> {
             Some(login) => Some(kkt_container::Tailscale {
                 hostname: login.hostname.clone(),
                 auth_key: match &login.auth_key_file {
-                    Some(path) => Some(kkt_container::tailscale_auth_key(&ContainerHost, path)?),
+                    Some(path) => Some(kkt_container::tailscale_auth_key(
+                        self.parts.container,
+                        path,
+                    )?),
                     None => None,
                 },
             }),
@@ -137,10 +135,10 @@ impl setup::Steps for OsSteps<'_> {
         let tailscale = tailscale.is_some();
         let provisioned = tokio::runtime::Handle::current()
             .block_on(kkt_container::provision(
-                &ContainerHost,
-                &SystemClock,
+                self.parts.container,
+                self.parts.clock.as_ref(),
                 kkt_container::Settings::DEFAULT,
-                &browser_login::TerminalLink::new(),
+                self.parts.login_link,
                 &kkt_container::Folder(folder.clone()),
                 &inputs,
                 &key_file,
@@ -165,34 +163,36 @@ impl setup::Steps for OsSteps<'_> {
     fn stage_key(&self, key: &str) -> Result<PathBuf, String> {
         let dir = kkt_config_file::config_dir(self.env.config_home().as_deref())
             .ok_or("set HOME to keep the key in ~/.config/kkt")?;
-        kkt_admission_os::KeyFiles::create_dir_all(&dir)?;
+        self.parts.key_files.create_dir_all(&dir)?;
         let path = setup::staged_client_key(&dir);
-        write_key_file(&path, key, true)?;
+        write_key_file(self.parts.key_files, &path, key, true)?;
         Ok(path)
     }
 
     fn keep_key(&self, staged: &Path, url: &str) -> Result<PathBuf, String> {
         let path = setup::client_key(staged, url);
-        kkt_admission_os::KeyFiles::keep_staged(staged, &path)?;
+        self.parts.key_files.keep_staged(staged, &path)?;
         Ok(path)
     }
 
     fn discard_key(&self, staged: &Path) -> Result<(), String> {
-        kkt_admission_os::KeyFiles::remove(staged)
+        self.parts
+            .key_files
+            .remove(staged)
             .map_err(|e| format!("could not remove {}: {e}", staged.display()))
     }
 
     fn detect_clients(&self) -> Vec<Client> {
-        let dirs = kkt_setup_os::path_dirs();
-        let on_path = |program: &str| kkt_setup_os::on_path(&dirs, program);
+        let dirs = self.parts.setup_files.path_dirs();
+        let on_path = |program: &str| self.parts.setup_files.on_path(&dirs, program);
         Client::ALL
             .into_iter()
-            .filter(|client| client.installed(self.env, &on_path, &ClientHost))
+            .filter(|client| client.installed(self.env, &on_path, self.parts.clients))
             .collect()
     }
 
     fn allow_kkt(&self, client: Client) -> Result<String, String> {
-        clients::allow_kkt(client, self.env, &ClientHost)
+        clients::allow_kkt(client, self.env, self.parts.clients)
     }
 
     fn doctor(&self, record: &setup::Record) -> Result<String, String> {
@@ -207,12 +207,12 @@ impl setup::Steps for OsSteps<'_> {
         let note = waiting_note(&server.url, &mode);
         let mut checks =
             tokio::runtime::Handle::current().block_on(diagnostics::until_reachable(
-                Inspector::new(&DiagnosticProber),
-                &SystemClock,
+                Inspector::new(self.parts.prober),
+                self.parts.clock.as_ref(),
                 &server.url,
                 server.key_file.as_deref(),
                 diagnostics::setup_wait(diagnostics::Settings::DEFAULT, kind),
-                &mut || Terminal.output(format_args!("{note}\n")),
+                &mut || self.parts.output.output(format_args!("{note}\n")),
             ))?;
         if let Some(fix) = setup::server_fix(&mode) {
             point_server_fix_at(&mut checks, &server_fix(&fix));
@@ -224,13 +224,20 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
-        read_unfinished(self.env)
+        read_unfinished(
+            self.env,
+            self.parts.setup_files,
+            self.parts.container,
+            self.parts.service,
+        )
     }
 
     fn save_unfinished(&self, unfinished: &setup::Unfinished) -> Result<(), String> {
         let config_dir = kkt_config_file::config_dir(self.env.config_home().as_deref())
             .ok_or("set HOME to note the install")?;
-        kkt_setup_os::write_unfinished(&config_dir, unfinished)
+        self.parts
+            .setup_files
+            .write_unfinished(&config_dir, unfinished)
     }
 
     fn forget_unfinished(&self) -> Result<(), String> {
@@ -238,7 +245,7 @@ impl setup::Steps for OsSteps<'_> {
         else {
             return Ok(());
         };
-        kkt_setup_os::remove_unfinished(&config_dir)
+        self.parts.setup_files.remove_unfinished(&config_dir)
     }
 
     fn add_admin_key(&self, record: &setup::Record, name: &AdminName) -> Result<PathBuf, String> {
@@ -249,8 +256,8 @@ impl setup::Steps for OsSteps<'_> {
         match &record.mode {
             setup::Mode::Docker(install) => tokio::runtime::Handle::current()
                 .block_on(kkt_container::add_admin_key(
-                    &ContainerHost,
-                    &SystemClock,
+                    self.parts.container,
+                    self.parts.clock.as_ref(),
                     kkt_container::Settings::DEFAULT,
                     &kkt_container::Folder(install.folder.clone()),
                     access,
@@ -268,13 +275,13 @@ impl setup::Steps for OsSteps<'_> {
                     self.env.config_home().as_deref(),
                 )
                 .and_then(|manager| {
-                    manager.add_key(&ServiceSystem, &admin, &|path| {
-                        let key = new_key_file(path, false)?;
-                        write_admin_name(path, &key, Some(name)).map(drop)
+                    manager.add_key(self.parts.service, &admin, &|path| {
+                        let key = new_key_file(self.parts.key_files, path, false)?;
+                        write_admin_name(self.parts.key_files, path, &key, Some(name)).map(drop)
                     })
                 })
                 .map_err(|e| e.to_string())?;
-                Terminal.output(format_args!(
+                self.parts.output.output(format_args!(
                     "{} admin key for /mcp-admin is in {}, and the server was restarted to use it. Read it with `kkt key show --admin`.\n",
                     if made { "A new" } else { "The" },
                     admin.display()
@@ -288,23 +295,26 @@ impl setup::Steps for OsSteps<'_> {
     fn check_lanes(&self, folder: &Path, purpose: setup::Purpose) -> Result<usize, String> {
         let max_lane_chars = setup::setup_lane_limit(
             purpose,
-            || local_lane_limit(self.env),
-            || docker_lane_limit(self.env, self.platform),
+            || local_lane_limit(self.parts),
+            || docker_lane_limit(self.parts, self.env, self.platform),
         )?;
-        check_lanes_folder(folder, max_lane_chars)
+        check_lanes_folder(self.parts.lanes, self.parts.output, folder, max_lane_chars)
     }
 
     fn import_lanes(&self, record: &setup::Record, folder: &Path) -> Result<String, String> {
         // `check_lanes` warned of the skipped files before setup began.
-        let read = lane_files::read_folder(&LaneDisk, folder)?;
+        let read = lane_files::read_folder(self.parts.lanes, folder)?;
         let report = match &record.mode {
-            setup::Mode::Docker(install) => {
-                docker_import_lanes(&kkt_container::Folder(install.folder.clone()), read, false)
-            }
+            setup::Mode::Docker(install) => docker_import_lanes(
+                self.parts.container,
+                &kkt_container::Folder(install.folder.clone()),
+                read,
+                false,
+            ),
             // The service runs on the config file and database `kkt serve`
             // finds by default.
             setup::Mode::Service { .. } => tokio::runtime::Handle::current().block_on(
-                local_import_lanes(self.env, self.platform, None, None, read, false, None),
+                local_import_lanes(self.parts, None, None, read, false, None),
             ),
             setup::Mode::Client => Err("lanes are imported on the server's machine".into()),
         }?;
@@ -312,69 +322,82 @@ impl setup::Steps for OsSteps<'_> {
     }
 }
 
-impl setup::SwitchSteps for OsSteps<'_> {
+impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
     fn connected_clients(&self) -> Result<Vec<Client>, String> {
-        connected_clients(self.env)
+        connected_clients(self.env, self.parts.clients)
     }
 
     fn recorded(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.env)
+        read_setup(self.env, self.parts.setup_files)
     }
 
     fn write_record(&self, record: &setup::Record) -> Result<(), String> {
-        write_setup_record(self.env, record)
+        write_setup_record(self.env, self.parts.setup_files, record)
     }
 
     fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
-        connect(self.env, client, record)
+        connect(
+            self.env,
+            self.parts.clients,
+            self.parts.setup_files,
+            client,
+            record,
+        )
     }
 
     fn check_address(&self, url: &str) -> Result<(), String> {
-        check_address(url)
+        check_address(self.parts.prober, url)
     }
 
     fn check_key(&self, url: &str, key: &setup::ClientKey) -> Result<(), String> {
-        check_key(url, key)
+        check_key(self.parts.prober, url, key)
     }
 }
 
 /// What `kkt switch` does to this machine. It installs nothing, so it holds
 /// only what switching uses; it shares each step with [`OsSteps`].
-pub(super) struct OsSwitchSteps<'a> {
+pub(super) struct OsSwitchSteps<'a, 'p, C: ConnectionSource, D> {
     pub(super) env: &'a Env,
+    pub(super) parts: &'a crate::OperateParts<'p, C, D>,
 }
 
-impl setup::SwitchSteps for OsSwitchSteps<'_> {
+impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> {
     fn connected_clients(&self) -> Result<Vec<Client>, String> {
-        connected_clients(self.env)
+        connected_clients(self.env, self.parts.clients)
     }
 
     fn recorded(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.env)
+        read_setup(self.env, self.parts.setup_files)
     }
 
     fn write_record(&self, record: &setup::Record) -> Result<(), String> {
-        write_setup_record(self.env, record)
+        write_setup_record(self.env, self.parts.setup_files, record)
     }
 
     fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
-        connect(self.env, client, record)
+        connect(
+            self.env,
+            self.parts.clients,
+            self.parts.setup_files,
+            client,
+            record,
+        )
     }
 
     fn check_address(&self, url: &str) -> Result<(), String> {
-        check_address(url)
+        check_address(self.parts.prober, url)
     }
 
     fn check_key(&self, url: &str, key: &setup::ClientKey) -> Result<(), String> {
-        check_key(url, key)
+        check_key(self.parts.prober, url, key)
     }
 }
 
 /// The clients whose config has a kkt entry now, whatever server it names.
-fn connected_clients(env: &Env) -> Result<Vec<Client>, String> {
+fn connected_clients(env: &Env, host: &dyn clients::Host) -> Result<Vec<Client>, String> {
     let mut connected = Vec::new();
     for client in Client::ALL {
-        if client.connected(env, &ClientHost)? {
+        if client.connected(env, host)? {
             connected.push(client);
         }
     }
@@ -382,9 +405,15 @@ fn connected_clients(env: &Env) -> Result<Vec<Client>, String> {
 }
 
 /// Points `client` at the server `record`'s clients use.
-fn connect(env: &Env, client: Client, record: &setup::Record) -> Result<String, String> {
-    let executable = kkt_path()?;
-    let client_config = client.file(env, &ClientHost)?;
+fn connect(
+    env: &Env,
+    host: &dyn clients::Host,
+    program: &dyn crate::SetupFiles,
+    client: Client,
+    record: &setup::Record,
+) -> Result<String, String> {
+    let executable = program.kkt_path()?;
+    let client_config = client.file(env, host)?;
     let server = record.for_clients();
     let setup = Setup {
         env,
@@ -394,14 +423,14 @@ fn connect(env: &Env, client: Client, record: &setup::Record) -> Result<String, 
         client_config: &client_config,
         source: client.source(env),
     };
-    clients::configure(client, &setup, true, &ClientHost)
+    clients::configure(client, &setup, true, host)
 }
 
 /// Checks, changing nothing, that a server answers at `url` and accepts its
 /// host name.
-fn check_address(url: &str) -> Result<(), String> {
-    let mut checks = tokio::runtime::Handle::current()
-        .block_on(diagnostics::inspect_address(&DiagnosticProber, url))?;
+fn check_address(prober: &dyn diagnostics::Prober, url: &str) -> Result<(), String> {
+    let mut checks =
+        tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(prober, url))?;
     point_server_fix_at(
         &mut checks,
         "check the address, and that the server is running on its machine",
@@ -410,30 +439,40 @@ fn check_address(url: &str) -> Result<(), String> {
 }
 
 /// Checks, changing nothing, that the server at `url` accepts `key`.
-fn check_key(url: &str, key: &setup::ClientKey) -> Result<(), String> {
+fn check_key(
+    prober: &dyn diagnostics::Prober,
+    url: &str,
+    key: &setup::ClientKey,
+) -> Result<(), String> {
     let runtime = tokio::runtime::Handle::current();
     let checks = match key {
         setup::ClientKey::None => {
-            runtime.block_on(diagnostics::inspect_with_key(&DiagnosticProber, url, None))
+            runtime.block_on(diagnostics::inspect_with_key(prober, url, None))
         }
-        setup::ClientKey::Typed(key) => runtime.block_on(diagnostics::inspect_with_key(
-            &DiagnosticProber,
-            url,
-            Some(key),
-        )),
+        setup::ClientKey::Typed(key) => {
+            runtime.block_on(diagnostics::inspect_with_key(prober, url, Some(key)))
+        }
         setup::ClientKey::File(path) => {
-            runtime.block_on(diagnostics::inspect(&DiagnosticProber, url, Some(path)))
+            runtime.block_on(diagnostics::inspect(prober, url, Some(path)))
         }
     }?;
     only_problems(checks)
 }
 
-impl setup::AdoptSteps for OsSteps<'_> {
+impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::AdoptSteps for OsSteps<'_, '_, C, D> {
     fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, String> {
-        if read_setup(self.env)?.is_some() || read_unfinished(self.env)?.is_some() {
+        if read_setup(self.env, self.parts.setup_files)?.is_some()
+            || read_unfinished(
+                self.env,
+                self.parts.setup_files,
+                self.parts.container,
+                self.parts.service,
+            )?
+            .is_some()
+        {
             return Ok(None);
         }
-        read_unrecorded(self.env, self.platform, self.serve_args).map_err(|(_, e)| e)
+        read_unrecorded(self.parts, self.env, self.platform).map_err(|(_, e)| e)
     }
 }
 
