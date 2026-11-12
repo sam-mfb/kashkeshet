@@ -108,7 +108,7 @@ it was, or names something the proposal left unnamed.
 | Remove `refactor` from CI's branch lists | 1 | **Accepted by Sam, 2026-11-12.** In the pull request that merges `refactor` into `next` (`refactor-merge.md`) |
 | Log output | 5 | **Accepted by Sam, 2026-11-12.** The same events, targets, levels and fields reach the log |
 | How `refactor` merges into `next` | 6 | **Accepted by Sam, 2026-11-12.** One merge commit, no force-push, after a final review of the whole diff and a full CI run |
-| macOS in CI | 7 | **Accepted by Sam, 2026-11-12, and done sooner:** the macOS checks are back on `refactor` now (#486); watch the files `refactor-merge.md` lists in their first runs |
+| macOS in CI | 7 | **Accepted by Sam, 2026-11-12, and done sooner:** the macOS checks came back on `refactor` (#486), then went off again the same day, since GitHub's macOS runners are short (see "Temporary breaks") |
 | The proposed map after the refactor | 8 | **Accepted by Sam, 2026-11-12.** The proposal is kept as a record, and "Current" is the code |
 
 **To re-show Sam after phases 9 to 11.** Today's decisions overtake these
@@ -233,6 +233,7 @@ this list; one that is not on it blocks.
 
 | Break | Introduced by | Removed by |
 |---|---|---|
+| The macOS Rust checks are off in CI: `macos-15` is out of `ci.yml`'s list of systems, so platform-specific code is reviewed by hand again | Sam, 2026-11-12: GitHub's macOS runners are short, and #497's job never got one (this pull request) | Adding `macos-15` back to the list, as its comment says, or a self-hosted macOS runner |
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
@@ -1307,9 +1308,11 @@ Each has the default we proceed on, so nothing waits.
    diff and a full CI run. Accepted by Sam, 2026-11-12.
 7. **macOS in CI.** The macOS Rust checks were off for most of the
    refactor, since GitHub had too little macOS runner capacity, and
-   platform-specific code was reviewed by hand meanwhile. They are back on
-   `refactor` now (#486), so the merge's pull request only removes
-   `refactor` from CI's branch lists. Accepted by Sam, 2026-11-12.
+   platform-specific code was reviewed by hand meanwhile. They came back
+   on `refactor` (#486), then went off again the same day, since GitHub's
+   macOS runners are short; "Temporary breaks" lists it. The merge's pull
+   request removes `refactor` from CI's branch lists. Accepted by Sam,
+   2026-11-12.
 8. **The proposed map after the refactor.** Default: step 8.1 keeps the
    proposal as a record of what was planned, with the scorecard at the end,
    and the page's "Current" map shows the code. Accepted by Sam, 2026-11-12.
