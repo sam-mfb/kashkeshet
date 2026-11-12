@@ -1,10 +1,10 @@
-//! The program's prober: kkt-probe-reqwest's `HttpProber`, with the doctor's
+//! The program's prober: kkt-probe's `HttpProber`, with the doctor's
 //! timeout, response cap, protocol version and check names from
 //! kkt-diagnostics. The program injects it; its HTTP integration tests use
 //! it too.
 
 use kkt_diagnostics as diagnostics;
-use kkt_probe_reqwest::{HttpProber, Settings};
+use kkt_probe::{HttpProber, Settings};
 
 /// The prober `kkt doctor` and `kkt setup` use.
 pub fn prober() -> HttpProber {

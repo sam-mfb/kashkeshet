@@ -274,15 +274,9 @@
   },
   "kkt-probe": {
    "layer": "operations",
-   "concern": "The project's contract for probing a kkt server and reading its key files (`Prober`), with what it finds (`KeyFile`) and the checks it gives (`Check`); its testing Memory stand-in.",
-   "must_not": "Know an HTTP library or MCP's wire format; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-probe-reqwest": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Implements Prober directly: the server probe over HTTP with reqwest, MCP's initialize handshake read from its answer, and key files read from disk.",
-   "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them."
+   "concern": "Probing a kkt server and reading its key files: the `Prober` contract in the open, with what it finds (`KeyFile`), the checks it gives (`Check`), the prober's `Settings` and its testing Memory stand-in; and its one implementation behind real, `HttpProber`: the probe over HTTP with reqwest, MCP's initialize handshake read from its answer, and key files read from disk.",
+   "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them.",
+   "kind": "contract and effect"
   },
   "kkt-backup": {
    "layer": "operations",

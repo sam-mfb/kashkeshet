@@ -103,21 +103,10 @@
   {
    "name": "kkt-probe",
    "layer": "operations",
-   "kind": "contract",
+   "kind": "contract and effect",
    "from": "kkt-diagnostics",
    "status": "decided",
-   "concern": "The project's contract for probing a kkt server and reading its key files (Prober, KeyFile, Check, Probing), with its testing stand-in; no HTTP library (step 12.5b)."
-  },
-  {
-   "name": "kkt-probe-reqwest",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kkt-diagnostics",
-   "status": "decided",
-   "concern": "Implements kkt-probe's Prober directly: the HTTP probe and MCP handshake with reqwest, whose types stay inside, and key files read from disk, with the settings the program passes (step 12.5b, option a).",
-   "third_party": [
-    "reqwest"
-   ]
+   "concern": "Probing a kkt server and reading its key files: the Prober contract in the open, with KeyFile, Check, Probing, the prober's Settings and its testing stand-in, and its one implementation, HttpProber, behind real: the HTTP probe and MCP handshake with reqwest, whose types stay inside (steps 12.5b and 13.5)."
   },
   {
    "name": "kkt-lane-files-os",
@@ -470,7 +459,7 @@
   },
   {
    "item": "kkt-diagnostics::OsProber",
-   "to": "kkt-probe-reqwest",
+   "to": "kkt-probe",
    "status": "decided",
    "as": "HttpProber"
   },
@@ -2795,11 +2784,11 @@
    "doc": "kkt-log's Log over tracing: each event goes to the log the program started."
   },
   {
-   "crate": "kkt-probe-reqwest",
+   "crate": "kkt-probe",
    "path": "Settings",
    "kind": "struct",
    "status": "decided",
-   "doc": "What the probe takes from the program (its timeout, response limit, protocol version and the checks' names); it chooses no defaults (steps 2.5 and 12.5b)"
+   "doc": "What the probe takes from the program (its timeout, response limit, protocol version and the checks' names); it chooses no defaults (steps 2.5, 12.5b and 13.5)"
   },
   {
    "crate": "kkt-backup",
@@ -2917,14 +2906,14 @@
    "path": "DOCTOR_MAX_RESPONSE_BYTES",
    "kind": "const",
    "status": "decided",
-   "doc": "The most bytes of an MCP response a probe reads; the program passes it to kkt-probe-reqwest's Settings (step 3.1c-1, follow-up)"
+   "doc": "The most bytes of an MCP response a probe reads; the program passes it to kkt-probe's Settings (step 3.1c-1, follow-up)"
   },
   {
    "crate": "kkt-diagnostics",
    "path": "DOCTOR_PROTOCOL_VERSION",
    "kind": "const",
    "status": "decided",
-   "doc": "The MCP protocol version a probe asks for; the program passes it to kkt-probe-reqwest's Settings (step 3.1c-1, follow-up)"
+   "doc": "The MCP protocol version a probe asks for; the program passes it to kkt-probe's Settings (step 3.1c-1, follow-up)"
   },
   {
    "crate": "kkt-config-file-os",
@@ -6480,7 +6469,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-probe-reqwest",
+   "to": "kkt-probe",
    "kind": "normal",
    "add": {
     "uses": [
@@ -6491,7 +6480,7 @@
     ]
    },
    "status": "decided",
-   "note": "builds HttpProber with kkt-diagnostics' settings and injects it directly (steps 2.5 and 12.5b)",
+   "note": "turns on kkt-probe's real, builds HttpProber with kkt-diagnostics' settings and injects it directly (steps 2.5, 12.5b and 13.5)",
    "features": [
     "real"
    ]
@@ -9280,23 +9269,6 @@
    "status": "decided"
   },
   {
-   "from": "kkt-probe-reqwest",
-   "to": "kkt-probe",
-   "kind": "normal",
-   "add": {
-    "implements": [
-     "Prober"
-    ],
-    "uses": [
-     "Check",
-     "KeyFile",
-     "Probing"
-    ]
-   },
-   "status": "decided",
-   "note": "The named wrapper implements the scope contract directly (12.5b)."
-  },
-  {
    "from": "kkt-diagnostics",
    "to": "kkt-probe",
    "kind": "normal",
@@ -9322,14 +9294,6 @@
    },
    "status": "decided",
    "note": "OperateParts takes the prober; doctor and setup word checks (12.5b)."
-  },
-  {
-   "from": "kashkeshet",
-   "to": "kkt-probe",
-   "kind": "normal",
-   "remove": true,
-   "status": "decided",
-   "note": "the program builds kkt-probe-reqwest's HttpProber and names the probe contract nowhere (12.5b)."
   }
  ],
  "decisions": {
@@ -9516,10 +9480,9 @@
   },
   "kkt-diagnostics::Prober": {
    "status": "decided",
-   "result": "Moved to its own contract crate, kkt-probe, with KeyFile, Check and Probing. The named wrapper kkt-probe-reqwest implements it directly, and the program only injects it (step 12.5b).",
+   "result": "Moved to its own crate, kkt-probe, with KeyFile, Check and Probing, together with its one implementation, HttpProber, behind real; the program turns real on and injects it (steps 12.5b and 13.5).",
    "new": [
-    "kkt-probe",
-    "kkt-probe-reqwest"
+    "kkt-probe"
    ],
    "conflicts": [
     "C2"
@@ -10922,7 +10885,7 @@
   },
   {
    "from": "kkt-diagnostics",
-   "to": "kkt-probe-reqwest",
+   "to": "kkt-probe",
    "feature": "real",
    "status": "decided"
   },
@@ -12791,12 +12754,12 @@
    "note": "The contract owns its testing stand-in (12.5a)."
   },
   {
-   "type": "kkt-probe-reqwest::HttpProber",
+   "type": "kkt-probe::HttpProber",
    "to": [
     "kkt-probe::Prober"
    ],
    "status": "decided",
-   "note": "A wrapper implements its scope contract directly (step 12.5b)."
+   "note": "The crate's one implementation of its own contract, behind real (steps 12.5b and 13.5)."
   },
   {
    "type": "kkt-probe::testing::Memory",

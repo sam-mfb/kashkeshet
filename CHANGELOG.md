@@ -71,9 +71,10 @@ The shared crates are reorganized so that every dependency is injected and each 
   lose `claude`, and `configure` takes a `&dyn ClientCommand` after the
   host. The commands run and their messages are unchanged.
 - **Probe contract.** `kkt-probe::Prober`, with `KeyFile`, `Check`
-  and `Probing`, moves out of kkt-diagnostics into a contract crate, with
-  `testing::Memory`. `kkt-probe-reqwest::HttpProber` (behind `real`)
-  implements it directly with the `Settings` the program passes, replacing
+  and `Probing`, moves out of kkt-diagnostics into its own crate, with
+  `testing::Memory`, and with its one implementation: `kkt_probe::HttpProber`
+  (behind `real`, which only the program turns on), with the `Settings` the
+  program passes, replacing
   `kkt-diagnostics-os` and its `OsProber` and records, and the program's
   adapter. `OperateParts::prober` takes a `&dyn kkt_probe::Prober`. The
   checks and their messages are unchanged.
