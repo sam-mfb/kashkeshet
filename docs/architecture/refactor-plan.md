@@ -1382,13 +1382,13 @@ by kkt-review-373).
 
 | Step | What | Size | Builds | Reviews |
 |---|---|---|---|---|
-| 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (done: #507) | kkt-review-373 |
+| 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (#507, merged) | kkt-review-373 |
 | 12.2 | container: contract and kkt-container-docker, with the Docker logic, its tests and the sidecar's status | L | kkt-build-c, after 12.1: the same pattern, and it knows kkt-operate's parts | kkt-review-373 |
 | 12.3 | service: contract, kkt-service-launchd and kkt-service-systemd | M to L | kkt-build-b | kkt-review-b |
 | 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | kkt-mt-step1 (#508) | kkt-review-b |
 | 12.5a | lane-files' git: kkt-lane-files-git | S | kkt-build-b, after 12.3 | kkt-review-b |
 | 12.5b | The probe: kkt-probe and kkt-probe-reqwest | S | kkt-build-b, after 12.5a | kkt-review-b |
-| 12.5c | The `claude` command: kkt-client-command and kkt-client-command-claude | S | kkt-mt-step1 (this pull request) | kkt-review-b |
+| 12.5c | The `claude` command: kkt-client-command and kkt-client-command-claude | S | kkt-mt-step1 (#511, merged) | kkt-review-b |
 | 12.5d | The browser opener: kkt-browser and kkt-browser-os | S | kkt-mt-step1, after 12.5c | kkt-review-b |
 | 12.6 | Chart what differs, and the scorecard | S | kkt-mt-step1 | kkt-review-373 |
 
@@ -1588,3 +1588,17 @@ The map's existing direct-implementation detection is used: the program's
 arrow to the constructed implementation is wiring, and the hand-written
 injection entry targets the receiving `OperateParts::remote` slot. The
 fresh generated map is checked for both before publishing this pilot.
+
+### 12.2: container contract and Docker wrapper
+
+`kkt-container::Container` is the installation boundary. Its operations cover
+provisioning, status, existing installs, keys, starting and stopping, backup,
+upgrade, lanes and the managed settings questions. `testing::Memory` provides
+installations in memory. The contract carries requests and results, plus the
+existing config parser and login link contracts. It has no process or file I/O.
+
+`kkt-container-docker::Docker` implements it directly behind `real`. The old
+Docker decisions, timings, Compose assets, commands, messages and sidecar status
+move into that wrapper, with a private `Runner` and the old fake and native tests.
+The program's adapter and `kkt-container-os` go. The program wires `Docker` into
+`kkt-operate::OperateParts.container`. No check condition or rule text changes.

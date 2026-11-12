@@ -30,4 +30,6 @@ kkt-setup = { path = "../kkt-setup" }
 tokio.workspace = true
 
 [dev-dependencies]
+kkt-container = { path = "../kkt-container", features = ["testing"] }
+kkt-service = { path = "../kkt-service", features = ["testing"] }
 futures.workspace = true

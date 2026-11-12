@@ -2,7 +2,7 @@
 //! rendered for them. The Compose files are the repository's own, so the
 //! manual route in `docs/docker.md` and setup use the same files.
 
-use super::{DOCKER_PENDING_TAILNET, DockerError, Folder, Host, Inputs};
+use super::{DOCKER_PENDING_TAILNET, DockerError, Folder, Inputs, Runner};
 use std::path::Path;
 
 const COMPOSE: &str = include_str!("../../../compose.yaml");
@@ -40,7 +40,7 @@ pub fn env_text(inputs: &Inputs, node: Option<(&str, &str)>) -> String {
             inputs.allow_hosts.join(",")
         ));
     }
-    if let Some(tailscale) = &inputs.tailscale {
+    if let Some(tailscale) = &inputs.sharing {
         let (hostname, tailnet) = node.unwrap_or((&tailscale.hostname, DOCKER_PENDING_TAILNET));
         text.push_str("COMPOSE_FILE=compose.tailscale.yaml\n");
         text.push_str(&format!("TS_HOSTNAME={hostname}\n"));
@@ -81,7 +81,7 @@ pub(super) fn set_version(env: &str, version: &str) -> String {
 
 /// Writes the Compose files for this program's version into `folder`.
 pub(super) fn write_embedded(
-    host: &dyn Host,
+    host: &dyn Runner,
     folder: &Folder,
     tailscale: bool,
 ) -> Result<(), DockerError> {
@@ -96,27 +96,27 @@ pub(super) fn write_embedded(
     Ok(())
 }
 
-pub(super) fn write_env(host: &dyn Host, folder: &Folder, text: &str) -> Result<(), DockerError> {
+pub(super) fn write_env(host: &dyn Runner, folder: &Folder, text: &str) -> Result<(), DockerError> {
     // The settings file can hold a Tailscale auth key.
     let path = folder.path().join(ENV_FILE);
     host.write_file(&path, text, true)
         .map_err(|e| DockerError::io(format!("could not write {}", path.display()), e))
 }
 
-pub(super) fn create_dir(host: &dyn Host, path: &Path) -> Result<(), DockerError> {
+pub(super) fn create_dir(host: &dyn Runner, path: &Path) -> Result<(), DockerError> {
     host.create_dir_all(path)
         .map_err(|e| DockerError::io(format!("could not create {}", path.display()), e))
 }
 
 /// The Tailscale auth key from the named file, trimmed as setup's inputs require.
-pub fn tailscale_auth_key(host: &(impl Host + ?Sized), path: &Path) -> Result<String, String> {
+pub fn tailscale_auth_key(host: &(impl Runner + ?Sized), path: &Path) -> Result<String, String> {
     host.read_file(path)
         .map(|key| key.trim().to_string())
         .map_err(|e| format!("could not read {}: {e}", path.display()))
 }
 
 /// The managed Docker folder's settings text; retain the original read error.
-pub fn docker_env(host: &(impl Host + ?Sized), folder: &Path) -> Result<String, String> {
+pub fn docker_env(host: &(impl Runner + ?Sized), folder: &Path) -> Result<String, String> {
     let path = folder.join(ENV_FILE);
     host.read_file(&path)
         .map_err(|e| format!("could not read {}: {e}", path.display()))

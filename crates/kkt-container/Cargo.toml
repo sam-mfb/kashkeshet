@@ -1,20 +1,16 @@
 [package]
 name = "kkt-container"
-description = "kkt in Docker: its Compose files, the folder kkt manages and the commands"
+description = "The contract of a kkt container installation"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
 
-[dependencies]
-kkt-clock = { path = "../kkt-clock" }
-kkt-config-file = { path = "../kkt-config-file" }
-kkt-machine = { path = "../kkt-machine" }
-kkt-names = { path = "../kkt-names" }
-serde_json.workspace = true
-thiserror.workspace = true
+[features]
+testing = []
 
-[dev-dependencies]
-kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-tokio.workspace = true
+[dependencies]
+futures.workspace = true
+kkt-clock = { path = "../kkt-clock" }
+kkt-names = { path = "../kkt-names" }

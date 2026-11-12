@@ -29,6 +29,11 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **Crates renamed, merged or removed.** `kkt-format` is now `kkt-mcp-formatter`. `kkt-store` is merged into `kkt-rules`, and its store is private: the rules use it, and other crates' tests reach it only through `kkt_rules::testing` (`memory`, which builds `Rules` from a `testing::Memory`, and `database`). `Reads` and `Writes` are gone. `kkt-config` is removed: each of its items is now in the crate that uses it, as a constant or as a field of that crate's `Settings`.
 - **New contract crates.** `kkt-api-agent` (`Api` and its areas, and the records every level shares, including `SwarmId`, `Actor`, `Operator`, `Audit`, `RuleError` and `Code`, which were kkt-rules'), `kkt-api-operator` (`OperatorApi`, with `Views`, `Changes`, `Lanes` and `Server`) and `kkt-api-admin` (`AdminApi`), all implemented by `kkt_rules::Rules`; `kkt-entropy` (`Entropy` and its stand-ins, from kkt-names); `kkt-log` (`Log`, the structured log that kkt-mcp, kkt-web and kkt-server now take in place of `tracing`); and `kkt-machine` (`Env`, `Platform`, `Machine`). `kkt-clock` keeps `Clock` and the time types, and `SystemClock` moves to `kkt-clock-system`.
 - **New logic crates.** `kkt-hash` (`sha256`), `kkt-search` (search's words, terms and excerpts, from kkt-db), `kkt-identity-keymode` (`KeyMode`, from kkt-identity, which keeps `Identify`) and `kkt-config-file` (the config file's format, from kkt-settings). `kkt-api-sim` is new test support: the simulated application, for tests and the page preview, behind `testing`.
+- **Container contract.** `kkt-container::Container` replaces its command-level
+  `Host` and free functions. `kkt-container-docker::Docker` (behind `real`)
+  implements it directly, replacing `kkt-container-os` and the program adapter.
+  The contract supplies `testing::Memory`. Docker settings, Compose files,
+  commands and messages are unchanged; this changes the shared Rust API.
 - **Remote sharing contract.** `kkt-remote-access::RemoteAccess` replaces its
   command-level `Host` and free functions. `kkt-remote-access-tailscale::Tailscale`
   (behind `real`) implements it directly, replacing `kkt-remote-access-os` and
@@ -46,6 +51,18 @@ The shared crates are reorganized so that every dependency is injected and each 
   `Registered`, `Reclaimed` and `Failure`, give way to the contract's;
   `Remote` and `AdminRemote` implement `Watched` in place of their own
   methods. Messages and files are unchanged.
+- **Service contract.** `kkt-service::Service` replaces `Manager`, `System`,
+  `DryRun`, `Command` and `Finished`: what kkt asks of the service manager, in
+  kkt's terms, with `Unsupported` for other systems and `testing::Memory` for
+  tests. `kkt-service-launchd::Launchd` and `kkt-service-systemd::Systemd`
+  (behind `real`) implement it directly, each holding its own manager's files
+  and commands; the program picks one by platform and injects it into
+  `OperateParts::service`, in place of its adapter. `kkt-service-os` keeps
+  only `try_bind`. launchd's waits (`removal_wait`, `reload_retry`) move from
+  `kkt_service::Settings` to `kkt_service_launchd::Settings`, given to
+  `Launchd::new`, and `ServiceError::ReloadFailed` holds the text launchd's
+  wrapper words. `kkt_operate::service::run` no longer takes the `Env`. The
+  service files, commands and messages are unchanged.
 - **Client command contract.** `kkt-client-command::ClientCommand` (remove
   kkt's server, add it as the client's own entry; `testing::Recorder`) is
   how kkt-client-config changes a client through its own command.
@@ -61,7 +78,7 @@ The shared crates are reorganized so that every dependency is injected and each 
   `read_folder` takes the `LaneCommit` beside the `Disk`, and
   `kkt-lane-files-os` loses `git` and `GitOutput`. `OperateParts` gains
   `lane_commit`. Messages and the commits recorded are unchanged.
-- **Effects in `-os` crates.** What touches the machine moves out of each crate's `real` feature into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-shutdown-os` (`StopSignals`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-logs-os`, `kkt-machine-os`, `kkt-terminal-os`, `kkt-admission-os`, `kkt-config-file-os`, `kkt-setup-os`, `kkt-container-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-diagnostics-os`, `kkt-backup-os` and `kkt-lane-files-os`. A logic crate no longer has a `real` feature.
+- **Effects in `-os` crates.** What touches the machine moves out of each crate's `real` feature into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-shutdown-os` (`StopSignals`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-logs-os`, `kkt-machine-os`, `kkt-terminal-os`, `kkt-admission-os`, `kkt-config-file-os`, `kkt-setup-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-diagnostics-os`, `kkt-backup-os` and `kkt-lane-files-os`. A logic crate no longer has a `real` feature.
 - **Starting the server.** `kkt_rules::start(run, startup)` records the run and returns `Rules`; `Startup` holds the database, swarm, event bus, clock, entropy, rules settings and wording. Each program maps its `ServerRun` into `kkt_rules::NewServerRun`; `kkt_server::new_server_run` is gone. `Parts::new(api, clock, entropy, identify, log, checked)` takes an `Arc<dyn AdminApi>` and the opaque `CheckedSettings` returned by `ServerSettings::check`. kkt-server no longer has a normal dependency on kkt-rules. `AppConfig` holds only admissions and instructions; `ServerSettings` holds formatter, web, MCP, origins and hosts, and orders the owners' checks and run-record lines with the program's plain values. `kkt_settings::RecordedSettings` is gone; call `ServerSettings::record_lines` with program lines instead.
 - **Storage.** kkt-db's `Database` is gone: a store calls `BackendExt`'s read and write on any `Backend`, `kkt_rules::Db::new` takes an `Arc<dyn Backend>`, which `SqlitePlace::open` and `create` return. `Legacy` is kkt-db's.
 - **The surfaces.** kkt-mcp's `endpoint` takes an `Arc<dyn Api>`, and `mcp_admin::endpoint` an `Arc<dyn AdminApi>`, in place of `Rules`. `Identify::avatar` takes `&dyn Api`. kkt-web's `router` takes an `Arc<dyn OperatorApi>`, a `Gate` and the page's `Sessions<T>`; `Source`, `Sources` and `RulesSource` are gone. `Gate` has `admits`, which is given the request's session (absent, ended, or live with what the gate said at sign-in), and `sign_in`, which turns a key into `SignIn<T>`. The web sessions moved from kkt-admission into kkt-web, which keeps their lifetime in its `Settings`.

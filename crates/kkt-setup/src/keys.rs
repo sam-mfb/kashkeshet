@@ -10,7 +10,7 @@ use super::flow::Purpose;
 use super::record::{Mode, Record, Unfinished};
 use kkt_admission::access_key_file;
 use kkt_admission::{admin_key_path, web_key_path};
-use kkt_container::{DOCKER_ADMIN_KEY_FILE_NAME, DOCKER_WEB_KEY_FILE_NAME};
+use kkt_container::{ADMIN_KEY_FILE_NAME, WEB_KEY_FILE_NAME};
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use std::path::{Path, PathBuf};
 
@@ -58,8 +58,8 @@ impl KeyKind {
     pub fn docker_copy(self, access: &Path) -> PathBuf {
         match self {
             KeyKind::Access => access.to_path_buf(),
-            KeyKind::Web => access.with_file_name(DOCKER_WEB_KEY_FILE_NAME),
-            KeyKind::Admin => access.with_file_name(DOCKER_ADMIN_KEY_FILE_NAME),
+            KeyKind::Web => access.with_file_name(WEB_KEY_FILE_NAME),
+            KeyKind::Admin => access.with_file_name(ADMIN_KEY_FILE_NAME),
         }
     }
 

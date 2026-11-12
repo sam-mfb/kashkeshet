@@ -209,7 +209,7 @@ async fn run(
         Task::Lanes { action, db, config } => {
             kkt_operate::lanes::run(&operate, env, action, db, config).await
         }
-        Task::Service(action) => kkt_operate::service::run(&operate, env, action).await,
+        Task::Service(action) => kkt_operate::service::run(&operate, action).await,
         Task::Backup { folder, db, config } => {
             kkt_operate::lifecycle::backup(&operate, env, folder.as_deref(), db, config)
         }
