@@ -3205,15 +3205,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-admission"
    },
    {
-    "from": "kkt-service",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-machine"
-   },
-   {
     "from": "kkt-setup",
     "kind": "normal",
     "role": "uses",
@@ -9681,6 +9672,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the service plan takes its own ServiceSettings, which the program fills"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-machine in its code: Manager::for_this_os takes the home folder and the config home folder as plain optional paths, which the program reads from kkt-machine's Env"
      }
     ]
    },
@@ -28371,7 +28366,7 @@ window.KKT_PROPOSED = {
       "path": "Finished"
      },
      {
-      "doc": "The service manager of one platform.",
+      "doc": "The service manager of one platform; for_this_os chooses it from the home folder and the config home folder, given as plain optional paths.",
       "kind": "enum",
       "methods": [
        "add_key",
@@ -28611,6 +28606,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the service plan takes its own ServiceSettings, which the program fills"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-machine in its code: Manager::for_this_os takes the home folder and the config home folder as plain optional paths, which the program reads from kkt-machine's Env"
      }
     ],
     "released_program": false,
@@ -40659,31 +40658,6 @@ window.KKT_PROPOSED = {
      "testing::FixedClock"
     ],
     "to": "kkt-clock"
-   },
-   {
-    "features": [],
-    "from": "kkt-service",
-    "items": [
-     "Env"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Env"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-machine"
    },
    {
     "features": [],
