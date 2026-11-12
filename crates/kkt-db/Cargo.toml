@@ -11,6 +11,10 @@ publish = false
 # Only for `testing`: the in-memory backend matches and draws excerpts as
 # every backend does.
 kkt-search = { path = "../kkt-search", optional = true }
+# Only for `testing`: the fast stand-in, `testing::FastPlace`, is built on
+# SQLite in memory. Its translation is its own; it shares nothing with
+# kkt-db-sqlite.
+rusqlite = { workspace = true, optional = true }
 thiserror.workspace = true
 # Only for `testing`: the conformance checks run concurrent writes and a
 # write during a read.
@@ -22,6 +26,6 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [features]
 # `testing`: `testing::MemoryPlace`, a database held in memory that keeps the
-# contract; `testing::conformance`, the checks every backend must pass; and
+# contract; `testing::FastPlace`, a fast stand-in on SQLite in memory; `testing::conformance`, the checks every backend must pass; and
 # `testing::FaultyBackend`, which fails a change on cue.
-testing = ["dep:kkt-search", "dep:tokio"]
+testing = ["dep:kkt-search", "dep:rusqlite", "dep:tokio"]

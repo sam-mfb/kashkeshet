@@ -1261,6 +1261,7 @@ name = "kkt-db"
 version = "0.10.0"
 dependencies = [
  "kkt-search",
+ "rusqlite",
  "thiserror",
  "tokio",
 ]
