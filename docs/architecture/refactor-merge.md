@@ -150,6 +150,14 @@ tool, which implements the contract directly. The program only injects it.
    module for its scope, while 2.3.2 names an implementer of an external
    contract for the tool. Sam's ruling: always split, and name the wrapper
    for the tool.
+5. **A wrapper crate is an effect crate that also holds the logic for
+   driving its tool** (Sam's answer to the survey's question 3, msg 3050):
+   kkt-container-docker holds both Docker's knowledge and the code that
+   runs `docker`. That sits against principle 4 (a module is one kind) and
+   4.5.2 (complex adapter logic as its own logic module). Sam thinks this
+   may be worth addressing in the principles. His reason for the shape: the
+   scope's contract is the abstraction other developers use, and only
+   whoever works on the wrapper thinks about the tool.
 
 ### Candidates to revisit (not decided)
 
