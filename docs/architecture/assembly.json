@@ -35,23 +35,26 @@
     },
     {
      "title": "Run record",
-     "text": "What produced this run is stored, with its settings worded by kkt-settings, and new rows carry its ID.",
+     "text": "What produced this run, with its settings worded by kkt-settings, goes to kkt-rules' start in its terms (new_server_run), which records it and builds the Rules over the store; new rows carry its ID.",
      "items": [
       "kkt-settings::RecordedSettings",
       "kkt-provenance::ServerRun",
-      "kkt-server::record_run"
+      "kkt-server::new_server_run",
+      "kkt-rules::NewServerRun",
+      "kkt-rules::Startup",
+      "kkt-rules::start"
      ]
     },
     {
      "title": "Parts",
-     "text": "The store, the system clock, the operating system's randomness and key mode's identity go into the server's parts.",
+     "text": "The Rules start built, the system clock and the operating system's randomness they were built with, and key mode's identity go into the server's parts.",
      "items": [
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy",
       "kkt-identity-keymode::KeyMode"
      ],
-     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify)"
     },
     {
      "title": "Config",
@@ -128,17 +131,34 @@
     },
     {
      "impl": "kkt-rules::Db",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "db"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-rules::DefaultWording",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "wording"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-rules::Rules",
      "crate": "kkt-server",
      "to": [
       {
        "at": "Parts::new",
-       "param": "db"
-      },
-      {
-       "at": "record_run",
-       "param": "db"
+       "param": "rules"
       }
-     ]
+     ],
+     "note": "start built them, after recording the run"
     },
     {
      "impl": "kkt-clock-system::SystemClock",
@@ -151,11 +171,31 @@
      ]
     },
     {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "clock"
+      }
+     ]
+    },
+    {
      "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-server",
      "to": [
       {
        "at": "Parts::new",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
        "param": "entropy"
       }
      ]
@@ -276,7 +316,12 @@
      "own": "TerminalLines, adapting kkt-terminal-os::Terminal",
      "supplier": "kkt-terminal-os::Terminal",
      "crate": "kkt-setup",
-     "to": [{ "at": "ask::Prompter::new", "param": "lines" }],
+     "to": [
+      {
+       "at": "ask::Prompter::new",
+       "param": "lines"
+      }
+     ],
      "note": "kkt setup, kkt switch"
     },
     {
@@ -649,11 +694,14 @@
     },
     {
      "title": "Run record",
-     "text": "The run is recorded as kkt serve's is.",
+     "text": "The run is recorded, and the Rules built, as kkt serve's are.",
      "items": [
       "kkt-settings::RecordedSettings",
       "kkt-provenance::ServerRun",
-      "kkt-server::record_run"
+      "kkt-server::new_server_run",
+      "kkt-rules::NewServerRun",
+      "kkt-rules::Startup",
+      "kkt-rules::start"
      ]
     },
     {
@@ -668,7 +716,7 @@
       "kkt-admission::AdminAdmission",
       "kkt-hosts::AllowedHosts"
      ],
-     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify)"
     },
     {
      "title": "Build and run",
@@ -706,17 +754,34 @@
     },
     {
      "impl": "kkt-rules::Db",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "db"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-rules::DefaultWording",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "wording"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-rules::Rules",
      "crate": "kkt-server",
      "to": [
       {
        "at": "Parts::new",
-       "param": "db"
-      },
-      {
-       "at": "record_run",
-       "param": "db"
+       "param": "rules"
       }
-     ]
+     ],
+     "note": "start built them, after recording the run"
     },
     {
      "impl": "kkt-clock-system::SystemClock",
@@ -729,11 +794,31 @@
      ]
     },
     {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "clock"
+      }
+     ]
+    },
+    {
      "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-server",
      "to": [
       {
        "at": "Parts::new",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
        "param": "entropy"
       }
      ]
@@ -776,7 +861,7 @@
    "steps": [
     {
      "title": "Database",
-     "text": "A database with the core's tables: in memory in its tests, a SqlitePlace file for its program. The product makes the second swarm in it.",
+     "text": "A database with the core's tables: in memory in its tests, a SqlitePlace file for its program.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-rules::schema",
@@ -786,12 +871,16 @@
     },
     {
      "title": "Parts",
-     "text": "The clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role).",
+     "text": "kkt-rules' start records the product's run and builds the Rules, which make the second swarm (Swarms::create_swarm); the Rules, the clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role), go into the server's parts.",
      "items": [
+      "kkt-rules::start",
+      "kkt-rules::Startup",
+      "kkt-rules::NewServerRun",
+      "kkt-api-admin::Swarms",
       "kkt-server::Parts",
       "kkt-fake-product::FakeIdentify"
      ],
-     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify)"
     },
     {
      "title": "Config",
@@ -861,12 +950,26 @@
     },
     {
      "own": "the database, clock and entropy Product::start was given",
-     "crate": "kkt-server",
+     "crate": "kkt-rules",
      "to": [
       {
-       "at": "Parts::new",
+       "at": "Startup",
        "param": "db"
       },
+      {
+       "at": "Startup",
+       "param": "clock"
+      },
+      {
+       "at": "Startup",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "own": "the clock and entropy Product::start was given",
+     "crate": "kkt-server",
+     "to": [
       {
        "at": "Parts::new",
        "param": "clock"
@@ -876,6 +979,27 @@
        "param": "entropy"
       }
      ]
+    },
+    {
+     "impl": "kkt-rules::DefaultWording",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "wording"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-rules::Rules",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "rules"
+      }
+     ],
+     "note": "start built them, after recording the run"
     },
     {
      "impl": "kkt-fake-product::FakeIdentify",
@@ -974,35 +1098,6 @@
       {
        "at": "mcp_admin::endpoint",
        "param": "identify"
-      }
-     ]
-    },
-    {
-     "impl": "kkt-rules::DefaultWording",
-     "crate": "kkt-rules",
-     "to": [
-      {
-       "at": "Deps",
-       "param": "wording"
-      }
-     ]
-    },
-    {
-     "own": "the clock, entropy and database the program gave Parts",
-     "supplier": "the program's clock, entropy and database",
-     "crate": "kkt-rules",
-     "to": [
-      {
-       "at": "Deps",
-       "param": "clock"
-      },
-      {
-       "at": "Deps",
-       "param": "entropy"
-      },
-      {
-       "at": "Deps",
-       "param": "db"
       }
      ]
     },
