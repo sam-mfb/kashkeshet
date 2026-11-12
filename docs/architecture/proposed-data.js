@@ -1442,7 +1442,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-lane-commit-git"
+    "to": "kkt-lane-commit"
    },
    {
     "from": "kashkeshet",
@@ -2453,15 +2453,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-web"
-   },
-   {
-    "from": "kkt-lane-commit-git",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-lane-commit"
    },
    {
     "from": "kkt-lane-files",
@@ -5402,7 +5393,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Builds Git and hands it directly to kkt-operate (12.5a)."
+      "text": "Turns on kkt-lane-commit's real and hands its Git directly to kkt-operate (12.5a, 13.4)."
      },
      {
       "status": "decided",
@@ -7785,7 +7776,7 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "new contract crate, from kkt-lane-files"
+      "text": "new contract and effect crate, from kkt-lane-files"
      },
      {
       "status": "decided",
@@ -7797,32 +7788,23 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Git"
+     },
+     {
+      "status": "decided",
+      "text": "Git implements kkt-lane-commit::LaneCommit: The crate's one implementation of its own contract, behind real (steps 12.5a and 13.4)."
+     },
+     {
+      "status": "decided",
       "text": "testing::Memory implements kkt-lane-commit::LaneCommit: The contract owns its testing stand-in (12.5a)."
      },
      {
       "status": "decided",
       "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.5a)."
-     }
-    ]
-   },
-   {
-    "crate": "kkt-lane-commit-git",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-lane-files"
      },
      {
       "status": "decided",
-      "text": "new struct Git"
-     },
-     {
-      "status": "decided",
-      "text": "Git implements kkt-lane-commit::LaneCommit: A tool wrapper implements its scope contract directly (step 12.5a)."
-     },
-     {
-      "status": "decided",
-      "text": "The named wrapper implements the scope contract directly (12.5a)."
+      "text": "gains a real feature: Git, its one implementation, which only the program turns on (13.4)."
      }
     ]
    },
@@ -11527,14 +11509,8 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-lane-commit": {
-    "concern": "The project's contract for the commit a lane folder is at (LaneCommit), with its testing stand-in; no tool knowledge (step 12.5a).",
-    "kind": "contract",
-    "layer": "operations",
-    "status": "decided"
-   },
-   "kkt-lane-commit-git": {
-    "concern": "Implements LaneCommit directly with git: its commands, what their answers mean and the wording of a failure, tested against a private runner; running git is behind real (step 12.5a, option a).",
-    "kind": "effect",
+    "concern": "The commit a lane folder is at: the LaneCommit contract in the open, with its testing stand-in, and its one implementation, Git, behind real, with git's commands, what their answers mean and the failures' wording, tested over a private runner (steps 12.5a and 13.4).",
+    "kind": "contract and effect",
     "layer": "operations",
     "status": "decided"
    },
@@ -15023,7 +14999,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Builds Git and hands it directly to kkt-operate (12.5a)."
+      "text": "Turns on kkt-lane-commit's real and hands its Git directly to kkt-operate (12.5a, 13.4)."
      },
      {
       "status": "decided",
@@ -22969,11 +22945,11 @@ window.KKT_PROPOSED = {
       "implementors": [
        {
         "crate": "kkt-lane-commit",
-        "type": "testing::Memory"
+        "type": "Git"
        },
        {
-        "crate": "kkt-lane-commit-git",
-        "type": "Git"
+        "crate": "kkt-lane-commit",
+        "type": "testing::Memory"
        }
       ],
       "trait": "LaneCommit"
@@ -22982,6 +22958,7 @@ window.KKT_PROPOSED = {
     "crate_doc": "",
     "dev_only": false,
     "features": {
+     "real": [],
      "testing": []
     },
     "holders": [],
@@ -22991,10 +22968,25 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "trait": "LaneCommit",
       "trait_crate": "kkt-lane-commit",
+      "type": "Git"
+     },
+     {
+      "crate": "kkt-lane-commit",
+      "status": "decided",
+      "trait": "LaneCommit",
+      "trait_crate": "kkt-lane-commit",
       "type": "testing::Memory"
      }
     ],
     "items": [
+     {
+      "doc": "The machine's git, asked where a lane folder is; behind real (steps 12.5a and 13.4).",
+      "feature": "real",
+      "kind": "struct",
+      "path": "Git",
+      "proposed_item": true,
+      "status": "decided"
+     },
      {
       "doc": "The commit a lane folder is at (step 12.5a).",
       "kind": "trait",
@@ -23018,7 +23010,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      }
     ],
-    "kind": "contract",
+    "kind": "contract and effect",
     "lib": "kkt_lane_commit",
     "name": "kkt-lane-commit",
     "path": "(proposed)",
@@ -23026,7 +23018,7 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "new contract crate, from kkt-lane-files"
+      "text": "new contract and effect crate, from kkt-lane-files"
      },
      {
       "status": "decided",
@@ -23038,65 +23030,23 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Git"
+     },
+     {
+      "status": "decided",
+      "text": "Git implements kkt-lane-commit::LaneCommit: The crate's one implementation of its own contract, behind real (steps 12.5a and 13.4)."
+     },
+     {
+      "status": "decided",
       "text": "testing::Memory implements kkt-lane-commit::LaneCommit: The contract owns its testing stand-in (12.5a)."
      },
      {
       "status": "decided",
       "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.5a)."
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {},
-    "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-lane-commit-git",
-      "status": "decided",
-      "trait": "LaneCommit",
-      "trait_crate": "kkt-lane-commit",
-      "type": "Git"
-     }
-    ],
-    "items": [
-     {
-      "doc": "The machine's git, asked where a lane folder is (step 12.5a).",
-      "feature": "real",
-      "kind": "struct",
-      "path": "Git",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_lane_commit_git",
-    "name": "kkt-lane-commit-git",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-lane-files"
      },
      {
       "status": "decided",
-      "text": "new struct Git"
-     },
-     {
-      "status": "decided",
-      "text": "Git implements kkt-lane-commit::LaneCommit: A tool wrapper implements its scope contract directly (step 12.5a)."
-     },
-     {
-      "status": "decided",
-      "text": "The named wrapper implements the scope contract directly (12.5a)."
+      "text": "gains a real feature: Git, its one implementation, which only the program turns on (13.4)."
      }
     ],
     "released_program": false,
@@ -32990,7 +32940,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-identity-keymode"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kashkeshet",
     "items": [
      "Git"
@@ -33012,7 +32964,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-lane-commit-git"
+    "to": "kkt-lane-commit"
    },
    {
     "features": [],
@@ -37857,31 +37809,6 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-lane-commit-git",
-    "items": [
-     "LaneCommit"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "Git implements LaneCommit"
-      ],
-      "role": "implements"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-lane-commit"
-   },
-   {
-    "features": [],
     "from": "kkt-lane-files",
     "items": [
      "LaneCommit"
@@ -42219,8 +42146,7 @@ window.KKT_PROPOSED = {
   ],
   "kind_mismatches": [
    "kkt-service-launchd is marked effect but has no `real` feature and no I/O dependency",
-   "kkt-service-systemd is marked effect but has no `real` feature and no I/O dependency",
-   "kkt-lane-commit-git is marked effect but has no `real` feature and no I/O dependency"
+   "kkt-service-systemd is marked effect but has no `real` feature and no I/O dependency"
   ],
   "pending": []
  },

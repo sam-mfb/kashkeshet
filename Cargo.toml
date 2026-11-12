@@ -36,7 +36,6 @@ members = [
     "crates/kkt-identity",
     "crates/kkt-identity-keymode",
     "crates/kkt-lane-commit",
-    "crates/kkt-lane-commit-git",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-log",
@@ -108,7 +107,6 @@ default-members = [
     "crates/kkt-identity",
     "crates/kkt-identity-keymode",
     "crates/kkt-lane-commit",
-    "crates/kkt-lane-commit-git",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-log",
@@ -242,7 +240,7 @@ kkt-events = { path = "crates/kkt-events" }
 kkt-mcp-formatter = { path = "crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
-kkt-lane-commit-git = { path = "crates/kkt-lane-commit-git", features = ["real"] }
+kkt-lane-commit = { path = "crates/kkt-lane-commit", features = ["real"] }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs" }

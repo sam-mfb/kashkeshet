@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "69275e8",
+ "commit": "fdd1c02",
  "crates": [
   {
    "bins": [
@@ -6836,19 +6836,20 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-lane-commit",
-       "type": "testing::Memory"
+       "type": "Git"
       },
       {
-       "crate": "kkt-lane-commit-git",
-       "type": "Git"
+       "crate": "kkt-lane-commit",
+       "type": "testing::Memory"
       }
      ],
      "trait": "LaneCommit"
     }
    ],
-   "crate_doc": "The commit a lane folder is at, as a contract: `LaneCommit`, which `kkt lanes import` asks so the lane versions it saves record where they came from.",
+   "crate_doc": "The commit a lane folder is at: `LaneCommit`, which `kkt lanes import` asks so the lane versions it saves record where they came from, and its one implementation, `Git` (behind `real`), which only the program turns on and injects.",
    "dev_only": false,
    "features": {
+    "real": [],
     "testing": []
    },
    "holders": [],
@@ -6857,10 +6858,22 @@ window.KKT_GRAPH = {
      "crate": "kkt-lane-commit",
      "trait": "LaneCommit",
      "trait_crate": "kkt-lane-commit",
+     "type": "Git"
+    },
+    {
+     "crate": "kkt-lane-commit",
+     "trait": "LaneCommit",
+     "trait_crate": "kkt-lane-commit",
      "type": "testing::Memory"
     }
    ],
    "items": [
+    {
+     "doc": "The machine's git, asked where a lane folder is.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Git"
+    },
     {
      "doc": "The commit a lane folder is at.",
      "kind": "trait",
@@ -6887,50 +6900,14 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_lane_commit",
-   "machine_work": {},
-   "name": "kkt-lane-commit",
-   "optional_third_party": {},
-   "path": "crates/kkt-lane-commit",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "The commit a lane folder is at, from git: `Git` implements kkt-lane-commit's `LaneCommit` by running `git -C <folder>` in the C locale and reading its answers.",
-   "dev_only": false,
-   "features": {
-    "real": []
-   },
-   "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-lane-commit-git",
-     "trait": "LaneCommit",
-     "trait_crate": "kkt-lane-commit",
-     "type": "Git"
-    }
-   ],
-   "items": [
-    {
-     "doc": "The machine's git, asked where a lane folder is.",
-     "feature": "real",
-     "kind": "struct",
-     "path": "Git"
-    }
-   ],
-   "lib": "kkt_lane_commit_git",
    "machine_work": {
     "src/git.rs": [
      "process::Command::new"
     ]
    },
-   "name": "kkt-lane-commit-git",
+   "name": "kkt-lane-commit",
    "optional_third_party": {},
-   "path": "crates/kkt-lane-commit-git",
+   "path": "crates/kkt-lane-commit",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -17308,7 +17285,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-lane-commit-git"
+   "to": "kkt-lane-commit"
   },
   {
    "features": [],
@@ -22044,27 +22021,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-web"
-  },
-  {
-   "features": [],
-   "from": "kkt-lane-commit-git",
-   "items": [
-    "LaneCommit"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "Git implements LaneCommit"
-     ],
-     "role": "implements"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-lane-commit"
   },
   {
    "features": [],
@@ -26967,16 +26923,10 @@ window.KKT_CONCERNS = {
    "must_not": "Be released, or share code with the `kkt` program."
   },
   "kkt-lane-commit": {
-   "concern": "The project's contract for the commit a lane folder is at (`LaneCommit`), and its testing Memory stand-in.",
-   "kind": "contract",
+   "concern": "The commit a lane folder is at: the `LaneCommit` contract in the open, with its testing Memory stand-in, and its one implementation behind real, `Git`: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner.",
+   "kind": "contract and effect",
    "layer": "operations",
-   "must_not": "Know a version-control tool, its commands or output; touch the machine."
-  },
-  "kkt-lane-commit-git": {
-   "concern": "Implements LaneCommit with git: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner; running git is behind real.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Read or write the lane files."
+   "must_not": "Read or write the lane files; let a consumer reach `Git` without real."
   },
   "kkt-lane-files": {
    "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from kkt-lane-commit's `LaneCommit`.",
@@ -28106,8 +28056,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-lane-commit-git::Git",
-     "note": "The program injects git directly as the lane folder's commit (12.5a).",
+     "impl": "kkt-lane-commit::Git",
+     "note": "The program turns on kkt-lane-commit's real and injects its Git directly as the lane folder's commit (12.5a, merged in 13.4).",
      "to": [
       {
        "at": "OperateParts",
