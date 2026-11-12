@@ -336,7 +336,7 @@ The two differences left at step 8.1 are gone:
   program's tests run the store and a chosen part of the rules' scenarios on
   kkt-db-sqlite.
 
-The final scorecard, on the code at the end of phases 9 to 11:
+The final scorecard, on the code at the end of phases 9 to 11 (1be030c):
 
 - crates: 61 of 61 proposed crates exist; none missing; none to remove;
 - items: 813 of 813 proposed items are in their proposed crate;

@@ -249,7 +249,7 @@ this list; one that is not on it blocks.
 
 | Break | Introduced by | Removed by |
 |---|---|---|
-| The macOS Rust checks are off in CI: `macos-15` is out of `ci.yml`'s list of systems, so platform-specific code is reviewed by hand again | Sam, 2026-11-12: GitHub's macOS runners are short, and #497's job never got one (this pull request) | Adding `macos-15` back to the list, as its comment says, or a self-hosted macOS runner |
+| The macOS Rust checks are off in CI: `macos-15` is out of `ci.yml`'s list of systems, so platform-specific code is reviewed by hand again | Sam, 2026-11-12: GitHub's macOS runners are short, and #497's job never got one (#501) | Adding `macos-15` back to the list, as its comment says, or a self-hosted macOS runner |
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
@@ -1356,8 +1356,8 @@ Each has the default we proceed on, so nothing waits.
 
 ## Final scorecard
 
-On the code at the end of phases 9 to 11 (`progress.py`, step 10.4), against
-the proposal with phases 9 to 11 charted:
+On the code at the end of phases 9 to 11, at 1be030c (#502 merged), against
+the proposal with phases 9 to 11 charted (`progress.py`, step 10.4):
 
 - crates: 61 of 61 proposed crates exist; none missing; none to remove;
 - items: 813 of 813 proposed items are in their proposed crate;

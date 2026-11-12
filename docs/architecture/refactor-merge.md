@@ -42,7 +42,7 @@ proposed map, as amended during the refactor, with no difference left
 
 ## Final scorecard
 
-From `progress.py`, on the code at the end of the refactor:
+From `progress.py`, on the code at the end of the refactor (1be030c):
 
 - crates: 61 of 61 proposed crates exist; none missing; none to remove;
 - items: 813 of 813 proposed items are in their proposed crate;
