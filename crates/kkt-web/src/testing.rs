@@ -1,9 +1,9 @@
 //! Page tests that every implementation of the application must pass,
 //! written once over the application as an operator reads it ([`App`]) and
 //! a gate and sessions ([`Door`]) that the caller gives, and the helpers
-//! for driving the page. The preview's runs are in `preview`; the server's,
-//! over the rules, in `web_real`'s tests. Nothing here builds a clock,
-//! entropy or admission.
+//! for driving the page. kkt-api-sim's tests run them over the simulated
+//! application; the server's, over the rules, are in `web_real`'s tests.
+//! Nothing here builds a clock, entropy or admission.
 
 use crate::*;
 use axum::body::Body;

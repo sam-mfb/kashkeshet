@@ -11,13 +11,13 @@
 //! kkt-api crates' (`OperatorApi`), in the viewer's swarm, and render their
 //! records. Its own contract is only the gate (`gate`): the server supplies
 //! the operations over the rules and the gate over admission (`web_real`),
-//! and the preview both from simulated data (`preview`), so the page can
-//! run and be worked on without a server.
+//! and kkt-api-sim both from simulated data, for the page's tests and the
+//! preview program (kkt-web-preview), so the page can run and be worked on
+//! without a server.
 
 mod change;
 mod gate;
 mod lanes;
-mod preview;
 mod sessions;
 mod settings;
 mod sign_in;
@@ -25,11 +25,8 @@ mod toast;
 mod viewing;
 
 pub use gate::{Admit, Gate, SignIn, Viewer};
-pub use preview::{
-    PREVIEW_BIND, PREVIEW_SEED, PREVIEW_SESSION_LIFETIME, Preview, PreviewGate, PreviewSettings,
-};
 pub use sessions::{Access, Held, Session, Sessions, WEB_SESSION_ID_CHARS};
-pub use settings::{MAX_WEB_PAGE_MESSAGES, PageLimits, SettingError, Settings};
+pub use settings::{MAX_WEB_PAGE_MESSAGES, PageLimits, Settings};
 
 use askama::Template;
 use axum::Json;

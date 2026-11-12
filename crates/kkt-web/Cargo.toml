@@ -1,6 +1,6 @@
 [package]
 name = "kkt-web"
-description = "The human's pages, over the kkt-api crates' operations, and the preview with simulated data"
+description = "The human's pages, over the kkt-api crates' operations"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,12 +15,10 @@ askama.workspace = true
 axum.workspace = true
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
-kkt-events = { path = "../kkt-events" }
 kkt-hash = { path = "../kkt-hash" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-names = { path = "../kkt-names" }
-kkt-shutdown = { path = "../kkt-shutdown" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
@@ -35,20 +33,13 @@ testing = ["dep:tower", "tokio/time", "kkt-log/testing"]
 
 [dev-dependencies]
 kkt-log = { path = "../kkt-log", features = ["testing"] }
-kkt-logs-os = { path = "../kkt-logs-os", features = ["real"] }
-tracing.workspace = true
-# `testing` is for the page tests: a fixed clock and counting entropy.
-# `real` (the system clock, entropy and stop signals), clap and
-# tracing-subscriber are for the preview example only, which is a program.
-# Cargo gives the unit tests the same list; they must not use `real`.
-clap.workspace = true
+# The page tests: a fixed clock, counting and seeded entropy, a stop the
+# test owns, and the simulated application, which makes a world for each
+# swarm it is asked about.
+kkt-api-sim = { path = "../kkt-api-sim", features = ["testing"] }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-clock-system = { path = "../kkt-clock-system", features = ["real"] }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
-# The preview example draws its sessions from the operating system.
-kkt-entropy-os = { path = "../kkt-entropy-os", features = ["real"] }
-kkt-shutdown-os = { path = "../kkt-shutdown-os", features = ["real"] }
+kkt-shutdown = { path = "../kkt-shutdown" }
 # `time` so the live-feed tests can bound how long they wait in real time.
 tokio = { workspace = true, features = ["time"] }
 tower.workspace = true
-tracing-subscriber.workspace = true

@@ -1,22 +1,28 @@
-//! The page scenarios run against the preview, behind its simulated gate;
-//! plus tests of the preview's simulated world, feed and gate.
+//! kkt-web's page scenarios run against the simulated application, behind
+//! its stand-in gate; plus tests of its simulated world, feed and gate.
 
-use crate::preview::records::ChannelAction;
-use crate::preview::{Happening, preview_viewer};
-use crate::testing::{
+use crate::records::ChannelAction;
+use crate::*;
+use futures::StreamExt;
+use kkt_api_operator::Notice;
+use kkt_clock::Span;
+use kkt_clock::testing::FixedClock;
+use kkt_entropy::SeededEntropy;
+use kkt_entropy::testing::SeqEntropy;
+use kkt_shutdown::Shutdown;
+use kkt_web::testing::{
     App, Door, administration_works, announcement_editor_works, changes_work,
     channel_creation_works, earlier_pages_work, get, handoff_works,
     hidden_channels_show_only_on_request, history_works, lanes_pages_work,
     member_lists_show_lanes_and_latest_messages, operator_changes_are_live, page_script_works,
     pages_work, site, stale_agents_work, start_time, summaries_agree_with_the_pages,
 };
-use crate::*;
-use futures::StreamExt;
-use kkt_clock::Span;
-use kkt_clock::testing::FixedClock;
-use kkt_entropy::SeededEntropy;
-use kkt_entropy::testing::SeqEntropy;
-use kkt_shutdown::Shutdown;
+use kkt_web::{PageLimits, Sessions, Settings};
+use std::time::Duration;
+
+/// The window and bucket of recent activity the page asks for.
+const WEB_ACTIVITY_WINDOW: Duration = Duration::from_secs(5 * 60);
+const WEB_ACTIVITY_BUCKET: Duration = Duration::from_secs(10);
 
 /// The preview's simulated gate, open: for the preview's runs.
 fn preview_gate() -> Door<()> {
@@ -24,7 +30,7 @@ fn preview_gate() -> Door<()> {
     let sessions = Sessions::new(
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(9)),
-        PREVIEW_SESSION_LIFETIME,
+        Settings::DEFAULT.session_lifetime,
         gate.access(),
     );
     Door {
@@ -46,14 +52,6 @@ async fn the_preview_has_a_channel_long_enough_to_page_back_through() {
     assert!(
         earlier_pages_work(app(&source), preview_gate(), Settings::DEFAULT).await >= 3,
         "several pages back"
-    );
-}
-
-#[test]
-fn the_preview_pages_as_the_server_does_by_default() {
-    assert_eq!(
-        PreviewSettings::DEFAULT.page_messages,
-        PageLimits::DEFAULT.page_messages
     );
 }
 
@@ -134,7 +132,7 @@ async fn the_show_older_link_appears_only_when_older_messages_exist() {
             .await
             .expect("view");
         let (status, page) = get(&site, &format!("/channels/{}", c.id)).await;
-        assert_eq!(status, StatusCode::OK);
+        assert_eq!(status.as_u16(), 200);
         match view.older_before_id {
             Some(before) => {
                 seen_paged = true;
@@ -176,7 +174,7 @@ fn keyed_preview_gate() -> (PreviewGate, Sessions<()>, Arc<FixedClock>) {
     let sessions = Sessions::new(
         clock.clone(),
         Arc::new(SeqEntropy::new(9)),
-        PREVIEW_SESSION_LIFETIME,
+        Settings::DEFAULT.session_lifetime,
         gate.access(),
     );
     (gate, sessions, clock)
@@ -207,7 +205,7 @@ async fn the_preview_gate_is_open_without_a_key() {
     let sessions = Sessions::new(
         Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(9)),
-        PREVIEW_SESSION_LIFETIME,
+        Settings::DEFAULT.session_lifetime,
         gate.access(),
     );
     assert_eq!(
@@ -274,7 +272,8 @@ fn the_preview_gate_takes_only_a_key_the_server_would() {
 async fn a_preview_session_ends_after_its_lifetime() {
     let (gate, sessions, clock) = keyed_preview_gate();
     let id = signed_in(&gate, &sessions, PREVIEW_KEY);
-    let lifetime = Span::from_std(PREVIEW_SESSION_LIFETIME).expect("a lifetime a span can hold");
+    let lifetime =
+        Span::from_std(Settings::DEFAULT.session_lifetime).expect("a lifetime a span can hold");
     clock.advance(lifetime - Span::seconds(1));
     assert_eq!(
         admits(&gate, &sessions, Some(&id)).await,
@@ -689,15 +688,7 @@ fn preview_rates_must_be_sensible() {
     for bad in [0, 60_001] {
         let settings = PreviewSettings {
             steps_per_minute: bad,
-            ..PreviewSettings::DEFAULT
         };
         assert_eq!(settings.check().map_err(|e| e.name), Err("rate"));
-    }
-    for bad in [0, MAX_WEB_PAGE_MESSAGES + 1] {
-        let settings = PreviewSettings {
-            page_messages: bad,
-            ..PreviewSettings::DEFAULT
-        };
-        assert_eq!(settings.check().map_err(|e| e.name), Err("page_messages"));
     }
 }

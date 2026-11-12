@@ -3,7 +3,7 @@
 //! is ([`Viewer`]): the swarm they see and the operator they act as. The
 //! page's data and changes are the kkt-api crates', which it calls directly
 //! in the viewer's swarm. The server provides the gate over admission and
-//! identity (`web_real`); the preview provides a simulated one (`preview`).
+//! identity (`web_real`); kkt-api-sim provides a stand-in (`PreviewGate`).
 
 use crate::sessions::{Held, Session};
 use futures::future::BoxFuture;

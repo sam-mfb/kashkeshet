@@ -1,6 +1,7 @@
 //! Puts the parts together: the rules, the MCP endpoint at `/mcp`, the admin
 //! endpoint at `/mcp-admin` when there is an admin key, and the web page at
-//! `/`. Also stores the record of each server run in the database.
+//! `/`; or the web page alone ([`page`]). Also stores the record of each
+//! server run in the database.
 //! kkt-server-listen binds and runs the assembled server.
 //!
 //! kkt-web and kkt-mcp hand their axum `Router`s to this crate, which mounts
@@ -25,6 +26,7 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use kkt_admission::{AdminAdmission, Admission, Credentials, Decision, WebAdmission};
 use kkt_api_agent::SwarmId;
+use kkt_api_operator::OperatorApi;
 use kkt_clock::{self as clock, Clock, Time};
 use kkt_entropy::Entropy;
 use kkt_events::Events;
@@ -166,6 +168,23 @@ impl App {
 pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> App {
     App {
         router: router(parts, config, shutdown),
+    }
+}
+
+/// The web page alone, over `api` in each viewer's swarm and behind `gate`,
+/// with no MCP endpoints, for a program that serves only the page, such as
+/// the preview over simulated data. kkt-server-listen binds and runs it as
+/// it does a whole server.
+pub fn page<S: web::Held>(
+    api: Arc<dyn OperatorApi>,
+    hosts: AllowedHosts,
+    gate: Arc<dyn web::Gate<SignedIn = S>>,
+    sessions: Arc<web::Sessions<S>>,
+    log: Arc<dyn Log>,
+    settings: web::Settings,
+) -> App {
+    App {
+        router: web::router(api, hosts, gate, sessions, log, settings),
     }
 }
 

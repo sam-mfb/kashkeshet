@@ -8,13 +8,14 @@ import unittest
 RULES = Path(__file__).resolve().parent / "check-crates.jq"
 
 
-def package(name, targets=("lib",), dependencies=(), features=None):
+def package(name, targets=("lib",), dependencies=(), features=None, dev_only=False):
     """A package as `cargo metadata --no-deps` describes it, with only the fields the rules read."""
     return {
         "name": name,
         "targets": [{"name": name, "kind": [kind]} for kind in targets],
         "dependencies": list(dependencies),
         "features": features or {},
+        "metadata": {"kkt": {"dev-only": True}} if dev_only else None,
     }
 
 
@@ -73,7 +74,23 @@ class CheckCrates(unittest.TestCase):
                 self.assertEqual(problems(
                     package("kkt-a"),
                     package("kkt-b", targets=("bin", "example"), dependencies=[dependency("kkt-a", kind=kind, features=["testing"])]),
-                ), [f"kkt-b: turns on kkt-a's testing in {section}; only [dev-dependencies] may"])
+                ), [f"kkt-b: turns on kkt-a's testing in {section}; only [dev-dependencies] may, or a dev-only program's [dependencies]"])
+
+    def test_a_dev_only_program_may_turn_on_testing_in_its_dependencies(self):
+        uses = [dependency("kkt-a", features=["testing"])]
+        self.assertEqual(problems(
+            package("kkt-a"),
+            package("kkt-b", targets=("bin",), dependencies=uses, dev_only=True),
+        ), [])
+        # Not a library marked dev-only, nor in [build-dependencies].
+        self.assertEqual(problems(
+            package("kkt-a"),
+            package("kkt-b", dependencies=uses, dev_only=True),
+        ), ["kkt-b: turns on kkt-a's testing in [dependencies]; only [dev-dependencies] may, or a dev-only program's [dependencies]"])
+        self.assertEqual(problems(
+            package("kkt-a"),
+            package("kkt-b", targets=("bin",), dependencies=[dependency("kkt-a", kind="build", features=["testing"])], dev_only=True),
+        ), ["kkt-b: turns on kkt-a's testing in [build-dependencies]; only [dev-dependencies] may, or a dev-only program's [dependencies]"])
 
     def test_scratch_only_in_dev_dependencies(self):
         self.assertEqual(problems(
