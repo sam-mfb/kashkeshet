@@ -15,8 +15,12 @@
 #    [dependencies] still passes. Without them it fails.
 # 2. Only programs turn on another workspace package's `real`. A package
 #    with a binary target may do so in [dependencies]; a package with an
-#    example target may do so in [dev-dependencies], for its examples. Any
-#    other way, including through a feature of the package's own, fails.
+#    example target may do so in [dev-dependencies], for its examples. Tests
+#    SHOULD NOT turn on `real`: a test that must is a documented exception,
+#    listed with its reason in real-exceptions.json beside this script, and
+#    may then do so in [dev-dependencies] (Sam, 2026-11-12). Any other way,
+#    including through a feature of the package's own, fails, and so does a
+#    listed exception that no longer applies.
 #    A library's `default` feature also may not reach its own `real` or
 #    `testing`, or a workspace dependency's, directly or through its other
 #    features at any depth.
@@ -47,7 +51,9 @@ metadata=$(cargo metadata --locked --no-deps --format-version 1)
 root=$(dirname "$(cargo locate-project --workspace --message-format plain)")
 contracts=$(jq -c '[.crates | to_entries[] | select(.value.kind == "contract") | .key]' \
     "$root/docs/architecture/concerns.json")
-problems=$(jq -r --argjson contracts "$contracts" -f "$scripts/check-crates.jq" <<< "$metadata")
+problems=$(jq -r --argjson contracts "$contracts" \
+    --argjson real_exceptions "$(cat "$scripts/real-exceptions.json")" \
+    -f "$scripts/check-crates.jq" <<< "$metadata")
 # Check 6, the sources: no item behind `real` in a contract crate.
 for name in $(jq -r '.[]' <<< "$contracts"); do
     dir=$(jq -r --arg name "$name" '.packages[] | select(.name == $name) | .manifest_path' \

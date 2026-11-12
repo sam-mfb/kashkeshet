@@ -1,5 +1,7 @@
 # Checks 2 to 6 of check-crates.sh, over `cargo metadata --no-deps` output,
-# with `$contracts`, the names of the crates concerns.json marks contract.
+# with `$contracts`, the names of the crates concerns.json marks contract,
+# and `$real_exceptions`, the documented exceptions to check 2 for tests
+# (real-exceptions.json: package, dependency, reason).
 # Prints one line per problem, and nothing when the manifests follow the
 # rules. No package is named here except kkt-scratch, the subject of check 4.
 
@@ -13,6 +15,20 @@ def default_reach($features):
         | if $all == $seen then $seen else $all | grow end;
     ["default"] | grow;
 
+# Check 2's exceptions: a listed exception that no longer applies fails, so
+# the list says only what is true.
+(
+    . as $root
+    | $real_exceptions[]
+    | . as $exception
+    | select(
+        any($root.packages[]; .name == $exception.package
+            and any(.dependencies[]; .name == $exception.dependency
+                and .kind == "dev" and any(.features[]; . == "real")))
+        | not)
+    | "real-exceptions.json lists \($exception.package) turning on \($exception.dependency)'s real in [dev-dependencies], which it no longer does; remove the entry"
+),
+(
 [.packages[].name] as $workspace
 | .packages[]
 | . as $package
@@ -27,11 +43,14 @@ def default_reach($features):
     | (.kind // "normal") as $kind
     | ({normal: "[dependencies]", dev: "[dev-dependencies]", build: "[build-dependencies]"}[$kind]
         + (if .target then " for \(.target)" else "" end)) as $section
-    # Check 2: only programs turn on another package's real.
+    # Check 2: only programs turn on another package's real. Tests should
+    # not; those that do are documented exceptions, in $real_exceptions.
     | (
         if any(.features[]; . == "real")
-            and ((($kind == "normal" and $program) or ($kind == "dev" and $examples)) | not)
-        then "\($package.name): turns on \($dependency.name)'s real in \($section); only a package with a binary target may (in [dependencies]), or one with an example target (in [dev-dependencies])"
+            and ((($kind == "normal" and $program) or ($kind == "dev" and $examples)
+                or ($kind == "dev" and any($real_exceptions[];
+                    .package == $package.name and .dependency == $dependency.name))) | not)
+        then "\($package.name): turns on \($dependency.name)'s real in \($section); only a package with a binary target may (in [dependencies]), or one with an example target (in [dev-dependencies]); tests should not, except as listed in real-exceptions.json"
         else empty end
     ),
     # Check 3: another package's testing only in [dev-dependencies], or in
@@ -103,4 +122,5 @@ def default_reach($features):
     if (.name as $n | any($contracts[]; . == $n)) and (.features | has("real"))
     then "\(.name): it is a contract crate and has a `real` feature; a contract may not touch the machine"
     else empty end
+)
 )

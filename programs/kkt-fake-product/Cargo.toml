@@ -23,7 +23,6 @@ dev-only = true
 
 [dependencies]
 kkt-admission = { path = "../../crates/kkt-admission" }
-kkt-agent-client = { path = "../../crates/kkt-agent-client", features = ["real"] }
 # Making the second swarm (`Swarms::create_swarm`).
 kkt-api-admin = { path = "../../crates/kkt-api-admin" }
 kkt-api-agent = { path = "../../crates/kkt-api-agent" }
@@ -52,6 +51,10 @@ kkt-terminal-os = { path = "../../crates/kkt-terminal-os", features = ["real"] }
 tokio.workspace = true
 
 [dev-dependencies]
+# The tests drive the running product over HTTP with kkt-agent-client's
+# client, which only `real` builds. Tests should not turn on `real`; this is
+# a documented exception (.github/scripts/real-exceptions.json).
+kkt-agent-client = { path = "../../crates/kkt-agent-client", features = ["real"] }
 futures.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
