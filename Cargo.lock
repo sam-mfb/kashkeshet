@@ -1061,7 +1061,6 @@ dependencies = [
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
- "kkt-diagnostics-os",
  "kkt-entropy-os",
  "kkt-events",
  "kkt-hash",
@@ -1078,6 +1077,7 @@ dependencies = [
  "kkt-mcp-formatter",
  "kkt-names",
  "kkt-operate",
+ "kkt-probe-reqwest",
  "kkt-provenance",
  "kkt-remote-access-tailscale",
  "kkt-rules",
@@ -1351,15 +1351,8 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-clock",
+ "kkt-probe",
  "url",
-]
-
-[[package]]
-name = "kkt-diagnostics-os"
-version = "0.10.0"
-dependencies = [
- "reqwest",
- "serde_json",
 ]
 
 [[package]]
@@ -1613,12 +1606,26 @@ dependencies = [
  "kkt-lane-files",
  "kkt-machine",
  "kkt-names",
+ "kkt-probe",
  "kkt-provenance",
  "kkt-remote-access",
  "kkt-rules",
  "kkt-service",
  "kkt-setup",
  "tokio",
+]
+
+[[package]]
+name = "kkt-probe"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-probe-reqwest"
+version = "0.10.0"
+dependencies = [
+ "kkt-probe",
+ "reqwest",
+ "serde_json",
 ]
 
 [[package]]

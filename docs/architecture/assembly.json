@@ -479,8 +479,7 @@
       }
      ],
      "note": "kkt doctor, kkt setup",
-     "own": "DiagnosticProber, adapting kkt-diagnostics-os's OsProber",
-     "supplier": "kkt-diagnostics-os's OsProber"
+     "impl": "kkt-probe-reqwest::HttpProber"
     },
     {
      "impl": "kkt-diagnostics::Inspector",
@@ -626,14 +625,15 @@
      ]
     },
     {
-     "own": "DiagnosticProber",
      "crate": "kkt-operate",
      "to": [
       {
        "at": "OperateParts",
        "param": "prober"
       }
-     ]
+     ],
+     "impl": "kkt-probe-reqwest::HttpProber",
+     "note": "The program builds HttpProber with the doctor's settings and injects it directly (12.5b)."
     },
     {
      "own": "LaneDisk",

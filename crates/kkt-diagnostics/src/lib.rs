@@ -2,18 +2,17 @@
 //! The checks and their names are here, and doctor's plan of them
 //! (`plan.rs`) and setup's wait for a new server (`wait.rs`). What touches
 //! the machine, reading key files and probing a server, is behind
-//! [`Prober`]; the program adapts kkt-diagnostics-os to this contract.
+//! kkt-probe's `Prober`, which the program injects.
 
 mod plan;
 mod wait;
 
+pub(crate) use kkt_probe::{Check, KeyFile, Prober};
 pub use plan::{
     KeyToCheck, Plan, SETUP_CHECK, ServerLines, ThisMachine, point_server_fix_at, report,
 };
-use std::future::Future;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::pin::Pin;
 use std::time::Duration;
 use url::Url;
 pub use wait::{SetupServer, Wait, setup_wait, until_reachable};
@@ -40,31 +39,6 @@ impl Settings {
         setup_server_wait: Duration::from_secs(2 * 60),
         setup_server_poll: Duration::from_secs(2),
     };
-}
-
-/// What a [`Prober`] found in a key file.
-#[derive(Debug, Clone)]
-pub struct KeyFile {
-    /// The file's permission bits, where the system has them.
-    pub mode: Option<u32>,
-    /// The file's text, or why it could not be read.
-    pub text: Result<String, String>,
-}
-
-/// The server checks a [`Prober`] makes, once they are done.
-pub type Probing<'a> = Pin<Box<dyn Future<Output = Result<Vec<Check>, String>> + Send + 'a>>;
-
-/// What the checks do to the machine. Neither registers an agent nor
-/// changes a server's database.
-pub trait Prober: Sync {
-    /// What the key file at `path` holds. `Err` says why the file could not
-    /// be looked at.
-    fn key_file(&self, path: &Path) -> Result<KeyFile, String>;
-
-    /// The checks of the server at `url`, using `key` (`None` for none):
-    /// whether it answers, accepts its host name, accepts the key and serves
-    /// MCP, and its build. `Err` when the probe cannot be made at all.
-    fn probe<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a>;
 }
 
 /// The checks, made through a [`Prober`].
@@ -243,34 +217,6 @@ pub async fn inspect_with_key(
     key: Option<&str>,
 ) -> Result<Vec<Check>, String> {
     Inspector::new(prober).server_with_key(url, key).await
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Check {
-    pub name: &'static str,
-    pub ok: bool,
-    pub detail: String,
-    pub fix: Option<String>,
-}
-
-impl Check {
-    pub fn ok(name: &'static str, detail: impl Into<String>) -> Check {
-        Check {
-            name,
-            ok: true,
-            detail: detail.into(),
-            fix: None,
-        }
-    }
-
-    pub fn problem(name: &'static str, detail: impl Into<String>, fix: impl Into<String>) -> Check {
-        Check {
-            name,
-            ok: false,
-            detail: detail.into(),
-            fix: Some(fix.into()),
-        }
-    }
 }
 
 /// `text` as one shell word, for fix text the operator copies into a shell
