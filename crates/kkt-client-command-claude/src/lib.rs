@@ -8,6 +8,7 @@
 
 mod runner;
 
+#[cfg(feature = "real")]
 use kkt_client_command::ClientCommand;
 use runner::{Ran, Runner};
 use std::io;
