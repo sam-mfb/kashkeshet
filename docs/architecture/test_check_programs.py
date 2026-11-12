@@ -66,10 +66,6 @@ class CheckPrograms(unittest.TestCase):
                          ["kkt-server is composition but has a `real` feature of its own"])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class PathProbes(unittest.TestCase):
     """A program asking the file system about a path counts as machine work."""
 
@@ -90,3 +86,7 @@ class PathProbes(unittest.TestCase):
     def test_std_path_absolute_is_machine_work(self):
         self.assertTrue(check.kinds.is_std_io("path::absolute"))
         self.assertFalse(check.kinds.is_std_io("path::Path"))
+
+
+if __name__ == "__main__":
+    unittest.main()
