@@ -116,7 +116,7 @@ impl Evolve for FastPlace {
                         write: true,
                     })?;
                 }
-                check(&inner.conn, &schema, None)?;
+                check(&inner.conn, &schema, Scope::All)?;
             }
             if &schema != after {
                 return Err(DbError::Backend(
@@ -157,12 +157,17 @@ fn make(conn: &rusqlite::Connection, step: &Step) -> Result<(), DbError> {
                     literal(&Value::Text(table.name.to_string()))
                 ));
             }
-            sql.push_str(&index(table.name, "pk", &table.primary_key));
+            sql.push_str(&index(table.name, "key", "", &table.primary_key));
             for column in table.columns.iter().filter(|c| c.unique) {
-                sql.push_str(&index(table.name, column.name, &[column.name]));
+                sql.push_str(&index(table.name, "unique", column.name, &[column.name]));
             }
             for declared in &table.indexes {
-                sql.push_str(&index(table.name, declared.name, &declared.columns));
+                sql.push_str(&index(
+                    table.name,
+                    "index",
+                    declared.name,
+                    &declared.columns,
+                ));
             }
             conn.execute_batch(&sql).map_err(failed)
         }
@@ -177,7 +182,7 @@ fn make(conn: &rusqlite::Connection, step: &Step) -> Result<(), DbError> {
             }
             sql.push(';');
             if column.unique {
-                sql.push_str(&index(table, column.name, &[column.name]));
+                sql.push_str(&index(table, "unique", column.name, &[column.name]));
             }
             conn.execute_batch(&sql).map_err(failed)
         }
@@ -185,18 +190,20 @@ fn make(conn: &rusqlite::Connection, step: &Step) -> Result<(), DbError> {
             table,
             index: declared,
         } => conn
-            .execute_batch(&index(table, declared.name, &declared.columns))
+            .execute_batch(&index(table, "index", declared.name, &declared.columns))
             .map_err(failed),
         Step::AddConstraint { .. } | Step::AddSearch { .. } | Step::Fill { .. } => Ok(()),
     }
 }
 
-/// An index, for speed only: it changes no answer.
-fn index(table: &str, name: &str, columns: &[&str]) -> String {
+/// An index, for speed only: it changes no answer. Its name says what it
+/// is for, so an index a table declares never clashes with the stand-in's
+/// own, whatever it is called.
+fn index(table: &str, kind: &str, name: &str, columns: &[&str]) -> String {
     let columns: Vec<String> = columns.iter().map(|c| quote(c)).collect();
     format!(
         "CREATE INDEX {} ON {} ({});",
-        quote(&format!("_fast_{table}_{name}")),
+        quote(&format!("_fast_{table}_{kind}_{name}")),
         quote(table),
         columns.join(", ")
     )
@@ -368,14 +375,21 @@ impl FastConnection<'_> {
     fn change<T>(
         &self,
         table: &str,
-        change: impl FnOnce() -> Result<T, DbError>,
+        change: impl FnOnce() -> Result<(T, Touched), DbError>,
     ) -> Result<T, DbError> {
         self.writable()?;
         self.conn
             .execute_batch("SAVEPOINT fast_change")
             .map_err(failed)?;
-        let done = change().and_then(|value| {
-            check(self.conn, self.schema, Some(table))?;
+        let done = change().and_then(|(value, touched)| {
+            check(
+                self.conn,
+                self.schema,
+                Scope::Change {
+                    table,
+                    touched: &touched,
+                },
+            )?;
             Ok(value)
         });
         let end = match done {
@@ -498,14 +512,17 @@ impl FastConnection<'_> {
             }
             Condition::In(o, inner) => {
                 let o = self.operand(sql, table, alias, o)?;
-                let inner = self.select_sql(sql, inner, false)?;
+                let inner = self.select_sql(sql, inner, true)?;
                 format!("COALESCE({o} IN ({inner}), 0)")
             }
             Condition::EqIgnoringAsciiCase(o, wanted) => {
-                let o = self.operand(sql, table, alias, o)?;
+                // The operand twice, each with its own parameters. SQLite's
+                // lower() folds ASCII letters only and keeps every byte, NUL
+                // included, where the NOCASE collation stops at a NUL.
+                let first = self.operand(sql, table, alias, o)?;
+                let second = self.operand(sql, table, alias, o)?;
                 let mark = sql.bind(&Value::Text(wanted.clone()));
-                // NOCASE folds ASCII letters only.
-                format!("COALESCE(typeof({o}) = 'text' AND {o} = {mark} COLLATE NOCASE, 0)")
+                format!("COALESCE(typeof({first}) = 'text' AND lower({second}) = lower({mark}), 0)")
             }
             Condition::ContainsIgnoringAsciiCase(o, wanted) => {
                 let first = self.operand(sql, table, alias, o)?;
@@ -813,15 +830,20 @@ impl FastConnection<'_> {
             if let Some((rowid, old)) = present {
                 return match existing {
                     Existing::Refuse => Err(refused(table, None, ConstraintKind::PrimaryKey)),
-                    Existing::Keep => Ok((false, None)),
+                    Existing::Keep => Ok(((false, None), Touched::default())),
                     Existing::Replace => {
                         if table.constraints.contains(&Constraint::Immutable) {
                             return Err(refused(table, None, ConstraintKind::Immutable));
                         }
+                        let pointed_at = referenced(self.schema, table.name);
+                        let mut left = Vec::new();
                         let mut sets = Vec::new();
                         let mut params = Vec::new();
                         for ((name, value), old) in insert.values.iter().zip(&old) {
                             fixed(table, name, old, value)?;
+                            if pointed_at.contains(name) {
+                                left.push((*name, old.clone()));
+                            }
                             sets.push(format!("{} = ?", quote(name)));
                             params.push(param(value));
                         }
@@ -836,7 +858,13 @@ impl FastConnection<'_> {
                                 params,
                             )?;
                         }
-                        Ok((true, None))
+                        Ok((
+                            (true, None),
+                            Touched {
+                                rows: vec![rowid],
+                                left,
+                            },
+                        ))
                     }
                 };
             }
@@ -870,7 +898,14 @@ impl FastConnection<'_> {
                 ),
                 row.iter().map(param).collect(),
             )?;
-            Ok((true, key))
+            let rowid = self.conn.last_insert_rowid();
+            Ok((
+                (true, key),
+                Touched {
+                    rows: vec![rowid],
+                    left: Vec::new(),
+                },
+            ))
         })
     }
 }
@@ -895,22 +930,97 @@ fn fixed(table: &Table, column: &str, old: &Value, new: &Value) -> Result<(), Db
     Ok(())
 }
 
-/// Checks the rules a change to `changed` could have broken, or with `None`
-/// every rule of every table: for each table in the schema's order, each
-/// row oldest first, each column in order, null where none may be, a
-/// positive column, and a reference to no row; then its primary key, then
-/// each unique column. A table other than `changed` can only have broken a
-/// reference into `changed`, so only those are checked there.
-fn check(
-    conn: &rusqlite::Connection,
-    schema: &Schema,
-    changed: Option<&str>,
-) -> Result<(), DbError> {
+/// What one change did to its table, for the check after it.
+#[derive(Default)]
+struct Touched {
+    /// The rows it added or changed, by rowid.
+    rows: Vec<i64>,
+    /// The values rows held, before it, in the columns that references
+    /// point at: a reference to one may now name no row.
+    left: Vec<(&'static str, Value)>,
+}
+
+/// Which rows a check looks at: every row, or those one change to `table`
+/// could have made break a rule.
+enum Scope<'a> {
+    All,
+    Change {
+        table: &'a str,
+        touched: &'a Touched,
+    },
+}
+
+/// The columns of `table` that a reference, in any table, points at.
+fn referenced(schema: &Schema, table: &str) -> Vec<&'static str> {
+    let mut out = Vec::new();
+    for other in schema.tables() {
+        for column in &other.columns {
+            if let Some(r) = &column.references {
+                if r.table == table && !out.contains(&r.column) {
+                    out.push(r.column);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// `expr` is one of `values`, as SQL, its parameters added to `params`. A
+/// list of any length is one JSON parameter where it can be.
+fn one_of(expr: &str, values: &[Value], params: &mut Vec<SqlValue>) -> String {
+    match json(values) {
+        Some(array) => {
+            params.push(SqlValue::Text(array));
+            format!("{expr} IN (SELECT value FROM json_each(?))")
+        }
+        None => {
+            params.extend(values.iter().map(param));
+            format!("{expr} IN ({})", vec!["?"; values.len()].join(", "))
+        }
+    }
+}
+
+/// Checks the rules, as MemoryPlace checks them after every change: for
+/// each table in the schema's order, each row oldest first, each column in
+/// order, null where none may be, a positive column, and a reference to no
+/// row; then its primary key, then each unique column.
+///
+/// After one change (`Scope::Change`), every rule held before it, so only
+/// what it touched can break one: in its table, the rows it added or
+/// changed, and the keys and unique values they hold; and, in any table,
+/// the rows whose references held a value it took away. Those are checked
+/// in the same order, so the first rule broken is the same, without reading
+/// the rest of the database.
+fn check(conn: &rusqlite::Connection, schema: &Schema, scope: Scope<'_>) -> Result<(), DbError> {
     for table in schema.tables() {
-        let whole = changed.is_none_or(|c| c == table.name);
+        let (whole, rows, left) = match &scope {
+            Scope::All => (true, None, &[][..]),
+            Scope::Change { table: t, touched } => (
+                *t == table.name,
+                Some(if *t == table.name {
+                    &touched.rows[..]
+                } else {
+                    &[][..]
+                }),
+                &touched.left[..],
+            ),
+        };
+        let changed = match &scope {
+            Scope::All => None,
+            Scope::Change { table, .. } => Some(*table),
+        };
         let mut cases = Vec::new();
         let mut kinds = Vec::new();
         let mut params = Vec::new();
+        // Which rows to look at, when not every row.
+        let mut candidates = Vec::new();
+        let mut candidate_params = Vec::new();
+        if let Some(rows) = rows {
+            if !rows.is_empty() {
+                let ids: Vec<Value> = rows.iter().map(|r| Value::Int(*r)).collect();
+                candidates.push(one_of("t.rowid", &ids, &mut candidate_params));
+            }
+        }
         for column in &table.columns {
             let c = format!("t.{}", quote(column.name));
             if whole && !column.nullable {
@@ -931,6 +1041,16 @@ fn check(
             if !whole && changed != Some(reference.table) {
                 continue;
             }
+            if changed == Some(reference.table) {
+                let gone: Vec<Value> = left
+                    .iter()
+                    .filter(|(name, v)| *name == reference.column && !v.is_null())
+                    .map(|(_, v)| v.clone())
+                    .collect();
+                if !gone.is_empty() {
+                    candidates.push(one_of(&c, &gone, &mut candidate_params));
+                }
+            }
             let except = match &reference.except {
                 Some(v) => {
                     params.push(param(v));
@@ -945,17 +1065,23 @@ fn check(
             ));
             kinds.push((column.name, ConstraintKind::Reference));
         }
-        if !cases.is_empty() {
+        let look = match &scope {
+            Scope::All => Some("1".to_string()),
+            Scope::Change { .. } if candidates.is_empty() => None,
+            Scope::Change { .. } => Some(candidates.join(" OR ")),
+        };
+        if let (false, Some(look)) = (cases.is_empty(), look) {
             let whens: Vec<String> = cases
                 .iter()
                 .enumerate()
                 .map(|(i, case)| format!("WHEN {case} THEN {i}"))
                 .collect();
             let text = format!(
-                "SELECT broken FROM (SELECT t.rowid AS at, CASE {} END AS broken FROM {} AS t) WHERE broken IS NOT NULL ORDER BY at LIMIT 1",
+                "SELECT broken FROM (SELECT t.rowid AS at, CASE {} END AS broken FROM {} AS t WHERE {look}) WHERE broken IS NOT NULL ORDER BY at LIMIT 1",
                 whens.join(" "),
                 quote(table.name)
             );
+            params.extend(candidate_params);
             let broken: Option<i64> = conn
                 .query_row(&text, rusqlite::params_from_iter(params.iter()), |r| {
                     r.get(0)
@@ -977,13 +1103,31 @@ fn check(
         if !whole {
             continue;
         }
-        let key: Vec<String> = table.primary_key.iter().map(|c| quote(c)).collect();
-        if !key.is_empty() && repeats(conn, table.name, &key.join(", "), "1")? {
-            return Err(refused(table, None, ConstraintKind::PrimaryKey));
+        let rows = match rows {
+            None => None,
+            Some([]) => continue,
+            Some(rows) => Some(rows),
+        };
+        if !table.primary_key.is_empty() {
+            let same: Vec<String> = table
+                .primary_key
+                .iter()
+                .map(|c| format!("a.{0} IS b.{0}", quote(c)))
+                .collect();
+            if repeats(conn, table.name, &same.join(" AND "), "1", rows)? {
+                return Err(refused(table, None, ConstraintKind::PrimaryKey));
+            }
         }
         for column in table.columns.iter().filter(|c| c.unique) {
             let name = quote(column.name);
-            if repeats(conn, table.name, &name, &format!("{name} IS NOT NULL"))? {
+            let same = format!("a.{name} = b.{name}");
+            if repeats(
+                conn,
+                table.name,
+                &same,
+                &format!("a.{name} IS NOT NULL"),
+                rows,
+            )? {
                 return Err(refused(table, Some(column.name), ConstraintKind::Unique));
             }
         }
@@ -991,19 +1135,31 @@ fn check(
     Ok(())
 }
 
-/// Whether two rows of `table` that meet `filter` share the values of
-/// `columns`.
+/// Whether two rows of `table` are the `same`, one of them meeting
+/// `filter` and, when `rows` names some, being one of them.
 fn repeats(
     conn: &rusqlite::Connection,
     table: &str,
-    columns: &str,
+    same: &str,
     filter: &str,
+    rows: Option<&[i64]>,
 ) -> Result<bool, DbError> {
+    let mut params = Vec::new();
+    let among = match rows {
+        Some(rows) => {
+            let ids: Vec<Value> = rows.iter().map(|r| Value::Int(*r)).collect();
+            one_of("a.rowid", &ids, &mut params)
+        }
+        None => "1".into(),
+    };
     let text = format!(
-        "SELECT EXISTS (SELECT 1 FROM {} WHERE {filter} GROUP BY {columns} HAVING COUNT(*) > 1)",
-        quote(table)
+        "SELECT EXISTS (SELECT 1 FROM {t} AS a JOIN {t} AS b ON b.rowid <> a.rowid AND {same} WHERE {filter} AND {among})",
+        t = quote(table)
     );
-    conn.query_row(&text, [], |r| r.get(0)).map_err(failed)
+    conn.query_row(&text, rusqlite::params_from_iter(params.iter()), |r| {
+        r.get(0)
+    })
+    .map_err(failed)
 }
 
 impl Connection for FastConnection<'_> {
@@ -1136,10 +1292,18 @@ impl Connection for FastConnection<'_> {
         self.change(table.name, || {
             let columns: Vec<&str> = update.set.iter().map(|(n, _)| *n).collect();
             let hits = self.hits(table, &update.filter, &columns)?;
+            let pointed_at = referenced(self.schema, table.name);
+            let mut touched = Touched::default();
             if !hits.is_empty() && table.constraints.contains(&Constraint::Immutable) {
                 return Err(refused(table, None, ConstraintKind::Immutable));
             }
             for (rowid, mut old) in hits.iter().cloned() {
+                touched.rows.push(rowid);
+                for ((name, _), value) in update.set.iter().zip(&old) {
+                    if pointed_at.contains(name) {
+                        touched.left.push((*name, value.clone()));
+                    }
+                }
                 let mut sets = Vec::new();
                 let mut params = Vec::new();
                 for (i, (name, assign)) in update.set.iter().enumerate() {
@@ -1170,7 +1334,7 @@ impl Connection for FastConnection<'_> {
                     )?;
                 }
             }
-            Ok(hits.len() as u64)
+            Ok((hits.len() as u64, touched))
         })
     }
 
@@ -1178,7 +1342,14 @@ impl Connection for FastConnection<'_> {
         self.schema.check_delete(delete)?;
         let table = self.table(delete.table)?;
         self.change(table.name, || {
-            let hits = self.hits(table, &delete.filter, &[])?;
+            let pointed_at = referenced(self.schema, table.name);
+            let hits = self.hits(table, &delete.filter, &pointed_at)?;
+            let mut touched = Touched::default();
+            for (_, values) in &hits {
+                for (name, value) in pointed_at.iter().zip(values) {
+                    touched.left.push((*name, value.clone()));
+                }
+            }
             if !hits.is_empty() {
                 for (constraint, kind) in [
                     (Constraint::Immutable, ConstraintKind::Immutable),
@@ -1203,7 +1374,7 @@ impl Connection for FastConnection<'_> {
                         .collect(),
                 )?;
             }
-            Ok(hits.len() as u64)
+            Ok((hits.len() as u64, touched))
         })
     }
 }

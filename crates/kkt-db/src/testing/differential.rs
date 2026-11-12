@@ -50,6 +50,9 @@ const TITLES: &[&str] = &[
     "NAÏVE CAFÉ",
     "",
     "o'brien \"quoted\" \\ line\nbreak",
+    // Text with a NUL inside: compared, folded and searched whole.
+    "A\0x",
+    "a\0y",
 ];
 const INTS: &[i64] = &[-1, 0, 1, 2, 3, 5, 8];
 
@@ -85,7 +88,8 @@ fn book_condition(draw: &mut Draw, depth: usize) -> Condition {
         6 => Condition::EqIgnoringAsciiCase(col("title"), draw.pick(TITLES).to_string()),
         7 => Condition::ContainsIgnoringAsciiCase(
             col("title"),
-            draw.pick(&["fox", "FOX", "é", "", "ï"]).to_string(),
+            draw.pick(&["fox", "FOX", "é", "", "ï", "\0", "a\0"])
+                .to_string(),
         ),
         8 => Condition::Eq(through("shelf", "owner"), text(draw, NAMES)),
         9 => Condition::exists(
@@ -225,7 +229,28 @@ fn change(draw: &mut Draw) -> Change {
 
 /// One question, over books mostly.
 fn question(draw: &mut Draw) -> Question {
-    match draw.below(6) {
+    match draw.below(8) {
+        // A shelf's owner is a reference with an exception value
+        // (`library`): read through it, compared ignoring ASCII case.
+        6 => Question::Select(
+            Select::columns("shelves", &["name"])
+                .filter(Condition::EqIgnoringAsciiCase(
+                    through("owner", "nick"),
+                    draw.pick(NAMES).to_uppercase(),
+                ))
+                .order(Sort::asc(col("name"))),
+        ),
+        // A question inside a condition keeps its own order and limit.
+        7 => {
+            let inner = Select::columns("loans", &["book"])
+                .order(Sort::desc(col("book")))
+                .limit(draw.below(3) as u64);
+            Question::Select(
+                Select::columns("books", &["id"])
+                    .filter(Condition::In(col("id"), Box::new(inner)))
+                    .order(Sort::asc(col("id"))),
+            )
+        }
         0 | 1 => {
             let mut fields = vec![Field::Value(col("id")), Field::Value(col("title"))];
             if draw.chance(5) {
@@ -383,5 +408,31 @@ async fn the_fast_database_answers_as_the_memory_database_does() {
             };
             assert_eq!(said, also, "seed {seed}, step {step}");
         }
+    }
+}
+
+/// A table may declare an index of any name: it never clashes with the
+/// stand-in's own indexes, for the key, unique columns and declared ones.
+#[test]
+fn an_index_of_any_name_opens() {
+    use crate::{Column, Set, Step, Table};
+    for name in [
+        "pk",
+        "key",
+        "key_",
+        "unique_id",
+        "index_x",
+        "_fast_items_key_",
+    ] {
+        let set = Set {
+            name: "indexes",
+            migrations: vec![vec![Step::AddTable(
+                Table::new("items", vec![Column::text("id").unique()], vec!["id"])
+                    .index(name, vec!["id"]),
+            )]],
+        };
+        assert!(MemoryPlace::new().open(&[set.clone()]).is_ok(), "{name}");
+        let fast = FastPlace::new().and_then(|p| p.open(&[set]));
+        assert!(fast.is_ok(), "{name}: {:?}", fast.err());
     }
 }
