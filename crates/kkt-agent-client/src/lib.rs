@@ -13,6 +13,11 @@ pub use credentials::{
     StateFile, read_secret, watch_token,
 };
 
+#[cfg(feature = "real")]
+mod http;
+#[cfg(feature = "real")]
+pub use http::{Http, HttpReply};
+
 mod settings;
 #[cfg(feature = "real")]
 mod watching;

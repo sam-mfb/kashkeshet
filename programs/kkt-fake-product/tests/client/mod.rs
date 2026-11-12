@@ -2,8 +2,9 @@
 //! `/mcp` and admin tools at `/mcp-admin`, each with a bearer, and
 //! the web page with a session from signing in with a bearer.
 
-use crate::Product;
 use futures::StreamExt;
+use kkt_agent_client::{Http, HttpReply};
+use kkt_fake_product::Product;
 use reqwest::StatusCode;
 use reqwest::header::{CONTENT_TYPE, COOKIE, LOCATION, SET_COOKIE};
 use serde_json::{Value, json};
@@ -44,18 +45,14 @@ impl Answer {
 
 /// A client for one product.
 pub struct Client {
-    http: reqwest::Client,
+    http: Http,
     base: String,
 }
 
 impl Client {
     pub fn new(product: &Product) -> Client {
         Client {
-            http: reqwest::Client::builder()
-                .redirect(reqwest::redirect::Policy::none())
-                .tcp_nodelay(true)
-                .build()
-                .expect("an HTTP client"),
+            http: Http::new().expect("an HTTP client"),
             base: product.url(""),
         }
     }
@@ -77,17 +74,21 @@ impl Client {
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",
             "params": { "name": "register", "arguments": {} }
         });
-        let mut request = self
+        let response = self
             .http
-            .post(format!("{}{path}", self.base))
-            .header(CONTENT_TYPE, "application/json")
-            .header("accept", "application/json, text/event-stream")
-            .header("mcp-protocol-version", "2025-06-18")
-            .body(message.to_string());
-        if let Some(bearer) = bearer {
-            request = request.bearer_auth(bearer);
-        }
-        request.send().await.expect("an answer").status()
+            .post(
+                &format!("{}{path}", self.base),
+                bearer,
+                &[
+                    (CONTENT_TYPE.as_str(), "application/json"),
+                    ("accept", "application/json, text/event-stream"),
+                    ("mcp-protocol-version", "2025-06-18"),
+                ],
+                message.to_string(),
+            )
+            .await
+            .expect("an answer");
+        http_status(&response)
     }
 
     async fn call(&self, path: &str, bearer: &str, tool: &str, arguments: Value) -> Answer {
@@ -97,16 +98,19 @@ impl Client {
         });
         let response = self
             .http
-            .post(format!("{}{path}", self.base))
-            .bearer_auth(bearer)
-            .header(CONTENT_TYPE, "application/json")
-            .header("accept", "application/json, text/event-stream")
-            .header("mcp-protocol-version", "2025-06-18")
-            .body(message.to_string())
-            .send()
+            .post(
+                &format!("{}{path}", self.base),
+                Some(bearer),
+                &[
+                    (CONTENT_TYPE.as_str(), "application/json"),
+                    ("accept", "application/json, text/event-stream"),
+                    ("mcp-protocol-version", "2025-06-18"),
+                ],
+                message.to_string(),
+            )
             .await
             .expect("an answer");
-        let status = response.status();
+        let status = http_status(&response);
         let raw = response.text().await.expect("a body");
         assert_eq!(status, StatusCode::OK, "{tool} at {path}: {raw}");
         let envelope = rpc_message(&raw);
@@ -127,21 +131,18 @@ impl Client {
     pub async fn sign_in(&self, bearer: &str) -> String {
         let response = self
             .http
-            .post(format!("{}/login", self.base))
-            .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
-            .body(format!("key={bearer}"))
-            .send()
+            .post(
+                &format!("{}/login", self.base),
+                None,
+                &[(CONTENT_TYPE.as_str(), "application/x-www-form-urlencoded")],
+                format!("key={bearer}"),
+            )
             .await
             .expect("an answer");
-        assert_eq!(response.status(), StatusCode::SEE_OTHER, "signed in");
-        assert_eq!(
-            response.headers().get(LOCATION).map(|v| v.as_bytes()),
-            Some(&b"/"[..])
-        );
+        assert_eq!(http_status(&response), StatusCode::SEE_OTHER, "signed in");
+        assert_eq!(response.header(LOCATION.as_str()), Some(&b"/"[..]));
         let set = response
-            .headers()
-            .get(SET_COOKIE)
-            .and_then(|v| v.to_str().ok())
+            .header_text(SET_COOKIE.as_str())
             .expect("a session cookie");
         set.split(';').next().expect("name=value").to_string()
     }
@@ -150,12 +151,14 @@ impl Client {
     pub async fn page(&self, cookie: &str, path: &str) -> (StatusCode, String) {
         let response = self
             .http
-            .get(format!("{}{path}", self.base))
-            .header(COOKIE, cookie)
-            .send()
+            .get(
+                &format!("{}{path}", self.base),
+                None,
+                &[(COOKIE.as_str(), cookie)],
+            )
             .await
             .expect("an answer");
-        let status = response.status();
+        let status = http_status(&response);
         (status, response.text().await.expect("a page"))
     }
 
@@ -175,13 +178,18 @@ impl Client {
         body.extend_from_slice(fields);
         let response = self
             .http
-            .post(format!("{}{path}", self.base))
-            .header(COOKIE, cookie)
-            .form(&body)
-            .send()
+            .post(
+                &format!("{}{path}", self.base),
+                None,
+                &[
+                    (COOKIE.as_str(), cookie),
+                    (CONTENT_TYPE.as_str(), "application/x-www-form-urlencoded"),
+                ],
+                form_body(&body),
+            )
             .await
             .expect("an answer");
-        let status = response.status();
+        let status = http_status(&response);
         (status, response.text().await.expect("a page"))
     }
 
@@ -189,21 +197,24 @@ impl Client {
     pub async fn events(&self, cookie: &str) -> Events {
         let response = self
             .http
-            .get(format!("{}/events", self.base))
-            .header(COOKIE, cookie)
-            .send()
+            .get(
+                &format!("{}/events", self.base),
+                None,
+                &[(COOKIE.as_str(), cookie)],
+            )
             .await
             .expect("an answer");
-        assert_eq!(response.status(), StatusCode::OK, "the live feed");
+        assert_eq!(http_status(&response), StatusCode::OK, "the live feed");
         Events {
-            bytes: Box::pin(
-                response
-                    .bytes_stream()
-                    .map(|chunk| chunk.map(|b| b.to_vec())),
-            ),
+            bytes: response.bytes_stream(),
             pending: Vec::new(),
         }
     }
+}
+
+/// The original test-facing status type, without putting it in the provider.
+fn http_status(response: &HttpReply) -> StatusCode {
+    StatusCode::from_u16(response.status()).expect("an HTTP status")
 }
 
 /// The token a page's forms carry.
@@ -238,7 +249,7 @@ pub struct Event {
 
 /// The live feed, read event by event.
 pub struct Events {
-    bytes: futures::stream::BoxStream<'static, reqwest::Result<Vec<u8>>>,
+    bytes: futures::stream::BoxStream<'static, Result<Vec<u8>, String>>,
     pending: Vec<u8>,
 }
 
@@ -388,4 +399,37 @@ fn dechunk(chunked: &[u8]) -> Vec<u8> {
         rest = &rest[start + size + 2..];
     }
     body
+}
+
+// application/x-www-form-urlencoded encodes UTF-8 bytes, with spaces as +.
+fn form_body(fields: &[(&str, &str)]) -> String {
+    fn encoded(text: &str) -> String {
+        let mut out = String::new();
+        for byte in text.bytes() {
+            match byte {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'*' | b'-' | b'.' | b'_' => {
+                    out.push(char::from(byte))
+                }
+                b' ' => out.push('+'),
+                _ => {
+                    use std::fmt::Write;
+                    write!(out, "%{byte:02X}").expect("a string");
+                }
+            }
+        }
+        out
+    }
+    fields
+        .iter()
+        .map(|(key, value)| format!("{}={}", encoded(key), encoded(value)))
+        .collect::<Vec<_>>()
+        .join("&")
+}
+
+#[test]
+fn form_fields_preserve_spaces_separators_and_utf8() {
+    assert_eq!(
+        form_body(&[("name", "a b+c&d=e/é"), ("", "*")]),
+        "name=a+b%2Bc%26d%3De%2F%C3%A9&=*"
+    );
 }

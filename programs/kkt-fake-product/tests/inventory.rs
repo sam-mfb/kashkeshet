@@ -26,10 +26,14 @@
 //! same byte for byte
 //! (`each_swarm_reads_the_same_whether_or_not_the_other_is_there`).
 
+// Shared helper: each test binary uses a different subset.
+#[allow(dead_code)]
+mod client;
+
+use client::{Answer, Client, Event};
 use kkt_api_agent::SwarmId;
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
-use kkt_fake_product::client::{Answer, Client, Event};
 use kkt_fake_product::{Bearers, Product, main, other};
 use reqwest::StatusCode;
 use serde_json::{Value, json};
