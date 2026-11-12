@@ -51,6 +51,13 @@ impl LogLevel {
     }
 }
 
+/// The level logged for kkt's own code (`log_level`) when nothing says.
+pub const DEFAULT_LOG_LEVEL: LogLevel = LogLevel::Info;
+/// The level logged for the libraries kkt uses (`dependency_log_level`)
+/// when nothing says. Above info, because the MCP library logs several
+/// lines for every request.
+pub const DEFAULT_DEPENDENCY_LOG_LEVEL: LogLevel = LogLevel::Warn;
+
 /// Checks `dependency_log_level`. At debug and trace the MCP library logs
 /// whole requests and replies, tokens and recovery codes included, and logs
 /// must never hold those; so those levels are refused.

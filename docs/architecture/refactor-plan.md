@@ -964,7 +964,14 @@ for the shared constructors: one at a time.
   lines, and its own, to kkt-server's `check` and `record_lines`.
   kkt-settings is deleted, with `Limits` and the tests that compared its
   defaults with the owners' (`each_parts_defaults_are_the_gathered_defaults`,
-  in kkt and in kkt-keymode). The users of `Limits::DEFAULT` (`cli.rs`, `kkt
+  in kkt and in kkt-keymode), and the two that compared kkt-rules' record
+  lines and refusals with `Limits`' (`the_rules_record_lines_match_the_run_records_own`
+  and `the_rules_problems_word_each_refusal_as_todays_check`): the owners'
+  own tests, the run record's pinned lines and the 26-step first-refusal
+  pin keep those texts. In kkt the surface sits in a private module,
+  `src/machine/serve_options.rs`, which `machine::settings` re-exports, and
+  `ServeSettings` holds kkt-server's `ServerSettings`, which
+  `server_settings` fills. The users of `Limits::DEFAULT` (`cli.rs`, `kkt
   status`, doctor, `kkt lanes`, `tests/common`, `tests/contract.rs`) read
   their owners' defaults. The crate's paperwork goes too: the workspace
   members, CLAUDE.md's row, `concerns.json` and `assembly.json`. Rebase on

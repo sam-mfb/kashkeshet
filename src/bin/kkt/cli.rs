@@ -7,12 +7,11 @@ use crate::{
     ServiceInstall, Task, WatchTask,
 };
 use clap::{Args, Parser, Subcommand};
+use kashkeshet::machine::settings::ServeOptions;
 use kkt_client_config::Client;
+use kkt_hosts::DEFAULT_BIND;
 use kkt_logs::LogLevel;
 use kkt_provenance::Build;
-use kkt_settings::DEFAULT_BIND;
-use kkt_settings::Limits;
-use kkt_settings::ServeOptions;
 use kkt_setup as setup;
 use kkt_watch as watch;
 use std::net::SocketAddr;
@@ -895,47 +894,47 @@ struct ServeFlags {
     allow_any_bind: bool,
     #[arg(long, help = format!(
         "Largest response, in bytes, before it is cut short [default: {}]",
-        Limits::DEFAULT.max_response_bytes
+        kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes
     ))]
     max_response_bytes: Option<usize>,
     #[arg(long, help = format!(
         "Items returned when an agent gives no `limit` [default: {}]",
-        Limits::DEFAULT.default_limit
+        kkt_rules::Settings::DEFAULT.default_limit
     ))]
     default_limit: Option<usize>,
     #[arg(long, help = format!(
         "Largest `limit` an agent may ask for [default: {}]",
-        Limits::DEFAULT.max_limit
+        kkt_rules::Settings::DEFAULT.max_limit
     ))]
     max_limit: Option<usize>,
     #[arg(long, help = format!(
         "Messages one agent may send per minute [default: {}]",
-        Limits::DEFAULT.sends_per_minute
+        kkt_rules::Settings::DEFAULT.sends_per_minute
     ))]
     sends_per_minute: Option<u32>,
-    #[arg(long, help = format!("Seconds completed waits remain listening [default: {}]", Limits::DEFAULT.waiting_grace.as_secs()))]
+    #[arg(long, help = format!("Seconds completed waits remain listening [default: {}]", kkt_rules::Settings::DEFAULT.waiting_grace.as_secs()))]
     waiting_grace_seconds: Option<u32>,
     #[arg(long, help = format!(
         "Backups the server keeps of those it makes before upgrading the database [default: {}]",
-        Limits::DEFAULT.upgrade_backups_kept
+        kkt_backup::Settings::DEFAULT.upgrade_backups_kept
     ))]
     upgrade_backups_kept: Option<usize>,
     #[arg(long, help = format!(
         "Longest lane instructions, in characters [default: {}]",
-        Limits::DEFAULT.max_lane_chars
+        kkt_rules::Settings::DEFAULT.max_lane_chars
     ))]
     max_lane_chars: Option<usize>,
     #[arg(long, help = format!(
         "Longest memory entry an avatar keeps, in characters [default: {}]",
-        Limits::DEFAULT.max_memory_entry_chars
+        kkt_rules::Settings::DEFAULT.max_memory_entry_chars
     ))]
     max_memory_entry_chars: Option<usize>,
     #[arg(long, help = format!(
         "Most characters in one avatar's memory, all entries together [default: {}]",
-        Limits::DEFAULT.max_memory_chars
+        kkt_rules::Settings::DEFAULT.max_memory_chars
     ))]
     max_memory_chars: Option<usize>,
-    #[arg(long, help = format!("Word pack for new avatars' handles [default: {}]", Limits::DEFAULT.name_pack.name()))]
+    #[arg(long, help = format!("Word pack for new avatars' handles [default: {}]", kkt_rules::Settings::DEFAULT.name_pack.name()))]
     name_pack: Option<String>,
     /// A browser origin allowed to call /mcp, e.g. http://localhost:6274 for
     /// MCP Inspector. Repeat for more. By default no browser origin is allowed.

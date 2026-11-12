@@ -283,7 +283,8 @@ After the server upgrades, your client may need to reconnect to see new tools; `
 
 `register` and `whoami` return the complete current announcement, so these
 single-item responses are also exempt from the response-size cap. Newly
-saved text is bounded by `max_server_announcement_chars` in `Limits`.
+saved text is bounded by `max_server_announcement_chars` in kkt-rules'
+`Settings`.
 
 ## Lanes
 

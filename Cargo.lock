@@ -1081,7 +1081,6 @@ dependencies = [
  "kkt-server-listen",
  "kkt-service",
  "kkt-service-os",
- "kkt-settings",
  "kkt-setup",
  "kkt-setup-os",
  "kkt-shutdown",
@@ -1406,11 +1405,11 @@ dependencies = [
  "kkt-logs-os",
  "kkt-mcp",
  "kkt-mcp-formatter",
+ "kkt-names",
  "kkt-provenance",
  "kkt-rules",
  "kkt-server",
  "kkt-server-listen",
- "kkt-settings",
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-terminal-os",
@@ -1626,18 +1625,6 @@ dependencies = [
 [[package]]
 name = "kkt-service-os"
 version = "0.10.0"
-
-[[package]]
-name = "kkt-settings"
-version = "0.10.0"
-dependencies = [
- "kkt-admission",
- "kkt-logs",
- "kkt-mcp-formatter",
- "kkt-names",
- "kkt-web",
- "thiserror",
-]
 
 [[package]]
 name = "kkt-setup"

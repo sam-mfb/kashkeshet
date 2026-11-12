@@ -16,9 +16,7 @@
 pub mod serving;
 use kashkeshet::machine::server_run::{RecordedSettings, new_server_run};
 
-use kashkeshet::machine::settings::{
-    backup_settings, format_settings, rules_settings, web_settings,
-};
+use kashkeshet::machine::settings::ServeOptions;
 use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
@@ -29,7 +27,6 @@ use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
-use kkt_settings::{Limits, ServeOptions};
 use kkt_shutdown::Shutdown;
 use rmcp::model::ProtocolVersion;
 use rmcp::service::{RoleClient, RunningService};
@@ -76,7 +73,12 @@ pub struct TestConfig {
     pub admin_key: Option<String>,
     /// The name tied to the admin key. `None`: the admin key may only read.
     pub admin_name: Option<String>,
-    pub limits: Limits,
+    /// The rules' settings.
+    pub rules: kkt_rules::Settings,
+    /// The formatter's settings: how long a response may be.
+    pub formatter: kkt_mcp_formatter::Settings,
+    /// How many backups an upgrade keeps.
+    pub backups: kkt_backup::Settings,
     pub allowed_origins: Vec<String>,
     /// Host names allowed besides the loopback ones.
     pub allowed_hosts: Vec<String>,
@@ -91,7 +93,9 @@ pub fn test_config() -> TestConfig {
         web_key: None,
         admin_key: None,
         admin_name: None,
-        limits: Limits::DEFAULT,
+        rules: kkt_rules::Settings::DEFAULT,
+        formatter: kkt_mcp_formatter::Settings::DEFAULT,
+        backups: kkt_backup::Settings::DEFAULT,
         allowed_origins: vec!["http://localhost:6274".into()],
         allowed_hosts: Vec::new(),
         instructions: Some("test instructions: call register".into()),
@@ -129,10 +133,12 @@ impl TestConfig {
     }
 }
 
-/// What a test server records about its settings: `limits` and those of
-/// `config`, with no config file or log file and the default log levels.
+/// What a test server records about its settings: `rules`, `backups` and
+/// those of `config`, with no config file or log file and the default log
+/// levels.
 fn run_settings(
-    limits: &Limits,
+    rules: &kkt_rules::Settings,
+    backups: kkt_backup::Settings,
     config: &AppConfig,
     admin_name: Option<&AdminName>,
     server: &ServerSettings,
@@ -141,8 +147,8 @@ fn run_settings(
         settings: RecordedSettings {
             allow_any_bind: false,
             server,
-            rules: rules_settings(limits),
-            backup: backup_settings(limits),
+            rules: rules.clone(),
+            backup: backups,
             log_level: LogLevel::Info,
             dependency_log_level: LogLevel::Warn,
             config_file: None,
@@ -208,10 +214,10 @@ pub async fn start_with_clock(config: TestConfig, clock: Arc<dyn Clock>) -> Serv
 pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Server {
     let shutdown = Shutdown::new();
     let admin_name = config.admin_name();
-    let limits = config.limits.clone();
+    let (rules, backups) = (config.rules.clone(), config.backups);
     let server_settings = ServerSettings {
-        formatter: format_settings(&limits),
-        web: web_settings(&limits),
+        formatter: config.formatter,
+        web: kkt_web::Settings::DEFAULT,
         mcp: kkt_mcp::Settings::DEFAULT,
         allowed_origins: config.allowed_origins.clone(),
         allowed_hosts: config.allowed_hosts.clone(),
@@ -221,7 +227,8 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
     let run = ServerRun::new(
         Build::CURRENT,
         &run_settings(
-            &limits,
+            &rules,
+            backups,
             &config,
             admin_name.as_ref(),
             server_settings.settings(),
@@ -237,7 +244,7 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
                 .until_stopped(shutdown.clone()),
             clock: clock.clone(),
             entropy: entropy.clone(),
-            settings: rules_settings(&limits),
+            settings: rules,
             wording: Arc::new(kkt_rules::DefaultWording),
         },
     )
@@ -364,9 +371,9 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
         list(&config.allowed_origins)
     ));
     toml.push_str(&format!("allow_hosts = {}\n", list(&config.allowed_hosts)));
-    // The limits a config file can set, where the test's differ from the
-    // defaults; then a check that they come out as the test's limits.
-    let (given, defaults) = (&config.limits, Limits::DEFAULT);
+    // The settings a config file can set, where the test's differ from the
+    // defaults; then a check that they come out as the test's settings.
+    let (given, defaults) = (&config.rules, kkt_rules::Settings::DEFAULT);
     let mut count = |name: &str, value: usize, default: usize| {
         if value != default {
             toml.push_str(&format!("{name} = {value}\n"));
@@ -375,15 +382,15 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
     };
     options.max_response_bytes = count(
         "max_response_bytes",
-        given.max_response_bytes,
-        defaults.max_response_bytes,
+        config.formatter.max_response_bytes,
+        kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes,
     );
     options.default_limit = count("default_limit", given.default_limit, defaults.default_limit);
     options.max_limit = count("max_limit", given.max_limit, defaults.max_limit);
     options.upgrade_backups_kept = count(
         "upgrade_backups_kept",
-        given.upgrade_backups_kept,
-        defaults.upgrade_backups_kept,
+        config.backups.upgrade_backups_kept,
+        kkt_backup::Settings::DEFAULT.upgrade_backups_kept,
     );
     options.max_lane_chars = count(
         "max_lane_chars",
@@ -416,8 +423,9 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
         .resolve(dir.join("kkt.db"), None)
         .expect("the test's settings resolve");
     assert_eq!(
-        &resolved.limits, given,
-        "a test's limits must be ones a config file can set to run in a program"
+        (&resolved.rules, resolved.server.formatter, resolved.backups),
+        (given, config.formatter, config.backups),
+        "a test's settings must be ones a config file can set to run in a program"
     );
     let path = dir.join("kkt.toml");
     write(&path, &toml);

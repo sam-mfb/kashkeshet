@@ -1033,7 +1033,7 @@ async fn full_prints_a_body_too_long_for_the_server_answer() {
     let channel = me.channel("talk", &[&other]).await;
     // Fits the body limit but not, with the rest of the answer, the
     // response cap, so the wait itself cuts it.
-    let body = "z".repeat(common::test_config().limits.max_response_bytes);
+    let body = "z".repeat(common::test_config().formatter.max_response_bytes);
     let id = other.send(&channel, &body).await;
     let waited = me
         .tool(
@@ -1143,7 +1143,7 @@ async fn mentions_fetch_the_whole_body_and_save_skipped_messages() {
     other.send(&channel, &format!("{}-helper", me.name)).await;
     let body = format!(
         "{} @{}",
-        "z".repeat(common::test_config().limits.max_response_bytes - me.name.len() - 2),
+        "z".repeat(common::test_config().formatter.max_response_bytes - me.name.len() - 2),
         me.name
     );
     let mentioned = other.send(&channel, &body).await;

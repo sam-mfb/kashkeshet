@@ -391,9 +391,9 @@ pub use kkt_admission_os::write_key_file;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::machine::settings::ServeOptions;
     use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};
     use crate::scratch;
-    use kkt_settings::ServeOptions;
     use std::cell::RefCell;
     use std::collections::VecDeque;
 

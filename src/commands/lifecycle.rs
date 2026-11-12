@@ -20,7 +20,6 @@ use kkt_clock_system::SystemClock;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_service::{Manager, ServiceError};
-use kkt_settings::Limits;
 use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
 use std::path::{Path, PathBuf};
@@ -157,7 +156,7 @@ pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Res
                 &ContainerHost,
                 &folder,
                 &ContainerConfigs,
-                Limits::DEFAULT.name_pack.name(),
+                kkt_rules::Settings::DEFAULT.name_pack.name(),
             )
             .map_err(|e| e.to_string())?;
             for line in setup::docker_status_lines(&state, folder.path()) {

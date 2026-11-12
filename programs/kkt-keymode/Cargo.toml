@@ -37,11 +37,11 @@ kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
 kkt-logs = { path = "../../crates/kkt-logs" }
 kkt-mcp = { path = "../../crates/kkt-mcp" }
+kkt-names = { path = "../../crates/kkt-names" }
 kkt-provenance = { path = "../../crates/kkt-provenance" }
 kkt-rules = { path = "../../crates/kkt-rules" }
 kkt-server = { path = "../../crates/kkt-server" }
 kkt-server-listen = { path = "../../crates/kkt-server-listen", features = ["real"] }
-kkt-settings = { path = "../../crates/kkt-settings" }
 kkt-shutdown = { path = "../../crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }
 kkt-web = { path = "../../crates/kkt-web" }

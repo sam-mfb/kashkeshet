@@ -401,7 +401,7 @@ async fn a_failed_description_keeps_saved_credentials_usable() {
     let home = home("register-description-failure");
     let url = format!("{}/mcp", server.base);
     let mut register = command(&url, &home, "register", "token");
-    let description = "x".repeat(common::test_config().limits.max_description_chars + 1);
+    let description = "x".repeat(common::test_config().rules.max_description_chars + 1);
     register
         .arg("--description")
         .arg(description)

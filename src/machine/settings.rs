@@ -3,6 +3,7 @@
 //! the startup checks, and each part's own settings filled from them.
 
 use crate::machine::keys::read_server_keys;
+pub use crate::machine::serve_options::{BadValue, ServeOptions, ServeSettings, server_settings};
 use kkt_admission::AccessKey;
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
@@ -11,8 +12,7 @@ use kkt_config_file_os as config_file_os;
 use kkt_logs::LogLevel;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
-use kkt_server::{AppConfig, CheckedSettings, ServerSettings};
-use kkt_settings::{InvalidSetting, Limits, ServeOptions, ServeSettings};
+use kkt_server::{AppConfig, CheckedSettings};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -236,20 +236,20 @@ pub fn read_config(
     }
 }
 
-/// The settings in a config file's `text`, as kkt-settings takes them: the
+/// The settings in a config file's `text`, as [`ServeOptions`]: the
 /// file parsed by kkt-config-file, with kkt-logs' log levels.
 pub(crate) fn parse_config(
     text: &str,
     dir: &Path,
     home: Option<&Path>,
-) -> Result<ServeOptions, InvalidSetting> {
+) -> Result<ServeOptions, BadValue> {
     let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
     let config = kkt_config_file::parse_file(text, dir, home, level)
-        .map_err(|e| InvalidSetting::new(e.name, e.rule))?;
+        .map_err(|e| BadValue::new(e.name, e.rule))?;
     Ok(serve_options(config))
 }
 
-/// What a parsed config file says, as kkt-settings' options.
+/// What a parsed config file says, as [`ServeOptions`].
 fn serve_options(config: Config<LogLevel>) -> ServeOptions {
     ServeOptions {
         log_level: config.log_level,
@@ -330,7 +330,7 @@ pub trait BadSetting: std::fmt::Display {
     fn setting(&self) -> &'static str;
 }
 
-impl BadSetting for InvalidSetting {
+impl BadSetting for BadValue {
     fn setting(&self) -> &'static str {
         self.name
     }
@@ -366,10 +366,10 @@ pub struct Checked {
     pub bind: SocketAddr,
     pub config: AppConfig,
     pub server_settings: CheckedSettings,
-    /// Every limit, as gathered: for the formatter, the backups before an
-    /// upgrade and the record of the server run. `config` holds the rest's
-    /// share.
-    pub limits: Limits,
+    /// The rules' settings, which the program starts the rules with.
+    pub rules: kkt_rules::Settings,
+    /// How many backups to keep before an upgrade.
+    pub backups: kkt_backup::Settings,
     /// The name tied to the admin key, under which the admin agent's changes
     /// are made and announced. `None`: the admin key may only read.
     pub admin_name: Option<AdminName>,
@@ -389,9 +389,9 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         db: db_path,
         bind,
         allow_any_bind,
-        limits,
-        allow_origins,
-        allow_hosts,
+        server: server_settings,
+        rules,
+        backups,
         instructions,
         access_key,
         web_key,
@@ -400,20 +400,13 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         log_level,
         dependency_log_level,
     } = settings;
-    let server_settings = ServerSettings {
-        formatter: format_settings(&limits),
-        web: web_settings(&limits),
-        mcp: kkt_mcp::Settings::DEFAULT,
-        allowed_origins: allow_origins,
-        allowed_hosts: allow_hosts,
-    };
-    let mut problems: Vec<_> = rules_settings(&limits)
+    let mut problems: Vec<_> = rules
         .problems()
         .into_iter()
         .map(|p| (p.name, p.check, p.rule))
         .collect();
     problems.extend(
-        backup_settings(&limits)
+        backups
             .problems()
             .into_iter()
             .map(|p| (p.name, p.check, p.rule)),
@@ -450,7 +443,8 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         bind,
         config,
         server_settings,
-        limits,
+        rules,
+        backups,
         admin_name,
         allow_any_bind,
         config_file: sources.file.as_ref().map(|(p, _)| p.display().to_string()),
@@ -458,60 +452,6 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         log_level,
         dependency_log_level,
     })
-}
-
-/// The rules' share of `limits`. The longest lane description is not an
-/// operator setting, so it keeps the rules' default.
-pub fn rules_settings(limits: &Limits) -> kkt_rules::Settings {
-    kkt_rules::Settings {
-        name_pack: limits.name_pack,
-        default_limit: limits.default_limit,
-        max_limit: limits.max_limit,
-        max_body_bytes: limits.max_body_bytes,
-        max_channel_name_chars: limits.max_channel_name_chars,
-        max_purpose_chars: limits.max_purpose_chars,
-        max_description_chars: limits.max_description_chars,
-        max_note_chars: limits.max_note_chars,
-        max_server_announcement_chars: limits.max_server_announcement_chars,
-        max_memory_entry_chars: limits.max_memory_entry_chars,
-        max_memory_chars: limits.max_memory_chars,
-        max_lane_chars: limits.max_lane_chars,
-        max_lane_description_chars: kkt_rules::Settings::DEFAULT.max_lane_description_chars,
-        sends_per_minute: limits.sends_per_minute,
-        registrations_per_minute: limits.registrations_per_minute,
-        max_agents: limits.max_agents,
-        default_wait: limits.default_wait,
-        max_wait: limits.max_wait,
-        waiting_grace: limits.waiting_grace,
-        member_preview: limits.member_preview,
-        purpose_preview_chars: limits.purpose_preview_chars,
-    }
-}
-
-/// The backup policy's share of the gathered values, until Limits goes.
-pub fn backup_settings(limits: &Limits) -> kkt_backup::Settings {
-    kkt_backup::Settings {
-        upgrade_backups_kept: limits.upgrade_backups_kept,
-    }
-}
-
-/// The formatter's share of `limits`.
-pub fn format_settings(limits: &Limits) -> kkt_mcp_formatter::Settings {
-    kkt_mcp_formatter::Settings {
-        max_response_bytes: limits.max_response_bytes,
-    }
-}
-
-/// The web page's share of `limits`.
-pub fn web_settings(limits: &Limits) -> kkt_web::Settings {
-    kkt_web::Settings {
-        page: kkt_web::PageLimits {
-            page_messages: limits.web_page_messages,
-            member_excerpt_chars: limits.web_member_excerpt_chars,
-        },
-        keep_alive: kkt_web::Settings::DEFAULT.keep_alive,
-        session_lifetime: limits.web_session_lifetime,
-    }
 }
 
 #[cfg(test)]
@@ -550,6 +490,7 @@ mod test_support {
 mod tests {
     use super::*;
     use crate::scratch;
+    use kkt_server::ServerSettings;
 
     fn config_path_env(home: Option<&str>, config: Option<&str>) -> Env {
         Env {
@@ -598,22 +539,6 @@ mod tests {
             )
             .is_some()
         );
-    }
-
-    #[test]
-    fn each_parts_defaults_are_the_gathered_defaults() {
-        // Two sets of defaults: kkt-settings' and each part's own. Filling
-        // each part's settings from the gathered defaults must give exactly
-        // that part's defaults, so the two cannot drift apart.
-        assert_eq!(
-            rules_settings(&Limits::DEFAULT),
-            kkt_rules::Settings::DEFAULT
-        );
-        assert_eq!(
-            format_settings(&Limits::DEFAULT),
-            kkt_mcp_formatter::Settings::DEFAULT
-        );
-        assert_eq!(web_settings(&Limits::DEFAULT), kkt_web::Settings::DEFAULT);
     }
 
     #[test]
@@ -751,7 +676,7 @@ mod tests {
         .expect("valid");
         assert_eq!(settings.db, PathBuf::new());
         assert_eq!(settings.access_key, AccessKey::None);
-        assert_eq!(settings.bind, kkt_settings::DEFAULT_BIND);
+        assert_eq!(settings.bind, kkt_hosts::DEFAULT_BIND);
     }
 
     #[test]
@@ -792,7 +717,7 @@ mod tests {
         let settings = serve_settings(&env, TEST_PLATFORM, None, flags).expect("valid");
         assert_eq!(settings.db, PathBuf::from("/data/file.db"));
         assert_eq!(settings.bind.to_string(), "127.0.0.1:9000");
-        assert_eq!(settings.limits.max_limit, 50);
+        assert_eq!(settings.rules.max_limit, 50);
         assert_eq!(
             serve_bind(&env, TEST_PLATFORM).map(|b| b.to_string()),
             Ok("127.0.0.1:8000".into())
@@ -823,8 +748,8 @@ mod tests {
     }
 
     /// Of several bad settings, the check names one, always the same, in an
-    /// order nothing else pins: kkt-settings' removal (phase 9) must keep
-    /// it. Every setting starts bad; each run names the next, which is then
+    /// order nothing else pins: it was kkt-settings' order, and must stay.
+    /// Every setting starts bad; each run names the next, which is then
     /// fixed. `max_memory_chars` and `web_page_messages` are named twice:
     /// first for their floor, then for their bound against another setting.
     #[test]
@@ -835,8 +760,7 @@ mod tests {
             db: PathBuf::from("kkt.db"),
             bind: "0.0.0.0:7420".parse().expect("an address"),
             allow_any_bind: false,
-            limits: Limits {
-                max_response_bytes: 0,
+            rules: kkt_rules::Settings {
                 default_limit: 0,
                 max_limit: 0,
                 max_body_bytes: 0,
@@ -853,14 +777,26 @@ mod tests {
                 max_agents: 0,
                 max_wait: Duration::from_secs(10),
                 waiting_grace: Duration::from_secs(20),
-                web_page_messages: 0,
-                web_member_excerpt_chars: 0,
-                web_session_lifetime: Duration::ZERO,
-                upgrade_backups_kept: 0,
-                ..Limits::DEFAULT
+                ..kkt_rules::Settings::DEFAULT
             },
-            allow_origins: Vec::new(),
-            allow_hosts: vec!["not a host!".into()],
+            server: ServerSettings {
+                formatter: kkt_mcp_formatter::Settings {
+                    max_response_bytes: 0,
+                },
+                web: kkt_web::Settings {
+                    page: kkt_web::PageLimits {
+                        page_messages: 0,
+                        member_excerpt_chars: 0,
+                    },
+                    session_lifetime: Duration::ZERO,
+                    ..kkt_web::Settings::DEFAULT
+                },
+                allowed_hosts: vec!["not a host!".into()],
+                ..ServerSettings::DEFAULT
+            },
+            backups: kkt_backup::Settings {
+                upgrade_backups_kept: 0,
+            },
             instructions: None,
             access_key: AccessKey::None,
             web_key: AccessKey::None,
@@ -869,7 +805,7 @@ mod tests {
             log_level: LogLevel::Info,
             dependency_log_level: LogLevel::Debug,
         };
-        let d = Limits::DEFAULT;
+        let d = kkt_rules::Settings::DEFAULT;
         let fixes: [(&str, Fix); 26] = [
             ("bind", |s| {
                 s.bind = "127.0.0.1:7420".parse().expect("an address")
@@ -878,74 +814,79 @@ mod tests {
                 s.dependency_log_level = LogLevel::Warn
             }),
             ("default_limit", |s| {
-                s.limits.default_limit = Limits::DEFAULT.default_limit
+                s.rules.default_limit = kkt_rules::Settings::DEFAULT.default_limit
             }),
             ("max_body_bytes", |s| {
-                s.limits.max_body_bytes = Limits::DEFAULT.max_body_bytes
+                s.rules.max_body_bytes = kkt_rules::Settings::DEFAULT.max_body_bytes
             }),
             ("max_channel_name_chars", |s| {
-                s.limits.max_channel_name_chars = Limits::DEFAULT.max_channel_name_chars
+                s.rules.max_channel_name_chars = kkt_rules::Settings::DEFAULT.max_channel_name_chars
             }),
             ("max_purpose_chars", |s| {
-                s.limits.max_purpose_chars = Limits::DEFAULT.max_purpose_chars
+                s.rules.max_purpose_chars = kkt_rules::Settings::DEFAULT.max_purpose_chars
             }),
             ("max_description_chars", |s| {
-                s.limits.max_description_chars = Limits::DEFAULT.max_description_chars
+                s.rules.max_description_chars = kkt_rules::Settings::DEFAULT.max_description_chars
             }),
             ("max_note_chars", |s| {
-                s.limits.max_note_chars = Limits::DEFAULT.max_note_chars
+                s.rules.max_note_chars = kkt_rules::Settings::DEFAULT.max_note_chars
             }),
             ("max_server_announcement_chars", |s| {
-                s.limits.max_server_announcement_chars =
-                    Limits::DEFAULT.max_server_announcement_chars
+                s.rules.max_server_announcement_chars =
+                    kkt_rules::Settings::DEFAULT.max_server_announcement_chars
             }),
             ("max_memory_entry_chars", |s| {
-                s.limits.max_memory_entry_chars = Limits::DEFAULT.max_memory_entry_chars
+                s.rules.max_memory_entry_chars = kkt_rules::Settings::DEFAULT.max_memory_entry_chars
             }),
             // Past its floor, but still below max_memory_entry_chars.
-            ("max_memory_chars", |s| s.limits.max_memory_chars = 1),
+            ("max_memory_chars", |s| s.rules.max_memory_chars = 1),
             ("max_lane_chars", |s| {
-                s.limits.max_lane_chars = Limits::DEFAULT.max_lane_chars
+                s.rules.max_lane_chars = kkt_rules::Settings::DEFAULT.max_lane_chars
             }),
             ("sends_per_minute", |s| {
-                s.limits.sends_per_minute = Limits::DEFAULT.sends_per_minute
+                s.rules.sends_per_minute = kkt_rules::Settings::DEFAULT.sends_per_minute
             }),
             ("registrations_per_minute", |s| {
-                s.limits.registrations_per_minute = Limits::DEFAULT.registrations_per_minute
+                s.rules.registrations_per_minute =
+                    kkt_rules::Settings::DEFAULT.registrations_per_minute
             }),
             ("max_agents", |s| {
-                s.limits.max_agents = Limits::DEFAULT.max_agents
+                s.rules.max_agents = kkt_rules::Settings::DEFAULT.max_agents
             }),
             // Past its floor, but over the page ceiling.
             ("web_page_messages", |s| {
-                s.limits.web_page_messages = kkt_web::MAX_WEB_PAGE_MESSAGES + 1
+                s.server.web.page.page_messages = kkt_web::MAX_WEB_PAGE_MESSAGES + 1
             }),
             ("web_member_excerpt_chars", |s| {
-                s.limits.web_member_excerpt_chars = Limits::DEFAULT.web_member_excerpt_chars
+                s.server.web.page.member_excerpt_chars =
+                    kkt_web::Settings::DEFAULT.page.member_excerpt_chars
             }),
             ("upgrade_backups_kept", |s| {
-                s.limits.upgrade_backups_kept = Limits::DEFAULT.upgrade_backups_kept
+                s.backups.upgrade_backups_kept = kkt_backup::Settings::DEFAULT.upgrade_backups_kept
             }),
             ("max_response_bytes", |s| {
-                s.limits.max_response_bytes = Limits::DEFAULT.max_response_bytes
+                s.server.formatter.max_response_bytes =
+                    kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes
             }),
             ("max_limit", |s| {
-                s.limits.max_limit = Limits::DEFAULT.max_limit
+                s.rules.max_limit = kkt_rules::Settings::DEFAULT.max_limit
             }),
             ("max_memory_chars", |s| {
-                s.limits.max_memory_chars = Limits::DEFAULT.max_memory_chars
+                s.rules.max_memory_chars = kkt_rules::Settings::DEFAULT.max_memory_chars
             }),
             ("web_page_messages", |s| {
-                s.limits.web_page_messages = Limits::DEFAULT.web_page_messages
+                s.server.web.page.page_messages = kkt_web::Settings::DEFAULT.page.page_messages
             }),
             ("web_session_lifetime", |s| {
-                s.limits.web_session_lifetime = Limits::DEFAULT.web_session_lifetime
+                s.server.web.session_lifetime = kkt_web::Settings::DEFAULT.session_lifetime
             }),
             ("waiting_grace", |s| {
-                s.limits.waiting_grace = Limits::DEFAULT.waiting_grace
+                s.rules.waiting_grace = kkt_rules::Settings::DEFAULT.waiting_grace
             }),
-            ("max_wait", |s| s.limits.max_wait = Limits::DEFAULT.max_wait),
-            ("allow_host", |s| s.allow_hosts.clear()),
+            ("max_wait", |s| {
+                s.rules.max_wait = kkt_rules::Settings::DEFAULT.max_wait
+            }),
+            ("allow_host", |s| s.server.allowed_hosts.clear()),
         ];
         assert!(
             d.max_wait > Duration::from_secs(10),
@@ -1002,107 +943,5 @@ mod tests {
             check_settings(settings, &sources).is_ok(),
             "every setting fixed"
         );
-    }
-
-    /// kkt-rules words its own settings' lines of the run record exactly as
-    /// kkt-settings' record does today, for settings far from the defaults,
-    /// so phase 9 can take them from kkt-rules without changing a byte.
-    #[test]
-    fn the_rules_record_lines_match_the_run_records_own() {
-        use std::time::Duration;
-        let limits = Limits {
-            name_pack: kkt_names::NamePack::find("garden").expect("a name pack"),
-            default_limit: 7,
-            max_limit: 70,
-            max_body_bytes: 1234,
-            max_channel_name_chars: 33,
-            max_purpose_chars: 444,
-            max_description_chars: 222,
-            max_note_chars: 5555,
-            max_server_announcement_chars: 666,
-            max_memory_entry_chars: 777,
-            max_memory_chars: 8888,
-            max_lane_chars: 999,
-            sends_per_minute: 11,
-            registrations_per_minute: 12,
-            max_agents: 13,
-            default_wait: Duration::from_millis(1500),
-            max_wait: Duration::from_millis(2500),
-            waiting_grace: Duration::from_millis(250),
-            member_preview: 4,
-            purpose_preview_chars: 55,
-            ..Limits::DEFAULT
-        };
-        let server = ServerSettings {
-            formatter: format_settings(&limits),
-            web: web_settings(&limits),
-            ..ServerSettings::DEFAULT
-        };
-        let record = crate::machine::server_run::RecordedSettings {
-            allow_any_bind: false,
-            server: &server,
-            rules: rules_settings(&limits),
-            backup: backup_settings(&limits),
-            log_level: LogLevel::Info,
-            dependency_log_level: LogLevel::Warn,
-            config_file: None,
-            access_key_file: None,
-            web_key_file: None,
-            admin_key_file: None,
-            admin_name: None,
-            log_file: None,
-            log_policy: kkt_logs::LogPolicy::DEFAULT,
-        }
-        .lines();
-        let rules = rules_settings(&limits).record_lines();
-        let theirs: Vec<_> = record
-            .into_iter()
-            .filter(|(name, _)| rules.iter().any(|(n, _)| n == name))
-            .collect();
-        assert_eq!(rules, theirs);
-    }
-
-    /// For each check kkt-rules now states, with only that setting bad,
-    /// kkt-rules' problem names the setting and words the rule exactly as
-    /// today's check does, so phase 9 can take the check from kkt-rules
-    /// without changing a refusal.
-    #[test]
-    fn the_rules_problems_word_each_refusal_as_todays_check() {
-        use std::time::Duration;
-        let cases: [fn(&mut Limits); 17] = [
-            |l| l.default_limit = 0,
-            |l| l.max_body_bytes = 0,
-            |l| l.max_channel_name_chars = 0,
-            |l| l.max_purpose_chars = 0,
-            |l| l.max_description_chars = 0,
-            |l| l.max_note_chars = 0,
-            |l| l.max_server_announcement_chars = 0,
-            |l| l.max_memory_entry_chars = 0,
-            // Only max_memory_chars: its floor comes first; its bound
-            // against max_memory_entry_chars is broken too, and later.
-            |l| l.max_memory_chars = 0,
-            |l| l.max_lane_chars = 0,
-            |l| l.sends_per_minute = 0,
-            |l| l.registrations_per_minute = 0,
-            |l| l.max_agents = 0,
-            |l| l.max_limit = l.default_limit - 1,
-            |l| l.max_memory_chars = l.max_memory_entry_chars - 1,
-            |l| l.waiting_grace = l.max_wait + Duration::from_millis(1),
-            |l| {
-                l.max_wait = l.default_wait - Duration::from_millis(1);
-                l.waiting_grace = Duration::ZERO;
-            },
-        ];
-        for make in cases {
-            let mut limits = Limits::DEFAULT;
-            make(&mut limits);
-            let today = limits.check().expect_err("a bad setting");
-            let problems = rules_settings(&limits).problems();
-            let first = problems.first().expect("a problem");
-            assert_eq!(
-                (first.name, first.rule.as_str()),
-                (today.name, today.rule.as_str())
-            );
-        }
     }
 }

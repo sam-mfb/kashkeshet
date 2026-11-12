@@ -16,7 +16,6 @@ use kkt_diagnostics as diagnostics;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_service::Manager;
-use kkt_settings::Limits;
 use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
 use setup::doctor_checks as checks;
@@ -92,7 +91,7 @@ pub async fn run(
                 &ContainerHost,
                 &folder,
                 &ContainerConfigs,
-                Limits::DEFAULT.name_pack.name(),
+                kkt_rules::Settings::DEFAULT.name_pack.name(),
             );
             let running = matches!(&state, Ok(state) if state.running);
             let tailscale_login = match &state {

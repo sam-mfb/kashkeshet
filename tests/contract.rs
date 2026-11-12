@@ -8,7 +8,6 @@
 
 mod common;
 
-use kkt_settings::Limits;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -94,7 +93,7 @@ async fn admin_tools_match_the_snapshot() {
 #[tokio::test]
 async fn descriptions_state_the_live_limits() {
     let mut config = common::test_config();
-    config.limits = Limits {
+    config.rules = kkt_rules::Settings {
         default_limit: 7,
         max_limit: 42,
         max_body_bytes: 3000,
@@ -106,7 +105,7 @@ async fn descriptions_state_the_live_limits() {
         max_memory_chars: 54321,
         default_wait: Duration::from_secs(5),
         max_wait: Duration::from_secs(9),
-        ..Limits::DEFAULT
+        ..kkt_rules::Settings::DEFAULT
     };
     let server = common::start_with(config).await;
     let client = common::connect_new(&server).await;

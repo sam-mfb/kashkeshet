@@ -5,12 +5,12 @@ use crate::machine::connection::{ConnectionOptions, serve_connection};
 use crate::machine::container::ContainerHost;
 use crate::machine::remote_access::RemoteHost;
 use crate::machine::service::ServiceSystem;
+use crate::machine::settings::ServeOptions;
 use crate::machine::settings::{
     ServeArgs, as_running, serve_bind, serve_settings, serve_settings_from_args,
 };
 use kkt_machine::{Env, Platform};
 use kkt_service::{Manager, ServiceError};
-use kkt_settings::ServeOptions;
 use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
 

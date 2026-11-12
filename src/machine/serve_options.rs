@@ -1,55 +1,44 @@
-//! The settings a server starts with, gathered from the command line, the
-//! config file, and the defaults here. A flag wins over the file, and the
-//! file over the default.
-//!
-//! This part reads no files and no environment variables itself, and does
-//! not parse the config file (kkt-config-file does). Callers pass in what
-//! the file gives, as [`ServeOptions`], and the defaults that depend on the
-//! machine, such as the default database, so every rule here can be tested
-//! directly.
-//!
-//! The run record is composed by kkt-server from its owners' plain lines.
-
-mod limits;
-
-pub use limits::Limits;
+//! The `kkt serve` surface: the settings a server may be given, from one
+//! source (the command line or the config file), how a flag wins over the
+//! file and the file over the defaults, and the settings to run with. Each
+//! default is its owner's (kkt-rules, kkt-mcp-formatter, kkt-web,
+//! kkt-backup, kkt-hosts, kkt-logs); settings are not a domain of their own
+//! (Sam, 2026-11-12). This part reads no files and no environment: callers
+//! pass in what the file gives and the defaults that depend on the machine.
+//! Its items are public as [`crate::machine::settings`]'s.
 
 use kkt_admission::{AccessKey, admin_key_path, web_key_path};
-use kkt_logs::LogLevel;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use kkt_hosts::{DEFAULT_ALLOW_ANY_BIND, DEFAULT_BIND};
+use kkt_logs::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, LogLevel};
+use kkt_server::ServerSettings;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 
-// What a server uses when neither a flag nor the config file says otherwise.
-
-/// Address to listen on.
-pub const DEFAULT_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7420));
-/// Whether `bind` may be a non-loopback address.
-const DEFAULT_ALLOW_ANY_BIND: bool = false;
 /// Browser origins allowed to call `/mcp` (`allow_origins`): none.
 const DEFAULT_ALLOW_ORIGINS: &[&str] = &[];
 /// Host names the server answers to besides loopback (`allow_hosts`): none.
 const DEFAULT_ALLOW_HOSTS: &[&str] = &[];
-/// The level logged for kkt's own code (`log_level`).
-pub const DEFAULT_LOG_LEVEL: LogLevel = LogLevel::Info;
-/// The level logged for the libraries kkt uses (`dependency_log_level`).
-/// Above info, because the MCP library logs several lines for every request.
-pub const DEFAULT_DEPENDENCY_LOG_LEVEL: LogLevel = LogLevel::Warn;
 
-/// A setting the server refuses to start with, as gathered here: the
-/// setting's name and why.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("{name} {rule}")]
-pub struct InvalidSetting {
+/// A setting given that cannot be used, before any owner checks it: its
+/// name and why.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BadValue {
     pub name: &'static str,
     pub rule: String,
 }
 
-impl InvalidSetting {
-    pub fn new(name: &'static str, rule: impl Into<String>) -> InvalidSetting {
-        InvalidSetting {
+impl BadValue {
+    pub fn new(name: &'static str, rule: impl Into<String>) -> BadValue {
+        BadValue {
             name,
             rule: rule.into(),
         }
+    }
+}
+
+impl std::fmt::Display for BadValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.name, self.rule)
     }
 }
 
@@ -147,7 +136,7 @@ impl ServeOptions {
         }
     }
 
-    /// Whether the setting `name`, as an `InvalidSetting` names it, is given.
+    /// Whether the setting `name`, as its owner's check names it, is given.
     pub fn gives(&self, name: &str) -> bool {
         match name {
             "name_pack" => self.name_pack.is_some(),
@@ -180,7 +169,7 @@ impl ServeOptions {
     /// [`ServeOptions::resolve`] uses it too.
     pub fn lane_limit(&self) -> usize {
         self.max_lane_chars
-            .unwrap_or(Limits::DEFAULT.max_lane_chars)
+            .unwrap_or(kkt_rules::Settings::DEFAULT.max_lane_chars)
     }
 
     /// The name pack named, else the default's name; unchecked, as written,
@@ -189,7 +178,7 @@ impl ServeOptions {
     pub fn name_pack_name(&self) -> &str {
         self.name_pack
             .as_deref()
-            .unwrap_or(Limits::DEFAULT.name_pack.name())
+            .unwrap_or(kkt_rules::Settings::DEFAULT.name_pack.name())
     }
 
     /// The settings to run with: what was given, and the defaults for the
@@ -201,11 +190,12 @@ impl ServeOptions {
         self,
         default_db: PathBuf,
         default_key: Option<PathBuf>,
-    ) -> Result<ServeSettings, InvalidSetting> {
+    ) -> Result<ServeSettings, BadValue> {
         let max_lane_chars = self.lane_limit();
+        let server = server_settings(&self);
         let access_key = match (self.no_access_key == Some(true), self.access_key_file) {
             (true, Some(_)) => {
-                return Err(InvalidSetting::new(
+                return Err(BadValue::new(
                     "no_access_key",
                     "cannot be set together with access_key_file",
                 ));
@@ -215,7 +205,7 @@ impl ServeOptions {
             (false, None) => match default_key {
                 Some(path) => AccessKey::Default(path),
                 None => {
-                    return Err(InvalidSetting::new(
+                    return Err(BadValue::new(
                         "access_key_file",
                         "has no default without a home directory: set HOME, \
                          or give access_key_file or no_access_key",
@@ -228,7 +218,7 @@ impl ServeOptions {
             AccessKey::File(path) | AccessKey::Default(path) => {
                 let web = web_key_path(path);
                 if &web == path {
-                    return Err(InvalidSetting::new(
+                    return Err(BadValue::new(
                         "access_key_file",
                         "must not name the web key file",
                     ));
@@ -236,16 +226,16 @@ impl ServeOptions {
                 (AccessKey::Default(web), admin_key_path(path))
             }
         };
-        let defaults = Limits::DEFAULT;
+        let rules = kkt_rules::Settings::DEFAULT;
         Ok(ServeSettings {
             db: self.db.unwrap_or(default_db),
             bind: self.bind.unwrap_or(DEFAULT_BIND),
             allow_any_bind: self.allow_any_bind.unwrap_or(DEFAULT_ALLOW_ANY_BIND),
-            limits: Limits {
+            rules: kkt_rules::Settings {
                 name_pack: match self.name_pack {
-                    None => defaults.name_pack,
+                    None => rules.name_pack,
                     Some(name) => kkt_names::NamePack::find(&name).ok_or_else(|| {
-                        InvalidSetting::new(
+                        BadValue::new(
                             "name_pack",
                             format!(
                                 "must be one of: {}",
@@ -258,32 +248,26 @@ impl ServeOptions {
                         )
                     })?,
                 },
-                max_response_bytes: self
-                    .max_response_bytes
-                    .unwrap_or(defaults.max_response_bytes),
-                default_limit: self.default_limit.unwrap_or(defaults.default_limit),
-                max_limit: self.max_limit.unwrap_or(defaults.max_limit),
-                sends_per_minute: self.sends_per_minute.unwrap_or(defaults.sends_per_minute),
+                default_limit: self.default_limit.unwrap_or(rules.default_limit),
+                max_limit: self.max_limit.unwrap_or(rules.max_limit),
+                sends_per_minute: self.sends_per_minute.unwrap_or(rules.sends_per_minute),
                 waiting_grace: self
                     .waiting_grace_seconds
                     .map(|s| std::time::Duration::from_secs(u64::from(s)))
-                    .unwrap_or(defaults.waiting_grace),
-                upgrade_backups_kept: self
-                    .upgrade_backups_kept
-                    .unwrap_or(defaults.upgrade_backups_kept),
+                    .unwrap_or(rules.waiting_grace),
                 max_lane_chars,
                 max_memory_entry_chars: self
                     .max_memory_entry_chars
-                    .unwrap_or(defaults.max_memory_entry_chars),
-                max_memory_chars: self.max_memory_chars.unwrap_or(defaults.max_memory_chars),
-                ..defaults
+                    .unwrap_or(rules.max_memory_entry_chars),
+                max_memory_chars: self.max_memory_chars.unwrap_or(rules.max_memory_chars),
+                ..rules
             },
-            allow_origins: self
-                .allow_origins
-                .unwrap_or_else(|| strings(DEFAULT_ALLOW_ORIGINS)),
-            allow_hosts: self
-                .allow_hosts
-                .unwrap_or_else(|| strings(DEFAULT_ALLOW_HOSTS)),
+            server,
+            backups: kkt_backup::Settings {
+                upgrade_backups_kept: self
+                    .upgrade_backups_kept
+                    .unwrap_or(kkt_backup::Settings::DEFAULT.upgrade_backups_kept),
+            },
             instructions: self.instructions,
             access_key,
             web_key,
@@ -297,22 +281,51 @@ impl ServeOptions {
     }
 }
 
+/// What kkt-server builds with, from `options`: each config key and flag
+/// onto one [`ServerSettings`] field, and its default where none is given.
+/// The web page's and the MCP endpoints' settings have no key: they are
+/// their owners' defaults.
+pub fn server_settings(options: &ServeOptions) -> ServerSettings {
+    ServerSettings {
+        formatter: kkt_mcp_formatter::Settings {
+            max_response_bytes: options
+                .max_response_bytes
+                .unwrap_or(kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes),
+        },
+        web: kkt_web::Settings::DEFAULT,
+        mcp: kkt_mcp::Settings::DEFAULT,
+        allowed_origins: options
+            .allow_origins
+            .clone()
+            .unwrap_or_else(|| strings(DEFAULT_ALLOW_ORIGINS)),
+        allowed_hosts: options
+            .allow_hosts
+            .clone()
+            .unwrap_or_else(|| strings(DEFAULT_ALLOW_HOSTS)),
+    }
+}
+
 /// A default list as the owned list a setting holds.
 fn strings(list: &[&str]) -> Vec<String> {
     list.iter().map(|s| s.to_string()).collect()
 }
 
-/// The settings a server runs with. They are not yet checked: the caller
-/// runs the checks in `limits`, `logs` and `hosts`, which name any bad setting.
+/// The settings a server runs with, each owner's in its own terms. They are
+/// not yet checked: [`crate::machine::settings::check_settings`] asks each
+/// owner for its problems and kkt-server names the first.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServeSettings {
     pub db: PathBuf,
     pub bind: SocketAddr,
     /// Whether `bind` may be a non-loopback address.
     pub allow_any_bind: bool,
-    pub limits: Limits,
-    pub allow_origins: Vec<String>,
-    pub allow_hosts: Vec<String>,
+    /// What the rules enforce and fill in.
+    pub rules: kkt_rules::Settings,
+    /// What kkt-server builds with: the formatter's, the web page's and the
+    /// MCP endpoints' settings, and the origins and hosts allowed.
+    pub server: ServerSettings,
+    /// How many backups made before an upgrade to keep.
+    pub backups: kkt_backup::Settings,
     /// A file of instructions for agents, in place of the built-in ones.
     pub instructions: Option<PathBuf>,
     pub access_key: AccessKey,
@@ -344,9 +357,9 @@ mod tests {
                 db: PathBuf::from("default.db"),
                 bind: DEFAULT_BIND,
                 allow_any_bind: false,
-                limits: Limits::DEFAULT,
-                allow_origins: vec![],
-                allow_hosts: vec![],
+                rules: kkt_rules::Settings::DEFAULT,
+                server: ServerSettings::DEFAULT,
+                backups: kkt_backup::Settings::DEFAULT,
                 instructions: None,
                 access_key: AccessKey::Default(PathBuf::from("default-key")),
                 web_key: AccessKey::Default(PathBuf::from("web-key")),
@@ -387,7 +400,7 @@ mod tests {
             ..ServeOptions::NONE
         };
         assert_eq!(
-            resolve(file.clone()).unwrap().limits.name_pack.name(),
+            resolve(file.clone()).unwrap().rules.name_pack.name(),
             "garden"
         );
         let flags = ServeOptions {
@@ -395,7 +408,7 @@ mod tests {
             ..ServeOptions::NONE
         };
         assert_eq!(
-            resolve(flags.over(file)).unwrap().limits.name_pack.name(),
+            resolve(flags.over(file)).unwrap().rules.name_pack.name(),
             "animals"
         );
         let bad = ServeOptions {
@@ -440,9 +453,12 @@ mod tests {
             .expect("valid");
         assert_eq!(settings.bind.to_string(), "127.0.0.1:9000");
         assert_eq!(settings.db, PathBuf::from("/data/file.db"));
-        assert_eq!(settings.limits.max_limit, 50);
-        assert_eq!(settings.limits.default_limit, Limits::DEFAULT.default_limit);
-        assert_eq!(settings.allow_hosts, ["flag.example"]);
+        assert_eq!(settings.rules.max_limit, 50);
+        assert_eq!(
+            settings.rules.default_limit,
+            kkt_rules::Settings::DEFAULT.default_limit
+        );
+        assert_eq!(settings.server.allowed_hosts, ["flag.example"]);
     }
 
     #[test]
@@ -503,26 +519,23 @@ mod tests {
             ..ServeOptions::NONE
         };
         let settings = resolve(file.clone());
-        assert_eq!(settings.limits.max_lane_chars, 12000);
-        settings.limits.check().expect("12000 is allowed");
+        assert_eq!(settings.rules.max_lane_chars, 12000);
+        assert!(settings.rules.problems().is_empty(), "12000 is allowed");
         let flags = ServeOptions {
             max_lane_chars: Some(300),
             ..ServeOptions::NONE
         };
         assert!(flags.gives("max_lane_chars"));
-        assert_eq!(resolve(flags.over(file)).limits.max_lane_chars, 300);
+        assert_eq!(resolve(flags.over(file)).rules.max_lane_chars, 300);
         assert_eq!(
-            resolve(ServeOptions::NONE).limits.max_lane_chars,
-            Limits::DEFAULT.max_lane_chars
+            resolve(ServeOptions::NONE).rules.max_lane_chars,
+            kkt_rules::Settings::DEFAULT.max_lane_chars
         );
         let zero = ServeOptions {
             max_lane_chars: Some(0),
             ..ServeOptions::NONE
         };
-        assert_eq!(
-            resolve(zero).limits.check().unwrap_err().name,
-            "max_lane_chars"
-        );
+        assert_eq!(resolve(zero).rules.problems()[0].name, "max_lane_chars");
     }
 
     #[test]
@@ -538,9 +551,9 @@ mod tests {
             ..ServeOptions::NONE
         };
         let settings = resolve(file.clone());
-        assert_eq!(settings.limits.max_memory_entry_chars, 500);
-        assert_eq!(settings.limits.max_memory_chars, 2000);
-        settings.limits.check().expect("allowed");
+        assert_eq!(settings.rules.max_memory_entry_chars, 500);
+        assert_eq!(settings.rules.max_memory_chars, 2000);
+        assert!(settings.rules.problems().is_empty(), "allowed");
         let flags = ServeOptions {
             max_memory_chars: Some(700),
             ..ServeOptions::NONE
@@ -550,17 +563,17 @@ mod tests {
         let both = resolve(flags.over(file));
         assert_eq!(
             (
-                both.limits.max_memory_entry_chars,
-                both.limits.max_memory_chars
+                both.rules.max_memory_entry_chars,
+                both.rules.max_memory_chars
             ),
             (500, 700)
         );
-        let defaults = resolve(ServeOptions::NONE).limits;
+        let defaults = resolve(ServeOptions::NONE).rules;
         assert_eq!(
             (defaults.max_memory_entry_chars, defaults.max_memory_chars),
             (
-                Limits::DEFAULT.max_memory_entry_chars,
-                Limits::DEFAULT.max_memory_chars
+                kkt_rules::Settings::DEFAULT.max_memory_entry_chars,
+                kkt_rules::Settings::DEFAULT.max_memory_chars
             )
         );
         let small = ServeOptions {
@@ -568,16 +581,13 @@ mod tests {
             max_memory_chars: Some(400),
             ..ServeOptions::NONE
         };
-        assert_eq!(
-            resolve(small).limits.check().unwrap_err().name,
-            "max_memory_chars"
-        );
+        assert_eq!(resolve(small).rules.problems()[0].name, "max_memory_chars");
         let zero = ServeOptions {
             max_memory_entry_chars: Some(0),
             ..ServeOptions::NONE
         };
         assert_eq!(
-            resolve(zero).limits.check().unwrap_err().name,
+            resolve(zero).rules.problems()[0].name,
             "max_memory_entry_chars"
         );
     }
@@ -591,7 +601,7 @@ mod tests {
         assert_eq!(given.lane_limit(), 12000);
         assert_eq!(
             ServeOptions::NONE.lane_limit(),
-            Limits::DEFAULT.max_lane_chars
+            kkt_rules::Settings::DEFAULT.max_lane_chars
         );
     }
 
@@ -604,7 +614,7 @@ mod tests {
         assert_eq!(given.name_pack_name(), "missing");
         assert_eq!(
             ServeOptions::NONE.name_pack_name(),
-            Limits::DEFAULT.name_pack.name()
+            kkt_rules::Settings::DEFAULT.name_pack.name()
         );
     }
 
@@ -635,20 +645,22 @@ mod waiting_tests {
             .resolve(PathBuf::from("db"), Some(PathBuf::from("key")))
             .unwrap();
         assert_eq!(
-            settings.limits.waiting_grace,
+            settings.rules.waiting_grace,
             std::time::Duration::from_secs(2)
         );
-        settings.limits.check().unwrap();
-        let bad = Limits {
+        assert!(settings.rules.problems().is_empty());
+        let bad = kkt_rules::Settings {
             waiting_grace: std::time::Duration::from_secs(51),
-            ..Limits::DEFAULT
+            ..kkt_rules::Settings::DEFAULT
         };
-        assert_eq!(bad.check().unwrap_err().name, "waiting_grace");
-        Limits {
-            waiting_grace: std::time::Duration::ZERO,
-            ..Limits::DEFAULT
-        }
-        .check()
-        .unwrap();
+        assert_eq!(bad.problems()[0].name, "waiting_grace");
+        assert!(
+            kkt_rules::Settings {
+                waiting_grace: std::time::Duration::ZERO,
+                ..kkt_rules::Settings::DEFAULT
+            }
+            .problems()
+            .is_empty()
+        );
     }
 }

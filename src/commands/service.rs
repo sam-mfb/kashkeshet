@@ -4,6 +4,7 @@
 
 use crate::machine::keys::new_key_file;
 use crate::machine::service::ServiceSystem;
+use crate::machine::settings::ServeOptions;
 use crate::machine::settings::{
     DefaultDb, NO_HOME_TO_KEEP_DB, Report, check_settings, load_serve_options, resolve,
 };
@@ -12,7 +13,6 @@ use kkt_clock_system::SystemClock;
 use kkt_machine::{Env, Platform};
 use kkt_service::{DryRun, Manager, Request, ServiceSettings, Spec, check_bind};
 use kkt_service_os::try_bind;
-use kkt_settings::ServeOptions;
 use kkt_terminal_os::Terminal;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -400,7 +400,7 @@ mod tests {
         let home = scratch::Dir::new("service-bind-config");
         let env = test_env(Some(&home));
         let plan = service_plan(&env, TEST_PLATFORM, None, None, None, false).expect("valid");
-        assert_eq!(plan.bind, kkt_settings::DEFAULT_BIND);
+        assert_eq!(plan.bind, kkt_hosts::DEFAULT_BIND);
         assert_eq!(
             plan.config_file,
             kkt_config_file::config_file(env.config_home().as_deref())

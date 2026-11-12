@@ -16,7 +16,6 @@ use kkt_clock_system::SystemClock;
 use kkt_lane_files as lane_files;
 use kkt_machine::{Env, Platform};
 use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome};
-use kkt_settings::Limits;
 use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
 use std::path::{Path, PathBuf};
@@ -254,13 +253,13 @@ pub(crate) fn docker_lane_limit(env: &Env, platform: Platform) -> Result<usize, 
     let folder = docker_folder(env, platform)?;
     setup::lane_reports::docker_limit(
         kkt_container::Host::exists(&ContainerHost, &folder.join(kkt_container::ENV_FILE)),
-        Limits::DEFAULT.max_lane_chars,
+        kkt_rules::Settings::DEFAULT.max_lane_chars,
         || {
             kkt_container::lane_limit(
                 &ContainerHost,
                 &kkt_container::Folder(folder),
                 &ContainerConfigs,
-                Limits::DEFAULT.max_lane_chars,
+                kkt_rules::Settings::DEFAULT.max_lane_chars,
             )
             .map_err(|e| e.to_string())
         },
@@ -382,10 +381,13 @@ mod tests {
         let env = test_env(Some(&home));
         let db = home.join("kkt.db");
         crate::machine::database::open(&db).expect("database");
-        assert_eq!(local_lane_limit(&env), Ok(Limits::DEFAULT.max_lane_chars));
+        assert_eq!(
+            local_lane_limit(&env),
+            Ok(kkt_rules::Settings::DEFAULT.max_lane_chars)
+        );
         let limit =
             |env: &Env| local_operator(env, TEST_PLATFORM, Some(db.clone()), None).map(|(_, l)| l);
-        assert_eq!(limit(&env), Ok(Limits::DEFAULT.max_lane_chars));
+        assert_eq!(limit(&env), Ok(kkt_rules::Settings::DEFAULT.max_lane_chars));
         write_default_config(&home, "max_lane_chars = 1234\nname_pack = \"missing\"");
         assert_eq!(local_lane_limit(&env), Ok(1234));
         assert_eq!(limit(&env), Ok(1234));

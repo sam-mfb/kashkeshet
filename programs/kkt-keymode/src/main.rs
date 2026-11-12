@@ -4,8 +4,8 @@
 //! tests run against it in CI (`KKT_TEST_PROGRAM=kkt-keymode`). It is for
 //! development only and never released.
 //!
-//! It reads the same config file as `kkt serve` through kkt-config-file and
-//! kkt-settings, checks the same key files through kkt-admission, and
+//! It reads the same config file as `kkt serve` through kkt-config-file, into
+//! settings of its own, checks the same key files through kkt-admission, and
 //! builds the server through kkt-server with kkt-identity's `KeyMode`. Unlike `kkt serve` it makes no
 //! key, no backup and no log file, adopts no database from before kkt-db,
 //! and needs `db` and either `access_key_file` or `no_access_key` set.
@@ -30,7 +30,6 @@ use kkt_logs::{LogLevel, LogPolicy};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
-use kkt_settings::{InvalidSetting, Limits, ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use kkt_terminal_os::Terminal;
@@ -79,37 +78,37 @@ async fn run(args: &[String]) -> Result<(), String> {
     let args = parse_args(args)?;
     let settings = settings(&args)?;
     let config_file = args.config.display().to_string();
-    let ServeSettings {
+    let Settings {
         db,
         bind,
         allow_any_bind,
-        limits,
+        rules,
+        formatter,
+        web,
+        backups,
         allow_origins,
         allow_hosts,
         instructions,
         access_key,
         web_key,
         admin_key,
-        log_file: _,
         log_level,
         dependency_log_level,
     } = settings;
     let server_settings = ServerSettings {
-        formatter: kkt_mcp_formatter::Settings {
-            max_response_bytes: limits.max_response_bytes,
-        },
-        web: web_settings(&limits),
+        formatter,
+        web,
         mcp: kkt_mcp::Settings::DEFAULT,
         allowed_origins: allow_origins,
         allowed_hosts: allow_hosts,
     };
-    let mut problems: Vec<_> = rules_settings(&limits)
+    let mut problems: Vec<_> = rules
         .problems()
         .into_iter()
         .map(|p| (p.name, p.check, p.rule))
         .collect();
     problems.extend(
-        backup_settings(&limits)
+        backups
             .problems()
             .into_iter()
             .map(|p| (p.name, p.check, p.rule)),
@@ -146,8 +145,8 @@ async fn run(args: &[String]) -> Result<(), String> {
             settings: RecordedSettings {
                 allow_any_bind,
                 server: server_settings.settings(),
-                rules: rules_settings(&limits),
-                backup: backup_settings(&limits),
+                rules: rules.clone(),
+                backup: backups,
                 log_level,
                 dependency_log_level,
                 config_file: Some(config_file),
@@ -179,7 +178,7 @@ async fn run(args: &[String]) -> Result<(), String> {
             events: Events::new(kkt_events::Settings::DEFAULT).until_stopped(shutdown.clone()),
             clock: clock.clone(),
             entropy: entropy.clone(),
-            settings: rules_settings(&limits),
+            settings: rules,
             wording: Arc::new(kkt_rules::DefaultWording),
         },
     )
@@ -229,107 +228,132 @@ async fn run(args: &[String]) -> Result<(), String> {
         .map_err(|e| format!("server error: {e}"))
 }
 
-/// The config file's settings, with `--bind` over them, and the defaults
-/// for the rest. There is no default database or key file.
-fn settings(args: &Args) -> Result<ServeSettings, String> {
-    let text = config_file_os::read_named(&args.config).map_err(|e| e.to_string())?;
-    let dir = args.config.parent().unwrap_or(Path::new("."));
-    let from_file = parse_config(&text, dir)
-        .map_err(|e| format!("invalid setting in {}: {e}", args.config.display()))?;
-    let flags = ServeOptions {
-        bind: args.bind,
-        ..ServeOptions::NONE
-    };
-    let options = flags.over(from_file);
-    let db = options
-        .db
-        .clone()
-        .ok_or_else(|| format!("{} must set db", args.config.display()))?;
-    options
-        .resolve(db, None)
-        .map_err(|e| format!("invalid setting: {e}"))
+/// What kkt-keymode runs with: each owner's settings, from the config file
+/// with `--bind` over it, and each owner's defaults for the rest. Its own,
+/// smaller surface than `kkt serve`'s: the config file is its only source,
+/// and there is no default database or key file.
+struct Settings {
+    db: PathBuf,
+    bind: SocketAddr,
+    allow_any_bind: bool,
+    rules: kkt_rules::Settings,
+    formatter: kkt_mcp_formatter::Settings,
+    web: kkt_web::Settings,
+    backups: kkt_backup::Settings,
+    allow_origins: Vec<String>,
+    allow_hosts: Vec<String>,
+    instructions: Option<PathBuf>,
+    access_key: AccessKey,
+    web_key: AccessKey,
+    admin_key: Option<PathBuf>,
+    log_level: LogLevel,
+    dependency_log_level: LogLevel,
 }
 
-/// The settings in the config file's `text`, as kkt-settings takes them:
-/// the file parsed by kkt-config-file, with kkt-logs' log levels.
-/// There is no home folder, so a `~/` path is refused.
-fn parse_config(text: &str, dir: &Path) -> Result<ServeOptions, InvalidSetting> {
+/// The config file's settings, with `--bind` over them, and the defaults
+/// for the rest, refused as `kkt serve` refuses them. A `~/` path is
+/// refused: there is no home folder.
+fn settings(args: &Args) -> Result<Settings, String> {
+    let text = config_file_os::read_named(&args.config).map_err(|e| e.to_string())?;
+    let dir = args.config.parent().unwrap_or(Path::new("."));
     let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
-    let config = kkt_config_file::parse_file(text, dir, None, level)
-        .map_err(|e| InvalidSetting::new(e.name, e.rule))?;
-    Ok(ServeOptions {
-        log_level: config.log_level,
-        dependency_log_level: config.dependency_log_level,
-        name_pack: config.name_pack,
-        db: config.db,
-        bind: config.bind,
-        allow_any_bind: config.allow_any_bind,
-        max_response_bytes: config.max_response_bytes,
-        default_limit: config.default_limit,
-        max_limit: config.max_limit,
-        sends_per_minute: config.sends_per_minute,
-        waiting_grace_seconds: config.waiting_grace_seconds,
-        upgrade_backups_kept: config.upgrade_backups_kept,
-        max_lane_chars: config.max_lane_chars,
-        max_memory_entry_chars: config.max_memory_entry_chars,
-        max_memory_chars: config.max_memory_chars,
-        allow_origins: config.allow_origins,
-        allow_hosts: config.allow_hosts,
+    let config = kkt_config_file::parse_file(&text, dir, None, level).map_err(|e| {
+        format!(
+            "invalid setting in {}: {} {}",
+            args.config.display(),
+            e.name,
+            e.rule
+        )
+    })?;
+    let invalid = |name: &str, rule: &str| format!("invalid setting: {name} {rule}");
+    let db = config
+        .db
+        .ok_or_else(|| format!("{} must set db", args.config.display()))?;
+    let access_key = match (config.no_access_key == Some(true), config.access_key_file) {
+        (true, Some(_)) => {
+            return Err(invalid(
+                "no_access_key",
+                "cannot be set together with access_key_file",
+            ));
+        }
+        (true, None) => AccessKey::None,
+        (false, Some(path)) => AccessKey::File(path),
+        (false, None) => {
+            return Err(invalid(
+                "access_key_file",
+                "has no default without a home directory: set HOME, or give access_key_file or no_access_key",
+            ));
+        }
+    };
+    let (web_key, admin_key) = match &access_key {
+        AccessKey::None => (AccessKey::None, None),
+        AccessKey::File(path) | AccessKey::Default(path) => {
+            let web = kkt_admission::web_key_path(path);
+            if &web == path {
+                return Err(invalid("access_key_file", "must not name the web key file"));
+            }
+            (AccessKey::Default(web), kkt_admission::admin_key_path(path))
+        }
+    };
+    let defaults = kkt_rules::Settings::DEFAULT;
+    let name_pack = match config.name_pack {
+        None => defaults.name_pack,
+        Some(name) => kkt_names::NamePack::find(&name).ok_or_else(|| {
+            let packs: Vec<&str> = kkt_names::PACKS.iter().map(|p| p.name()).collect();
+            invalid(
+                "name_pack",
+                &format!("must be one of: {}", packs.join(", ")),
+            )
+        })?,
+    };
+    Ok(Settings {
+        db,
+        bind: args.bind.or(config.bind).unwrap_or(kkt_hosts::DEFAULT_BIND),
+        allow_any_bind: config
+            .allow_any_bind
+            .unwrap_or(kkt_hosts::DEFAULT_ALLOW_ANY_BIND),
+        rules: kkt_rules::Settings {
+            name_pack,
+            default_limit: config.default_limit.unwrap_or(defaults.default_limit),
+            max_limit: config.max_limit.unwrap_or(defaults.max_limit),
+            sends_per_minute: config.sends_per_minute.unwrap_or(defaults.sends_per_minute),
+            waiting_grace: config
+                .waiting_grace_seconds
+                .map(|s| std::time::Duration::from_secs(u64::from(s)))
+                .unwrap_or(defaults.waiting_grace),
+            max_lane_chars: config.max_lane_chars.unwrap_or(defaults.max_lane_chars),
+            max_memory_entry_chars: config
+                .max_memory_entry_chars
+                .unwrap_or(defaults.max_memory_entry_chars),
+            max_memory_chars: config.max_memory_chars.unwrap_or(defaults.max_memory_chars),
+            ..defaults
+        },
+        formatter: kkt_mcp_formatter::Settings {
+            max_response_bytes: config
+                .max_response_bytes
+                .unwrap_or(kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes),
+        },
+        web: kkt_web::Settings::DEFAULT,
+        backups: kkt_backup::Settings {
+            upgrade_backups_kept: config
+                .upgrade_backups_kept
+                .unwrap_or(kkt_backup::Settings::DEFAULT.upgrade_backups_kept),
+        },
+        allow_origins: config.allow_origins.unwrap_or_default(),
+        allow_hosts: config.allow_hosts.unwrap_or_default(),
         instructions: config.instructions,
-        access_key_file: config.access_key_file,
-        no_access_key: config.no_access_key,
-        log_file: config.log_file,
+        access_key,
+        web_key,
+        admin_key,
+        log_level: config.log_level.unwrap_or(kkt_logs::DEFAULT_LOG_LEVEL),
+        dependency_log_level: config
+            .dependency_log_level
+            .unwrap_or(kkt_logs::DEFAULT_DEPENDENCY_LOG_LEVEL),
     })
 }
 
 /// The database at `path`, made if it does not exist, at the core's latest
 /// schema.
-/// The rules' share of `limits`. The longest lane description is not an
-/// operator setting, so it keeps the rules' default.
-fn rules_settings(limits: &Limits) -> kkt_rules::Settings {
-    kkt_rules::Settings {
-        name_pack: limits.name_pack,
-        default_limit: limits.default_limit,
-        max_limit: limits.max_limit,
-        max_body_bytes: limits.max_body_bytes,
-        max_channel_name_chars: limits.max_channel_name_chars,
-        max_purpose_chars: limits.max_purpose_chars,
-        max_description_chars: limits.max_description_chars,
-        max_note_chars: limits.max_note_chars,
-        max_server_announcement_chars: limits.max_server_announcement_chars,
-        max_memory_entry_chars: limits.max_memory_entry_chars,
-        max_memory_chars: limits.max_memory_chars,
-        max_lane_chars: limits.max_lane_chars,
-        max_lane_description_chars: kkt_rules::Settings::DEFAULT.max_lane_description_chars,
-        sends_per_minute: limits.sends_per_minute,
-        registrations_per_minute: limits.registrations_per_minute,
-        max_agents: limits.max_agents,
-        default_wait: limits.default_wait,
-        max_wait: limits.max_wait,
-        waiting_grace: limits.waiting_grace,
-        member_preview: limits.member_preview,
-        purpose_preview_chars: limits.purpose_preview_chars,
-    }
-}
-
-/// The web page's share of `limits`.
-fn backup_settings(limits: &Limits) -> kkt_backup::Settings {
-    kkt_backup::Settings {
-        upgrade_backups_kept: limits.upgrade_backups_kept,
-    }
-}
-
-fn web_settings(limits: &Limits) -> kkt_web::Settings {
-    kkt_web::Settings {
-        page: kkt_web::PageLimits {
-            page_messages: limits.web_page_messages,
-            member_excerpt_chars: limits.web_member_excerpt_chars,
-        },
-        keep_alive: kkt_web::Settings::DEFAULT.keep_alive,
-        session_lifetime: limits.web_session_lifetime,
-    }
-}
-
 fn open(path: &Path) -> Result<Db, String> {
     SqlitePlace::new(path, Options::DEFAULT)
         .open(&[kkt_rules::schema()])
@@ -384,19 +408,5 @@ impl KeyTexts for KeyFiles<'_> {
     }
     fn admin_names(&mut self) -> Result<Option<String>, String> {
         self.0.admin_names().map_err(|e| e.to_string())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn each_parts_defaults_are_the_gathered_defaults() {
-        assert_eq!(
-            rules_settings(&Limits::DEFAULT),
-            kkt_rules::Settings::DEFAULT
-        );
-        assert_eq!(web_settings(&Limits::DEFAULT), kkt_web::Settings::DEFAULT);
     }
 }
