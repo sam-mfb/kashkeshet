@@ -34,19 +34,24 @@ Phase 10 moved the program's tools out of its library into two assemblies,
 kkt-operate for the operator's commands and kkt-agent-commands for the
 agents', while the program keeps composing the server. Phase 11 gave kkt-db
 a fast test stand-in, so kkt-rules' tests use no effect crate, and the
-program's tests run the store and the rules on the real backend.
+program's tests run the store and the rules on the real backend. Phase 12
+split every third-party dependency into a contract crate in kkt's terms and
+a wrapper named for the tool that implements it directly, which the program
+injects with no adapter: Tailscale, Docker, launchd and systemd, the MCP
+client, git, the doctor's HTTP probe, Claude Code's command and the
+browser opener.
 
-The workspace went from 33 packages to 61. The code now matches the
+The workspace went from 33 packages to 72. The code now matches the
 proposed map, as amended during the refactor, with no difference left
 (`decisions.md`, "After the refactor").
 
 ## Final scorecard
 
-From `progress.py`, on the code at the end of the refactor (1be030c):
+From `progress.py`, on the code at the end of the refactor (1007e1a):
 
-- crates: 61 of 61 proposed crates exist; none missing; none to remove;
-- items: 813 of 813 proposed items are in their proposed crate;
-- arrows: 238 of 238 proposed arrows exist; none missing; none extra;
+- crates: 72 of 72 proposed crates exist; none missing; none to remove;
+- items: 794 of 794 proposed items are in their proposed crate;
+- arrows: 267 of 267 proposed arrows exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
 
 ## Effect on existing installs
@@ -87,20 +92,22 @@ reviewed by hand until they return. Watch their first runs. The code the refacto
   this build is macOS or follows XDG. It replaces `Platform::CURRENT` in
   kkt-settings' `paths.rs`, which is gone. Every path built from `Platform`
   (the config folder, the data folder, the default database) rests on it.
-- `crates/kkt-terminal-os/src/browser.rs`: the program that opens the
-  Tailscale login link (`open` on macOS, `xdg-open` elsewhere), moved from
-  the program's `src/terminal/browser_login.rs`, with its test.
-- `crates/kkt-service/src/lib.rs`: `Manager::for_this_os` chooses launchd
-  on macOS and systemd on Linux. The choice is unchanged, but the values
-  it reads changed: the home folder and the config base now come
+- `crates/kkt-browser-os/src/lib.rs`: the program that opens the Tailscale
+  login link (`open` on macOS, `xdg-open` elsewhere), moved from the
+  program's `src/terminal/browser_login.rs` to kkt-terminal-os, then to its
+  own wrapper (12.5d), with its tests.
+- `src/machine/service.rs`: `for_this_os` chooses launchd on macOS and
+  systemd on Linux, and injects kkt-service-launchd's `Launchd` or
+  kkt-service-systemd's `Systemd` (12.3). The choice is unchanged, but the
+  values it reads changed: the home folder and the config base now come
   from kkt-machine's `Env`, and launchd's wait and retry times from
-  kkt-service's `Settings`.
+  kkt-service-launchd's `Settings`.
 
 Code under `cfg(unix)` also moved, and runs on both systems: file modes
-(kkt-admission-os, kkt-backup-os, kkt-client-config-os, kkt-container-os,
-kkt-config-file-os), the stop signals (kkt-shutdown-os), the agent
-credential files' owner and mode checks (kkt-agent-client), and the closed
-output pipe (kkt-terminal-os).
+(kkt-admission-os, kkt-backup-os, kkt-client-config-os,
+kkt-container-docker, kkt-config-file-os), the stop signals
+(kkt-shutdown-os), the agent credential files' owner and mode checks
+(kkt-agent-files-os), and the closed output pipe (kkt-terminal-os).
 
 ## How to merge
 

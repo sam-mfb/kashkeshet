@@ -13,14 +13,16 @@ The plan has five parts: the rules every step follows; how progress is
 measured; how parallel work avoids collisions; the steps; and what needs
 Sam, each with the default we proceed on.
 
-The refactor's phases 0 to 11 are done. After phase 8, Sam decided three
+The refactor's phases 0 to 12 are done. After phase 8, Sam decided four
 more (2026-11-12). Phase 9 removed kkt-settings: each owner checks and words
 its own settings, and kkt-server takes them checked. Phase 10 moved the
 program's tools out of its library into two assemblies, kkt-operate and
 kkt-agent-commands, while the program keeps composing the server. Phase 11
 gave kkt-db a fast test stand-in, so kkt-rules' tests no longer use an effect
-crate. What is left for Sam comes first, below; the scorecards are at the
-end.
+crate. Phase 12 split every third-party dependency into a contract crate in
+kkt's terms and a wrapper named for the tool, which the program injects
+with no adapter. What is left for Sam comes first, below; the scorecards
+are at the end.
 
 ## Awaiting Sam
 
@@ -174,6 +176,31 @@ no `real`.
 | kkt-container's contract fields are `sharing`, not `tailscale`; the setup record's stored `tailscale` field is unchanged | 12.2 (#510, msg 3093) | A contract names no tool; the stored record is an existing install's |
 | The browser is given to the Docker wrapper at construction (`Docker::new`), not through `OperateParts`; kkt-container's `LoginLink` keeps the terminal's half | 12.5d (#513, msg 3115) | The wrapper opens the link while it waits for the login, so the contract's calls do not change |
 | The probe's wrapper is kkt-diagnostics-os renamed, not a new crate | 12.5b (#514) | It already wrapped reqwest; it now implements kkt-probe's `Prober` directly |
+
+**Phase 12, for Sam: the adapters the program still holds, and why.**
+After phase 12 none of them stands between kkt and a third-party tool or
+library: each reaches the machine's own files, terminal or paths, or the
+program's own serving code. They adapt contracts that a logic crate or an
+assembly declares, which an effect crate may not implement (the strict
+rule), so the program does. kkt-service-os is kept for one thing only:
+`try_bind`, whether the service's server could listen on its address,
+which the program passes to kkt-operate as a plain function, with no
+adapter.
+
+| Adapter (in the program) | Contract it answers | What it reaches | Why it stays |
+|---|---|---|---|
+| `ServeReads`, `ServiceArgs`, `ServiceCheck` (`machine/operate.rs`) | kkt-operate's `ServeFacts`, `ServiceDefaults`, `CheckService` | The program's own serving settings and config file (`machine/settings.rs`) | The local server's facts are the program's (msg 2876) |
+| `ConnectionReads` (`machine/connection.rs`) | kkt-setup's `ConnectionSource` | The setup record and the serving settings | The same: how a client reaches the local server |
+| `AdminKeyHere` (`machine/agent_parts.rs`) | kkt-agent-commands' `AdminKey` | kkt-operate's key finder, over the operator's parts | Assemblies may not depend on each other, so the program asks one for the other |
+| `NativeDatabases` (`machine/operate.rs`) | kkt-operate's `Databases` | The program's `machine/database.rs`, over kkt-db-sqlite | Choosing and opening the database is serving; kkt-db-sqlite already implements kkt-db's contract directly |
+| `NativeSetupFiles`, `NativeKeyFiles`, `NativeConfigText`, `NativeBackups` (`machine/operate.rs`) | kkt-operate's `SetupFiles`, `KeyFiles`, `ConfigText`, `BackupWriter` | kkt-setup-os, kkt-admission-os (with kkt-entropy-os for new keys), kkt-config-file-os, kkt-backup-os | The machine's own files; the contracts are an assembly's |
+| `ServerKeyFiles` (`machine/keys.rs`) | kkt-admission's `KeyTexts` | kkt-admission-os' key files | The machine's own files; each program words its key errors itself |
+| `KeyFiles`, `ThisProgram` (`machine/agent_parts.rs`) | kkt-agent-commands' `KeyText`, `Program` | kkt-admission-os' key files; kkt-setup-os' path of `kkt` | The machine's own files and paths |
+| `CredentialFiles`, `StateFile` (`machine/credentials.rs`) | kkt-agent-commands' `Credentials`, kkt-watch's `Place` | kkt-agent-files-os | The machine's own files; it applies kkt-setup's credential-file rule |
+| `ClientHost` (`machine/client_config.rs`) | kkt-client-config's `Host` | kkt-client-config-os | The machine's own files (msg 3084) |
+| `LaneDisk` (`commands/lanes/disk.rs`) | kkt-lane-files' `Disk` | kkt-lane-files-os | The machine's own files (msg 3120) |
+| `ContainerConfigs` (`machine/settings.rs`) | kkt-container's `ConfigReader` | The program's own reading of kkt's config file | kkt's own format; toml stays inside kkt-config-file (RUST.md rule 7) |
+| `TerminalLines`, `TerminalLink`, `WatchOutput`, `TerminalOutput`, `NativeOutput` | kkt-setup's `Lines`, kkt-container's `LoginLink`, kkt-watch's `Report`, the assemblies' `Output` | kkt-terminal-os | The machine's own terminal; each consumer declares only what it uses (3.1.1) |
 
 ## Rules for every step
 
@@ -1514,17 +1541,21 @@ Each has the default we proceed on, so nothing waits.
 
 ## Final scorecard
 
-On the code at the end of phases 9 to 11, at 1be030c (#502 merged), against
-the proposal with phases 9 to 11 charted (`progress.py`, step 10.4):
+On the code at the end of phase 12, at 1007e1a (#514 merged), against the
+proposal with phases 9 to 12 charted (`progress.py`, step 12.6):
 
-- crates: 61 of 61 proposed crates exist; none missing; none to remove;
-- items: 813 of 813 proposed items are in their proposed crate;
-- arrows: 238 of 238 proposed arrows exist; none missing; none extra;
+- crates: 72 of 72 proposed crates exist; none missing; none to remove;
+- items: 794 of 794 proposed items are in their proposed crate;
+- arrows: 267 of 267 proposed arrows exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
 
 The one temporary break left is CI's, not the code's: macOS is out of CI
-again (#501) for want of GitHub runners, until it comes back or a
-self-hosted runner takes it.
+(#501), until it comes back or a self-hosted runner takes it.
+
+### At the end of phases 9 to 11
+
+On the code at 1be030c (#502 merged): 61 of 61 crates, 813 of 813 items,
+238 of 238 arrows, none extra, no break.
 
 ### At the end of phase 8
 
