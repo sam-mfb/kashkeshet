@@ -3,19 +3,33 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "0e0f970",
+ "commit": "1be030c",
  "crates": [
   {
    "bins": [
     "kkt"
    ],
-   "builds": [],
+   "builds": [
+    {
+     "gives": [
+      {
+       "crate": "kkt-operate",
+       "type": "OperateParts"
+      }
+     ],
+     "type": "machine::operate::NativeOperate"
+    }
+   ],
    "contracts": [
     {
      "implementors": [
       {
        "crate": "kashkeshet",
        "type": null
+      },
+      {
+       "crate": "kashkeshet",
+       "type": "machine::settings::BadValue"
       }
      ],
      "trait": "machine::settings::BadSetting"
@@ -34,8 +48,62 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
+     "trait": "machine::settings::BadSetting",
+     "trait_crate": "kashkeshet",
+     "type": "machine::settings::BadValue"
+    },
+    {
+     "crate": "kashkeshet",
      "trait": "server_keys::KeyTexts",
      "trait_crate": "kkt-admission",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "AdminKey",
+     "trait_crate": "kkt-agent-commands",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Avatars",
+     "trait_crate": "kkt-agent-commands",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "CredentialSlot",
+     "trait_crate": "kkt-agent-commands",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Credentials",
+     "trait_crate": "kkt-agent-commands",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "KeyText",
+     "trait_crate": "kkt-agent-commands",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Output",
+     "trait_crate": "kkt-agent-commands",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Program",
+     "trait_crate": "kkt-agent-commands",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Servers",
+     "trait_crate": "kkt-agent-commands",
      "type": null
     },
     {
@@ -48,7 +116,7 @@ window.KKT_GRAPH = {
      "crate": "kashkeshet",
      "trait": "ConfigReader",
      "trait_crate": "kkt-container",
-     "type": "machine::settings::ContainerConfigs"
+     "type": null
     },
     {
      "crate": "kashkeshet",
@@ -82,6 +150,60 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
+     "trait": "BackupWriter",
+     "trait_crate": "kkt-operate",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "CheckService",
+     "trait_crate": "kkt-operate",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "ConfigText",
+     "trait_crate": "kkt-operate",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Databases",
+     "trait_crate": "kkt-operate",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "KeyFiles",
+     "trait_crate": "kkt-operate",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Output",
+     "trait_crate": "kkt-operate",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "ServeFacts",
+     "trait_crate": "kkt-operate",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "ServiceDefaults",
+     "trait_crate": "kkt-operate",
+     "type": "machine::operate::ServiceArgs"
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "SetupFiles",
+     "trait_crate": "kkt-operate",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
      "trait": "Host",
      "trait_crate": "kkt-remote-access",
      "type": null
@@ -94,33 +216,15 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
-     "trait": "AdoptSteps",
-     "trait_crate": "kkt-setup",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "Steps",
-     "trait_crate": "kkt-setup",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "SwitchSteps",
-     "trait_crate": "kkt-setup",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
      "trait": "ask::Lines",
      "trait_crate": "kkt-setup",
-     "type": "terminal::TerminalLines"
+     "type": null
     },
     {
      "crate": "kashkeshet",
      "trait": "connection::ConnectionSource",
      "trait_crate": "kkt-setup",
-     "type": null
+     "type": "machine::connection::ConnectionReads"
     },
     {
      "crate": "kashkeshet",
@@ -143,142 +247,9 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
-     "doc": "The `kkt` commands, one module each.",
+     "doc": "What is left of the `kkt` commands in the program: `serve`, which the program composes itself over kkt-server, and the adapters two commands' assemblies take (`lanes`' disk, `watch`'s server and output).",
      "kind": "mod",
      "path": "commands"
-    },
-    {
-     "doc": "Agents: `kkt register` and `kkt reclaim`, which get an identity from a server and save its credentials, and `kkt agent`, the operator's commands on agents in the local database.",
-     "kind": "mod",
-     "path": "commands::agent"
-    },
-    {
-     "doc": "What `kkt agent` does.",
-     "kind": "enum",
-     "path": "commands::agent::AgentAction",
-     "variants": [
-      "List",
-      "Revoke"
-     ]
-    },
-    {
-     "doc": "What `kkt register` asks the server for: a handle, a lane to take, and a description, each if given.",
-     "fields": [
-      "handle",
-      "lane",
-      "description"
-     ],
-     "kind": "struct",
-     "path": "commands::agent::NewAvatar"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "commands::agent::reclaim"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "commands::agent::register"
-    },
-    {
-     "doc": "`kkt agent`: the operator's commands, on the database `kkt serve` would use unless `--db` names another.",
-     "kind": "fn",
-     "path": "commands::agent::run"
-    },
-    {
-     "doc": "`kkt connect`: writes or prints a client's MCP config for this machine's server.",
-     "kind": "mod",
-     "path": "commands::connect"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "commands::connect::run"
-    },
-    {
-     "doc": "`kkt doctor`: checks the server this machine's clients use, its keys, and how this machine runs kkt, and prints a line for each with a fix for each problem.",
-     "kind": "mod",
-     "path": "commands::doctor"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "commands::doctor::run"
-    },
-    {
-     "doc": "`kkt key`: `create` makes a new access, web or admin key, `header` prints the header clients send with the access key, and `show` prints a key.",
-     "kind": "mod",
-     "path": "commands::key"
-    },
-    {
-     "doc": "The key `kkt key create` makes: its kind, the file to write it to if given, and the admin agent's name if given.",
-     "fields": [
-      "kind",
-      "path",
-      "name"
-     ],
-     "kind": "struct",
-     "path": "commands::key::NewKey"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "commands::key::create"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "commands::key::header"
-    },
-    {
-     "doc": "Prints the selected key.",
-     "kind": "fn",
-     "path": "commands::key::show"
-    },
-    {
-     "doc": "Lanes on this machine's server: `kkt lanes export` and `kkt lanes import`, and reading a lane folder, checking it, and importing it into a local database or kkt in Docker, which `kkt setup` also uses.",
-     "kind": "mod",
-     "path": "commands::lanes"
-    },
-    {
-     "doc": "What `kkt lanes` does.",
-     "kind": "enum",
-     "path": "commands::lanes::LanesAction",
-     "variants": [
-      "Export",
-      "Import"
-     ]
-    },
-    {
-     "doc": "`kkt lanes`: on the database `kkt serve` would use unless `--db` names another, or for kkt in Docker, in its container.",
-     "kind": "fn",
-     "path": "commands::lanes::run"
-    },
-    {
-     "doc": "An install's lifecycle: `kkt status`, `kkt upgrade`, `kkt uninstall` and `kkt backup`, and the backup `kkt serve` makes before it upgrades the database.",
-     "kind": "mod",
-     "path": "commands::lifecycle"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "commands::lifecycle::backup"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "commands::lifecycle::status"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "commands::lifecycle::uninstall"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "commands::lifecycle::upgrade"
     },
     {
      "doc": "`kkt serve`: resolves the server's settings, starts its log, and runs the server, through `kkt-server`, until it is told to stop.",
@@ -291,81 +262,7 @@ window.KKT_GRAPH = {
      "path": "commands::serve::run"
     },
     {
-     "doc": "`kkt service`: installs, removes, starts, stops and reports on the kkt service through this system's service manager, and plans what an installed service runs.",
-     "kind": "mod",
-     "path": "commands::service"
-    },
-    {
-     "doc": "What `kkt service` does.",
-     "kind": "enum",
-     "path": "commands::service::ServiceAction",
-     "variants": [
-      "Install",
-      "Uninstall",
-      "Start",
-      "Stop",
-      "Status",
-      "Logs"
-     ]
-    },
-    {
-     "doc": "How `kkt service install` installs the service.",
-     "fields": [
-      "config",
-      "db",
-      "access_key_file",
-      "no_access_key",
-      "dry_run"
-     ],
-     "kind": "struct",
-     "path": "commands::service::ServiceInstall"
-    },
-    {
-     "doc": "What `kkt service install` does: the service to install, and the access key to create first, if any.",
-     "fields": [
-      "spec",
-      "new_web_key"
-     ],
-     "kind": "struct",
-     "path": "commands::service::ServicePlan"
-    },
-    {
-     "doc": "`kkt service ...`: runs the command against this system's service manager and prints what happened.",
-     "kind": "fn",
-     "path": "commands::service::run"
-    },
-    {
-     "doc": "What the service runs, as `kkt_service::plan` works it out.",
-     "kind": "fn",
-     "path": "commands::service::service_plan"
-    },
-    {
-     "doc": "`kkt setup` and `kkt switch`: ask on the terminal if there is one, and do the work through `steps::OsSteps` and `steps::OsSwitchSteps`, the program's real implementation of setup's steps.",
-     "kind": "mod",
-     "path": "commands::setup"
-    },
-    {
-     "doc": "How to install, beyond what setup asks.",
-     "fields": [
-      "kkt_version",
-      "docker_project",
-      "docker_port"
-     ],
-     "kind": "struct",
-     "path": "commands::setup::InstallOptions"
-    },
-    {
-     "doc": "`kkt setup`: asks on the terminal if there is one, and does the work through `OsSteps`.",
-     "kind": "fn",
-     "path": "commands::setup::run"
-    },
-    {
-     "doc": "`kkt switch`: asks on the terminal if there is one, and does the work through `OsSwitchSteps`.",
-     "kind": "fn",
-     "path": "commands::setup::run_switch"
-    },
-    {
-     "doc": "`kkt watch`: waits for new messages from a shell, as an agent or through the admin endpoint, printing one line for each.",
+     "doc": "The program's adapters for `kkt watch`, which kkt-agent-commands runs: the MCP client as kkt-watch's `Server`, and the terminal as its `Report`.",
      "kind": "mod",
      "path": "commands::watch"
     },
@@ -379,26 +276,19 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "What `kkt watch` watches, and where it keeps its place.",
-     "fields": [
-      "admin",
-      "token_file",
-      "state_file",
-      "connection",
-      "options"
-     ],
-     "kind": "struct",
-     "path": "commands::watch::WatchTask"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "commands::watch::run"
-    },
-    {
      "doc": "What kkt keeps on this machine: the serve settings and config file, the setup record, key files, how a client reaches the server, agent credential files, and the database file.",
      "kind": "mod",
      "path": "machine"
+    },
+    {
+     "doc": "kkt-agent-commands' parts, as kkt answers them: the MCP client, the key files, this program's path and the terminal, with the local server's facts from the setup and the serve settings.",
+     "kind": "mod",
+     "path": "machine::agent_parts"
+    },
+    {
+     "doc": "The agents' commands' parts on this machine.",
+     "kind": "fn",
+     "path": "machine::agent_parts::agent_parts"
     },
     {
      "doc": "Adapts the machine's client-config operations to the logic's host.",
@@ -411,15 +301,9 @@ window.KKT_GRAPH = {
      "path": "machine::client_config::ClientHost"
     },
     {
-     "doc": "How a client reaches the server: its address and access key file, from the setup record or the serve settings, and the MCP clients made from them.",
+     "doc": "How a client reaches the server: its address and access key file, from the setup record or the serve settings.",
      "kind": "mod",
      "path": "machine::connection"
-    },
-    {
-     "doc": "",
-     "from": "setup::connection::Connection",
-     "kind": "struct",
-     "path": "machine::connection::Connection"
     },
     {
      "doc": "",
@@ -428,19 +312,12 @@ window.KKT_GRAPH = {
      "path": "machine::connection::ConnectionOptions"
     },
     {
-     "doc": "",
-     "kind": "fn",
-     "path": "machine::connection::client_connection"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "machine::connection::recorded_connection"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "machine::connection::serve_connection"
+     "doc": "kkt-setup's connection question, answered from this machine's setup record and serve settings.",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "machine::connection::ConnectionReads"
     },
     {
      "doc": "The database file: opening it with the core's tables, what opening it would upgrade, and copying it.",
@@ -482,110 +359,62 @@ window.KKT_GRAPH = {
      "path": "machine::diagnostics::DiagnosticProber"
     },
     {
-     "doc": "Key files: where this machine's access, web and admin keys are, and reading, making and writing them and the admin key's name file.",
+     "doc": "The server's key reads, for `kkt serve` and the service check: the key files its settings name, checked as kkt-admission checks them, and the default key made if it is missing.",
      "kind": "mod",
      "path": "machine::keys"
     },
     {
-     "doc": "",
-     "from": "kkt_setup::KeyKind",
-     "kind": "enum",
-     "path": "machine::keys::KeyKind"
-    },
-    {
-     "doc": "",
-     "from": "kkt_setup::admin_key_collision",
-     "kind": "fn",
-     "path": "machine::keys::admin_key_collision"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "machine::keys::admin_name_line"
-    },
-    {
-     "doc": "Where this machine's web or admin key file is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
-     "kind": "fn",
-     "path": "machine::keys::local_operator_key"
-    },
-    {
-     "doc": "This machine's web key file, if it runs a server.",
-     "kind": "fn",
-     "path": "machine::keys::local_web_key"
-    },
-    {
-     "doc": "`kkt key create`: writes a new key to a file only the owner can read, and says how to use it.",
-     "kind": "fn",
-     "path": "machine::keys::make_default_key"
-    },
-    {
-     "doc": "Makes a new random key and writes it to `path`, creating its folder if needed.",
-     "kind": "fn",
-     "path": "machine::keys::new_key_file"
-    },
-    {
-     "doc": "Ties `name` to the new admin key `key`, just written to the file at `path`, in the name file beside it.",
-     "kind": "fn",
-     "path": "machine::keys::write_admin_name"
-    },
-    {
-     "doc": "",
-     "from": "kkt_admission_os::write_key_file",
-     "kind": "fn",
-     "path": "machine::keys::write_key_file"
-    },
-    {
-     "doc": "The setup record, the note of an unfinished setup, and finding a server kkt installed here with no record.",
+     "doc": "kkt-operate's parts on this machine: the program's native providers and its serving settings, adapted to the operator's commands.",
      "kind": "mod",
-     "path": "machine::record"
+     "path": "machine::operate"
     },
     {
-     "doc": "Refuses to start a server on a machine `kkt setup` set up otherwise.",
-     "kind": "fn",
-     "path": "machine::record::check_setup"
+     "doc": "The operator's parts on this machine, from the implementations the program chooses.",
+     "kind": "struct",
+     "methods": [
+      "new",
+      "parts",
+      "with_service_args"
+     ],
+     "path": "machine::operate::NativeOperate"
     },
     {
-     "doc": "",
-     "from": "setup::docker_folder",
-     "kind": "fn",
-     "path": "machine::record::docker_folder"
+     "doc": "The service capability: what an installed service runs with, compared with the defaults, as `kkt serve` would read its arguments.",
+     "kind": "struct",
+     "path": "machine::operate::ServiceArgs"
     },
     {
-     "doc": "",
-     "from": "setup::docker_url",
-     "kind": "fn",
-     "path": "machine::record::docker_url"
-    },
-    {
-     "doc": "This machine's setup record, if `kkt setup` wrote one.",
-     "kind": "fn",
-     "path": "machine::record::read_setup"
-    },
-    {
-     "doc": "The server a `kkt setup` installed here but did not record, if it noted one and the install is still there: the managed Docker folder's settings file, or the installed service.",
-     "kind": "fn",
-     "path": "machine::record::read_unfinished"
-    },
-    {
-     "doc": "A server kkt installed here, in Docker or as a service, whether or not it is recorded: for callers that found no record and no note of an unfinished setup.",
-     "kind": "fn",
-     "path": "machine::record::read_unrecorded"
-    },
-    {
-     "doc": "This machine's setup record.",
-     "kind": "fn",
-     "path": "machine::record::recorded_setup"
+     "doc": "The program's run-record values.",
+     "kind": "mod",
+     "path": "machine::server_run"
     },
     {
      "doc": "",
-     "from": "setup::unfinished_mode",
-     "kind": "fn",
-     "path": "machine::record::unfinished_mode"
+     "fields": [
+      "server",
+      "rules",
+      "backup",
+      "allow_any_bind",
+      "log_level",
+      "dependency_log_level",
+      "config_file",
+      "access_key_file",
+      "web_key_file",
+      "admin_key_file",
+      "admin_name",
+      "log_file",
+      "log_policy"
+     ],
+     "kind": "struct",
+     "methods": [
+      "lines"
+     ],
+     "path": "machine::server_run::RecordedSettings"
     },
     {
-     "doc": "Resolve lifecycle commands through the setup record.",
+     "doc": "What produced this run, as the rules record it at startup.",
      "kind": "fn",
-     "path": "machine::record::write_setup_record"
+     "path": "machine::server_run::new_server_run"
     },
     {
      "doc": "The settings `kkt serve` would run with: reading the config file, where each setting came from, the one place they are resolved (`resolve`), the startup checks, and each part's own settings filled from them.",
@@ -601,12 +430,26 @@ window.KKT_GRAPH = {
      "path": "machine::settings::BadSetting"
     },
     {
+     "doc": "A setting given that cannot be used, before any owner checks it: its name and why.",
+     "fields": [
+      "name",
+      "rule"
+     ],
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "machine::settings::BadValue"
+    },
+    {
      "doc": "Settings that passed every startup check, with the files they name read.",
      "fields": [
       "db_path",
       "bind",
       "config",
-      "limits",
+      "server_settings",
+      "rules",
+      "backups",
       "admin_name",
       "allow_any_bind",
       "config_file",
@@ -616,11 +459,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "machine::settings::Checked"
-    },
-    {
-     "doc": "Parses the kkt container's config file for kkt-container, as `kkt serve` in the container would: a setting `kkt serve` would refuse is refused.",
-     "kind": "struct",
-     "path": "machine::settings::ContainerConfigs"
     },
     {
      "doc": "What `kkt serve` reads before applying defaults: the config file, if any, what it gives, and what the flags give.",
@@ -641,6 +479,61 @@ window.KKT_GRAPH = {
      "path": "machine::settings::ServeArgs"
     },
     {
+     "doc": "Server settings that may or may not be given, from one source: the command line or the config file.",
+     "fields": [
+      "name_pack",
+      "db",
+      "bind",
+      "allow_any_bind",
+      "max_response_bytes",
+      "default_limit",
+      "max_limit",
+      "sends_per_minute",
+      "waiting_grace_seconds",
+      "upgrade_backups_kept",
+      "max_lane_chars",
+      "max_memory_entry_chars",
+      "max_memory_chars",
+      "allow_origins",
+      "allow_hosts",
+      "instructions",
+      "access_key_file",
+      "no_access_key",
+      "log_file",
+      "log_level",
+      "dependency_log_level"
+     ],
+     "kind": "struct",
+     "methods": [
+      "gives",
+      "lane_limit",
+      "name_pack_name",
+      "over",
+      "resolve"
+     ],
+     "path": "machine::settings::ServeOptions"
+    },
+    {
+     "doc": "The settings a server runs with, each owner's in its own terms.",
+     "fields": [
+      "db",
+      "bind",
+      "allow_any_bind",
+      "rules",
+      "server",
+      "backups",
+      "instructions",
+      "access_key",
+      "web_key",
+      "admin_key",
+      "log_file",
+      "log_level",
+      "dependency_log_level"
+     ],
+     "kind": "struct",
+     "path": "machine::settings::ServeSettings"
+    },
+    {
      "doc": "Where a server's settings came from, so a bad one can be traced to the config file when that is where it was set.",
      "kind": "struct",
      "methods": [
@@ -655,11 +548,6 @@ window.KKT_GRAPH = {
      "path": "machine::settings::check_settings"
     },
     {
-     "doc": "The formatter's share of `limits`.",
-     "kind": "fn",
-     "path": "machine::settings::format_settings"
-    },
-    {
      "doc": "Reads the config file `kkt serve` would read, and puts it with `flags`.",
      "kind": "fn",
      "path": "machine::settings::load_serve_options"
@@ -670,19 +558,14 @@ window.KKT_GRAPH = {
      "path": "machine::settings::read_config"
     },
     {
-     "doc": "The rules' share of `limits`.",
-     "kind": "fn",
-     "path": "machine::settings::rules_settings"
-    },
-    {
      "doc": "The address `kkt serve` would listen on with the default config file.",
      "kind": "fn",
      "path": "machine::settings::serve_bind"
     },
     {
-     "doc": "The web page's share of `limits`.",
+     "doc": "What kkt-server builds with, from `options`: each config key and flag onto one `ServerSettings` field, and its default where none is given.",
      "kind": "fn",
-     "path": "machine::settings::web_settings"
+     "path": "machine::settings::server_settings"
     },
     {
      "doc": "This program's paths, supplied by the native setup provider.",
@@ -705,11 +588,6 @@ window.KKT_GRAPH = {
      "doc": "Adapting the native terminal and browser link to setup's contracts.",
      "kind": "mod",
      "path": "terminal"
-    },
-    {
-     "doc": "The terminal supplied to setup's question rules.",
-     "kind": "struct",
-     "path": "terminal::TerminalLines"
     },
     {
      "doc": "Adapting the native browser link to Docker setup's login-link contract.",
@@ -743,6 +621,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "clap",
     "futures",
@@ -1147,6 +1026,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "thiserror"
    ]
@@ -1240,6 +1120,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-admission-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -1537,6 +1418,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "futures",
     "libc",
@@ -1544,6 +1426,651 @@ window.KKT_GRAPH = {
     "rmcp",
     "serde_json",
     "tokio"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "AdminKey"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "Avatars"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "CredentialSlot"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "Credentials"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "KeyText"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "Output"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "Program"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "Servers"
+    }
+   ],
+   "crate_doc": "The agents' commands: `kkt register` and `kkt reclaim`, which get an avatar from a server and save its credentials, `kkt watch`, which waits for new messages from a shell, and `kkt connect`, which writes a client's MCP config.",
+   "dev_only": false,
+   "features": {},
+   "holders": [
+    {
+     "holds": [
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "AdminKey"
+      },
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "Servers"
+      },
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "Credentials"
+      },
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "KeyText"
+      },
+      {
+       "crate": "kkt-client-config",
+       "trait": "Host"
+      },
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "Program"
+      },
+      {
+       "crate": "kkt-watch",
+       "trait": "Report"
+      },
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "Output"
+      },
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      }
+     ],
+     "type": "AgentParts"
+    }
+   ],
+   "implements": [],
+   "items": [
+    {
+     "doc": "A server, as a client reaches it: its MCP endpoint and the key it is reached with, if it needs one.",
+     "fields": [
+      "url",
+      "key",
+      "key_name"
+     ],
+     "kind": "struct",
+     "path": "Address"
+    },
+    {
+     "doc": "Where the admin key is.",
+     "kind": "trait",
+     "methods": [
+      "path"
+     ],
+     "path": "AdminKey"
+    },
+    {
+     "doc": "The effects and facts the agents' commands take.",
+     "fields": [
+      "connection",
+      "admin_key",
+      "admin_path",
+      "servers",
+      "credentials",
+      "key_files",
+      "clients",
+      "program",
+      "report",
+      "output",
+      "clock"
+     ],
+     "kind": "struct",
+     "path": "AgentParts"
+    },
+    {
+     "doc": "What a client asks of a server for an avatar.",
+     "kind": "trait",
+     "methods": [
+      "describe",
+      "reclaim",
+      "register"
+     ],
+     "path": "Avatars"
+    },
+    {
+     "doc": "A reserved credential file.",
+     "kind": "trait",
+     "methods": [
+      "save"
+     ],
+     "path": "CredentialSlot"
+    },
+    {
+     "doc": "Agent credential files and watch state files.",
+     "kind": "trait",
+     "methods": [
+      "claim_state",
+      "reserve",
+      "token"
+     ],
+     "path": "Credentials"
+    },
+    {
+     "doc": "Why a call to a server failed.",
+     "kind": "enum",
+     "path": "Failure",
+     "variants": [
+      "Lost",
+      "KeyRefused",
+      "Refused"
+     ]
+    },
+    {
+     "doc": "Reading a key file.",
+     "kind": "trait",
+     "methods": [
+      "read"
+     ],
+     "path": "KeyText"
+    },
+    {
+     "doc": "Why a key file could not be read.",
+     "fields": [
+      "missing",
+      "reason"
+     ],
+     "kind": "struct",
+     "path": "KeyUnread"
+    },
+    {
+     "doc": "What `kkt register` asks the server for: a handle, a lane to take, and a description, each if given.",
+     "fields": [
+      "handle",
+      "lane",
+      "description"
+     ],
+     "kind": "struct",
+     "path": "NewAvatar"
+    },
+    {
+     "doc": "Standard output.",
+     "kind": "trait",
+     "methods": [
+      "output"
+     ],
+     "path": "Output"
+    },
+    {
+     "doc": "This program.",
+     "kind": "trait",
+     "methods": [
+      "kkt_path"
+     ],
+     "path": "Program"
+    },
+    {
+     "doc": "A replacement token for an existing avatar.",
+     "fields": [
+      "handle",
+      "token"
+     ],
+     "kind": "struct",
+     "path": "Reclaimed"
+    },
+    {
+     "doc": "A new avatar's handle and credentials.",
+     "fields": [
+      "handle",
+      "token",
+      "recovery_code"
+     ],
+     "kind": "struct",
+     "path": "Registered"
+    },
+    {
+     "doc": "Clients of a server.",
+     "kind": "trait",
+     "methods": [
+      "admin",
+      "agent",
+      "avatars"
+     ],
+     "path": "Servers"
+    },
+    {
+     "doc": "`kkt connect`: writes or prints a client's MCP config for this machine's server.",
+     "kind": "mod",
+     "path": "connect"
+    },
+    {
+     "doc": "Writes the config of the client named `client`, at `client_config` or where that client keeps it, or only prints it unless `write`.",
+     "kind": "fn",
+     "path": "connect::run"
+    },
+    {
+     "doc": "Takes over the avatar `handle` with the recovery code in `recovery_file`, saves its new token to `token_file`, and prints its handle.",
+     "kind": "fn",
+     "path": "reclaim"
+    },
+    {
+     "doc": "Registers a new avatar and saves its token to `token_file`, and its recovery code to `recovery_file` if given, then prints its handle.",
+     "kind": "fn",
+     "path": "register"
+    },
+    {
+     "doc": "`kkt watch`: waits for new messages from a shell, as an agent or through the admin endpoint, printing one line for each.",
+     "kind": "mod",
+     "path": "watch"
+    },
+    {
+     "doc": "What `kkt watch` watches, and where it keeps its place.",
+     "fields": [
+      "admin",
+      "token_file",
+      "state_file",
+      "connection",
+      "options"
+     ],
+     "kind": "struct",
+     "path": "watch::WatchTask"
+    },
+    {
+     "doc": "Watches as `task` says, until it is done: the exit code is success after messages, or `WATCH_TIMED_OUT_EXIT` when `--timeout` ran out.",
+     "kind": "fn",
+     "path": "watch::run"
+    }
+   ],
+   "lib": "kkt_agent_commands",
+   "machine_work": {},
+   "name": "kkt-agent-commands",
+   "path": "crates/kkt-agent-commands",
+   "released_program": false,
+   "slots": [
+    {
+     "at": "AgentParts",
+     "kind": "field",
+     "name": "admin_key",
+     "traits": [
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "AdminKey"
+      }
+     ]
+    },
+    {
+     "at": "AgentParts",
+     "kind": "field",
+     "name": "clients",
+     "traits": [
+      {
+       "crate": "kkt-client-config",
+       "trait": "Host"
+      }
+     ]
+    },
+    {
+     "at": "AgentParts",
+     "kind": "field",
+     "name": "clock",
+     "traits": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      }
+     ]
+    },
+    {
+     "at": "AgentParts",
+     "kind": "field",
+     "name": "credentials",
+     "traits": [
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "Credentials"
+      }
+     ]
+    },
+    {
+     "at": "AgentParts",
+     "kind": "field",
+     "name": "key_files",
+     "traits": [
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "KeyText"
+      }
+     ]
+    },
+    {
+     "at": "AgentParts",
+     "kind": "field",
+     "name": "output",
+     "traits": [
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "Output"
+      }
+     ]
+    },
+    {
+     "at": "AgentParts",
+     "kind": "field",
+     "name": "program",
+     "traits": [
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "Program"
+      }
+     ]
+    },
+    {
+     "at": "AgentParts",
+     "kind": "field",
+     "name": "report",
+     "traits": [
+      {
+       "crate": "kkt-watch",
+       "trait": "Report"
+      }
+     ]
+    },
+    {
+     "at": "AgentParts",
+     "kind": "field",
+     "name": "servers",
+     "traits": [
+      {
+       "crate": "kkt-agent-commands",
+       "trait": "Servers"
+      }
+     ]
+    },
+    {
+     "at": "connect::run",
+     "holds": [
+      {
+       "crate": "kkt-agent-commands",
+       "traits": [
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "AdminKey"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Servers"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Credentials"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "KeyText"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Program"
+        },
+        {
+         "crate": "kkt-watch",
+         "trait": "Report"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Output"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        }
+       ],
+       "type": "AgentParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "reclaim",
+     "holds": [
+      {
+       "crate": "kkt-agent-commands",
+       "traits": [
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "AdminKey"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Servers"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Credentials"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "KeyText"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Program"
+        },
+        {
+         "crate": "kkt-watch",
+         "trait": "Report"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Output"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        }
+       ],
+       "type": "AgentParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "register",
+     "holds": [
+      {
+       "crate": "kkt-agent-commands",
+       "traits": [
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "AdminKey"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Servers"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Credentials"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "KeyText"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Program"
+        },
+        {
+         "crate": "kkt-watch",
+         "trait": "Report"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Output"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        }
+       ],
+       "type": "AgentParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "watch::run",
+     "holds": [
+      {
+       "crate": "kkt-agent-commands",
+       "traits": [
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "AdminKey"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Servers"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Credentials"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "KeyText"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Program"
+        },
+        {
+         "crate": "kkt-watch",
+         "trait": "Report"
+        },
+        {
+         "crate": "kkt-agent-commands",
+         "trait": "Output"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        }
+       ],
+       "type": "AgentParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    }
+   ],
+   "testing_third_party": [],
+   "third_party": [
+    "futures"
    ]
   },
   {
@@ -1635,6 +2162,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-api-admin",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "serde"
    ]
@@ -2395,6 +2923,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-api-agent",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "serde",
     "thiserror"
@@ -2796,6 +3325,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-api-operator",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "serde"
    ]
@@ -3007,6 +3537,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "futures",
     "tokio"
@@ -3109,6 +3640,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-backup",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "thiserror"
    ]
@@ -3162,6 +3694,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-backup-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -3338,6 +3871,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "serde",
     "serde_json",
@@ -3402,6 +3936,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-client-config-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -3530,6 +4065,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-clock",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "chrono",
     "futures",
@@ -3574,6 +4110,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-clock-system",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "futures",
     "tokio"
@@ -3663,6 +4200,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-config-file",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "thiserror",
     "toml",
@@ -3743,6 +4281,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-config-file-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -3753,7 +4292,7 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kashkeshet",
-       "type": "machine::settings::ContainerConfigs"
+       "type": null
       }
      ],
      "trait": "ConfigReader"
@@ -4297,6 +4836,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "serde_json",
     "thiserror"
@@ -4381,6 +4921,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-container-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -4430,6 +4971,10 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-db",
+       "type": "testing::FastPlace"
+      },
+      {
+       "crate": "kkt-db",
        "type": "testing::MemoryPlace"
       },
       {
@@ -4452,6 +4997,10 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-db",
+       "type": "testing::FastPlace"
+      },
+      {
+       "crate": "kkt-db",
        "type": "testing::MemoryPlace"
       }
      ],
@@ -4463,6 +5012,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": [
      "dep:kkt-search",
+     "dep:rusqlite",
      "dep:tokio"
     ]
    },
@@ -4506,6 +5056,12 @@ window.KKT_GRAPH = {
      "crate": "kkt-db",
      "trait": "Evolve",
      "trait_crate": "kkt-db",
+     "type": "testing::FastPlace"
+    },
+    {
+     "crate": "kkt-db",
+     "trait": "Evolve",
+     "trait_crate": "kkt-db",
      "type": "testing::MemoryPlace"
     },
     {
@@ -4513,6 +5069,12 @@ window.KKT_GRAPH = {
      "trait": "FromValue",
      "trait_crate": "kkt-db",
      "type": null
+    },
+    {
+     "crate": "kkt-db",
+     "trait": "testing::Place",
+     "trait_crate": "kkt-db",
+     "type": "testing::FastPlace"
     },
     {
      "crate": "kkt-db",
@@ -5018,10 +5580,20 @@ window.KKT_GRAPH = {
      "path": "search::Search"
     },
     {
-     "doc": "For tests: `MemoryPlace`, a database held in memory that keeps the contract; `conformance`, the checks every backend must pass; and `FaultyBackend`, which wraps a backend and makes a change fail on purpose.",
+     "doc": "For tests: `MemoryPlace`, a database held in memory that keeps the contract, plainly and slowly; `FastPlace`, a fast stand-in on SQLite in memory, for stores' tests; `conformance`, the checks every backend must pass; and `FaultyBackend`,...",
      "feature": "testing",
      "kind": "mod",
      "path": "testing"
+    },
+    {
+     "doc": "Where a fast in-memory database lives.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "new",
+      "open"
+     ],
+     "path": "testing::FastPlace"
     },
     {
      "doc": "A backend that wraps another and fails the next change to a table on cue.",
@@ -5087,9 +5659,12 @@ window.KKT_GRAPH = {
      ]
     }
    ],
-   "third_party": [
-    "thiserror",
+   "testing_third_party": [
+    "rusqlite",
     "tokio"
+   ],
+   "third_party": [
+    "thiserror"
    ]
   },
   {
@@ -5191,6 +5766,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-db-sqlite",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "rusqlite",
     "tokio"
@@ -5557,6 +6133,7 @@ window.KKT_GRAPH = {
      "traits": []
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "url"
    ]
@@ -5638,6 +6215,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-diagnostics-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "reqwest",
     "serde_json"
@@ -5742,6 +6320,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-entropy",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -5778,6 +6357,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-entropy-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "rand"
    ]
@@ -5957,6 +6537,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-events",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "futures",
     "serde",
@@ -6087,6 +6668,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "tokio"
    ]
@@ -6113,6 +6695,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-hash",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "sha2"
    ]
@@ -6138,6 +6721,16 @@ window.KKT_GRAPH = {
       "new"
      ],
      "path": "AllowedHosts"
+    },
+    {
+     "doc": "Whether `bind` may be a non-loopback address when nothing says.",
+     "kind": "const",
+     "path": "DEFAULT_ALLOW_ANY_BIND"
+    },
+    {
+     "doc": "Where a server listens when neither a flag nor the config file says.",
+     "kind": "const",
+     "path": "DEFAULT_BIND"
     },
     {
      "doc": "A setting the server refuses to start with, as checked here: the setting's name and why.",
@@ -6168,6 +6761,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-hosts",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -6255,6 +6849,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-identity",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -6290,6 +6885,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-identity-keymode",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -6317,6 +6913,7 @@ window.KKT_GRAPH = {
    "path": "programs/kkt-keymode",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "tokio"
    ]
@@ -6505,6 +7102,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -6562,6 +7160,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-lane-files-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -6673,6 +7272,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-log",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -6685,6 +7285,16 @@ window.KKT_GRAPH = {
    "holders": [],
    "implements": [],
    "items": [
+    {
+     "doc": "The level logged for the libraries kkt uses (`dependency_log_level`) when nothing says.",
+     "kind": "const",
+     "path": "DEFAULT_DEPENDENCY_LOG_LEVEL"
+    },
+    {
+     "doc": "The level logged for kkt's own code (`log_level`) when nothing says.",
+     "kind": "const",
+     "path": "DEFAULT_LOG_LEVEL"
+    },
     {
      "doc": "How much is logged: the named level and everything more severe.",
      "kind": "enum",
@@ -6777,6 +7387,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-logs",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "thiserror"
    ]
@@ -6880,6 +7491,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "tracing",
     "tracing-subscriber"
@@ -6981,6 +7593,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-machine",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -7019,6 +7632,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-machine-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -7202,6 +7816,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "axum",
     "rmcp",
@@ -7327,6 +7942,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "schemars",
     "serde",
@@ -7494,7 +8110,3063 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "BackupWriter"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "CheckService"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "ConfigText"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "Databases"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "KeyFiles"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "Output"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "ServeFacts"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": "machine::operate::ServiceArgs"
+      }
+     ],
+     "trait": "ServiceDefaults"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "SetupFiles"
+    }
+   ],
+   "crate_doc": "The operator's commands and this machine's install.",
+   "dev_only": false,
+   "features": {},
+   "holders": [
+    {
+     "holds": [
+      {
+       "crate": "kkt-container",
+       "trait": "Host"
+      },
+      {
+       "crate": "kkt-container",
+       "trait": "ConfigReader"
+      },
+      {
+       "crate": "kkt-container",
+       "trait": "LoginLink"
+      },
+      {
+       "crate": "kkt-service",
+       "trait": "System"
+      },
+      {
+       "crate": "kkt-remote-access",
+       "trait": "Host"
+      },
+      {
+       "crate": "kkt-client-config",
+       "trait": "Host"
+      },
+      {
+       "crate": "kkt-diagnostics",
+       "trait": "Prober"
+      },
+      {
+       "crate": "kkt-lane-files",
+       "trait": "Disk"
+      },
+      {
+       "crate": "kkt-setup",
+       "trait": "ask::Lines"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ConfigText"
+      },
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServeFacts"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "SetupFiles"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "KeyFiles"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "Databases"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "BackupWriter"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "Output"
+      }
+     ],
+     "type": "OperateParts"
+    },
+    {
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "trait": "CheckService"
+      }
+     ],
+     "type": "ServiceInputs"
+    }
+   ],
+   "implements": [
+    {
+     "crate": "kkt-operate",
+     "trait": "AdoptSteps",
+     "trait_crate": "kkt-setup",
+     "type": null
+    },
+    {
+     "crate": "kkt-operate",
+     "trait": "Steps",
+     "trait_crate": "kkt-setup",
+     "type": null
+    },
+    {
+     "crate": "kkt-operate",
+     "trait": "SwitchSteps",
+     "trait_crate": "kkt-setup",
+     "type": null
+    }
+   ],
+   "items": [
+    {
+     "doc": "Writes kkt-backup's layout of a backup into a folder, copying the database as the program's database chooses.",
+     "kind": "trait",
+     "methods": [
+      "write"
+     ],
+     "path": "BackupWriter"
+    },
+    {
+     "doc": "The program checks the plan against its whole serving surface, with its source context.",
+     "kind": "trait",
+     "methods": [
+      "check"
+     ],
+     "path": "CheckService"
+    },
+    {
+     "doc": "What the service command needs after the program's settings check.",
+     "fields": [
+      "bind",
+      "config_file"
+     ],
+     "kind": "struct",
+     "path": "CheckedService"
+    },
+    {
+     "doc": "The facts these commands read from the program's serve configuration.",
+     "fields": [
+      "file",
+      "db",
+      "max_lane_chars",
+      "access_key_file",
+      "no_access_key",
+      "name_pack"
+     ],
+     "kind": "struct",
+     "path": "Config"
+    },
+    {
+     "doc": "Config text read and written by setup when allowing a server host.",
+     "kind": "trait",
+     "methods": [
+      "read",
+      "write"
+     ],
+     "path": "ConfigText"
+    },
+    {
+     "doc": "The local database chosen by the program, opened only after its path is checked.",
+     "kind": "trait",
+     "methods": [
+      "exists",
+      "open"
+     ],
+     "path": "Databases"
+    },
+    {
+     "doc": "Key files, including generation of a fresh key by the chosen entropy source.",
+     "kind": "trait",
+     "methods": [
+      "create_dir_all",
+      "exists",
+      "is_file",
+      "keep_staged",
+      "new_key",
+      "read",
+      "read_optional",
+      "remove",
+      "try_exists",
+      "write_admin_name",
+      "write_key"
+     ],
+     "path": "KeyFiles"
+    },
+    {
+     "doc": "Implementations chosen by the program.",
+     "fields": [
+      "container",
+      "container_configs",
+      "login_link",
+      "service",
+      "try_bind",
+      "remote",
+      "clients",
+      "prober",
+      "lanes",
+      "lines",
+      "config_file",
+      "connection",
+      "clock",
+      "serve",
+      "service_defaults",
+      "setup_files",
+      "key_files",
+      "database",
+      "backups",
+      "output"
+     ],
+     "kind": "struct",
+     "path": "OperateParts"
+    },
+    {
+     "doc": "Command output, with standard output and standard error kept separate.",
+     "kind": "trait",
+     "methods": [
+      "errors",
+      "output"
+     ],
+     "path": "Output"
+    },
+    {
+     "doc": "Questions about serving; no file is read until a command asks.",
+     "kind": "trait",
+     "methods": [
+      "bind",
+      "config",
+      "configured_access_key",
+      "database",
+      "default_access_key",
+      "service_settings"
+     ],
+     "path": "ServeFacts"
+    },
+    {
+     "doc": "Required only by commands that inspect an unrecorded service.",
+     "kind": "trait",
+     "methods": [
+      "matches_defaults"
+     ],
+     "path": "ServiceDefaults"
+    },
+    {
+     "doc": "Inputs to the service plan, plus a deferred check with opaque program context.",
+     "fields": [
+      "request",
+      "check"
+     ],
+     "kind": "struct",
+     "path": "ServiceInputs"
+    },
+    {
+     "doc": "The setup record and note, and path operations, supplied by the program.",
+     "kind": "trait",
+     "methods": [
+      "absolute",
+      "canonicalize",
+      "kkt_path",
+      "on_path",
+      "path_dirs",
+      "program_path",
+      "read_record",
+      "read_unfinished",
+      "remove_record",
+      "remove_unfinished",
+      "write_record",
+      "write_unfinished"
+     ],
+     "path": "SetupFiles"
+    },
+    {
+     "doc": "The operator's list and revoke commands, on the local server database.",
+     "kind": "mod",
+     "path": "agent"
+    },
+    {
+     "doc": "What `kkt agent` does.",
+     "kind": "enum",
+     "path": "agent::AgentAction",
+     "variants": [
+      "List",
+      "Revoke"
+     ]
+    },
+    {
+     "doc": "`kkt agent`: the operator's commands, on the database `kkt serve` would use unless `--db` names another.",
+     "kind": "fn",
+     "path": "agent::run"
+    },
+    {
+     "doc": "`kkt doctor`: checks the server this machine's clients use, its keys, and how this machine runs kkt, and prints a line for each with a fix for each problem.",
+     "kind": "mod",
+     "path": "doctor"
+    },
+    {
+     "doc": "",
+     "kind": "fn",
+     "path": "doctor::run"
+    },
+    {
+     "doc": "`kkt key`: `create` makes a new access, web or admin key, `header` prints the header clients send with the access key, and `show` prints a key.",
+     "kind": "mod",
+     "path": "key"
+    },
+    {
+     "doc": "The key `kkt key create` makes: its kind, the file to write it to if given, and the admin agent's name if given.",
+     "fields": [
+      "kind",
+      "path",
+      "name"
+     ],
+     "kind": "struct",
+     "path": "key::NewKey"
+    },
+    {
+     "doc": "",
+     "kind": "fn",
+     "path": "key::create"
+    },
+    {
+     "doc": "",
+     "kind": "fn",
+     "path": "key::header"
+    },
+    {
+     "doc": "Prints the selected key.",
+     "kind": "fn",
+     "path": "key::show"
+    },
+    {
+     "doc": "Key files: where this machine's access, web and admin keys are, and reading, making and writing them and the admin key's name file.",
+     "kind": "mod",
+     "path": "keys"
+    },
+    {
+     "doc": "",
+     "from": "kkt_setup::KeyKind",
+     "kind": "enum",
+     "path": "keys::KeyKind"
+    },
+    {
+     "doc": "",
+     "from": "kkt_setup::admin_key_collision",
+     "kind": "fn",
+     "path": "keys::admin_key_collision"
+    },
+    {
+     "doc": "",
+     "kind": "fn",
+     "path": "keys::admin_name_line"
+    },
+    {
+     "doc": "Where this machine's web or admin key file is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
+     "kind": "fn",
+     "path": "keys::local_operator_key"
+    },
+    {
+     "doc": "This machine's web key file, if it runs a server.",
+     "kind": "fn",
+     "path": "keys::local_web_key"
+    },
+    {
+     "doc": "Makes a new random key and writes it to `path`, creating its folder if needed.",
+     "kind": "fn",
+     "path": "keys::new_key_file"
+    },
+    {
+     "doc": "None means the access key occupies the implicit admin key's place.",
+     "kind": "fn",
+     "path": "keys::optional_key_path"
+    },
+    {
+     "doc": "Resolve a key without reading its contents or creating a file.",
+     "kind": "fn",
+     "path": "keys::selected_key_path"
+    },
+    {
+     "doc": "Ties `name` to the new admin key `key`, just written to the file at `path`, in the name file beside it.",
+     "kind": "fn",
+     "path": "keys::write_admin_name"
+    },
+    {
+     "doc": "",
+     "kind": "fn",
+     "path": "keys::write_key_file"
+    },
+    {
+     "doc": "Lanes on this machine's server: `kkt lanes export` and `kkt lanes import`, and reading a lane folder, checking it, and importing it into a local database or kkt in Docker, which `kkt setup` also uses.",
+     "kind": "mod",
+     "path": "lanes"
+    },
+    {
+     "doc": "What `kkt lanes` does.",
+     "kind": "enum",
+     "path": "lanes::LanesAction",
+     "variants": [
+      "Export",
+      "Import"
+     ]
+    },
+    {
+     "doc": "The database file `kkt serve` would use given the config file's `db`, unless `db` names another.",
+     "kind": "fn",
+     "path": "lanes::existing_db"
+    },
+    {
+     "doc": "The lane limit from this machine's default serve config, else the owner's default.",
+     "kind": "fn",
+     "path": "lanes::local_lane_limit"
+    },
+    {
+     "doc": "The operator's commands on the local database `kkt serve` would use, unless `db` names another, and the server's `max_lane_chars` from the config file.",
+     "kind": "fn",
+     "path": "lanes::local_operator"
+    },
+    {
+     "doc": "`kkt lanes`: on the database `kkt serve` would use unless `--db` names another, or for kkt in Docker, in its container.",
+     "kind": "fn",
+     "path": "lanes::run"
+    },
+    {
+     "doc": "An install's lifecycle: `kkt status`, `kkt upgrade`, `kkt uninstall` and `kkt backup`.",
+     "kind": "mod",
+     "path": "lifecycle"
+    },
+    {
+     "doc": "`kkt backup`: backs up the Docker server through its container, or the database `kkt serve` would use (or `db`), with the config file and existing keys it would read, into `folder` or the default folder.",
+     "kind": "fn",
+     "path": "lifecycle::backup"
+    },
+    {
+     "doc": "`kkt status`: how this machine is set up, its web and admin keys, and then the service's or the Docker server's state.",
+     "kind": "fn",
+     "path": "lifecycle::status"
+    },
+    {
+     "doc": "`kkt uninstall`: stops and removes the recorded server, then removes the record, or keeps it as a client's when the machine stays one.",
+     "kind": "fn",
+     "path": "lifecycle::uninstall"
+    },
+    {
+     "doc": "`kkt upgrade`: replaces the recorded server with this version, the Docker server's image or the service's program, backing a service's files up first, then records the new version.",
+     "kind": "fn",
+     "path": "lifecycle::upgrade"
+    },
+    {
+     "doc": "The setup record, the note of an unfinished setup, and finding a server kkt installed here with no record.",
+     "kind": "mod",
+     "path": "record"
+    },
+    {
+     "doc": "Where `kkt setup` saves the Docker server's access key, in the config directory.",
+     "kind": "const",
+     "path": "record::DOCKER_KEY_FILE_NAME"
+    },
+    {
+     "doc": "Refuses to start a server on a machine `kkt setup` set up otherwise.",
+     "kind": "fn",
+     "path": "record::check_setup"
+    },
+    {
+     "doc": "",
+     "from": "setup::docker_folder",
+     "kind": "fn",
+     "path": "record::docker_folder"
+    },
+    {
+     "doc": "",
+     "from": "setup::docker_url",
+     "kind": "fn",
+     "path": "record::docker_url"
+    },
+    {
+     "doc": "This machine's setup record, if `kkt setup` wrote one.",
+     "kind": "fn",
+     "path": "record::read_setup"
+    },
+    {
+     "doc": "The server a `kkt setup` installed here but did not record, if it noted one and the install is still there: the managed Docker folder's settings file, or the installed service.",
+     "kind": "fn",
+     "path": "record::read_unfinished"
+    },
+    {
+     "doc": "A server kkt installed here, in Docker or as a service, whether or not it is recorded: for callers that found no record and no note of an unfinished setup.",
+     "kind": "fn",
+     "path": "record::read_unrecorded"
+    },
+    {
+     "doc": "This machine's setup record.",
+     "kind": "fn",
+     "path": "record::recorded_setup"
+    },
+    {
+     "doc": "",
+     "from": "setup::unfinished_mode",
+     "kind": "fn",
+     "path": "record::unfinished_mode"
+    },
+    {
+     "doc": "Resolve lifecycle commands through the setup record.",
+     "kind": "fn",
+     "path": "record::write_setup_record"
+    },
+    {
+     "doc": "The operator's service commands and the ordered plan/check/install sequence.",
+     "kind": "mod",
+     "path": "service"
+    },
+    {
+     "doc": "What `kkt service` does.",
+     "kind": "enum",
+     "path": "service::ServiceAction",
+     "variants": [
+      "Install",
+      "Uninstall",
+      "Start",
+      "Stop",
+      "Status",
+      "Logs"
+     ]
+    },
+    {
+     "doc": "How `kkt service install` installs the service.",
+     "fields": [
+      "config",
+      "db",
+      "access_key_file",
+      "no_access_key",
+      "dry_run"
+     ],
+     "kind": "struct",
+     "path": "service::ServiceInstall"
+    },
+    {
+     "doc": "What `kkt service install` does: the service to install, and the access key to create first, if any.",
+     "fields": [
+      "spec",
+      "new_key",
+      "new_web_key",
+      "bind",
+      "config_file"
+     ],
+     "kind": "struct",
+     "path": "service::ServicePlan"
+    },
+    {
+     "doc": "`kkt service ...`: runs the command against this system's service manager and prints what happened.",
+     "kind": "fn",
+     "path": "service::run"
+    },
+    {
+     "doc": "Resolve paths, read serving inputs lazily, plan the service, then ask the program to check its whole serving surface with the plan's database and keys.",
+     "kind": "fn",
+     "path": "service::service_plan"
+    },
+    {
+     "doc": "`kkt setup` and `kkt switch`: ask on the terminal if there is one, and do the work through `steps::OsSteps` and `steps::OsSwitchSteps`, the assembly's implementation of setup's steps through the supplied providers.",
+     "kind": "mod",
+     "path": "setup"
+    },
+    {
+     "doc": "How to install, beyond what setup asks.",
+     "fields": [
+      "kkt_version",
+      "docker_project",
+      "docker_port"
+     ],
+     "kind": "struct",
+     "path": "setup::InstallOptions"
+    },
+    {
+     "doc": "`kkt setup`: asks on the terminal if there is one, and does the work through `OsSteps`.",
+     "kind": "fn",
+     "path": "setup::run"
+    },
+    {
+     "doc": "`kkt switch`: asks on the terminal if there is one, and does the work through `OsSwitchSteps`.",
+     "kind": "fn",
+     "path": "setup::run_switch"
+    }
+   ],
+   "lib": "kkt_operate",
+   "machine_work": {},
+   "name": "kkt-operate",
+   "path": "crates/kkt-operate",
+   "released_program": false,
+   "slots": [
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "backups",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "BackupWriter"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "clients",
+     "traits": [
+      {
+       "crate": "kkt-client-config",
+       "trait": "Host"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "clock",
+     "traits": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "config_file",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "ConfigText"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "container",
+     "traits": [
+      {
+       "crate": "kkt-container",
+       "trait": "Host"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "container_configs",
+     "traits": [
+      {
+       "crate": "kkt-container",
+       "trait": "ConfigReader"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "database",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "Databases"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "key_files",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "KeyFiles"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "lanes",
+     "traits": [
+      {
+       "crate": "kkt-lane-files",
+       "trait": "Disk"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "lines",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "ask::Lines"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "login_link",
+     "traits": [
+      {
+       "crate": "kkt-container",
+       "trait": "LoginLink"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "output",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "Output"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "prober",
+     "traits": [
+      {
+       "crate": "kkt-diagnostics",
+       "trait": "Prober"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "remote",
+     "traits": [
+      {
+       "crate": "kkt-remote-access",
+       "trait": "Host"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "serve",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "ServeFacts"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "service",
+     "traits": [
+      {
+       "crate": "kkt-service",
+       "trait": "System"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
+     "name": "setup_files",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "SetupFiles"
+      }
+     ]
+    },
+    {
+     "at": "ServiceInputs",
+     "kind": "field",
+     "name": "check",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "CheckService"
+      }
+     ]
+    },
+    {
+     "at": "agent::run",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "doctor::run",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "key::create",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "key::header",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "key::show",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "keys::admin_name_line",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "KeyFiles"
+      }
+     ]
+    },
+    {
+     "at": "keys::local_operator_key",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "keys::local_web_key",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "keys::new_key_file",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "KeyFiles"
+      }
+     ]
+    },
+    {
+     "at": "keys::optional_key_path",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "keys::selected_key_path",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "keys::write_admin_name",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "KeyFiles"
+      }
+     ]
+    },
+    {
+     "at": "keys::write_key_file",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "KeyFiles"
+      }
+     ]
+    },
+    {
+     "at": "lanes::existing_db",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "lanes::local_lane_limit",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "lanes::local_operator",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "lanes::run",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "lifecycle::backup",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "lifecycle::status",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "lifecycle::uninstall",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "lifecycle::upgrade",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "record::check_setup",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "SetupFiles"
+      }
+     ]
+    },
+    {
+     "at": "record::check_setup",
+     "kind": "param",
+     "name": "output",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "Output"
+      }
+     ]
+    },
+    {
+     "at": "record::check_setup",
+     "kind": "param",
+     "name": "service",
+     "traits": [
+      {
+       "crate": "kkt-service",
+       "trait": "System"
+      }
+     ]
+    },
+    {
+     "at": "record::read_setup",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "SetupFiles"
+      }
+     ]
+    },
+    {
+     "at": "record::read_unfinished",
+     "kind": "param",
+     "name": "container",
+     "traits": [
+      {
+       "crate": "kkt-container",
+       "trait": "Host"
+      }
+     ]
+    },
+    {
+     "at": "record::read_unfinished",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "SetupFiles"
+      }
+     ]
+    },
+    {
+     "at": "record::read_unfinished",
+     "kind": "param",
+     "name": "service",
+     "traits": [
+      {
+       "crate": "kkt-service",
+       "trait": "System"
+      }
+     ]
+    },
+    {
+     "at": "record::read_unrecorded",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "record::recorded_setup",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "record::write_setup_record",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-operate",
+       "trait": "SetupFiles"
+      }
+     ]
+    },
+    {
+     "at": "service::run",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "service::service_plan",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "setup::run",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      },
+      {
+       "crate": "kkt-operate",
+       "trait": "ServiceDefaults"
+      }
+     ]
+    },
+    {
+     "at": "setup::run_switch",
+     "holds": [
+      {
+       "crate": "kkt-operate",
+       "traits": [
+        {
+         "crate": "kkt-container",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "ConfigReader"
+        },
+        {
+         "crate": "kkt-container",
+         "trait": "LoginLink"
+        },
+        {
+         "crate": "kkt-service",
+         "trait": "System"
+        },
+        {
+         "crate": "kkt-remote-access",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-client-config",
+         "trait": "Host"
+        },
+        {
+         "crate": "kkt-diagnostics",
+         "trait": "Prober"
+        },
+        {
+         "crate": "kkt-lane-files",
+         "trait": "Disk"
+        },
+        {
+         "crate": "kkt-setup",
+         "trait": "ask::Lines"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ConfigText"
+        },
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "ServeFacts"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "SetupFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Databases"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "BackupWriter"
+        },
+        {
+         "crate": "kkt-operate",
+         "trait": "Output"
+        }
+       ],
+       "type": "OperateParts"
+      }
+     ],
+     "kind": "param",
+     "name": "parts",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    }
+   ],
+   "testing_third_party": [],
+   "third_party": [
+    "tokio"
+   ]
   },
   {
    "bins": [],
@@ -7545,6 +11217,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-provenance",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -7665,6 +11338,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "serde",
     "serde_json"
@@ -7713,6 +11387,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-remote-access-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -7733,7 +11408,11 @@ window.KKT_GRAPH = {
    "dev_only": false,
    "features": {
     "testing": [
-     "kkt-db/testing"
+     "kkt-db/testing",
+     "kkt-clock/testing",
+     "kkt-entropy/testing",
+     "dep:futures",
+     "tokio/time"
     ]
    },
    "holders": [
@@ -8237,46 +11916,6 @@ window.KKT_GRAPH = {
      "path": "testing"
     },
     {
-     "doc": "Which channels `Reader::channel_ids` returns, in name order.",
-     "feature": "testing",
-     "fields": [
-      "scope",
-      "shared_with",
-      "text",
-      "after",
-      "limit"
-     ],
-     "kind": "struct",
-     "path": "testing::ChannelFilter"
-    },
-    {
-     "doc": "The stored facts that decide whether a viewer may use a channel: whether it is hidden or open, and whether the viewer is in it or owns it.",
-     "feature": "testing",
-     "fields": [
-      "hidden",
-      "open",
-      "member",
-      "owner"
-     ],
-     "kind": "struct",
-     "methods": [
-      "all"
-     ],
-     "path": "testing::ChannelKind"
-    },
-    {
-     "doc": "Which channels a query covers: those in one swarm whose kind, for the viewer, is one of the allowed kinds.",
-     "feature": "testing",
-     "kind": "struct",
-     "methods": [
-      "allowed",
-      "new",
-      "swarm",
-      "viewer"
-     ],
-     "path": "testing::ChannelScope"
-    },
-    {
      "doc": "What a test's rules are made from: the rules' startup without the database.",
      "feature": "testing",
      "fields": [
@@ -8294,206 +11933,29 @@ window.KKT_GRAPH = {
      "path": "testing::Memory"
     },
     {
-     "doc": "Which messages of a channel to return, and in what order.",
-     "feature": "testing",
-     "kind": "enum",
-     "path": "testing::MessageRange",
-     "variants": [
-      "Latest",
-      "After",
-      "Before"
-     ]
-    },
-    {
-     "doc": "",
+     "doc": "What to ask about: the avatars, channels and message IDs of the database, some missing on purpose, and the tokens and recovery codes of some avatars, as written, whose hashes the store keeps.",
      "feature": "testing",
      "fields": [
-      "name",
-      "token_hash",
-      "recovery_hash",
-      "created_at",
-      "last_seen",
-      "run_id"
-     ],
-     "kind": "struct",
-     "path": "testing::NewAgentRecord"
-    },
-    {
-     "doc": "",
-     "feature": "testing",
-     "fields": [
-      "id",
-      "name",
-      "purpose",
-      "open",
-      "created_by",
-      "created_at",
-      "owner",
-      "run_id"
-     ],
-     "kind": "struct",
-     "path": "testing::NewChannelRecord"
-    },
-    {
-     "doc": "",
-     "feature": "testing",
-     "fields": [
-      "channel_id",
-      "agent",
-      "body",
-      "created_at",
-      "run_id"
-     ],
-     "kind": "struct",
-     "path": "testing::NewMessageRecord"
-    },
-    {
-     "doc": "",
-     "feature": "testing",
-     "fields": [
-      "started_at",
-      "version",
-      "git_commit",
-      "settings",
-      "instructions_sha256"
-     ],
-     "kind": "struct",
-     "path": "testing::NewServerRunRecord"
-    },
-    {
-     "doc": "Which messages `Reader::newer_messages` and `Reader::count_newer_messages` cover.",
-     "feature": "testing",
-     "fields": [
-      "scope",
-      "after_id",
-      "channel_ids"
-     ],
-     "kind": "struct",
-     "path": "testing::NewerFilter"
-    },
-    {
-     "doc": "The store's questions, over one connection: what a `Db::read` closure is given, and, through `Writer`, a write closure too.",
-     "feature": "testing",
-     "kind": "struct",
-     "methods": [
-      "active_agent_count",
-      "activity",
-      "agent",
-      "agent_by_recovery_hash",
-      "agent_by_token_hash",
-      "agent_name_taken",
       "agents",
-      "agents_by_last_seen",
-      "all_channel_ids",
-      "any_activity",
-      "any_channel",
-      "any_channel_ids",
-      "any_newer_messages",
-      "channel",
-      "channel_id_taken",
-      "channel_ids",
-      "channel_messages",
-      "channel_summary",
-      "channel_use",
-      "count_any_newer_messages",
-      "count_newer_messages",
-      "current_server_announcement",
-      "hidden_channel_ids",
-      "hidden_channel_summary",
-      "is_member",
-      "lane",
-      "lane_history",
-      "lane_version",
-      "lanes",
-      "lanes_after",
-      "latest_message_from",
-      "member_count",
-      "members_by_join",
-      "members_by_name",
-      "memberships",
-      "memory_entries",
-      "memory_entry",
-      "message",
-      "message_count_from",
-      "message_times_since",
-      "newer_messages",
-      "owned_channel_ids",
-      "recent_messages",
-      "search",
-      "server_announcement_history",
-      "server_runs",
-      "takeable_lanes_after"
-     ],
-     "path": "testing::Reader"
-    },
-    {
-     "doc": "",
-     "feature": "testing",
-     "fields": [
-      "scope",
-      "words",
-      "phrase",
-      "channel_id",
-      "from_agent",
-      "after_id",
-      "before_id",
-      "since",
-      "until",
-      "limit"
+      "channels",
+      "message_ids",
+      "tokens",
+      "recovery"
      ],
      "kind": "struct",
-     "path": "testing::SearchFilter"
-    },
-    {
-     "doc": "Which messages `Reader::latest_message_from` looks at.",
-     "feature": "testing",
-     "fields": [
-      "agent",
-      "channel_id",
-      "scope"
-     ],
-     "kind": "struct",
-     "path": "testing::SentFilter"
-    },
-    {
-     "doc": "The store's changes, and through `Reader` its questions, over one connection inside a transaction: what a `Db::write` closure is given.",
-     "feature": "testing",
-     "kind": "struct",
-     "methods": [
-      "add_member",
-      "append_lane_version",
-      "append_server_announcement",
-      "delete_memory_entry",
-      "hide_agent",
-      "hide_channel",
-      "insert_agent",
-      "insert_channel",
-      "insert_lane",
-      "insert_message",
-      "insert_server_run",
-      "insert_swarm",
-      "remove_member",
-      "retire_lane",
-      "save_memory_entry",
-      "set_agent_client",
-      "set_agent_lane",
-      "set_channel_open",
-      "set_description",
-      "set_last_seen",
-      "set_note",
-      "set_owner",
-      "set_purpose",
-      "set_recovery_hash",
-      "set_revoked",
-      "set_token_hash"
-     ],
-     "path": "testing::Writer"
+     "path": "testing::Probes"
     },
     {
      "doc": "A new database in memory, with the core's tables, for other crates' tests: for a program that starts its own rules, or for the operator's `crate::CommandLine`.",
      "feature": "testing",
      "kind": "fn",
      "path": "testing::database"
+    },
+    {
+     "doc": "Every read the store offers, asked on `db` with `probes`, one answer per line, in one state of the database.",
+     "feature": "testing",
+     "kind": "fn",
+     "path": "testing::every_store_read"
     },
     {
      "doc": "Makes the next change to `table` through `db`, a database `database` made, fail, for tests of what a failed write leaves.",
@@ -8508,22 +11970,28 @@ window.KKT_GRAPH = {
      "path": "testing::memory"
     },
     {
-     "doc": "Runs `f` over a view of one state of `db`, for the tests that pin the store's reads.",
+     "doc": "The rules over `db`, a database the test opened itself, such as a file or one an older release left, after `crate::start` records a test run in it, as `memory` starts them on a new one.",
      "feature": "testing",
      "kind": "fn",
-     "path": "testing::read"
+     "path": "testing::rules_on"
     },
     {
-     "doc": "Checks that two swarms stay apart in `store`, which must hold no avatars or channels yet.",
+     "doc": "The rules' scenarios that run on the real backend too, for the program's test that runs them on kkt-db-sqlite (11.3).",
      "feature": "testing",
-     "kind": "fn",
-     "path": "testing::swarms_stay_apart"
+     "kind": "mod",
+     "path": "testing::scenarios"
     },
     {
-     "doc": "Runs `f` inside one transaction of `db`, for the tests that write rows into a database file directly.",
+     "doc": "Runs every scenario, each over new databases that `new_backend` makes with the core's tables, as a database the program opens is.",
      "feature": "testing",
      "kind": "fn",
-     "path": "testing::write"
+     "path": "testing::scenarios::run_all"
+    },
+    {
+     "doc": "Checks, in one write, that two swarms stay apart in `db`, a new database with the core's tables and nothing in them yet: every question and change the store makes, over whichever backend `db` is on.",
+     "feature": "testing",
+     "kind": "fn",
+     "path": "testing::swarms_stay_apart_in"
     }
    ],
    "lib": "kkt_rules",
@@ -8790,6 +12258,24 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "at": "testing::every_store_read",
+     "holds": [
+      {
+       "crate": "kkt-rules",
+       "traits": [
+        {
+         "crate": "kkt-db",
+         "trait": "Backend"
+        }
+       ],
+       "type": "Db"
+      }
+     ],
+     "kind": "param",
+     "name": "db",
+     "traits": []
+    },
+    {
      "at": "testing::fail_next_write",
      "holds": [
       {
@@ -8834,7 +12320,7 @@ window.KKT_GRAPH = {
      "traits": []
     },
     {
-     "at": "testing::read",
+     "at": "testing::rules_on",
      "holds": [
       {
        "crate": "kkt-rules",
@@ -8852,7 +12338,33 @@ window.KKT_GRAPH = {
      "traits": []
     },
     {
-     "at": "testing::write",
+     "at": "testing::rules_on",
+     "holds": [
+      {
+       "crate": "kkt-rules",
+       "traits": [
+        {
+         "crate": "kkt-clock",
+         "trait": "Clock"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
+        },
+        {
+         "crate": "kkt-rules",
+         "trait": "OperatorWording"
+        }
+       ],
+       "type": "testing::Memory"
+      }
+     ],
+     "kind": "param",
+     "name": "memory",
+     "traits": []
+    },
+    {
+     "at": "testing::swarms_stay_apart_in",
      "holds": [
       {
        "crate": "kkt-rules",
@@ -8869,6 +12381,9 @@ window.KKT_GRAPH = {
      "name": "db",
      "traits": []
     }
+   ],
+   "testing_third_party": [
+    "futures"
    ],
    "third_party": [
     "serde",
@@ -8916,6 +12431,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-scratch",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -8965,13 +12481,14 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-search",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Puts the parts together: the rules, the MCP endpoint at `/mcp`, the admin endpoint at `/mcp-admin` when there is an admin key, and the web page at `/`; or the web page alone (`page`).",
+   "crate_doc": "Puts the parts together: the application API, the MCP endpoint at `/mcp`, the admin endpoint at `/mcp-admin` when there is an admin key, and the web page at `/`; or the web page alone (`page`).",
    "dev_only": false,
    "features": {},
    "holders": [
@@ -8987,8 +12504,8 @@ window.KKT_GRAPH = {
     {
      "holds": [
       {
-       "crate": "kkt-db",
-       "trait": "Backend"
+       "crate": "kkt-api-admin",
+       "trait": "AdminApi"
       },
       {
        "crate": "kkt-clock",
@@ -8997,10 +12514,6 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-entropy",
        "trait": "Entropy"
-      },
-      {
-       "crate": "kkt-rules",
-       "trait": "OperatorWording"
       },
       {
        "crate": "kkt-identity",
@@ -9045,10 +12558,6 @@ window.KKT_GRAPH = {
       "admission",
       "web_admission",
       "admin_admission",
-      "web",
-      "mcp",
-      "allowed_origins",
-      "allowed_hosts",
       "instructions"
      ],
      "kind": "struct",
@@ -9056,6 +12565,14 @@ window.KKT_GRAPH = {
       "agent_instructions"
      ],
      "path": "AppConfig"
+    },
+    {
+     "doc": "An immutable snapshot whose settings and host policy passed the startup checks together.",
+     "kind": "struct",
+     "methods": [
+      "settings"
+     ],
+     "path": "CheckedSettings"
     },
     {
      "doc": "The parts the server is built from.",
@@ -9073,14 +12590,34 @@ window.KKT_GRAPH = {
      "path": "Parts"
     },
     {
+     "doc": "The settings of what kkt-server builds or passes on.",
+     "fields": [
+      "formatter",
+      "web",
+      "mcp",
+      "allowed_origins",
+      "allowed_hosts"
+     ],
+     "kind": "struct",
+     "methods": [
+      "check",
+      "record_lines"
+     ],
+     "path": "ServerSettings"
+    },
+    {
+     "doc": "A setting's refusal, as worded by the owner of its check.",
+     "fields": [
+      "name",
+      "rule"
+     ],
+     "kind": "struct",
+     "path": "SettingError"
+    },
+    {
      "doc": "The server assembled from `parts` and `config`, to run with kkt-server-listen.",
      "kind": "fn",
      "path": "build"
-    },
-    {
-     "doc": "What produced `run`, as `kkt_rules::start` records it.",
-     "kind": "fn",
-     "path": "new_server_run"
     },
     {
      "doc": "The web page alone, over `api` in each viewer's swarm and behind `gate`, with no MCP endpoints, for a program that serves only the page, such as the preview over simulated data.",
@@ -9151,33 +12688,14 @@ window.KKT_GRAPH = {
     },
     {
      "at": "Parts",
-     "holds": [
-      {
-       "crate": "kkt-rules",
-       "traits": [
-        {
-         "crate": "kkt-db",
-         "trait": "Backend"
-        },
-        {
-         "crate": "kkt-clock",
-         "trait": "Clock"
-        },
-        {
-         "crate": "kkt-entropy",
-         "trait": "Entropy"
-        },
-        {
-         "crate": "kkt-rules",
-         "trait": "OperatorWording"
-        }
-       ],
-       "type": "Rules"
-      }
-     ],
      "kind": "field",
      "name": "rules",
-     "traits": []
+     "traits": [
+      {
+       "crate": "kkt-api-admin",
+       "trait": "AdminApi"
+      }
+     ]
     },
     {
      "at": "Parts::new",
@@ -9225,33 +12743,14 @@ window.KKT_GRAPH = {
     },
     {
      "at": "Parts::new",
-     "holds": [
-      {
-       "crate": "kkt-rules",
-       "traits": [
-        {
-         "crate": "kkt-db",
-         "trait": "Backend"
-        },
-        {
-         "crate": "kkt-clock",
-         "trait": "Clock"
-        },
-        {
-         "crate": "kkt-entropy",
-         "trait": "Entropy"
-        },
-        {
-         "crate": "kkt-rules",
-         "trait": "OperatorWording"
-        }
-       ],
-       "type": "Rules"
-      }
-     ],
      "kind": "param",
      "name": "rules",
-     "traits": []
+     "traits": [
+      {
+       "crate": "kkt-api-admin",
+       "trait": "AdminApi"
+      }
+     ]
     },
     {
      "at": "build",
@@ -9260,8 +12759,8 @@ window.KKT_GRAPH = {
        "crate": "kkt-server",
        "traits": [
         {
-         "crate": "kkt-db",
-         "trait": "Backend"
+         "crate": "kkt-api-admin",
+         "trait": "AdminApi"
         },
         {
          "crate": "kkt-clock",
@@ -9270,10 +12769,6 @@ window.KKT_GRAPH = {
         {
          "crate": "kkt-entropy",
          "trait": "Entropy"
-        },
-        {
-         "crate": "kkt-rules",
-         "trait": "OperatorWording"
         },
         {
          "crate": "kkt-identity",
@@ -9352,9 +12847,11 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "axum",
-    "futures"
+    "futures",
+    "thiserror"
    ]
   },
   {
@@ -9392,6 +12889,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-server-listen",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "axum",
     "tokio"
@@ -9764,6 +13262,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "thiserror"
    ]
@@ -9831,168 +13330,8 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-service-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "The settings a server starts with, gathered from the command line, the config file, and the defaults here.",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "Address to listen on.",
-     "kind": "const",
-     "path": "DEFAULT_BIND"
-    },
-    {
-     "doc": "The level logged for the libraries kkt uses (`dependency_log_level`).",
-     "kind": "const",
-     "path": "DEFAULT_DEPENDENCY_LOG_LEVEL"
-    },
-    {
-     "doc": "The level logged for kkt's own code (`log_level`).",
-     "kind": "const",
-     "path": "DEFAULT_LOG_LEVEL"
-    },
-    {
-     "doc": "A setting the server refuses to start with, as gathered here: the setting's name and why.",
-     "fields": [
-      "name",
-      "rule"
-     ],
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "InvalidSetting"
-    },
-    {
-     "doc": "Every limit a server runs with, as gathered from flags, the config file and the defaults.",
-     "fields": [
-      "name_pack",
-      "max_response_bytes",
-      "default_limit",
-      "max_limit",
-      "max_body_bytes",
-      "max_channel_name_chars",
-      "max_purpose_chars",
-      "max_description_chars",
-      "max_note_chars",
-      "max_server_announcement_chars",
-      "max_memory_entry_chars",
-      "max_memory_chars",
-      "max_lane_chars",
-      "sends_per_minute",
-      "registrations_per_minute",
-      "max_agents",
-      "default_wait",
-      "max_wait",
-      "waiting_grace",
-      "member_preview",
-      "purpose_preview_chars",
-      "web_session_lifetime",
-      "web_page_messages",
-      "web_member_excerpt_chars",
-      "upgrade_backups_kept"
-     ],
-     "kind": "struct",
-     "methods": [
-      "check"
-     ],
-     "path": "Limits"
-    },
-    {
-     "doc": "The settings a server runs with, as the record of the run needs them.",
-     "fields": [
-      "allow_any_bind",
-      "limits",
-      "log_level",
-      "dependency_log_level",
-      "allowed_origins",
-      "allowed_hosts",
-      "config_file",
-      "access_key_file",
-      "web_key_file",
-      "admin_key_file",
-      "admin_name",
-      "log_file",
-      "log_policy"
-     ],
-     "kind": "struct",
-     "methods": [
-      "lines"
-     ],
-     "path": "RecordedSettings"
-    },
-    {
-     "doc": "Server settings that may or may not be given, from one source: the command line or the config file.",
-     "fields": [
-      "name_pack",
-      "db",
-      "bind",
-      "allow_any_bind",
-      "max_response_bytes",
-      "default_limit",
-      "max_limit",
-      "sends_per_minute",
-      "waiting_grace_seconds",
-      "upgrade_backups_kept",
-      "max_lane_chars",
-      "max_memory_entry_chars",
-      "max_memory_chars",
-      "allow_origins",
-      "allow_hosts",
-      "instructions",
-      "access_key_file",
-      "no_access_key",
-      "log_file",
-      "log_level",
-      "dependency_log_level"
-     ],
-     "kind": "struct",
-     "methods": [
-      "gives",
-      "lane_limit",
-      "name_pack_name",
-      "over",
-      "resolve"
-     ],
-     "path": "ServeOptions"
-    },
-    {
-     "doc": "The settings a server runs with.",
-     "fields": [
-      "db",
-      "bind",
-      "allow_any_bind",
-      "limits",
-      "allow_origins",
-      "allow_hosts",
-      "instructions",
-      "access_key",
-      "web_key",
-      "admin_key",
-      "log_file",
-      "log_level",
-      "dependency_log_level"
-     ],
-     "kind": "struct",
-     "path": "ServeSettings"
-    }
-   ],
-   "lib": "kkt_settings",
-   "machine_work": {},
-   "name": "kkt-settings",
-   "path": "crates/kkt-settings",
-   "released_program": false,
-   "slots": [],
-   "third_party": [
-    "thiserror"
-   ]
   },
   {
    "bins": [],
@@ -10001,7 +13340,7 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kashkeshet",
+       "crate": "kkt-operate",
        "type": null
       }
      ],
@@ -10018,7 +13357,7 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kashkeshet",
+       "crate": "kkt-operate",
        "type": null
       }
      ],
@@ -10027,7 +13366,7 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kashkeshet",
+       "crate": "kkt-operate",
        "type": null
       }
      ],
@@ -10046,7 +13385,7 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kashkeshet",
-       "type": "terminal::TerminalLines"
+       "type": null
       }
      ],
      "trait": "ask::Lines"
@@ -10055,7 +13394,7 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kashkeshet",
-       "type": null
+       "type": "machine::connection::ConnectionReads"
       }
      ],
      "trait": "connection::ConnectionSource"
@@ -11087,6 +14426,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "semver",
     "serde",
@@ -11204,6 +14544,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-setup-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": []
   },
   {
@@ -11235,6 +14576,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-shutdown",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "tokio-util"
    ]
@@ -11268,6 +14610,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-shutdown-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "tokio"
    ]
@@ -11341,6 +14684,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-terminal-os",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "libc"
    ]
@@ -11559,6 +14903,7 @@ window.KKT_GRAPH = {
      ]
     }
    ],
+   "testing_third_party": [],
    "third_party": [
     "futures",
     "tokio"
@@ -12927,6 +16272,9 @@ window.KKT_GRAPH = {
      "traits": []
     }
    ],
+   "testing_third_party": [
+    "tower"
+   ],
    "third_party": [
     "askama",
     "axum",
@@ -12934,8 +16282,7 @@ window.KKT_GRAPH = {
     "serde",
     "serde_json",
     "thiserror",
-    "tokio",
-    "tower"
+    "tokio"
    ]
   },
   {
@@ -12956,6 +16303,7 @@ window.KKT_GRAPH = {
    "path": "programs/kkt-web-preview",
    "released_program": false,
    "slots": [],
+   "testing_third_party": [],
    "third_party": [
     "clap",
     "tokio"
@@ -12980,9 +16328,6 @@ window.KKT_GRAPH = {
     "server_keys::KeyText",
     "server_keys::KeyTexts",
     "server_keys::ServerKeys",
-    "server_keys::admin_name_line",
-    "server_keys::admin_name_written",
-    "server_keys::bound_to",
     "server_keys::check",
     "web_key_path"
    ],
@@ -13007,9 +16352,6 @@ window.KKT_GRAPH = {
       "admin_name_path",
       "key_refusal",
       "server_keys",
-      "server_keys::admin_name_line",
-      "server_keys::admin_name_written",
-      "server_keys::bound_to",
       "server_keys::check",
       "web_key_path"
      ],
@@ -13024,7 +16366,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "Admission"
+    "Admission",
+    "server_keys::bound_to"
    ],
    "to": "kkt-admission"
   },
@@ -13112,7 +16455,72 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "LaneSource",
+    "Address",
+    "AdminKey",
+    "AgentParts",
+    "Avatars",
+    "CredentialSlot",
+    "Credentials",
+    "Failure",
+    "KeyText",
+    "KeyUnread",
+    "NewAvatar",
+    "Output",
+    "Program",
+    "Reclaimed",
+    "Registered",
+    "Servers",
+    "connect",
+    "connect::run",
+    "reclaim",
+    "register",
+    "watch::WatchTask",
+    "watch::run"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "a type of its own implements AdminKey",
+      "a type of its own implements Avatars",
+      "a type of its own implements CredentialSlot",
+      "a type of its own implements Credentials",
+      "a type of its own implements KeyText",
+      "a type of its own implements Output",
+      "a type of its own implements Program",
+      "a type of its own implements Servers"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Address",
+      "AgentParts",
+      "Failure",
+      "KeyUnread",
+      "NewAvatar",
+      "Reclaimed",
+      "Registered",
+      "connect",
+      "connect::run",
+      "reclaim",
+      "register",
+      "watch::WatchTask",
+      "watch::run"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-agent-commands"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
     "SwarmId"
    ],
    "kind": "normal",
@@ -13121,7 +16529,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "LaneSource",
       "SwarmId"
      ],
      "role": "uses"
@@ -13129,7 +16536,13 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "Code"
+    "Actor",
+    "Audit",
+    "Code",
+    "NewChannel",
+    "Operator",
+    "Permission",
+    "Permissions"
    ],
    "to": "kkt-api-agent"
   },
@@ -13137,28 +16550,9 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "LaneSave"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "LaneSave"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-api-operator"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
     "Contents",
+    "Layout",
+    "Settings",
     "layout"
    ],
    "kind": "normal",
@@ -13168,6 +16562,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Contents",
+      "Layout",
+      "Settings",
       "layout"
      ],
      "role": "uses"
@@ -13207,12 +16603,7 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Client",
-    "Host",
-    "Setup",
-    "allow_kkt",
-    "codex_password_store_hint",
-    "configure",
-    "header"
+    "Host"
    ],
    "kind": "normal",
    "optional": false,
@@ -13226,19 +16617,17 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "Client",
-      "Setup",
-      "allow_kkt",
-      "codex_password_store_hint",
-      "configure",
-      "header"
+      "Client"
      ],
      "role": "uses"
     }
    ],
    "target": null,
    "test_items": [
-    "KKT_AGENT_TOOLS"
+    "KKT_AGENT_TOOLS",
+    "Setup",
+    "configure",
+    "header"
    ],
    "to": "kkt-client-config"
   },
@@ -13319,8 +16708,7 @@ window.KKT_GRAPH = {
     "Config",
     "config_dir",
     "config_file",
-    "parse_file",
-    "with_allowed_host"
+    "parse_file"
    ],
    "kind": "normal",
    "optional": false,
@@ -13331,8 +16719,7 @@ window.KKT_GRAPH = {
       "Config",
       "config_dir",
       "config_file",
-      "parse_file",
-      "with_allowed_host"
+      "parse_file"
      ],
      "role": "uses"
     }
@@ -13381,31 +16768,9 @@ window.KKT_GRAPH = {
     "Command",
     "ConfigReader",
     "ContainerConfig",
-    "DOCKER_ADMIN_KEY_FILE_NAME",
-    "ENV_FILE",
     "Finished",
-    "Folder",
     "Host",
-    "Inputs",
-    "LanesImport",
-    "LoginLink",
-    "NO_ADMIN_KEY_EXIT",
-    "Settings",
-    "Tailscale",
-    "add_admin_key",
-    "backup",
-    "compare_web_key",
-    "docker_env",
-    "down",
-    "existing",
-    "export_lanes",
-    "import_lanes",
-    "lane_limit",
-    "provision",
-    "status",
-    "tailscale_auth_key",
-    "upgrade",
-    "version_in_env"
+    "LoginLink"
    ],
    "kind": "normal",
    "optional": false,
@@ -13413,7 +16778,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "machine::settings::ContainerConfigs implements ConfigReader",
+      "a type of its own implements ConfigReader",
       "a type of its own implements Host",
       "terminal::browser_login::TerminalLink implements LoginLink"
      ],
@@ -13423,29 +16788,7 @@ window.KKT_GRAPH = {
      "detail": [
       "Command",
       "ContainerConfig",
-      "DOCKER_ADMIN_KEY_FILE_NAME",
-      "ENV_FILE",
-      "Finished",
-      "Folder",
-      "Inputs",
-      "LanesImport",
-      "NO_ADMIN_KEY_EXIT",
-      "Settings",
-      "Tailscale",
-      "add_admin_key",
-      "backup",
-      "compare_web_key",
-      "docker_env",
-      "down",
-      "existing",
-      "export_lanes",
-      "import_lanes",
-      "lane_limit",
-      "provision",
-      "status",
-      "tailscale_auth_key",
-      "upgrade",
-      "version_in_env"
+      "Finished"
      ],
      "role": "uses"
     }
@@ -13539,27 +16882,14 @@ window.KKT_GRAPH = {
     "Check",
     "DOCTOR_MAX_RESPONSE_BYTES",
     "DOCTOR_PROTOCOL_VERSION",
-    "Inspector",
     "KEY_CHECK",
     "KeyFile",
-    "KeyToCheck",
-    "Plan",
     "Prober",
     "Probing",
     "SERVER_CHECK",
-    "ServerLines",
     "Settings",
-    "SetupServer",
-    "ThisMachine",
     "endpoint",
-    "inspect",
-    "inspect_address",
-    "inspect_with_key",
-    "point_server_fix_at",
-    "report",
-    "setup_wait",
-    "shell_word",
-    "until_reachable"
+    "shell_word"
    ],
    "kind": "normal",
    "optional": false,
@@ -13577,33 +16907,19 @@ window.KKT_GRAPH = {
       "DOCTOR_MAX_RESPONSE_BYTES",
       "DOCTOR_PROTOCOL_VERSION",
       "KEY_CHECK",
-      "Plan",
+      "KeyFile",
       "Probing",
       "SERVER_CHECK",
-      "ServerLines",
-      "SetupServer",
-      "ThisMachine",
+      "Settings",
       "endpoint",
-      "inspect",
-      "inspect_address",
-      "inspect_with_key",
-      "point_server_fix_at",
-      "report",
-      "setup_wait",
-      "shell_word",
-      "until_reachable"
+      "shell_word"
      ],
      "role": "uses"
-    },
-    {
-     "detail": [
-      "Inspector"
-     ],
-     "role": "wires"
     }
    ],
    "target": null,
    "test_items": [
+    "inspect",
     "inspect_admin_key"
    ],
    "to": "kkt-diagnostics"
@@ -13683,7 +16999,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "AllowedHosts",
+    "DEFAULT_ALLOW_ANY_BIND",
+    "DEFAULT_BIND",
     "SettingError",
     "check_bind"
    ],
@@ -13693,7 +17010,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "AllowedHosts",
+      "DEFAULT_ALLOW_ANY_BIND",
+      "DEFAULT_BIND",
       "SettingError",
       "check_bind"
      ],
@@ -13730,16 +17048,10 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Disk",
-    "LaneFile",
-    "Read",
-    "Skipped",
-    "file_name",
     "git",
     "git::Git",
     "git::Ran",
-    "git::commit",
-    "read_folder",
-    "write_folder"
+    "git::commit"
    ],
    "kind": "normal",
    "optional": false,
@@ -13754,15 +17066,9 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "LaneFile",
-      "Read",
-      "Skipped",
-      "file_name",
       "git",
       "git::Ran",
-      "git::commit",
-      "read_folder",
-      "write_folder"
+      "git::commit"
      ],
      "role": "uses"
     }
@@ -13798,6 +17104,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "DEFAULT_DEPENDENCY_LOG_LEVEL",
+    "DEFAULT_LOG_LEVEL",
     "LogLevel",
     "LogPolicy",
     "SettingError",
@@ -13809,6 +17117,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "DEFAULT_DEPENDENCY_LOG_LEVEL",
+      "DEFAULT_LOG_LEVEL",
       "LogLevel",
       "LogPolicy",
       "SettingError",
@@ -13952,10 +17262,8 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "AdminName",
-    "MAX_HANDLE_CHARS",
-    "MAX_LANE_NAME_CHARS",
-    "check_lane_name",
-    "check_proposed_handle"
+    "NamePack",
+    "PACKS"
    ],
    "kind": "normal",
    "optional": false,
@@ -13964,20 +17272,126 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AdminName",
-      "MAX_HANDLE_CHARS",
-      "MAX_LANE_NAME_CHARS",
-      "check_lane_name",
-      "check_proposed_handle"
+      "NamePack",
+      "PACKS"
      ],
      "role": "uses"
     }
    ],
    "target": null,
    "test_items": [
-    "MAX_ADMIN_NAME_CHARS",
-    "NamePack"
+    "MAX_ADMIN_NAME_CHARS"
    ],
    "to": "kkt-names"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "BackupWriter",
+    "CheckService",
+    "CheckedService",
+    "Config",
+    "ConfigText",
+    "Databases",
+    "KeyFiles",
+    "OperateParts",
+    "Output",
+    "ServeFacts",
+    "ServiceDefaults",
+    "ServiceInputs",
+    "SetupFiles",
+    "agent::AgentAction",
+    "agent::run",
+    "doctor::run",
+    "key::NewKey",
+    "key::create",
+    "key::header",
+    "key::show",
+    "keys::KeyKind",
+    "keys::selected_key_path",
+    "lanes::LanesAction",
+    "lanes::existing_db",
+    "lanes::local_lane_limit",
+    "lanes::local_operator",
+    "lanes::run",
+    "lifecycle::backup",
+    "lifecycle::status",
+    "lifecycle::uninstall",
+    "lifecycle::upgrade",
+    "record::check_setup",
+    "record::read_setup",
+    "service",
+    "service::ServiceAction",
+    "service::ServiceInstall",
+    "service::run",
+    "setup::InstallOptions",
+    "setup::run",
+    "setup::run_switch"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "a type of its own implements BackupWriter",
+      "a type of its own implements CheckService",
+      "a type of its own implements ConfigText",
+      "a type of its own implements Databases",
+      "a type of its own implements KeyFiles",
+      "a type of its own implements Output",
+      "a type of its own implements ServeFacts",
+      "machine::operate::ServiceArgs implements ServiceDefaults",
+      "a type of its own implements SetupFiles"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "CheckedService",
+      "Config",
+      "OperateParts",
+      "ServiceInputs",
+      "agent::AgentAction",
+      "agent::run",
+      "doctor::run",
+      "key::NewKey",
+      "key::create",
+      "key::header",
+      "key::show",
+      "keys::KeyKind",
+      "keys::selected_key_path",
+      "lanes::LanesAction",
+      "lanes::existing_db",
+      "lanes::local_lane_limit",
+      "lanes::local_operator",
+      "lanes::run",
+      "lifecycle::backup",
+      "lifecycle::status",
+      "lifecycle::uninstall",
+      "lifecycle::upgrade",
+      "record::check_setup",
+      "record::read_setup",
+      "service",
+      "service::ServiceAction",
+      "service::ServiceInstall",
+      "service::run",
+      "setup::InstallOptions",
+      "setup::run",
+      "setup::run_switch"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "keys::local_operator_key",
+    "keys::optional_key_path",
+    "service::ServicePlan",
+    "service::service_plan"
+   ],
+   "to": "kkt-operate"
   },
   {
    "features": [],
@@ -14009,11 +17423,7 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Host",
-    "Output",
-    "prepare",
-    "serve",
-    "served",
-    "stop"
+    "Output"
    ],
    "kind": "normal",
    "optional": false,
@@ -14027,11 +17437,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "Output",
-      "prepare",
-      "serve",
-      "served",
-      "stop"
+      "Output"
      ],
      "role": "uses"
     }
@@ -14071,14 +17477,9 @@ window.KKT_GRAPH = {
     "CommandLine",
     "Db",
     "DefaultWording",
-    "ImportedLane",
-    "LaneImport",
-    "LaneOutcome",
-    "Revoked",
+    "NewServerRun",
     "Settings",
     "Startup",
-    "check_lane_import",
-    "check_retire_missing",
     "legacy",
     "schema",
     "start"
@@ -14090,11 +17491,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "CORE",
-      "LaneOutcome",
-      "Revoked",
+      "CommandLine",
       "Settings",
-      "check_lane_import",
-      "check_retire_missing",
       "legacy",
       "schema",
       "start"
@@ -14103,7 +17501,6 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "CommandLine",
       "Db",
       "DefaultWording"
      ],
@@ -14112,22 +17509,14 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "StoreError",
+    "Rules",
     "testing",
-    "testing::ChannelFilter",
-    "testing::ChannelKind",
-    "testing::ChannelScope",
-    "testing::MessageRange",
-    "testing::NewAgentRecord",
-    "testing::NewChannelRecord",
-    "testing::NewMessageRecord",
-    "testing::NewServerRunRecord",
-    "testing::NewerFilter",
-    "testing::Reader",
-    "testing::SearchFilter",
-    "testing::SentFilter",
-    "testing::read",
-    "testing::write"
+    "testing::Memory",
+    "testing::Probes",
+    "testing::every_store_read",
+    "testing::rules_on",
+    "testing::scenarios::run_all",
+    "testing::swarms_stay_apart_in"
    ],
    "to": "kkt-rules"
   },
@@ -14136,9 +17525,11 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "AppConfig",
+    "CheckedSettings",
     "Parts",
-    "build",
-    "new_server_run"
+    "ServerSettings",
+    "SettingError",
+    "build"
    ],
    "kind": "normal",
    "optional": false,
@@ -14147,8 +17538,9 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AppConfig",
-      "build",
-      "new_server_run"
+      "CheckedSettings",
+      "ServerSettings",
+      "build"
      ],
      "role": "uses"
     },
@@ -14191,17 +17583,11 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Command",
-    "DryRun",
     "Finished",
-    "Manager",
+    "Plan",
     "Request",
-    "ServiceError",
     "ServiceSettings",
-    "Settings",
-    "Spec",
-    "System",
-    "check_bind",
-    "plan"
+    "System"
    ],
    "kind": "normal",
    "optional": false,
@@ -14215,23 +17601,22 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "Command",
       "Finished",
-      "Manager",
-      "ServiceError",
-      "check_bind",
-      "plan"
+      "Plan",
+      "Request",
+      "ServiceSettings"
      ],
      "role": "uses"
-    },
-    {
-     "detail": [
-      "DryRun"
-     ],
-     "role": "wires"
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "Manager",
+    "ServiceError",
+    "Spec",
+    "check_bind"
+   ],
    "to": "kkt-service"
   },
   {
@@ -14265,123 +17650,20 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "DEFAULT_BIND",
-    "DEFAULT_DEPENDENCY_LOG_LEVEL",
-    "DEFAULT_LOG_LEVEL",
-    "InvalidSetting",
-    "Limits",
-    "RecordedSettings",
-    "ServeOptions",
-    "ServeSettings"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "DEFAULT_BIND",
-      "DEFAULT_DEPENDENCY_LOG_LEVEL",
-      "DEFAULT_LOG_LEVEL",
-      "InvalidSetting",
-      "Limits",
-      "RecordedSettings",
-      "ServeOptions",
-      "ServeSettings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-settings"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "AccessKeyFrom",
-    "AdoptSteps",
     "Answers",
-    "BackupKeys",
-    "BackupOf",
-    "ClientKey",
-    "DockerSetup",
-    "Here",
-    "InstallCheck",
-    "Installed",
-    "KeyKind",
-    "KeyPlace",
-    "KeysOff",
-    "LanesOn",
     "Lines",
-    "Mode",
     "Purpose",
     "Record",
-    "Replace",
-    "RunningVersion",
-    "Server",
-    "StatusThen",
-    "Steps",
     "Switch",
-    "SwitchSteps",
-    "TailscaleLogin",
     "Target",
     "Unfinished",
-    "Unrecorded",
-    "admin_key_collision",
-    "admin_key_line",
-    "ask::Prompter",
-    "backup_keys",
-    "backup_of",
-    "client_key",
-    "clients_server_fix",
-    "clients_server_mode",
-    "configured_key",
-    "configured_name_pack_line",
     "connection",
-    "connection::admin_connection",
-    "connection::admin_endpoint",
-    "connection::client_connection",
-    "connection::recorded_connection",
+    "connection::Connection",
+    "connection::ConnectionOptions",
     "connection::serve_connection",
-    "create_asks_for_docker",
-    "create_checks",
-    "create_destination_check",
     "credential_file_check",
     "default_db",
-    "docker_folder",
-    "docker_status_lines",
-    "doctor_checks",
-    "doctor_record",
-    "guard",
-    "lane_reports::Outcome",
-    "lane_reports::docker_limit",
-    "lane_reports::import_report",
-    "lanes_on",
-    "operator_key",
-    "recorded_key",
-    "recorded_setup",
-    "run",
-    "running_version",
-    "server_fix",
-    "service_backup_folder",
-    "service_runs_defaults",
-    "service_upgrade_error",
-    "setup_lane_limit",
-    "staged_client_key",
-    "status",
-    "status_looks_for_unrecorded",
-    "switch",
-    "uninstall_line",
-    "uninstall_record",
-    "unreadable_service",
-    "unrecorded_here",
-    "unrecorded_service",
-    "upgrade_backup_folder",
-    "upgrade_plan",
-    "waiting_note",
-    "web_key_line"
+    "upgrade_backup_folder"
    ],
    "kind": "normal",
    "optional": false,
@@ -14389,99 +17671,37 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "a type of its own implements AdoptSteps",
-      "a type of its own implements Steps",
-      "a type of its own implements SwitchSteps",
-      "terminal::TerminalLines implements ask::Lines",
-      "a type of its own implements connection::ConnectionSource"
+      "a type of its own implements ask::Lines",
+      "machine::connection::ConnectionReads implements connection::ConnectionSource"
      ],
      "role": "implements"
     },
     {
      "detail": [
-      "BackupOf",
-      "ClientKey",
-      "Here",
-      "InstallCheck",
-      "KeyKind",
-      "KeyPlace",
-      "KeysOff",
-      "LanesOn",
+      "Answers",
       "Lines",
-      "Mode",
       "Purpose",
       "Record",
-      "Replace",
-      "RunningVersion",
-      "StatusThen",
+      "Switch",
       "Target",
       "Unfinished",
-      "Unrecorded",
-      "admin_key_collision",
-      "admin_key_line",
-      "backup_keys",
-      "backup_of",
-      "client_key",
-      "clients_server_fix",
-      "clients_server_mode",
-      "configured_key",
-      "configured_name_pack_line",
       "connection",
-      "connection::admin_connection",
-      "connection::admin_endpoint",
-      "connection::client_connection",
-      "connection::recorded_connection",
+      "connection::Connection",
+      "connection::ConnectionOptions",
       "connection::serve_connection",
-      "create_asks_for_docker",
-      "create_checks",
-      "create_destination_check",
       "credential_file_check",
       "default_db",
-      "docker_folder",
-      "docker_status_lines",
-      "doctor_checks",
-      "doctor_record",
-      "guard",
-      "lane_reports::Outcome",
-      "lane_reports::docker_limit",
-      "lane_reports::import_report",
-      "lanes_on",
-      "operator_key",
-      "recorded_key",
-      "recorded_setup",
-      "run",
-      "running_version",
-      "server_fix",
-      "service_backup_folder",
-      "service_runs_defaults",
-      "service_upgrade_error",
-      "setup_lane_limit",
-      "staged_client_key",
-      "status",
-      "status_looks_for_unrecorded",
-      "switch",
-      "uninstall_line",
-      "uninstall_record",
-      "unreadable_service",
-      "unrecorded_here",
-      "unrecorded_service",
-      "upgrade_backup_folder",
-      "upgrade_plan",
-      "waiting_note",
-      "web_key_line"
+      "upgrade_backup_folder"
      ],
      "role": "uses"
-    },
-    {
-     "detail": [
-      "ask::Prompter"
-     ],
-     "role": "wires"
     }
    ],
    "target": null,
    "test_items": [
-    "ServerFix"
+    "DockerSetup",
+    "Mode",
+    "Server",
+    "Unrecorded"
    ],
    "to": "kkt-setup"
   },
@@ -14612,13 +17832,10 @@ window.KKT_GRAPH = {
     "Message",
     "NewerLane",
     "Options",
-    "Outcome",
     "Place",
     "Report",
     "Server",
-    "Settings",
-    "Waited",
-    "run"
+    "Waited"
    ],
    "kind": "normal",
    "optional": false,
@@ -14639,23 +17856,23 @@ window.KKT_GRAPH = {
       "Message",
       "NewerLane",
       "Options",
-      "Outcome",
-      "Settings",
-      "Waited",
-      "run"
+      "Waited"
      ],
      "role": "uses"
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "Outcome",
+    "Settings",
+    "run"
+   ],
    "to": "kkt-watch"
   },
   {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "PageLimits",
     "Settings"
    ],
    "kind": "normal",
@@ -14664,7 +17881,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "PageLimits",
       "Settings"
      ],
      "role": "uses"
@@ -14672,7 +17888,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "MAX_WEB_PAGE_MESSAGES"
+    "MAX_WEB_PAGE_MESSAGES",
+    "PageLimits"
    ],
    "to": "kkt-web"
   },
@@ -14747,26 +17964,18 @@ window.KKT_GRAPH = {
    "items": [
     "Db",
     "DefaultWording",
+    "Rules",
     "Settings",
     "Startup",
-    "StoreError",
     "schema",
     "start",
     "testing",
-    "testing::ChannelFilter",
-    "testing::ChannelKind",
-    "testing::ChannelScope",
-    "testing::MessageRange",
-    "testing::NewAgentRecord",
-    "testing::NewChannelRecord",
-    "testing::NewMessageRecord",
-    "testing::NewServerRunRecord",
-    "testing::NewerFilter",
-    "testing::Reader",
-    "testing::SearchFilter",
-    "testing::SentFilter",
-    "testing::read",
-    "testing::write"
+    "testing::Memory",
+    "testing::Probes",
+    "testing::every_store_read",
+    "testing::rules_on",
+    "testing::scenarios::run_all",
+    "testing::swarms_stay_apart_in"
    ],
    "kind": "dev",
    "optional": false,
@@ -14774,24 +17983,23 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Rules",
       "Settings",
-      "StoreError",
       "schema",
       "start",
       "testing",
-      "testing::ChannelKind",
-      "testing::ChannelScope",
-      "testing::MessageRange",
-      "testing::Reader",
-      "testing::read",
-      "testing::write"
+      "testing::every_store_read",
+      "testing::rules_on",
+      "testing::scenarios::run_all",
+      "testing::swarms_stay_apart_in"
      ],
      "role": "uses"
     },
     {
      "detail": [
       "Db",
-      "DefaultWording"
+      "DefaultWording",
+      "testing::Memory"
      ],
      "role": "wires"
     }
@@ -14833,6 +18041,7 @@ window.KKT_GRAPH = {
     "Record",
     "Server",
     "Unfinished",
+    "Unrecorded",
     "default_db"
    ],
    "kind": "dev",
@@ -14847,6 +18056,7 @@ window.KKT_GRAPH = {
       "Record",
       "Server",
       "Unfinished",
+      "Unrecorded",
       "default_db"
      ],
      "role": "uses"
@@ -15016,6 +18226,223 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-scratch"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
+    "Client",
+    "Host",
+    "Setup",
+    "configure"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Client",
+      "Host",
+      "Setup",
+      "configure"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-config"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
+    "Clock"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Time",
+    "testing::FixedClock"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
+    "Env"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Env"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-machine"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
+    "MAX_HANDLE_CHARS",
+    "MAX_LANE_NAME_CHARS",
+    "check_lane_name",
+    "check_proposed_handle"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "MAX_HANDLE_CHARS",
+      "MAX_LANE_NAME_CHARS",
+      "check_lane_name",
+      "check_proposed_handle"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-names"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
+    "connection",
+    "connection::ConnectionOptions",
+    "connection::ConnectionSource",
+    "connection::admin_connection",
+    "connection::admin_endpoint",
+    "connection::client_connection"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "connection",
+      "connection::ConnectionOptions",
+      "connection::ConnectionSource",
+      "connection::admin_connection",
+      "connection::admin_endpoint",
+      "connection::client_connection"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Record",
+    "connection::ServeConnection"
+   ],
+   "to": "kkt-setup"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
+    "Options",
+    "Outcome",
+    "Place",
+    "Report",
+    "Server",
+    "Settings",
+    "run"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Options",
+      "Outcome",
+      "Place",
+      "Report",
+      "Server",
+      "Settings",
+      "run"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-watch"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
+    "AccessKey"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AccessKey"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-admission"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-agent-commands",
+   "items": [
+    "Time",
+    "testing::FixedClock"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Time"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::FixedClock"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
   },
   {
    "features": [],
@@ -16694,17 +20121,13 @@ window.KKT_GRAPH = {
   {
    "features": [],
    "from": "kkt-fake-product",
-   "items": [
-    "AllowedHosts"
-   ],
+   "items": [],
    "kind": "normal",
    "optional": false,
    "role": "uses",
    "roles": [
     {
-     "detail": [
-      "AllowedHosts"
-     ],
+     "detail": [],
      "role": "uses"
     }
    ],
@@ -16895,6 +20318,7 @@ window.KKT_GRAPH = {
    "items": [
     "AppConfig",
     "Parts",
+    "ServerSettings",
     "build"
    ],
    "kind": "normal",
@@ -16904,6 +20328,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AppConfig",
+      "ServerSettings",
       "build"
      ],
      "role": "uses"
@@ -17405,13 +20830,15 @@ window.KKT_GRAPH = {
    "items": [
     "AccessKey",
     "AdminAdmission",
+    "admin_key_path",
     "key_refusal",
     "server_keys",
     "server_keys::KeyRefusal",
     "server_keys::KeyText",
     "server_keys::KeyTexts",
     "server_keys::ServerKeys",
-    "server_keys::check"
+    "server_keys::check",
+    "web_key_path"
    ],
    "kind": "normal",
    "optional": false,
@@ -17427,12 +20854,14 @@ window.KKT_GRAPH = {
      "detail": [
       "AccessKey",
       "AdminAdmission",
+      "admin_key_path",
       "key_refusal",
       "server_keys",
       "server_keys::KeyRefusal",
       "server_keys::KeyText",
       "server_keys::ServerKeys",
-      "server_keys::check"
+      "server_keys::check",
+      "web_key_path"
      ],
      "role": "uses"
     }
@@ -17484,6 +20913,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-api-agent"
+  },
+  {
+   "features": [],
+   "from": "kkt-keymode",
+   "items": [
+    "Settings"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Settings"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-backup"
   },
   {
    "features": [],
@@ -17646,7 +21096,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
-    "AllowedHosts",
+    "DEFAULT_ALLOW_ANY_BIND",
+    "DEFAULT_BIND",
     "check_bind"
    ],
    "kind": "normal",
@@ -17655,7 +21106,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "AllowedHosts",
+      "DEFAULT_ALLOW_ANY_BIND",
+      "DEFAULT_BIND",
       "check_bind"
      ],
      "role": "uses"
@@ -17690,6 +21142,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
+    "DEFAULT_DEPENDENCY_LOG_LEVEL",
+    "DEFAULT_LOG_LEVEL",
     "LogLevel",
     "LogPolicy"
    ],
@@ -17699,6 +21153,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "DEFAULT_DEPENDENCY_LOG_LEVEL",
+      "DEFAULT_LOG_LEVEL",
       "LogLevel",
       "LogPolicy"
      ],
@@ -17778,6 +21234,29 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
+    "NamePack",
+    "PACKS"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "NamePack",
+      "PACKS"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-names"
+  },
+  {
+   "features": [],
+   "from": "kkt-keymode",
+   "items": [
     "Build",
     "RunSettings",
     "ServerRun"
@@ -17805,6 +21284,7 @@ window.KKT_GRAPH = {
    "items": [
     "Db",
     "DefaultWording",
+    "NewServerRun",
     "Settings",
     "Startup",
     "schema",
@@ -17840,8 +21320,8 @@ window.KKT_GRAPH = {
    "items": [
     "AppConfig",
     "Parts",
-    "build",
-    "new_server_run"
+    "ServerSettings",
+    "build"
    ],
    "kind": "normal",
    "optional": false,
@@ -17850,8 +21330,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AppConfig",
-      "build",
-      "new_server_run"
+      "ServerSettings",
+      "build"
      ],
      "role": "uses"
     },
@@ -17888,35 +21368,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-server-listen"
-  },
-  {
-   "features": [],
-   "from": "kkt-keymode",
-   "items": [
-    "InvalidSetting",
-    "Limits",
-    "RecordedSettings",
-    "ServeOptions",
-    "ServeSettings"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "InvalidSetting",
-      "Limits",
-      "RecordedSettings",
-      "ServeOptions",
-      "ServeSettings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-settings"
   },
   {
    "features": [],
@@ -17989,7 +21440,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
-    "PageLimits",
     "Settings"
    ],
    "kind": "normal",
@@ -17998,7 +21448,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "PageLimits",
       "Settings"
      ],
      "role": "uses"
@@ -18891,6 +22340,708 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "admin_key_path",
+    "server_keys::admin_name_line",
+    "server_keys::admin_name_written",
+    "server_keys::bound_to",
+    "web_key_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "admin_key_path",
+      "server_keys::admin_name_line",
+      "server_keys::admin_name_written",
+      "server_keys::bound_to",
+      "web_key_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "AccessKey"
+   ],
+   "to": "kkt-admission"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "LaneSource",
+    "SwarmId"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "LaneSource",
+      "SwarmId"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-api-agent"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "LaneSave"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "LaneSave"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-api-operator"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "Contents",
+    "Layout",
+    "layout"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Contents",
+      "Layout",
+      "layout"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-backup"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "Client",
+    "Host",
+    "Setup",
+    "allow_kkt",
+    "codex_password_store_hint",
+    "configure",
+    "header"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Client",
+      "Host",
+      "Setup",
+      "allow_kkt",
+      "codex_password_store_hint",
+      "configure",
+      "header"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-client-config"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "Clock"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Time"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "config_dir",
+    "config_file",
+    "with_allowed_host"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "config_dir",
+      "config_file",
+      "with_allowed_host"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-config-file"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "ConfigReader",
+    "DOCKER_ADMIN_KEY_FILE_NAME",
+    "ENV_FILE",
+    "Folder",
+    "Host",
+    "Inputs",
+    "LanesImport",
+    "LoginLink",
+    "NO_ADMIN_KEY_EXIT",
+    "Settings",
+    "Tailscale",
+    "add_admin_key",
+    "backup",
+    "compare_web_key",
+    "docker_env",
+    "down",
+    "existing",
+    "export_lanes",
+    "import_lanes",
+    "lane_limit",
+    "provision",
+    "status",
+    "tailscale_auth_key",
+    "upgrade",
+    "version_in_env"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ConfigReader",
+      "DOCKER_ADMIN_KEY_FILE_NAME",
+      "ENV_FILE",
+      "Folder",
+      "Host",
+      "Inputs",
+      "LanesImport",
+      "LoginLink",
+      "NO_ADMIN_KEY_EXIT",
+      "Settings",
+      "Tailscale",
+      "add_admin_key",
+      "backup",
+      "compare_web_key",
+      "docker_env",
+      "down",
+      "existing",
+      "export_lanes",
+      "import_lanes",
+      "lane_limit",
+      "provision",
+      "status",
+      "tailscale_auth_key",
+      "upgrade",
+      "version_in_env"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Command",
+    "ContainerConfig",
+    "Finished"
+   ],
+   "to": "kkt-container"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "Check",
+    "Inspector",
+    "KeyToCheck",
+    "Plan",
+    "Prober",
+    "ServerLines",
+    "Settings",
+    "SetupServer",
+    "ThisMachine",
+    "inspect",
+    "inspect_address",
+    "inspect_with_key",
+    "point_server_fix_at",
+    "report",
+    "setup_wait",
+    "until_reachable"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Check",
+      "Plan",
+      "Prober",
+      "ServerLines",
+      "SetupServer",
+      "ThisMachine",
+      "inspect",
+      "inspect_address",
+      "inspect_with_key",
+      "point_server_fix_at",
+      "report",
+      "setup_wait",
+      "until_reachable"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "Inspector"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "KeyFile",
+    "Probing"
+   ],
+   "to": "kkt-diagnostics"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "Disk",
+    "LaneFile",
+    "Read",
+    "Skipped",
+    "file_name",
+    "read_folder",
+    "write_folder"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Disk",
+      "LaneFile",
+      "Read",
+      "Skipped",
+      "file_name",
+      "read_folder",
+      "write_folder"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-lane-files"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "Env",
+    "Platform"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Env",
+      "Platform"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-machine"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "AdminName"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AdminName"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-names"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "Build"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Build"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-provenance"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "Host",
+    "prepare",
+    "serve",
+    "served",
+    "stop"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Host",
+      "prepare",
+      "serve",
+      "served",
+      "stop"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Output"
+   ],
+   "to": "kkt-remote-access"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "CommandLine",
+    "Db",
+    "ImportedLane",
+    "LaneImport",
+    "LaneOutcome",
+    "Revoked",
+    "Settings",
+    "check_lane_import",
+    "check_retire_missing"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Db",
+      "LaneOutcome",
+      "Revoked",
+      "Settings",
+      "check_lane_import",
+      "check_retire_missing"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "CommandLine"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-rules"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "DryRun",
+    "Manager",
+    "Plan",
+    "Request",
+    "ServiceError",
+    "ServiceSettings",
+    "Settings",
+    "Spec",
+    "System",
+    "check_bind",
+    "plan"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Manager",
+      "Plan",
+      "ServiceError",
+      "check_bind",
+      "plan"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "DryRun"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Command",
+    "Finished"
+   ],
+   "to": "kkt-service"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "AccessKeyFrom",
+    "AdoptSteps",
+    "Answers",
+    "BackupKeys",
+    "BackupOf",
+    "ClientKey",
+    "DockerSetup",
+    "Here",
+    "InstallCheck",
+    "Installed",
+    "KeyKind",
+    "KeyPlace",
+    "KeysOff",
+    "LanesOn",
+    "Lines",
+    "Mode",
+    "Purpose",
+    "Record",
+    "Replace",
+    "RunningVersion",
+    "StatusThen",
+    "Steps",
+    "Switch",
+    "SwitchSteps",
+    "TailscaleLogin",
+    "Unfinished",
+    "Unrecorded",
+    "admin_key_collision",
+    "admin_key_line",
+    "ask::Prompter",
+    "backup_keys",
+    "backup_of",
+    "client_key",
+    "clients_server_fix",
+    "clients_server_mode",
+    "configured_key",
+    "configured_name_pack_line",
+    "connection",
+    "connection::ConnectionOptions",
+    "connection::ConnectionSource",
+    "connection::client_connection",
+    "connection::recorded_connection",
+    "connection::serve_connection",
+    "create_asks_for_docker",
+    "create_checks",
+    "create_destination_check",
+    "docker_folder",
+    "docker_status_lines",
+    "doctor_checks",
+    "doctor_record",
+    "guard",
+    "lane_reports::Outcome",
+    "lane_reports::docker_limit",
+    "lane_reports::import_report",
+    "lanes_on",
+    "operator_key",
+    "recorded_key",
+    "recorded_setup",
+    "run",
+    "running_version",
+    "server_fix",
+    "service_backup_folder",
+    "service_runs_defaults",
+    "service_upgrade_error",
+    "setup_lane_limit",
+    "staged_client_key",
+    "status",
+    "status_looks_for_unrecorded",
+    "switch",
+    "uninstall_line",
+    "uninstall_record",
+    "unreadable_service",
+    "unrecorded_here",
+    "unrecorded_service",
+    "upgrade_plan",
+    "waiting_note",
+    "web_key_line"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "a type of its own implements AdoptSteps",
+      "a type of its own implements Steps",
+      "a type of its own implements SwitchSteps"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "BackupOf",
+      "ClientKey",
+      "Here",
+      "InstallCheck",
+      "KeyKind",
+      "KeyPlace",
+      "KeysOff",
+      "LanesOn",
+      "Lines",
+      "Mode",
+      "Purpose",
+      "Record",
+      "Replace",
+      "RunningVersion",
+      "StatusThen",
+      "Unfinished",
+      "Unrecorded",
+      "admin_key_collision",
+      "admin_key_line",
+      "backup_keys",
+      "backup_of",
+      "client_key",
+      "clients_server_fix",
+      "clients_server_mode",
+      "configured_key",
+      "configured_name_pack_line",
+      "connection",
+      "connection::ConnectionSource",
+      "connection::client_connection",
+      "connection::recorded_connection",
+      "connection::serve_connection",
+      "create_asks_for_docker",
+      "create_checks",
+      "create_destination_check",
+      "docker_folder",
+      "docker_status_lines",
+      "doctor_checks",
+      "doctor_record",
+      "guard",
+      "lane_reports::Outcome",
+      "lane_reports::docker_limit",
+      "lane_reports::import_report",
+      "lanes_on",
+      "operator_key",
+      "recorded_key",
+      "recorded_setup",
+      "run",
+      "running_version",
+      "server_fix",
+      "service_backup_folder",
+      "service_runs_defaults",
+      "service_upgrade_error",
+      "setup_lane_limit",
+      "staged_client_key",
+      "status",
+      "status_looks_for_unrecorded",
+      "switch",
+      "uninstall_line",
+      "uninstall_record",
+      "unreadable_service",
+      "unrecorded_here",
+      "unrecorded_service",
+      "upgrade_plan",
+      "waiting_note",
+      "web_key_line"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "ask::Prompter"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "ServerFix",
+    "connection::ServeConnection"
+   ],
+   "to": "kkt-setup"
+  },
+  {
+   "features": [],
    "from": "kkt-provenance",
    "items": [
     "sha256"
@@ -19060,6 +23211,7 @@ window.KKT_GRAPH = {
     "Time",
     "floor_text",
     "from_text",
+    "testing::FixedClock",
     "to_text"
    ],
    "kind": "normal",
@@ -19068,7 +23220,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Clock",
       "Span",
       "Time",
       "floor_text",
@@ -19076,12 +23227,16 @@ window.KKT_GRAPH = {
       "to_text"
      ],
      "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::FixedClock"
+     ],
+     "role": "wires"
     }
    ],
    "target": null,
-   "test_items": [
-    "testing::FixedClock"
-   ],
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -19117,8 +23272,8 @@ window.KKT_GRAPH = {
     "search::Excerpt",
     "search::Search",
     "testing",
+    "testing::FastPlace",
     "testing::FaultyBackend",
-    "testing::MemoryPlace",
     "through"
    ],
    "kind": "normal",
@@ -19156,8 +23311,8 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "testing::FaultyBackend",
-      "testing::MemoryPlace"
+      "testing::FastPlace",
+      "testing::FaultyBackend"
      ],
      "role": "wires"
     }
@@ -19170,7 +23325,10 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-rules",
    "items": [
-    "Entropy"
+    "Entropy",
+    "testing",
+    "testing::SameHandleEntropy",
+    "testing::SeqEntropy"
    ],
    "kind": "normal",
    "optional": false,
@@ -19178,17 +23336,20 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Entropy"
+      "testing"
      ],
      "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::SameHandleEntropy",
+      "testing::SeqEntropy"
+     ],
+     "role": "wires"
     }
    ],
    "target": null,
-   "test_items": [
-    "testing",
-    "testing::SameHandleEntropy",
-    "testing::SeqEntropy"
-   ],
+   "test_items": [],
    "to": "kkt-entropy"
   },
   {
@@ -19262,7 +23423,9 @@ window.KKT_GRAPH = {
    "from": "kkt-rules",
    "items": [
     "ANIMALS",
+    "AdminName",
     "CHANNEL_RANDOM_LEN",
+    "MAX_ADMIN_NAME_CHARS",
     "MAX_CHANNEL_ID_ATTEMPTS",
     "MAX_HANDLE_CHARS",
     "MAX_LANE_NAME_CHARS",
@@ -19282,7 +23445,9 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ANIMALS",
+      "AdminName",
       "CHANNEL_RANDOM_LEN",
+      "MAX_ADMIN_NAME_CHARS",
       "MAX_CHANNEL_ID_ATTEMPTS",
       "MAX_HANDLE_CHARS",
       "MAX_LANE_NAME_CHARS",
@@ -19299,10 +23464,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [
-    "AdminName",
-    "MAX_ADMIN_NAME_CHARS"
-   ],
+   "test_items": [],
    "to": "kkt-names"
   },
   {
@@ -19343,8 +23505,7 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-rules",
    "items": [
-    "Backend",
-    "testing::FaultyBackend"
+    "testing::FastPlace"
    ],
    "kind": "dev",
    "optional": false,
@@ -19352,7 +23513,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "testing::FaultyBackend"
+      "testing::FastPlace"
      ],
      "role": "wires"
     }
@@ -19360,29 +23521,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-db"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-rules",
-   "items": [
-    "MemoryPlace"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "MemoryPlace"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-db-sqlite"
   },
   {
    "features": [
@@ -19451,6 +23589,27 @@ window.KKT_GRAPH = {
     "SharedKey"
    ],
    "to": "kkt-admission"
+  },
+  {
+   "features": [],
+   "from": "kkt-server",
+   "items": [
+    "AdminApi"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AdminApi"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-api-admin"
   },
   {
    "features": [],
@@ -19709,8 +23868,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-server",
    "items": [
-    "Build",
-    "ServerRun"
+    "Build"
    ],
    "kind": "normal",
    "optional": false,
@@ -19718,48 +23876,17 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Build",
-      "ServerRun"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-provenance"
-  },
-  {
-   "features": [],
-   "from": "kkt-server",
-   "items": [
-    "NewServerRun",
-    "Rules"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "NewServerRun",
-      "Rules"
+      "Build"
      ],
      "role": "uses"
     }
    ],
    "target": null,
    "test_items": [
-    "CommandLine",
-    "DefaultWording",
-    "LaneImport",
-    "Settings",
-    "Startup",
-    "start",
-    "testing::Memory",
-    "testing::database",
-    "testing::memory"
+    "RunSettings",
+    "ServerRun"
    ],
-   "to": "kkt-rules"
+   "to": "kkt-provenance"
   },
   {
    "features": [],
@@ -19899,6 +24026,27 @@ window.KKT_GRAPH = {
    "to": "kkt-api-sim"
   },
   {
+   "features": [],
+   "from": "kkt-server",
+   "items": [
+    "Settings"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Settings"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-backup"
+  },
+  {
    "features": [
     "testing"
    ],
@@ -20019,6 +24167,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-log"
+  },
+  {
+   "features": [],
+   "from": "kkt-server",
+   "items": [
+    "LogLevel",
+    "LogPolicy"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "LogLevel",
+      "LogPolicy"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-logs"
   },
   {
    "features": [
@@ -20196,6 +24367,7 @@ window.KKT_GRAPH = {
    "test_items": [
     "AppConfig",
     "Parts",
+    "ServerSettings",
     "build"
    ],
    "to": "kkt-server"
@@ -20310,17 +24482,13 @@ window.KKT_GRAPH = {
   {
    "features": [],
    "from": "kkt-server-listen",
-   "items": [
-    "AllowedHosts"
-   ],
+   "items": [],
    "kind": "dev",
    "optional": false,
    "role": "uses",
    "roles": [
     {
-     "detail": [
-      "AllowedHosts"
-     ],
+     "detail": [],
      "role": "uses"
     }
    ],
@@ -20375,17 +24543,13 @@ window.KKT_GRAPH = {
   {
    "features": [],
    "from": "kkt-server-listen",
-   "items": [
-    "Settings"
-   ],
+   "items": [],
    "kind": "dev",
    "optional": false,
    "role": "uses",
    "roles": [
     {
-     "detail": [
-      "Settings"
-     ],
+     "detail": [],
      "role": "uses"
     }
    ],
@@ -20396,17 +24560,13 @@ window.KKT_GRAPH = {
   {
    "features": [],
    "from": "kkt-server-listen",
-   "items": [
-    "Settings"
-   ],
+   "items": [],
    "kind": "dev",
    "optional": false,
    "role": "uses",
    "roles": [
     {
-     "detail": [
-      "Settings"
-     ],
+     "detail": [],
      "role": "uses"
     }
    ],
@@ -20471,7 +24631,6 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-server-listen",
    "items": [
-    "Settings",
     "testing::start_time"
    ],
    "kind": "dev",
@@ -20480,7 +24639,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Settings",
       "testing::start_time"
      ],
      "role": "uses"
@@ -20570,149 +24728,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-settings",
-   "items": [
-    "AccessKey",
-    "admin_key_path",
-    "web_key_path"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AccessKey",
-      "admin_key_path",
-      "web_key_path"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-admission"
-  },
-  {
-   "features": [],
-   "from": "kkt-settings",
-   "items": [
-    "LogLevel",
-    "LogPolicy"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "LogLevel",
-      "LogPolicy"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-logs"
-  },
-  {
-   "features": [],
-   "from": "kkt-settings",
-   "items": [
-    "MIN_RESPONSE_BYTES"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "MIN_RESPONSE_BYTES"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-mcp-formatter"
-  },
-  {
-   "features": [],
-   "from": "kkt-settings",
-   "items": [
-    "ANIMALS",
-    "NamePack",
-    "PACKS"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "ANIMALS",
-      "NamePack",
-      "PACKS"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "AdminName",
-    "MAX_ADMIN_NAME_CHARS"
-   ],
-   "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-settings",
-   "items": [
-    "MAX_WEB_PAGE_MESSAGES"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "MAX_WEB_PAGE_MESSAGES"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-web"
-  },
-  {
-   "features": [],
-   "from": "kkt-settings",
-   "items": [
-    "Build",
-    "RunSettings",
-    "ServerRun"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Build",
-      "RunSettings",
-      "ServerRun"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-provenance"
   },
   {
    "features": [],
@@ -21747,7 +25762,7 @@ window.KKT_CONCERNS = {
  "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry, with a layer that exists and a kind it knows, and that no entry names a package that is gone. layers: the rows of the map, top to bottom: where in the system a crate sits. Each crate: its layer; its kind, what sort of crate it is, checked by kinds.py; its concern in plain words; and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
  "crates": {
   "kashkeshet": {
-   "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs.",
+   "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs. The agents' commands run in kkt-agent-commands, over the `AgentParts` it builds.",
    "kind": "composition",
    "layer": "programs",
    "must_not": "Hold a clap type outside `cli.rs`, or let a command take one.",
@@ -21770,6 +25785,12 @@ window.KKT_CONCERNS = {
    "kind": "effect",
    "layer": "clients",
    "must_not": "Choose the credential-file rule or warning output; implement kkt-watch's contract: the program adapts its records and failures."
+  },
+  "kkt-agent-commands": {
+   "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
+   "kind": "composition",
+   "layer": "assembly",
+   "must_not": "Depend on an `-os` crate, on kkt-agent-client or on another assembly; touch the machine except through `AgentParts`."
   },
   "kkt-api-admin": {
    "concern": "What /mcp-admin's administrator does: the admin reads across every channel of a swarm (Admin), creating a swarm (Swarms), AdminChannel, and AdminApi, every operation /mcp-admin uses in one swarm.",
@@ -21832,7 +25853,7 @@ window.KKT_CONCERNS = {
    "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), under a supplied config-home folder.",
    "kind": "logic",
    "layer": "operations",
-   "must_not": "Read or write files, or know kkt-settings or the settings' checks beyond each value's kind."
+   "must_not": "Read or write files, or know the settings' checks beyond each value's kind."
   },
   "kkt-config-file-os": {
    "concern": "The config file's bytes, and the instructions file's: reading and writing them whole, as plain functions the program calls.",
@@ -21856,7 +25877,7 @@ window.KKT_CONCERNS = {
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
    "kind": "contract",
    "layer": "data",
-   "must_not": "Know a product's tables, name a database, or use a database library."
+   "must_not": "Know a product's tables, name a database, or use a database library, except in its testing stand-in (FastPlace, on SQLite in memory)."
   },
   "kkt-db-sqlite": {
    "concern": "kkt-db over SQLite, the only crate that knows SQLite: it opens a SQLite database, in a file or in memory, as a kkt-db `Backend`, running its work on tokio's blocking pool, adopts a database from before kkt-db as the caller's `Legacy` describes, and copies a database for backups.",
@@ -21985,6 +26006,12 @@ window.KKT_CONCERNS = {
    "layer": "foundations",
    "must_not": "Draw randomness except through `Entropy`."
   },
+  "kkt-operate": {
+   "concern": "The operator's commands, including the install's lifecycle (status, upgrade, uninstall and backup), and this machine's setup record and key selection; effects, backup writing and lazy serving facts are supplied through OperateParts.",
+   "kind": "composition",
+   "layer": "assembly",
+   "must_not": "Choose native implementations, depend on an effect or another assembly, or parse command-line flags."
+  },
   "kkt-provenance": {
    "concern": "What produced a server run: the build, its git commit, and the settings that shape the run, as lines of a name and a value that the program words.",
    "kind": "logic",
@@ -22022,7 +26049,7 @@ window.KKT_CONCERNS = {
    "must_not": "Know a database."
   },
   "kkt-server": {
-   "concern": "Assembling the server from its parts: the rules the program built with kkt-rules' `start`, `/mcp`, `/mcp-admin` and the web page; the adapter from admission and identity to the web page's gate, public for a product that builds its own page; handing the page the rules as `OperatorApi`; the page's sessions, which it builds when it mounts the page; the web page alone, for a program that serves only it (`page`).",
+   "concern": "Assembling the server around the program's `Arc<dyn AdminApi>` in `Parts`: `/mcp`, `/mcp-admin` and the web page; its `ServerSettings` returns an opaque `CheckedSettings` snapshot for `Parts::new` and composes owner checks and run-record lines with the program's plain values, with `SettingError`; the public adapter from admission and identity to the web gate; the page's sessions; the web page alone over its API and gate (`page`).",
    "kind": "composition",
    "layer": "assembly",
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in."
@@ -22044,12 +26071,6 @@ window.KKT_CONCERNS = {
    "kind": "effect",
    "layer": "operations",
    "must_not": "Decide what a service command does."
-  },
-  "kkt-settings": {
-   "concern": "Gathering a server's settings from flags, what the config file gives and defaults, and wording the settings a server run records as lines of a name and a value. Only the programs depend on it.",
-   "kind": "logic",
-   "layer": "operations",
-   "must_not": "Read files or the environment, or parse the config file: callers pass in what the file gives and the defaults that depend on the machine."
   },
   "kkt-setup": {
    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
@@ -22188,11 +26209,90 @@ window.KKT_CONCERNS = {
 window.KKT_ASSEMBLY = {
  "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install). \"injectors\" lists the wiring that a shared crate does itself (kkt-server, which assembles the server), in the same form; an entry that passes on what it was given names it in \"own\" and its supplier in \"supplier\".",
  "injectors": {
+  "kkt-agent-commands": {
+   "wiring": [
+    {
+     "crate": "kkt-watch",
+     "own": "the servers the program gave AgentParts",
+     "supplier": "the program's servers",
+     "to": [
+      {
+       "at": "run",
+       "param": "server"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-watch",
+     "own": "the clock the program gave AgentParts",
+     "supplier": "the program's clock",
+     "to": [
+      {
+       "at": "run",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-watch",
+     "own": "the credentials the program gave AgentParts",
+     "supplier": "the program's credentials",
+     "to": [
+      {
+       "at": "run",
+       "param": "place"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-watch",
+     "own": "the report the program gave AgentParts",
+     "supplier": "the program's report",
+     "to": [
+      {
+       "at": "run",
+       "param": "report"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-client-config",
+     "own": "the client configs' host the program gave AgentParts",
+     "supplier": "the program's client configs' host",
+     "to": [
+      {
+       "at": "configure",
+       "param": "host"
+      },
+      {
+       "at": "Client::file",
+       "param": "host"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-setup",
+     "own": "the connection question the program gave AgentParts",
+     "supplier": "the program's connection question",
+     "to": [
+      {
+       "at": "connection::client_connection",
+       "param": "source"
+      },
+      {
+       "at": "connection::admin_connection",
+       "param": "source"
+      }
+     ]
+    }
+   ]
+  },
   "kkt-server": {
    "wiring": [
     {
      "crate": "kkt-web",
-     "impl": "kkt-rules::Rules",
+     "own": "the AdminApi the program gave Parts",
+     "supplier": "the program's AdminApi",
      "to": [
       {
        "at": "router",
@@ -22212,7 +26312,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-mcp",
-     "impl": "kkt-rules::Rules",
+     "own": "the AdminApi the program gave Parts",
+     "supplier": "the program's AdminApi",
      "to": [
       {
        "at": "endpoint",
@@ -22302,14 +26403,54 @@ window.KKT_ASSEMBLY = {
    "also": [
     {
      "items": [
+      "kashkeshet::machine::agent_parts::agent_parts",
+      "kkt-agent-commands::AgentParts",
+      "kashkeshet::machine::connection::ConnectionReads",
+      "kkt-agent-client::Client",
       "kkt-agent-client::Remote",
       "kkt-agent-client::AdminRemote",
-      "kkt-watch::run",
+      "kkt-agent-commands::register",
+      "kkt-agent-commands::reclaim",
+      "kkt-agent-commands::watch::run",
+      "kkt-agent-commands::connect::run",
       "kkt-clock-system::SystemClock",
       "kkt-terminal-os::Terminal"
      ],
-     "text": "The command picks a client for the server, Remote (as an agent) or AdminRemote (with --admin), and adapts its records and failures to kkt-watch's Server with the system clock.",
-     "title": "kkt watch"
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client's clients adapted to its Servers and to kkt-watch's Server, the credential and state files, the key files, kkt's path, the terminal and the system clock.",
+     "title": "The agents' commands"
+    },
+    {
+     "items": [
+      "kashkeshet::machine::operate::NativeOperate",
+      "kkt-operate::OperateParts",
+      "kkt-operate::ServeFacts",
+      "kkt-operate::ServiceDefaults",
+      "kkt-operate::SetupFiles",
+      "kkt-operate::KeyFiles",
+      "kkt-operate::Databases",
+      "kkt-operate::Output",
+      "kkt-setup::connection::ConnectionSource",
+      "kkt-operate::agent::run",
+      "kkt-operate::doctor::run",
+      "kkt-operate::lanes::run",
+      "kkt-operate::key::create",
+      "kkt-operate::service::run",
+      "kkt-operate::service::service_plan",
+      "kkt-operate::ServiceInputs",
+      "kkt-operate::CheckService",
+      "kkt-operate::setup::run",
+      "kkt-operate::setup::run_switch",
+      "kkt-operate::setup::InstallOptions",
+      "kkt-operate::ConfigText",
+      "kkt-operate::lifecycle::status",
+      "kkt-operate::lifecycle::upgrade",
+      "kkt-operate::lifecycle::uninstall",
+      "kkt-operate::lifecycle::backup",
+      "kkt-operate::record::check_setup",
+      "kkt-operate::BackupWriter"
+     ],
+     "text": "main.rs builds the operator's parts once, a NativeOperate with the service capability (ServeArgs), and gives every operator command its OperateParts: native containers, services, client files, probes, lane disk, clock, setup and key files, database, backups and terminal. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. The native try_bind callback checks the address before installation. Setup and switch compose their steps in operate, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
+     "title": "The operator's commands"
     }
    ],
    "inferred": false,
@@ -22321,12 +26462,15 @@ window.KKT_ASSEMBLY = {
       "kkt-config-file-os::read",
       "kkt-config-file::parse_file",
       "kkt-setup::default_db",
-      "kkt-settings::ServeSettings",
-      "kkt-settings::Limits",
+      "kashkeshet::machine::settings::ServeOptions",
+      "kashkeshet::machine::settings::ServeSettings",
+      "kashkeshet::machine::settings::server_settings",
+      "kkt-rules::Settings",
+      "kkt-backup::Settings",
       "kkt-admission::server_keys::check",
       "kkt-admission::server_keys::ServerKeys"
      ],
-     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "title": "Settings"
     },
     {
@@ -22345,38 +26489,36 @@ window.KKT_ASSEMBLY = {
     },
     {
      "items": [
-      "kkt-settings::RecordedSettings",
+      "kkt-server::ServerSettings",
       "kkt-provenance::ServerRun",
-      "kkt-server::new_server_run",
       "kkt-rules::NewServerRun",
       "kkt-rules::Startup",
       "kkt-rules::start"
      ],
-     "text": "What produced this run, with its settings worded by kkt-settings, goes to kkt-rules' start in its terms (new_server_run), which records it and builds the Rules over the store; new rows carry its ID.",
+     "text": "The owners word their settings and the program supplies its own plain record lines; ServerSettings orders them. The program maps the run into NewServerRun, and kkt-rules start records it and builds the Rules.",
      "title": "Run record"
     },
     {
-     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify)",
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, checked)",
      "items": [
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy",
-      "kkt-identity-keymode::KeyMode"
+      "kkt-identity-keymode::KeyMode",
+      "kkt-server::ServerSettings",
+      "kkt-api-admin::AdminApi",
+      "kkt-server::CheckedSettings"
      ],
-     "text": "The Rules start built, the system clock and the operating system's randomness they were built with, and key mode's identity go into the server's parts.",
+     "text": "The Rules start built, the system clock and the operating system's randomness they were built with, and key mode's identity go into the server's parts. Parts takes the API as Arc<dyn AdminApi>, the checked settings snapshot.",
      "title": "Parts"
     },
     {
      "items": [
       "kkt-server::AppConfig",
       "kkt-admission::Admission",
-      "kkt-admission::AdminAdmission",
-      "kkt-hosts::AllowedHosts",
-      "kkt-rules::Settings",
-      "kkt-web::Settings",
-      "kkt-mcp::Settings"
+      "kkt-admission::AdminAdmission"
      ],
-     "text": "The three admissions from the key check, the allowed hosts, the limits and the MCP event streams' defaults go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey.",
+     "text": "The three admissions and optional instructions text go into AppConfig; component settings and the checked hosts go through Parts.",
      "title": "Config"
     },
     {
@@ -22541,72 +26683,109 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-watch",
-     "note": "kkt watch",
-     "own": "WatchServer, adapting kkt-agent-client::Remote",
-     "supplier": "kkt-agent-client::Remote",
-     "to": [
-      {
-       "at": "run",
-       "param": "server"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-watch",
+     "crate": "kkt-agent-commands",
      "note": "kkt watch --admin",
-     "own": "WatchServer, adapting kkt-agent-client::AdminRemote",
-     "supplier": "kkt-agent-client::AdminRemote",
+     "own": "AdminKeyHere, asking kkt-operate's key finder (keys::selected_key_path) over the operator's parts on this machine",
+     "supplier": "kkt-operate::keys::selected_key_path",
      "to": [
       {
-       "at": "run",
-       "param": "server"
+       "at": "AgentParts",
+       "param": "admin_key"
       }
      ]
     },
     {
-     "crate": "kkt-watch",
-     "impl": "kkt-clock-system::SystemClock",
-     "note": "kkt watch",
+     "crate": "kkt-agent-commands",
+     "note": "kkt register, reclaim and watch",
+     "own": "McpServers, adapting kkt-agent-client's Client, Remote and AdminRemote (as WatchServer)",
+     "supplier": "kkt-agent-client::Client",
      "to": [
       {
-       "at": "run",
-       "param": "clock"
+       "at": "AgentParts",
+       "param": "servers"
       }
      ]
     },
     {
-     "crate": "kkt-agent-client",
-     "impl": "kkt-clock-system::SystemClock",
-     "note": "kkt watch --admin",
+     "crate": "kkt-agent-commands",
+     "note": "kkt register, reclaim and watch",
+     "own": "CredentialFiles, adapting kkt-agent-client's credential and state files",
+     "supplier": "kkt-agent-client::CredentialFile",
      "to": [
       {
-       "at": "AdminRemote::new",
-       "param": "clock"
+       "at": "AgentParts",
+       "param": "credentials"
       }
      ]
     },
     {
-     "crate": "kkt-watch",
-     "note": "kkt watch",
-     "own": "StateFile, adapting kkt-agent-client::StateFile",
-     "supplier": "kkt-agent-client::StateFile",
+     "crate": "kkt-agent-commands",
+     "note": "kkt register, reclaim and watch",
+     "own": "KeyFiles, adapting kkt-admission-os::KeyFiles",
+     "supplier": "kkt-admission-os::KeyFiles",
      "to": [
       {
-       "at": "run",
-       "param": "place"
+       "at": "AgentParts",
+       "param": "key_files"
       }
      ]
     },
     {
-     "crate": "kkt-watch",
+     "crate": "kkt-agent-commands",
+     "note": "kkt connect",
+     "own": "ClientHost, adapting kkt-client-config-os's OsHost",
+     "supplier": "kkt-client-config-os's OsHost",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "clients"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-agent-commands",
+     "note": "kkt connect",
+     "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
+     "supplier": "kkt-setup-os::kkt_path",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "program"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-agent-commands",
      "note": "kkt watch",
      "own": "WatchOutput, adapting kkt-terminal-os::Terminal",
      "supplier": "kkt-terminal-os::Terminal",
      "to": [
       {
-       "at": "run",
+       "at": "AgentParts",
        "param": "report"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-agent-commands",
+     "note": "kkt register, reclaim and connect",
+     "own": "TerminalOutput, adapting kkt-terminal-os::Terminal",
+     "supplier": "kkt-terminal-os::Terminal",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "output"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-agent-commands",
+     "impl": "kkt-clock-system::SystemClock",
+     "note": "kkt watch",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "clock"
       }
      ]
     },
@@ -22841,7 +27020,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-client-config",
-     "note": "kkt connect, kkt setup, kkt doctor",
+     "note": "kkt setup, kkt doctor",
      "own": "ClientHost, adapting kkt-client-config-os's OsHost",
      "supplier": "kkt-client-config-os's OsHost",
      "to": [
@@ -22962,6 +27141,192 @@ window.KKT_ASSEMBLY = {
        "param": "log"
       }
      ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "ContainerHost",
+     "supplier": "kkt-container-os::OsHost",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "container"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "ContainerConfigs",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "container_configs"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "ServiceSystem",
+     "supplier": "kkt-service-os::OsSystem",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "service"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "RemoteHost",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "remote"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "ClientHost",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "clients"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "DiagnosticProber",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "prober"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "LaneDisk",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "lanes"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "ServeReads, answering the program's serving questions lazily",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "serve"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "setup_files"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "NativeKeyFiles, forwarding key files to kkt-admission-os and generation to kkt-entropy-os",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "key_files"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "NativeDatabases, opening this program's database",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "database"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os with this program's database copy",
+     "supplier": "kkt-backup-os::write",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "backups"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "NativeOutput, adapting kkt-terminal-os",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "output"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "impl": "kkt-clock-system::SystemClock",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "ServiceCheck, keeping the program's loaded serve options and source context until the service plan is checked",
+     "to": [
+      {
+       "at": "ServiceInputs",
+       "param": "check"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "TerminalLink, adapting the native browser link",
+     "supplier": "kkt-terminal-os::BrowserLink",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "login_link"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "TerminalLines, adapting the terminal",
+     "supplier": "kkt-terminal-os::Terminal",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "lines"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "own": "NativeConfigText, forwarding config text reads and writes",
+     "supplier": "kkt-config-file-os::read",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "config_file"
+      }
+     ]
     }
    ]
   },
@@ -22978,26 +27343,28 @@ window.KKT_ASSEMBLY = {
      "title": "Database"
     },
     {
-     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify)",
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, checked)",
      "items": [
       "kkt-rules::start",
       "kkt-rules::Startup",
       "kkt-rules::NewServerRun",
       "kkt-api-admin::Swarms",
       "kkt-server::Parts",
-      "kkt-fake-product::FakeIdentify"
+      "kkt-fake-product::FakeIdentify",
+      "kkt-server::ServerSettings",
+      "kkt-api-admin::AdminApi",
+      "kkt-server::CheckedSettings"
      ],
-     "text": "kkt-rules' start records the product's run and builds the Rules, which make the second swarm (Swarms::create_swarm); the Rules, the clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role), go into the server's parts.",
+     "text": "kkt-rules' start records the product's run and builds the Rules, which make the second swarm (Swarms::create_swarm); the Rules, the clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role), go into the server's parts. Parts takes the API as Arc<dyn AdminApi>, the checked settings snapshot.",
      "title": "Parts"
     },
     {
      "items": [
       "kkt-server::AppConfig",
       "kkt-admission::Admission",
-      "kkt-admission::AdminAdmission",
-      "kkt-hosts::AllowedHosts"
+      "kkt-admission::AdminAdmission"
      ],
-     "text": "Any bearer is let in, on /mcp, the web page and /mcp-admin alike, for FakeIdentify to judge.",
+     "text": "The three admissions and optional instructions text go into AppConfig; component settings and the checked hosts go through Parts.",
      "title": "Config"
     },
     {
@@ -23149,10 +27516,13 @@ window.KKT_ASSEMBLY = {
      "items": [
       "kkt-config-file-os::read_named",
       "kkt-config-file::parse_file",
-      "kkt-settings::ServeSettings",
+      "kkt-rules::Settings",
+      "kkt-mcp-formatter::Settings",
+      "kkt-web::Settings",
+      "kkt-backup::Settings",
       "kkt-admission::server_keys::check"
      ],
-     "text": "The same config file as kkt serve, read through kkt-config-file-os, parsed by kkt-config-file and gathered by kkt-settings, and the same key check.",
+     "text": "The same config file as kkt serve, read through kkt-config-file-os, parsed by kkt-config-file and turned by the program into each owner's settings, with the owners' defaults for the rest, and the same key check.",
      "title": "Settings"
     },
     {
@@ -23168,18 +27538,17 @@ window.KKT_ASSEMBLY = {
     },
     {
      "items": [
-      "kkt-settings::RecordedSettings",
+      "kkt-server::ServerSettings",
       "kkt-provenance::ServerRun",
-      "kkt-server::new_server_run",
       "kkt-rules::NewServerRun",
       "kkt-rules::Startup",
       "kkt-rules::start"
      ],
-     "text": "The run is recorded, and the Rules built, as kkt serve's are.",
+     "text": "The owners word their settings and the program supplies its own plain record lines; ServerSettings orders them. The program maps the run into NewServerRun, and kkt-rules start records it and builds the Rules.",
      "title": "Run record"
     },
     {
-     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify)",
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, checked)",
      "items": [
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
@@ -23187,9 +27556,12 @@ window.KKT_ASSEMBLY = {
       "kkt-identity-keymode::KeyMode",
       "kkt-server::AppConfig",
       "kkt-admission::AdminAdmission",
-      "kkt-hosts::AllowedHosts"
+      "kkt-hosts::AllowedHosts",
+      "kkt-server::ServerSettings",
+      "kkt-api-admin::AdminApi",
+      "kkt-server::CheckedSettings"
      ],
-     "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission.",
+     "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission. Parts takes the API as Arc<dyn AdminApi>, the checked settings snapshot.",
      "title": "Parts and config"
     },
     {
