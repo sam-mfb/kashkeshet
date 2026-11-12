@@ -119,8 +119,9 @@ crate.
 
 A merged crate, of kind "contract and effect", is drawn as a split box:
 its contract on the left, and on the right a tinted strip labelled `real`,
-its one implementation. A small hollow green triangle on the divider is
-the implementation implementing its own contract. An arrow meets the part
+its one implementation. A small hollow green triangle on the divider, on
+the second line, is the implementation implementing its own contract. A
+name too long for the contract part is squeezed to end before the divider. An arrow meets the part
 it depends on: one that turns `real` on (the program's, or the fake
 product's tests') meets the implementation; any other meets the contract.
 The merged crate's own optional dependencies, which only `real` turns on,

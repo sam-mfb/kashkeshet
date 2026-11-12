@@ -65,6 +65,14 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       const merged = "kkt-agent-client";
       check(m("a merged crate's box has its implementation part"),
         (await p.$$eval(`${node(merged)} .impl-part`, (x) => x.length)) === 1);
+      // Every merged crate's name ends before the divider, and the green
+      // mark on the divider sits below it.
+      const overruns = await p.$$eval(".node .impl-divider", (dividers) => dividers.map((d) => {
+        const name = d.parentNode.querySelector("text.name").getBBox();
+        const mark = d.parentNode.querySelector(".self-implements").getBBox();
+        return [d.parentNode.getAttribute("aria-label").split(":")[0], name.x + name.width, d.getBBox().x, name.y + name.height, mark.y];
+      }).filter(([, end, divider, bottom, markTop]) => end > divider || markTop < bottom));
+      check(m("each merged crate's name clears the divider and its mark"), overruns.length === 0, overruns);
       const endX = (from) => p.$eval(`path.edge[data-edge='${from}>${merged}>normal'][data-head]`, (path) => {
         const box = path.ownerSVGElement.querySelector(`.node[aria-label^='${path.dataset.edge.split(">")[1]}:']`);
         const at = path.getPointAtLength(path.getTotalLength());

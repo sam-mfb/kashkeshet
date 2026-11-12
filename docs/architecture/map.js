@@ -55,7 +55,8 @@
   // A merged crate's box is split: the contract on the left, the
   // implementation, behind `real`, in a strip on the right. Arrows meet the
   // part they depend on, on whichever edge faces them.
-  const IMPL_W = 46;
+  const IMPL_W = 34;
+  const MARK_Y = 29;
   const GAP_X = 18;
   const PAD_X = 16;
   const PAD_Y = 14;
@@ -391,7 +392,7 @@
       });
       g.append(svg("rect", { width: BOX_W, height: BOX_H }));
       if (isMerged(name)) g.append(...implementationPart());
-      const label = svg("text", { x: 9, y: 17 });
+      const label = svg("text", { x: 9, y: 17, class: "name" });
       label.textContent = name;
       const sub = svg("text", { x: 9, y: 32, class: "sub" });
       sub.textContent = subtitle(c);
@@ -412,6 +413,17 @@
       view.nodes.set(name, g);
     }
     root.append(nodeLayer);
+    // A merged crate's name must end before the divider: a longer one is
+    // squeezed to fit, which only measuring the drawn text can tell.
+    for (const [name, g] of view.nodes) {
+      if (!isMerged(name)) continue;
+      const label = g.querySelector("text.name");
+      const room = BOX_W - IMPL_W - 9 - 3;
+      if (label.getComputedTextLength() > room) {
+        label.setAttribute("textLength", room);
+        label.setAttribute("lengthAdjust", "spacingAndGlyphs");
+      }
+    }
     // The delivery lines' slot names, above the boxes so none is hidden.
     view.deliveryLabels = svg("g", { class: "delivery-labels" });
     root.append(view.deliveryLabels);
@@ -448,7 +460,8 @@
     const divider = svg("path", { class: "impl-divider", d: `M${x},0 L${x},${BOX_H}` });
     const label = svg("text", { class: "sub impl-label", x: x + IMPL_W / 2, y: 32 });
     label.textContent = "real";
-    const mark = svg("path", { class: "self-implements", d: `M${x + 7},${BOX_H / 2 - 4} L${x + 1},${BOX_H / 2} L${x + 7},${BOX_H / 2 + 4} z` });
+    // On the second line, below the name, which runs up to the divider.
+    const mark = svg("path", { class: "self-implements", d: `M${x + 7},${MARK_Y - 4} L${x + 1},${MARK_Y} L${x + 7},${MARK_Y + 4} z` });
     const tip = svg("title");
     tip.textContent = "Implementation, behind real: it implements the crate's own contract, on the left";
     strip.append(tip);
