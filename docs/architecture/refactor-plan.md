@@ -1478,8 +1478,8 @@ trait only through an `impl` beside one of them
 
 **The target shape: a merged crate.** One crate, named for the scope,
 holds:
-- the contract in the open: the trait, its records and its stand-in, all
-  compiled always, with the stand-in behind `testing`;
+- the contract in the open: the trait and its records, always compiled,
+  and its stand-in behind `testing`;
 - the implementation behind `real`, which only programs turn on
   (check-crates' check 2).
 
@@ -1487,7 +1487,27 @@ Consumers depend on it without `real`, so they cannot name the
 implementation: it does not exist in their build, and CI builds each crate
 alone. The program turns `real` on and injects the implementation as it
 is, with no adapter. The tool's knowledge stays testable without `real`,
-over a private runner and fake, as phase 12 made it.
+over a private runner and fake, as phase 12 made it. Phase 12 compiled a
+whole wrapper under `cfg(any(feature = "real", test))`. In a merged crate
+that cfg sits on the private modules only, since the open contract must
+compile without `real`.
+
+**The wrapper's dependencies become optional, behind `real`.** Otherwise a
+consumer that needs only the contract gains the tool's whole dependency
+graph, and the map shows new arrows from the contract. For example,
+kkt-setup needs only kkt-container's records, and must not gain what
+kkt-container-docker uses. Per merge:
+- 13.1: kkt-config-file, kkt-machine, serde_json and thiserror, from
+  kkt-container-docker;
+- 13.2: what kkt-remote-access-tailscale adds beyond the contract;
+- 13.3: kkt-browser becomes optional in the merged kkt-container, since
+  only `Docker::new` takes a browser;
+- 13.4, 13.5: what the git and reqwest wrappers add;
+- 13.6: rmcp, reqwest, tokio and libc.
+
+A dependency that the open contract itself uses stays a normal one. A
+merged crate's `real` turns on its optional dependencies, but never
+another crate's `real` (check 2): the program does that, as it does today.
 
 **The six merges.**
 
@@ -1559,9 +1579,28 @@ kkt-review-373, msg 3153):
 - **A new kind, "contract and effect"** (`concerns.json`, `proposed.json`,
   `kinds.py`). It holds a contract in the open and its one implementation
   behind `real`.
+  - **How it differs from "mixed".** `kinds.py`'s "mixed" (a contract or
+    logic together with a real effect) is a break, and stays one. The new
+    kind differs in two things that must hold together: the effect is the
+    implementation of the crate's own contract, and only programs turn its
+    `real` on (check 2). A crate that fails either is still "mixed".
+    `check()`'s "mixed" branch does not change; the new kind gets its own.
   - `kinds.py` checks that the items outside `real` only compute on their
-    own values (today's `beyond_values` test for a contract), and that the
-    crate has a `real` feature.
+    own values (today's `beyond_values` test for a contract), that I/O
+    dependencies are only optional ones behind `real`, and that the crate
+    has a `real` feature.
+  - **Data the check needs, which the map does not record yet.**
+    - **Each slot's feature.** `beyond_values` flags every slot outside
+      `testing::` that takes a trait. After 13.1 and 13.3,
+      `Docker::new(Box<dyn Browser>)` sits behind `real` in kkt-container,
+      but today's slot record (`Docker::new`, `browser`, no feature) cannot
+      say so. generate.py records each slot's feature, and `beyond_values`
+      skips slots behind `real`.
+    - **Which third-party dependencies are optional, and under which
+      feature.** The contract check fails a crate with an I/O dependency.
+      A merged kkt-agent-client keeps reqwest, rmcp and tokio, behind
+      `real`. generate.py records each dependency's optional feature, and
+      the new kind allows I/O dependencies only there.
   - check-crates.sh's check 6 (no `real` in a contract crate) keeps
     applying to "contract" crates only, so its code does not change; its
     comment names the new kind.
@@ -1582,9 +1621,10 @@ kkt-review-373, msg 3153):
 **The map: a merged crate's two kinds of dependency** (a proposal; nothing
 built yet). Sam wants the map to show which dependency on a merged crate
 is on its contract only (built without `real`), and which is on its
-implementation (turning `real` on). The data already holds what is
-needed: each arrow records the features it turns on, and each item
-whether it is behind `real`.
+implementation (turning `real` on). For the drawing, the data already
+holds what is needed: each arrow records the features it turns on, and
+each item whether it is behind `real`. (The kind's check needs more data;
+see 13.0 above.)
 
 - **The box:** a merged crate is drawn in two parts, one above the other,
   with a thin divider.
@@ -1632,18 +1672,21 @@ contract part out to each consumer, amber from the implementation part out
 to the program, and the green mark inside.
 
 **One case needs a rule:** an arrow with several roles whose directions
-now differ. The common one is a wrapper that both implements its contract
-and uses its records. Proposed: such an arrow keeps the "implements"
-direction, with its "uses" stroke beside it, since using the contract's
-records is part of implementing it. Every other arrow has one direction.
+now differ. The only one is "implements" together with "uses": a wrapper
+that implements its contract and uses its records. Proposed: such an arrow
+keeps the "implements" direction, with its "uses" stroke beside it, since
+using the contract's records is part of implementing it. A program's arrow
+that both uses and wires a crate reverses both strokes the same way, so it
+needs no rule.
 
 **What else reads backwards today, and would change with it:**
 - **The legend and the role words** read as "A uses B" and "A wires B".
   They become "used by" and "built by", with "implements a contract of"
   unchanged.
-- **The help text** ("Arrows point from a crate to what it depends on")
-  says the new direction, and that the data and the panel's lists keep
-  Cargo's sense.
+- **The help text** ("Arrows point from a crate to what it depends on",
+  map.js and the page's hint in index.html) says the new direction.
+- **The key's "Parallel lines"** (several roles, with one head shaped by
+  the first role) also says which way that head points.
 - **The edge panel's title,** today "A → B" for A depends on B: drawn in
   the arrow's direction, with "used by", "built by" or "implements" between
   the names.
@@ -1662,9 +1705,10 @@ build order, so neither changes.
 later, if Sam wants the same reading there.
 
 **What the code needs:**
-- **map.js:** draw a "uses" or "wires" stroke from `to` to `from`, choosing
-  the arrowhead per drawn direction; the multi-role rule; the wording
-  above.
+- **map.js:** draw a "uses" or "wires" stroke from `to` to `from`; the
+  multi-role rule; the wording above. The arrowheads already use
+  `auto-start-reverse`, so no new markers are needed.
+- **index.html:** the hint.
 - **README.md:** the arrows' section.
 - **page-test.js:** a check that a "uses" arrow's head is at the user.
 - **generate.py:** nothing.
@@ -1677,7 +1721,7 @@ kkt-review-b, and its plan and map work by kkt-review-373.
 
 | Step | What | Size | Builds | Reviews |
 |---|---|---|---|---|
-| 13.0 | The rule text, the new kind, kinds.py, progress.py, check-crates' comment, CLAUDE.md, the proposal's rule | S | kkt-mt-step1 | kkt-review-373 |
+| 13.0 | The rule text, the new kind, generate.py's slot features and optional dependencies, kinds.py, progress.py, check-crates' comment, CLAUDE.md, the proposal's rule | M | kkt-mt-step1 | kkt-review-373 |
 | 13.1 | kkt-container merges with kkt-container-docker | M | kkt-build-c | kkt-review-373 |
 | 13.2 | kkt-remote-access merges with kkt-remote-access-tailscale | S | kkt-build-c | kkt-review-373 |
 | 13.3 | kkt-browser merges with kkt-browser-os | S | kkt-mt-step1 | kkt-review-b |
