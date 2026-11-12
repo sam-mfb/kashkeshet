@@ -388,12 +388,32 @@ async fn read(db: &Arc<dyn Backend>, question: Question) -> String {
 async fn the_fast_database_answers_as_the_memory_database_does() {
     for seed in 1..=40 {
         let mut draw = Draw::new(seed);
-        let plain = MemoryPlace::new()
-            .open(&[library()])
-            .expect("a memory database");
-        let fast = FastPlace::new()
-            .and_then(|p| p.open(&[library()]))
-            .expect("a fast database");
+        // Each seed also declares an index whose name may be one the
+        // stand-in could use for its own: the key's, a unique column's, a
+        // declared one's.
+        let (table, column) =
+            draw.pick(&[("people", "name"), ("books", "title"), ("loans", "person")]);
+        let extras = crate::Set {
+            name: "extras",
+            migrations: vec![vec![crate::Step::AddIndex {
+                table,
+                index: crate::Index {
+                    name: draw.pick(&["pk", "key", "name", "unique_name", "index_x", "by_x"]),
+                    columns: vec![column],
+                },
+            }]],
+        };
+        let sets = [library(), extras];
+        let plain = MemoryPlace::new().open(&sets);
+        let fast = FastPlace::new().and_then(|p| p.open(&sets));
+        let (plain, fast) = match (plain, fast) {
+            (Ok(plain), Ok(fast)) => (plain, fast),
+            (plain, fast) => panic!(
+                "seed {seed}: opening: {:?} and {:?}",
+                plain.map(drop),
+                fast.map(drop)
+            ),
+        };
         for step in 0..150 {
             let (said, also) = if draw.chance(5) {
                 let changes: Vec<Change> =
@@ -431,7 +451,10 @@ fn an_index_of_any_name_opens() {
                     .index(name, vec!["id"]),
             )]],
         };
-        assert!(MemoryPlace::new().open(&[set.clone()]).is_ok(), "{name}");
+        assert!(
+            MemoryPlace::new().open(std::slice::from_ref(&set)).is_ok(),
+            "{name}"
+        );
         let fast = FastPlace::new().and_then(|p| p.open(&[set]));
         assert!(fast.is_ok(), "{name}: {:?}", fast.err());
     }

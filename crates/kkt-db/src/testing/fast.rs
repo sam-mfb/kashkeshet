@@ -981,10 +981,11 @@ fn referenced(schema: &Schema, table: &str) -> Vec<&'static str> {
     let mut out = Vec::new();
     for other in schema.tables() {
         for column in &other.columns {
-            if let Some(r) = &column.references {
-                if r.table == table && !out.contains(&r.column) {
-                    out.push(r.column);
-                }
+            if let Some(r) = &column.references
+                && r.table == table
+                && !out.contains(&r.column)
+            {
+                out.push(r.column);
             }
         }
     }
@@ -1045,11 +1046,11 @@ fn check(conn: &rusqlite::Connection, schema: &Schema, scope: Scope<'_>) -> Resu
         // Which rows to look at, when not every row.
         let mut candidates = Vec::new();
         let mut candidate_params = Vec::new();
-        if let Some(rows) = rows {
-            if !rows.is_empty() {
-                let ids: Vec<Value> = rows.iter().map(|r| Value::Int(*r)).collect();
-                candidates.push(one_of("t.rowid", &ids, &mut candidate_params));
-            }
+        if let Some(rows) = rows
+            && !rows.is_empty()
+        {
+            let ids: Vec<Value> = rows.iter().map(|r| Value::Int(*r)).collect();
+            candidates.push(one_of("t.rowid", &ids, &mut candidate_params));
         }
         for column in &table.columns {
             let c = format!("t.{}", quote(column.name));
