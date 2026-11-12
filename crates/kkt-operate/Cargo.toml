@@ -25,3 +25,6 @@ kkt-remote-access = { path = "../kkt-remote-access" }
 kkt-rules = { path = "../kkt-rules" }
 kkt-service = { path = "../kkt-service" }
 kkt-setup = { path = "../kkt-setup" }
+
+[dev-dependencies]
+futures.workspace = true

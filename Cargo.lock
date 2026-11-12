@@ -1516,6 +1516,7 @@ dependencies = [
 name = "kkt-operate"
 version = "0.10.0"
 dependencies = [
+ "futures",
  "kkt-admission",
  "kkt-api-agent",
  "kkt-api-operator",
