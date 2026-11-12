@@ -1375,18 +1375,19 @@ the later steps repeat its pattern.
 **Steps.** Each step is one pull request into `refactor`. 12.1 sets the
 pattern; the rest start once it merges (msg 3050). Who takes which is a
 proposal: each builder is reviewed by the other model, as through phases 9
-to 11.
+to 11 (kkt-mt-step1's code by kkt-review-b since msg 2273, its plan and map
+by kkt-review-373).
 
 | Step | What | Size | Builds | Reviews |
 |---|---|---|---|---|
 | 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (in progress) | kkt-review-373 |
 | 12.2 | container: contract and kkt-container-docker, with the Docker logic, its tests and the sidecar's status | L | kkt-build-c, after 12.1: the same pattern, and it knows kkt-operate's parts | kkt-review-373 |
 | 12.3 | service: contract, kkt-service-launchd and kkt-service-systemd | M to L | kkt-build-b | kkt-review-b |
-| 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | kkt-mt-step1, who built kkt-agent-commands (10.3) | kkt-review-373 |
+| 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | kkt-mt-step1, who built kkt-agent-commands (10.3) | kkt-review-b |
 | 12.5a | lane-files' git: kkt-lane-files-git | S | kkt-build-b, after 12.3 | kkt-review-b |
 | 12.5b | The probe: kkt-probe and kkt-probe-reqwest | S | kkt-build-b, after 12.5a | kkt-review-b |
-| 12.5c | The `claude` command: kkt-client-config-claude | S | kkt-mt-step1, after 12.4 | kkt-review-373 |
-| 12.5d | The browser opener: kkt-browser and kkt-browser-os | S | kkt-mt-step1, after 12.5c | kkt-review-373 |
+| 12.5c | The `claude` command: kkt-client-config-claude | S | kkt-mt-step1, after 12.4 | kkt-review-b |
+| 12.5d | The browser opener: kkt-browser and kkt-browser-os | S | kkt-mt-step1, after 12.5c | kkt-review-b |
 | 12.6 | Chart what differs, and the scorecard | S | kkt-mt-step1 | kkt-review-373 |
 
 12.2, 12.3 and 12.4 run side by side after 12.1: three builders, each on
