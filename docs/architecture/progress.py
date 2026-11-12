@@ -14,10 +14,10 @@ with the proposed map, and prints:
 - arrows: the proposed normal arrows present and missing, and the normal
   arrows in the code that the proposal does not have;
 - rules: kinds.py's checks, with the proposed kinds, and the proposal's own
-  rules (only programs and compositions depend on effect crates, in code and
-  in tests; a crate implements another's contract only if that crate is a
-  contract crate, or it is a program, a composition or test support), run on
-  the code.
+  rules (only programs and compositions depend on effect crates, or turn on
+  a merged crate's `real`, in code and in tests; a crate implements another's
+  contract only if that crate is a contract crate or a merged one, or it is a
+  program, a composition or test support), run on the code.
 
   python3 docs/architecture/progress.py            the scorecard
   python3 docs/architecture/progress.py --list     and every missing or extra entry
@@ -84,14 +84,15 @@ def score(current, current_concerns, proposed, proposed_concerns):
                for n in crates}
     mismatches, mixed = kinds.check(list(crates.values()), current["edges"], kind_of, mixed_allowed=False)
     allowed = {n for n, c in crates.items() if c["bins"]} | {n for n, k in kind_of.items() if k == "composition"}
+    # A merged crate is an effect only to an arrow that turns its `real` on.
     breaks = [f"{e['from']} depends on the effect crate {e['to']}" + (" in its tests" if e["kind"] == "dev" else "")
               for e in current["edges"]
-              if kind_of.get(e["to"]) == "effect" and e["kind"] in ("normal", "dev") and e["from"] not in allowed]
+              if kinds.reaches_effect(e, kind_of) and e["kind"] in ("normal", "dev") and e["from"] not in allowed]
     for c in crates.values():
         for r in c["implements"]:
             if r["trait_crate"] == c["name"] or c["name"] in allowed or kind_of.get(c["name"]) == "test support":
                 continue
-            if kind_of.get(r["trait_crate"]) != "contract":
+            if not kinds.is_contract(kind_of.get(r["trait_crate"])):
                 breaks.append(f"{c['name']}'s {r['type'] or 'own type'} implements {r['trait_crate']}::{r['trait']}")
     result["rules"] = {"kinds": sorted(mismatches + mixed), "proposal": sorted(set(breaks))}
     return result

@@ -88,5 +88,77 @@ class PathProbes(unittest.TestCase):
         self.assertFalse(check.kinds.is_std_io("path::Path"))
 
 
+
+def merged(slots=(), features=("real", "testing"), third_party=(), optional=None, implements=None):
+    """A crate marked contract and effect, as the map records it."""
+    return {"name": "kkt-tool", "bins": [], "features": {f: [] for f in features},
+            "slots": list(slots), "third_party": list(third_party),
+            "optional_third_party": optional or {}, "machine_work": {},
+            "implements": [{"crate": "kkt-tool", "type": "Tool", "trait_crate": "kkt-tool", "trait": "Run"}]
+            if implements is None else implements}
+
+
+def edge(source, target, features=(), kind="normal"):
+    return {"from": source, "to": target, "kind": kind, "features": list(features), "roles": []}
+
+
+class ContractAndEffect(unittest.TestCase):
+    """A merged crate: its contract in the open, its one implementation behind `real` (phase 13)."""
+
+    kinds = check.kinds
+
+    def mismatches(self, crate, edges=(), others=()):
+        crates = [crate, *others]
+        kind_of = {c["name"]: c.get("kind", self.kinds.MERGED) for c in crates}
+        found, _ = self.kinds.check(crates, list(edges), kind_of, mixed_allowed=False)
+        return found
+
+    def test_a_well_formed_merged_crate_passes(self):
+        slot = {"at": "Tool::new", "name": "browser", "traits": [{"crate": "kkt-browser", "trait": "Browser"}],
+                "feature": "real"}
+        crate = merged(slots=[slot], third_party=["reqwest"], optional={"reqwest": ["real"]})
+        program = {"name": "kkt", "bins": ["kkt"], "kind": "composition", "features": {}, "slots": [],
+                   "third_party": [], "machine_work": {}, "implements": []}
+        self.assertEqual(self.mismatches(crate, [edge("kkt", "kkt-tool", ["real"])], [program]), [])
+
+    def test_a_slot_outside_real_is_the_contracts_and_fails(self):
+        slot = {"at": "Tool::new", "name": "browser", "traits": [{"crate": "kkt-browser", "trait": "Browser"}]}
+        self.assertEqual(self.mismatches(merged(slots=[slot])),
+                         ["kkt-tool is marked contract and effect but its contract does more than compute on "
+                          "its own values: Tool::new takes browser (Browser)"])
+
+    def test_it_needs_a_real_feature(self):
+        self.assertIn("kkt-tool is marked contract and effect but it has no `real` feature",
+                      self.mismatches(merged(features=["testing"])))
+
+    def test_an_io_dependency_outside_real_fails(self):
+        crate = merged(third_party=["reqwest", "rmcp"], optional={"rmcp": ["real"]})
+        self.assertEqual(self.mismatches(crate),
+                         ["kkt-tool is marked contract and effect but it has I/O dependencies outside `real`: reqwest"])
+
+    def test_only_a_stand_in_implementing_the_contract_fails(self):
+        stand_in = [{"crate": "kkt-tool", "type": "testing::Recorder", "trait_crate": "kkt-tool", "trait": "Run"}]
+        self.assertEqual(self.mismatches(merged(implements=stand_in)),
+                         ["kkt-tool is marked contract and effect but nothing in it implements its own contract"])
+
+    def test_a_library_turning_its_real_on_fails(self):
+        user = {"name": "kkt-user", "bins": [], "kind": "logic", "features": {}, "slots": [], "third_party": [],
+                "machine_work": {}, "implements": []}
+        self.assertIn("kkt-tool is marked contract and effect but crates other than programs turn its "
+                      "`real` on: kkt-user",
+                      self.mismatches(merged(), [edge("kkt-user", "kkt-tool", ["real"])], [user]))
+
+    def test_only_an_arrow_turning_real_on_reaches_the_effect(self):
+        kind_of = {"kkt-tool": self.kinds.MERGED, "kkt-os": "effect", "kkt-api": "contract"}
+        self.assertFalse(self.kinds.reaches_effect(edge("a", "kkt-tool"), kind_of))
+        self.assertTrue(self.kinds.reaches_effect(edge("a", "kkt-tool", ["real"]), kind_of))
+        self.assertTrue(self.kinds.reaches_effect(edge("a", "kkt-os"), kind_of))
+        self.assertFalse(self.kinds.reaches_effect(edge("a", "kkt-api", ["testing"]), kind_of))
+
+    def test_a_merged_crates_contract_may_be_implemented_elsewhere(self):
+        self.assertTrue(self.kinds.is_contract(self.kinds.MERGED))
+        self.assertTrue(self.kinds.is_contract("contract"))
+        self.assertFalse(self.kinds.is_contract("effect"))
+
 if __name__ == "__main__":
     unittest.main()

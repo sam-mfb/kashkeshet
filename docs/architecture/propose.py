@@ -504,7 +504,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
                 problems.append(f"direct: {crate}'s {path or 'own type'} does not implement {target}")
             for r in hit:
                 r["status"] = d["status"]
-        shared = all(kinds.get(split(t)[0]) == "contract" for t in d["to"])
+        shared = all(kind_rules.is_contract(kinds.get(split(t)[0])) for t in d["to"])
         if kinds.get(crate) not in ("composition", "test support") and crate not in programs and not shared:
             problems.append(f"direct: {crate} is neither a composition, a program nor test support, and {', '.join(d['to'])} is not a shared contract")
         note(crate, f"{path or 'its own type'} implements {' and '.join(d['to'])} itself: {d['note']}", d["status"])
@@ -876,7 +876,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
 
     allowed = programs | {n for n, k in kinds.items() if k == "composition"}
     violations = [f"{e['from']} depends on the effect crate {e['to']}" for e in edges
-                  if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]
+                  if kind_rules.reaches_effect(e, kinds) and e["from"] not in allowed and e["kind"] == "normal"]
 
     new_concerns = copy.deepcopy(concerns)
     for src in merged:
@@ -1108,11 +1108,11 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     # Only programs and compositions depend on effect crates; no effect
     # crate depends on another (msg 2170).
     violations = [f"{e['from']} depends on the effect crate {e['to']}" for e in edges
-                  if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "normal"]
+                  if kind_rules.reaches_effect(e, kinds) and e["from"] not in allowed and e["kind"] == "normal"]
     # Tests too: a crate's tests use stand-ins, and only a program, which
     # may run the real thing, has a dev arrow to an effect crate (msg 2150).
     violations += [f"{e['from']}'s tests depend on the effect crate {e['to']}" for e in edges
-                   if kinds.get(e["to"]) == "effect" and e["from"] not in allowed and e["kind"] == "dev"]
+                   if kind_rules.reaches_effect(e, kinds) and e["from"] not in allowed and e["kind"] == "dev"]
     # A contract crate has no effect, so nothing in it is behind `real`.
     for name, c in crates.items():
         if kinds.get(name) == "contract":
@@ -1133,7 +1133,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
     for c in crates.values():
         for r in c["implements"]:
             if r["trait_crate"] != c["name"] and not r.get("adapts") and c["name"] not in allowed | stand_ins \
-                    and kinds.get(r["trait_crate"]) != "contract":
+                    and not kind_rules.is_contract(kinds.get(r["trait_crate"])):
                 violations.append(f"{c['name']}'s {r['type'] or 'own type'} implements {r['trait_crate']}::{r['trait']}")
 
     for name, c in crates.items():

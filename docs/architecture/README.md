@@ -80,6 +80,7 @@ or kind is not one it knows: fix the entry and run it again.
 Each box is outlined in its kind's colour, written by hand per crate:
 
 - **contract**: traits and plain values, with pure behaviour on its own value types (Time arithmetic, query checks, search matching), and no effect or wiring;
+- **contract and effect**: a contract in the open and its one implementation behind `real`, which only programs turn on (phase 13); a crate that depends on it without `real` depends on the contract alone;
 - **logic**: behaviour, with every effect injected (protocol translation counts, so kkt-mcp and kkt-web are logic);
 - **effect**: touches the operating system, disk, network, real time or real randomness directly; a named tool wrapper also owns its tool knowledge, tested through a private runner, with process execution behind `real`;
 - **composition**: wires others and decides nothing (kkt-server and the programs);
@@ -90,7 +91,12 @@ Each box is outlined in its kind's colour, written by hand per crate:
 own values (behaviour through an injected dependency, wiring, or an effect), a logic crate that turns on `real`,
 an effect crate with no `real` feature and no I/O dependency, a composition
 crate other than a program with a `real` feature of its own, and a composition
-crate, programs included, that does machine work in its own code. In the proposed
+crate, programs included, that does machine work in its own code. For a crate
+marked contract and effect, it checks that its contract, outside `real`, only
+computes on its own values (a slot behind `real` is the implementation's), that
+it has a `real` feature, that its I/O dependencies are optional ones only `real`
+turns on, that a type outside `testing` implements its own contract, and that
+only programs turn its `real` on. A crate that fails these is mixed. In the proposed
 map the last two, like a mixed crate, are violations. It reports
 a mismatch on the page and does not change the kind.
 

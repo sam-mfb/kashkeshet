@@ -1461,11 +1461,12 @@ its own pair. 12.2 and 12.3 each change one field of kkt-operate's
 change is a rebase, not a conflict. The small splits follow each builder's
 larger step. 12.5d touches kkt-container's `LoginLink`, so it follows 12.2.
 
-### Phase 13 (draft): one crate for a contract with one implementation
+### Phase 13: one crate for a contract with one implementation
 
-A draft for Sam, from the contract audit (#516, `contract-audit.md`, its
-facts checked by kkt-review-373 in msg 3153). Nothing here is decided, and
-no code changes until Sam gives the word.
+From the contract audit (#516, `contract-audit.md`, its facts checked by
+kkt-review-373 in msg 3153). **Sam took it on 2026-11-12 (msg 3164):** the
+six merges go ahead, kkt-client-command merges too, and the `Machine` trait
+goes. His answers are under "Questions for Sam" below.
 
 **Why.** Phase 12 split every third-party dependency into a contract crate
 and a named wrapper. The audit asked, for each contract crate, whether it
@@ -1551,22 +1552,28 @@ kkt-review-373, msg 3153):
   So the case for merging rests on there being one implementation (3.3.2),
   not on the contract being Docker's own.
 
-**Questions for Sam.**
+**Questions for Sam, with his answers** (msg 3164). He also confirmed the
+six merges, each into one crate named for the scope, with the contract and
+stand-in always compiled and the tool behind `real`. This revises his
+earlier ruling of 2026-11-12.
 1. **kkt-client-command:** merge it with kkt-client-command-claude, or keep
    it split? It has one implementation today. A second is plausible, since
    other agent clients configure MCP servers through their own command
-   line. Two crates' tests use its stand-in.
+   line. Two crates' tests use its stand-in. **Answer: it merges too**
+   (step 13.7).
 2. **kkt-machine's `Machine` trait:** only `main.rs` calls it, and its
    stand-in `FixedMachine` is used nowhere. Recommended: kkt-machine-os
    gives `env()` and `platform()` as plain functions. kkt-machine keeps
-   `Env` and `Platform`, which five crates use.
+   `Env` and `Platform`, which five crates use. **Answer: the trait and
+   its unused stand-in go; `Env` and `Platform` stay** (step 13.8).
 3. **The rule:** the merges revise Sam's ruling of 2026-11-12. Suggested
    text: a third-party tool or library with one implementation is one crate
    named for the scope, its contract in the open and the implementation
    behind `real`. Several implementations, or a contract many crates
    share, keep a contract crate with named implementations, as kkt-service
    and kkt-db do. Either way the program injects the implementation, with
-   no adapter.
+   no adapter. **Answer: this wording goes into the project's CLAUDE.md.**
+   Sam will settle the principles' own text with sage-cardinal separately.
 
 **What changes in the rules and checks** (step 13.0, before any merge).
 - **CLAUDE.md's "Third-party tools and libraries" paragraph:** the rule
@@ -1715,7 +1722,7 @@ later, if Sam wants the same reading there.
 - **page-test.js:** a check that a "uses" arrow's head is at the user.
 - **generate.py:** nothing.
 
-**Steps, if Sam takes it.** One pull request each into `refactor`. Each
+**Steps.** One pull request each into `refactor`. Each
 merge moves code and tests unchanged, keeps every message, file and
 command, and charts its own proposal entries. Builders as in phase 12: the
 crate's builder merges it; kkt-mt-step1's code is reviewed by
@@ -1730,13 +1737,19 @@ kkt-review-b, and its plan and map work by kkt-review-373.
 | 13.4 | kkt-lane-commit merges with kkt-lane-commit-git | S | kkt-build-b | kkt-review-b |
 | 13.5 | kkt-probe merges with kkt-probe-reqwest | S | kkt-build-b | kkt-review-b |
 | 13.6 | kkt-agent-client merges with kkt-agent-client-rmcp | M | kkt-mt-step1 | kkt-review-b |
-| 13.7 | The map's split boxes (generate.py, map.js, page-test.js) | M | kkt-mt-step1 | kkt-review-373 |
-| 13.8 | Chart what differs, and the scorecard | S | kkt-mt-step1 | kkt-review-373 |
+| 13.7 | kkt-client-command merges with kkt-client-command-claude (Sam's answer 1) | S | kkt-mt-step1 | kkt-review-b |
+| 13.8 | kkt-machine's `Machine` trait and `FixedMachine` go; kkt-machine-os gives `env()` and `platform()` as plain functions (Sam's answer 3) | S | kkt-mt-step1 | kkt-review-b |
+| 13.9 | The map: split boxes and the arrows' direction (generate.py, map.js, index.html, README.md, page-test.js) | M | kkt-mt-step1 | kkt-review-373 |
+| 13.10 | Chart what differs, and the scorecard | S | kkt-mt-step1 | kkt-review-373 |
 
-13.0 comes first. 13.1 to 13.6 can then run side by side: each touches its
-own pair, and the shared files (Cargo.toml, CLAUDE.md, the proposal) merge
+13.0 comes first. 13.1 to 13.8 can then run side by side: each touches its
+own crates, and the shared files (Cargo.toml, CLAUDE.md, the proposal) merge
 as in phase 12. 13.3 builds on kkt-container's browser field, so it follows
-13.1. 13.7 needs at least one merged crate to draw.
+13.1. 13.9 needs at least one merged crate to draw.
+
+**13.7's optional dependencies:** kkt-client-command-claude adds none
+beyond the contract, so nothing becomes optional. **13.8 changes no
+kind:** kkt-machine stays a contract, and kkt-machine-os an effect.
 
 **Existing installs:** none expected. The merges move code between crates
 and change no file, flag, message or command that an install relies on.

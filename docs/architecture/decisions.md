@@ -367,6 +367,21 @@ into the proposal, so the proposed map shows it. The plan's "Differences
 from the proposed map" table lists each one, with its step, its reason and
 whether Sam has accepted it.
 
+Then Sam took phase 13 (2026-11-12, msg 3164), revising his phase 12
+ruling the same day. The contract audit (#516) found that six of phase 12's
+contract crates have one implementation and one or two consumers. In Rust
+a consumer-declared trait always costs a forwarding adapter, so each pair
+becomes one crate named for the scope: the contract and its stand-in in the
+open, and the tool behind `real`, which only programs turn on. The six are
+container, remote-access, browser, lane-commit, probe and agent-client;
+kkt-client-command merges too. kkt-machine's `Machine` trait and its unused
+stand-in go, and `Env` and `Platform` stay. kkt-service keeps its contract
+crate, with launchd and systemd as two implementations. The rule's wording
+for the project is in CLAUDE.md; Sam will settle the principles' own text
+separately. A merged crate is a new kind, "contract and effect", which
+kinds.py tells from "mixed": its effect is its own contract's one
+implementation, and only programs turn its `real` on.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.
