@@ -95,7 +95,7 @@ impl OperatorKeyReads for EnvReads<'_> {
     }
 
     fn config_dir(&self) -> Option<PathBuf> {
-        kkt_config_file::config_dir(self.0)
+        kkt_config_file::config_dir(self.0.config_home().as_deref())
     }
 }
 

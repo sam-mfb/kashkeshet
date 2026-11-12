@@ -217,7 +217,9 @@ pub async fn upgrade(
             // Validate the replacement service before doing anything. Its
             // program is current_exe, i.e. the binary just installed by the user.
             let plan = service_plan(env, platform, None, None, None, false)?;
-            let folder = setup::service_backup_folder(kkt_config_file::config_dir(env))?;
+            let folder = setup::service_backup_folder(kkt_config_file::config_dir(
+                env.config_home().as_deref(),
+            ))?;
             local_backup(env, platform, &folder, None, None)?;
             if let Some(key) = &plan.new_web_key {
                 new_key_file(key, false)?;
@@ -283,7 +285,8 @@ pub async fn uninstall(env: &Env, platform: Platform, serve_args: ServeArgs) -> 
         Terminal.output(format_args!("{}", setup::uninstall_line(Some(&client))));
         return Ok(());
     }
-    let config_dir = kkt_config_file::config_dir(env).ok_or("set HOME to find the setup record")?;
+    let config_dir = kkt_config_file::config_dir(env.config_home().as_deref())
+        .ok_or("set HOME to find the setup record")?;
     kkt_setup_os::remove_record(&config_dir)?;
     Terminal.output(format_args!("{}", setup::uninstall_line(None)));
     Ok(())

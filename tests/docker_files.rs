@@ -188,7 +188,7 @@ fn both_compose_setups_keep_both_default_keys_in_the_data_volume() {
         xdg_data_home: None,
     };
     let access = kkt_admission::access_key_file(
-        &kkt_config_file::config_dir(&env).expect("default config folder"),
+        &kkt_config_file::config_dir(env.config_home().as_deref()).expect("default config folder"),
     );
     let web = kkt_admission::web_key_path(&access);
     assert_eq!(web, std::path::Path::new("/data/.config/kkt/web-key"));

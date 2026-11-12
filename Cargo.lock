@@ -1224,7 +1224,6 @@ dependencies = [
 name = "kkt-config-file"
 version = "0.10.0"
 dependencies = [
- "kkt-machine",
  "thiserror",
  "toml",
  "toml_edit",
