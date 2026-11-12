@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "1be030c",
+ "commit": "95bcca9",
  "crates": [
   {
    "bins": [
@@ -200,12 +200,6 @@ window.KKT_GRAPH = {
      "crate": "kashkeshet",
      "trait": "SetupFiles",
      "trait_crate": "kkt-operate",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "Host",
-     "trait_crate": "kkt-remote-access",
      "type": null
     },
     {
@@ -8223,7 +8217,7 @@ window.KKT_GRAPH = {
       },
       {
        "crate": "kkt-remote-access",
-       "trait": "Host"
+       "trait": "RemoteAccess"
       },
       {
        "crate": "kkt-client-config",
@@ -8933,7 +8927,7 @@ window.KKT_GRAPH = {
      "traits": [
       {
        "crate": "kkt-remote-access",
-       "trait": "Host"
+       "trait": "RemoteAccess"
       }
      ]
     },
@@ -9005,7 +8999,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -9092,7 +9086,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -9183,7 +9177,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -9274,7 +9268,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -9365,7 +9359,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -9467,7 +9461,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -9554,7 +9548,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -9652,7 +9646,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -9743,7 +9737,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -9856,7 +9850,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -9943,7 +9937,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -10030,7 +10024,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -10117,7 +10111,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -10204,7 +10198,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -10291,7 +10285,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -10382,7 +10376,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -10473,7 +10467,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -10641,7 +10635,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -10732,7 +10726,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -10834,7 +10828,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -10921,7 +10915,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -11008,7 +11002,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -11099,7 +11093,7 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-remote-access",
-         "trait": "Host"
+         "trait": "RemoteAccess"
         },
         {
          "crate": "kkt-client-config",
@@ -11227,29 +11221,34 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kashkeshet",
-       "type": null
+       "crate": "kkt-remote-access",
+       "type": "testing::Memory"
+      },
+      {
+       "crate": "kkt-remote-access-tailscale",
+       "type": "Tailscale"
       }
      ],
-     "trait": "Host"
+     "trait": "RemoteAccess"
     }
    ],
-   "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login.",
+   "crate_doc": "Sharing this machine's server securely with clients on its private network.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "testing": []
+   },
    "holders": [],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-remote-access",
+     "trait": "RemoteAccess",
+     "trait_crate": "kkt-remote-access",
+     "type": "testing::Memory"
+    }
+   ],
    "items": [
     {
-     "doc": "The host's Tailscale CLI, injected so tests never change a real tailnet.",
-     "kind": "trait",
-     "methods": [
-      "run"
-     ],
-     "path": "Host"
-    },
-    {
-     "doc": "The exact node name, including any suffix assigned by Tailscale.",
+     "doc": "The network name by which clients reach this machine.",
      "fields": [
       "dns_name"
      ],
@@ -11257,34 +11256,30 @@ window.KKT_GRAPH = {
      "path": "Node"
     },
     {
-     "doc": "",
-     "fields": [
-      "success",
-      "stdout",
-      "stderr"
+     "doc": "Preparing and managing the secure sharing of this machine's server.",
+     "kind": "trait",
+     "methods": [
+      "prepare",
+      "serve",
+      "served",
+      "stop"
      ],
+     "path": "RemoteAccess"
+    },
+    {
+     "doc": "Remote sharing in memory for consumers' tests, without network or processes.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "A machine with the given network name, initially sharing nothing.",
+     "feature": "testing",
      "kind": "struct",
-     "path": "Output"
-    },
-    {
-     "doc": "Check the existing login and HTTPS setting; never runs `tailscale up`.",
-     "kind": "fn",
-     "path": "prepare"
-    },
-    {
-     "doc": "Install a persistent HTTPS root proxy.",
-     "kind": "fn",
-     "path": "serve"
-    },
-    {
-     "doc": "The node whose HTTPS root Tailscale Serve proxies to the server at `bind`, as `serve` sets it up, if there is one.",
-     "kind": "fn",
-     "path": "served"
-    },
-    {
-     "doc": "Remove the matching root proxy, preserving other paths, ports and login.",
-     "kind": "fn",
-     "path": "stop"
+     "methods": [
+      "new"
+     ],
+     "path": "testing::Memory"
     }
    ],
    "lib": "kkt_remote_access",
@@ -11292,103 +11287,52 @@ window.KKT_GRAPH = {
    "name": "kkt-remote-access",
    "path": "crates/kkt-remote-access",
    "released_program": false,
-   "slots": [
-    {
-     "at": "prepare",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-remote-access",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "serve",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-remote-access",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "served",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-remote-access",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "stop",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-remote-access",
-       "trait": "Host"
-      }
-     ]
-    }
-   ],
+   "slots": [],
    "testing_third_party": [],
-   "third_party": [
-    "serde",
-    "serde_json"
-   ]
+   "third_party": []
   },
   {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's Tailscale command.",
+   "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login.",
    "dev_only": false,
    "features": {
     "real": []
    },
    "holders": [],
-   "implements": [],
-   "items": [
+   "implements": [
     {
-     "doc": "The machine's `tailscale` command.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "run"
-     ],
-     "path": "OsHost"
-    },
-    {
-     "doc": "The process's success status and captured output.",
-     "fields": [
-      "success",
-      "stdout",
-      "stderr"
-     ],
-     "kind": "struct",
-     "path": "Output"
+     "crate": "kkt-remote-access-tailscale",
+     "trait": "RemoteAccess",
+     "trait_crate": "kkt-remote-access",
+     "type": "Tailscale"
     }
    ],
-   "lib": "kkt_remote_access_os",
+   "items": [
+    {
+     "doc": "Shares this machine's server through its existing Tailscale login.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Tailscale"
+    }
+   ],
+   "lib": "kkt_remote_access_tailscale",
    "machine_work": {
-    "src/lib.rs": [
+    "src/runner.rs": [
      "process::Command::new",
      "process::Stdio::null"
     ]
    },
-   "name": "kkt-remote-access-os",
-   "path": "crates/kkt-remote-access-os",
+   "name": "kkt-remote-access-tailscale",
+   "path": "crates/kkt-remote-access-tailscale",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "serde",
+    "serde_json"
+   ]
   },
   {
    "bins": [],
@@ -17419,55 +17363,27 @@ window.KKT_GRAPH = {
    "to": "kkt-provenance"
   },
   {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "Host",
-    "Output"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "a type of its own implements Host"
-     ],
-     "role": "implements"
-    },
-    {
-     "detail": [
-      "Output"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-remote-access"
-  },
-  {
    "features": [
     "real"
    ],
    "from": "kashkeshet",
    "items": [
-    "OsHost"
+    "Tailscale"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
     {
      "detail": [
-      "OsHost"
+      "Tailscale"
      ],
-     "role": "uses"
+     "role": "wires"
     }
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-remote-access-os"
+   "to": "kkt-remote-access-tailscale"
   },
   {
    "features": [],
@@ -22751,11 +22667,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operate",
    "items": [
-    "Host",
-    "prepare",
-    "serve",
-    "served",
-    "stop"
+    "RemoteAccess"
    ],
    "kind": "normal",
    "optional": false,
@@ -22763,18 +22675,14 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Host",
-      "prepare",
-      "serve",
-      "served",
-      "stop"
+      "RemoteAccess"
      ],
      "role": "uses"
     }
    ],
    "target": null,
    "test_items": [
-    "Output"
+    "Node"
    ],
    "to": "kkt-remote-access"
   },
@@ -23060,6 +22968,34 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-hash"
+  },
+  {
+   "features": [],
+   "from": "kkt-remote-access-tailscale",
+   "items": [
+    "Node",
+    "RemoteAccess"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Tailscale implements RemoteAccess"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Node"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-remote-access"
   },
   {
    "features": [],
@@ -26019,16 +25955,16 @@ window.KKT_CONCERNS = {
    "must_not": "Store the run record: kkt-rules' `start` does."
   },
   "kkt-remote-access": {
-   "concern": "Sharing a service-mode server over the machine's existing Tailscale login.",
-   "kind": "logic",
+   "concern": "The project's contract for preparing, serving, checking and stopping private-network sharing of this machine's server; its Node record and testing Memory stand-in.",
+   "kind": "contract",
    "layer": "operations",
-   "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service."
+   "must_not": "Know a sharing tool, its commands or output format; touch the machine."
   },
-  "kkt-remote-access-os": {
-   "concern": "The machine's tailscale command: plain OsHost methods, adapted by the program.",
+  "kkt-remote-access-tailscale": {
+   "concern": "Implements RemoteAccess through the host's existing Tailscale login: arguments, parsing and messages tested against a private runner; the process runner is behind real.",
    "kind": "effect",
    "layer": "operations",
-   "must_not": "Decide how the server is shared."
+   "must_not": "Change login, DNS preferences, unrelated sharing, kkt's config or its service."
   },
   "kkt-rules": {
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm; and starting them for a server run (`start`), which records the run first.",
@@ -26995,30 +26931,6 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-remote-access",
-     "note": "kkt setup with Tailscale, status, uninstall",
-     "own": "RemoteHost, adapting kkt-remote-access-os's OsHost",
-     "supplier": "kkt-remote-access-os's OsHost",
-     "to": [
-      {
-       "at": "prepare",
-       "param": "host"
-      },
-      {
-       "at": "serve",
-       "param": "host"
-      },
-      {
-       "at": "served",
-       "param": "host"
-      },
-      {
-       "at": "stop",
-       "param": "host"
-      }
-     ]
-    },
-    {
      "crate": "kkt-client-config",
      "note": "kkt setup, kkt doctor",
      "own": "ClientHost, adapting kkt-client-config-os's OsHost",
@@ -27176,7 +27088,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "RemoteHost",
+     "impl": "kkt-remote-access-tailscale::Tailscale",
+     "note": "The program injects the sharing implementation directly into the operator assembly.",
      "to": [
       {
        "at": "OperateParts",
