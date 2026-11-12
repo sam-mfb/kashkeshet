@@ -49,6 +49,10 @@ impl OsHost {
         })
     }
 
+    pub fn is_file(&self, path: &Path) -> bool {
+        path.is_file()
+    }
+
     pub fn exists(&self, path: &Path) -> bool {
         path.exists()
     }

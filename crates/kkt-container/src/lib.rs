@@ -25,7 +25,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 pub use config::{ConfigReader, ContainerConfig};
-pub use files::{ENV_FILE, env_text, version_in_env};
+pub use files::{ENV_FILE, docker_env, env_text, tailscale_auth_key, version_in_env};
 pub use lanes::{LanesImport, export_lanes, import_lanes, lane_limit};
 pub use lifecycle::{
     Existing, KeyCopy, Login, State, backup, compare_web_key, down, existing, status, up, upgrade,
@@ -105,6 +105,8 @@ pub trait Host {
     /// a download someone is waiting on. The returned output is empty.
     fn run_attached(&self, command: &Command) -> io::Result<Finished>;
     fn exists(&self, path: &Path) -> bool;
+    /// Whether this path is a regular file, following links.
+    fn is_file(&self, path: &Path) -> bool;
     fn read_file(&self, path: &Path) -> io::Result<String>;
     fn create_dir_all(&self, path: &Path) -> io::Result<()>;
     /// Writes `contents`, replacing any file there. With `private` only the

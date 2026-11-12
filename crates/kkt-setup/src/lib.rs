@@ -17,12 +17,14 @@ mod acts_on;
 mod adopt;
 pub mod ask;
 mod backup_keys;
+pub mod connection;
 mod credentials;
 mod doctor;
 mod flow;
 mod guard;
 mod keys;
 mod lifecycle;
+mod local;
 mod record;
 mod switch;
 #[cfg(feature = "testing")]
@@ -52,6 +54,7 @@ pub use lifecycle::{
     Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,
     status_looks_for_unrecorded, upgrade_plan,
 };
+pub use local::{docker_folder, docker_url, recorded_setup, unfinished_mode};
 pub use record::{DockerSetup, InstallCheck, Mode, Record, Server, TailscaleLogin, Unfinished};
 pub use switch::{Switch, SwitchSteps, Target, switch};
 pub use upgrade::{Upgrade, upgrade};

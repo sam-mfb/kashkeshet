@@ -225,8 +225,7 @@ pub async fn upgrade(
     let running = match setup::running_version(&record)? {
         setup::RunningVersion::DockerSettings(folder) => {
             let path = folder.join(kkt_container::ENV_FILE);
-            let text = std::fs::read_to_string(&path)
-                .map_err(|e| format!("could not read {}: {e}", path.display()))?;
+            let text = kkt_container::docker_env(&ContainerHost, &folder)?;
             kkt_container::version_in_env(&text)
                 .ok_or_else(|| format!("{} has no KKT_VERSION", path.display()))?
         }

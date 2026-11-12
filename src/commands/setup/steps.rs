@@ -20,7 +20,7 @@ use crate::machine::record::{
 use crate::machine::remote_access::RemoteHost;
 use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{ServeArgs, serve_bind};
-use crate::process::{kkt_path, write_whole};
+use crate::process::kkt_path;
 use crate::terminal::browser_login;
 use kkt_client_config::{self as clients, Client, Setup};
 use kkt_clock_system::SystemClock;
@@ -123,12 +123,7 @@ impl setup::Steps for OsSteps<'_> {
             Some(login) => Some(kkt_container::Tailscale {
                 hostname: login.hostname.clone(),
                 auth_key: match &login.auth_key_file {
-                    Some(path) => Some(
-                        std::fs::read_to_string(path)
-                            .map_err(|e| format!("could not read {}: {e}", path.display()))?
-                            .trim()
-                            .to_string(),
-                    ),
+                    Some(path) => Some(kkt_container::tailscale_auth_key(&ContainerHost, path)?),
                     None => None,
                 },
             }),
@@ -198,10 +193,8 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn detect_clients(&self) -> Vec<Client> {
-        let dirs: Vec<PathBuf> = std::env::var_os("PATH")
-            .map(|path| std::env::split_paths(&path).collect())
-            .unwrap_or_default();
-        let on_path = |program: &str| dirs.iter().any(|dir| dir.join(program).is_file());
+        let dirs = kkt_setup_os::path_dirs();
+        let on_path = |program: &str| kkt_setup_os::on_path(&dirs, program);
         Client::ALL
             .into_iter()
             .filter(|client| client.installed(self.env, &on_path, &ClientHost))
@@ -245,20 +238,16 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn save_unfinished(&self, unfinished: &setup::Unfinished) -> Result<(), String> {
-        let path = crate::machine::record::unfinished_path(self.env)
-            .ok_or("set HOME to note the install")?;
-        write_whole(&path, &unfinished.render()?)
+        let config_dir =
+            kkt_config_file::config_dir(self.env).ok_or("set HOME to note the install")?;
+        kkt_setup_os::write_unfinished(&config_dir, unfinished)
     }
 
     fn forget_unfinished(&self) -> Result<(), String> {
-        let Some(path) = crate::machine::record::unfinished_path(self.env) else {
+        let Some(config_dir) = kkt_config_file::config_dir(self.env) else {
             return Ok(());
         };
-        match std::fs::remove_file(&path) {
-            Ok(()) => Ok(()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(format!("could not remove {}: {e}", path.display())),
-        }
+        kkt_setup_os::remove_unfinished(&config_dir)
     }
 
     fn add_admin_key(&self, record: &setup::Record, name: &AdminName) -> Result<PathBuf, String> {

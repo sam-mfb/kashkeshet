@@ -90,6 +90,11 @@ impl<'a> KeyFiles<'a> {
             Err(e) => Err(e),
         }
     }
+    /// Whether the selected path is a file, following links.
+    pub fn is_file(path: &Path) -> bool {
+        path.is_file()
+    }
+
     /// Whether a key file exists, with the same semantics as Path::exists.
     pub fn exists(path: &Path) -> bool {
         path.exists()
