@@ -15,8 +15,8 @@ use kkt_events::Events;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_names as names;
-use kkt_rules::NewServerRunRecord;
-use kkt_rules::{Deps, Rules};
+use kkt_rules::NewServerRun;
+use kkt_rules::Rules;
 use kkt_web::testing::{
     ACTIVITY_BUCKET, ACTIVITY_WINDOW, App, Door, administration_works, agent_row,
     announcement_editor_works, changes_work, channel_creation_works, channel_row,
@@ -113,44 +113,43 @@ async fn rules_world_and_db(
     settings: kkt_rules::Settings,
 ) -> (Rules, App, Arc<FixedClock>, kkt_rules::CommandLine) {
     let clock = Arc::new(FixedClock::new(start_time()));
-    let db = { kkt_rules::testing::memory().expect("an in-memory store") };
+    let db = kkt_rules::testing::database().expect("an in-memory database");
+    let startup = |clock: Arc<FixedClock>, settings| kkt_rules::Startup {
+        db: db.clone(),
+        swarm: kkt_api_agent::SwarmId::main(),
+        events: Events::new(kkt_events::Settings::DEFAULT),
+        clock,
+        entropy: Arc::new(SeqEntropy::new(4)),
+        settings,
+        wording: Arc::new(kkt_rules::DefaultWording),
+    };
     // An earlier run, from before an upgrade, with values as long as real
     // ones, then this run.
-    db.write(|w| {
-        w.insert_server_run(&NewServerRunRecord {
-            started_at: "2026-10-20T09:30:00Z".into(),
+    let earlier = kkt_clock::from_text("2026-10-20T09:30:00Z").expect("a time");
+    kkt_rules::start(
+        NewServerRun {
             version: "0.5.0".into(),
             git_commit: "4f1c2a9e7b3d5f60a8c1e2d3b4a5968778695a4b-dirty".into(),
             settings: "max_response_bytes=65536\nallowed_origin=https://a-long-machine-name.tail1234abcd.ts.net".into(),
             instructions_sha256: "ab".repeat(32),
-        })
-    })
+        },
+        startup(Arc::new(FixedClock::new(earlier)), kkt_rules::Settings::DEFAULT),
+    )
     .await
     .expect("record an earlier run");
-    let run_id = db
-        .write(|w| {
-            w.insert_server_run(&NewServerRunRecord {
-                started_at: "2026-10-25T12:00:00Z".into(),
-                version: "test".into(),
-                git_commit: "test".into(),
-                settings: "test".into(),
-                instructions_sha256: "test".into(),
-            })
-        })
-        .await
-        .expect("record run");
+    let rules = kkt_rules::start(
+        NewServerRun {
+            version: "test".into(),
+            git_commit: "test".into(),
+            settings: "test".into(),
+            instructions_sha256: "test".into(),
+        },
+        startup(clock.clone(), settings),
+    )
+    .await
+    .expect("record run");
     let operator =
         kkt_rules::CommandLine::new(db.clone(), kkt_api_agent::SwarmId::main(), clock.clone());
-    let rules = Rules::new(Deps {
-        db,
-        swarm: kkt_api_agent::SwarmId::main(),
-        events: Events::new(kkt_events::Settings::DEFAULT),
-        clock: clock.clone(),
-        entropy: Arc::new(SeqEntropy::new(4)),
-        run_id,
-        settings,
-        wording: Arc::new(kkt_rules::DefaultWording),
-    });
     let mut agents = Vec::new();
     for _ in 0..2 {
         let reg = rules.register().await.expect("register");

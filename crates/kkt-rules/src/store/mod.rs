@@ -110,8 +110,9 @@ impl Db {
         }
     }
 
-    /// Runs `f` over a view of one state of the database.
-    pub async fn read<T, E, F>(&self, f: F) -> Result<T, E>
+    /// Runs `f` over a view of one state of the database. Only the rules
+    /// read the store; tests reach it through `testing::read`.
+    pub(crate) async fn read<T, E, F>(&self, f: F) -> Result<T, E>
     where
         T: Send + 'static,
         E: From<StoreError> + Send + 'static,
@@ -125,7 +126,9 @@ impl Db {
     }
 
     /// Runs `f` inside one transaction. It commits only if `f` succeeds.
-    pub async fn write<T, E, F>(&self, f: F) -> Result<T, E>
+    /// Only the rules change the store; tests reach it through
+    /// `testing::write`.
+    pub(crate) async fn write<T, E, F>(&self, f: F) -> Result<T, E>
     where
         T: Send + 'static,
         E: From<StoreError> + Send + 'static,

@@ -44,26 +44,22 @@ impl Identify for RefusesEveryone {
 }
 
 /// An open server, with no keys, built with the stand-in.
-fn router(shutdown: &Shutdown) -> axum::Router {
-    router_with(shutdown, None)
+async fn router(shutdown: &Shutdown) -> axum::Router {
+    router_with(shutdown, None).await
 }
 
 /// An open server built with the stand-in, whose `/mcp-admin` admits by
 /// `admin`, or is not served.
-fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Router {
+async fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Router {
     let clock = Arc::new(FixedClock::new(start_time()));
     let entropy = Arc::new(SeqEntropy::new(1));
-    let rules = kkt_rules::Rules::new(kkt_rules::Deps {
-        db: kkt_rules::testing::memory().expect("an in-memory store"),
-        swarm: SwarmId::main(),
+    let rules = kkt_rules::testing::memory(kkt_rules::testing::Memory {
         events: kkt_events::Events::new(kkt_events::Settings::DEFAULT)
             .until_stopped(shutdown.clone()),
-        clock: clock.clone(),
-        entropy: entropy.clone(),
-        run_id: 1,
-        settings: kkt_rules::Settings::DEFAULT,
-        wording: Arc::new(kkt_rules::DefaultWording),
-    });
+        ..kkt_rules::testing::Memory::new(clock.clone(), entropy.clone())
+    })
+    .await
+    .expect("rules over a new database");
     let parts = Parts::new(
         rules,
         clock,
@@ -122,7 +118,7 @@ fn mcp_at(path: &str, message: Value, bearer: Option<&str>) -> Request<Body> {
 #[tokio::test]
 async fn an_mcp_call_asks_the_identify_it_was_given() {
     let shutdown = Shutdown::new();
-    let router = router(&shutdown);
+    let router = router(&shutdown).await;
     let register = json!({
         "jsonrpc": "2.0", "id": 1, "method": "tools/call",
         "params": { "name": "register", "arguments": {} }
@@ -136,7 +132,7 @@ async fn an_mcp_call_asks_the_identify_it_was_given() {
 #[tokio::test]
 async fn the_web_page_asks_the_identify_it_was_given() {
     let shutdown = Shutdown::new();
-    let router = router(&shutdown);
+    let router = router(&shutdown).await;
     let request = Request::get("/")
         .header("host", "127.0.0.1")
         .body(Body::empty())
@@ -159,11 +155,11 @@ async fn the_admin_endpoint_admits_as_the_program_chose() {
     });
     let shutdown = Shutdown::new();
 
-    let off = router_with(&shutdown, None);
+    let off = router_with(&shutdown, None).await;
     let (status, _, _) = send(&off, mcp_at("/mcp-admin", list.clone(), None)).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
-    let bearer = router_with(&shutdown, Some(AdminAdmission::Bearer));
+    let bearer = router_with(&shutdown, Some(AdminAdmission::Bearer)).await;
     let (status, headers, body) = send(&bearer, mcp_at("/mcp-admin", list.clone(), None)).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED, "{body}");
     assert_eq!(

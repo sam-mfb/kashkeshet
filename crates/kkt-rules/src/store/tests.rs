@@ -859,7 +859,7 @@ async fn a_scope_over_more_channels_than_sqlite_takes_parameters() {
 
 #[tokio::test]
 async fn the_test_store_fails_the_next_write_to_a_table_once() {
-    let db = testing::memory().expect("the test store");
+    let db = testing::database().expect("the test store");
     testing::fail_next_write(&db, "server_runs").expect("a test store");
     let first = db.write(|w| w.insert_server_run(&run("lost"))).await;
     assert!(
