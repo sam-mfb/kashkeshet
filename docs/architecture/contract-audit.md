@@ -50,7 +50,7 @@ entry below says which one applies.
   the tool's type in a new type of its own and writes an `impl` that forwards
   each method. This is the forwarding adapter Sam's ruling of 2026-11-12
   removed. kkt-lane-files' `Disk` already works this way (`LaneDisk` in
-  `src/commands/lanes.rs`).
+  `src/commands/lanes/disk.rs`).
 - **B. Wrapper depends on its consumer.** The consumer declares the trait,
   and the tool's crate depends on the consumer to implement it. ARCHITECTURE
   3.1.2.3 forbids this, and it would also put an effect crate on top of an
@@ -59,8 +59,10 @@ entry below says which one applies.
   the area. The trait, records and stand-in are always compiled. The tool
   is behind `real`. Consumers depend on the crate without `real`; the
   program turns `real` on and injects the tool directly. There is no
-  adapter, and no consumer can name the tool, because CI builds each crate
-  alone (`check-crates.sh`) and the tool's type does not exist there. The
+  adapter, and no consumer can name the tool. Two checks in
+  `check-crates.sh` hold that together: only programs may turn on another
+  package's `real` (check 2), and CI builds each crate alone, where the
+  tool's type does not exist. The
   cost is that the crate is two kinds at once (contract and effect,
   ARCHITECTURE 4), and its stand-in lives in the implementer (3.2.4).
 - **D. A function.** For a contract with one method, the consumer takes a
@@ -153,7 +155,7 @@ entry below says which one applies.
 1. Declares `Clock`, and owns `Time`, `Span` and time formatting (the only
    chrono user). kkt-clock-system implements it, with `FixedClock` behind
    `testing`. About twenty consumers.
-2. `FixedClock` is used by fifteen crates' tests.
+2. `FixedClock` is used by sixteen crates' tests.
 3. Removal is not realistic: every consumer would declare its own clock.
 4. Lost: one time type and one stand-in for the whole workspace.
 5. **Keep.** 3.3.4 by a wide margin.
@@ -164,7 +166,8 @@ entry below says which one applies.
    `SameHandleEntropy` and `SeededEntropy` are stand-ins behind `testing`.
    Seven consumers: kkt-admission, kkt-names, kkt-rules, kkt-server,
    kkt-web, kkt-api-sim and kkt-fake-product.
-2. The stand-ins are used by nine crates' tests.
+2. The stand-ins are used by eleven crates' tests and programs, among them
+   kkt-fake-product and kkt-web-preview.
 3. Removal: as for the clock.
 4. Lost: shared deterministic randomness for tests.
 5. **Keep.** 3.3.4.
@@ -174,7 +177,8 @@ entry below says which one applies.
 1. Declares `Log`, with levels and fields. kkt-logs-os' `TracingLog`
    implements it; `CapturedLog` is the stand-in. Consumers: kkt-mcp,
    kkt-web, kkt-server and kkt-web-preview.
-2. `CapturedLog` is used by kkt-web, kkt-server and kkt-server-listen.
+2. `CapturedLog` is used by kkt-mcp, kkt-web, kkt-server and
+   kkt-server-listen.
 3. Removal: each consumer would declare its own log trait and the program
    would forward three times.
 4. Lost: one log contract and its shared stand-in.
