@@ -48,6 +48,9 @@ impl FastPlace {
     /// A new, empty database.
     pub fn new() -> Result<FastPlace, DbError> {
         let conn = rusqlite::Connection::open_in_memory().map_err(failed)?;
+        // Each table's checks are a few statements of their own: keep them
+        // all prepared.
+        conn.set_prepared_statement_cache_capacity(256);
         conn.execute_batch(&format!(
             "PRAGMA temp_store = MEMORY;
              CREATE TABLE \"{KEYS}\" (name TEXT PRIMARY KEY, last INTEGER NOT NULL);"
@@ -735,7 +738,7 @@ impl FastConnection<'_> {
         sql: &Sql,
         types: &[ColumnType],
     ) -> Result<Vec<Vec<Value>>, DbError> {
-        let mut statement = self.conn.prepare(text).map_err(failed)?;
+        let mut statement = self.conn.prepare_cached(text).map_err(failed)?;
         let mut rows = statement
             .query(rusqlite::params_from_iter(sql.params.iter()))
             .map_err(failed)?;
@@ -752,7 +755,8 @@ impl FastConnection<'_> {
 
     fn execute(&self, text: &str, params: Vec<SqlValue>) -> Result<usize, DbError> {
         self.conn
-            .execute(text, rusqlite::params_from_iter(params.iter()))
+            .prepare_cached(text)
+            .and_then(|mut statement| statement.execute(rusqlite::params_from_iter(params.iter())))
             .map_err(failed)
     }
 
@@ -968,6 +972,10 @@ fn referenced(schema: &Schema, table: &str) -> Vec<&'static str> {
 /// `expr` is one of `values`, as SQL, its parameters added to `params`. A
 /// list of any length is one JSON parameter where it can be.
 fn one_of(expr: &str, values: &[Value], params: &mut Vec<SqlValue>) -> String {
+    if let [value] = values {
+        params.push(param(value));
+        return format!("{expr} = ?");
+    }
     match json(values) {
         Some(array) => {
             params.push(SqlValue::Text(array));
@@ -1083,8 +1091,9 @@ fn check(conn: &rusqlite::Connection, schema: &Schema, scope: Scope<'_>) -> Resu
             );
             params.extend(candidate_params);
             let broken: Option<i64> = conn
-                .query_row(&text, rusqlite::params_from_iter(params.iter()), |r| {
-                    r.get(0)
+                .prepare_cached(&text)
+                .and_then(|mut statement| {
+                    statement.query_row(rusqlite::params_from_iter(params.iter()), |r| r.get(0))
                 })
                 .map(Some)
                 .or_else(|e| match e {
@@ -1156,10 +1165,11 @@ fn repeats(
         "SELECT EXISTS (SELECT 1 FROM {t} AS a JOIN {t} AS b ON b.rowid <> a.rowid AND {same} WHERE {filter} AND {among})",
         t = quote(table)
     );
-    conn.query_row(&text, rusqlite::params_from_iter(params.iter()), |r| {
-        r.get(0)
-    })
-    .map_err(failed)
+    conn.prepare_cached(&text)
+        .and_then(|mut statement| {
+            statement.query_row(rusqlite::params_from_iter(params.iter()), |r| r.get(0))
+        })
+        .map_err(failed)
 }
 
 impl Connection for FastConnection<'_> {
