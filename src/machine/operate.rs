@@ -21,6 +21,7 @@ pub struct NativeOperate<'a, D = ()> {
     connection: ConnectionReads<'a>,
     service_defaults: D,
     service: Box<dyn kkt_service::Service>,
+    prober: kkt_probe_reqwest::HttpProber,
     login_link: crate::terminal::browser_login::TerminalLink,
     /// Docker and Compose, opening a sharing setup's login link with the
     /// system's own opener.
@@ -35,6 +36,7 @@ impl<'a> NativeOperate<'a> {
             connection: ConnectionReads { env, platform },
             service_defaults: (),
             service: super::service::for_this_os(env),
+            prober: super::diagnostics::prober(),
             login_link: crate::terminal::browser_login::TerminalLink::new(),
             docker: kkt_container_docker::Docker::new(Box::new(
                 kkt_browser_os::SystemBrowser::new(),
@@ -55,6 +57,7 @@ impl<'a> NativeOperate<'a> {
             connection: self.connection,
             service_defaults,
             service: self.service,
+            prober: self.prober,
             login_link: self.login_link,
             docker: self.docker,
         }
@@ -73,7 +76,7 @@ impl<'a, D> NativeOperate<'a, D> {
             remote: &kkt_remote_access_tailscale::Tailscale,
             clients: &super::client_config::ClientHost,
             client_command: &kkt_client_command_claude::Claude,
-            prober: &super::diagnostics::DiagnosticProber,
+            prober: &self.prober,
             lanes: &crate::commands::lanes::LaneDisk,
             lane_commit: &kkt_lane_commit_git::Git,
             lines: &crate::terminal::TerminalLines,

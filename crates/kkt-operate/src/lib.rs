@@ -157,7 +157,7 @@ pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     /// A client's own command, for the clients whose settings only it should
     /// change.
     pub client_command: &'a dyn kkt_client_command::ClientCommand,
-    pub prober: &'a dyn kkt_diagnostics::Prober,
+    pub prober: &'a dyn kkt_probe::Prober,
     pub lanes: &'a dyn kkt_lane_files::Disk,
     pub lane_commit: &'a dyn kkt_lane_commit::LaneCommit,
     pub lines: &'a dyn kkt_setup::Lines,

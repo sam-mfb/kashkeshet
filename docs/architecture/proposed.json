@@ -101,12 +101,20 @@
    "concern": "The machine's files and the `claude` command: `OsHost`, a plain type that implements nothing; the program adapts it to kkt-client-config's `Host`. kkt-client-config's `real` feature moves here."
   },
   {
-   "name": "kkt-diagnostics-os",
+   "name": "kkt-probe",
+   "layer": "operations",
+   "kind": "contract",
+   "from": "kkt-diagnostics",
+   "status": "decided",
+   "concern": "The project's contract for probing a kkt server and reading its key files (Prober, KeyFile, Check, Probing), with its testing stand-in; no HTTP library (step 12.5b)."
+  },
+  {
+   "name": "kkt-probe-reqwest",
    "layer": "operations",
    "kind": "effect",
    "from": "kkt-diagnostics",
    "status": "decided",
-   "concern": "Key file reads and network probes: `OsProber`, a plain type that implements nothing; the program adapts it to kkt-diagnostics's `Prober`. kkt-diagnostics's `real` feature moves here.",
+   "concern": "Implements kkt-probe's Prober directly: the HTTP probe and MCP handshake with reqwest, whose types stay inside, and key files read from disk, with the settings the program passes (step 12.5b, option a).",
    "third_party": [
     "reqwest"
    ]
@@ -462,8 +470,9 @@
   },
   {
    "item": "kkt-diagnostics::OsProber",
-   "to": "kkt-diagnostics-os",
-   "status": "decided"
+   "to": "kkt-probe-reqwest",
+   "status": "decided",
+   "as": "HttpProber"
   },
   {
    "item": "kkt-lane-files::OsDisk",
@@ -1447,6 +1456,30 @@
    "to": "kkt-agent-client-rmcp",
    "status": "decided",
    "note": "the MCP client implements kkt-agent-client's contract (step 12.4)"
+  },
+  {
+   "item": "kkt-diagnostics::Check",
+   "to": "kkt-probe",
+   "status": "decided",
+   "note": "the probe's contract moves to its own crate (step 12.5b)"
+  },
+  {
+   "item": "kkt-diagnostics::KeyFile",
+   "to": "kkt-probe",
+   "status": "decided",
+   "note": "the probe's contract moves to its own crate (step 12.5b)"
+  },
+  {
+   "item": "kkt-diagnostics::Prober",
+   "to": "kkt-probe",
+   "status": "decided",
+   "note": "the probe's contract moves to its own crate (step 12.5b)"
+  },
+  {
+   "item": "kkt-diagnostics::Probing",
+   "to": "kkt-probe",
+   "status": "decided",
+   "note": "the probe's contract moves to its own crate (step 12.5b)"
   }
  ],
  "remove_items": [
@@ -2762,32 +2795,11 @@
    "doc": "kkt-log's Log over tracing: each event goes to the log the program started."
   },
   {
-   "crate": "kkt-diagnostics-os",
-   "path": "Check",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "One check's result, in kkt-diagnostics-os' own terms; its probe still words the checks, and the program maps them to kkt-diagnostics' Check (step 2.5)"
-  },
-  {
-   "crate": "kkt-diagnostics-os",
-   "path": "KeyFile",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "A key file's mode and text, in kkt-diagnostics-os' own terms; the program maps it to kkt-diagnostics' KeyFile (step 2.5)"
-  },
-  {
-   "crate": "kkt-diagnostics-os",
-   "path": "Probing",
-   "kind": "type",
-   "status": "decided",
-   "doc": "A probe under way, giving kkt-diagnostics-os' own checks (step 2.5)"
-  },
-  {
-   "crate": "kkt-diagnostics-os",
+   "crate": "kkt-probe-reqwest",
    "path": "Settings",
    "kind": "struct",
    "status": "decided",
-   "doc": "What the probe takes from the program (its timeout, response limit, protocol version and the checks' names); it chooses no defaults (step 2.5)"
+   "doc": "What the probe takes from the program (its timeout, response limit, protocol version and the checks' names); it chooses no defaults (steps 2.5 and 12.5b)"
   },
   {
    "crate": "kkt-backup",
@@ -2905,14 +2917,14 @@
    "path": "DOCTOR_MAX_RESPONSE_BYTES",
    "kind": "const",
    "status": "decided",
-   "doc": "The most bytes of an MCP response a probe reads; the program passes it to kkt-diagnostics-os' Settings (step 3.1c-1, follow-up)"
+   "doc": "The most bytes of an MCP response a probe reads; the program passes it to kkt-probe-reqwest's Settings (step 3.1c-1, follow-up)"
   },
   {
    "crate": "kkt-diagnostics",
    "path": "DOCTOR_PROTOCOL_VERSION",
    "kind": "const",
    "status": "decided",
-   "doc": "The MCP protocol version a probe asks for; the program passes it to kkt-diagnostics-os' Settings (step 3.1c-1, follow-up)"
+   "doc": "The MCP protocol version a probe asks for; the program passes it to kkt-probe-reqwest's Settings (step 3.1c-1, follow-up)"
   },
   {
    "crate": "kkt-config-file-os",
@@ -4510,6 +4522,19 @@
    "methods": [
     "new"
    ]
+  },
+  {
+   "crate": "kkt-probe",
+   "path": "testing::Memory",
+   "kind": "struct",
+   "methods": [
+    "new",
+    "key",
+    "server"
+   ],
+   "feature": "testing",
+   "status": "decided",
+   "doc": "Key files and servers, held in memory (step 12.5b)."
   }
  ],
  "declared": [],
@@ -4518,11 +4543,6 @@
    "trait": "kkt-client-config::Host",
    "status": "decided",
    "note": "OsHost (kkt-client-config-os) implements nothing; the program adapts it."
-  },
-  {
-   "trait": "kkt-diagnostics::Prober",
-   "status": "decided",
-   "note": "OsProber (kkt-diagnostics-os) implements nothing; the program adapts it."
   },
   {
    "trait": "kkt-lane-files::Disk",
@@ -4557,12 +4577,6 @@
     "to": "kkt-client-config::Host",
     "status": "decided",
     "note": "the OS implementation, adapted to the contract its consumer declares"
-   },
-   {
-    "adapts": "kkt-diagnostics-os::OsProber",
-    "to": "kkt-diagnostics::Prober",
-    "status": "decided",
-    "note": "2 methods; key_file and probe translate kkt-diagnostics-os' own KeyFile and Check into kkt-diagnostics', and the adapter fills kkt-diagnostics-os' Settings (step 2.5)"
    },
    {
     "adapts": "kkt-lane-files-os::OsDisk",
@@ -6466,15 +6480,21 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-diagnostics-os",
+   "to": "kkt-probe-reqwest",
    "kind": "normal",
    "add": {
     "uses": [
      "Settings"
+    ],
+    "wires": [
+     "HttpProber"
     ]
    },
    "status": "decided",
-   "note": "fills kkt-diagnostics-os' Settings from kkt-diagnostics' (step 2.5)"
+   "note": "builds HttpProber with kkt-diagnostics' settings and injects it directly (steps 2.5 and 12.5b)",
+   "features": [
+    "real"
+   ]
   },
   {
    "from": "kashkeshet",
@@ -8127,7 +8147,6 @@
      "ServerLines",
      "ThisMachine",
      "KeyToCheck",
-     "Check",
      "inspect"
     ]
    },
@@ -8407,7 +8426,6 @@
    "to": "kkt-diagnostics",
    "kind": "normal",
    "drop": [
-    "Check",
     "Inspector",
     "KEY_CHECK",
     "KeyToCheck",
@@ -9260,6 +9278,58 @@
    },
    "note": "the program gives the Docker wrapper the system's opener as it is (step 12.5d)",
    "status": "decided"
+  },
+  {
+   "from": "kkt-probe-reqwest",
+   "to": "kkt-probe",
+   "kind": "normal",
+   "add": {
+    "implements": [
+     "Prober"
+    ],
+    "uses": [
+     "Check",
+     "KeyFile",
+     "Probing"
+    ]
+   },
+   "status": "decided",
+   "note": "The named wrapper implements the scope contract directly (12.5b)."
+  },
+  {
+   "from": "kkt-diagnostics",
+   "to": "kkt-probe",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Prober",
+     "Check",
+     "KeyFile"
+    ]
+   },
+   "status": "decided",
+   "note": "its checks are made through the probe contract (12.5b)."
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-probe",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Prober",
+     "Check"
+    ]
+   },
+   "status": "decided",
+   "note": "OperateParts takes the prober; doctor and setup word checks (12.5b)."
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-probe",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "the program builds kkt-probe-reqwest's HttpProber and names the probe contract nowhere (12.5b)."
   }
  ],
  "decisions": {
@@ -9446,9 +9516,10 @@
   },
   "kkt-diagnostics::Prober": {
    "status": "decided",
-   "result": "Declared by its consumer, kkt-diagnostics. OsProber moves to kkt-diagnostics-os as a plain type that implements nothing; kkt-diagnostics's real feature moves with it, and the program adapts it.",
+   "result": "Moved to its own contract crate, kkt-probe, with KeyFile, Check and Probing. The named wrapper kkt-probe-reqwest implements it directly, and the program only injects it (step 12.5b).",
    "new": [
-    "kkt-diagnostics-os"
+    "kkt-probe",
+    "kkt-probe-reqwest"
    ],
    "conflicts": [
     "C2"
@@ -10449,7 +10520,7 @@
    "at": "OperateParts",
    "name": "prober",
    "traits": [
-    "kkt-diagnostics::Prober"
+    "kkt-probe::Prober"
    ],
    "status": "decided",
    "note": "injected by the program (steps 10.2b and 10.2a)"
@@ -10757,7 +10828,7 @@
   },
   "kkt-diagnostics": {
    "status": "decided",
-   "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server. It declares the `Prober` it checks through; the real one is in kkt-diagnostics-os, adapted by the program."
+   "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server. It checks through kkt-probe's `Prober`, which the program injects."
   },
   "kkt-lane-files": {
    "status": "decided",
@@ -10851,7 +10922,7 @@
   },
   {
    "from": "kkt-diagnostics",
-   "to": "kkt-diagnostics-os",
+   "to": "kkt-probe-reqwest",
    "feature": "real",
    "status": "decided"
   },
@@ -11040,6 +11111,10 @@
      {
       "impl": "kkt-clock::SystemClock",
       "crate": "kkt-service"
+     },
+     {
+      "impl": "kkt-diagnostics::OsProber",
+      "crate": "kkt-diagnostics"
      }
     ],
     "wiring_add": [
@@ -12714,6 +12789,22 @@
    ],
    "status": "decided",
    "note": "The contract owns its testing stand-in (12.5a)."
+  },
+  {
+   "type": "kkt-probe-reqwest::HttpProber",
+   "to": [
+    "kkt-probe::Prober"
+   ],
+   "status": "decided",
+   "note": "A wrapper implements its scope contract directly (step 12.5b)."
+  },
+  {
+   "type": "kkt-probe::testing::Memory",
+   "to": [
+    "kkt-probe::Prober"
+   ],
+   "status": "decided",
+   "note": "The contract owns its testing stand-in (12.5b)."
   }
  ],
  "trait_swaps": [
@@ -13098,6 +13189,12 @@
    "feature": "testing",
    "status": "decided",
    "note": "its Recorder stand-in (step 12.5d)"
+  },
+  {
+   "crate": "kkt-probe",
+   "feature": "testing",
+   "status": "decided",
+   "note": "The scope contract supplies its own in-memory stand-in (12.5b)."
   }
  ]
 }

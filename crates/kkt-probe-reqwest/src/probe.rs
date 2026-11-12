@@ -1,22 +1,25 @@
-//! [`OsProber`]: what touches the machine, reading key files and probing a
-//! server over HTTP. reqwest's types stay in this file.
+//! [`HttpProber`]: reading key files and probing a server over HTTP.
+//! reqwest's types stay in this file.
 
-use super::{Check, KeyFile, Probing, Settings};
+use super::Settings;
+use kkt_probe::{Check, KeyFile, Prober, Probing};
 use reqwest::{Client, Response, Url, redirect::Policy};
 use serde_json::{Value, json};
 use std::path::Path;
 
-/// Reads files and probes HTTP, returning this effect's own records.
-pub struct OsProber {
+/// Reads key files and probes servers over HTTP, as its settings say.
+pub struct HttpProber {
     settings: Settings,
 }
 
-impl OsProber {
+impl HttpProber {
     pub fn new(settings: Settings) -> Self {
         Self { settings }
     }
+}
 
-    pub fn key_file(&self, path: &Path) -> Result<KeyFile, String> {
+impl Prober for HttpProber {
+    fn key_file(&self, path: &Path) -> Result<KeyFile, String> {
         let metadata = std::fs::metadata(path).map_err(|e| e.to_string())?;
         Ok(KeyFile {
             mode: mode(&metadata),
@@ -24,7 +27,7 @@ impl OsProber {
         })
     }
 
-    pub fn probe<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a> {
+    fn probe<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a> {
         Box::pin(probe(url, key, self.settings))
     }
 }

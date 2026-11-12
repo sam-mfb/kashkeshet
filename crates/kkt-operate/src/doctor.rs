@@ -140,7 +140,7 @@ pub async fn run<D: crate::ServiceDefaults>(
     }
 }
 
-fn service_check(service: &dyn kkt_service::Service) -> diagnostics::Check {
+fn service_check(service: &dyn kkt_service::Service) -> kkt_probe::Check {
     diagnostic_check(checks::service_check(
         service
             .ready()
@@ -150,8 +150,8 @@ fn service_check(service: &dyn kkt_service::Service) -> diagnostics::Check {
     ))
 }
 
-fn diagnostic_check(check: checks::DoctorCheck) -> diagnostics::Check {
-    diagnostics::Check {
+fn diagnostic_check(check: checks::DoctorCheck) -> kkt_probe::Check {
+    kkt_probe::Check {
         name: check.name,
         ok: check.ok,
         detail: check.detail,

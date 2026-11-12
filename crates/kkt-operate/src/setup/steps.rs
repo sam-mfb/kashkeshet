@@ -427,7 +427,7 @@ fn connect(
 
 /// Checks, changing nothing, that a server answers at `url` and accepts its
 /// host name.
-fn check_address(prober: &dyn diagnostics::Prober, url: &str) -> Result<(), String> {
+fn check_address(prober: &dyn kkt_probe::Prober, url: &str) -> Result<(), String> {
     let mut checks =
         tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(prober, url))?;
     point_server_fix_at(
@@ -439,7 +439,7 @@ fn check_address(prober: &dyn diagnostics::Prober, url: &str) -> Result<(), Stri
 
 /// Checks, changing nothing, that the server at `url` accepts `key`.
 fn check_key(
-    prober: &dyn diagnostics::Prober,
+    prober: &dyn kkt_probe::Prober,
     url: &str,
     key: &setup::ClientKey,
 ) -> Result<(), String> {
@@ -476,7 +476,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::AdoptSteps for OsSte
 }
 
 /// The doctor's lines for the problems in `checks` as an error, if any.
-fn only_problems(checks: Vec<diagnostics::Check>) -> Result<(), String> {
+fn only_problems(checks: Vec<kkt_probe::Check>) -> Result<(), String> {
     let problems: Vec<_> = checks.into_iter().filter(|check| !check.ok).collect();
     if problems.is_empty() {
         return Ok(());
