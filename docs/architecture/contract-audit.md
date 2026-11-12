@@ -224,7 +224,8 @@ entry below says which one applies.
 ### kkt-container — merge with kkt-container-docker
 
 1. Declares `Container` (16 methods), its records (`Folder`, `State`,
-   `Login`, `KeyCopy` and others), Docker's file names and an exit code. It
+   `Login`, `KeyCopy` and others), the Docker install's two key file names
+   and an exit code. It
    also declares `ConfigReader` and `LoginLink`, which are *Docker's* needs:
    kkt-container-docker calls them and the program implements them.
    kkt-container-docker implements `Container`; `Memory` is the stand-in.
@@ -242,11 +243,14 @@ entry below says which one applies.
 4. Lost: CLAUDE.md's rule that a contract crate has no `real` would not
    apply, because the crate would be marked an effect crate. Gained: one
    fewer crate. And `ConfigReader` and `LoginLink` would sit with the code
-   that needs them (3.1.1). The "contract" already holds names like
-   `docker-web-key`, so it is in practice Docker's own surface.
+   that needs them (3.1.1). The operations and records name no Docker or
+   Compose command, file or format, so a runtime running the same Compose
+   files could implement them. Three values are the Docker install's own:
+   the key file names `docker-web-key` and `docker-admin-key`, which
+   existing installs fix, and `NO_ADMIN_KEY_EXIT`.
 5. **Merge.** Two consumers and one likely implementation (3.3.2). The
-   crate's own contents show it is shaped by its implementation, not by
-   its consumer.
+   contract is neutral about the runtime, so merging loses nothing a second
+   runtime would need; that runtime is just not expected.
 
 ### kkt-remote-access — merge with kkt-remote-access-tailscale
 
@@ -369,7 +373,7 @@ entry below says which one applies.
   I treated it as no reason.
 - **What a contract may hold.** 3.2.5.1 forbids implementation-specific
   methods and configured values in a contract module. kkt-container holds
-  Docker's file names and an exit code; kkt-service holds the plan of what
+  the Docker install's key file names and an exit code; kkt-service holds the plan of what
   the service runs. The line between "values used by the contract" (3.2.5)
   and implementation detail is not drawn.
 - **Single-method contracts.** The principles speak only of modules and
