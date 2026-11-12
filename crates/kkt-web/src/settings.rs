@@ -48,28 +48,3 @@ impl PageLimits {
         member_excerpt_chars: 80,
     };
 }
-
-/// A setting the server refuses to start with, as the preview checks it: the
-/// setting's name and why.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SettingError {
-    pub name: &'static str,
-    pub rule: String,
-}
-
-impl SettingError {
-    pub fn new(name: &'static str, rule: impl Into<String>) -> SettingError {
-        SettingError {
-            name,
-            rule: rule.into(),
-        }
-    }
-}
-
-impl std::fmt::Display for SettingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.name, self.rule)
-    }
-}
-
-impl std::error::Error for SettingError {}

@@ -1,0 +1,39 @@
+[package]
+name = "kkt-api-sim"
+description = "A simulated application for tests and the web preview: the kkt-api crates' operations over a world made up from a seed, and a stand-in for the web page's gate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+# Test support, never in a release: .github/scripts/check-release-packages.sh
+# checks no release depends on it.
+[package.metadata.kkt]
+dev-only = true
+
+[dependencies]
+kkt-admission = { path = "../kkt-admission" }
+kkt-api-agent = { path = "../kkt-api-agent" }
+kkt-api-operator = { path = "../kkt-api-operator" }
+kkt-clock = { path = "../kkt-clock" }
+kkt-entropy = { path = "../kkt-entropy" }
+kkt-events = { path = "../kkt-events" }
+kkt-names = { path = "../kkt-names" }
+kkt-shutdown = { path = "../kkt-shutdown" }
+kkt-web = { path = "../kkt-web" }
+futures.workspace = true
+tokio.workspace = true
+
+[features]
+# Everything here is a stand-in: tests, and the dev-only preview program,
+# turn it on.
+testing = []
+
+[dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
+# The page scenarios the preview must pass, and their helpers.
+kkt-web = { path = "../kkt-web", features = ["testing"] }
+# `time` so the live-feed tests can bound how long they wait in real time.
+tokio = { workspace = true, features = ["time"] }

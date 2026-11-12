@@ -4,7 +4,7 @@
   {
    "id": "programs",
    "title": "Programs",
-   "about": "What runs: the kkt command, and the two dev-only programs that assemble the same crates another way."
+   "about": "What runs: the kkt command, and the dev-only programs that assemble the same crates another way."
   },
   {
    "id": "assembly",
@@ -72,9 +72,15 @@
    "must_not": "Be released.",
    "kind": "composition"
   },
+  "kkt-web-preview": {
+   "layer": "programs",
+   "concern": "The web page over simulated data, for working on the page: kkt-web's page over kkt-api-sim's simulated application and stand-in gate, with the real clock, randomness and stop signals, served alone through kkt-server and kkt-server-listen. Its flags and their checks (`SettingError`). Dev-only, never released.",
+   "must_not": "Be released.",
+   "kind": "composition"
+  },
   "kkt-server": {
    "layer": "assembly",
-   "concern": "Assembling the server from its parts: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapter from admission and identity to the web page's gate, public for a product that builds its own page; handing the page the rules as `OperatorApi`; the page's sessions, which it builds when it mounts the page.",
+   "concern": "Assembling the server from its parts: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapter from admission and identity to the web page's gate, public for a product that builds its own page; handing the page the rules as `OperatorApi`; the page's sessions, which it builds when it mounts the page; the web page alone, for a program that serves only it (`page`).",
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
    "kind": "composition"
   },
@@ -362,6 +368,12 @@
    "layer": "dev",
    "concern": "Tests' scratch folders under `target/tmp`, named for the test and removed when dropped.",
    "must_not": "Be anything but a dev-dependency.",
+   "kind": "test support"
+  },
+  "kkt-api-sim": {
+   "layer": "dev",
+   "concern": "A simulated application, for tests and the web preview: `Preview`, which implements the kkt-api crates' contracts the web page uses over a world made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, with an access key (checked by kkt-admission's check) or open. All of it is behind `testing`.",
+   "must_not": "Be in a release, or anything but a stand-in.",
    "kind": "test support"
   },
   "kkt-lane-files-os": {

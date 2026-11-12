@@ -1,7 +1,8 @@
-//! The preview: the parts of the kkt-api crates' operations the page uses,
-//! over simulated data (`api`), so the page can run and be worked on with
-//! no database, no MCP and no agents. Inside, it keeps its world in records
-//! of its own (`records`).
+//! A simulated application, for tests and the web preview: the parts of
+//! the kkt-api crates' operations the web page uses, over simulated data
+//! (`api`), so the page can run and be worked on with no database, no MCP
+//! and no agents. Inside, it keeps its world in records of its own
+//! (`records`). Everything here is a stand-in, built only with `testing`.
 //!
 //! The world starts with agents, open and closed channels (one still empty),
 //! and a few hundred messages, some very long. [`Preview::run`] then keeps
@@ -9,16 +10,14 @@
 //! channels. Everything comes from the injected clock and entropy, so a
 //! seeded entropy gives the same world and the same feed every time.
 //!
-//! [`PreviewGate`] is the preview's simulated sign-in, so the page runs with
-//! no admission either.
+//! [`PreviewGate`] is a stand-in for the web page's gate, with an access key
+//! or open, so the page runs with no admission either.
+
+#![cfg(any(test, feature = "testing"))]
 
 mod api;
-pub(crate) mod records;
+mod records;
 
-use super::gate::{Admit, Gate, SignIn, Viewer};
-use super::sessions::{Access, Session};
-use super::settings::MAX_WEB_PAGE_MESSAGES;
-use super::settings::SettingError;
 use futures::future::BoxFuture;
 use kkt_api_agent::{Audit, Limits, Operator, Permission, Permissions, SwarmId};
 use kkt_clock::{self as clock, Clock, Span, Time};
@@ -29,6 +28,7 @@ use kkt_events::{
 };
 use kkt_names::{self as names, CHANNEL_RANDOM_LEN, MAX_LANE_NAME_CHARS};
 use kkt_shutdown::Shutdown;
+use kkt_web::{Access, Admit, Gate, Session, SignIn, Viewer};
 use records::{
     ActivityCount, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
     ChannelSummary, ChannelView, KeptAgent, KeptReason, LaneLimits, LaneRetired, LaneSave,
@@ -36,7 +36,6 @@ use records::{
     ServerAnnouncementVersion, ServerAnnouncementView, ServerRun, SourceError, StaleAgent,
     StaleHidden,
 };
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -47,10 +46,6 @@ const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 // The preview's fixed settings: how big its simulated world is and how it
 // moves.
 
-/// Address the preview listens on: next to the server's default port.
-pub const PREVIEW_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7421));
-/// Seed for the simulated data when none is given.
-pub const PREVIEW_SEED: u64 = 1;
 /// Agents in the simulated world at the start.
 const PREVIEW_AGENTS: usize = 8;
 /// Agents at the start that registered this many hours ago and have made no
@@ -84,27 +79,17 @@ const PREVIEW_HIDE_CHANNEL_ONE_IN: usize = 50;
 const PREVIEW_LONG_MESSAGE_ONE_IN: usize = 10;
 /// Characters in a simulated recovery code after its `arc_` prefix.
 const PREVIEW_RECOVERY_CODE_CHARS: usize = 26;
-/// How long a sign-in to the preview lasts, as the server's default
-/// `web_session_lifetime`.
-pub const PREVIEW_SESSION_LIFETIME: Duration = Duration::from_secs(12 * 60 * 60);
-/// Shortest key the preview's gate takes, in bytes, as the server's
-/// (`kkt_admission::check_access_key`).
-const PREVIEW_MIN_KEY_BYTES: usize = 32;
 
 /// What the preview's operator can change.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PreviewSettings {
     /// Steps of the simulated feed per minute. Most steps are one message.
     pub steps_per_minute: u32,
-    /// The most messages one page shows, as the server's `web_page_messages`.
-    pub page_messages: usize,
 }
 
 impl PreviewSettings {
     pub const DEFAULT: PreviewSettings = PreviewSettings {
         steps_per_minute: 30,
-        // As kkt-web's default page size.
-        page_messages: 50,
     };
 
     /// Checks the settings. The preview refuses to start with ones that fail.
@@ -115,38 +100,34 @@ impl PreviewSettings {
                 "must be from 1 to 60000 steps per minute",
             ));
         }
-        if self.page_messages == 0 || self.page_messages > MAX_WEB_PAGE_MESSAGES {
-            return Err(SettingError::new(
-                "page_messages",
-                format!("must be from 1 to {MAX_WEB_PAGE_MESSAGES}"),
-            ));
-        }
         Ok(())
     }
 }
 
-/// Checks a key for the preview's gate as the server checks its keys
-/// (`kkt_admission::check_access_key`, which kkt-web may not use), with the
-/// same rules and words: at least [`PREVIEW_MIN_KEY_BYTES`] long, and only
-/// printable ASCII with no spaces.
-fn check_preview_key(key: &str) -> Result<(), SettingError> {
-    if key.is_empty() {
-        return Err(SettingError::new("access_key_file", "must not be empty"));
-    }
-    if !key.bytes().all(|b| b.is_ascii_graphic()) {
-        return Err(SettingError::new(
-            "access_key_file",
-            "must hold only printable ASCII with no spaces",
-        ));
-    }
-    if key.len() < PREVIEW_MIN_KEY_BYTES {
-        return Err(SettingError::new(
-            "access_key_file",
-            format!("must hold a key of at least {PREVIEW_MIN_KEY_BYTES} characters"),
-        ));
-    }
-    Ok(())
+/// Why the simulation refuses a setting or a key: the setting's name and
+/// the rule it breaks.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SettingError {
+    pub name: &'static str,
+    pub rule: String,
 }
+
+impl SettingError {
+    fn new(name: &'static str, rule: impl Into<String>) -> SettingError {
+        SettingError {
+            name,
+            rule: rule.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for SettingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.name, self.rule)
+    }
+}
+
+impl std::error::Error for SettingError {}
 
 /// The simulated server run that is running, which every row belongs to.
 /// The runs before it make the upgrade history.
@@ -288,7 +269,7 @@ const PARAGRAPHS: &[&str] = &[
 
 /// A simulated [`Gate`] for the preview and the page tests, so they need no
 /// admission. It holds one key, fixed when it is made, or none for an open
-/// page. The page keeps the sessions ([`Sessions`](crate::Sessions)), with
+/// page. The page keeps the sessions ([`kkt_web::Sessions`]), with
 /// the access [`PreviewGate::access`] gives.
 ///
 /// It answers like the server's gate for an open page, a wrong key and a
@@ -306,10 +287,11 @@ impl PreviewGate {
 
     /// A gate that lets in viewers who sign in with the key in `text`,
     /// without surrounding whitespace. Fails, as the server does, if the key
-    /// is not one the server's check accepts (`check_preview_key`).
+    /// is not one the server's check accepts
+    /// ([`kkt_admission::check_access_key`]).
     pub fn with_key(text: &str) -> Result<PreviewGate, SettingError> {
         let key = text.trim();
-        check_preview_key(key)?;
+        kkt_admission::check_access_key(key).map_err(|e| SettingError::new(e.name, e.rule))?;
         Ok(PreviewGate {
             key: Some(key.to_string()),
         })
@@ -325,7 +307,7 @@ impl PreviewGate {
 }
 
 /// The preview's one swarm.
-pub(crate) const PREVIEW_SWARM: &str = "sw_preview";
+pub const PREVIEW_SWARM: &str = "sw_preview";
 
 /// The preview has one swarm and one operator, who may do everything, so
 /// its viewers are all the same, and its sessions hold `()`.
@@ -351,7 +333,7 @@ impl Gate for PreviewGate {
 
 /// The preview's viewer: its one swarm's operator, who may read, change
 /// and issue recovery codes, as the server's web page does.
-pub(crate) fn preview_viewer() -> Viewer {
+pub fn preview_viewer() -> Viewer {
     Viewer {
         swarm: SwarmId::new(PREVIEW_SWARM),
         operator: Operator::new(
@@ -502,9 +484,9 @@ impl Preview {
         }
     }
 
-    /// The swarms that have a world, in the order they were made.
-    #[cfg(test)]
-    pub(crate) fn swarms(&self) -> Vec<SwarmId> {
+    /// The swarms that have a world, in the order they were made, for a
+    /// test to see which swarms a page asked about.
+    pub fn swarms(&self) -> Vec<SwarmId> {
         let swarms = self.swarms.lock().unwrap_or_else(|p| p.into_inner());
         swarms.iter().map(|(id, _)| id.clone()).collect()
     }
@@ -1820,3 +1802,6 @@ fn body(e: &dyn Entropy) -> String {
         LINES[e.below(LINES.len())].to_string()
     }
 }
+
+#[cfg(test)]
+mod tests;

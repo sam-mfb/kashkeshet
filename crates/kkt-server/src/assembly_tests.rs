@@ -166,3 +166,48 @@ async fn the_admin_endpoint_admits_as_the_program_chose() {
     assert!(body.contains(REFUSED), "{body}");
     shutdown.stop();
 }
+
+/// The page alone serves the web page over the application and gate it is
+/// given, and nothing else: no MCP endpoint.
+#[tokio::test]
+async fn the_page_alone_serves_the_page_and_no_endpoint() {
+    let clock = Arc::new(FixedClock::new(start_time()));
+    let shutdown = Shutdown::new();
+    let preview = kkt_api_sim::Preview::new(
+        clock.clone(),
+        Arc::new(SeqEntropy::new(1)),
+        kkt_api_sim::PreviewSettings::DEFAULT,
+        &shutdown,
+    )
+    .expect("the preview's constants are valid");
+    let gate = kkt_api_sim::PreviewGate::open();
+    let sessions = kkt_web::Sessions::new(
+        clock,
+        Arc::new(SeqEntropy::new(2)),
+        kkt_web::Settings::DEFAULT.session_lifetime,
+        gate.access(),
+    );
+    let router = crate::page(
+        Arc::new(preview),
+        AllowedHosts::new(&[]).expect("loopback hosts"),
+        Arc::new(gate),
+        Arc::new(sessions),
+        Arc::new(kkt_log::testing::CapturedLog::default()),
+        kkt_web::Settings::DEFAULT,
+    )
+    .router;
+    let page = Request::get("/")
+        .header("host", "127.0.0.1")
+        .body(Body::empty())
+        .expect("a request");
+    let (status, _, body) = send(&router, page).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("general"), "the simulated channels: {body}");
+    let (status, _, _) = send(
+        &router,
+        mcp(json!({"jsonrpc": "2.0", "id": 1, "method": "ping"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    shutdown.stop();
+}

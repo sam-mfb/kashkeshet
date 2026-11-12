@@ -1,7 +1,6 @@
 //! Who is viewing: the gate is asked about every request, open page or
 //! not, and each request reads the application in its viewer's swarm.
 
-use crate::preview::PREVIEW_SWARM;
 use crate::testing::start_time;
 use crate::*;
 use axum::body::Body;
@@ -9,6 +8,7 @@ use axum::http::Request as HttpRequest;
 use futures::future::BoxFuture;
 use kkt_api_agent::{Audit, Operator, Permissions, SwarmId};
 use kkt_api_operator::OperatorApi;
+use kkt_api_sim::{PREVIEW_SWARM, Preview, PreviewSettings};
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::SeededEntropy;
 use kkt_entropy::testing::SeqEntropy;
@@ -99,16 +99,13 @@ async fn get_as(site: &Router, path: &str, session: Option<&str>) -> (StatusCode
 
 /// The ID of each channel the front page of `swarm`'s world lists.
 async fn channel_ids(preview: &Preview, swarm: &str) -> Vec<String> {
+    let operator = kkt_api_sim::preview_viewer().operator;
     let overview = preview
-        .in_swarm(SwarmId::new(swarm))
-        .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
+        .in_swarm_operator(SwarmId::new(swarm))
+        .overview(&operator, WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
         .expect("overview");
-    overview
-        .channels
-        .into_iter()
-        .map(|c| c.channel.id)
-        .collect()
+    overview.channels.into_iter().map(|c| c.info.id).collect()
 }
 
 #[tokio::test]
