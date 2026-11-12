@@ -1996,15 +1996,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
-    "from": "kkt-config-file",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-machine"
-   },
-   {
     "from": "kkt-container",
     "kind": "normal",
     "role": "uses",
@@ -4885,7 +4876,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "where the config file is"
+      "text": "where the config file is: it asks kkt-machine's Env::config_home for the config home folder and passes that path to config_dir and config_file"
      },
      {
       "status": "decided",
@@ -6140,10 +6131,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "parses and edits the config file's TOML"
-     },
-     {
-      "status": "decided",
-      "text": "config_dir and config_file take the machine's Env (step 3.4)"
      }
     ]
    },
@@ -7237,7 +7224,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Env's access_key_file, config_dir, config_file, data_dir, default_db move to kkt-config-file, kkt-admission and kkt-setup: Env holds only facts; each owner builds its own paths from them; config_home stays a method of Env (step 3.4)"
+      "text": "Env's access_key_file, config_dir, config_file, data_dir, default_db move to kkt-config-file, kkt-admission and kkt-setup: Env holds only facts; each owner builds its own paths from them; config_home stays a method of Env, and kkt-config-file takes the folder it gives as a plain path (step 3.4)"
      },
      {
       "status": "decided",
@@ -13531,7 +13518,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "where the config file is"
+      "text": "where the config file is: it asks kkt-machine's Env::config_home for the config home folder and passes that path to config_dir and config_file"
      },
      {
       "status": "decided",
@@ -17531,14 +17518,14 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "kkt's config folder, from the machine's Env.",
+      "doc": "kkt's config folder, in the config home folder the caller passes as a plain path (the program passes Env::config_home); kkt-config-file depends on nothing of kkt-machine.",
       "kind": "fn",
       "path": "config_dir",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "kkt's config file, from the machine's Env.",
+      "doc": "kkt's config file, in the config home folder the caller passes as a plain path (the program passes Env::config_home); kkt-config-file depends on nothing of kkt-machine.",
       "kind": "fn",
       "path": "config_file",
       "proposed_item": true,
@@ -17612,10 +17599,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "parses and edits the config file's TOML"
-     },
-     {
-      "status": "decided",
-      "text": "config_dir and config_file take the machine's Env (step 3.4)"
      }
     ],
     "released_program": false,
@@ -21846,7 +21829,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Env's access_key_file, config_dir, config_file, data_dir, default_db move to kkt-config-file, kkt-admission and kkt-setup: Env holds only facts; each owner builds its own paths from them; config_home stays a method of Env (step 3.4)"
+      "text": "Env's access_key_file, config_dir, config_file, data_dir, default_db move to kkt-config-file, kkt-admission and kkt-setup: Env holds only facts; each owner builds its own paths from them; config_home stays a method of Env, and kkt-config-file takes the folder it gives as a plain path (step 3.4)"
      },
      {
       "status": "decided",
@@ -32100,31 +32083,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-clock"
-   },
-   {
-    "features": [],
-    "from": "kkt-config-file",
-    "items": [
-     "Env"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Env"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-machine"
    },
    {
     "features": [

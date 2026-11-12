@@ -1542,7 +1542,7 @@
    ],
    "to": "kkt-config-file, kkt-admission and kkt-setup",
    "status": "decided",
-   "note": "Env holds only facts; each owner builds its own paths from them; config_home stays a method of Env (step 3.4)"
+   "note": "Env holds only facts; each owner builds its own paths from them; config_home stays a method of Env, and kkt-config-file takes the folder it gives as a plain path (step 3.4)"
   }
  ],
  "new_items": [
@@ -2067,14 +2067,14 @@
    "path": "config_dir",
    "kind": "fn",
    "status": "decided",
-   "doc": "kkt's config folder, from the machine's Env."
+   "doc": "kkt's config folder, in the config home folder the caller passes as a plain path (the program passes Env::config_home); kkt-config-file depends on nothing of kkt-machine."
   },
   {
    "crate": "kkt-config-file",
    "path": "config_file",
    "kind": "fn",
    "status": "decided",
-   "doc": "kkt's config file, from the machine's Env."
+   "doc": "kkt's config file, in the config home folder the caller passes as a plain path (the program passes Env::config_home); kkt-config-file depends on nothing of kkt-machine."
   },
   {
    "crate": "kkt-admission",
@@ -5029,7 +5029,7 @@
     ]
    },
    "status": "decided",
-   "note": "where the config file is"
+   "note": "where the config file is: it asks kkt-machine's Env::config_home for the config home folder and passes that path to config_dir and config_file"
   },
   {
    "from": "kashkeshet",
@@ -5794,18 +5794,6 @@
    },
    "status": "decided",
    "note": "its ConfigReader adapter gives kkt-container's own ContainerConfig (step 3.3)"
-  },
-  {
-   "from": "kkt-config-file",
-   "to": "kkt-machine",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Env"
-    ]
-   },
-   "status": "decided",
-   "note": "config_dir and config_file take the machine's Env (step 3.4)"
   },
   {
    "from": "kkt-container",
