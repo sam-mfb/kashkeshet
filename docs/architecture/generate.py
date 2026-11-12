@@ -586,8 +586,22 @@ def main():
         contracts_raw[name] = {"takes": takes, "gives": gives, "impls": impls}
         meta_kkt = (p.get("metadata") or {}).get("kkt") or {}
         meta_dist = (p.get("metadata") or {}).get("dist") or {}
-        third_party = sorted({d["name"] for d in p["dependencies"]
-                              if d["name"] not in packages and d["kind"] is None})
+        # A third-party dependency that only the package's `testing` turns
+        # on (kkt-db's rusqlite, for its SQLite-backed stand-in) is test
+        # code's, never a release's: it is recorded apart, so it does not
+        # make the package an I/O crate (kinds.py).
+        def testing_only(d):
+            if not d.get("optional"):
+                return False
+            key = d.get("rename") or d["name"]
+            on_by = [f for f, wants in p["features"].items()
+                     if any(w == f"dep:{key}" or w == key or w.startswith(f"{key}/")
+                            or w.startswith(f"{key}?/") for w in wants)]
+            return bool(on_by) and all(f == "testing" for f in on_by)
+        normal_third_party = [d for d in p["dependencies"]
+                              if d["name"] not in packages and d["kind"] is None]
+        third_party = sorted({d["name"] for d in normal_third_party if not testing_only(d)})
+        testing_third_party = sorted({d["name"] for d in normal_third_party if testing_only(d)})
         crates.append({
             "name": name,
             "lib": lib,
@@ -598,6 +612,7 @@ def main():
             "features": {f: v for f, v in p["features"].items() if f != "default"},
             "crate_doc": doc_summary,
             "third_party": third_party,
+            "testing_third_party": testing_third_party,
             "items": sorted(items.values(), key=lambda e: e["path"]),
         })
 

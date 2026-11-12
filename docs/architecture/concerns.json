@@ -167,7 +167,7 @@
   "kkt-db": {
    "layer": "data",
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
-   "must_not": "Know a product's tables, name a database, or use a database library.",
+   "must_not": "Know a product's tables, name a database, or use a database library, except in its testing stand-in (FastPlace, on SQLite in memory).",
    "kind": "contract"
   },
   "kkt-db-sqlite": {
