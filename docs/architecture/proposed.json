@@ -96,12 +96,13 @@
   },
   {
    "name": "kkt-web-preview",
-   "layer": "surfaces",
-   "kind": "logic",
+   "layer": "programs",
+   "kind": "composition",
    "from": "kkt-web",
    "status": "decided",
-   "concern": "The web page's preview over simulated data: `Preview`, which implements the parts of the kkt-api crates the page uses, and `PreviewGate`, which implements kkt-web's `Gate` over kkt-web's sessions, as a program may, with their settings; and the preview example, a dev-only program that serves the page. The preview's tests are here too. Its dev arrows to effect crates (kkt-clock-system, kkt-entropy-os) are the preview example's; the library depends on none.",
-   "program": "web_preview (example)"
+   "concern": "The web page over simulated data, a dev-only program with no library: kkt-web's page over kkt-api-sim's `Preview` and `PreviewGate`, which it turns kkt-api-sim's testing feature on for, with the real clock, randomness and stop signals, served alone through kkt-server's `page` and kkt-server-listen. It logs through kkt-logs-os and reads its key file through kkt-admission-os. Its flags and their checks are its own (step 6.3).",
+   "program": "kkt-web-preview",
+   "dev_only": true
   },
   {
    "name": "kkt-server-listen",
@@ -164,7 +165,7 @@
    "kind": "contract",
    "from": "kkt-rules",
    "status": "decided",
-   "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (Overview, AgentActivity, ActivityCount, ChannelView, ChannelActivity, LaneHistory, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange), and `OperatorApi`, every operation the operator may use in one swarm, the agent level's included. It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here."
+   "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (Overview, AgentActivity, ActivityCount, ChannelView, ChannelActivity, LaneHistory, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange), `Notices`, the swarm's live notices that `Views::subscribe` gives, each a `Notice` with its own records (NewAgent, ChannelCreated, Joined, Left, ChannelHidden, AgentHidden, ChannelMembers; a message is kkt-api-agent's Message), and `OperatorApi`, every operation the operator may use in one swarm, the agent level's and Views included. It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here."
   },
   {
    "name": "kkt-config-file",
@@ -194,7 +195,7 @@
    "features": {
     "real": []
    },
-   "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path; and finding a program on `PATH`. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container-os, key files through kkt-admission-os."
+   "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path, and absolute and canonical paths; and one snapshot of `PATH`, in which it finds programs. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container-os, key files through kkt-admission-os."
   },
   {
    "name": "kkt-terminal-os",
@@ -228,7 +229,7 @@
    "features": {
     "testing": []
    },
-   "concern": "A simulated application, for tests and the web preview: `Preview`, which implements the kkt-api crates' contracts over a swarm made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, with an access key or open. Both are behind `testing`. kkt-web's and kkt-mcp's tests use it."
+   "concern": "A simulated application, for tests and the web preview: `Preview`, which implements the kkt-api crates' contracts over a swarm made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, with an access key or open. Both are behind `testing`, with the preview's settings (`PreviewSettings`, its `SettingError`) and the viewer kkt-web's viewing test uses. Its simulated world keeps records of its own, which it translates to the kkt-api crates' records, and refuses the operations the page never asks. The preview's tests, the page scenarios over `Preview` among them, are its unit tests. kkt-web's and kkt-server's tests use it (step 6.3)."
   },
   {
    "name": "kkt-config-file-os",
@@ -866,19 +867,6 @@
    "as": "connection::serve_connection"
   },
   {
-   "item": "kashkeshet::machine::keys::local_web_key",
-   "to": "kkt-setup",
-   "status": "decided",
-   "as": "local_web_key",
-   "note": "the order in which keys are looked for, over texts the program reads"
-  },
-  {
-   "item": "kashkeshet::machine::keys::local_operator_key",
-   "to": "kkt-setup",
-   "status": "decided",
-   "as": "local_operator_key"
-  },
-  {
    "item": "kashkeshet::machine::keys::admin_name_line",
    "to": "kkt-admission",
    "status": "decided",
@@ -1490,6 +1478,46 @@
    "item": "kkt-admission::SignIn",
    "status": "decided",
    "note": "WebAdmission::sign_in returns a Decision; the session is started by kkt-web (step 6.1)"
+  },
+  {
+   "item": "kkt-web::LiveEvent",
+   "status": "decided",
+   "note": "the live feed serializes kkt-api-operator's Notice records (step 6.2)"
+  },
+  {
+   "item": "kkt-web::live_event",
+   "status": "decided",
+   "note": "the live feed serializes kkt-api-operator's Notice records (step 6.2)"
+  },
+  {
+   "item": "kkt-web::NewAgent",
+   "status": "decided",
+   "note": "kkt-api-operator's NewAgent is the notice record (step 6.2)"
+  },
+  {
+   "item": "kkt-web::NewChannel",
+   "status": "decided",
+   "note": "kkt-api-operator's ChannelCreated is the notice record (step 6.2)"
+  },
+  {
+   "item": "kkt-web::Joined",
+   "status": "decided",
+   "note": "kkt-api-operator's Joined is the notice record (step 6.2)"
+  },
+  {
+   "item": "kkt-web::Left",
+   "status": "decided",
+   "note": "kkt-api-operator's Left is the notice record (step 6.2)"
+  },
+  {
+   "item": "kkt-web::testing::ChannelHidden",
+   "status": "decided",
+   "note": "the scenarios use kkt-api-operator's ChannelHidden (step 6.2)"
+  },
+  {
+   "item": "kkt-server::WebViewer",
+   "status": "decided",
+   "note": "the gate admits kkt-web's Viewer record (step 6.2)"
   }
  ],
  "method_moves": [
@@ -1613,7 +1641,7 @@
    "path": "PageLimits",
    "kind": "struct",
    "status": "decided",
-   "doc": "The limits only the page applies: messages per page and member excerpt length. The limits the rules enforce (the announcement's and lanes' sizes) come from kkt-api-agent's Api::limits."
+   "doc": "The limits only the page applies: messages per page and member excerpt length, as kkt-web's Settings' page (step 6.2). The limits the rules enforce (the announcement's and lanes' sizes) come from kkt-api-agent's Api::limits."
   },
   {
    "crate": "kkt-rules",
@@ -1729,7 +1757,7 @@
     "agent_view",
     "subscribe"
    ],
-   "doc": "What the operator sees: the overview, with each channel's activity counted in buckets of the size and over the window the caller gives; hidden channels; one channel or agent in full; and the swarm's live notices (subscribe hears every channel, closed ones included)."
+   "doc": "What the operator sees: the overview, with each channel's activity counted in buckets of the size and over the window the caller gives; hidden channels; one channel or agent in full; and the swarm's live notices (subscribe gives Notices, which hear every channel, closed ones included, and need Read; step 6.2)."
   },
   {
    "crate": "kkt-api-operator",
@@ -1829,7 +1857,7 @@
    "path": "KeyFiles",
    "kind": "struct",
    "status": "decided",
-   "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text, a failed read as ReadError with its path; reading any one key or name file; whether one is there; making a key's folder; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts (step 7.2).",
+   "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text, a failed read as ReadError with its path; reading any one key or name file; whether one is there, as a file (is_file) or with a failed probe kept as an error (try_exists); making a key's folder; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts (step 7.2).",
    "feature": "real",
    "methods": [
     "access",
@@ -1837,11 +1865,13 @@
     "admin_names",
     "create_dir_all",
     "exists",
+    "is_file",
     "keep_staged",
     "new",
     "read",
     "read_optional",
     "remove",
+    "try_exists",
     "web"
    ]
   },
@@ -1881,13 +1911,6 @@
     "read_line",
     "say"
    ]
-  },
-  {
-   "crate": "kkt-setup",
-   "path": "server_key_file_name",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "The key file's name for a server, from a hash of its URL."
   },
   {
    "crate": "kkt-admission",
@@ -2081,13 +2104,6 @@
    "doc": "What the service plan takes: the flags kkt serve runs with and the access key setting, which the program fills from kkt-settings' raw values."
   },
   {
-   "crate": "kkt-web-preview",
-   "path": "SettingError",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "Why the preview's flags are refused."
-  },
-  {
    "crate": "kkt-setup",
    "path": "data_dir",
    "kind": "fn",
@@ -2114,7 +2130,12 @@
    "kind": "struct",
    "status": "decided",
    "feature": "real",
-   "doc": "Plain HTTP requests, for the fake product's tests: a GET or POST to a URL, with an optional bearer key, giving the status, headers and body."
+   "doc": "Plain HTTP requests, for the fake product's tests: a GET or POST, with redirects off and TCP_NODELAY on, giving an HttpReply whose HTTP library stays private (step 7.5).",
+   "methods": [
+    "get",
+    "new",
+    "post"
+   ]
   },
   {
    "crate": "kkt-setup-os",
@@ -2137,7 +2158,7 @@
    "path": "docker_env",
    "kind": "fn",
    "status": "decided",
-   "doc": "The Docker folder's .env, read through Host: the settings a Docker install was made with, or none."
+   "doc": "The Docker folder's .env, read through Host: the settings text a Docker install was made with, or the read's own refusal, which the caller words (step 7.3a)."
   },
   {
    "crate": "kkt-container",
@@ -2826,6 +2847,457 @@
    "kind": "enum",
    "status": "decided",
    "doc": "The session a web request presents, as the page found it (step 6.1)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "Notice",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "What the operator hears as it happens in its swarm: a new message, a new agent or channel, an agent joining or leaving a channel, and an agent or channel hidden (step 6.2)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "Notices",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "One listener's notices, from when it subscribed (`Views::subscribe`) (step 6.2).",
+   "methods": [
+    "next"
+   ]
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "NextNotice",
+   "kind": "type",
+   "status": "decided",
+   "doc": "The next notice, or `None` once there will be no more (step 6.2)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "NewAgent",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "An agent registered (step 6.2)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "ChannelCreated",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A channel was created, open or closed (step 6.2)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "Joined",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "An agent joined a channel, or was added to it (step 6.2)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "Left",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "An agent left a channel, or was removed from it (step 6.2)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "ChannelHidden",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A channel was hidden, by its owner or the operator (step 6.2)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "AgentHidden",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "An agent unregistered or was hidden by the operator, leaving every channel it was in (step 6.2)."
+  },
+  {
+   "crate": "kkt-api-operator",
+   "path": "ChannelMembers",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A channel and its member count (step 6.2)."
+  },
+  {
+   "crate": "kkt-web",
+   "path": "Viewer",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "Who is viewing, as the Gate decides it: a record of the swarm whose operations the page shows and changes, and the operator they act as there (step 6.2)."
+  },
+  {
+   "crate": "kkt-web",
+   "path": "testing::App",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The application a scenario's page shows, and the operator the scenario reads and changes it as, to check what the page did (step 6.2).",
+   "feature": "testing",
+   "methods": [
+    "agent",
+    "change_channel",
+    "channel",
+    "hidden_channels",
+    "hide_agent",
+    "hide_stale_agents",
+    "lane",
+    "lanes",
+    "live",
+    "new",
+    "overview",
+    "server_announcement",
+    "server_runs",
+    "stale_agents"
+   ]
+  },
+  {
+   "crate": "kkt-api-sim",
+   "path": "Happening",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "What one step of the feed did (step 6.3).",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-api-sim",
+   "path": "PREVIEW_SWARM",
+   "kind": "const",
+   "status": "decided",
+   "doc": "The preview's one swarm (step 6.3).",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-api-sim",
+   "path": "SettingError",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "Why the simulation refuses a setting or a key: the setting's name and the rule it breaks (step 6.3).",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-api-sim",
+   "path": "preview_viewer",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The preview's viewer: its one swarm's operator, who may read, change and issue recovery codes, as the server's web page does (step 6.3).",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-server",
+   "path": "page",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The web page alone, over `api` in each viewer's swarm and behind `gate`, with no MCP endpoints, for a program that serves only the page, such as the preview over simulated data (step 6.3)."
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "HttpReply",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A response whose HTTP library and streaming body stay private (step 7.5).",
+   "feature": "real",
+   "methods": [
+    "bytes_stream",
+    "header",
+    "header_text",
+    "status",
+    "text"
+   ]
+  },
+  {
+   "crate": "kkt-db-sqlite",
+   "path": "CreateError",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "Why creating a new database file did not succeed (step 7.5).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "connection",
+   "kind": "mod",
+   "status": "decided",
+   "doc": "The ordered choice of a client's endpoint and key, from setup or serve settings (step 7.3a)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "connection::ConnectionSource",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Reads needed by connection selection, requested only in their original order (step 7.3a).",
+   "methods": [
+    "absolute",
+    "check_key",
+    "make_default_key",
+    "record",
+    "serve"
+   ]
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "connection::ServeConnection",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The checked endpoint and access-key setting; source context is returned to its reader (step 7.3a)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "connection::admin_connection",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The local server's connection for admin tools, even when clients were switched (step 7.3a)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "connection::admin_endpoint",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The admin endpoint, from a client endpoint ending in /mcp (step 7.3a)."
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "absolute",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Resolves a relative path against this process's working directory (step 7.3a).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "canonicalize",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Follows links and resolves the actual file path (step 7.3a).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "path_dirs",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "One snapshot of PATH, shared by all client checks in a setup invocation (step 7.3a).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "write_unfinished",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Saves the unfinished note with the same write-then-rename operation (step 7.3a).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup-os",
+   "path": "remove_unfinished",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Removes the unfinished note, accepting an already-missing file (step 7.3a).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "doctor_checks",
+   "kind": "mod",
+   "status": "decided",
+   "doc": "The doctor's checks and fixes, from facts read by the program (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "doctor_checks::DoctorCheck",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "Setup's check result, adapted by the program to the diagnostic report (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "doctor_checks::docker_check",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The doctor's line about kkt in Docker, from what `kkt_container::status` found in the managed `folder` (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "doctor_checks::docker_web_key_check",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The doctor's line about whether the web key's host copy is the Docker server's key, from what `kkt_container::compare_web_key` found (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "doctor_checks::server_fix_text",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The text of `fix`, kkt-setup's fix for a server that does not answer (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "doctor_checks::service_check",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The doctor's line about the kkt service on this machine (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "doctor_checks::tailscale_login_check",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The doctor's line about the Tailscale container's login (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "doctor_checks::unrecorded_check",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The doctor's line about a server kkt installed here with no record, if one was looked for and found (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "lane_reports",
+   "kind": "mod",
+   "status": "decided",
+   "doc": "The report of a lane import, and the Docker limit when no install is present (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "lane_reports::Outcome",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "The plain import outcome the program adapts from the operator API (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "client_key",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "One key per server, so another server's saved key is never replaced (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "uninstall_record",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Clients switched to another server keep using it after the local install goes (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "waiting_note",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "What setup says while it waits for the server at `url`, set up as `mode`, to answer (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "doctor_checks::web_key_fix",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The fix the doctor gives for a web key that does not match: for Docker, its host copy; otherwise on the server (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "doctor_checks::admin_key_fix",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The fix the doctor gives for an admin key that does not match: for Docker, its host copy; otherwise on the server (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "lane_reports::docker_limit",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The lane text limit of kkt in Docker: the default when no install is present, else what the caller's lazy read gives (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "lane_reports::import_report",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The report of a lane import: each lane's outcome and the totals, with the folder and its commit (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "staged_client_key",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Where setup stages a client's access key before it knows the server (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "upgrade_backup_folder",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The folder upgrade backs the database up into, beside the database (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "service_backup_folder",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The service's backup folder, in the config folder, or a refusal when HOME is unset (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "uninstall_line",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "What uninstall says it removed and kept (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "setup_lane_limit",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The lane limit for the purpose a machine was set up for: the local server's, kkt in Docker's, or a refusal for a client (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "web_key_line",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Status's line about the web key file (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "admin_key_line",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Status's line about the admin key file (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "configured_name_pack_line",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Status's line about the configured name pack (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "docker_status_lines",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Status's lines about kkt in Docker, from what kkt-container found in its folder (step 7.3b)."
+  },
+  {
+   "crate": "kkt-setup",
+   "path": "service_upgrade_error",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Upgrade's error for the service, with what to do when the service did not reload (step 7.3b)."
+  },
+  {
+   "crate": "kkt-rules",
+   "path": "Startup",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What the rules depend on at startup: `Deps` without the run, which `start` records and fills in (step 5.6a)."
+  },
+  {
+   "crate": "kkt-server",
+   "path": "new_server_run",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "What produced a run, kkt-provenance's ServerRun, as kkt-rules' start records it, a NewServerRun (step 5.6a)."
   }
  ],
  "declared": [],
@@ -3254,13 +3726,11 @@
    "add": {
     "uses": [
      "Admit",
-     "LiveEvent",
-     "SignIn",
-     "live_event"
+     "SignIn"
     ]
    },
    "status": "decided",
-   "note": "the simulated application builds kkt-web's live events and gate answers; its data are kkt-api-agent's records"
+   "note": "the simulated application answers kkt-web's gate; its data are kkt-api-agent's records (step 6.2)"
   },
   {
    "from": "kkt-api-sim",
@@ -4011,14 +4481,11 @@
      "connection::client_connection",
      "connection::recorded_connection",
      "connection::serve_connection",
-     "local_web_key",
-     "local_operator_key",
      "docker_url",
      "docker_folder",
      "unfinished_mode",
      "recorded_setup",
-     "ask::Prompter",
-     "server_key_file_name"
+     "ask::Prompter"
     ]
    },
    "status": "decided",
@@ -5669,6 +6136,825 @@
    "remove": true,
    "status": "decided",
    "note": "the session tests, which used a fixed clock, moved to kkt-web (step 6.1)"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-api-operator",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "OperatorApi",
+     "Notice",
+     "Notices"
+    ]
+   },
+   "status": "decided",
+   "note": "it takes the application as one OperatorApi and hears its live updates as Notices (step 6.2)"
+  },
+  {
+   "from": "kkt-rules",
+   "to": "kkt-api-operator",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Notice",
+     "Notices",
+     "NextNotice",
+     "NewAgent",
+     "ChannelCreated",
+     "Joined",
+     "Left",
+     "ChannelHidden",
+     "AgentHidden",
+     "ChannelMembers"
+    ]
+   },
+   "status": "decided",
+   "note": "Rules implements Views::subscribe, adapting its kkt-events subscription to Notices (step 6.2)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-api-operator",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "OperatorApi"
+    ]
+   },
+   "status": "decided",
+   "note": "it mounts the page with the rules as one OperatorApi (step 6.2)"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-events",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "the page hears notices through kkt-api-operator's Notices; only the preview used kkt-events, and it is kkt-api-sim (steps 6.2 and 6.3)"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-clock",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-clock-system",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-entropy",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-entropy-os",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-hosts",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-shutdown",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-shutdown-os",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-web",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-clock-system",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "SystemClock"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "real"
+   ],
+   "note": "the preview program (step 6.3): the real clock"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-entropy-os",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "OsEntropy"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "real"
+   ],
+   "note": "the preview program (step 6.3): the sessions' randomness"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-entropy",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "SeededEntropy"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "testing"
+   ],
+   "note": "the preview program (step 6.3): the simulated world, repeatable from its seed"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-shutdown-os",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "StopSignals"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "real"
+   ],
+   "note": "the preview program (step 6.3): the stop signals"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-hosts",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "AllowedHosts"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview program (step 6.3): the host names it answers to"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-web",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "PageLimits",
+     "Sessions",
+     "Settings",
+     "MAX_WEB_PAGE_MESSAGES"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview program (step 6.3): the page's settings and sessions"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-server",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "page"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview program (step 6.3): it serves the page alone, without naming axum"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-server-listen",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "listen"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "real"
+   ],
+   "note": "the preview program (step 6.3): binding the socket"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-logs-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "init_stderr_logging"
+    ],
+    "wires": [
+     "TracingLog"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "real"
+   ],
+   "note": "the preview program (step 6.3): its log, on standard error"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-logs",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "LogLevel"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview program (step 6.3): the log's level"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-log",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Log",
+     "Level"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview program (step 6.3): what it logs itself"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-admission-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "KeyFiles"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "real"
+   ],
+   "note": "the preview program (step 6.3): its key file"
+  },
+  {
+   "from": "kkt-web-preview",
+   "to": "kkt-api-sim",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "SettingError"
+    ]
+   },
+   "status": "decided",
+   "note": "the preview program (step 6.3): the preview's settings and their error"
+  },
+  {
+   "from": "kkt-api-sim",
+   "to": "kkt-shutdown",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Shutdown"
+    ]
+   },
+   "status": "decided",
+   "note": "Preview::new takes the stop that ends its live notices, and run the one that ends its feed (step 6.3)"
+  },
+  {
+   "from": "kkt-api-sim",
+   "to": "kkt-web",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Access",
+     "Gate",
+     "Session",
+     "Viewer"
+    ]
+   },
+   "drop": [
+    "Sessions",
+    "WEB_SESSION_ID_CHARS"
+   ],
+   "status": "decided",
+   "note": "its world and its gate answer kkt-web's Gate with kkt-web's records (step 6.3)"
+  },
+  {
+   "from": "kkt-api-sim",
+   "to": "kkt-api-operator",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "OperatorApi",
+     "Notice",
+     "Notices",
+     "NextNotice",
+     "NewAgent",
+     "ChannelCreated",
+     "Joined",
+     "Left",
+     "ChannelHidden",
+     "AgentHidden",
+     "ChannelMembers",
+     "Overview",
+     "ChannelView",
+     "LaneHistory",
+     "AgentActivity",
+     "ActivityCount",
+     "Kept"
+    ]
+   },
+   "status": "decided",
+   "note": "Preview is an OperatorApi, with notices of its own world (steps 6.2 and 6.3)"
+  },
+  {
+   "from": "kkt-api-sim",
+   "to": "kkt-web",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing",
+     "testing::App",
+     "testing::Door",
+     "testing::site",
+     "testing::get",
+     "testing::start_time",
+     "testing::pages_work",
+     "testing::changes_work",
+     "testing::history_works",
+     "testing::earlier_pages_work",
+     "testing::administration_works",
+     "testing::announcement_editor_works",
+     "testing::channel_creation_works",
+     "testing::handoff_works",
+     "testing::hidden_channels_show_only_on_request",
+     "testing::lanes_pages_work",
+     "testing::member_lists_show_lanes_and_latest_messages",
+     "testing::operator_changes_are_live",
+     "testing::page_script_works",
+     "testing::stale_agents_work",
+     "testing::summaries_agree_with_the_pages",
+     "PageLimits",
+     "Sessions",
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "testing"
+   ],
+   "note": "the page scenarios over Preview, and the tests of its world, feed and gate, are its unit tests (step 6.3)"
+  },
+  {
+   "from": "kkt-api-sim",
+   "to": "kkt-clock",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "testing::FixedClock",
+     "Span",
+     "to_text"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "testing"
+   ],
+   "note": "its tests use the fixed clock (step 6.3)"
+  },
+  {
+   "from": "kkt-api-sim",
+   "to": "kkt-entropy",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "SeededEntropy",
+     "testing::SeqEntropy"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "testing"
+   ],
+   "note": "its tests use seeded and counting entropy (step 6.3)"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-api-sim",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "PREVIEW_SWARM",
+     "PreviewSettings",
+     "preview_viewer"
+    ]
+   },
+   "drop": [
+    "PreviewGate"
+   ],
+   "status": "decided",
+   "note": "its viewing test reads the preview's swarms through OperatorApi (step 6.3)"
+  },
+  {
+   "from": "kkt-web",
+   "to": "kkt-shutdown",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Shutdown"
+    ]
+   },
+   "status": "decided",
+   "note": "its tests stop the simulated feed by hand (step 6.3)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-api-sim",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Preview",
+     "PreviewGate",
+     "PreviewSettings"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "testing"
+   ],
+   "note": "its page tests run over the simulated application (step 6.3)"
+  },
+  {
+   "from": "kkt-mcp",
+   "to": "kkt-api-sim",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "its tests already use only stand-ins and need nothing the simulation gives (step 6.3)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-agent-client",
+   "kind": "dev",
+   "remove": true,
+   "status": "decided",
+   "note": "the dependency is a normal one, with real, which only its integration tests use (step 7.5)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-agent-client",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Http",
+     "HttpReply"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "real"
+   ],
+   "note": "a normal dependency with real, which only its integration tests use: real is allowed in dev-dependencies only for examples (step 7.5)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-db-sqlite",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "CreateError"
+    ]
+   },
+   "status": "decided",
+   "note": "it creates its new database through SqlitePlace::create and keeps its own wording for each CreateError (step 7.5)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-setup-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "absolute",
+     "canonicalize",
+     "path_dirs",
+     "write_unfinished",
+     "remove_unfinished"
+    ]
+   },
+   "status": "decided",
+   "note": "PATH once per client check, paths and the unfinished note (step 7.3a)"
+  },
+  {
+   "from": "kkt-setup-os",
+   "to": "kkt-setup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Record",
+     "Unfinished"
+    ]
+   },
+   "status": "decided",
+   "note": "it reads and writes kkt-setup's Record and Unfinished note (step 7.3a)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-setup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "connection",
+     "connection::admin_connection",
+     "connection::admin_endpoint"
+    ]
+   },
+   "drop": [
+    "connection::Connection",
+    "connection::ConnectionOptions"
+   ],
+   "status": "decided",
+   "note": "connection selection is kkt-setup's, over the program's ConnectionSource (step 7.3a)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-setup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "doctor_checks",
+     "lane_reports::Outcome",
+     "lane_reports::docker_limit",
+     "lane_reports::import_report",
+     "client_key",
+     "staged_client_key",
+     "uninstall_record",
+     "uninstall_line",
+     "upgrade_backup_folder",
+     "service_backup_folder",
+     "setup_lane_limit",
+     "web_key_line",
+     "admin_key_line",
+     "configured_name_pack_line",
+     "docker_status_lines",
+     "service_upgrade_error",
+     "waiting_note"
+    ]
+   },
+   "drop": [
+    "KeyFix",
+    "ServerFix",
+    "key_fix",
+    "data_dir",
+    "docker_url",
+    "unfinished_mode",
+    "record_path",
+    "unfinished_path"
+   ],
+   "status": "decided",
+   "note": "the doctor's checks, the status lines, the backup folders, uninstall's record, the client key's name, the lane limit and the import report are kkt-setup's, with the fixes and paths they use; the program keeps local_web_key and local_operator_key, which read in kkt-setup's order and ask its operator_key and configured_key (step 7.3b)"
+  },
+  {
+   "from": "kkt-setup",
+   "to": "kkt-container",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "DockerError",
+     "KeyCopy",
+     "Login",
+     "State"
+    ]
+   },
+   "status": "decided",
+   "note": "the doctor's and status's lines read what kkt-container found (step 7.3b)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-container",
+   "kind": "normal",
+   "drop": [
+    "DockerError",
+    "KeyCopy",
+    "Login",
+    "State"
+   ],
+   "status": "decided",
+   "note": "the doctor's checks of kkt in Docker are kkt-setup's (step 7.3b)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-diagnostics",
+   "kind": "normal",
+   "drop": [
+    "SETUP_CHECK"
+   ],
+   "status": "decided",
+   "note": "the setup check's name is kkt-setup's own (step 7.3b)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-api-agent",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "SwarmId"
+    ]
+   },
+   "status": "decided",
+   "note": "it names the swarm it starts the rules in, SwarmId::main (step 5.6a)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-events",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "the program makes the events bus the rules hear on and gives it to start (step 5.6a)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-events",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Events",
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "its tests make the bus for the rules they start (step 5.6a)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-events",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Events"
+    ]
+   },
+   "status": "decided",
+   "note": "it makes the events bus and stops it with the server (step 5.6a)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Startup"
+    ]
+   },
+   "drop": [
+    "Deps"
+   ],
+   "status": "decided",
+   "note": "it starts the rules with a Startup (step 5.6a)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-events",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Events"
+    ]
+   },
+   "status": "decided",
+   "note": "it makes the events bus and stops it with the server (step 5.6a)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Startup"
+    ]
+   },
+   "drop": [
+    "Deps"
+   ],
+   "status": "decided",
+   "note": "it starts the rules with a Startup (step 5.6a)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-events",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Events"
+    ]
+   },
+   "status": "decided",
+   "note": "it makes the events bus and stops it with the server (step 5.6a)"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Startup"
+    ]
+   },
+   "drop": [
+    "Deps"
+   ],
+   "status": "decided",
+   "note": "it starts the rules with a Startup (step 5.6a)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "drop": [
+    "NewServerRun"
+   ],
+   "status": "decided",
+   "note": "kkt-server's new_server_run gives the NewServerRun (step 5.6a)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-server",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "new_server_run"
+    ]
+   },
+   "status": "decided",
+   "note": "it maps the run for start (step 5.6a)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "drop": [
+    "NewServerRun"
+   ],
+   "status": "decided",
+   "note": "kkt-server's new_server_run gives the NewServerRun (step 5.6a)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-server",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "new_server_run"
+    ]
+   },
+   "status": "decided",
+   "note": "it maps the run for start (step 5.6a)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "NewServerRun"
+    ]
+   },
+   "drop": [
+    "Settings"
+   ],
+   "status": "decided",
+   "note": "new_server_run gives kkt-rules' NewServerRun; Parts takes the Rules start built, not the wording or the rules' settings (step 5.6a)"
   }
  ],
  "decisions": {
@@ -5787,7 +7073,7 @@
   },
   "kkt-web::Viewer": {
    "status": "decided",
-   "result": "Unchanged: kkt-web's own, with kkt-web's blanket implementation (the \"a type of its own\" in the table); no other crate takes it."
+   "result": "Gone as a trait: Viewer is kkt-web's record of a swarm and an operator, which Gate::admits gives and the page reads to call the operations in the viewer's swarm (step 6.2)."
   },
   "kkt-rules::OperatorWording": {
    "status": "decided",
@@ -6224,7 +7510,7 @@
    "by": "kkt-web",
    "to": "kkt-web-preview",
    "status": "decided",
-   "note": "the preview program's code moves with it: its settings and serving; the preview program keeps the real clock, entropy and stop signals, while kkt-web's tests use stand-ins",
+   "note": "the preview program's code moves with it: its flags, their checks and serving; the program keeps the real clock, entropy and stop signals, while kkt-web's tests use stand-ins (step 6.3)",
    "uses": {
     "kkt-shutdown": [
      "Shutdown",
@@ -6453,6 +7739,38 @@
    ],
    "status": "decided",
    "note": "the sessions know from their Access whether sign-in is required, and session finds a request's session, absent, ended or live (step 6.1)"
+  },
+  {
+   "type": "kkt-api-sim::Preview",
+   "methods": [
+    "swarms"
+   ],
+   "status": "decided",
+   "note": "the swarms it has made a world for, for kkt-web's viewing test (step 6.3)"
+  },
+  {
+   "type": "kkt-api-sim::PreviewGate",
+   "methods": [
+    "access"
+   ],
+   "status": "decided",
+   "note": "whether its viewers sign in, for the page's Sessions (step 6.3)"
+  },
+  {
+   "type": "kkt-container::Host",
+   "methods": [
+    "is_file"
+   ],
+   "status": "decided",
+   "note": "whether a path is a file, not a folder, as an installed file must be (step 7.3a)"
+  },
+  {
+   "type": "kkt-rules::Rules",
+   "methods": [
+    "run_id"
+   ],
+   "status": "decided",
+   "note": "the run's ID, for the program's log line (step 5.6a)"
   }
  ],
  "doc_edits": [
@@ -6466,7 +7784,7 @@
   },
   {
    "item": "kkt-web::Gate",
-   "doc": "Who is viewing: whether a key lets a viewer in (sign_in), and who a signed-in or open viewer is (admits), asked about what a session holds, its SignedIn (kkt-server's Principal). kkt-web keeps the sessions itself (step 6.1)."
+   "doc": "Who is viewing: whether a key lets a viewer in (sign_in), and who a signed-in or open viewer is (admits, a Viewer record), asked about what a session holds, its SignedIn (kkt-server's Principal). kkt-web keeps the sessions itself (steps 6.1 and 6.2)."
   },
   {
    "item": "kkt-admission::WebAdmission",
@@ -6591,10 +7909,10 @@
    "at": "router",
    "name": "api",
    "traits": [
-    "kkt-api-agent::Api"
+    "kkt-api-operator::OperatorApi"
    ],
    "status": "decided",
-   "note": "the application, which the page calls directly; each viewer's swarm through Api::in_swarm"
+   "note": "the application as one OperatorApi, which the page calls directly; each request's viewer's swarm through in_swarm_operator (step 6.2)"
   },
   {
    "crate": "kkt-server",
@@ -6715,6 +8033,66 @@
    ],
    "status": "decided",
    "note": "the agent endpoint calls kkt-api-agent, not kkt-rules: an Arc<dyn Api> (step 5.3b)"
+  },
+  {
+   "crate": "kkt-server",
+   "at": "page",
+   "name": "api",
+   "traits": [
+    "kkt-api-operator::OperatorApi"
+   ],
+   "status": "decided",
+   "note": "the application the page alone shows (step 6.3)"
+  },
+  {
+   "crate": "kkt-server",
+   "at": "page",
+   "name": "gate",
+   "traits": [
+    "kkt-web::Gate"
+   ],
+   "status": "decided",
+   "note": "who may view the page alone (step 6.3)"
+  },
+  {
+   "crate": "kkt-server",
+   "at": "page",
+   "name": "log",
+   "traits": [
+    "kkt-log::Log"
+   ],
+   "status": "decided",
+   "note": "where the page's events go (step 6.3)"
+  },
+  {
+   "crate": "kkt-rules",
+   "at": "Startup",
+   "name": "wording",
+   "traits": [
+    "kkt-rules::OperatorWording"
+   ],
+   "status": "decided",
+   "note": "the rules' Deps without the run, which start records and fills in (step 5.6a)"
+  },
+  {
+   "crate": "kkt-rules",
+   "at": "Startup",
+   "name": "clock",
+   "traits": [
+    "kkt-clock::Clock"
+   ],
+   "status": "decided",
+   "note": "the rules' Deps without the run, which start records and fills in (step 5.6a)"
+  },
+  {
+   "crate": "kkt-rules",
+   "at": "Startup",
+   "name": "entropy",
+   "traits": [
+    "kkt-entropy::Entropy"
+   ],
+   "status": "decided",
+   "note": "the rules' Deps without the run, which start records and fills in (step 5.6a)"
   }
  ],
  "renames": [
@@ -6738,7 +8116,7 @@
   },
   "kkt-rules": {
    "status": "decided",
-   "concern": "Every permission decision and every change, for agents and the operator, each in one swarm: it is the implementation of the application's shared contracts, kkt-api-agent, kkt-api-operator and kkt-api-admin, through Rules, and provides the default wording, DefaultWording, as its own OperatorWording. It holds the core's data privately: its queries as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. kkt-store merged into it; the database stays private.",
+   "concern": "Every permission decision and every change, for agents and the operator, each in one swarm: it is the implementation of the application's shared contracts, kkt-api-agent, kkt-api-operator and kkt-api-admin, through Rules, and provides the default wording, DefaultWording, as its own OperatorWording. Its `start` records a server run, then builds the Rules from a `Startup`, the rules' `Deps` without the run. It holds the core's data privately: its queries as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. kkt-store merged into it; the database stays private.",
    "must_not": "Name a database or use a database library: it reaches the database through kkt-db's contract, which the program fills with the SQLite backend."
   },
   "kkt-db-sqlite": {
@@ -6751,7 +8129,7 @@
   },
   "kkt-server": {
    "status": "decided",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen."
+   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits, and `page` builds the web page alone, over any `OperatorApi` and gate, for a program that serves only the page (kkt-web-preview). Binding the socket is in kkt-server-listen."
   },
   "kkt-agent-client": {
    "status": "decided",
@@ -6806,7 +8184,7 @@
   },
   "kkt-web": {
    "status": "decided",
-   "concern": "The human's pages, over the application's operations: it calls kkt-api-agent and kkt-api-operator directly and renders their records. Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is. It keeps the sign-in sessions and form tokens itself (`Sessions`, generic over what the gate says a key admits, and told by its `Access` whether sign-in is required), with their lifetime in its `Settings`, the page-only limits (`PageLimits`), and its live updates, which it draws from kkt-api-operator's subscribe. The page scenarios every implementation must pass (`testing`).",
+   "concern": "The human's pages, over the application's operations: it calls kkt-api-agent and kkt-api-operator directly and renders their records. Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is, as a `Viewer` record (a swarm and an operator); the page takes the application as one `OperatorApi` and calls it in each viewer's swarm. It keeps the sign-in sessions and form tokens itself (`Sessions`, generic over what the gate says a key admits, and told by its `Access` whether sign-in is required), with their lifetime in its `Settings`, the page-only limits (`PageLimits`, its `Settings`' `page`), and its live updates, which it draws from kkt-api-operator's `Notices` and serializes itself. The page scenarios every implementation must pass (`testing`, over a `testing::App`).",
    "must_not": "Depend on the rules, the store, admission or identity, or on an implementation crate: it uses the agent and operator levels' contracts, and kkt-server implements its Gate."
   },
   "kkt-events": {
@@ -6836,7 +8214,7 @@
   },
   "kkt-setup": {
    "status": "decided",
-   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server and key this machine's clients use (`kkt switch`), how setup asks its questions (its `Prompter` over its own `Lines`), and what status, upgrade, lanes, backup, key files and `kkt doctor` decide. It reads no files and runs nothing: the program does, through the effect crates, and carries out what is decided here."
+   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server and key this machine's clients use (`kkt switch`; `connection`, over the reads its `ConnectionSource` asks for in their original order), how setup asks its questions (its `Prompter` over its own `Lines`), and what status, upgrade, uninstall, lanes, backup, key files and `kkt doctor` decide: the status lines, the backup folders, the record uninstall leaves, the per-server client key's name, the lane limit, the import report, and the doctor's checks and fixes as plain `DoctorCheck`s, which the program adapts to kkt-diagnostics' report. It reads no files and runs nothing: the program does, through the effect crates, and carries out what is decided here."
   },
   "kkt-identity": {
    "status": "decided",
@@ -6965,11 +8343,14 @@
       "fills": "kkt-rules::Db::new (database)"
      },
      "Run record": {
-      "text": "kkt-rules' start records what produced this run in the Db, then builds the Rules with its ID, which new rows carry.",
+      "text": "kkt-rules' start records what produced this run in the Db, from kkt-server's new_server_run, then builds the Rules with its ID from a Startup, which new rows carry. The program makes the events bus the rules hear on and stops it with the server.",
       "items": [
        "kkt-provenance::ServerRun",
        "kkt-rules::start",
-       "kkt-rules::NewServerRun"
+       "kkt-rules::NewServerRun",
+       "kkt-rules::Startup",
+       "kkt-server::new_server_run",
+       "kkt-events::Events"
       ]
      },
      "Parts": {
@@ -6981,7 +8362,7 @@
        "kkt-identity-keymode::KeyMode",
        "kkt-server::AdmissionGate"
       ],
-      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
+      "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log)"
      }
     },
     "wiring_drop": [
@@ -7048,12 +8429,12 @@
       "crate": "kkt-rules",
       "to": [
        {
-        "at": "Deps",
+        "at": "Startup",
         "param": "wording"
        }
       ],
       "status": "decided",
-      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start"
+      "note": "kkt-rules' default wording, in the Startup the program gives kkt-rules' start (step 5.6a)"
      },
      {
       "impl": "kkt-config-file::parse_file",
@@ -7197,14 +8578,17 @@
        "kkt-admission::AdminAdmission",
        "kkt-hosts::AllowedHosts"
       ],
-      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
+      "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log)"
      },
      "Run record": {
-      "text": "As kkt serve's: kkt-rules' start records the run, then builds the Rules.",
+      "text": "kkt-rules' start records what produced this run in the Db, from kkt-server's new_server_run, then builds the Rules with its ID from a Startup, which new rows carry. The program makes the events bus the rules hear on and stops it with the server.",
       "items": [
        "kkt-provenance::ServerRun",
        "kkt-rules::start",
-       "kkt-rules::NewServerRun"
+       "kkt-rules::NewServerRun",
+       "kkt-rules::Startup",
+       "kkt-server::new_server_run",
+       "kkt-events::Events"
       ]
      }
     },
@@ -7252,12 +8636,12 @@
       "crate": "kkt-rules",
       "to": [
        {
-        "at": "Deps",
+        "at": "Startup",
         "param": "wording"
        }
       ],
       "status": "decided",
-      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start"
+      "note": "kkt-rules' default wording, in the Startup the program gives kkt-rules' start (step 5.6a)"
      },
      {
       "impl": "kkt-admission-os::KeyFiles",
@@ -7303,7 +8687,7 @@
        "kkt-fake-product::FakeIdentify",
        "kkt-server::AdmissionGate"
       ],
-      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
+      "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log)"
      }
     },
     "wiring_drop": [
@@ -7362,12 +8746,12 @@
       "crate": "kkt-rules",
       "to": [
        {
-        "at": "Deps",
+        "at": "Startup",
         "param": "wording"
        }
       ],
       "status": "decided",
-      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start"
+      "note": "kkt-rules' default wording, in the Startup the program gives kkt-rules' start (step 5.6a)"
      },
      {
       "impl": "kkt-logs-os::TracingLog",
@@ -7386,40 +8770,46 @@
   },
   "add": {
    "kkt-web-preview": {
-    "title": "the web preview (example)",
+    "title": "the web preview",
     "inferred": false,
     "steps": [
      {
       "title": "Settings",
-      "text": "Flags give the address, the seed and the preview's settings; a non-loopback address needs an access key and names the hosts to answer to.",
+      "text": "Flags give the address, the seed, the feed's rate and the page size, checked by the program into kkt-api-sim's PreviewSettings and kkt-web's PageLimits; a non-loopback address names the hosts to answer to. Its log goes to standard error.",
       "items": [
-       "kkt-web-preview::PreviewSettings",
-       "kkt-hosts::AllowedHosts"
+       "kkt-api-sim::PreviewSettings",
+       "kkt-web::PageLimits",
+       "kkt-hosts::AllowedHosts",
+       "kkt-logs-os::init_stderr_logging",
+       "kkt-logs-os::TracingLog"
       ]
      },
      {
       "title": "Gate",
-      "text": "PreviewGate, with the access key or open, over kkt-web's Sessions with the system clock and the operating system's randomness; kkt-api-sim's stand-in for kkt-web's Gate, behind testing.",
+      "text": "PreviewGate, with the access key read through kkt-admission-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
       "items": [
        "kkt-api-sim::PreviewGate",
+       "kkt-admission-os::KeyFiles",
+       "kkt-web::Sessions",
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy"
       ]
      },
      {
       "title": "World",
-      "text": "kkt-api-sim's Preview simulates a swarm from SeededEntropy and the seed, and implements the parts of kkt-api-agent the page uses.",
+      "text": "kkt-api-sim's Preview simulates a swarm from SeededEntropy and the seed, and is an OperatorApi; its feed runs until the stop.",
       "items": [
        "kkt-api-sim::Preview",
-       "kkt-entropy::SeededEntropy"
+       "kkt-entropy::SeededEntropy",
+       "kkt-shutdown::Shutdown"
       ]
      },
      {
       "title": "Serve",
-      "text": "kkt-web's router serves the page until a stop signal.",
+      "text": "kkt-server's page builds the page alone, and kkt-server-listen serves it until a stop signal.",
       "items": [
-       "kkt-web::router",
-       "kkt-shutdown::Shutdown",
+       "kkt-server::page",
+       "kkt-server-listen::listen",
        "kkt-shutdown-os::StopSignals"
       ]
      }
@@ -7430,35 +8820,11 @@
       "crate": "kkt-api-sim",
       "to": [
        {
-        "at": "PreviewGate::with_key",
-        "param": "clock"
-       },
-       {
-        "at": "PreviewGate::open",
-        "param": "clock"
-       },
-       {
         "at": "Preview::new",
         "param": "clock"
        }
       ],
       "status": "decided"
-     },
-     {
-      "impl": "kkt-entropy-os::OsEntropy",
-      "crate": "kkt-api-sim",
-      "to": [
-       {
-        "at": "PreviewGate::with_key",
-        "param": "entropy"
-       },
-       {
-        "at": "PreviewGate::open",
-        "param": "entropy"
-       }
-      ],
-      "status": "decided",
-      "note": "the gate's session IDs"
      },
      {
       "impl": "kkt-entropy::SeededEntropy",
@@ -7473,11 +8839,34 @@
       "note": "the simulated world, repeatable from the seed"
      },
      {
-      "impl": "kkt-api-sim::PreviewGate",
+      "impl": "kkt-clock-system::SystemClock",
       "crate": "kkt-web",
       "to": [
        {
-        "at": "router",
+        "at": "Sessions::new",
+        "param": "clock"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-entropy-os::OsEntropy",
+      "crate": "kkt-web",
+      "to": [
+       {
+        "at": "Sessions::new",
+        "param": "entropy"
+       }
+      ],
+      "status": "decided",
+      "note": "the sessions' IDs"
+     },
+     {
+      "impl": "kkt-api-sim::PreviewGate",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "page",
         "param": "gate"
        }
       ],
@@ -7485,15 +8874,26 @@
      },
      {
       "impl": "kkt-api-sim::Preview",
-      "crate": "kkt-web",
+      "crate": "kkt-server",
       "to": [
        {
-        "at": "router",
+        "at": "page",
         "param": "api"
        }
       ],
       "status": "decided",
-      "note": "the simulated application, as kkt-api-agent's Api"
+      "note": "the simulated application, as kkt-api-operator's OperatorApi"
+     },
+     {
+      "impl": "kkt-logs-os::TracingLog",
+      "crate": "kkt-server",
+      "to": [
+       {
+        "at": "page",
+        "param": "log"
+       }
+      ],
+      "status": "decided"
      }
     ]
    }
@@ -8411,6 +9811,14 @@
    ],
    "status": "decided",
    "note": "session replaces lookup; the form tokens use the session ID's hash, not a secret of their own (step 6.1)"
+  },
+  {
+   "type": "kkt-rules::Rules",
+   "methods": [
+    "subscribe"
+   ],
+   "status": "decided",
+   "note": "the live notices are Views::subscribe's, which Rules implements over its kkt-events subscription, so no contract names kkt-events (step 6.2)"
   }
  ],
  "slot_removes": [
@@ -8443,6 +9851,30 @@
    "param": "rules",
    "status": "decided",
    "note": "the agent endpoint takes api, kkt-api-agent's Api (step 5.3b)"
+  },
+  {
+   "slot": "kkt-api-sim::PreviewGate::with_key",
+   "param": "clock",
+   "status": "decided",
+   "note": "the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+  },
+  {
+   "slot": "kkt-api-sim::PreviewGate::with_key",
+   "param": "entropy",
+   "status": "decided",
+   "note": "the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+  },
+  {
+   "slot": "kkt-api-sim::PreviewGate::open",
+   "param": "clock",
+   "status": "decided",
+   "note": "the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+  },
+  {
+   "slot": "kkt-api-sim::PreviewGate::open",
+   "param": "entropy",
+   "status": "decided",
+   "note": "the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
   }
  ],
  "wires_only": {
