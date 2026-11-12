@@ -84,12 +84,19 @@
    ],
    "also": [
     {
-     "title": "kkt watch",
-     "text": "The command picks a client for the server, Remote (as an agent) or AdminRemote (with --admin), and adapts its records and failures to kkt-watch's Server with the system clock.",
+     "title": "The agents' commands",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which the program builds in agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client's clients adapted to its Servers and to kkt-watch's Server, the credential and state files, the key files, kkt's path, the terminal and the system clock.",
      "items": [
+      "kashkeshet::machine::agent_parts::agent_parts",
+      "kkt-agent-commands::AgentParts",
+      "kashkeshet::machine::connection::ConnectionReads",
+      "kkt-agent-client::Client",
       "kkt-agent-client::Remote",
       "kkt-agent-client::AdminRemote",
-      "kkt-watch::run",
+      "kkt-agent-commands::register",
+      "kkt-agent-commands::reclaim",
+      "kkt-agent-commands::watch::run",
+      "kkt-agent-commands::connect::run",
       "kkt-clock-system::SystemClock",
       "kkt-terminal-os::Terminal"
      ]
@@ -266,71 +273,108 @@
      "note": "kkt agent, kkt lanes"
     },
     {
-     "crate": "kkt-watch",
+     "own": "AdminKeyHere, the operator's key finder (selected_key_path)",
+     "supplier": "kashkeshet::machine::keys",
+     "crate": "kkt-agent-commands",
      "to": [
       {
-       "at": "run",
-       "param": "server"
-      }
-     ],
-     "note": "kkt watch",
-     "own": "WatchServer, adapting kkt-agent-client::Remote",
-     "supplier": "kkt-agent-client::Remote"
-    },
-    {
-     "crate": "kkt-watch",
-     "to": [
-      {
-       "at": "run",
-       "param": "server"
-      }
-     ],
-     "note": "kkt watch --admin",
-     "own": "WatchServer, adapting kkt-agent-client::AdminRemote",
-     "supplier": "kkt-agent-client::AdminRemote"
-    },
-    {
-     "impl": "kkt-clock-system::SystemClock",
-     "crate": "kkt-watch",
-     "to": [
-      {
-       "at": "run",
-       "param": "clock"
-      }
-     ],
-     "note": "kkt watch"
-    },
-    {
-     "impl": "kkt-clock-system::SystemClock",
-     "crate": "kkt-agent-client",
-     "to": [
-      {
-       "at": "AdminRemote::new",
-       "param": "clock"
+       "at": "AgentParts",
+       "param": "admin_key"
       }
      ],
      "note": "kkt watch --admin"
     },
     {
-     "own": "StateFile, adapting kkt-agent-client::StateFile",
-     "supplier": "kkt-agent-client::StateFile",
-     "crate": "kkt-watch",
+     "own": "McpServers, adapting kkt-agent-client's Client, Remote and AdminRemote (as WatchServer)",
+     "supplier": "kkt-agent-client::Client",
+     "crate": "kkt-agent-commands",
      "to": [
       {
-       "at": "run",
-       "param": "place"
+       "at": "AgentParts",
+       "param": "servers"
+      }
+     ],
+     "note": "kkt register, reclaim and watch"
+    },
+    {
+     "own": "CredentialFiles, adapting kkt-agent-client's credential and state files",
+     "supplier": "kkt-agent-client::CredentialFile",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "credentials"
+      }
+     ],
+     "note": "kkt register, reclaim and watch"
+    },
+    {
+     "own": "KeyFiles, adapting kkt-admission-os::KeyFiles",
+     "supplier": "kkt-admission-os::KeyFiles",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "key_files"
+      }
+     ],
+     "note": "kkt register, reclaim and watch"
+    },
+    {
+     "own": "ClientHost, adapting kkt-client-config-os's OsHost",
+     "supplier": "kkt-client-config-os's OsHost",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "clients"
+      }
+     ],
+     "note": "kkt connect"
+    },
+    {
+     "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
+     "supplier": "kkt-setup-os::kkt_path",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "program"
+      }
+     ],
+     "note": "kkt connect"
+    },
+    {
+     "own": "WatchOutput, adapting kkt-terminal-os::Terminal",
+     "supplier": "kkt-terminal-os::Terminal",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "report"
       }
      ],
      "note": "kkt watch"
     },
     {
-     "own": "WatchOutput, adapting kkt-terminal-os::Terminal",
+     "own": "TerminalOutput, adapting kkt-terminal-os::Terminal",
      "supplier": "kkt-terminal-os::Terminal",
-     "crate": "kkt-watch",
+     "crate": "kkt-agent-commands",
      "to": [
       {
-       "at": "run",
-       "param": "report"
+       "at": "AgentParts",
+       "param": "output"
+      }
+     ],
+     "note": "kkt register, reclaim and connect"
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "clock"
       }
      ],
      "note": "kkt watch"
@@ -592,7 +636,7 @@
        "param": "host"
       }
      ],
-     "note": "kkt connect, kkt setup, kkt doctor",
+     "note": "kkt setup, kkt doctor",
      "own": "ClientHost, adapting kkt-client-config-os's OsHost",
      "supplier": "kkt-client-config-os's OsHost"
     },
@@ -1313,6 +1357,84 @@
       {
        "at": "router",
        "param": "log"
+      }
+     ]
+    }
+   ]
+  },
+  "kkt-agent-commands": {
+   "wiring": [
+    {
+     "own": "the servers the program gave AgentParts",
+     "supplier": "the program's servers",
+     "crate": "kkt-watch",
+     "to": [
+      {
+       "at": "run",
+       "param": "server"
+      }
+     ]
+    },
+    {
+     "own": "the clock the program gave AgentParts",
+     "supplier": "the program's clock",
+     "crate": "kkt-watch",
+     "to": [
+      {
+       "at": "run",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "own": "the credentials the program gave AgentParts",
+     "supplier": "the program's credentials",
+     "crate": "kkt-watch",
+     "to": [
+      {
+       "at": "run",
+       "param": "place"
+      }
+     ]
+    },
+    {
+     "own": "the report the program gave AgentParts",
+     "supplier": "the program's report",
+     "crate": "kkt-watch",
+     "to": [
+      {
+       "at": "run",
+       "param": "report"
+      }
+     ]
+    },
+    {
+     "own": "the client configs' host the program gave AgentParts",
+     "supplier": "the program's client configs' host",
+     "crate": "kkt-client-config",
+     "to": [
+      {
+       "at": "configure",
+       "param": "host"
+      },
+      {
+       "at": "Client::file",
+       "param": "host"
+      }
+     ]
+    },
+    {
+     "own": "the connection question the program gave AgentParts",
+     "supplier": "the program's connection question",
+     "crate": "kkt-setup",
+     "to": [
+      {
+       "at": "connection::client_connection",
+       "param": "source"
+      },
+      {
+       "at": "connection::admin_connection",
+       "param": "source"
       }
      ]
     }

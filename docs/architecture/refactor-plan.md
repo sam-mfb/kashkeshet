@@ -1114,6 +1114,7 @@ commands.
   |---|---|---|
   | `connection` | kkt-setup's `connection::ConnectionSource` | `ConnectionReads` |
   | `admin_key` | `AdminKey` (kkt-agent-commands'): where the admin key is, given `--key-file` or not | kkt-operate's `selected_key_path` |
+  | `admin_path` | The admin endpoint's path, a plain value | kkt-mcp's `MCP_ADMIN_PATH` |
   | `servers` | `Servers`: a client of the server at an address with an optional key, which registers, reclaims and sets a description and reports its own failures (lost, key refused, refused with a code); and kkt-watch's `Server` for an agent or the admin endpoint | kkt-agent-client's `Client`, `Remote`, `AdminRemote`, with `WatchServer` |
   | `credentials` | `Credentials`: reserve a credential file and save to it, read a token file, claim a state file as kkt-watch's `Place` | `credentials.rs` |
   | `key_files` | `KeyText`: read the client's key file | kkt-admission-os |
@@ -1122,9 +1123,11 @@ commands.
   | `report`, `output` | kkt-watch's `Report`; `Output` for the handle lines | `WatchOutput`; kkt-terminal-os |
   | `clock` | kkt-clock's `Clock` | kkt-clock-system |
 
-- Depends on (7 kkt crates): kkt-setup, kkt-watch, kkt-client-config,
-  kkt-names, kkt-mcp (`MCP_ADMIN_PATH`), kkt-machine and kkt-clock.
-  Third-party: futures.
+- Depends on (6 kkt crates): kkt-setup, kkt-watch, kkt-client-config,
+  kkt-names, kkt-machine and kkt-clock. Third-party: futures. The admin
+  endpoint's path comes in `AgentParts` (10.3): an arrow to kkt-mcp for
+  one constant would add kkt-mcp's build to the assembly's, and changed
+  the third-party feature list `cargo tree` reports.
 - Takes no arrow from kashkeshet, which still uses each of these crates
   for serving, its adapters or `cli.rs`.
 
@@ -1165,7 +1168,7 @@ proposed map.
 | kkt-fake-product | 23 | 23 | Phase 10 does not touch it: it serves two swarms with its own `Identify` and no settings surface |
 | kkt-web-preview | 14 | 14 | Phase 10 does not touch it: it serves the page alone over simulated data |
 | kkt-operate | | 17 | New |
-| kkt-agent-commands | | 7 | New |
+| kkt-agent-commands | | 6 | New |
 
 **What must not change, and what pins it.** Every command's output, exit
 codes and help, and every install's files.
@@ -1214,11 +1217,11 @@ crate's paperwork (workspace members, CLAUDE.md's row, `concerns.json`,
 
 | Step | What | Size | After | Who |
 |---|---|---|---|---|
-| 9.1 | Each owner checks and words its own settings | S | (in progress) | kkt-build-b, kkt-build-c |
-| 9.2 | kkt-server's `ServerSettings`; `Parts` takes `Arc<dyn AdminApi>` | M | 9.1 | kkt-build-c, after its small kkt-service pull request |
-| 9.3 | The programs keep the serve surface (kkt, and kkt-keymode's own smaller one); kkt-settings goes | M | 9.2 | kkt-build-b, after its 11.1 |
-| 10.2a | kkt-operate, with `OperateParts`: the record, the operator's key finders, doctor, lanes, `kkt key` and `kkt agent` | L in lines, M in substance | 9.3 | kkt-build-b |
-| 10.2b | setup, service and lifecycle move into kkt-operate | M | 10.2a | kkt-build-c |
+| 9.1 | Each owner checks and words its own settings | S | (done: #484, #485) | kkt-build-b, kkt-build-c |
+| 9.2 | kkt-server's `ServerSettings`; `Parts` takes `Arc<dyn AdminApi>` | M | (done: #494) | kkt-build-c |
+| 9.3 | The programs keep the serve surface (kkt, and kkt-keymode's own smaller one); kkt-settings goes | M | (done: #495) | kkt-build-b |
+| 10.2a | kkt-operate, with `OperateParts`: the record, the operator's key finders, doctor, lanes, `kkt key` and `kkt agent` | L in lines, M in substance | 9.3 | kkt-build-c (msg 2896: swapped from kkt-build-b, who took 9.3 and then 11.3) |
+| 10.2b | setup, service and lifecycle move into kkt-operate | M | 10.2a | kkt-build-c, with kkt-build-b taking one of its moves on a branch stacked on it |
 | 10.3 | kkt-agent-commands, with `AgentParts`: register, reclaim, watch, connect | M | 9.3; beside 10.2a and 10.2b | kkt-mt-step1 |
 | 10.4 | `main.rs` builds the two `Parts` in one place; CLAUDE.md's tables; chart what differs (9.4 folds in here) and the scorecard | S | 10.2b, 10.3 | kkt-mt-step1 |
 
@@ -1370,3 +1373,16 @@ again, as expected until phases 9 and 10 land:
   5, and kkt-server → kkt-rules until 9.2);
 - rules: no kind check fails; 1 break of the proposal's rules (kkt-rules'
   tests on kkt-db-sqlite, until kkt-build-b's stand-in replaces it).
+
+With 10.2a (kkt-operate's base) and 10.3 (kkt-agent-commands) merged:
+
+- crates: 61 of 61 proposed crates exist; none missing; none to remove;
+- items: 774 of 811 proposed items are in their proposed crate. Every item
+  of kkt-agent-commands is in. Missing: what 10.2b moves into kkt-operate
+  (setup, service and lifecycle); the 16 `kkt_rules::testing` re-exports
+  that #492 removed and `new_server_run`, which 9.3 left in kkt's
+  `server_run`, both for 10.4 to chart;
+- arrows: 237 of 238 proposed arrows exist (the proposal lost
+  kkt-agent-commands → kkt-mcp in 10.3); 1 missing (kkt-operate →
+  kkt-backup, which 10.2b adds); none extra;
+- rules: no kind check fails; no break of the proposal's rules.

@@ -1041,6 +1041,7 @@ dependencies = [
  "kkt-admission",
  "kkt-admission-os",
  "kkt-agent-client",
+ "kkt-agent-commands",
  "kkt-api-admin",
  "kkt-api-agent",
  "kkt-backup",
@@ -1126,6 +1127,20 @@ dependencies = [
  "rmcp",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "kkt-agent-commands"
+version = "0.10.0"
+dependencies = [
+ "futures",
+ "kkt-admission",
+ "kkt-client-config",
+ "kkt-clock",
+ "kkt-machine",
+ "kkt-names",
+ "kkt-setup",
+ "kkt-watch",
 ]
 
 [[package]]
