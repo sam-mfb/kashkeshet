@@ -50,7 +50,7 @@ pub async fn run(
             let folder = kkt_container::Folder(folder);
             match command {
                 LanesAction::Export { folder: dest } => {
-                    let dest = std::path::absolute(&dest)
+                    let dest = kkt_setup_os::absolute(&dest)
                         .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
                     let said = kkt_container::export_lanes(&ContainerHost, &folder, &dest)
                         .map_err(|e| e.to_string())?;
@@ -141,7 +141,7 @@ pub(crate) fn existing_db(
         db.or(config_db),
         DefaultDb::Required(NO_HOME_TO_FIND_DB),
     )?;
-    if !path.exists() {
+    if !kkt_db_sqlite::SqlitePlace::exists(&path) {
         return Err(format!(
             "no database at {}; pass --db with the server's database file",
             path.display()
@@ -252,16 +252,19 @@ pub(crate) fn local_lane_limit(env: &Env) -> Result<usize, String> {
 /// The host's config file plays no part; the container never reads it.
 pub(crate) fn docker_lane_limit(env: &Env, platform: Platform) -> Result<usize, String> {
     let folder = docker_folder(env, platform)?;
-    if !folder.join(kkt_container::ENV_FILE).exists() {
-        return Ok(Limits::DEFAULT.max_lane_chars);
-    }
-    kkt_container::lane_limit(
-        &ContainerHost,
-        &kkt_container::Folder(folder),
-        &ContainerConfigs,
+    setup::lane_reports::docker_limit(
+        kkt_container::Host::exists(&ContainerHost, &folder.join(kkt_container::ENV_FILE)),
         Limits::DEFAULT.max_lane_chars,
+        || {
+            kkt_container::lane_limit(
+                &ContainerHost,
+                &kkt_container::Folder(folder),
+                &ContainerConfigs,
+                Limits::DEFAULT.max_lane_chars,
+            )
+            .map_err(|e| e.to_string())
+        },
     )
-    .map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
 }
 
 /// Reads the lane files in `folder` and checks them as `kkt lanes import`
@@ -299,57 +302,22 @@ pub(crate) fn docker_import_lanes(
 /// One line for each lane an import touched, then one saying where from and
 /// how many of each.
 fn import_report(done: &[ImportedLane], source: &LaneSource) -> String {
-    let mut lines = String::new();
-    let (mut created, mut updated, mut unchanged, mut retired, mut skipped, mut kept) =
-        (0, 0, 0, 0, 0, 0);
-    for lane in done {
-        let name = &lane.name;
-        lines.push_str(&match &lane.outcome {
-            LaneOutcome::Created => {
-                created += 1;
-                format!("created {name} (version 1)\n")
-            }
-            LaneOutcome::Updated(version) => {
-                updated += 1;
-                format!("updated {name} (version {version})\n")
-            }
-            LaneOutcome::Unchanged(version) => {
-                unchanged += 1;
-                format!("unchanged {name} (version {version})\n")
-            }
-            LaneOutcome::RetiredSkipped => {
-                skipped += 1;
-                format!("left {name} alone: it is retired\n")
-            }
-            LaneOutcome::Retired => {
-                retired += 1;
-                format!("retired {name}: it has no file in the folder\n")
-            }
-            LaneOutcome::FileSkipped => {
-                kept += 1;
-                format!("left {name} alone: its file was skipped, so it is not retired\n")
-            }
-        });
-    }
-    let commit = match &source.commit {
-        Some(commit) => format!(" (git commit {commit})"),
-        None => String::new(),
-    };
-    lines.push_str(&format!(
-        "Imported from {}{commit}: {created} created, {updated} updated, {unchanged} unchanged",
-        source.folder
-    ));
-    if skipped > 0 {
-        lines.push_str(&format!(", {skipped} retired left alone"));
-    }
-    if retired > 0 {
-        lines.push_str(&format!(", {retired} retired"));
-    }
-    if kept > 0 {
-        lines.push_str(&format!(", {kept} left alone for a skipped file"));
-    }
-    lines.push('\n');
-    lines
+    setup::lane_reports::import_report(
+        done.iter().map(|lane| {
+            use setup::lane_reports::Outcome;
+            let outcome = match lane.outcome {
+                LaneOutcome::Created => Outcome::Created,
+                LaneOutcome::Updated(version) => Outcome::Updated(version),
+                LaneOutcome::Unchanged(version) => Outcome::Unchanged(version),
+                LaneOutcome::RetiredSkipped => Outcome::RetiredSkipped,
+                LaneOutcome::Retired => Outcome::Retired,
+                LaneOutcome::FileSkipped => Outcome::FileSkipped,
+            };
+            (lane.name.as_str(), outcome)
+        }),
+        &source.folder,
+        source.commit.as_deref(),
+    )
 }
 
 #[cfg(test)]

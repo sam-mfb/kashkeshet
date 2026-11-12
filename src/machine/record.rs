@@ -13,7 +13,6 @@ use kkt_service::{Manager, ServiceError};
 use kkt_settings::ServeOptions;
 use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
-use std::path::PathBuf;
 
 /// Where `kkt setup` saves the Docker server's access key, in the config
 /// directory.
@@ -153,12 +152,6 @@ pub fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
 }
 
 pub use setup::{docker_folder, docker_url, unfinished_mode};
-
-/// Where the setup record is, in kkt's config directory. `None` without a
-/// home.
-pub(crate) fn record_path(env: &Env) -> Option<PathBuf> {
-    kkt_config_file::config_dir(env).map(|dir| setup::record_path(&dir))
-}
 
 /// This machine's setup record, if `kkt setup` wrote one.
 pub fn read_setup(env: &Env) -> Result<Option<setup::Record>, String> {

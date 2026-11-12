@@ -131,9 +131,7 @@ this list; one that is not on it blocks.
 | The fake product still makes its second swarm through the store's `Writer`, not kkt-api-admin's `Swarms::create_swarm`: kkt-server builds the `Rules` inside `build`, after the product would need them | 5.4b | when kkt-rules' `start` builds the `Rules` before serving |
 | `Views` has no `subscribe`: kkt-web still calls `Rules::subscribe` for live notices, since naming kkt-events' `Subscription` in a contract would add a contract-to-logic arrow (msg 2503) | 5.4a | 6.2 |
 | kkt-rules' store records, `Reader`, `Writer` and `Db::read`/`Db::write` stay public: other crates' test setup and the program's 0.10.0 migration test still use them | 5.2b-2 | 5.3 |
-| kkt depends on kkt-hash, an extra arrow (setup's per-server key file name is still the program's) | 1.1 | 7.3b |
 | The preview has its own copy of the access-key check (kkt-web may not depend on kkt-admission); since 6.1 it uses kkt-web's sessions, so the session ID length is no longer copied | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
-| `kashkeshet` does machine work in `src/commands/lifecycle.rs` | before the refactor | 7.3a, 7.3b |
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
@@ -190,6 +188,8 @@ the last column says so.
 | Setup's client/admin connection and endpoint decisions use consumer-owned `ConnectionSource` and `ServeConnection<S>` records; recorded selection takes a path-resolution callback, and `recorded_setup` takes lazy unfinished/unrecorded readers | 7.3a | Preserves the first read/error and avoids setup depending on program settings, diagnostics or native providers | awaiting Sam | after it merges |
 | Setup-os adds `path_dirs`, `absolute`, `canonicalize`, `write_unfinished` and `remove_unfinished`; container Host and native key files expose `is_file` | 7.3a | PATH is captured once for all client checks; path I/O stays native; note writes keep their original rename and missing-file semantics; install presence distinguishes files from directories | awaiting Sam | after it merges |
 | `docker_env` returns settings text or the original read refusal, rather than an absent value for a missing file | 7.3a | Upgrade previously refused a missing .env; Host now performs that same read and the caller keeps its version-line refusal | awaiting Sam | after it merges |
+| Setup returns plain `DoctorCheck` and lane-import `Outcome` values, adapted by the program from/to the diagnostics and operator records; service checks receive installed/running facts | 7.3b | Owns each check, fix and import report without setup depending on diagnostics, service or operator implementation crates; program adapters copy facts only | awaiting Sam | after it merges |
+| Setup adds status-formatting, backup-folder, uninstall-record, key-naming and lane-limit functions; setup-os removes records and SqlitePlace checks file presence | 7.3b | Moves the remaining program-work decisions and file probes to their owners while preserving read order, messages and missing-file semantics, including path calls the original scanner missed | awaiting Sam | after it merges |
 
 
 ## The steps

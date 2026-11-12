@@ -12,6 +12,7 @@ kkt-admission = { path = "../kkt-admission" }
 kkt-client-config = { path = "../kkt-client-config" }
 kkt-container = { path = "../kkt-container" }
 kkt-machine = { path = "../kkt-machine" }
+kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
 semver.workspace = true
 serde.workspace = true

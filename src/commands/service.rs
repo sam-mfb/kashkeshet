@@ -188,7 +188,7 @@ pub fn service_plan(
             default_db: kkt_setup::default_db(env, platform),
             default_key: crate::machine::settings::default_access_key(env),
         },
-        &|path: &Path| path.exists(),
+        &|path: &Path| kkt_service_os::OsSystem.exists(path).unwrap_or(false),
     )
     .map_err(|e| e.to_string())?;
     // What the flags and the config file give together, with the plan's

@@ -25,13 +25,6 @@ use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
 use std::path::{Path, PathBuf};
 
-/// The folder, beside the database file, where the server keeps the backups
-/// of the database it makes before upgrading it.
-const UPGRADE_BACKUP_FOLDER: &str = "upgrade-backups";
-/// Full backups made before an explicit service-mode upgrade, in the
-/// user's kkt config directory.
-const SERVICE_BACKUP_FOLDER: &str = "backups";
-
 /// Writes a backup of `contents` into `folder`, copying the database with
 /// SQLite's online backup.
 fn write_backup(
@@ -56,10 +49,7 @@ pub(crate) fn backup_before_upgrade(
     let Some(upgrade) = crate::machine::database::pending_upgrade(database)? else {
         return Ok(());
     };
-    let folder = database
-        .parent()
-        .unwrap_or(Path::new("."))
-        .join(UPGRADE_BACKUP_FOLDER);
+    let folder = setup::upgrade_backup_folder(database);
     let contents = backup::Contents {
         database,
         config: None,
@@ -129,10 +119,7 @@ pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Res
     let found_unfinished = unfinished.as_ref().ok().and_then(Option::as_ref);
     let found_unrecorded = unrecorded.as_ref().ok().and_then(Option::as_ref);
     if let Some(path) = local_web_key(env, platform, found_unfinished, found_unrecorded)? {
-        Terminal.output(format_args!(
-            "Web key: {} (read with `kkt key show --web`)\n",
-            path.display()
-        ));
+        Terminal.output(format_args!("{}", setup::web_key_line(&path)));
     }
     if let Some(path) = local_operator_key(
         env,
@@ -141,14 +128,11 @@ pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Res
         found_unrecorded,
         KeyKind::Admin,
     )?
-    .filter(|path| path.exists())
+    .filter(|path| kkt_admission_os::KeyFiles::exists(path))
     {
-        Terminal.output(format_args!(
-            "Admin key: {} (read with `kkt key show --admin`; agents holding it use /mcp-admin)\n",
-            path.display()
-        ));
-        let key = std::fs::read_to_string(&path)
-            .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
+        Terminal.output(format_args!("{}", setup::admin_key_line(&path)));
+        let key = kkt_admission_os::KeyFiles::read(&path)
+            .map_err(|e| format!("could not read key file {}: {}", path.display(), e.error))?;
         if let Some(line) = admin_name_line(&path, &key, "Admin name")? {
             Terminal.output(format_args!("{line}\n"));
         }
@@ -176,28 +160,8 @@ pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Res
                 Limits::DEFAULT.name_pack.name(),
             )
             .map_err(|e| e.to_string())?;
-            match &state.name_pack {
-                Ok(pack) => Terminal.output(format_args!("Name pack: {pack}\n")),
-                Err(reason) => Terminal.output(format_args!("Name pack: unavailable ({reason})\n")),
-            }
-            Terminal.output(format_args!("Docker folder: {}\n", folder.path().display()));
-            Terminal.output(format_args!(
-                "Settings present: {}\nRunning: {}\nVersion: {}\nTailscale: {}\n",
-                state.files_present,
-                state.running,
-                state.version.as_deref().unwrap_or("unknown"),
-                state.tailscale
-            ));
-            match &state.login {
-                Some(kkt_container::Login::LoggedIn) => Terminal.output(format_args!("Tailscale login: logged in\n")),
-                Some(kkt_container::Login::NeedsLogin) => Terminal.output(format_args!(
-                    "Tailscale login: needed. The machine's key expired, or it was logged out, so it is off the tailnet. Run `kkt setup` to log in again.\n"
-                )),
-                Some(kkt_container::Login::Unreachable) => {
-                    Terminal.output(format_args!("Tailscale login: unknown; the Tailscale container does not answer\n"))
-                }
-                Some(kkt_container::Login::Other(state)) => Terminal.output(format_args!("Tailscale login: {state}\n")),
-                None => {}
+            for line in setup::docker_status_lines(&state, folder.path()) {
+                Terminal.output(format_args!("{line}"));
             }
             Ok(())
         }
@@ -209,8 +173,8 @@ pub async fn status(env: &Env, platform: Platform, serve_args: ServeArgs) -> Res
 fn print_configured_name_pack(env: &Env) -> Result<(), String> {
     let (_, options) = read_config(env, None)?;
     Terminal.output(format_args!(
-        "Name pack (configured; serve flags may override): {}\n",
-        options.name_pack_name()
+        "{}",
+        setup::configured_name_pack_line(options.name_pack_name())
     ));
     Ok(())
 }
@@ -253,9 +217,7 @@ pub async fn upgrade(
             // Validate the replacement service before doing anything. Its
             // program is current_exe, i.e. the binary just installed by the user.
             let plan = service_plan(env, platform, None, None, None, false)?;
-            let folder = kkt_config_file::config_dir(env)
-                .ok_or("set HOME to find the backup folder")?
-                .join(SERVICE_BACKUP_FOLDER);
+            let folder = setup::service_backup_folder(kkt_config_file::config_dir(env))?;
             local_backup(env, platform, &folder, None, None)?;
             if let Some(key) = &plan.new_web_key {
                 new_key_file(key, false)?;
@@ -289,25 +251,15 @@ pub async fn upgrade(
 /// load (`kkt service start` finishes that), the upgrade is recorded only
 /// when `kkt upgrade` is run again.
 fn unrecorded_upgrade(error: ServiceError) -> String {
-    match error {
-        ServiceError::ReloadFailed { .. } => format!(
-            "{error} This upgrade is not recorded yet: once the service is loaded, run `kkt upgrade` again to record the new version."
-        ),
-        other => other.to_string(),
-    }
+    setup::service_upgrade_error(
+        &error.to_string(),
+        matches!(error, ServiceError::ReloadFailed { .. }),
+    )
 }
 
 pub async fn uninstall(env: &Env, platform: Platform, serve_args: ServeArgs) -> Result<(), String> {
     let record = recorded_setup(env, platform, serve_args)?;
-    // Clients switched to another server keep using it: the machine stays
-    // recorded as its client.
-    let stays_client = record.clients.clone().map(|server| setup::Record {
-        mode: setup::Mode::Client,
-        written_by: Build::CURRENT.version.to_string(),
-        url: server.url,
-        key_file: server.key_file,
-        clients: None,
-    });
+    let stays_client = setup::uninstall_record(&record, Build::CURRENT.version);
     match record.mode {
         setup::Mode::Docker(install) => {
             kkt_container::down(
@@ -328,19 +280,12 @@ pub async fn uninstall(env: &Env, platform: Platform, serve_args: ServeArgs) -> 
     }
     if let Some(client) = stays_client {
         write_setup_record(env, &client)?;
-        Terminal.output(format_args!(
-            "Removed this machine's server. Data, keys, backups and client configurations were \
-             kept, and this machine stays set up as a client of {}.\n",
-            client.url
-        ));
+        Terminal.output(format_args!("{}", setup::uninstall_line(Some(&client))));
         return Ok(());
     }
-    let path =
-        crate::machine::record::record_path(env).ok_or("set HOME to find the setup record")?;
-    std::fs::remove_file(&path).map_err(|e| format!("could not remove {}: {e}", path.display()))?;
-    Terminal.output(format_args!(
-        "Removed this machine's setup. Data, keys, backups and client configurations were kept.\n"
-    ));
+    let config_dir = kkt_config_file::config_dir(env).ok_or("set HOME to find the setup record")?;
+    kkt_setup_os::remove_record(&config_dir)?;
+    Terminal.output(format_args!("{}", setup::uninstall_line(None)));
     Ok(())
 }
 

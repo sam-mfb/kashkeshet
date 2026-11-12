@@ -2,7 +2,7 @@
 //! how this machine is set up: which setup doctor goes by, how the server
 //! this machine's clients use is checked, and which fix applies to each
 //! problem. The program reads the record, the note of an unfinished setup
-//! and what it finds installed, runs the checks, and writes each fix's text.
+//! and what it finds installed, runs the reads, and adapts setup's check and fix values to the report.
 
 use super::adopt::Unrecorded;
 use super::record::{Mode, Record, Unfinished};

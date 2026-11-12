@@ -213,7 +213,6 @@ kkt-diagnostics = { path = "crates/kkt-diagnostics" }
 kkt-diagnostics-os = { path = "crates/kkt-diagnostics-os", features = ["real"] }
 kkt-events = { path = "crates/kkt-events" }
 kkt-mcp-formatter = { path = "crates/kkt-mcp-formatter" }
-kkt-hash = { path = "crates/kkt-hash" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
@@ -250,6 +249,7 @@ tracing.workspace = true
 # defaults setup's questions accept; every other `kkt-*` crate comes
 # with `real` through [dependencies].
 [dev-dependencies]
+kkt-hash = { path = "crates/kkt-hash" }
 kkt-api-admin = { path = "crates/kkt-api-admin" }
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["testing"] }

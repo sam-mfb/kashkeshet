@@ -1624,6 +1624,7 @@ dependencies = [
  "kkt-admission",
  "kkt-client-config",
  "kkt-container",
+ "kkt-hash",
  "kkt-machine",
  "kkt-names",
  "semver",

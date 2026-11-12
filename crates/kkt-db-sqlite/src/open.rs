@@ -415,6 +415,11 @@ pub struct SqlitePlace {
 
 #[cfg(any(test, feature = "real"))]
 impl SqlitePlace {
+    /// Whether the database path exists, without opening it.
+    pub fn exists(path: &std::path::Path) -> bool {
+        path.exists()
+    }
+
     pub fn new(path: &std::path::Path, options: Options) -> SqlitePlace {
         SqlitePlace {
             path: path.to_path_buf(),

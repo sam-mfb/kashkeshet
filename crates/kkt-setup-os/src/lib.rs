@@ -100,3 +100,9 @@ fn write_whole(path: &Path, text: &str) -> Result<(), String> {
         .and_then(|()| std::fs::rename(&partial, path))
         .map_err(|e| format!("could not write {}: {e}", path.display()))
 }
+
+/// Removes the setup record; missing files retain the caller's original refusal.
+pub fn remove_record(config_dir: &Path) -> Result<(), String> {
+    let path = kkt_setup::record_path(config_dir);
+    std::fs::remove_file(&path).map_err(|e| format!("could not remove {}: {e}", path.display()))
+}

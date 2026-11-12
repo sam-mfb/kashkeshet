@@ -32,11 +32,8 @@ use kkt_names::AdminName;
 use kkt_service::Manager;
 use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
+use setup::waiting_note;
 use std::path::{Path, PathBuf};
-
-/// Where `kkt setup` keeps a client-only machine's copy of its server's
-/// key, in the config directory.
-const CLIENT_KEY_FILE_NAME: &str = "client-access-key";
 
 /// What `kkt setup` does to this machine.
 pub(super) struct OsSteps<'a> {
@@ -168,21 +165,13 @@ impl setup::Steps for OsSteps<'_> {
         let dir = kkt_config_file::config_dir(self.env)
             .ok_or("set HOME to keep the key in ~/.config/kkt")?;
         kkt_admission_os::KeyFiles::create_dir_all(&dir)?;
-        let path = dir.join(format!("{}.partial", CLIENT_KEY_FILE_NAME));
+        let path = setup::staged_client_key(&dir);
         write_key_file(&path, key, true)?;
         Ok(path)
     }
 
     fn keep_key(&self, staged: &Path, url: &str) -> Result<PathBuf, String> {
-        let dir = staged.parent().unwrap_or(Path::new("."));
-        // One file per server, so a key for another server, which an
-        // earlier setup record may name, is never replaced.
-        let server: String = kkt_hash::sha256(url.as_bytes())
-            .iter()
-            .take(6)
-            .map(|b| format!("{b:02x}"))
-            .collect();
-        let path = dir.join(format!("{}-{server}", CLIENT_KEY_FILE_NAME));
+        let path = setup::client_key(staged, url);
         kkt_admission_os::KeyFiles::keep_staged(staged, &path)?;
         Ok(path)
     }
@@ -292,14 +281,11 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn check_lanes(&self, folder: &Path, purpose: setup::Purpose) -> Result<usize, String> {
-        let max_lane_chars = match purpose {
-            // The service runs on the config file `kkt serve` finds here.
-            setup::Purpose::Service => local_lane_limit(self.env)?,
-            setup::Purpose::Docker => docker_lane_limit(self.env, self.platform)?,
-            setup::Purpose::Client => {
-                return Err("lanes are imported on the server's machine".into());
-            }
-        };
+        let max_lane_chars = setup::setup_lane_limit(
+            purpose,
+            || local_lane_limit(self.env),
+            || docker_lane_limit(self.env, self.platform),
+        )?;
         check_lanes_folder(folder, max_lane_chars)
     }
 
@@ -453,24 +439,6 @@ fn only_problems(checks: Vec<diagnostics::Check>) -> Result<(), String> {
         return Ok(());
     }
     Err(diagnostics::report(problems).0.trim_end().to_string())
-}
-
-/// What setup says while it waits for the server at `url`, set up as `mode`,
-/// to answer.
-fn waiting_note(url: &str, mode: &setup::Mode) -> String {
-    let tailscale = match mode {
-        setup::Mode::Docker(install) => install.tailscale,
-        setup::Mode::Service { tailscale } => *tailscale,
-        setup::Mode::Client => false,
-    };
-    if tailscale {
-        format!(
-            "Waiting for the server to answer at {url} (a new Tailscale node gets its \
-             HTTPS certificate on first use)..."
-        )
-    } else {
-        format!("Waiting for the server to answer at {url}...")
-    }
 }
 
 #[cfg(test)]
