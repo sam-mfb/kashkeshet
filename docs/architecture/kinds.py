@@ -75,6 +75,18 @@ def reaches_effect(edge, kind_of):
     return kind == "effect" or (kind == MERGED and "real" in edge.get("features", []))
 
 
+def slot_feature(crate, slot):
+    """The feature a slot is behind: the one the map records for it, or
+    else its owner's. A slot on `Type::new` or a field of `Type` is behind
+    whatever `Type` is behind (a map built before slots recorded their
+    feature, such as the proposal's base)."""
+    if slot.get("feature"):
+        return slot["feature"]
+    features = {i["path"]: i.get("feature") for i in crate.get("items", [])}
+    owner = slot["at"] if slot.get("kind") == "field" else slot["at"].rsplit("::", 1)[0]
+    return features.get(slot["at"]) or features.get(owner)
+
+
 def beyond_values(crate, edges, skip_real=False):
     """What a contract crate does beyond pure behaviour on its own values:
     behaviour through an injected dependency (a slot outside `testing`),
@@ -86,7 +98,7 @@ def beyond_values(crate, edges, skip_real=False):
     for slot in crate["slots"]:
         if slot["at"].startswith("testing::") or not slot["traits"]:
             continue
-        if skip_real and slot.get("feature") == "real":
+        if skip_real and slot_feature(crate, slot) == "real":
             continue
         traits = ", ".join(t["trait"] for t in slot["traits"])
         found.append(f"{slot['at']} takes {slot['name']} ({traits})")

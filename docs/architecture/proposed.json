@@ -352,21 +352,6 @@
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: the connection question kkt-setup declares, where the admin key is, the server's client, the credential files and the terminal. It depends on no `-os` crate, not on kkt-agent-client, and on no other assembly."
   },
   {
-   "name": "kkt-agent-client-rmcp",
-   "layer": "clients",
-   "kind": "effect",
-   "from": "kkt-agent-client",
-   "status": "decided",
-   "concern": "Implements kkt-agent-client's contract directly over MCP, through rmcp and reqwest: Mcp, Client, Remote and AdminRemote, with Settings; plain Http requests for a program's test client. Everything that reaches the server is behind real (step 12.4).",
-   "third_party": [
-    "futures",
-    "reqwest",
-    "rmcp",
-    "serde_json",
-    "tokio"
-   ]
-  },
-  {
    "name": "kkt-agent-files-os",
    "layer": "clients",
    "kind": "effect",
@@ -1430,24 +1415,6 @@
    "status": "decided",
    "as": "connect::run",
    "note": "phase 10, step 10.3"
-  },
-  {
-   "item": "kkt-agent-client::Client",
-   "to": "kkt-agent-client-rmcp",
-   "status": "decided",
-   "note": "the MCP client implements kkt-agent-client's contract (step 12.4)"
-  },
-  {
-   "item": "kkt-agent-client::Remote",
-   "to": "kkt-agent-client-rmcp",
-   "status": "decided",
-   "note": "the MCP client implements kkt-agent-client's contract (step 12.4)"
-  },
-  {
-   "item": "kkt-agent-client::AdminRemote",
-   "to": "kkt-agent-client-rmcp",
-   "status": "decided",
-   "note": "the MCP client implements kkt-agent-client's contract (step 12.4)"
   },
   {
    "item": "kkt-diagnostics::Check",
@@ -4160,7 +4127,7 @@
    ]
   },
   {
-   "crate": "kkt-agent-client-rmcp",
+   "crate": "kkt-agent-client",
    "path": "Http",
    "kind": "struct",
    "status": "decided",
@@ -4181,7 +4148,7 @@
    "doc": "Applies the caller's CredentialCheck to an opened credential file: takes group and other access off it as the PrivateMode says, and returns the warning (step 7.4)."
   },
   {
-   "crate": "kkt-agent-client-rmcp",
+   "crate": "kkt-agent-client",
    "path": "Settings",
    "kind": "struct",
    "status": "decided",
@@ -4220,7 +4187,7 @@
    "feature": "real"
   },
   {
-   "crate": "kkt-agent-client-rmcp",
+   "crate": "kkt-agent-client",
    "path": "HttpReply",
    "kind": "struct",
    "status": "decided",
@@ -4308,7 +4275,7 @@
    "feature": "testing"
   },
   {
-   "crate": "kkt-agent-client-rmcp",
+   "crate": "kkt-agent-client",
    "path": "Mcp",
    "kind": "struct",
    "status": "decided",
@@ -8853,7 +8820,7 @@
   },
   {
    "from": "kkt-fake-product",
-   "to": "kkt-agent-client-rmcp",
+   "to": "kkt-agent-client",
    "kind": "dev",
    "add": {
     "uses": [
@@ -8865,7 +8832,7 @@
    "features": [
     "real"
    ],
-   "note": "its tests drive the running product over HTTP with kkt-agent-client-rmcp's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
+   "note": "its tests drive the running product over HTTP with kkt-agent-client's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
   },
   {
    "from": "kashkeshet",
@@ -8881,7 +8848,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-agent-client-rmcp",
+   "to": "kkt-agent-client",
    "kind": "normal",
    "add": {
     "uses": [
@@ -8934,7 +8901,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-agent-client-rmcp",
+   "to": "kkt-agent-client",
    "kind": "normal",
    "add": {
     "uses": [
@@ -8942,61 +8909,6 @@
     ]
    },
    "note": "the program injects the MCP client as it is (step 12.4)",
-   "status": "decided"
-  },
-  {
-   "from": "kashkeshet",
-   "to": "kkt-agent-client",
-   "kind": "normal",
-   "remove": true,
-   "note": "the program names the contract only in its tests (step 12.4)",
-   "status": "decided"
-  },
-  {
-   "from": "kashkeshet",
-   "to": "kkt-agent-client",
-   "kind": "dev",
-   "add": {
-    "uses": [
-     "Watched"
-    ]
-   },
-   "note": "the register tests read through Watched (step 12.4)",
-   "status": "decided"
-  },
-  {
-   "from": "kkt-agent-client-rmcp",
-   "to": "kkt-agent-client",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Servers",
-     "Avatars",
-     "Watched",
-     "Address",
-     "Failure",
-     "Registered",
-     "Reclaimed",
-     "Channel",
-     "Message",
-     "NewerLane",
-     "Waited"
-    ]
-   },
-   "note": "it implements the contract directly (step 12.4)",
-   "status": "decided"
-  },
-  {
-   "from": "kkt-agent-client-rmcp",
-   "to": "kkt-clock",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Clock",
-     "Span"
-    ]
-   },
-   "note": "the admin watch's polling (step 12.4)",
    "status": "decided"
   },
   {
@@ -10764,7 +10676,7 @@
   },
   "kkt-agent-client": {
    "status": "decided",
-   "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (read with their owner and mode, which the caller's `CredentialCheck` judges as named `CredentialFileFacts`, and made private as its `PrivateMode` says, with warnings through the caller's callbacks; in kkt the check is kkt-setup's rule), watch's state file and its lock, reaching the server as an agent or admin through plain methods with its own types, and plain HTTP for probes. It knows nothing of kkt-watch; the program adapts it."
+   "concern": "A client of kkt's server. The contract, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records, Failure and Settings; the testing Memory stand-in. Its one implementation, over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), and plain Http requests for a program's test client, are behind real, which only programs turn on (step 13.6, merging kkt-agent-client-rmcp back)."
   },
   "kkt-mcp": {
    "status": "decided",
@@ -11749,7 +11661,7 @@
   "kkt-shutdown": "logic",
   "kkt-identity": "contract",
   "kkt-logs": "logic",
-  "kkt-agent-client": "contract"
+  "kkt-agent-client": "contract and effect"
  },
  "open_questions": [
   {
@@ -12311,14 +12223,22 @@
   },
   {
    "crate": "kkt-agent-client",
-   "remove": [
-    "reqwest",
-    "rmcp",
-    "serde_json",
-    "tokio"
-   ],
+   "optional": {
+    "reqwest": [
+     "real"
+    ],
+    "rmcp": [
+     "real"
+    ],
+    "serde_json": [
+     "real"
+    ],
+    "tokio": [
+     "real"
+    ]
+   },
    "status": "decided",
-   "note": "the contract names no transport: rmcp, reqwest and the JSON go to kkt-agent-client-rmcp (step 12.4)"
+   "note": "rmcp, reqwest, serde_json and tokio are optional, behind real: a crate that depends on kkt-agent-client without real gets the contract alone (step 13.6)"
   }
  ],
  "replace_items": [
@@ -12785,6 +12705,38 @@
    ],
    "status": "decided",
    "note": "The contract owns its testing stand-in (12.5b)."
+  },
+  {
+   "type": "kkt-agent-client::Mcp",
+   "to": [
+    "kkt-agent-client::Servers"
+   ],
+   "status": "decided",
+   "note": "the crate's one implementation of its own contract, behind real (step 13.6)"
+  },
+  {
+   "type": "kkt-agent-client::Client",
+   "to": [
+    "kkt-agent-client::Avatars"
+   ],
+   "status": "decided",
+   "note": "the crate's one implementation of its own contract, behind real (step 13.6)"
+  },
+  {
+   "type": "kkt-agent-client::Remote",
+   "to": [
+    "kkt-agent-client::Watched"
+   ],
+   "status": "decided",
+   "note": "the crate's one implementation of its own contract, behind real (step 13.6)"
+  },
+  {
+   "type": "kkt-agent-client::AdminRemote",
+   "to": [
+    "kkt-agent-client::Watched"
+   ],
+   "status": "decided",
+   "note": "the crate's one implementation of its own contract, behind real (step 13.6)"
   }
  ],
  "trait_swaps": [
@@ -13121,12 +13073,6 @@
    "feature": "testing",
    "status": "decided",
    "note": "The contract supplies its own in-memory implementation (12.2)."
-  },
-  {
-   "crate": "kkt-agent-client-rmcp",
-   "feature": "real",
-   "status": "decided",
-   "note": "what reaches the server or the machine (step 12.4)"
   },
   {
    "crate": "kkt-agent-files-os",

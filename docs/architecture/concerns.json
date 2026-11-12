@@ -310,20 +310,14 @@
   },
   "kkt-agent-client": {
    "layer": "clients",
-   "concern": "The project's contract for a client of kkt's server, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records and Failure; the testing Memory stand-in.",
-   "must_not": "Know a transport, a protocol library or its errors; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-agent-client-rmcp": {
-   "layer": "clients",
-   "kind": "effect",
-   "concern": "Implements kkt-agent-client directly over MCP through rmcp and reqwest: Mcp, Client, Remote and AdminRemote, with Settings; plain Http requests for a program's test client. Everything that reaches the server is behind real.",
-   "must_not": "Let an rmcp or reqwest type out of the crate."
+   "concern": "A client of kkt's server. The contract, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records, Failure and Settings; the testing Memory stand-in. Its one implementation, over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), and plain Http requests for a program's test client, are behind real (step 13.6).",
+   "must_not": "Name a transport, a protocol library or its errors in the contract; let an rmcp or reqwest type out of the crate.",
+   "kind": "contract and effect"
   },
   "kkt-agent-commands": {
    "layer": "assembly",
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
-   "must_not": "Depend on an `-os` crate, on a contract's implementation (such as kkt-agent-client-rmcp) or on another assembly; touch the machine except through `AgentParts`.",
+   "must_not": "Depend on an `-os` crate, on a contract's implementation, turn on another crate's `real`, or depend on another assembly; touch the machine except through `AgentParts`.",
    "kind": "composition"
   },
   "kkt-agent-files-os": {

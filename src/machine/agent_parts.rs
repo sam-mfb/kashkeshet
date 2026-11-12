@@ -1,5 +1,5 @@
 //! kkt-agent-commands' parts, as kkt answers them: the MCP client
-//! (kkt-agent-client-rmcp, injected as it is), the key files, this program's
+//! (kkt-agent-client, injected as it is), the key files, this program's
 //! path and the terminal, with the local server's facts from the setup and
 //! the serve settings.
 
@@ -30,7 +30,7 @@ pub fn agent_parts(
             serve_args,
         }),
         admin_path: kkt_mcp::MCP_ADMIN_PATH,
-        servers: Box::new(kkt_agent_client_rmcp::Mcp),
+        servers: Box::new(kkt_agent_client::Mcp),
         credentials: Box::new(CredentialFiles),
         key_files: Box::new(KeyFiles),
         clients: Box::new(ClientHost),

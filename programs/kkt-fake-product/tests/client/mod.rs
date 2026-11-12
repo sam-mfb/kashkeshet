@@ -3,7 +3,7 @@
 //! the web page with a session from signing in with a bearer.
 
 use futures::StreamExt;
-use kkt_agent_client_rmcp::{Http, HttpReply};
+use kkt_agent_client::{Http, HttpReply};
 use kkt_fake_product::Product;
 use reqwest::StatusCode;
 use reqwest::header::{CONTENT_TYPE, COOKIE, LOCATION, SET_COOKIE};

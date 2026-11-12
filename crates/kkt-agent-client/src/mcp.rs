@@ -1,57 +1,34 @@
-//! kkt-agent-client's contract over MCP, through rmcp and reqwest: a client
+//! The contract over MCP, through rmcp and reqwest, behind `real`: a client
 //! of kkt's server that registers and reclaims avatars and watches for
 //! messages. It connects on first use and again after a call fails to reach
-//! the server. Everything that reaches the server is behind `real`; the
-//! settings are plain values. Also plain HTTP requests for a program's test
-//! client (`Http`).
+//! the server. Also plain HTTP requests for a program's test client (`Http`).
 
-mod settings;
-pub use settings::Settings;
-
-#[cfg(feature = "real")]
 mod http;
-#[cfg(feature = "real")]
 pub use http::{Http, HttpReply};
 
-#[cfg(feature = "real")]
 mod watching;
-#[cfg(feature = "real")]
 pub use watching::{AdminRemote, Remote};
 
-#[cfg(feature = "real")]
+use crate::{Address, Avatars, Failure, Reclaimed, Registered, Servers, Settings, Watched};
 use futures::future::BoxFuture;
-#[cfg(feature = "real")]
-use kkt_agent_client::{Address, Avatars, Failure, Reclaimed, Registered, Servers, Watched};
-#[cfg(feature = "real")]
 use kkt_clock::Clock;
-#[cfg(feature = "real")]
 use rmcp::model::CallToolRequestParams;
-#[cfg(feature = "real")]
 use rmcp::service::{ClientInitializeError, RoleClient, RunningService};
-#[cfg(feature = "real")]
 use rmcp::transport::streamable_http_client::{
     StreamableHttpClientTransportConfig, StreamableHttpError,
 };
-#[cfg(feature = "real")]
 use rmcp::transport::{DynamicTransportError, StreamableHttpClientTransport};
-#[cfg(feature = "real")]
 use rmcp::{ClientLifecycleMode, ClientServiceExt, ServiceError};
-#[cfg(feature = "real")]
 use serde_json::{Map, Value, json};
-#[cfg(feature = "real")]
 use std::sync::Arc;
-#[cfg(feature = "real")]
 use tokio::sync::Mutex;
 
-#[cfg(feature = "real")]
 type Session = RunningService<RoleClient, ()>;
 
 /// kkt's servers over MCP: what the program injects as kkt-agent-client's
 /// `Servers`. Each client it makes asks with [`Settings::DEFAULT`].
-#[cfg(feature = "real")]
 pub struct Mcp;
 
-#[cfg(feature = "real")]
 impl Mcp {
     fn client(at: Address) -> Client {
         let client = Client::new(at.url, at.key);
@@ -62,7 +39,6 @@ impl Mcp {
     }
 }
 
-#[cfg(feature = "real")]
 impl Servers for Mcp {
     fn avatars(&self, at: Address) -> Box<dyn Avatars> {
         Box::new(Mcp::client(at))
@@ -79,7 +55,6 @@ impl Servers for Mcp {
     }
 }
 
-#[cfg(feature = "real")]
 impl Avatars for Client {
     fn register<'a>(
         &'a self,
@@ -102,7 +77,6 @@ impl Avatars for Client {
 
 /// The server at `url`, reached with the access key `key` (if it needs one),
 /// with no agent credentials held in the transport.
-#[cfg(feature = "real")]
 pub struct Client {
     url: String,
     key: Option<String>,
@@ -111,7 +85,6 @@ pub struct Client {
     client: Mutex<Option<Session>>,
 }
 
-#[cfg(feature = "real")]
 impl Client {
     /// Registers a new avatar, with the handle `handle` if given, else one
     /// the server chooses, taking the lane named `lane` if given.
@@ -229,14 +202,12 @@ impl Client {
 }
 
 /// Whether connecting failed because the server refused the key.
-#[cfg(feature = "real")]
 fn refused_at_start(error: &ClientInitializeError) -> bool {
     matches!(error, ClientInitializeError::TransportError { error, .. } if refused(error))
 }
 
 /// Whether a call failed because the server refused the key, as it does
 /// once the key changes under a running connection.
-#[cfg(feature = "real")]
 fn refused_in_call(error: &ServiceError) -> bool {
     matches!(error, ServiceError::TransportSend(error) if refused(error))
 }
@@ -244,7 +215,6 @@ fn refused_in_call(error: &ServiceError) -> bool {
 /// Whether the HTTP transport's error is the server's 401 with a
 /// `WWW-Authenticate` challenge, which rmcp reports as `AuthRequired`: the
 /// status, not the error's text, decides.
-#[cfg(feature = "real")]
 fn refused(error: &DynamicTransportError) -> bool {
     matches!(
         error
@@ -257,7 +227,6 @@ fn refused(error: &DynamicTransportError) -> bool {
 /// `tool`'s answer `text` as JSON. When it is not JSON, the failure gives the
 /// parser's reason: only the kind of error and where, never its message,
 /// which can quote the answer, and answers can hold tokens and recovery codes.
-#[cfg(feature = "real")]
 fn parse_answer(tool: &str, text: &str) -> Result<Value, Failure> {
     serde_json::from_str(text).map_err(|e| {
         let kind = match e.classify() {
@@ -274,7 +243,6 @@ fn parse_answer(tool: &str, text: &str) -> Result<Value, Failure> {
     })
 }
 
-#[cfg(feature = "real")]
 fn field(value: &Value, name: &str) -> Result<String, Failure> {
     value[name]
         .as_str()
@@ -283,7 +251,7 @@ fn field(value: &Value, name: &str) -> Result<String, Failure> {
         .ok_or_else(|| Failure::Lost(format!("the server gave no {name}")))
 }
 
-#[cfg(all(test, feature = "real"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use rmcp::transport::streamable_http_client::AuthRequiredError;
