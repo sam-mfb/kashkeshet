@@ -1,0 +1,7 @@
+[
+  {
+    "package": "kkt-fake-product",
+    "dependency": "kkt-agent-client",
+    "reason": "Its tests drive a running server over HTTP, through kkt-agent-client's HTTP client, which only `real` builds (Sam, 2026-11-12)."
+  }
+]

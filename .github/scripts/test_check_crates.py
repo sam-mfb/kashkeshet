@@ -23,9 +23,15 @@ def dependency(name, kind=None, features=(), rename=None, target=None):
     return {"name": name, "kind": kind, "features": list(features), "rename": rename, "target": target}
 
 
-def problems(*packages, contracts=()):
+def exception(package, dependency):
+    """One entry of real-exceptions.json."""
+    return {"package": package, "dependency": dependency, "reason": "a test reason"}
+
+
+def problems(*packages, contracts=(), real_exceptions=()):
     result = subprocess.run(
-        ["jq", "-r", "--argjson", "contracts", json.dumps(list(contracts)), "-f", str(RULES)],
+        ["jq", "-r", "--argjson", "contracts", json.dumps(list(contracts)),
+         "--argjson", "real_exceptions", json.dumps(list(real_exceptions)), "-f", str(RULES)],
         input=json.dumps({"packages": list(packages)}),
         check=True, capture_output=True, text=True,
     )
@@ -52,7 +58,35 @@ class CheckCrates(unittest.TestCase):
         self.assertEqual(problems(
             package("kkt-a"),
             package("kkt-b", dependencies=[dependency("kkt-a", features=["real"])]),
-        ), ["kkt-b: turns on kkt-a's real in [dependencies]; only a package with a binary target may (in [dependencies]), or one with an example target (in [dev-dependencies])"])
+        ), ["kkt-b: turns on kkt-a's real in [dependencies]; only a package with a binary target may (in [dependencies]), or one with an example target (in [dev-dependencies]); tests should not, except as listed in real-exceptions.json"])
+
+    def test_a_listed_exception_lets_tests_turn_on_real(self):
+        tests_use = package("kkt-b", targets=("bin",), dependencies=[dependency("kkt-a", kind="dev", features=["real"])])
+        self.assertEqual(problems(package("kkt-a"), tests_use, real_exceptions=[exception("kkt-b", "kkt-a")]), [])
+
+    def test_an_unlisted_exception_still_fails(self):
+        tests_use = package("kkt-b", targets=("bin",), dependencies=[
+            dependency("kkt-a", kind="dev", features=["real"]),
+            dependency("kkt-c", kind="dev", features=["real"]),
+        ])
+        found = problems(package("kkt-a"), package("kkt-c"), tests_use, real_exceptions=[exception("kkt-b", "kkt-a")])
+        self.assertEqual(len(found), 1, found)
+        self.assertTrue(found[0].startswith("kkt-b: turns on kkt-c's real in [dev-dependencies];"), found[0])
+        # The list covers [dev-dependencies] only, not a library's [dependencies].
+        lib_use = package("kkt-d", dependencies=[dependency("kkt-a", features=["real"])])
+        found = problems(package("kkt-a"), lib_use, real_exceptions=[exception("kkt-d", "kkt-a")])
+        self.assertEqual(len([f for f in found if f.startswith("kkt-d: turns on kkt-a's real in [dependencies];")]), 1, found)
+
+    def test_a_listed_exception_that_no_longer_applies_fails(self):
+        gone = "real-exceptions.json lists kkt-b turning on kkt-a's real in [dev-dependencies], which it no longer does; remove the entry"
+        for name, b in [
+            ("without real", package("kkt-b", targets=("bin",), dependencies=[dependency("kkt-a", kind="dev")])),
+            ("in [dependencies]", package("kkt-b", targets=("bin",), dependencies=[dependency("kkt-a", features=["real"])])),
+            ("no such dependency", package("kkt-b", targets=("bin",))),
+        ]:
+            with self.subTest(name):
+                self.assertEqual(problems(package("kkt-a"), b, real_exceptions=[exception("kkt-b", "kkt-a")]), [gone])
+        self.assertEqual(problems(package("kkt-a"), real_exceptions=[exception("kkt-b", "kkt-a")]), [gone])
 
     def test_real_is_allowed_only_in_the_section_the_target_allows(self):
         cases = [
