@@ -1043,7 +1043,6 @@ dependencies = [
  "kkt-agent-client",
  "kkt-api-admin",
  "kkt-api-agent",
- "kkt-api-operator",
  "kkt-backup",
  "kkt-backup-os",
  "kkt-client-config",
@@ -1072,6 +1071,7 @@ dependencies = [
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-names",
+ "kkt-operate",
  "kkt-provenance",
  "kkt-remote-access",
  "kkt-remote-access-os",
@@ -1510,6 +1510,28 @@ name = "kkt-names"
 version = "0.10.0"
 dependencies = [
  "kkt-entropy",
+]
+
+[[package]]
+name = "kkt-operate"
+version = "0.10.0"
+dependencies = [
+ "kkt-admission",
+ "kkt-api-agent",
+ "kkt-api-operator",
+ "kkt-client-config",
+ "kkt-clock",
+ "kkt-config-file",
+ "kkt-container",
+ "kkt-diagnostics",
+ "kkt-lane-files",
+ "kkt-machine",
+ "kkt-names",
+ "kkt-provenance",
+ "kkt-remote-access",
+ "kkt-rules",
+ "kkt-service",
+ "kkt-setup",
 ]
 
 [[package]]

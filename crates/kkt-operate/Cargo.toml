@@ -1,0 +1,26 @@
+[package]
+name = "kkt-operate"
+description = "The operator commands and this machine's recorded kkt install"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-admission = { path = "../kkt-admission" }
+kkt-api-agent = { path = "../kkt-api-agent" }
+kkt-api-operator = { path = "../kkt-api-operator" }
+kkt-client-config = { path = "../kkt-client-config" }
+kkt-clock = { path = "../kkt-clock" }
+kkt-config-file = { path = "../kkt-config-file" }
+kkt-container = { path = "../kkt-container" }
+kkt-diagnostics = { path = "../kkt-diagnostics" }
+kkt-lane-files = { path = "../kkt-lane-files" }
+kkt-machine = { path = "../kkt-machine" }
+kkt-names = { path = "../kkt-names" }
+kkt-provenance = { path = "../kkt-provenance" }
+kkt-remote-access = { path = "../kkt-remote-access" }
+kkt-rules = { path = "../kkt-rules" }
+kkt-service = { path = "../kkt-service" }
+kkt-setup = { path = "../kkt-setup" }

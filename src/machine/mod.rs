@@ -9,6 +9,7 @@ pub(crate) mod credentials;
 pub mod database;
 pub mod diagnostics;
 pub mod keys;
+pub(crate) mod operate;
 pub mod record;
 pub(crate) mod remote_access;
 mod serve_options;
