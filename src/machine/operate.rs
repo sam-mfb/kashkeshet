@@ -1,4 +1,6 @@
-//! Adapts this program's native providers and serving settings to operator commands.
+//! kkt-operate's parts on this machine: the program's native providers and
+//! its serving settings, adapted to the operator's commands. `main.rs` builds
+//! one `NativeOperate` and gives every operator command its `parts`.
 
 use super::connection::ConnectionReads;
 use super::settings::{self, DefaultDb, Report, ServeArgs, ServeOptions};
@@ -11,7 +13,10 @@ use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-pub(crate) struct NativeOperate<'a, D = ()> {
+/// The operator's parts on this machine, from the implementations the
+/// program chooses. `D` is whether the parts can ask what an installed
+/// service runs with (`with_service_args`), or `()` if not.
+pub struct NativeOperate<'a, D = ()> {
     serve: ServeReads<'a>,
     connection: ConnectionReads<'a>,
     service_defaults: D,
@@ -19,7 +24,8 @@ pub(crate) struct NativeOperate<'a, D = ()> {
 }
 
 impl<'a> NativeOperate<'a> {
-    pub(crate) fn new(env: &'a Env, platform: Platform) -> Self {
+    /// The parts for `env` and `platform`, without the service capability.
+    pub fn new(env: &'a Env, platform: Platform) -> Self {
         Self {
             serve: ServeReads { env, platform },
             connection: ConnectionReads { env, platform },
@@ -28,10 +34,9 @@ impl<'a> NativeOperate<'a> {
         }
     }
 
-    pub(crate) fn with_service_args(
-        self,
-        serve_args: ServeArgs,
-    ) -> NativeOperate<'a, ServiceArgs<'a>> {
+    /// The same parts, able to ask what an installed service runs with, by
+    /// reading its arguments as `kkt serve`'s command line (`serve_args`).
+    pub fn with_service_args(self, serve_args: ServeArgs) -> NativeOperate<'a, ServiceArgs<'a>> {
         let service_defaults = ServiceArgs {
             env: self.serve.env,
             platform: self.serve.platform,
@@ -47,7 +52,8 @@ impl<'a> NativeOperate<'a> {
 }
 
 impl<'a, D> NativeOperate<'a, D> {
-    pub(crate) fn parts(&self) -> OperateParts<'_, ConnectionReads<'a>, D> {
+    /// The parts, as kkt-operate's commands take them.
+    pub fn parts(&self) -> OperateParts<'_, ConnectionReads<'a>, D> {
         OperateParts {
             container: &super::container::ContainerHost,
             container_configs: &settings::ContainerConfigs,
@@ -154,7 +160,9 @@ impl ServeFacts for ServeReads<'_> {
     }
 }
 
-pub(crate) struct ServiceArgs<'a> {
+/// The service capability: what an installed service runs with, compared
+/// with the defaults, as `kkt serve` would read its arguments.
+pub struct ServiceArgs<'a> {
     env: &'a Env,
     platform: Platform,
     serve_args: ServeArgs,

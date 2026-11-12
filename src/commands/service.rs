@@ -1,13 +1,11 @@
-//! Adapts the program's service command entry points to the operator assembly.
+//! Tests of kkt-operate's service plan over this program's real parts: the
+//! settings a service install passes come from the program's serving code.
 use kkt_machine::{Env, Platform};
-pub use kkt_operate::service::{ServiceAction, ServiceInstall, ServicePlan};
+use kkt_operate::service::{ServiceInstall, ServicePlan};
 use std::path::PathBuf;
 
-pub async fn run(env: &Env, platform: Platform, command: ServiceAction) -> Result<(), String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform);
-    kkt_operate::service::run(&native.parts(), env, command).await
-}
-pub fn service_plan(
+/// kkt-operate's service plan, over this program's real parts.
+fn service_plan(
     env: &Env,
     platform: Platform,
     config: Option<PathBuf>,
@@ -28,7 +26,6 @@ pub fn service_plan(
     )
 }
 
-#[cfg(test)]
 mod tests {
     use super::*;
     use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};

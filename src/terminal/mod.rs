@@ -5,7 +5,7 @@ pub mod browser_login;
 use kkt_terminal_os::Terminal;
 
 /// The terminal supplied to setup's question rules.
-pub struct TerminalLines;
+pub(crate) struct TerminalLines;
 
 impl kkt_setup::Lines for TerminalLines {
     fn interactive(&self) -> bool {

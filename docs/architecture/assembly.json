@@ -85,7 +85,7 @@
    "also": [
     {
      "title": "The agents' commands",
-     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which the program builds in agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client's clients adapted to its Servers and to kkt-watch's Server, the credential and state files, the key files, kkt's path, the terminal and the system clock.",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client's clients adapted to its Servers and to kkt-watch's Server, the credential and state files, the key files, kkt's path, the terminal and the system clock.",
      "items": [
       "kashkeshet::machine::agent_parts::agent_parts",
       "kkt-agent-commands::AgentParts",
@@ -103,8 +103,9 @@
     },
     {
      "title": "The operator's commands",
-     "text": "The program supplies native containers, services, client files, probes, lane disk, clock, setup/key files, database and terminal through OperateParts. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults; the program constructs that capability with ServeArgs, while record/config-only parts cannot ask it. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. The native try_bind callback checks the address before installation. Setup and switch compose their steps in operate, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login.",
+     "text": "main.rs builds the operator's parts once, a NativeOperate with the service capability (ServeArgs), and gives every operator command its OperateParts: native containers, services, client files, probes, lane disk, clock, setup and key files, database, backups and terminal. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. The native try_bind callback checks the address before installation. Setup and switch compose their steps in operate, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
      "items": [
+      "kashkeshet::machine::operate::NativeOperate",
       "kkt-operate::OperateParts",
       "kkt-operate::ServeFacts",
       "kkt-operate::ServiceDefaults",
@@ -124,7 +125,13 @@
       "kkt-operate::setup::run",
       "kkt-operate::setup::run_switch",
       "kkt-operate::setup::InstallOptions",
-      "kkt-operate::ConfigText"
+      "kkt-operate::ConfigText",
+      "kkt-operate::lifecycle::status",
+      "kkt-operate::lifecycle::upgrade",
+      "kkt-operate::lifecycle::uninstall",
+      "kkt-operate::lifecycle::backup",
+      "kkt-operate::record::check_setup",
+      "kkt-operate::BackupWriter"
      ]
     }
    ],
@@ -277,8 +284,8 @@
      "note": "kkt agent, kkt lanes"
     },
     {
-     "own": "AdminKeyHere, the operator's key finder (selected_key_path)",
-     "supplier": "kashkeshet::machine::keys",
+     "own": "AdminKeyHere, asking kkt-operate's key finder (keys::selected_key_path) over the operator's parts on this machine",
+     "supplier": "kkt-operate::keys::selected_key_path",
      "crate": "kkt-agent-commands",
      "to": [
       {
