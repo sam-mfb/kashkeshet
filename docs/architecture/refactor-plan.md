@@ -125,6 +125,10 @@ this list; one that is not on it blocks.
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
 
+With the refactor done, the table guards later changes: `check-programs.py`
+runs in CI, and a program that does machine work in its own code again fails
+it unless a row here names the program and the file.
+
 ## Differences from the proposed map
 
 Some steps end up differing from the proposed map on purpose, for good, not
@@ -667,3 +671,17 @@ Each has the default we proceed on, so nothing waits.
 8. **The proposed map after the refactor.** Default: step 8.1 keeps the
    proposal as a record of what was planned, with the scorecard at the end,
    and the page's "Current" map shows the code.
+
+## Final scorecard
+
+On the code at the end of the refactor (`progress.py`, step 8.1):
+
+- crates: 60 of 60 proposed crates exist; none missing; none to remove;
+- items: 797 of 797 proposed items are in their proposed crate;
+- arrows: 222 of 223 proposed arrows exist; 1 missing (kkt-server →
+  kkt-api-admin, 5.6a's row); none extra;
+- rules: no kind check fails; 1 break of the proposal's rules (kkt-rules'
+  tests on kkt-db-sqlite, 5.3b's row).
+
+`decisions.md` ("After the refactor") gives each remaining difference with
+its reason.
