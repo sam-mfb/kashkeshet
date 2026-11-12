@@ -458,7 +458,8 @@
     const x = BOX_W - IMPL_W;
     const strip = svg("rect", { class: "impl-part", x, y: 0, width: IMPL_W, height: BOX_H });
     const divider = svg("path", { class: "impl-divider", d: `M${x},0 L${x},${BOX_H}` });
-    const label = svg("text", { class: "sub impl-label", x: x + IMPL_W / 2, y: 32 });
+    // Right of the mark on the divider, with a gap.
+    const label = svg("text", { class: "sub impl-label", x: x + IMPL_W / 2 + 4, y: 32 });
     label.textContent = "real";
     // On the second line, below the name, which runs up to the divider.
     const mark = svg("path", { class: "self-implements", d: `M${x + 7},${MARK_Y - 4} L${x + 1},${MARK_Y} L${x + 7},${MARK_Y + 4} z` });
