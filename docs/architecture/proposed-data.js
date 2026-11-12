@@ -8309,6 +8309,22 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct ServiceInputs"
+     },
+     {
+      "status": "decided",
+      "text": "new trait CheckService"
+     },
+     {
+      "status": "decided",
+      "text": "new struct CheckedService"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Config"
+     },
+     {
+      "status": "decided",
       "text": "OperateParts takes container: injected by the program (steps 10.2b and 10.2a)"
      },
      {
@@ -24046,6 +24062,10 @@ window.KKT_PROPOSED = {
      },
      {
       "implementors": [],
+      "trait": "CheckService"
+     },
+     {
+      "implementors": [],
       "trait": "ConfigText"
      },
      {
@@ -24083,6 +24103,30 @@ window.KKT_PROPOSED = {
       "doc": "Writes kkt-backup's layout of a backup (step 10.2b).",
       "kind": "trait",
       "path": "BackupWriter",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The program checks the plan against its whole serving surface, with its source context. (step 10.2b)",
+      "kind": "trait",
+      "methods": [
+       "check"
+      ],
+      "path": "CheckService",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "What the service command needs after the program's settings check. (step 10.2b)",
+      "kind": "struct",
+      "path": "CheckedService",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The facts these commands read from the program's serve configuration. (step 10.2a)",
+      "kind": "struct",
+      "path": "Config",
       "proposed_item": true,
       "status": "decided"
      },
@@ -24135,6 +24179,13 @@ window.KKT_PROPOSED = {
        "matches_defaults"
       ],
       "path": "ServiceDefaults",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Inputs to the service plan, plus a deferred check with opaque program context. (step 10.2b)",
+      "kind": "struct",
+      "path": "ServiceInputs",
       "proposed_item": true,
       "status": "decided"
      },
@@ -24597,6 +24648,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new trait ServiceDefaults"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ServiceInputs"
+     },
+     {
+      "status": "decided",
+      "text": "new trait CheckService"
+     },
+     {
+      "status": "decided",
+      "text": "new struct CheckedService"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Config"
      },
      {
       "status": "decided",

@@ -320,37 +320,31 @@ Message numbers are given only where they help to find a discussion in
 
 ## After the refactor
 
-Since step 8.1, Sam has decided that kkt-settings goes (phase 9 of the
-plan, 2026-11-12). The proposal charts that target, so the scorecard shows
-kkt-settings and its arrows as extra until phase 9 lands.
+After step 8.1, Sam decided three more phases (2026-11-12): kkt-settings
+goes (phase 9), the program's tools become two assemblies, kkt-operate and
+kkt-agent-commands (phase 10), and kkt-db gets a fast test stand-in, so
+kkt-rules' tests use no effect crate (phase 11). All three are done, and
+charted into the proposal.
 
-Apart from phase 9, the code matches the proposal, as last amended, except
-for two differences that `progress.py --list` reports. Each has a row in the
-plan's differences table, and Sam has ruled on both (2026-11-12).
+The two differences left at step 8.1 are gone:
 
-- **The arrow kkt-server → kkt-api-admin is missing** (step 5.6a). kkt-server's
-  `Parts` holds the concrete `Rules` and passes it to each surface, which
-  takes it as its own contract (`Api`, `OperatorApi`, `AdminApi`). Sam
-  decided that `Parts` takes the contract, an `Arc<dyn AdminApi>`, so
-  kkt-server no longer depends on kkt-rules in its code (step 9.2, msg 2837).
-- **kkt-rules' tests depend on the effect crate kkt-db-sqlite** (step 5.3b),
-  a break of the rule that keeps effect crates out of other crates' tests.
-  The reason is speed: kkt-rules' 200 tests take under 5 seconds on SQLite in
-  memory and over 10 minutes on kkt-db's `MemoryPlace`, which copies the
-  whole database on every change. kkt-db's conformance checks keep the two
-  backends in step, and kkt-rules' `testing::memory` still serves other
-  crates' tests. Sam did not accept this: a fast stand-in replaces it
-  (msg 2805).
+- **The arrow kkt-server → kkt-api-admin is there** (step 9.2, msg 2837).
+  `Parts` takes the contract, an `Arc<dyn AdminApi>`, and kkt-server no
+  longer depends on kkt-rules in its code.
+- **kkt-rules' tests no longer depend on kkt-db-sqlite** (steps 11.1 and
+  11.2, msg 2805). They run on kkt-db's `testing::FastPlace`, and the
+  program's tests run the store and a chosen part of the rules' scenarios on
+  kkt-db-sqlite.
 
-The final scorecard, on the code at the end of the refactor:
+The final scorecard, on the code at the end of phases 9 to 11:
 
-- crates: 60 of 60 proposed crates exist; none missing; none to remove;
-- items: 797 of 797 proposed items are in their proposed crate;
-- arrows: 222 of 223 proposed arrows exist; 1 missing; none extra;
-- rules: no kind check fails; 1 break of the proposal's rules.
+- crates: 61 of 61 proposed crates exist; none missing; none to remove;
+- items: 813 of 813 proposed items are in their proposed crate;
+- arrows: 238 of 238 proposed arrows exist; none missing; none extra;
+- rules: no kind check fails; no break of the proposal's rules.
 
-The plan's "Temporary breaks" table is empty: every break a step left for
-a later one was removed by that later step.
+The plan's "Temporary breaks" table has one row, and it is CI's: macOS is
+out of CI again for want of GitHub runners (#501).
 
 Tests SHOULD NOT turn on `real` (Sam, 2026-11-12). A test that must is a
 documented exception, listed with its reason in

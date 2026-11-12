@@ -28,22 +28,26 @@ kkt-api-operator and kkt-api-admin. Phase 6 moved the web sessions into
 kkt-web, made the page use the kkt-api traits directly, and made the page
 preview a program of its own. Phase 7 moved the last machine work out of
 the programs. Phase 8 made CI check two of the new rules and made the
-map's "Current" view the code again.
+map's "Current" view the code again. Phase 9 removed kkt-settings: each
+owner checks and words its own settings, and kkt-server takes them checked.
+Phase 10 moved the program's tools out of its library into two assemblies,
+kkt-operate for the operator's commands and kkt-agent-commands for the
+agents', while the program keeps composing the server. Phase 11 gave kkt-db
+a fast test stand-in, so kkt-rules' tests use no effect crate, and the
+program's tests run the store and the rules on the real backend.
 
-The workspace went from 33 packages to 60. The code now matches the
-proposed map, as amended during the refactor, except for two differences
-recorded with their reasons in `decisions.md` ("After the refactor").
+The workspace went from 33 packages to 61. The code now matches the
+proposed map, as amended during the refactor, with no difference left
+(`decisions.md`, "After the refactor").
 
 ## Final scorecard
 
 From `progress.py`, on the code at the end of the refactor:
 
-- crates: 60 of 60 proposed crates exist; none missing; none to remove;
-- items: 797 of 797 proposed items are in their proposed crate;
-- arrows: 222 of 223 proposed arrows exist; 1 missing (kkt-server →
-  kkt-api-admin); none extra;
-- rules: no kind check fails; 1 break of the proposal's rules (kkt-rules'
-  tests use kkt-db-sqlite).
+- crates: 61 of 61 proposed crates exist; none missing; none to remove;
+- items: 813 of 813 proposed items are in their proposed crate;
+- arrows: 238 of 238 proposed arrows exist; none missing; none extra;
+- rules: no kind check fails; no break of the proposal's rules.
 
 ## Effect on existing installs
 
@@ -64,8 +68,10 @@ dependant must change.
 - Remove `refactor` from `.github/workflows/ci.yml`'s branch lists, under
   both `pull_request` and `push`.
 
-The macOS checks are back in the Rust checks' matrix since #486, on
-`refactor` itself, so the merge's pull request need not touch them.
+The macOS checks are out of the Rust checks' matrix again since #501, for
+want of GitHub runners, with a comment saying how to put them back. The
+merge's pull request need not touch them; they come back by their own pull
+request, or on a self-hosted runner.
 
 The jobs the refactor added stay: the crate outside the workspace that
 builds against the shared crates by git (`outside-crate`), and the check
@@ -73,9 +79,9 @@ that the programs do no machine work (`programs-do-no-machine-work`).
 
 ## What to watch on macOS
 
-The macOS checks were off for most of the refactor, so its macOS code was
-reviewed by hand only until #486 turned them back on. Watch their first
-runs. The code the refactor touched that decides by platform:
+The macOS checks were off for most of the refactor. #486 turned them back
+on for a while, and #501 turned them off again, so its macOS code is
+reviewed by hand until they return. Watch their first runs. The code the refactor touched that decides by platform:
 
 - `crates/kkt-machine-os/src/lib.rs`: `OsMachine::platform` says whether
   this build is macOS or follows XDG. It replaces `Platform::CURRENT` in

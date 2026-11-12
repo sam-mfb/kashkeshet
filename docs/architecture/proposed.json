@@ -3765,6 +3765,13 @@
    "doc": "Standard output and error (step 10.3)."
   },
   {
+   "crate": "kkt-format",
+   "path": "Problem",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "An invalid formatter setting and the owner's check that found it. (step 9.1)"
+  },
+  {
    "crate": "kkt-rules",
    "path": "testing::every_store_read",
    "kind": "fn",
@@ -3839,13 +3846,6 @@
    "doc": "An invalid backup setting and the owner's check that found it. (step 9.1)"
   },
   {
-   "crate": "kkt-format",
-   "path": "Problem",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "An invalid formatter setting and the owner's check that found it. (step 9.1)"
-  },
-  {
    "crate": "kkt-web",
    "path": "Problem",
    "kind": "struct",
@@ -3878,6 +3878,37 @@
     "matches_defaults"
    ],
    "doc": "Required only by commands that inspect an unrecorded service. (step 10.2a)"
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "ServiceInputs",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "Inputs to the service plan, plus a deferred check with opaque program context. (step 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "CheckService",
+   "kind": "trait",
+   "status": "decided",
+   "methods": [
+    "check"
+   ],
+   "doc": "The program checks the plan against its whole serving surface, with its source context. (step 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "CheckedService",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What the service command needs after the program's settings check. (step 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "Config",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The facts these commands read from the program's serve configuration. (step 10.2a)"
   }
  ],
  "declared": [],
