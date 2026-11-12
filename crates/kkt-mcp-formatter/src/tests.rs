@@ -1266,3 +1266,45 @@ fn server_announcement_says_who_saved_it() {
          (via admin-sentinel):\nBe brief."
     );
 }
+
+#[test]
+fn response_settings_keep_the_existing_floor_and_refusal() {
+    for max_response_bytes in [0, MIN_RESPONSE_BYTES - 1] {
+        let problems = Settings { max_response_bytes }.problems();
+        assert_eq!(
+            problems,
+            vec![Problem {
+                name: "max_response_bytes",
+                check: "floor",
+                rule: "must be at least 1024".into(),
+            }]
+        );
+        assert_eq!(
+            problems[0].to_string(),
+            "max_response_bytes must be at least 1024"
+        );
+    }
+    for settings in [
+        Settings::DEFAULT,
+        Settings {
+            max_response_bytes: MIN_RESPONSE_BYTES,
+        },
+    ] {
+        assert!(settings.problems().is_empty());
+    }
+}
+
+#[test]
+fn response_settings_keep_the_run_records_name_and_value() {
+    assert_eq!(
+        Settings::DEFAULT.record_lines(),
+        vec![("max_response_bytes".into(), "8192".into())]
+    );
+    assert_eq!(
+        Settings {
+            max_response_bytes: 4096
+        }
+        .record_lines(),
+        vec![("max_response_bytes".into(), "4096".into())]
+    );
+}

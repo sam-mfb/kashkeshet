@@ -98,7 +98,7 @@
   },
   "kkt-web": {
    "layer": "surfaces",
-   "concern": "The human's pages, over the operator's operations (kkt-api-operator's `OperatorApi`) in each viewer's swarm, rendering the kkt-api crates' records. Its own contract is only `Gate`, which says who is viewing each request (a swarm and an operator) and whom a key signs in; every change is a checked form post. It keeps the limits only the page applies (`PageLimits`). It keeps its own sessions: their IDs, hashing, expiry, sign-out and form tokens.",
+   "concern": "The human's pages, over the operator's operations (kkt-api-operator's `OperatorApi`) in each viewer's swarm, rendering the kkt-api crates' records. Its own contract is only `Gate`, which says who is viewing each request (a swarm and an operator) and whom a key signs in; every change is a checked form post. It keeps the limits only the page applies (`PageLimits`). It keeps its own sessions: their IDs, hashing, expiry, sign-out and form tokens; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
    "must_not": "Depend on the rules, the store, admission or identity: kkt-server adapts them to its gate.",
    "kind": "logic"
   },
@@ -154,7 +154,7 @@
   },
   "kkt-mcp-formatter": {
    "layer": "surfaces",
-   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`.",
+   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
    "must_not": "Decide permissions or read the database.",
    "kind": "logic"
   },
@@ -262,7 +262,7 @@
   },
   "kkt-backup": {
    "layer": "operations",
-   "concern": "Backup folders: their names, contents, file modes, and pruning.",
+   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
    "must_not": "Read the clock or copy the database itself: the caller passes both.",
    "kind": "logic"
   },
