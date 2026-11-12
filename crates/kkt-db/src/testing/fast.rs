@@ -1162,7 +1162,7 @@ fn repeats(
         None => "1".into(),
     };
     let text = format!(
-        "SELECT EXISTS (SELECT 1 FROM {t} AS a JOIN {t} AS b ON b.rowid <> a.rowid AND {same} WHERE {filter} AND {among})",
+        "SELECT EXISTS (SELECT 1 FROM {t} AS a CROSS JOIN {t} AS b WHERE {among} AND {filter} AND {same} AND b.rowid <> a.rowid)",
         t = quote(table)
     );
     conn.prepare_cached(&text)
