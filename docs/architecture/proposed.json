@@ -1518,6 +1518,22 @@
    "item": "kkt-server::WebViewer",
    "status": "decided",
    "note": "the gate admits kkt-web's Viewer record (step 6.2)"
+  },
+  {
+   "item": "kkt-settings::ServeOptions",
+   "status": "decided"
+  },
+  {
+   "item": "kkt-settings::ServeSettings",
+   "status": "decided"
+  },
+  {
+   "item": "kkt-config::InvalidSetting",
+   "status": "decided"
+  },
+  {
+   "item": "kkt-config::Limits",
+   "status": "decided"
   }
  ],
  "method_moves": [
@@ -2526,37 +2542,6 @@
    "doc": "What to say when a key file's key is refused; the same function as key_refusal (step 3.5b)"
   },
   {
-   "crate": "kkt-settings",
-   "path": "RecordedSettings",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "The settings a server runs with, worded as the name and value lines kkt-provenance stores for the run (step 3.5c)",
-   "methods": [
-    "lines"
-   ]
-  },
-  {
-   "crate": "kashkeshet",
-   "path": "machine::settings::rules_settings",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "The rules' share of `limits`. (step 3.5c)"
-  },
-  {
-   "crate": "kashkeshet",
-   "path": "machine::settings::format_settings",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "The formatter's share of `limits`. (step 3.5c)"
-  },
-  {
-   "crate": "kashkeshet",
-   "path": "machine::settings::web_settings",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "The web page's share of `limits`. (step 3.5c)"
-  },
-  {
    "crate": "kashkeshet",
    "path": "machine::settings::BadSetting",
    "kind": "trait",
@@ -3442,6 +3427,55 @@
    "status": "decided",
    "feature": "testing",
    "doc": "Which messages `Reader::latest_message_from` looks at (step 5.6b)."
+  },
+  {
+   "crate": "kkt-server",
+   "path": "ServerSettings",
+   "kind": "struct",
+   "status": "decided",
+   "methods": [
+    "check",
+    "record_lines"
+   ],
+   "doc": "The settings of what kkt-server builds or passes on, each one owner's own Settings (kkt-rules', kkt-mcp-formatter's, kkt-web's, kkt-mcp's) or a plain value it uses itself (the allowed origins and hosts); DEFAULT is built from the owners' DEFAULTs, check names the first bad setting in a fixed order, with the program's own problems placed by name, and record_lines words the run record, with the program's own name and value lines in their places (step 9.2)."
+  },
+  {
+   "crate": "kkt-backup",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "methods": [
+    "problems"
+   ],
+   "doc": "How many of the backups made before upgrading the database are kept (upgrade_backups_kept), with its default and its check (step 9.1)."
+  },
+  {
+   "crate": "kashkeshet",
+   "path": "machine::settings::ServeOptions",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "What one source, the flags or the config file, gives of kkt serve's settings; over layers flags over the file, and resolve fills the rest from ServerSettings::DEFAULT and the program's own defaults (step 9.3).",
+   "methods": [
+    "gives",
+    "lane_limit",
+    "name_pack_name",
+    "over",
+    "resolve"
+   ]
+  },
+  {
+   "crate": "kashkeshet",
+   "path": "machine::settings::ServeSettings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The settings kkt serve runs with: kkt-server's ServerSettings, and the program's own (the database, the address, the key files, the log and the upgrade backups) (step 9.3)."
+  },
+  {
+   "crate": "kashkeshet",
+   "path": "machine::settings::server_settings",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Each config key and flag mapped onto one ServerSettings field (step 9.3)."
   }
  ],
  "declared": [],
@@ -4637,19 +4671,6 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-settings",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "ServeOptions",
-     "RecordedSettings"
-    ]
-   },
-   "status": "decided",
-   "note": "builds a ServeOptions from the flags and one from the config file, which kkt-settings combines, and words the run's settings (steps 3.3 and 3.5c)"
-  },
-  {
-   "from": "kashkeshet",
    "to": "kkt-service",
    "kind": "normal",
    "add": {
@@ -5088,14 +5109,6 @@
    ],
    "status": "decided",
    "note": "kkt-container's status and lane_limit take the default name pack and lane limit from the program (step 3.5c)"
-  },
-  {
-   "from": "kkt-settings",
-   "to": "kkt-config-file",
-   "kind": "normal",
-   "remove": true,
-   "status": "decided",
-   "note": "the config file's place is kkt-config-file's"
   },
   {
    "from": "kkt-admission",
@@ -5806,84 +5819,6 @@
    },
    "status": "decided",
    "note": "the container's config folder when $XDG_CONFIG_HOME is not set (step 3.4)"
-  },
-  {
-   "from": "kkt-keymode",
-   "to": "kkt-settings",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Limits",
-     "RecordedSettings"
-    ]
-   },
-   "status": "decided",
-   "note": "words the run's settings for kkt-provenance (step 3.5c)"
-  },
-  {
-   "from": "kkt-settings",
-   "to": "kkt-admission",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "AccessKey",
-     "admin_key_path",
-     "web_key_path"
-    ]
-   },
-   "status": "decided",
-   "note": "ServeSettings holds the AccessKey, and the key files' places are kkt-admission's (steps 3.5b and 3.5c)"
-  },
-  {
-   "from": "kkt-settings",
-   "to": "kkt-logs",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "LogLevel",
-     "LogPolicy"
-    ]
-   },
-   "status": "decided",
-   "note": "its values hold the log levels and the log policy (step 3.1c-2)"
-  },
-  {
-   "from": "kkt-settings",
-   "to": "kkt-names",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "NamePack",
-     "PACKS",
-     "ANIMALS"
-    ]
-   },
-   "status": "decided",
-   "note": "Limits holds the name pack, found by name (step 3.1d)"
-  },
-  {
-   "from": "kkt-settings",
-   "to": "kkt-format",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "MIN_RESPONSE_BYTES"
-    ]
-   },
-   "status": "decided",
-   "note": "Limits::check reads the formatter's smallest response (step 3.1b)"
-  },
-  {
-   "from": "kkt-settings",
-   "to": "kkt-web",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "MAX_WEB_PAGE_MESSAGES"
-    ]
-   },
-   "status": "decided",
-   "note": "Limits::check reads the page's largest page of messages (step 3.1b)"
   },
   {
    "from": "kashkeshet",
@@ -7160,6 +7095,156 @@
    },
    "status": "decided",
    "note": "the 0.10.0 migration test and the database-file tests reach the store through kkt-rules' testing: Reader through testing::read, and testing::write, with the records and filters they take (step 5.6b)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "ServerSettings holds the rules' Settings, since kkt-server passes the Rules on to every surface (phase 9)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-hosts",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "SettingError"
+    ]
+   },
+   "status": "decided",
+   "note": "ServerSettings::check asks kkt-hosts about the allowed hosts (phase 9)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-server",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ServerSettings"
+    ]
+   },
+   "status": "decided",
+   "note": "fills ServerSettings from its surface, has it checked and recorded, and hands it to Parts::new (phase 9)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-hosts",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "DEFAULT_BIND",
+     "DEFAULT_ALLOW_ANY_BIND"
+    ]
+   },
+   "status": "decided",
+   "note": "the address's defaults (phase 9)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-logs",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "DEFAULT_LOG_LEVEL",
+     "DEFAULT_DEPENDENCY_LOG_LEVEL"
+    ]
+   },
+   "status": "decided",
+   "note": "the log levels' defaults, for the record and, in kkt, for starting the log (phase 9)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-backup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "upgrade_backups_kept's default and check, for the run record and, in kkt, for the upgrade backups (phase 9)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-names",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "NamePack",
+     "PACKS"
+    ]
+   },
+   "status": "decided",
+   "note": "finds the name pack a flag or the config file names (phase 9)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-server",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ServerSettings"
+    ]
+   },
+   "status": "decided",
+   "note": "fills ServerSettings from its surface, has it checked and recorded, and hands it to Parts::new (phase 9)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-hosts",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "DEFAULT_BIND",
+     "DEFAULT_ALLOW_ANY_BIND"
+    ]
+   },
+   "status": "decided",
+   "note": "the address's defaults (phase 9)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-logs",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "DEFAULT_LOG_LEVEL",
+     "DEFAULT_DEPENDENCY_LOG_LEVEL"
+    ]
+   },
+   "status": "decided",
+   "note": "the log levels' defaults, for the record and, in kkt, for starting the log (phase 9)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-backup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "upgrade_backups_kept's default and check, for the run record and, in kkt, for the upgrade backups (phase 9)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-names",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "NamePack",
+     "PACKS"
+    ]
+   },
+   "status": "decided",
+   "note": "finds the name pack a flag or the config file names (phase 9)"
   }
  ],
  "decisions": {
@@ -7588,6 +7673,10 @@
   {
    "id": "52",
    "text": "Msg 2170: no effect crate depends on another. kkt-diagnostics-os keeps its own HTTP, using reqwest directly as kkt-agent-client does, which the revised RUST 7 allows, since consolidating is a judgment call. Only programs and compositions depend on effect crates, in code and in tests."
+  },
+  {
+   "id": "53",
+   "text": "Msgs 2773 and 2775 (phase 9): kkt-settings goes, as kkt-config did, since it gathered other crates' concerns under one name. Each crate's own Settings, DEFAULT and check are the only copy, and Limits goes. kkt-server's ServerSettings holds the settings of what kkt-server builds or passes on, each an owner's own Settings or a plain value it uses itself, with DEFAULT built from the owners', check naming the first bad setting in today's order (the program's own problems placed by name) and record_lines wording the run record (the program's own lines in their places); Parts::new takes it. The serve surface (flags, config keys, layering, the key files and the database) is each program's; settings only the program uses, such as the log and the upgrade backups, stay with it."
   }
  ],
  "not_traits": [
@@ -8040,7 +8129,7 @@
   },
   {
    "item": "kkt-provenance::RunSettings",
-   "doc": "The settings a server run was given, as lines of a setting's name and value, which kkt-settings' RecordedSettings words: no other crate's settings type (step 3.5c)."
+   "doc": "The settings a server run was given, as lines of a setting's name and value, which kkt-server's ServerSettings::record_lines words: no other crate's settings type (steps 3.5c and 9.2)."
   },
   {
    "item": "kkt-setup-os::write_record",
@@ -8076,7 +8165,7 @@
   },
   {
    "item": "kashkeshet::machine::settings::read_config",
-   "doc": "The config file to use and what it gives: read with kkt-config-file-os, parsed with kkt-config-file, and turned into kkt-settings' ServeOptions (step 3.3)."
+   "doc": "The config file to use and what it gives: read with kkt-config-file-os, parsed with kkt-config-file, and turned into the program's ServeOptions (steps 3.3 and 9.3)."
   },
   {
    "item": "kashkeshet::machine::settings::Sources",
@@ -8084,7 +8173,7 @@
   },
   {
    "item": "kashkeshet::machine::settings::check_settings",
-   "doc": "Turns kkt-settings' values into each crate's settings and calls each owner's check, in a fixed order, so the first bad setting is the one named (step 3.5c)."
+   "doc": "Asks kkt-server's ServerSettings::check, with the program's own problems by name, so the first bad setting is the one named as before, and reads the files the settings name (steps 3.5c and 9.3)."
   },
   {
    "item": "kkt-admission-os::make_default_key",
@@ -8101,6 +8190,10 @@
   {
    "item": "kkt-web::SignIn",
    "doc": "The answer to a key typed at sign-in: admitted, with what the session will hold, or refused with a reason (step 6.1)."
+  },
+  {
+   "item": "kkt-server::Parts",
+   "doc": "The parts the server is built from: the clock and entropy, the identity for the endpoints and for the web gate, and the Rules, as one value meeting the kkt-api contracts it hands on; Parts::new also takes the ServerSettings, in place of the formatter's settings (step 9.2)."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -8334,7 +8427,7 @@
   },
   "kkt-server": {
    "status": "decided",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits, and `page` builds the web page alone, over any `OperatorApi` and gate, for a program that serves only the page (kkt-web-preview). Binding the socket is in kkt-server-listen."
+   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits, and `page` builds the web page alone, over any `OperatorApi` and gate, for a program that serves only the page (kkt-web-preview). Binding the socket is in kkt-server-listen. It holds `ServerSettings`, the settings of what it builds or passes on, each an owner's own `Settings`: their default, the order in which a bad one is named, and the run record's wording. It knows nothing of flags, files or how they layer."
   },
   "kkt-agent-client": {
    "status": "decided",
@@ -8346,7 +8439,7 @@
   },
   "kashkeshet": {
    "status": "decided",
-   "concern": "The `kkt` command: parsing its arguments, wiring the crates together for each subcommand, and one thin module per command. It does no machine work itself: files, keys, credentials, the terminal, the environment and the log go through effect crates, and the decisions its commands made are kkt-setup's, kkt-settings' and kkt-service's. It holds the adapters the strict rule needs: one per consumer-declared contract it fills with another crate's implementation (kkt-agent-client's watching and state file, the key files, the terminal and the six -os crates). Shared contracts' implementations need none, and kkt-server writes the web page's and the wording's adapters for it.",
+   "concern": "The `kkt` command: parsing its arguments, wiring the crates together for each subcommand, and one thin module per command. It does no machine work itself: files, keys, credentials, the terminal, the environment and the log go through effect crates, and the decisions its commands made are kkt-setup's and kkt-service's. It holds the adapters the strict rule needs: one per consumer-declared contract it fills with another crate's implementation (kkt-agent-client's watching and state file, the key files, the terminal and the six -os crates). Shared contracts' implementations need none, and kkt-server writes the web page's and the wording's adapters for it. It keeps `kkt serve`'s surface: its flags and config keys, layering flag over file over the defaults, and mapping each onto a `ServerSettings` field or a setting of its own.",
    "must_not": "Do machine work itself (files, the terminal, the environment, the log, libc); hold a decision a logic crate owns; hold a clap type outside `cli.rs`, or let a command take one."
   },
   "kkt-keymode": {
@@ -8407,11 +8500,6 @@
   "kkt-shutdown": {
    "status": "follows",
    "concern": "The stop signal: `Shutdown`, whose clones share one signal. The operating system's signals are in kkt-shutdown-os."
-  },
-  "kkt-settings": {
-   "status": "decided",
-   "concern": "Combining a server's settings: the programs turn the flags and the config file each into `ServeOptions`, which it combines over explicit defaults into one set of values (`ServeSettings`, `Limits`, with `Limits::check`), and wording the settings a run records (`RecordedSettings`). Only the programs depend on it: each turns the values into each crate's own settings and calls each crate's check.",
-   "must_not": "Be depended on by a crate other than a program; read files or the environment; use other crates for more than the types its values hold and the limits `Limits::check` reads."
   },
   "kkt-logs": {
    "status": "decided",
@@ -8548,14 +8636,14 @@
       "fills": "kkt-rules::Db::new (database)"
      },
      "Run record": {
-      "text": "kkt-rules' start records what produced this run in the Db, from kkt-server's new_server_run, then builds the Rules with its ID from a Startup, which new rows carry. The program makes the events bus the rules hear on and stops it with the server.",
+      "text": "What produced this run, with its settings worded by kkt-server's ServerSettings::record_lines (the program's own settings as name and value lines in their places), goes to kkt-rules' start in its terms (new_server_run), which records it and builds the Rules, with ServerSettings' rules settings, over the store; new rows carry its ID.",
       "items": [
+       "kkt-server::ServerSettings",
        "kkt-provenance::ServerRun",
-       "kkt-rules::start",
+       "kkt-server::new_server_run",
        "kkt-rules::NewServerRun",
        "kkt-rules::Startup",
-       "kkt-server::new_server_run",
-       "kkt-events::Events"
+       "kkt-rules::start"
       ]
      },
      "Parts": {
@@ -8568,6 +8656,33 @@
        "kkt-server::AdmissionGate"
       ],
       "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log)"
+     },
+     "Settings": {
+      "text": "Flags over the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) over the defaults (kkt-server's ServerSettings::DEFAULT, kkt-hosts' address, kkt-logs' levels, kkt-backup's Settings and kkt-setup's default database) become the program's ServeSettings, which hold kkt-server's ServerSettings. ServerSettings::check names the first bad setting, with the program's own problems placed by name; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+      "items": [
+       "kkt-machine-os::OsMachine",
+       "kkt-config-file::config_file",
+       "kkt-config-file-os::read",
+       "kkt-config-file::parse_file",
+       "kkt-setup::default_db",
+       "kashkeshet::machine::settings::ServeOptions",
+       "kashkeshet::machine::settings::ServeSettings",
+       "kkt-server::ServerSettings",
+       "kkt-hosts::DEFAULT_BIND",
+       "kkt-logs::DEFAULT_LOG_LEVEL",
+       "kkt-backup::Settings",
+       "kkt-admission::server_keys::check",
+       "kkt-admission::server_keys::ServerKeys"
+      ]
+     },
+     "Config": {
+      "text": "The three admissions from the key check and the instructions go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey. Parts::new takes the ServerSettings, with the formatter's, the page's and the MCP event streams' settings and the allowed origins and hosts.",
+      "items": [
+       "kkt-server::AppConfig",
+       "kkt-admission::Admission",
+       "kkt-admission::AdminAdmission",
+       "kkt-server::ServerSettings"
+      ]
      }
     },
     "wiring_drop": [
@@ -8786,14 +8901,23 @@
       "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log)"
      },
      "Run record": {
-      "text": "kkt-rules' start records what produced this run in the Db, from kkt-server's new_server_run, then builds the Rules with its ID from a Startup, which new rows carry. The program makes the events bus the rules hear on and stops it with the server.",
+      "text": "The run is recorded, worded by ServerSettings::record_lines, and the Rules built, as kkt serve's are.",
       "items": [
+       "kkt-server::ServerSettings",
        "kkt-provenance::ServerRun",
-       "kkt-rules::start",
+       "kkt-server::new_server_run",
        "kkt-rules::NewServerRun",
        "kkt-rules::Startup",
-       "kkt-server::new_server_run",
-       "kkt-events::Events"
+       "kkt-rules::start"
+      ]
+     },
+     "Settings": {
+      "text": "The same config file as kkt serve, read through kkt-config-file-os and parsed by kkt-config-file, mapped by its own smaller surface onto kkt-server's ServerSettings and checked by it, and the same key check.",
+      "items": [
+       "kkt-config-file-os::read_named",
+       "kkt-config-file::parse_file",
+       "kkt-server::ServerSettings",
+       "kkt-admission::server_keys::check"
       ]
      }
     },
@@ -9682,15 +9806,6 @@
    "note": "hashes session IDs and form tokens, with the sessions from kkt-admission"
   },
   {
-   "crate": "kkt-settings",
-   "remove": [
-    "toml",
-    "toml_edit"
-   ],
-   "status": "decided",
-   "note": "parsing and editing the config file go to kkt-config-file"
-  },
-  {
    "crate": "kkt-config-file",
    "add": [
     "toml",
@@ -10182,6 +10297,10 @@
   {
    "name": "kkt-config",
    "note": "kkt-config goes: its items live with their owners or in kkt-settings"
+  },
+  {
+   "name": "kkt-settings",
+   "note": "kkt-settings goes (phase 9): each crate's own Settings, DEFAULT and check are the only copy; kkt-server's ServerSettings holds the settings of what it builds or passes on; the serve surface is each program's"
   }
  ],
  "program_work": {
@@ -10450,11 +10569,7 @@
      "kkt-admission-os"
     ],
     "status": "decided",
-    "decisions": [
-     "kkt-settings"
-    ],
-    "decides": "combining its settings over the defaults",
-    "keeps": "argument parsing, its wiring, and its own settings checks, as kkt's check_settings"
+    "keeps": "argument parsing, its wiring, and its own smaller serve surface (the config file only), mapped onto kkt-server's ServerSettings"
    }
   ],
   "kkt-fake-product": [
