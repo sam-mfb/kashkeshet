@@ -227,12 +227,6 @@ mod tests {
         fn open_requested(&self) -> bool {
             panic!("the memory container never opens a browser")
         }
-        fn open(&self, _: &str) -> std::io::Result<()> {
-            panic!("the memory container never opens a browser")
-        }
-        fn open_failure(&self) -> Option<String> {
-            panic!("the memory container never opens a browser")
-        }
     }
     impl ConfigReader for Unused {
         fn settings(&self, _: &str, _: &Path, _: Option<&Path>) -> Result<ContainerConfig, String> {

@@ -21,6 +21,9 @@ pub struct NativeOperate<'a, D = ()> {
     connection: ConnectionReads<'a>,
     service_defaults: D,
     login_link: crate::terminal::browser_login::TerminalLink,
+    /// Docker and Compose, opening a sharing setup's login link with the
+    /// system's own opener.
+    docker: kkt_container_docker::Docker,
 }
 
 impl<'a> NativeOperate<'a> {
@@ -31,6 +34,9 @@ impl<'a> NativeOperate<'a> {
             connection: ConnectionReads { env, platform },
             service_defaults: (),
             login_link: crate::terminal::browser_login::TerminalLink::new(),
+            docker: kkt_container_docker::Docker::new(Box::new(
+                kkt_browser_os::SystemBrowser::new(),
+            )),
         }
     }
 
@@ -47,6 +53,7 @@ impl<'a> NativeOperate<'a> {
             connection: self.connection,
             service_defaults,
             login_link: self.login_link,
+            docker: self.docker,
         }
     }
 }
@@ -55,7 +62,7 @@ impl<'a, D> NativeOperate<'a, D> {
     /// The parts, as kkt-operate's commands take them.
     pub fn parts(&self) -> OperateParts<'_, ConnectionReads<'a>, D> {
         OperateParts {
-            container: &kkt_container_docker::Docker,
+            container: &self.docker,
             container_configs: &settings::ContainerConfigs,
             login_link: &self.login_link,
             service: &super::service::ServiceSystem,

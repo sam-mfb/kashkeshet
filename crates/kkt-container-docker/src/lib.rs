@@ -56,7 +56,7 @@ use lifecycle::{backup, compare_web_key, down, existing, status, up, upgrade};
 #[cfg(feature = "real")]
 use runner::OsHost;
 
-use provision::{add_admin_key, provision};
+use provision::{LinkAndBrowser, add_admin_key, provision};
 
 /// The exit code of a command given an option it does not know, as a kkt
 /// from before admin keys is given `kkt key show --admin`.
@@ -249,9 +249,20 @@ impl DockerError {
     }
 }
 
-/// Docker and Compose implement the container contract directly.
+/// Docker and Compose implement the container contract directly. A
+/// sharing setup's login link opens in `browser` when the person asks.
 #[cfg(feature = "real")]
-pub struct Docker;
+pub struct Docker {
+    browser: Box<dyn kkt_browser::Browser>,
+}
+
+#[cfg(feature = "real")]
+impl Docker {
+    /// Docker and Compose, opening a login link in `browser`.
+    pub fn new(browser: Box<dyn kkt_browser::Browser>) -> Docker {
+        Docker { browser }
+    }
+}
 
 #[cfg(feature = "real")]
 impl Container for Docker {
@@ -268,7 +279,10 @@ impl Container for Docker {
                 &OsHost,
                 clock,
                 Settings::DEFAULT,
-                login,
+                LinkAndBrowser {
+                    link: login,
+                    browser: &*self.browser,
+                },
                 folder,
                 inputs,
                 key_file,

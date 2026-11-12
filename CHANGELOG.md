@@ -58,6 +58,13 @@ The shared crates are reorganized so that every dependency is injected and each 
   Claude Code. `kkt_client_config::Host` and kkt-client-config-os' `OsHost`
   lose `claude`, and `configure` takes a `&dyn ClientCommand` after the
   host. The commands run and their messages are unchanged.
+- **Browser contract.** `kkt-browser::Browser` (start opening a link; say
+  later, once, if that failed; `testing::Recorder`) is how a sharing
+  setup's login link opens. `kkt-browser-os::SystemBrowser` (behind `real`)
+  implements it with `open` or `xdg-open`, moved from kkt-terminal-os.
+  `kkt_container::LoginLink` and kkt-terminal-os' `BrowserLink` keep only
+  `show` and `open_requested`; `kkt_container_docker::Docker` is now built
+  with `Docker::new(browser)`. Messages are unchanged.
 - **Effects in `-os` crates.** What touches the machine moves out of each crate's `real` feature into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-shutdown-os` (`StopSignals`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-logs-os`, `kkt-machine-os`, `kkt-terminal-os`, `kkt-admission-os`, `kkt-config-file-os`, `kkt-setup-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-diagnostics-os`, `kkt-backup-os` and `kkt-lane-files-os`. A logic crate no longer has a `real` feature.
 - **Starting the server.** `kkt_rules::start(run, startup)` records the run and returns `Rules`; `Startup` holds the database, swarm, event bus, clock, entropy, rules settings and wording. Each program maps its `ServerRun` into `kkt_rules::NewServerRun`; `kkt_server::new_server_run` is gone. `Parts::new(api, clock, entropy, identify, log, checked)` takes an `Arc<dyn AdminApi>` and the opaque `CheckedSettings` returned by `ServerSettings::check`. kkt-server no longer has a normal dependency on kkt-rules. `AppConfig` holds only admissions and instructions; `ServerSettings` holds formatter, web, MCP, origins and hosts, and orders the owners' checks and run-record lines with the program's plain values. `kkt_settings::RecordedSettings` is gone; call `ServerSettings::record_lines` with program lines instead.
 - **Storage.** kkt-db's `Database` is gone: a store calls `BackendExt`'s read and write on any `Backend`, `kkt_rules::Db::new` takes an `Arc<dyn Backend>`, which `SqlitePlace::open` and `create` return. `Legacy` is kkt-db's.

@@ -597,13 +597,6 @@ mod tests {
             self.0.borrow_mut().push("login_link.open_requested");
             false
         }
-        fn open(&self, _: &str) -> std::io::Result<()> {
-            self.asked("login_link.open")
-        }
-        fn open_failure(&self) -> Option<String> {
-            self.0.borrow_mut().push("login_link.open_failure");
-            None
-        }
     }
 
     impl kkt_setup::Lines for Untouched {

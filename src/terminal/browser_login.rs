@@ -1,10 +1,11 @@
-//! Adapting the native browser link to Docker setup's login-link contract.
+//! Adapting the terminal's half of the login link to Docker setup's
+//! login-link contract. Opening the link is kkt-browser-os', which the
+//! program gives the Docker wrapper.
 
 use kkt_container::LoginLink;
 use kkt_terminal_os::BrowserLink;
-use std::io;
 
-/// The browser link supplied to Docker setup.
+/// The terminal's login link supplied to Docker setup.
 pub struct TerminalLink(BrowserLink);
 
 impl TerminalLink {
@@ -20,11 +21,5 @@ impl LoginLink for TerminalLink {
     }
     fn open_requested(&self) -> bool {
         self.0.open_requested()
-    }
-    fn open(&self, url: &str) -> io::Result<()> {
-        self.0.open(url)
-    }
-    fn open_failure(&self) -> Option<String> {
-        self.0.open_failure()
     }
 }
