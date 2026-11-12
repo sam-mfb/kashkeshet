@@ -124,3 +124,17 @@ the real implementation.
 
 Sam edits the template himself; this pull request does not change
 `principles/`.
+
+### Candidates to revisit (not decided)
+
+Sam wants these kept to one side, to come back to. None is a rule yet, and
+nobody acts on them.
+
+1. A component takes the value it needs, not a record it reads one field
+   of. (From kkt-config-file and kkt-service taking plain paths in place of
+   kkt-machine's `Env`.)
+2. Duplication that is accidental is not a reason to abstract. (From kkt-db's
+   test stand-in having its own SQL translation, apart from kkt-db-sqlite's.)
+3. In Sam's words, not yet a precise rule: a module with one consumer that
+   simply pulls out related functions is a smell. (From kkt-serve, which was
+   dropped.)
