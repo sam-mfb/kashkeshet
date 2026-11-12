@@ -20,7 +20,7 @@ use crate::machine::record::{
 use crate::machine::remote_access::RemoteHost;
 use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{ServeArgs, serve_bind};
-use crate::process::{kkt_path, write_whole};
+use crate::process::kkt_path;
 use crate::terminal::browser_login;
 use kkt_client_config::{self as clients, Client, Setup};
 use kkt_clock_system::SystemClock;
@@ -32,11 +32,8 @@ use kkt_names::AdminName;
 use kkt_service::Manager;
 use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
+use setup::waiting_note;
 use std::path::{Path, PathBuf};
-
-/// Where `kkt setup` keeps a client-only machine's copy of its server's
-/// key, in the config directory.
-const CLIENT_KEY_FILE_NAME: &str = "client-access-key";
 
 /// What `kkt setup` does to this machine.
 pub(super) struct OsSteps<'a> {
@@ -123,12 +120,7 @@ impl setup::Steps for OsSteps<'_> {
             Some(login) => Some(kkt_container::Tailscale {
                 hostname: login.hostname.clone(),
                 auth_key: match &login.auth_key_file {
-                    Some(path) => Some(
-                        std::fs::read_to_string(path)
-                            .map_err(|e| format!("could not read {}: {e}", path.display()))?
-                            .trim()
-                            .to_string(),
-                    ),
+                    Some(path) => Some(kkt_container::tailscale_auth_key(&ContainerHost, path)?),
                     None => None,
                 },
             }),
@@ -173,21 +165,13 @@ impl setup::Steps for OsSteps<'_> {
         let dir = kkt_config_file::config_dir(self.env)
             .ok_or("set HOME to keep the key in ~/.config/kkt")?;
         kkt_admission_os::KeyFiles::create_dir_all(&dir)?;
-        let path = dir.join(format!("{}.partial", CLIENT_KEY_FILE_NAME));
+        let path = setup::staged_client_key(&dir);
         write_key_file(&path, key, true)?;
         Ok(path)
     }
 
     fn keep_key(&self, staged: &Path, url: &str) -> Result<PathBuf, String> {
-        let dir = staged.parent().unwrap_or(Path::new("."));
-        // One file per server, so a key for another server, which an
-        // earlier setup record may name, is never replaced.
-        let server: String = kkt_hash::sha256(url.as_bytes())
-            .iter()
-            .take(6)
-            .map(|b| format!("{b:02x}"))
-            .collect();
-        let path = dir.join(format!("{}-{server}", CLIENT_KEY_FILE_NAME));
+        let path = setup::client_key(staged, url);
         kkt_admission_os::KeyFiles::keep_staged(staged, &path)?;
         Ok(path)
     }
@@ -198,10 +182,8 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn detect_clients(&self) -> Vec<Client> {
-        let dirs: Vec<PathBuf> = std::env::var_os("PATH")
-            .map(|path| std::env::split_paths(&path).collect())
-            .unwrap_or_default();
-        let on_path = |program: &str| dirs.iter().any(|dir| dir.join(program).is_file());
+        let dirs = kkt_setup_os::path_dirs();
+        let on_path = |program: &str| kkt_setup_os::on_path(&dirs, program);
         Client::ALL
             .into_iter()
             .filter(|client| client.installed(self.env, &on_path, &ClientHost))
@@ -245,20 +227,16 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn save_unfinished(&self, unfinished: &setup::Unfinished) -> Result<(), String> {
-        let path = crate::machine::record::unfinished_path(self.env)
-            .ok_or("set HOME to note the install")?;
-        write_whole(&path, &unfinished.render()?)
+        let config_dir =
+            kkt_config_file::config_dir(self.env).ok_or("set HOME to note the install")?;
+        kkt_setup_os::write_unfinished(&config_dir, unfinished)
     }
 
     fn forget_unfinished(&self) -> Result<(), String> {
-        let Some(path) = crate::machine::record::unfinished_path(self.env) else {
+        let Some(config_dir) = kkt_config_file::config_dir(self.env) else {
             return Ok(());
         };
-        match std::fs::remove_file(&path) {
-            Ok(()) => Ok(()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(format!("could not remove {}: {e}", path.display())),
-        }
+        kkt_setup_os::remove_unfinished(&config_dir)
     }
 
     fn add_admin_key(&self, record: &setup::Record, name: &AdminName) -> Result<PathBuf, String> {
@@ -303,14 +281,11 @@ impl setup::Steps for OsSteps<'_> {
     }
 
     fn check_lanes(&self, folder: &Path, purpose: setup::Purpose) -> Result<usize, String> {
-        let max_lane_chars = match purpose {
-            // The service runs on the config file `kkt serve` finds here.
-            setup::Purpose::Service => local_lane_limit(self.env)?,
-            setup::Purpose::Docker => docker_lane_limit(self.env, self.platform)?,
-            setup::Purpose::Client => {
-                return Err("lanes are imported on the server's machine".into());
-            }
-        };
+        let max_lane_chars = setup::setup_lane_limit(
+            purpose,
+            || local_lane_limit(self.env),
+            || docker_lane_limit(self.env, self.platform),
+        )?;
         check_lanes_folder(folder, max_lane_chars)
     }
 
@@ -464,24 +439,6 @@ fn only_problems(checks: Vec<diagnostics::Check>) -> Result<(), String> {
         return Ok(());
     }
     Err(diagnostics::report(problems).0.trim_end().to_string())
-}
-
-/// What setup says while it waits for the server at `url`, set up as `mode`,
-/// to answer.
-fn waiting_note(url: &str, mode: &setup::Mode) -> String {
-    let tailscale = match mode {
-        setup::Mode::Docker(install) => install.tailscale,
-        setup::Mode::Service { tailscale } => *tailscale,
-        setup::Mode::Client => false,
-    };
-    if tailscale {
-        format!(
-            "Waiting for the server to answer at {url} (a new Tailscale node gets its \
-             HTTPS certificate on first use)..."
-        )
-    } else {
-        format!("Waiting for the server to answer at {url}...")
-    }
 }
 
 #[cfg(test)]

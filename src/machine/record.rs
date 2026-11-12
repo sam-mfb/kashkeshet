@@ -8,29 +8,15 @@ use crate::machine::service::ServiceSystem;
 use crate::machine::settings::{
     ServeArgs, as_running, serve_bind, serve_settings, serve_settings_from_args,
 };
-use crate::process::write_whole;
 use kkt_machine::{Env, Platform};
 use kkt_service::{Manager, ServiceError};
 use kkt_settings::ServeOptions;
 use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
-use std::path::PathBuf;
 
-/// The folder, in the per-user data directory, that `kkt setup` keeps
-/// the Docker install's files in.
-const DOCKER_FOLDER: &str = "docker";
 /// Where `kkt setup` saves the Docker server's access key, in the config
 /// directory.
 pub(crate) const DOCKER_KEY_FILE_NAME: &str = "docker-access-key";
-
-/// The MCP endpoint of kkt in Docker, published on the host's `port`, or
-/// served over Tailscale as `node`, `(hostname, tailnet)`.
-pub fn docker_url(port: u16, node: Option<&(String, String)>) -> String {
-    match node {
-        Some((hostname, tailnet)) => format!("https://{hostname}.{tailnet}/mcp"),
-        None => format!("http://127.0.0.1:{port}/mcp"),
-    }
-}
 
 /// A server kkt installed here, in Docker or as a service, whether or not
 /// it is recorded: for callers that found no record and no note of an
@@ -52,13 +38,12 @@ pub(crate) fn unrecorded_docker(
     env: &Env,
     platform: Platform,
 ) -> Result<Option<setup::Unrecorded>, String> {
-    let (Some(data), Some(config_dir)) = (
-        setup::data_dir(env, platform),
+    let (Ok(folder), Some(config_dir)) = (
+        setup::docker_folder(env, platform),
         kkt_config_file::config_dir(env),
     ) else {
         return Ok(None);
     };
-    let folder = data.join(DOCKER_FOLDER);
     let found = |what: String| {
         format!(
             "Found a kkt server in Docker from {}, not recorded, but {what}.",
@@ -72,7 +57,7 @@ pub(crate) fn unrecorded_docker(
             Err(e) => return Err(found(e.to_string())),
         };
     let key_file = config_dir.join(DOCKER_KEY_FILE_NAME);
-    if !key_file.is_file() {
+    if !kkt_admission_os::KeyFiles::is_file(&key_file) {
         return Err(found(format!(
             "the copy of its access key setup saves, {}, is missing",
             key_file.display()
@@ -143,18 +128,17 @@ pub(crate) fn unrecorded_service(
 /// one and the install is still there: the managed Docker folder's settings
 /// file, or the installed service.
 pub fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
-    let Some(path) = unfinished_path(env) else {
+    let Some(config_dir) = kkt_config_file::config_dir(env) else {
         return Ok(None);
     };
-    let text = match std::fs::read_to_string(&path) {
-        Ok(text) => text,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(e) => return Err(format!("could not read {}: {e}", path.display())),
+    let Some(unfinished) = kkt_setup_os::read_unfinished(&config_dir)? else {
+        return Ok(None);
     };
-    let unfinished = setup::Unfinished::parse(&text, &path)?;
     let present = match unfinished.install_check() {
         setup::InstallCheck::Keep => true,
-        setup::InstallCheck::DockerFolder(folder) => folder.join(kkt_container::ENV_FILE).is_file(),
+        setup::InstallCheck::DockerFolder(folder) => {
+            kkt_container::Host::is_file(&ContainerHost, &folder.join(kkt_container::ENV_FILE))
+        }
         setup::InstallCheck::Service => {
             Manager::for_this_os(env)
                 .and_then(|manager| manager.state(&ServiceSystem))
@@ -166,45 +150,14 @@ pub fn read_unfinished(env: &Env) -> Result<Option<setup::Unfinished>, String> {
     Ok(present.then_some(unfinished))
 }
 
-/// The mode of the server `unfinished` notes: from its record, or, for an
-/// install that did not finish, where that install puts the server.
-pub fn unfinished_mode(
-    env: &Env,
-    platform: Platform,
-    unfinished: &setup::Unfinished,
-) -> Result<setup::Mode, String> {
-    unfinished.mode(docker_folder(env, platform))
-}
-
-/// The folder `kkt setup` keeps kkt's Docker files in.
-pub fn docker_folder(env: &Env, platform: Platform) -> Result<PathBuf, String> {
-    Ok(setup::data_dir(env, platform)
-        .ok_or("set HOME to keep kkt's Docker files")?
-        .join(DOCKER_FOLDER))
-}
-
-/// Where the setup record is, in kkt's config directory. `None` without a
-/// home.
-pub(crate) fn record_path(env: &Env) -> Option<PathBuf> {
-    kkt_config_file::config_dir(env).map(|dir| setup::record_path(&dir))
-}
-
-/// Where an unfinished setup is noted, beside the record. `None` without a
-/// home.
-pub(crate) fn unfinished_path(env: &Env) -> Option<PathBuf> {
-    kkt_config_file::config_dir(env).map(|dir| setup::unfinished_path(&dir))
-}
+pub use setup::{docker_folder, docker_url, unfinished_mode};
 
 /// This machine's setup record, if `kkt setup` wrote one.
 pub fn read_setup(env: &Env) -> Result<Option<setup::Record>, String> {
-    let Some(path) = record_path(env) else {
+    let Some(config_dir) = kkt_config_file::config_dir(env) else {
         return Ok(None);
     };
-    match std::fs::read_to_string(&path) {
-        Ok(text) => setup::Record::parse(&text, &path).map(Some),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(format!("could not read {}: {e}", path.display())),
-    }
+    kkt_setup_os::read_record(&config_dir)
 }
 
 /// Refuses to start a server on a machine `kkt setup` set up otherwise.
@@ -233,8 +186,8 @@ pub fn check_setup(env: &Env) -> Result<(), String> {
 /// Resolve lifecycle commands through the setup record. An unrecorded
 /// machine still supports the original local-database backup command.
 pub fn write_setup_record(env: &Env, record: &setup::Record) -> Result<(), String> {
-    let path = record_path(env).ok_or("set HOME to keep the setup record")?;
-    write_whole(&path, &record.render()?)
+    let config_dir = kkt_config_file::config_dir(env).ok_or("set HOME to keep the setup record")?;
+    kkt_setup_os::write_record(&config_dir, record)
 }
 
 /// This machine's setup record. Without one, the error says so, and names a
@@ -245,23 +198,9 @@ pub fn recorded_setup(
     platform: Platform,
     serve_args: ServeArgs,
 ) -> Result<setup::Record, String> {
-    if let Some(record) = read_setup(env)? {
-        return Ok(record);
-    }
-    let no_record = "this machine has no setup record";
-    // An unfinished setup is described by `kkt status`.
-    match read_unfinished(env) {
-        Ok(Some(_)) => return Err(format!("{no_record}; run `kkt setup` to finish it")),
-        Ok(None) => {}
-        Err(e) => return Err(format!("{no_record}; run `kkt setup` first ({e})")),
-    }
-    Err(match read_unrecorded(env, platform, serve_args) {
-        Ok(Some(found)) => format!(
-            "{no_record}. {} Run `kkt setup` to record it (`kkt setup --adopt` with no \
-             terminal); it installs nothing. Then run this again.",
-            found.summary()
-        ),
-        Ok(None) => format!("{no_record}; run `kkt setup` first"),
-        Err((_, e)) => format!("{no_record}; run `kkt setup` first. {e}"),
-    })
+    setup::recorded_setup(
+        read_setup(env)?,
+        || read_unfinished(env),
+        || read_unrecorded(env, platform, serve_args),
+    )
 }

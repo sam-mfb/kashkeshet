@@ -197,8 +197,14 @@
   "kkt-setup": {
    "layer": "operations",
    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
-   "must_not": "Read files or run anything: the program does, and carries out what is decided here.",
+   "must_not": "Read files or run anything directly: the program adapts native providers and carries out what is decided here.",
    "kind": "logic"
+  },
+  "kkt-setup-os": {
+   "layer": "operations",
+   "concern": "Setup's record and unfinished note, data folder, program paths and PATH checks on this machine.",
+   "must_not": "Decide what setup does or where its files belong.",
+   "kind": "effect"
   },
   "kkt-service": {
    "layer": "operations",

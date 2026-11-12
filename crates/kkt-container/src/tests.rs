@@ -94,6 +94,10 @@ impl Host for FakeHost {
         self.answer(command)
     }
 
+    fn is_file(&self, path: &Path) -> bool {
+        self.files.borrow().contains_key(path)
+    }
+
     fn exists(&self, path: &Path) -> bool {
         self.files.borrow().contains_key(path) || self.dirs.borrow().iter().any(|d| d == path)
     }
@@ -1419,6 +1423,10 @@ impl Host for Container {
 
     fn run_attached(&self, command: &Command) -> io::Result<Finished> {
         self.answer(&command.to_string())
+    }
+
+    fn is_file(&self, _: &Path) -> bool {
+        false
     }
 
     fn exists(&self, _: &Path) -> bool {

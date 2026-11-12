@@ -102,15 +102,17 @@ pub fn create(
     {
         // Canonicalize existing files to also catch relative paths and
         // symlinks; a missing destination cannot overwrite an existing key.
-        let (destination, access) = if destination.exists() && access.exists() {
+        let (destination, access) = if kkt_admission_os::KeyFiles::exists(destination)
+            && kkt_admission_os::KeyFiles::exists(&access)
+        {
             let resolve = |path: &Path| {
-                path.canonicalize()
+                kkt_setup_os::canonicalize(path)
                     .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
             };
             (resolve(destination)?, resolve(&access)?)
         } else {
             let resolve = |path: &Path| {
-                std::path::absolute(path)
+                kkt_setup_os::absolute(path)
                     .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
             };
             (resolve(destination)?, resolve(&access)?)

@@ -16,6 +16,10 @@ impl Host for ContainerHost {
         OsHost.run_attached(&native_command(command)).map(finished)
     }
 
+    fn is_file(&self, path: &Path) -> bool {
+        OsHost.is_file(path)
+    }
+
     fn exists(&self, path: &Path) -> bool {
         OsHost.exists(path)
     }

@@ -53,6 +53,7 @@ members = [
     "crates/kkt-service-os",
     "crates/kkt-settings",
     "crates/kkt-setup",
+    "crates/kkt-setup-os",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
     "crates/kkt-terminal-os",
@@ -114,6 +115,7 @@ default-members = [
     "crates/kkt-service-os",
     "crates/kkt-settings",
     "crates/kkt-setup",
+    "crates/kkt-setup-os",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
     "crates/kkt-terminal-os",
@@ -215,7 +217,6 @@ kkt-diagnostics = { path = "crates/kkt-diagnostics" }
 kkt-diagnostics-os = { path = "crates/kkt-diagnostics-os", features = ["real"] }
 kkt-events = { path = "crates/kkt-events" }
 kkt-mcp-formatter = { path = "crates/kkt-mcp-formatter" }
-kkt-hash = { path = "crates/kkt-hash" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
@@ -237,6 +238,7 @@ kkt-service = { path = "crates/kkt-service" }
 kkt-service-os = { path = "crates/kkt-service-os", features = ["real"] }
 kkt-settings = { path = "crates/kkt-settings" }
 kkt-setup = { path = "crates/kkt-setup" }
+kkt-setup-os = { path = "crates/kkt-setup-os", features = ["real"] }
 kkt-shutdown = { path = "crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "crates/kkt-shutdown-os", features = ["real"] }
 kkt-terminal-os = { path = "crates/kkt-terminal-os", features = ["real"] }
@@ -251,6 +253,7 @@ tracing.workspace = true
 # defaults setup's questions accept; every other `kkt-*` crate comes
 # with `real` through [dependencies].
 [dev-dependencies]
+kkt-hash = { path = "crates/kkt-hash" }
 kkt-api-admin = { path = "crates/kkt-api-admin" }
 kkt-scratch = { path = "crates/kkt-scratch" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["testing"] }
