@@ -771,7 +771,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-operate",
-      "impl": "kkt-container-docker::Docker",
+      "impl": "kkt-container::Docker",
       "note": "Direct delivery to the receiving operator assembly (12.2).",
       "status": "decided",
       "to": [
@@ -1415,15 +1415,6 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-container-docker"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
     "to": "kkt-entropy-os"
    },
    {
@@ -1941,7 +1932,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
-    "from": "kkt-container-docker",
+    "from": "kkt-container",
     "kind": "normal",
     "role": "uses",
     "statuses": [
@@ -1950,16 +1941,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-browser"
    },
    {
-    "from": "kkt-container-docker",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-clock"
-   },
-   {
-    "from": "kkt-container-docker",
+    "from": "kkt-container",
     "kind": "normal",
     "role": "uses",
     "statuses": [
@@ -1968,31 +1950,13 @@ window.KKT_PROPOSED = {
     "to": "kkt-config-file"
    },
    {
-    "from": "kkt-container-docker",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-container"
-   },
-   {
-    "from": "kkt-container-docker",
+    "from": "kkt-container",
     "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
     ],
     "to": "kkt-machine"
-   },
-   {
-    "from": "kkt-container-docker",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-names"
    },
    {
     "from": "kkt-db",
@@ -3489,12 +3453,14 @@ window.KKT_PROPOSED = {
     "items_new": [
      "ConfigReader",
      "ContainerConfig",
+     "Docker",
      "NO_ADMIN_KEY_EXIT"
     ],
     "kind": "normal",
     "roles_after": [
      "implements",
-     "uses"
+     "uses",
+     "wires"
     ],
     "roles_before": [
      "implements",
@@ -5058,11 +5024,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the database is there, the Docker folder's .env) moves to kkt-terminal-os, kkt-db-sqlite and kkt-container-docker; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
+      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the database is there, the Docker folder's .env) moves to kkt-terminal-os, kkt-db-sqlite and kkt-container; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container-docker; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
+      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
      },
      {
       "status": "decided",
@@ -5078,7 +5044,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container-docker; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -7133,39 +7099,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "testing::Memory implements kkt-container::Container: The contract owns its stand-in (12.2)."
-     },
-     {
-      "status": "decided",
-      "text": "gains a testing feature: The contract supplies its own in-memory implementation (12.2)."
-     },
-     {
-      "status": "decided",
-      "text": "its real feature moves to kkt-container-docker"
-     },
-     {
-      "status": "decided",
-      "text": "Docker parsing and errors move into its wrapper; the contract uses local boxed futures (12.2)."
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-config-file in its code: Container-tool implementation knowledge moves into Docker (12.2)."
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-machine in its code: Container-tool implementation knowledge moves into Docker (12.2)."
-     }
-    ]
-   },
-   {
-    "crate": "kkt-container-docker",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-container"
-     },
-     {
-      "status": "decided",
       "text": "new struct Docker"
      },
      {
@@ -7174,11 +7107,23 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "takes the real feature from kkt-container"
+      "text": "testing::Memory implements kkt-container::Container: The contract owns its stand-in (12.2)."
      },
      {
       "status": "decided",
-      "text": "Directly implements the scope contract (12.2)."
+      "text": "gains a testing feature: The contract supplies its own in-memory implementation (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "The open contract uses local boxed futures; Docker parsing and errors stay in the merged crate behind real (13.1)."
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-config-file in its code: Container-tool implementation knowledge moves into Docker (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-machine in its code: Container-tool implementation knowledge moves into Docker (12.2)."
      },
      {
       "status": "decided",
@@ -11523,17 +11468,10 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-container": {
-    "concern": "Container operations, requests and results in project terms; config parsing and login-link contracts; a testing stand-in.",
-    "kind": "contract",
+    "concern": "The container installation contract and stand-in, with Docker and Compose behind real.",
+    "kind": "contract and effect",
     "layer": "operations",
-    "must_not": "Know Docker commands, Compose files or their formats; touch the machine.",
-    "status": "decided"
-   },
-   "kkt-container-docker": {
-    "concern": "Docker and Compose implement Container directly, including their files, commands, output and sidecar status; native execution is behind real.",
-    "kind": "effect",
-    "layer": "operations",
-    "must_not": "Decide setup answers or remember the setup record.",
+    "must_not": "Let Docker details into the open contract; decide setup answers or remember the setup record.",
     "status": "decided"
    },
    "kkt-db": {
@@ -11793,7 +11731,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-setup-os": {
-    "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path, and absolute and canonical paths; and one snapshot of `PATH`, in which it finds programs. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container-docker, key files through kkt-admission-os.",
+    "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path, and absolute and canonical paths; and one snapshot of `PATH`, in which it finds programs. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container, key files through kkt-admission-os.",
     "kind": "effect",
     "layer": "operations",
     "status": "decided"
@@ -14743,11 +14681,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the database is there, the Docker folder's .env) moves to kkt-terminal-os, kkt-db-sqlite and kkt-container-docker; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
+      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the database is there, the Docker folder's .env) moves to kkt-terminal-os, kkt-db-sqlite and kkt-container; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container-docker; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
+      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
      },
      {
       "status": "decided",
@@ -14763,7 +14701,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container-docker; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -20107,11 +20045,11 @@ window.KKT_PROPOSED = {
       "implementors": [
        {
         "crate": "kkt-container",
-        "type": "testing::Memory"
+        "type": "Docker"
        },
        {
-        "crate": "kkt-container-docker",
-        "type": "Docker"
+        "crate": "kkt-container",
+        "type": "testing::Memory"
        }
       ],
       "trait": "Container"
@@ -20129,10 +20067,18 @@ window.KKT_PROPOSED = {
     "crate_doc": "kkt in Docker: the Compose files that come with this program, the folder kkt manages for them, and the commands that set it up, start it, back it up, import and export its lanes, upgrade it and remove it.",
     "dev_only": false,
     "features": {
+     "real": [],
      "testing": []
     },
     "holders": [],
     "implements": [
+     {
+      "crate": "kkt-container",
+      "status": "decided",
+      "trait": "Container",
+      "trait_crate": "kkt-container",
+      "type": "Docker"
+     },
      {
       "crate": "kkt-container",
       "status": "decided",
@@ -20188,6 +20134,14 @@ window.KKT_PROPOSED = {
       "doc": "The settings of the container's config file that kkt-container uses. (step 3.3)",
       "kind": "struct",
       "path": "ContainerConfig",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Docker and Compose implement the container contract directly.",
+      "feature": "real",
+      "kind": "struct",
+      "path": "Docker",
       "proposed_item": true,
       "status": "decided"
      },
@@ -20320,7 +20274,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      }
     ],
-    "kind": "contract",
+    "kind": "contract and effect",
     "lib": "kkt_container",
     "machine_work": {
      "src/os.rs": [
@@ -20546,76 +20500,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "testing::Memory implements kkt-container::Container: The contract owns its stand-in (12.2)."
-     },
-     {
-      "status": "decided",
-      "text": "gains a testing feature: The contract supplies its own in-memory implementation (12.2)."
-     },
-     {
-      "status": "decided",
-      "text": "its real feature moves to kkt-container-docker"
-     },
-     {
-      "status": "decided",
-      "text": "Docker parsing and errors move into its wrapper; the contract uses local boxed futures (12.2)."
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-config-file in its code: Container-tool implementation knowledge moves into Docker (12.2)."
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-machine in its code: Container-tool implementation knowledge moves into Docker (12.2)."
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": [
-     "futures"
-    ]
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-container-docker",
-      "status": "decided",
-      "trait": "Container",
-      "trait_crate": "kkt-container",
-      "type": "Docker"
-     }
-    ],
-    "items": [
-     {
-      "doc": "Docker and Compose implement the container contract directly.",
-      "feature": "real",
-      "kind": "struct",
-      "path": "Docker",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_container_docker",
-    "name": "kkt-container-docker",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-container"
-     },
-     {
-      "status": "decided",
       "text": "new struct Docker"
      },
      {
@@ -20624,11 +20508,23 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "takes the real feature from kkt-container"
+      "text": "testing::Memory implements kkt-container::Container: The contract owns its stand-in (12.2)."
      },
      {
       "status": "decided",
-      "text": "Directly implements the scope contract (12.2)."
+      "text": "gains a testing feature: The contract supplies its own in-memory implementation (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "The open contract uses local boxed futures; Docker parsing and errors stay in the merged crate behind real (13.1)."
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-config-file in its code: Container-tool implementation knowledge moves into Docker (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-machine in its code: Container-tool implementation knowledge moves into Docker (12.2)."
      },
      {
       "status": "decided",
@@ -20642,6 +20538,7 @@ window.KKT_PROPOSED = {
     "released_program": false,
     "slots": [],
     "third_party": [
+     "futures",
      "serde_json",
      "thiserror"
     ]
@@ -32774,11 +32671,14 @@ window.KKT_PROPOSED = {
     "to": "kkt-config-file-os"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kashkeshet",
     "items": [
      "ConfigReader",
      "ContainerConfig",
+     "Docker",
      "Folder",
      "Inputs",
      "KeyCopy",
@@ -32812,28 +32712,7 @@ window.KKT_PROPOSED = {
        "State"
       ],
       "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-container"
-   },
-   {
-    "features": [
-     "real"
-    ],
-    "from": "kashkeshet",
-    "items": [
-     "Docker"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
+     },
      {
       "detail": [
        "Docker"
@@ -32846,7 +32725,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-container-docker"
+    "to": "kkt-container"
    },
    {
     "features": [],
@@ -35338,6 +35217,31 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
+    "features": [],
+    "from": "kkt-container",
+    "items": [
+     "Browser"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Browser"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-browser"
+   },
+   {
     "features": [
      "testing"
     ],
@@ -35388,12 +35292,67 @@ window.KKT_PROPOSED = {
       "role": "uses"
      }
     ],
+    "statuses": [
+     "decided"
+    ],
     "target": null,
     "test_items": [
      "Time",
      "testing::FixedClock"
     ],
     "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-container",
+    "items": [
+     "CONFIG_DIR",
+     "CONFIG_FILE_NAME"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "CONFIG_DIR",
+       "CONFIG_FILE_NAME"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-config-file"
+   },
+   {
+    "features": [],
+    "from": "kkt-container",
+    "items": [
+     "XDG_CONFIG_HOME_DEFAULT"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "XDG_CONFIG_HOME_DEFAULT"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-machine"
    },
    {
     "features": [],
@@ -35411,6 +35370,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [
@@ -35438,191 +35400,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-scratch"
-   },
-   {
-    "features": [],
-    "from": "kkt-container-docker",
-    "items": [
-     "Browser"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Browser"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-browser"
-   },
-   {
-    "features": [],
-    "from": "kkt-container-docker",
-    "items": [
-     "Clock",
-     "Span"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Clock",
-       "Span"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-clock"
-   },
-   {
-    "features": [],
-    "from": "kkt-container-docker",
-    "items": [
-     "CONFIG_DIR",
-     "CONFIG_FILE_NAME"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "CONFIG_DIR",
-       "CONFIG_FILE_NAME"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-config-file"
-   },
-   {
-    "features": [],
-    "from": "kkt-container-docker",
-    "items": [
-     "ADMIN_KEY_FILE_NAME",
-     "ConfigReader",
-     "Container",
-     "Existing",
-     "Folder",
-     "Inputs",
-     "KeyCopy",
-     "LanesImport",
-     "Login",
-     "LoginLink",
-     "NO_ADMIN_KEY_EXIT",
-     "Provisioned",
-     "State",
-     "WEB_KEY_FILE_NAME"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "Docker implements Container"
-      ],
-      "role": "implements"
-     },
-     {
-      "detail": [
-       "ADMIN_KEY_FILE_NAME",
-       "ConfigReader",
-       "Existing",
-       "Folder",
-       "Inputs",
-       "KeyCopy",
-       "LanesImport",
-       "Login",
-       "LoginLink",
-       "NO_ADMIN_KEY_EXIT",
-       "Provisioned",
-       "State",
-       "WEB_KEY_FILE_NAME"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-container"
-   },
-   {
-    "features": [],
-    "from": "kkt-container-docker",
-    "items": [
-     "XDG_CONFIG_HOME_DEFAULT"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "XDG_CONFIG_HOME_DEFAULT"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-machine"
-   },
-   {
-    "features": [],
-    "from": "kkt-container-docker",
-    "items": [
-     "AdminName"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "AdminName"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-names"
    },
    {
     "features": [],
@@ -42570,7 +42347,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "new": [
-    "kkt-container-docker"
+    "kkt-container"
    ],
    "path": "Host",
    "result": "Retired: the scope contract Container replaces machine operations. Docker implements it directly; the program only injects it.",
