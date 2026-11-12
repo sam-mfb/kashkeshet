@@ -51,22 +51,31 @@ fn router(shutdown: &Shutdown) -> axum::Router {
 /// An open server built with the stand-in, whose `/mcp-admin` admits by
 /// `admin`, or is not served.
 fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum::Router {
+    let clock = Arc::new(FixedClock::new(start_time()));
+    let entropy = Arc::new(SeqEntropy::new(1));
+    let rules = kkt_rules::Rules::new(kkt_rules::Deps {
+        db: kkt_rules::testing::memory().expect("an in-memory store"),
+        swarm: SwarmId::main(),
+        events: kkt_events::Events::new(kkt_events::Settings::DEFAULT)
+            .until_stopped(shutdown.clone()),
+        clock: clock.clone(),
+        entropy: entropy.clone(),
+        run_id: 1,
+        settings: kkt_rules::Settings::DEFAULT,
+        wording: Arc::new(kkt_rules::DefaultWording),
+    });
     let parts = Parts::new(
-        kkt_rules::testing::memory().expect("an in-memory store"),
-        Arc::new(FixedClock::new(start_time())),
-        Arc::new(SeqEntropy::new(1)),
+        rules,
+        clock,
+        entropy,
         Arc::new(RefusesEveryone),
         Arc::new(kkt_log::testing::CapturedLog::default()),
-        Arc::new(kkt_rules::DefaultWording),
         &kkt_mcp_formatter::Settings::DEFAULT,
-        &kkt_events::Settings::DEFAULT,
-        1,
     );
     let config = AppConfig {
         admission: Admission::Open,
         web_admission: Admission::Open,
         admin_admission: admin,
-        rules: kkt_rules::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
         mcp: kkt_mcp::Settings::DEFAULT,
         allowed_origins: Vec::new(),

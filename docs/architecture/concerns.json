@@ -80,7 +80,7 @@
   },
   "kkt-server": {
    "layer": "assembly",
-   "concern": "Assembling the server from its parts: the rules, `/mcp`, `/mcp-admin` and the web page; recording each server run; the adapter from admission and identity to the web page's gate, public for a product that builds its own page; handing the page the rules as `OperatorApi`; the page's sessions, which it builds when it mounts the page; the web page alone, for a program that serves only it (`page`).",
+   "concern": "Assembling the server from its parts: the rules the program built with kkt-rules' `start`, `/mcp`, `/mcp-admin` and the web page; the adapter from admission and identity to the web page's gate, public for a product that builds its own page; handing the page the rules as `OperatorApi`; the page's sessions, which it builds when it mounts the page; the web page alone, for a program that serves only it (`page`).",
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
    "kind": "composition"
   },
@@ -148,7 +148,7 @@
   },
   "kkt-rules": {
    "layer": "core",
-   "concern": "Every permission decision and every change, for agents and the operator, each in one swarm.",
+   "concern": "Every permission decision and every change, for agents and the operator, each in one swarm; and starting them for a server run (`start`), which records the run first.",
    "must_not": "Reach the database except through its storage module's `Reader` and `Writer`, or format output.",
    "kind": "logic"
   },

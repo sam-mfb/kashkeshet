@@ -64,9 +64,9 @@ pub fn in_swarm(rules: &Rules, id: &str) -> Rules {
     rules.in_swarm(SwarmId::new(id))
 }
 
-/// The server run `parts` were made for.
+/// The server run the rules in `parts` were started for.
 pub fn run_of(parts: &Parts) -> i64 {
-    parts.run_id
+    parts.rules.run_id()
 }
 RUST
 cd "$dir"

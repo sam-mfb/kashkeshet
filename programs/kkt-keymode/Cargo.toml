@@ -22,6 +22,7 @@ dev-only = true
 [dependencies]
 kkt-logs-os = { path = "../../crates/kkt-logs-os", features = ["real"] }
 kkt-admission = { path = "../../crates/kkt-admission" }
+kkt-api-agent = { path = "../../crates/kkt-api-agent" }
 kkt-admission-os = { path = "../../crates/kkt-admission-os", features = ["real"] }
 kkt-clock = { path = "../../crates/kkt-clock" }
 kkt-clock-system = { path = "../../crates/kkt-clock-system", features = ["real"] }

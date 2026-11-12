@@ -14,7 +14,6 @@ kkt-admission = { path = "../kkt-admission" }
 kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-clock = { path = "../kkt-clock" }
-kkt-events = { path = "../kkt-events" }
 kkt-log = { path = "../kkt-log" }
 kkt-mcp-formatter = { path = "../kkt-mcp-formatter" }
 kkt-hosts = { path = "../kkt-hosts" }
@@ -28,6 +27,8 @@ kkt-shutdown = { path = "../kkt-shutdown" }
 kkt-web = { path = "../kkt-web" }
 
 [dev-dependencies]
+# The rules the tests build take an events bus.
+kkt-events = { path = "../kkt-events" }
 kkt-log = { path = "../kkt-log", features = ["testing"] }
 # The simulated application and its gate, for the page served alone.
 kkt-api-sim = { path = "../kkt-api-sim", features = ["testing"] }

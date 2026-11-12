@@ -24,6 +24,8 @@ dev-only = true
 [dependencies]
 kkt-admission = { path = "../../crates/kkt-admission" }
 kkt-agent-client = { path = "../../crates/kkt-agent-client", features = ["real"] }
+# Making the second swarm (`Swarms::create_swarm`).
+kkt-api-admin = { path = "../../crates/kkt-api-admin" }
 kkt-api-agent = { path = "../../crates/kkt-api-agent" }
 # The real clock, so agents' waits end on time.
 kkt-clock = { path = "../../crates/kkt-clock" }

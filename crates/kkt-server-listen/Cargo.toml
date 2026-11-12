@@ -19,6 +19,7 @@ real = []
 [dev-dependencies]
 kkt-log = { path = "../kkt-log", features = ["testing"] }
 kkt-admission = { path = "../kkt-admission" }
+kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
 kkt-events = { path = "../kkt-events" }

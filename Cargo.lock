@@ -1323,6 +1323,7 @@ dependencies = [
  "futures",
  "kkt-admission",
  "kkt-agent-client",
+ "kkt-api-admin",
  "kkt-api-agent",
  "kkt-clock",
  "kkt-clock-system",
@@ -1390,6 +1391,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-admission",
  "kkt-admission-os",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-clock-system",
  "kkt-config-file",
@@ -1593,6 +1595,7 @@ version = "0.10.0"
 dependencies = [
  "axum",
  "kkt-admission",
+ "kkt-api-agent",
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",
