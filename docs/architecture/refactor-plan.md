@@ -1282,8 +1282,8 @@ split. A contract crate named for the scope declares what kkt needs, in the
 project's terms. A wrapper crate named for the tool implements that contract
 directly. The program only builds the wrapper and injects it; it holds no
 adapter. This holds even with one implementation. Step 12.1, remote-access,
-is the pilot (kkt-build-c). No other conversion starts until Sam has seen the
-table below.
+is the pilot (kkt-build-c). Sam has seen the table below (msg 3050): the
+other conversions start once 12.1 merges and sets the pattern.
 
 **Sam's answers to the survey's questions (2026-11-12, msg 3047).**
 
@@ -1293,18 +1293,15 @@ table below.
 2. **Programs that come with the system count**, the browser opener
    included. The point is easy testing as well as swapping. So the opener
    splits.
-3. **Still open: what is inside a tool's wrapper.** Two options are before
-   Sam:
-   - (a) One crate per tool. It holds the tool's knowledge as pure code,
-     and the runner that spawns the program behind `real`, with a private
-     fake for its tests.
-   - (b) The wrapper is pure logic. It knows the tool and implements the
-     scope's contract, and it takes one shared "run a program" contract,
-     which an OS crate implements.
-
-   12.1 keeps the Tailscale knowledge cleanly apart from the code that
-   spawns the process, so either answer is a small change. 12.1 is not put
-   up for final review until this is settled.
+3. **What is inside a tool's wrapper: option (a)** (msg 3050). One wrapper
+   crate per tool holds both the tool's knowledge and the code that runs
+   it. The running is behind `real`, and the knowledge is tested over a
+   private runner and a private fake. There is no shared "run a program"
+   contract and no shared runner crate. Sam's reason: the scope's contract
+   ("you can use a container") is the abstraction other developers use
+   without thinking about what is behind it. Only whoever works on the
+   wrapper thinks about the tool. A shared process crate would hand every
+   developer a new option and a new concern, far from what kkt does.
 4. **No renames.** kkt-entropy-os and kkt-logs-os keep `-os`: `-os` says
    the work is the operating system's, and a tool's name is for a third
    party such as Tailscale.
@@ -1370,32 +1367,35 @@ the later steps repeat its pattern.
 
 - **The proposal's third rule.** Its new text is Sam's ruling. `decisions.md` quotes it, and the plan's differences table marks 2.1 to 2.4 and 2.6 as overtaken.
 - **Kinds** (`concerns.json`, `proposed.json`, `kinds.py`). The scope crates become contracts: kkt-remote-access, kkt-container, kkt-service, kkt-agent-client, and a new crate for the lane folder and one for the probe. A contract may compute on its own values but not run or wire anything (`kinds.py`'s `beyond_values`). check-crates.sh's check 6 keeps `real` out of a contract crate.
-- **What a wrapper is depends on Sam's open answer 3.**
-  - Under (a), each wrapper is an effect crate. It has a `real` feature around the command or connection it makes, and the tool's knowledge is tested inside it, without `real`, over a private runner and fake.
-  - Under (b), each wrapper is a logic crate. A new contract crate declares "run a program" in the project's terms, and one OS crate implements it, which every wrapper of a command shares. That shared crate is one more split pair, and it suits ARCHITECTURE.md 4.5.2, which says complex adapter logic SHOULD be its own logic module (Docker's 1,900 lines are complex).
-  - Either way, the wrappers that reach the network or a library (the rmcp client, the reqwest probe) keep their I/O behind `real`. Only the wrappers of commands would share the runner.
+- **Each wrapper is an effect crate** (Sam, answer 3). It has a `real` feature around the command or connection it makes, and the tool's knowledge is tested inside it, without `real`, over a private runner and fake. A wrapper thus holds logic as well as its effect, which sits against ARCHITECTURE.md 4 (one kind per module) and 4.5.2 (complex adapter logic as its own logic module). `refactor-merge.md` notes this for Sam's later edit of the principles.
 - **Stand-ins.** Each contract crate has its `testing` stand-in (3.2.4). kkt-operate's and kkt-agent-commands' tests use those stand-ins in place of the fakes they build now.
 - **No change to** check-crates.sh's checks 1 to 5, the release guard or the third-party list. check-programs loses each adapter that goes.
 - **The shared crates' public surface changes for kkt-pro**, which needs a CHANGELOG entry.
 - **Existing installs: none expected.** The Compose files, service files, commands and their output stay byte for byte. The tests that pin them move with the code.
 
-**Steps.** Each step is one pull request into `refactor`. Only 12.1 is
-started; the rest wait for Sam's look at the table.
+**Steps.** Each step is one pull request into `refactor`. 12.1 sets the
+pattern; the rest start once it merges (msg 3050). Who takes which is a
+proposal: each builder is reviewed by the other model, as through phases 9
+to 11 (kkt-mt-step1's code by kkt-review-b since msg 2273, its plan and map
+by kkt-review-373).
 
-| Step | What | Size | Who |
-|---|---|---|---|
-| 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (in progress) |
-| 12.2 | container: contract and kkt-container-docker, with the Docker logic, its tests and the sidecar's status | L | |
-| 12.3 | service: contract, kkt-service-launchd and kkt-service-systemd | M to L | |
-| 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | |
-| 12.5 | lane-files' git, the probe, the `claude` command and the browser opener: four small splits | S each | |
-| 12.6 | Chart what differs, and the scorecard | S | |
+| Step | What | Size | Builds | Reviews |
+|---|---|---|---|---|
+| 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (in progress) | kkt-review-373 |
+| 12.2 | container: contract and kkt-container-docker, with the Docker logic, its tests and the sidecar's status | L | kkt-build-c, after 12.1: the same pattern, and it knows kkt-operate's parts | kkt-review-373 |
+| 12.3 | service: contract, kkt-service-launchd and kkt-service-systemd | M to L | kkt-build-b | kkt-review-b |
+| 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | kkt-mt-step1, who built kkt-agent-commands (10.3) | kkt-review-b |
+| 12.5a | lane-files' git: kkt-lane-files-git | S | kkt-build-b, after 12.3 | kkt-review-b |
+| 12.5b | The probe: kkt-probe and kkt-probe-reqwest | S | kkt-build-b, after 12.5a | kkt-review-b |
+| 12.5c | The `claude` command: kkt-client-config-claude | S | kkt-mt-step1, after 12.4 | kkt-review-b |
+| 12.5d | The browser opener: kkt-browser and kkt-browser-os | S | kkt-mt-step1, after 12.5c | kkt-review-b |
+| 12.6 | Chart what differs, and the scorecard | S | kkt-mt-step1 | kkt-review-373 |
 
-12.2, 12.3 and 12.4 can run side by side after 12.1. 12.2 and 12.3 each
-change one field of kkt-operate's `OperateParts`, and 12.4 changes
-kkt-agent-commands' `AgentParts`. 12.5 can run beside any of them. If Sam
-chooses (b) for answer 3, the shared "run a program" contract and its OS
-crate come first, in 12.1 or a step before 12.2.
+12.2, 12.3 and 12.4 run side by side after 12.1: three builders, each on
+its own pair. 12.2 and 12.3 each change one field of kkt-operate's
+`OperateParts`, and 12.4 changes kkt-agent-commands' `AgentParts`; each
+change is a rebase, not a conflict. The small splits follow each builder's
+larger step. 12.5d touches kkt-container's `LoginLink`, so it follows 12.2.
 
 ## Order at a glance
 
