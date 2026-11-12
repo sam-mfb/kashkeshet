@@ -13,6 +13,9 @@
 //! Usage: `kkt-keymode --config <file> [--bind <address>]`. It prints
 //! `bound to <address>` once it listens, and stops on SIGINT or SIGTERM.
 
+mod record;
+use record::{RecordedSettings, new_server_run};
+
 use kkt_admission::AccessKey;
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
@@ -22,13 +25,12 @@ use kkt_config_file_os as config_file_os;
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_events::Events;
-use kkt_hosts::AllowedHosts;
 use kkt_identity_keymode::KeyMode;
 use kkt_logs::{LogLevel, LogPolicy};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
-use kkt_server::{self as app, AppConfig, Parts};
-use kkt_settings::{InvalidSetting, Limits, RecordedSettings, ServeOptions, ServeSettings};
+use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
+use kkt_settings::{InvalidSetting, Limits, ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use kkt_terminal_os::Terminal;
@@ -92,9 +94,30 @@ async fn run(args: &[String]) -> Result<(), String> {
         log_level,
         dependency_log_level,
     } = settings;
-    kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None).map_err(invalid)?;
-    limits.check().map_err(invalid)?;
-    let allowed_hosts = AllowedHosts::new(&allow_hosts).map_err(invalid)?;
+    let server_settings = ServerSettings {
+        formatter: kkt_mcp_formatter::Settings {
+            max_response_bytes: limits.max_response_bytes,
+        },
+        web: web_settings(&limits),
+        mcp: kkt_mcp::Settings::DEFAULT,
+        allowed_origins: allow_origins,
+        allowed_hosts: allow_hosts,
+    };
+    let mut problems: Vec<_> = rules_settings(&limits)
+        .problems()
+        .into_iter()
+        .map(|p| (p.name, p.check, p.rule))
+        .collect();
+    problems.extend(
+        backup_settings(&limits)
+            .problems()
+            .into_iter()
+            .map(|p| (p.name, p.check, p.rule)),
+    );
+    if let Err(p) = kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None) {
+        problems.push((p.name, "check_bind", p.rule));
+    }
+    let server_settings = server_settings.check(problems).map_err(invalid)?;
     let instructions = instructions
         .as_deref()
         .map(|path| config_file_os::read_instructions(path).map_err(|e| e.to_string()))
@@ -114,10 +137,6 @@ async fn run(args: &[String]) -> Result<(), String> {
         admission,
         web_admission,
         admin_admission: admin_key.map(AdminAdmission::SharedKey),
-        web: web_settings(&limits),
-        mcp: kkt_mcp::Settings::DEFAULT,
-        allowed_origins: allow_origins,
-        allowed_hosts,
         instructions,
     };
 
@@ -126,11 +145,11 @@ async fn run(args: &[String]) -> Result<(), String> {
         &RunSettings {
             settings: RecordedSettings {
                 allow_any_bind,
-                limits: limits.clone(),
+                server: server_settings.settings(),
+                rules: rules_settings(&limits),
+                backup: backup_settings(&limits),
                 log_level,
                 dependency_log_level,
-                allowed_origins: config.allowed_origins.clone(),
-                allowed_hosts: config.allowed_hosts.extra().to_vec(),
                 config_file: Some(config_file),
                 access_key_file: config.admission.key_source().map(str::to_string),
                 web_key_file: config.web_admission.key_source().map(str::to_string),
@@ -152,7 +171,7 @@ async fn run(args: &[String]) -> Result<(), String> {
     let shutdown = Shutdown::new();
     let entropy = Arc::new(OsEntropy);
     let rules = kkt_rules::start(
-        app::new_server_run(&run),
+        new_server_run(&run),
         kkt_rules::Startup {
             db,
             // Each call acts in the swarm its caller is in; key mode has one.
@@ -172,14 +191,12 @@ async fn run(args: &[String]) -> Result<(), String> {
     // Key mode: each call is the avatar its token names, or the operator
     // the admin key makes, in the one swarm.
     let parts = Parts::new(
-        rules,
+        Arc::new(rules),
         clock,
         entropy,
         Arc::new(KeyMode::new(admin_name)),
         Arc::new(kkt_logs_os::TracingLog),
-        &kkt_mcp_formatter::Settings {
-            max_response_bytes: limits.max_response_bytes,
-        },
+        server_settings,
     );
     let server = app::build(parts, config, shutdown.clone());
     let listening = kkt_server_listen::listen(server, bind)
@@ -296,6 +313,12 @@ fn rules_settings(limits: &Limits) -> kkt_rules::Settings {
 }
 
 /// The web page's share of `limits`.
+fn backup_settings(limits: &Limits) -> kkt_backup::Settings {
+    kkt_backup::Settings {
+        upgrade_backups_kept: limits.upgrade_backups_kept,
+    }
+}
+
 fn web_settings(limits: &Limits) -> kkt_web::Settings {
     kkt_web::Settings {
         page: kkt_web::PageLimits {

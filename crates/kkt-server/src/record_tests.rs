@@ -1,18 +1,31 @@
-//! The settings a server run records, worded as lines of a setting's name
-//! and value. kkt-provenance stores the lines as the run's settings text,
-//! which is hashed and kept, so the wording here changes only on purpose.
+//! The existing run-record golden and ordering tests, with each owner's
+//! settings supplied separately and program values passed as plain lines.
 
-use crate::Limits;
+use crate::ServerSettings;
 use kkt_logs::{LogLevel, LogPolicy};
+mod golden;
+mod program;
 
-/// The settings a server runs with, as the record of the run needs them.
-/// Files and names are the text the record shows. Keys are never here: only
-/// the files they came from.
 #[derive(Clone, Debug)]
-pub struct RecordedSettings {
+struct FixtureLimits {
+    rules: kkt_rules::Settings,
+    server: ServerSettings,
+    backup: kkt_backup::Settings,
+}
+
+impl FixtureLimits {
+    const DEFAULT: Self = Self {
+        rules: kkt_rules::Settings::DEFAULT,
+        server: ServerSettings::DEFAULT,
+        backup: kkt_backup::Settings::DEFAULT,
+    };
+}
+
+#[derive(Clone, Debug)]
+struct RecordedSettings {
     /// Whether the server may listen beyond loopback.
     pub allow_any_bind: bool,
-    pub limits: Limits,
+    pub limits: FixtureLimits,
     /// How much kkt's own code logs.
     pub log_level: LogLevel,
     /// How much the libraries kkt uses log.
@@ -39,61 +52,32 @@ pub struct RecordedSettings {
 }
 
 impl RecordedSettings {
-    /// The settings as lines of a name and a value that stay the same for
-    /// the same settings, in a fixed order: `allow_any_bind`, then
-    /// [`limit_lines`]'s, then the web key file, the admin key file and its
-    /// name, and the log file and its policy, each only when there is one.
-    pub fn lines(&self) -> Vec<(String, String)> {
-        // Listing every field, with no `..`, makes a new setting fail to
-        // compile here until it is added to the record.
-        let RecordedSettings {
-            allow_any_bind,
-            limits,
-            log_level,
-            dependency_log_level,
-            allowed_origins,
-            allowed_hosts,
-            config_file,
-            access_key_file,
-            web_key_file,
-            admin_key_file,
-            admin_name,
-            log_file,
-            log_policy,
-        } = self;
-        let mut lines = vec![line("allow_any_bind", allow_any_bind)];
-        lines.extend(limit_lines(
-            limits,
-            *log_level,
-            *dependency_log_level,
-            allowed_origins,
-            allowed_hosts,
-            config_file.as_deref(),
-            access_key_file.as_deref(),
-        ));
-        lines.extend(web_key_file.iter().map(|file| line("web_key_file", file)));
-        if let Some(file) = admin_key_file {
-            lines.push(line("admin_key_file", file));
-            lines.extend(admin_name.iter().map(|name| line("admin_name", name)));
+    fn lines(&self) -> Vec<(String, String)> {
+        let mut server = self.limits.server.clone();
+        server.allowed_origins = self.allowed_origins.clone();
+        server.allowed_hosts = self.allowed_hosts.clone();
+        program::RecordedSettings {
+            server: &server,
+            rules: self.limits.rules.clone(),
+            backup: self.limits.backup,
+            allow_any_bind: self.allow_any_bind,
+            log_level: self.log_level,
+            dependency_log_level: self.dependency_log_level,
+            config_file: self.config_file.clone(),
+            access_key_file: self.access_key_file.clone(),
+            web_key_file: self.web_key_file.clone(),
+            admin_key_file: self.admin_key_file.clone(),
+            admin_name: self.admin_name.clone(),
+            log_file: self.log_file.clone(),
+            log_policy: self.log_policy,
         }
-        if let Some(file) = log_file {
-            lines.extend(log_lines(file, log_policy));
-        }
-        lines
+        .lines()
     }
 }
 
-fn line(name: &str, value: impl std::fmt::Display) -> (String, String) {
-    (name.to_string(), value.to_string())
-}
-
-/// The limits and the other settings every run has, one line each, in a
-/// fixed order, with times in milliseconds and origins and added host names
-/// sorted. Then come the config file the settings were read from, if any,
-/// and, when an access key is set, the file it came from; the key itself is
-/// never recorded.
+// The original tests of just the limit portion leave out allow_any_bind.
 fn limit_lines(
-    limits: &Limits,
+    limits: &FixtureLimits,
     log_level: LogLevel,
     dependency_log_level: LogLevel,
     allowed_origins: &[String],
@@ -101,97 +85,26 @@ fn limit_lines(
     config_file: Option<&str>,
     access_key_file: Option<&str>,
 ) -> Vec<(String, String)> {
-    // Listing every field, with no `..`, makes a new limit fail to compile
-    // here until it is added to the text.
-    let Limits {
-        name_pack,
-        max_response_bytes,
-        default_limit,
-        max_limit,
-        max_body_bytes,
-        max_channel_name_chars,
-        max_purpose_chars,
-        max_description_chars,
-        max_note_chars,
-        max_server_announcement_chars,
-        max_memory_entry_chars,
-        max_memory_chars,
-        max_lane_chars,
-        sends_per_minute,
-        registrations_per_minute,
-        max_agents,
-        default_wait,
-        max_wait,
-        waiting_grace,
-        member_preview,
-        purpose_preview_chars,
-        web_session_lifetime,
-        web_page_messages,
-        web_member_excerpt_chars,
-        upgrade_backups_kept,
-    } = limits;
-    let mut lines = vec![
-        line("name_pack", name_pack.name()),
-        line("max_response_bytes", max_response_bytes),
-        line("default_limit", default_limit),
-        line("max_limit", max_limit),
-        line("max_body_bytes", max_body_bytes),
-        line("max_channel_name_chars", max_channel_name_chars),
-        line("max_purpose_chars", max_purpose_chars),
-        line("max_description_chars", max_description_chars),
-        line("max_note_chars", max_note_chars),
-        line(
-            "max_server_announcement_chars",
-            max_server_announcement_chars,
-        ),
-        line("max_memory_entry_chars", max_memory_entry_chars),
-        line("max_memory_chars", max_memory_chars),
-        line("max_lane_chars", max_lane_chars),
-        line("sends_per_minute", sends_per_minute),
-        line("registrations_per_minute", registrations_per_minute),
-        line("max_agents", max_agents),
-        line("default_wait_ms", default_wait.as_millis()),
-        line("max_wait_ms", max_wait.as_millis()),
-        line("waiting_grace_ms", waiting_grace.as_millis()),
-        line("member_preview", member_preview),
-        line("purpose_preview_chars", purpose_preview_chars),
-        line("web_session_lifetime_ms", web_session_lifetime.as_millis()),
-        line("web_page_messages", web_page_messages),
-        line("web_member_excerpt_chars", web_member_excerpt_chars),
-        line("upgrade_backups_kept", upgrade_backups_kept),
-    ];
-    lines.push(line("log_level", log_level.name()));
-    lines.push(line("dependency_log_level", dependency_log_level.name()));
-    let mut origins = allowed_origins.to_vec();
-    origins.sort();
-    lines.extend(origins.iter().map(|o| line("allowed_origin", o)));
-    let mut hosts = allowed_hosts.to_vec();
-    hosts.sort();
-    lines.extend(hosts.iter().map(|h| line("allowed_host", h)));
-    lines.extend(config_file.map(|f| line("config_file", f)));
-    lines.extend(access_key_file.map(|f| line("access_key_file", f)));
-    lines
+    RecordedSettings {
+        allow_any_bind: false,
+        limits: limits.clone(),
+        log_level,
+        dependency_log_level,
+        allowed_origins: allowed_origins.to_vec(),
+        allowed_hosts: allowed_hosts.to_vec(),
+        config_file: config_file.map(str::to_owned),
+        access_key_file: access_key_file.map(str::to_owned),
+        web_key_file: None,
+        admin_key_file: None,
+        admin_name: None,
+        log_file: None,
+        log_policy: LogPolicy::DEFAULT,
+    }
+    .lines()
+    .into_iter()
+    .filter(|(name, _)| name != "allow_any_bind")
+    .collect()
 }
-
-/// The log file and the policy that bounds it.
-fn log_lines(file: &str, policy: &LogPolicy) -> Vec<(String, String)> {
-    // Listing every field, with no `..`, makes a new one fail to compile
-    // here until it is added to the text.
-    let LogPolicy {
-        max_bytes,
-        rotated_files,
-        max_age,
-    } = policy;
-    vec![
-        line("log_file", file),
-        line("log_max_bytes", max_bytes),
-        line("log_rotated_files", rotated_files),
-        line("log_max_age_ms", max_age.as_millis()),
-    ]
-}
-
-#[cfg(test)]
-mod golden;
 
 #[cfg(test)]
 mod tests {
@@ -203,12 +116,12 @@ mod tests {
         commit: "abc123",
     };
 
-    fn config(limits: Limits, origins: &[&str]) -> RecordedSettings {
+    fn config(limits: FixtureLimits, origins: &[&str]) -> RecordedSettings {
         RecordedSettings {
-            allow_any_bind: crate::DEFAULT_ALLOW_ANY_BIND,
+            allow_any_bind: false,
             limits,
-            log_level: crate::DEFAULT_LOG_LEVEL,
-            dependency_log_level: crate::DEFAULT_DEPENDENCY_LOG_LEVEL,
+            log_level: LogLevel::Info,
+            dependency_log_level: LogLevel::Warn,
             allowed_origins: origins.iter().map(|o| o.to_string()).collect(),
             allowed_hosts: Vec::new(),
             config_file: None,
@@ -239,7 +152,7 @@ mod tests {
 
     /// The text of [`limit_lines`] alone.
     fn settings_text(
-        limits: &Limits,
+        limits: &FixtureLimits,
         log_level: LogLevel,
         dependency_log_level: LogLevel,
         allowed_origins: &[String],
@@ -261,11 +174,11 @@ mod tests {
     #[test]
     fn a_run_records_the_settings() {
         assert_eq!(
-            run(&config(Limits::DEFAULT, &[])),
+            run(&config(FixtureLimits::DEFAULT, &[])),
             format!(
                 "allow_any_bind=false\n{}",
                 settings_text(
-                    &Limits::DEFAULT,
+                    &FixtureLimits::DEFAULT,
                     LogLevel::Info,
                     LogLevel::Warn,
                     &[],
@@ -281,7 +194,7 @@ mod tests {
     fn default_settings_text_is_fixed() {
         assert_eq!(
             settings_text(
-                &Limits::DEFAULT,
+                &FixtureLimits::DEFAULT,
                 LogLevel::Info,
                 LogLevel::Warn,
                 &["http://localhost:6274".into()],
@@ -324,7 +237,7 @@ mod tests {
     #[test]
     fn origin_order_does_not_change_the_text() {
         let a = settings_text(
-            &Limits::DEFAULT,
+            &FixtureLimits::DEFAULT,
             LogLevel::Info,
             LogLevel::Warn,
             &["http://b".into(), "http://a".into()],
@@ -333,7 +246,7 @@ mod tests {
             None,
         );
         let b = settings_text(
-            &Limits::DEFAULT,
+            &FixtureLimits::DEFAULT,
             LogLevel::Info,
             LogLevel::Warn,
             &["http://a".into(), "http://b".into()],
@@ -346,19 +259,19 @@ mod tests {
 
     #[test]
     fn a_run_records_the_config_file_before_the_key_file() {
-        let mut from_file = config(Limits::DEFAULT, &[]);
+        let mut from_file = config(FixtureLimits::DEFAULT, &[]);
         from_file.config_file = Some("/home/sam/.config/kkt/config.toml".into());
         from_file.access_key_file = Some("/keys/kkt".into());
         assert!(run(&from_file).ends_with(
             "\nconfig_file=/home/sam/.config/kkt/config.toml\naccess_key_file=/keys/kkt"
         ));
-        let plain = run(&config(Limits::DEFAULT, &[]));
+        let plain = run(&config(FixtureLimits::DEFAULT, &[]));
         assert!(!plain.contains("config_file"));
     }
 
     #[test]
     fn a_run_records_whether_any_address_may_be_bound() {
-        let mut open = config(Limits::DEFAULT, &[]);
+        let mut open = config(FixtureLimits::DEFAULT, &[]);
         let closed = run(&open);
         assert!(closed.starts_with("allow_any_bind=false\n"));
         open.allow_any_bind = true;
@@ -369,7 +282,7 @@ mod tests {
     #[test]
     fn host_order_does_not_change_the_text() {
         let a = settings_text(
-            &Limits::DEFAULT,
+            &FixtureLimits::DEFAULT,
             LogLevel::Info,
             LogLevel::Warn,
             &[],
@@ -378,7 +291,7 @@ mod tests {
             None,
         );
         let b = settings_text(
-            &Limits::DEFAULT,
+            &FixtureLimits::DEFAULT,
             LogLevel::Info,
             LogLevel::Warn,
             &[],
@@ -391,8 +304,8 @@ mod tests {
 
     #[test]
     fn added_hosts_give_a_different_run() {
-        let base = run(&config(Limits::DEFAULT, &[]));
-        let mut with_host = config(Limits::DEFAULT, &[]);
+        let base = run(&config(FixtureLimits::DEFAULT, &[]));
+        let mut with_host = config(FixtureLimits::DEFAULT, &[]);
         with_host.allowed_hosts = vec!["host.docker.internal".into()];
         let changed = run(&with_host);
         assert_ne!(base, changed);
@@ -401,24 +314,24 @@ mod tests {
 
     #[test]
     fn a_run_records_the_key_files() {
-        let mut keyed = config(Limits::DEFAULT, &[]);
+        let mut keyed = config(FixtureLimits::DEFAULT, &[]);
         keyed.access_key_file = Some("/keys/kkt".into());
         keyed.web_key_file = Some("/keys/web-key".into());
         let text = run(&keyed);
         assert!(text.contains("\naccess_key_file=/keys/kkt\n"));
         assert!(text.ends_with("\nweb_key_file=/keys/web-key"));
-        let open = run(&config(Limits::DEFAULT, &[]));
+        let open = run(&config(FixtureLimits::DEFAULT, &[]));
         assert!(!open.contains("access_key"));
         assert!(!text.contains("admin_key"));
     }
 
     #[test]
     fn a_run_records_the_admin_key_file_and_name() {
-        let mut keyed = config(Limits::DEFAULT, &[]);
+        let mut keyed = config(FixtureLimits::DEFAULT, &[]);
         keyed.admin_key_file = Some("/keys/admin-key".into());
         let text = run(&keyed);
         assert!(text.ends_with("\nadmin_key_file=/keys/admin-key"));
-        let without = run(&config(Limits::DEFAULT, &[]));
+        let without = run(&config(FixtureLimits::DEFAULT, &[]));
         assert_ne!(text, without);
         // A name tied to the key shapes the run too: its changes carry it.
         keyed.admin_name = Some("admin-sentinel".into());
@@ -428,10 +341,13 @@ mod tests {
 
     #[test]
     fn different_limits_give_a_different_run() {
-        let base = run(&config(Limits::DEFAULT, &[]));
-        let other_limits = Limits {
-            max_limit: 99,
-            ..Limits::DEFAULT
+        let base = run(&config(FixtureLimits::DEFAULT, &[]));
+        let other_limits = FixtureLimits {
+            rules: kkt_rules::Settings {
+                max_limit: 99,
+                ..kkt_rules::Settings::DEFAULT
+            },
+            ..FixtureLimits::DEFAULT
         };
         let changed = run(&config(other_limits, &[]));
         assert_ne!(base, changed);
@@ -439,7 +355,7 @@ mod tests {
 
     #[test]
     fn a_run_records_its_log_file_and_how_it_is_bounded() {
-        let mut with_log = config(Limits::DEFAULT, &[]);
+        let mut with_log = config(FixtureLimits::DEFAULT, &[]);
         with_log.log_file = Some("/logs/kkt.log".into());
         let text = run(&with_log);
         assert!(
@@ -467,7 +383,7 @@ mod tests {
             ),
             "{text}"
         );
-        let without = run(&config(Limits::DEFAULT, &[]));
+        let without = run(&config(FixtureLimits::DEFAULT, &[]));
         assert!(!without.contains("log_file"));
         assert!(
             without.contains("\nlog_level=info\ndependency_log_level=warn"),

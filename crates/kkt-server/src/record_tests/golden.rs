@@ -11,7 +11,7 @@ use std::time::Duration;
 /// The settings a test server runs with, in the record's own terms.
 struct Case {
     allow_any_bind: bool,
-    limits: Limits,
+    limits: FixtureLimits,
     log_level: LogLevel,
     dependency_log_level: LogLevel,
     origins: &'static [&'static str],
@@ -29,7 +29,7 @@ struct Case {
 /// A server with nothing given: every setting at its default.
 const PLAIN: Case = Case {
     allow_any_bind: false,
-    limits: Limits::DEFAULT,
+    limits: FixtureLimits::DEFAULT,
     log_level: LogLevel::Info,
     dependency_log_level: LogLevel::Warn,
     origins: &[],
@@ -80,7 +80,7 @@ fn run_of(case: &Case) -> ServerRun {
     )
 }
 
-/// The lines for [`Limits::DEFAULT`].
+/// The lines for [`FixtureLimits::DEFAULT`].
 const DEFAULT_LIMITS: &str = "name_pack=animals\n\
      max_response_bytes=8192\n\
      default_limit=20\n\
@@ -213,10 +213,13 @@ fn a_server_with_a_log_file_records_it_and_its_policy() {
 fn a_server_with_every_setting_given_records_them_all() {
     let run = run_of(&Case {
         allow_any_bind: true,
-        limits: Limits {
-            max_limit: 99,
-            default_wait: Duration::from_secs(12),
-            ..Limits::DEFAULT
+        limits: FixtureLimits {
+            rules: kkt_rules::Settings {
+                max_limit: 99,
+                default_wait: Duration::from_secs(12),
+                ..kkt_rules::Settings::DEFAULT
+            },
+            ..FixtureLimits::DEFAULT
         },
         log_level: LogLevel::Debug,
         dependency_log_level: LogLevel::Error,

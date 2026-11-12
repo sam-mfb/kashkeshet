@@ -80,7 +80,7 @@
   },
   "kkt-server": {
    "layer": "assembly",
-   "concern": "Assembling the server from its parts: the rules the program built with kkt-rules' `start`, `/mcp`, `/mcp-admin` and the web page; the adapter from admission and identity to the web page's gate, public for a product that builds its own page; handing the page the rules as `OperatorApi`; the page's sessions, which it builds when it mounts the page; the web page alone, for a program that serves only it (`page`).",
+   "concern": "Assembling the server around the program's `Arc<dyn AdminApi>` in `Parts`: `/mcp`, `/mcp-admin` and the web page; its `ServerSettings` returns an opaque `CheckedSettings` snapshot for `Parts::new` and composes owner checks and run-record lines with the program's plain values, with `SettingError`; the public adapter from admission and identity to the web gate; the page's sessions; the web page alone over its API and gate (`page`).",
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
    "kind": "composition"
   },
@@ -178,7 +178,7 @@
   },
   "kkt-settings": {
    "layer": "operations",
-   "concern": "Gathering a server's settings from flags, what the config file gives and defaults, and wording the settings a server run records as lines of a name and a value. Only the programs depend on it.",
+   "concern": "Gathering a server's settings from flags, what the config file gives and defaults. Only the programs depend on this temporary gathering crate, removed in phase 9.3; run-record ordering now belongs to kkt-server.",
    "must_not": "Read files or the environment, or parse the config file: callers pass in what the file gives and the defaults that depend on the machine.",
    "kind": "logic"
   },

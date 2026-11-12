@@ -3,8 +3,9 @@
 
 use crate::commands::lifecycle::backup_before_upgrade;
 use crate::machine::keys::make_default_key;
+use crate::machine::server_run::{RecordedSettings, new_server_run};
 use crate::machine::settings::{
-    Checked, DefaultDb, NO_HOME_TO_KEEP_DB, Report, Sources, check_settings, format_settings,
+    Checked, DefaultDb, NO_HOME_TO_KEEP_DB, Report, Sources, backup_settings, check_settings,
     load_serve_options, resolve, rules_settings,
 };
 use kkt_api_agent::SwarmId;
@@ -17,7 +18,7 @@ use kkt_logs_os::init_logging;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
-use kkt_settings::{RecordedSettings, ServeOptions, ServeSettings};
+use kkt_settings::{ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use kkt_terminal_os::Terminal;
@@ -74,6 +75,7 @@ async fn serve(
         db_path,
         bind,
         config,
+        server_settings,
         limits,
         admin_name,
         allow_any_bind,
@@ -90,11 +92,11 @@ async fn serve(
         &RunSettings {
             settings: RecordedSettings {
                 allow_any_bind,
-                limits: limits.clone(),
+                server: server_settings.settings(),
+                rules: rules_settings(&limits),
+                backup: backup_settings(&limits),
                 log_level,
                 dependency_log_level,
-                allowed_origins: config.allowed_origins.clone(),
-                allowed_hosts: config.allowed_hosts.extra().to_vec(),
                 config_file: config_file.clone(),
                 access_key_file: config.admission.key_source().map(str::to_string),
                 web_key_file: config.web_admission.key_source().map(str::to_string),
@@ -143,7 +145,7 @@ async fn serve(
     let shutdown = Shutdown::new();
     let entropy = Arc::new(OsEntropy);
     let rules = kkt_rules::start(
-        app::new_server_run(&run),
+        new_server_run(&run),
         kkt_rules::Startup {
             db,
             // Each call acts in the swarm its caller is in; key mode has one.
@@ -163,12 +165,12 @@ async fn serve(
     // Key mode: each call is the avatar its token names, or the operator
     // the admin key makes, in the one swarm.
     let parts = Parts::new(
-        rules,
+        Arc::new(rules),
         clock,
         entropy,
         Arc::new(KeyMode::new(admin_name)),
         Arc::new(kkt_logs_os::TracingLog),
-        &format_settings(&limits),
+        server_settings,
     );
     let server = app::build(parts, config, shutdown.clone());
     let listening = kkt_server_listen::listen(server, bind)

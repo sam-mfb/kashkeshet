@@ -8,11 +8,10 @@ use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
 use kkt_config_file::Config;
 use kkt_config_file_os as config_file_os;
-use kkt_hosts::AllowedHosts;
 use kkt_logs::LogLevel;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
-use kkt_server::AppConfig;
+use kkt_server::{AppConfig, CheckedSettings, ServerSettings};
 use kkt_settings::{InvalidSetting, Limits, ServeOptions, ServeSettings};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -337,6 +336,12 @@ impl BadSetting for InvalidSetting {
     }
 }
 
+impl BadSetting for kkt_server::SettingError {
+    fn setting(&self) -> &'static str {
+        self.name
+    }
+}
+
 impl BadSetting for kkt_logs::SettingError {
     fn setting(&self) -> &'static str {
         self.name
@@ -360,6 +365,7 @@ pub struct Checked {
     pub db_path: PathBuf,
     pub bind: SocketAddr,
     pub config: AppConfig,
+    pub server_settings: CheckedSettings,
     /// Every limit, as gathered: for the formatter, the backups before an
     /// upgrade and the record of the server run. `config` holds the rest's
     /// share.
@@ -394,11 +400,33 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         log_level,
         dependency_log_level,
     } = settings;
-    kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None)
+    let server_settings = ServerSettings {
+        formatter: format_settings(&limits),
+        web: web_settings(&limits),
+        mcp: kkt_mcp::Settings::DEFAULT,
+        allowed_origins: allow_origins,
+        allowed_hosts: allow_hosts,
+    };
+    let mut problems: Vec<_> = rules_settings(&limits)
+        .problems()
+        .into_iter()
+        .map(|p| (p.name, p.check, p.rule))
+        .collect();
+    problems.extend(
+        backup_settings(&limits)
+            .problems()
+            .into_iter()
+            .map(|p| (p.name, p.check, p.rule)),
+    );
+    if let Err(p) = kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None) {
+        problems.push((p.name, "check_bind", p.rule));
+    }
+    if let Err(p) = kkt_logs::check_dependency_log_level(dependency_log_level) {
+        problems.push((p.name, "check_dependency_log_level", p.rule));
+    }
+    let server_settings = server_settings
+        .check(problems)
         .map_err(|e| sources.invalid(e))?;
-    kkt_logs::check_dependency_log_level(dependency_log_level).map_err(|e| sources.invalid(e))?;
-    limits.check().map_err(|e| sources.invalid(e))?;
-    let allowed_hosts = AllowedHosts::new(&allow_hosts).map_err(|e| sources.invalid(e))?;
     // None configured: the server sends its built-in instructions.
     let instructions = instructions
         .as_ref()
@@ -415,16 +443,13 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
         web_admission,
         // kkt's admin endpoint takes its admin key, as before.
         admin_admission: admin_key.map(AdminAdmission::SharedKey),
-        web: web_settings(&limits),
-        mcp: kkt_mcp::Settings::DEFAULT,
-        allowed_origins: allow_origins,
-        allowed_hosts,
         instructions,
     };
     Ok(Checked {
         db_path,
         bind,
         config,
+        server_settings,
         limits,
         admin_name,
         allow_any_bind,
@@ -460,6 +485,13 @@ pub fn rules_settings(limits: &Limits) -> kkt_rules::Settings {
         waiting_grace: limits.waiting_grace,
         member_preview: limits.member_preview,
         purpose_preview_chars: limits.purpose_preview_chars,
+    }
+}
+
+/// The backup policy's share of the gathered values, until Limits goes.
+pub fn backup_settings(limits: &Limits) -> kkt_backup::Settings {
+    kkt_backup::Settings {
+        upgrade_backups_kept: limits.upgrade_backups_kept,
     }
 }
 
@@ -1001,13 +1033,18 @@ mod tests {
             purpose_preview_chars: 55,
             ..Limits::DEFAULT
         };
-        let record = kkt_settings::RecordedSettings {
+        let server = ServerSettings {
+            formatter: format_settings(&limits),
+            web: web_settings(&limits),
+            ..ServerSettings::DEFAULT
+        };
+        let record = crate::machine::server_run::RecordedSettings {
             allow_any_bind: false,
-            limits: limits.clone(),
+            server: &server,
+            rules: rules_settings(&limits),
+            backup: backup_settings(&limits),
             log_level: LogLevel::Info,
             dependency_log_level: LogLevel::Warn,
-            allowed_origins: Vec::new(),
-            allowed_hosts: Vec::new(),
             config_file: None,
             access_key_file: None,
             web_key_file: None,
