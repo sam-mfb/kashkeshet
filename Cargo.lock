@@ -1508,7 +1508,6 @@ name = "kkt-names"
 version = "0.10.0"
 dependencies = [
  "kkt-entropy",
- "kkt-hash",
 ]
 
 [[package]]

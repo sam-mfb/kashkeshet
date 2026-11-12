@@ -272,7 +272,7 @@ window.KKT_PROPOSED = {
      {
       "adapts": "kkt-container-os::OsHost",
       "large": false,
-      "methods": 8,
+      "methods": 9,
       "note": "8 methods; run and run_attached translate kkt-container's Command and Finished to and from kkt-container-os' own (step 2.1)",
       "status": "decided",
       "to": "kkt-container::Host"
@@ -416,14 +416,17 @@ window.KKT_PROPOSED = {
       "items": [
        "kkt-provenance::ServerRun",
        "kkt-rules::start",
-       "kkt-rules::NewServerRun"
+       "kkt-rules::NewServerRun",
+       "kkt-rules::Startup",
+       "kkt-server::new_server_run",
+       "kkt-events::Events"
       ],
       "proposed_step": true,
-      "text": "kkt-rules' start records what produced this run in the Db, then builds the Rules with its ID, which new rows carry.",
+      "text": "kkt-rules' start records what produced this run in the Db, from kkt-server's new_server_run, then builds the Rules with its ID from a Startup, which new rows carry. The program makes the events bus the rules hear on and stops it with the server.",
       "title": "Run record"
      },
      {
-      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)",
+      "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log)",
       "items": [
        "kkt-server::Parts",
        "kkt-clock-system::SystemClock",
@@ -904,11 +907,11 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-rules",
       "impl": "kkt-rules::DefaultWording",
-      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start",
+      "note": "kkt-rules' default wording, in the Startup the program gives kkt-rules' start (step 5.6a)",
       "status": "decided",
       "to": [
        {
-        "at": "Deps",
+        "at": "Startup",
         "param": "wording"
        }
       ]
@@ -1067,7 +1070,7 @@ window.KKT_PROPOSED = {
       "title": "Database"
      },
      {
-      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)",
+      "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log)",
       "items": [
        "kkt-server::Parts",
        "kkt-fake-product::FakeIdentify",
@@ -1196,11 +1199,11 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-rules",
       "impl": "kkt-rules::DefaultWording",
-      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start",
+      "note": "kkt-rules' default wording, in the Startup the program gives kkt-rules' start (step 5.6a)",
       "status": "decided",
       "to": [
        {
-        "at": "Deps",
+        "at": "Startup",
         "param": "wording"
        }
       ]
@@ -1256,14 +1259,17 @@ window.KKT_PROPOSED = {
       "items": [
        "kkt-provenance::ServerRun",
        "kkt-rules::start",
-       "kkt-rules::NewServerRun"
+       "kkt-rules::NewServerRun",
+       "kkt-rules::Startup",
+       "kkt-server::new_server_run",
+       "kkt-events::Events"
       ],
       "proposed_step": true,
-      "text": "As kkt serve's: kkt-rules' start records the run, then builds the Rules.",
+      "text": "kkt-rules' start records what produced this run in the Db, from kkt-server's new_server_run, then builds the Rules with its ID from a Startup, which new rows carry. The program makes the events bus the rules hear on and stops it with the server.",
       "title": "Run record"
      },
      {
-      "fills": "kkt-server::Parts::new (db, clock, entropy, identify)",
+      "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log)",
       "items": [
        "kkt-server::Parts",
        "kkt-clock-system::SystemClock",
@@ -1358,11 +1364,11 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-rules",
       "impl": "kkt-rules::DefaultWording",
-      "note": "kkt-rules' default wording, in the Deps the program gives kkt-rules' start",
+      "note": "kkt-rules' default wording, in the Startup the program gives kkt-rules' start (step 5.6a)",
       "status": "decided",
       "to": [
        {
-        "at": "Deps",
+        "at": "Startup",
         "param": "wording"
        }
       ]
@@ -1402,40 +1408,46 @@ window.KKT_PROPOSED = {
     "steps": [
      {
       "items": [
-       "kkt-web-preview::PreviewSettings",
-       "kkt-hosts::AllowedHosts"
+       "kkt-api-sim::PreviewSettings",
+       "kkt-web::PageLimits",
+       "kkt-hosts::AllowedHosts",
+       "kkt-logs-os::init_stderr_logging",
+       "kkt-logs-os::TracingLog"
       ],
-      "text": "Flags give the address, the seed and the preview's settings; a non-loopback address needs an access key and names the hosts to answer to.",
+      "text": "Flags give the address, the seed, the feed's rate and the page size, checked by the program into kkt-api-sim's PreviewSettings and kkt-web's PageLimits; a non-loopback address names the hosts to answer to. Its log goes to standard error.",
       "title": "Settings"
      },
      {
       "items": [
        "kkt-api-sim::PreviewGate",
+       "kkt-admission-os::KeyFiles",
+       "kkt-web::Sessions",
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy"
       ],
-      "text": "PreviewGate, with the access key or open, over kkt-web's Sessions with the system clock and the operating system's randomness; kkt-api-sim's stand-in for kkt-web's Gate, behind testing.",
+      "text": "PreviewGate, with the access key read through kkt-admission-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
       "title": "Gate"
      },
      {
       "items": [
        "kkt-api-sim::Preview",
-       "kkt-entropy::SeededEntropy"
+       "kkt-entropy::SeededEntropy",
+       "kkt-shutdown::Shutdown"
       ],
-      "text": "kkt-api-sim's Preview simulates a swarm from SeededEntropy and the seed, and implements the parts of kkt-api-agent the page uses.",
+      "text": "kkt-api-sim's Preview simulates a swarm from SeededEntropy and the seed, and is an OperatorApi; its feed runs until the stop.",
       "title": "World"
      },
      {
       "items": [
-       "kkt-web::router",
-       "kkt-shutdown::Shutdown",
+       "kkt-server::page",
+       "kkt-server-listen::listen",
        "kkt-shutdown-os::StopSignals"
       ],
-      "text": "kkt-web's router serves the page until a stop signal.",
+      "text": "kkt-server's page builds the page alone, and kkt-server-listen serves it until a stop signal.",
       "title": "Serve"
      }
     ],
-    "title": "the web preview (example)",
+    "title": "the web preview",
     "wiring": [
      {
       "crate": "kkt-api-sim",
@@ -1443,32 +1455,8 @@ window.KKT_PROPOSED = {
       "status": "decided",
       "to": [
        {
-        "at": "PreviewGate::with_key",
-        "param": "clock"
-       },
-       {
-        "at": "PreviewGate::open",
-        "param": "clock"
-       },
-       {
         "at": "Preview::new",
         "param": "clock"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-api-sim",
-      "impl": "kkt-entropy-os::OsEntropy",
-      "note": "the gate's session IDs",
-      "status": "decided",
-      "to": [
-       {
-        "at": "PreviewGate::with_key",
-        "param": "entropy"
-       },
-       {
-        "at": "PreviewGate::open",
-        "param": "entropy"
        }
       ]
      },
@@ -1486,24 +1474,58 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-web",
-      "impl": "kkt-api-sim::PreviewGate",
+      "impl": "kkt-clock-system::SystemClock",
       "status": "decided",
       "to": [
        {
-        "at": "router",
-        "param": "gate"
+        "at": "Sessions::new",
+        "param": "clock"
        }
       ]
      },
      {
       "crate": "kkt-web",
-      "impl": "kkt-api-sim::Preview",
-      "note": "the simulated application, as kkt-api-agent's Api",
+      "impl": "kkt-entropy-os::OsEntropy",
+      "note": "the sessions' IDs",
       "status": "decided",
       "to": [
        {
-        "at": "router",
+        "at": "Sessions::new",
+        "param": "entropy"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-server",
+      "impl": "kkt-api-sim::PreviewGate",
+      "status": "decided",
+      "to": [
+       {
+        "at": "page",
+        "param": "gate"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-server",
+      "impl": "kkt-api-sim::Preview",
+      "note": "the simulated application, as kkt-api-operator's OperatorApi",
+      "status": "decided",
+      "to": [
+       {
+        "at": "page",
         "param": "api"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-server",
+      "impl": "kkt-logs-os::TracingLog",
+      "status": "decided",
+      "to": [
+       {
+        "at": "page",
+        "param": "log"
        }
       ]
      }
@@ -1857,12 +1879,30 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-api-sim",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-api-sim",
     "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
     ],
     "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-entropy"
    },
    {
     "from": "kkt-api-sim",
@@ -1890,6 +1930,24 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-names"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-shutdown"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-web"
    },
    {
     "from": "kkt-api-sim",
@@ -2007,7 +2065,7 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-fake-product",
-    "kind": "dev",
+    "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
@@ -2319,6 +2377,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-agent"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
@@ -2535,15 +2602,6 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-mcp",
     "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-api-sim"
-   },
-   {
-    "from": "kkt-mcp",
-    "kind": "dev",
     "role": "wires",
     "statuses": [
      "decided"
@@ -2720,6 +2778,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-server",
     "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-api-sim"
+   },
+   {
+    "from": "kkt-server",
+    "kind": "dev",
     "role": "wires",
     "statuses": [
      "decided"
@@ -2734,6 +2801,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-entropy"
+   },
+   {
+    "from": "kkt-server",
+    "kind": "dev",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-events"
    },
    {
     "from": "kkt-server",
@@ -2986,7 +3062,16 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-web-preview",
     "kind": "normal",
-    "role": "wires",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-admission-os"
+   },
+   {
+    "from": "kkt-web-preview",
+    "kind": "normal",
+    "role": "uses",
     "statuses": [
      "decided"
     ],
@@ -2994,16 +3079,7 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web-preview",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-clock"
-   },
-   {
-    "from": "kkt-web-preview",
-    "kind": "dev",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
@@ -3012,8 +3088,8 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web-preview",
-    "kind": "dev",
-    "role": "uses",
+    "kind": "normal",
+    "role": "wires",
     "statuses": [
      "decided"
     ],
@@ -3021,7 +3097,7 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web-preview",
-    "kind": "dev",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
@@ -3030,7 +3106,7 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web-preview",
-    "kind": "dev",
+    "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
@@ -3039,12 +3115,48 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web-preview",
-    "kind": "dev",
+    "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
     ],
-    "to": "kkt-shutdown"
+    "to": "kkt-log"
+   },
+   {
+    "from": "kkt-web-preview",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-logs"
+   },
+   {
+    "from": "kkt-web-preview",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-logs-os"
+   },
+   {
+    "from": "kkt-web-preview",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-server"
+   },
+   {
+    "from": "kkt-web-preview",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-server-listen"
    },
    {
     "from": "kkt-web-preview",
@@ -3057,17 +3169,16 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kkt-web-preview",
-    "kind": "dev",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
-     "decided",
-     "follows"
+     "decided"
     ],
     "to": "kkt-shutdown-os"
    },
    {
     "from": "kkt-web-preview",
-    "kind": "dev",
+    "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
@@ -3195,8 +3306,12 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "items_gone": [
+     "DockerError",
+     "KeyCopy",
+     "Login",
      "LoginLink",
-     "OsHost"
+     "OsHost",
+     "State"
     ],
     "items_new": [
      "ContainerConfig",
@@ -3242,7 +3357,8 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "items_gone": [
-     "OsProber"
+     "OsProber",
+     "SETUP_CHECK"
     ],
     "items_new": [
      "KEY_CHECK",
@@ -3379,8 +3495,7 @@ window.KKT_PROPOSED = {
      "CORE",
      "Db",
      "DefaultWording",
-     "Deps",
-     "NewServerRun",
+     "Startup",
      "legacy",
      "schema",
      "start"
@@ -3405,7 +3520,9 @@ window.KKT_PROPOSED = {
      "listen",
      "record_run"
     ],
-    "items_new": [],
+    "items_new": [
+     "new_server_run"
+    ],
     "kind": "normal",
     "roles_after": [
      "uses",
@@ -3415,7 +3532,9 @@ window.KKT_PROPOSED = {
      "uses",
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-server"
    },
    {
@@ -3478,27 +3597,44 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "items_gone": [
      "Ask",
+     "KeyFix",
      "Question",
-     "unanswered"
+     "ServerFix",
+     "key_fix",
+     "record_path",
+     "unanswered",
+     "unfinished_path"
     ],
     "items_new": [
      "Lines",
+     "admin_key_line",
      "ask::Prompter",
-     "connection::Connection",
-     "connection::ConnectionOptions",
+     "client_key",
+     "configured_name_pack_line",
+     "connection",
+     "connection::admin_connection",
+     "connection::admin_endpoint",
      "connection::client_connection",
      "connection::recorded_connection",
      "connection::serve_connection",
      "credential_file_check",
-     "data_dir",
      "default_db",
      "docker_folder",
-     "docker_url",
-     "local_operator_key",
-     "local_web_key",
+     "docker_status_lines",
+     "doctor_checks",
+     "lane_reports::Outcome",
+     "lane_reports::docker_limit",
+     "lane_reports::import_report",
      "recorded_setup",
-     "server_key_file_name",
-     "unfinished_mode"
+     "service_backup_folder",
+     "service_upgrade_error",
+     "setup_lane_limit",
+     "staged_client_key",
+     "uninstall_line",
+     "uninstall_record",
+     "upgrade_backup_folder",
+     "waiting_note",
+     "web_key_line"
     ],
     "kind": "normal",
     "roles_after": [
@@ -3671,7 +3807,9 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-fake-product",
     "items_gone": [],
-    "items_new": [],
+    "items_new": [
+     "CreateError"
+    ],
     "kind": "normal",
     "roles_after": [
      "uses",
@@ -3680,7 +3818,9 @@ window.KKT_PROPOSED = {
     "roles_before": [
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-db-sqlite"
    },
    {
@@ -3740,8 +3880,8 @@ window.KKT_PROPOSED = {
     "items_new": [
      "Db",
      "DefaultWording",
-     "Deps",
      "NewServerRun",
+     "Startup",
      "schema",
      "start"
     ],
@@ -3889,7 +4029,9 @@ window.KKT_PROPOSED = {
      "listen",
      "record_run"
     ],
-    "items_new": [],
+    "items_new": [
+     "new_server_run"
+    ],
     "kind": "normal",
     "roles_after": [
      "uses",
@@ -3899,7 +4041,9 @@ window.KKT_PROPOSED = {
      "uses",
      "wires"
     ],
-    "statuses": [],
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-server"
    },
    {
@@ -4100,24 +4244,6 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-events"
-   },
-   {
-    "from": "kkt-server",
-    "items_gone": [],
-    "items_new": [
-     "Settings"
-    ],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [
-     "decided"
-    ],
     "to": "kkt-mcp"
    },
    {
@@ -4184,7 +4310,7 @@ window.KKT_PROPOSED = {
     ],
     "items_new": [
      "DefaultWording",
-     "Settings"
+     "NewServerRun"
     ],
     "kind": "normal",
     "roles_after": [
@@ -4204,9 +4330,12 @@ window.KKT_PROPOSED = {
     "from": "kkt-server",
     "items_gone": [
      "ChannelAction",
+     "Left",
+     "LiveEvent",
      "Source",
      "SourceError",
-     "Sources"
+     "Sources",
+     "testing::ChannelHidden"
     ],
     "items_new": [],
     "kind": "dev",
@@ -4242,6 +4371,7 @@ window.KKT_PROPOSED = {
      "LaneVersion",
      "LaneView",
      "LanesView",
+     "LiveEvent",
      "MemoryEntry",
      "Message",
      "Overview",
@@ -4252,7 +4382,8 @@ window.KKT_PROPOSED = {
      "SourceError",
      "Sources",
      "StaleAgent",
-     "StaleHidden"
+     "StaleHidden",
+     "live_event"
     ],
     "items_new": [
      "Access",
@@ -4334,31 +4465,6 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-web",
     "items_gone": [
-     "AgentHidden",
-     "ChannelHidden",
-     "ChannelMembers",
-     "Events",
-     "Joined",
-     "Left",
-     "NewAgent",
-     "NewChannel",
-     "NewMessage",
-     "SwarmEvents"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-events"
-   },
-   {
-    "from": "kkt-web",
-    "items_gone": [
      "Entropy",
      "OPERATOR",
      "agent_handle",
@@ -4383,6 +4489,24 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-names"
+   },
+   {
+    "from": "kkt-web",
+    "items_gone": [
+     "StopSignals"
+    ],
+    "items_new": [],
+    "kind": "dev",
+    "roles_after": [
+     "uses"
+    ],
+    "roles_before": [
+     "uses"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-shutdown"
    }
   ],
   "crates": [
@@ -4416,14 +4540,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "machine::connection::serve_connection moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::local_web_key moves to kkt-setup: the order in which keys are looked for, over texts the program reads"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::local_operator_key moves to kkt-setup"
      },
      {
       "status": "decided",
@@ -4868,6 +4984,42 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program's credential check reads the client's CredentialFileFacts and gives its PrivateMode; read_secret, make_private and the lock are the client's own, behind watch_token and StateFile (step 7.4)"
+     },
+     {
+      "status": "decided",
+      "text": "PATH once per client check, paths and the unfinished note (step 7.3a)"
+     },
+     {
+      "status": "decided",
+      "text": "connection selection is kkt-setup's, over the program's ConnectionSource (step 7.3a)"
+     },
+     {
+      "status": "decided",
+      "text": "the doctor's checks, the status lines, the backup folders, uninstall's record, the client key's name, the lane limit and the import report are kkt-setup's, with the fixes and paths they use; the program keeps local_web_key and local_operator_key, which read in kkt-setup's order and ask its operator_key and configured_key (step 7.3b)"
+     },
+     {
+      "status": "decided",
+      "text": "the doctor's checks of kkt in Docker are kkt-setup's (step 7.3b)"
+     },
+     {
+      "status": "decided",
+      "text": "the setup check's name is kkt-setup's own (step 7.3b)"
+     },
+     {
+      "status": "decided",
+      "text": "it makes the events bus and stops it with the server (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it starts the rules with a Startup (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-server's new_server_run gives the NewServerRun (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it maps the run for start (step 5.6a)"
      }
     ]
    },
@@ -5139,6 +5291,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new enum LockRefused"
+     },
+     {
+      "status": "decided",
+      "text": "new struct HttpReply"
      },
      {
       "status": "decided",
@@ -5513,6 +5669,46 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new enum Notice"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Notices"
+     },
+     {
+      "status": "decided",
+      "text": "new type NextNotice"
+     },
+     {
+      "status": "decided",
+      "text": "new struct NewAgent"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ChannelCreated"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Joined"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Left"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ChannelHidden"
+     },
+     {
+      "status": "decided",
+      "text": "new struct AgentHidden"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ChannelMembers"
+     },
+     {
+      "status": "decided",
       "text": "the operator level takes and returns the shared records"
      },
      {
@@ -5538,6 +5734,106 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "PREVIEW_AGENTS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_BURST_MAX comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_BURST_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_CHANNELS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_HIDE_CHANNEL_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_HISTORY comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_LEAVE_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_LONG_MESSAGE_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_MESSAGES comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_NEW_AGENT_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_NEW_CHANNEL_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_RECOVERY_CODE_CHARS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_STALE_HOURS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_UNREGISTER_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewSettings comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate::with_key no longer takes clock: the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate::with_key no longer takes entropy: the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate::open no longer takes clock: the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate::open no longer takes entropy: the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "Preview gains swarms: the swarms it has made a world for, for kkt-web's viewing test (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate gains access: whether its viewers sign in, for the page's Sessions (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "new enum Happening"
+     },
+     {
+      "status": "decided",
+      "text": "new const PREVIEW_SWARM"
+     },
+     {
+      "status": "decided",
+      "text": "new struct SettingError"
+     },
+     {
+      "status": "decided",
+      "text": "new fn preview_viewer"
+     },
+     {
+      "status": "decided",
       "text": "Preview implements kkt-api-agent::Api, kkt-api-agent::Channels, kkt-api-operator::Views, kkt-api-operator::Changes, kkt-api-operator::Lanes, kkt-api-operator::Server: the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused"
      },
      {
@@ -5546,7 +5842,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the simulated application builds kkt-web's live events and gate answers; its data are kkt-api-agent's records"
+      "text": "the simulated application answers kkt-web's gate; its data are kkt-api-agent's records (step 6.2)"
      },
      {
       "status": "decided",
@@ -5563,6 +5859,30 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Preview implements the operator level the page uses"
+     },
+     {
+      "status": "decided",
+      "text": "Preview::new takes the stop that ends its live notices, and run the one that ends its feed (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its world and its gate answer kkt-web's Gate with kkt-web's records (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "Preview is an OperatorApi, with notices of its own world (steps 6.2 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "the page scenarios over Preview, and the tests of its world, feed and gate, are its unit tests (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests use the fixed clock (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests use seeded and counting entropy (step 6.3)"
      }
     ]
    },
@@ -5939,6 +6259,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Host gains is_file: whether a path is a file, not a folder, as an installed file must be (step 7.3a)"
+     },
+     {
+      "status": "decided",
       "text": "DOCKER_LINK_WAIT_POLLS is no longer public: a field of its Settings, whose DEFAULT the program passes (step 3.1c-1)"
      },
      {
@@ -6159,6 +6483,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "DB_READERS is no longer public: a field of its Options, whose DEFAULT the program passes (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "new enum CreateError"
      },
      {
       "status": "decided",
@@ -6461,6 +6789,26 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-settings in its code: the fake product gives each part its own settings (its Settings) and gathers none (steps 3.1d to 3.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-agent-client in its tests: the dependency is a normal one, with real, which only its integration tests use (step 7.5)"
+     },
+     {
+      "status": "decided",
+      "text": "a normal dependency with real, which only its integration tests use: real is allowed in dev-dependencies only for examples (step 7.5)"
+     },
+     {
+      "status": "decided",
+      "text": "it creates its new database through SqlitePlace::create and keeps its own wording for each CreateError (step 7.5)"
+     },
+     {
+      "status": "decided",
+      "text": "it makes the events bus and stops it with the server (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it starts the rules with a Startup (step 5.6a)"
      }
     ]
    },
@@ -6618,6 +6966,26 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "words the run's settings for kkt-provenance (step 3.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "it names the swarm it starts the rules in, SwarmId::main (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it makes the events bus and stops it with the server (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it starts the rules with a Startup (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-server's new_server_run gives the NewServerRun (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it maps the run for start (step 5.6a)"
      }
     ]
    },
@@ -7006,6 +7374,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests log through the Log they check (step 4.2)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-api-sim in its tests: its tests already use only stand-ins and need nothing the simulation gives (step 6.3)"
      }
     ]
    },
@@ -7463,7 +7835,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Rules loses subscribe: the live notices are Views::subscribe's, which Rules implements over its kkt-events subscription, so no contract names kkt-events (step 6.2)"
+     },
+     {
+      "status": "decided",
       "text": "Rules gains create_swarm: records a new swarm as made by this server run; Swarms::create_swarm forwards to it (step 5.4b)"
+     },
+     {
+      "status": "decided",
+      "text": "Rules gains run_id: the run's ID, for the program's log line (step 5.6a)"
      },
      {
       "status": "decided",
@@ -7487,6 +7867,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Startup"
+     },
+     {
+      "status": "decided",
       "text": "new struct Settings"
      },
      {
@@ -7496,6 +7880,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Db::new takes one database value meeting kkt-db::Backend"
+     },
+     {
+      "status": "decided",
+      "text": "Startup takes wording: the rules' Deps without the run, which start records and fills in (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "Startup takes clock: the rules' Deps without the run, which start records and fills in (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "Startup takes entropy: the rules' Deps without the run, which start records and fills in (step 5.6a)"
      },
      {
       "status": "decided",
@@ -7548,6 +7944,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its operations give their answers as kkt-api-agent's Answer, shared by the three levels (steps 5.4a and 5.3b)"
+     },
+     {
+      "status": "decided",
+      "text": "Rules implements Views::subscribe, adapting its kkt-events subscription to Notices (step 6.2)"
      }
     ]
    },
@@ -7613,6 +8013,18 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "WebViewer is no longer public: the gate admits kkt-web's Viewer record (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "new fn page"
+     },
+     {
+      "status": "decided",
+      "text": "new fn new_server_run"
+     },
+     {
+      "status": "decided",
       "text": "AdmissionGate implements kkt-web::Gate itself: the programs' shared adapter: admits combines kkt-admission's decision with Identify; sign_in asks kkt-admission whether a key is good"
      },
      {
@@ -7626,6 +8038,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Parts::new takes log: where its events go, in place of tracing"
+     },
+     {
+      "status": "decided",
+      "text": "page takes api: the application the page alone shows (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "page takes gate: who may view the page alone (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "page takes log: where the page's events go (step 6.3)"
      },
      {
       "status": "follows",
@@ -7694,6 +8118,26 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it makes the page's sessions with their Access and reads a Session for the gate (step 6.1)"
+     },
+     {
+      "status": "decided",
+      "text": "it mounts the page with the rules as one OperatorApi (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "its page tests run over the simulated application (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-events in its code: the program makes the events bus the rules hear on and gives it to start (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests make the bus for the rules they start (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "new_server_run gives kkt-rules' NewServerRun; Parts takes the Rules start built, not the wording or the rules' settings (step 5.6a)"
      }
     ]
    },
@@ -7974,14 +8418,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::keys::local_web_key comes here from kashkeshet as local_web_key"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::local_operator_key comes here from kashkeshet as local_operator_key"
-     },
-     {
-      "status": "decided",
       "text": "machine::record::docker_url comes here from kashkeshet as docker_url"
      },
      {
@@ -8102,10 +8538,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new fn server_key_file_name"
-     },
-     {
-      "status": "decided",
       "text": "new fn data_dir"
      },
      {
@@ -8154,6 +8586,134 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new mod connection"
+     },
+     {
+      "status": "decided",
+      "text": "new trait connection::ConnectionSource"
+     },
+     {
+      "status": "decided",
+      "text": "new struct connection::ServeConnection"
+     },
+     {
+      "status": "decided",
+      "text": "new fn connection::admin_connection"
+     },
+     {
+      "status": "decided",
+      "text": "new fn connection::admin_endpoint"
+     },
+     {
+      "status": "decided",
+      "text": "new mod doctor_checks"
+     },
+     {
+      "status": "decided",
+      "text": "new struct doctor_checks::DoctorCheck"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::docker_check"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::docker_web_key_check"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::server_fix_text"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::service_check"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::tailscale_login_check"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::unrecorded_check"
+     },
+     {
+      "status": "decided",
+      "text": "new mod lane_reports"
+     },
+     {
+      "status": "decided",
+      "text": "new enum lane_reports::Outcome"
+     },
+     {
+      "status": "decided",
+      "text": "new fn client_key"
+     },
+     {
+      "status": "decided",
+      "text": "new fn uninstall_record"
+     },
+     {
+      "status": "decided",
+      "text": "new fn waiting_note"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::web_key_fix"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::admin_key_fix"
+     },
+     {
+      "status": "decided",
+      "text": "new fn lane_reports::docker_limit"
+     },
+     {
+      "status": "decided",
+      "text": "new fn lane_reports::import_report"
+     },
+     {
+      "status": "decided",
+      "text": "new fn staged_client_key"
+     },
+     {
+      "status": "decided",
+      "text": "new fn upgrade_backup_folder"
+     },
+     {
+      "status": "decided",
+      "text": "new fn service_backup_folder"
+     },
+     {
+      "status": "decided",
+      "text": "new fn uninstall_line"
+     },
+     {
+      "status": "decided",
+      "text": "new fn setup_lane_limit"
+     },
+     {
+      "status": "decided",
+      "text": "new fn web_key_line"
+     },
+     {
+      "status": "decided",
+      "text": "new fn admin_key_line"
+     },
+     {
+      "status": "decided",
+      "text": "new fn configured_name_pack_line"
+     },
+     {
+      "status": "decided",
+      "text": "new fn docker_status_lines"
+     },
+     {
+      "status": "decided",
+      "text": "new fn service_upgrade_error"
+     },
+     {
+      "status": "decided",
       "text": "ask::Prompter::new takes lines: where the questions are asked; the program wires its terminal in"
      },
      {
@@ -8163,6 +8723,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "hashes through kkt-hash, not sha2"
+     },
+     {
+      "status": "decided",
+      "text": "the doctor's and status's lines read what kkt-container found (step 7.3b)"
      }
     ]
    },
@@ -8215,7 +8779,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new fn absolute"
+     },
+     {
+      "status": "decided",
+      "text": "new fn canonicalize"
+     },
+     {
+      "status": "decided",
+      "text": "new fn path_dirs"
+     },
+     {
+      "status": "decided",
+      "text": "new fn write_unfinished"
+     },
+     {
+      "status": "decided",
+      "text": "new fn remove_unfinished"
+     },
+     {
+      "status": "decided",
       "text": "the record and its note are where kkt-setup says"
+     },
+     {
+      "status": "decided",
+      "text": "it reads and writes kkt-setup's Record and Unfinished note (step 7.3a)"
      }
     ]
    },
@@ -8532,6 +9120,34 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "LiveEvent is no longer public: the live feed serializes kkt-api-operator's Notice records (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "live_event is no longer public: the live feed serializes kkt-api-operator's Notice records (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "NewAgent is no longer public: kkt-api-operator's NewAgent is the notice record (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "NewChannel is no longer public: kkt-api-operator's ChannelCreated is the notice record (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "Joined is no longer public: kkt-api-operator's Joined is the notice record (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "Left is no longer public: kkt-api-operator's Left is the notice record (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "testing::ChannelHidden is no longer public: the scenarios use kkt-api-operator's ChannelHidden (step 6.2)"
+     },
+     {
+      "status": "decided",
       "text": "new struct PageLimits"
      },
      {
@@ -8552,11 +9168,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Viewer"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::App"
+     },
+     {
+      "status": "decided",
       "text": "new struct Settings"
      },
      {
       "status": "decided",
-      "text": "router takes api: the application, which the page calls directly; each viewer's swarm through Api::in_swarm"
+      "text": "router takes api: the application as one OperatorApi, which the page calls directly; each request's viewer's swarm through in_swarm_operator (step 6.2)"
      },
      {
       "status": "decided",
@@ -8621,6 +9245,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests read the captured entries (step 4.2)"
+     },
+     {
+      "status": "decided",
+      "text": "it takes the application as one OperatorApi and hears its live updates as Notices (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-events in its code: the page hears notices through kkt-api-operator's Notices; only the preview used kkt-events, and it is kkt-api-sim (steps 6.2 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its viewing test reads the preview's swarms through OperatorApi (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests stop the simulated feed by hand (step 6.3)"
      }
     ]
    },
@@ -8629,7 +9269,7 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "new logic crate, from kkt-web"
+      "text": "new composition crate, from kkt-web"
      },
      {
       "status": "decided",
@@ -8649,75 +9289,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "PREVIEW_AGENTS comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
       "text": "PREVIEW_BIND comes here from kkt-config, private"
      },
      {
       "status": "decided",
-      "text": "PREVIEW_BURST_MAX comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_BURST_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_CHANNELS comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_HIDE_CHANNEL_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_HISTORY comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_LEAVE_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_LONG_MESSAGE_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_MESSAGES comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_NEW_AGENT_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_NEW_CHANNEL_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_RECOVERY_CODE_CHARS comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
       "text": "PREVIEW_SEED comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_STALE_HOURS comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_UNREGISTER_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PreviewSettings comes here from kkt-config"
-     },
-     {
-      "status": "decided",
-      "text": "new struct SettingError"
      },
      {
       "status": "decided",
@@ -8758,6 +9334,90 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the preview program keeps the operating system's randomness"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-clock in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-clock-system in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-entropy in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-entropy-os in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-hosts in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-shutdown in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-shutdown-os in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-web in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the real clock"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the sessions' randomness"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the simulated world, repeatable from its seed"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the stop signals"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the host names it answers to"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the page's settings and sessions"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): it serves the page alone, without naming axum"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): binding the socket"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): its log, on standard error"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the log's level"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): what it logs itself"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): its key file"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the preview's settings and their error"
      }
     ]
    }
@@ -9106,6 +9766,12 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-server",
     "kind": "normal",
+    "role": "uses",
+    "to": "kkt-events"
+   },
+   {
+    "from": "kkt-server",
+    "kind": "normal",
     "role": "wires",
     "to": "kkt-format"
    },
@@ -9185,6 +9851,12 @@ window.KKT_PROPOSED = {
     "from": "kkt-web",
     "kind": "normal",
     "role": "uses",
+    "to": "kkt-events"
+   },
+   {
+    "from": "kkt-web",
+    "kind": "normal",
+    "role": "uses",
     "to": "kkt-shutdown"
    },
    {
@@ -9192,12 +9864,6 @@ window.KKT_PROPOSED = {
     "kind": "dev",
     "role": "wires",
     "to": "kkt-names"
-   },
-   {
-    "from": "kkt-web",
-    "kind": "dev",
-    "role": "uses",
-    "to": "kkt-shutdown"
    }
   ]
  },
@@ -9244,13 +9910,13 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-api-operator": {
-    "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (Overview, AgentActivity, ActivityCount, ChannelView, ChannelActivity, LaneHistory, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange), and `OperatorApi`, every operation the operator may use in one swarm, the agent level's included. It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here.",
+    "concern": "What the human who runs the server may do: the web page's operator powers, by area (Views, Changes, Lanes, Server), with the records only they use (Overview, AgentActivity, ActivityCount, ChannelView, ChannelActivity, LaneHistory, StaleAgent, StaleHidden, Kept, KeptReason, ServerRunInfo, LaneSave, ChannelChange), `Notices`, the swarm's live notices that `Views::subscribe` gives, each a `Notice` with its own records (NewAgent, ChannelCreated, Joined, Left, ChannelHidden, AgentHidden, ChannelMembers; a message is kkt-api-agent's Message), and `OperatorApi`, every operation the operator may use in one swarm, the agent level's and Views included. It depends on kkt-api-agent for the shared records. kkt-rules implements it; the web page and the operator operations /mcp-admin calls use it. Open question: lanes, the server announcement and server runs are server-wide, yet its Lanes and Server traits let a swarm's operator change them; where several swarms each have an operator, changing them may belong in kkt-api-admin, with reading staying here.",
     "kind": "contract",
     "layer": "core",
     "status": "decided"
    },
    "kkt-api-sim": {
-    "concern": "A simulated application, for tests and the web preview: `Preview`, which implements the kkt-api crates' contracts over a swarm made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, with an access key or open. Both are behind `testing`. kkt-web's and kkt-mcp's tests use it.",
+    "concern": "A simulated application, for tests and the web preview: `Preview`, which implements the kkt-api crates' contracts over a swarm made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, with an access key or open. Both are behind `testing`, with the preview's settings (`PreviewSettings`, its `SettingError`) and the viewer kkt-web's viewing test uses. Its simulated world keeps records of its own, which it translates to the kkt-api crates' records, and refuses the operations the page never asks. The preview's tests, the page scenarios over `Preview` among them, are its unit tests. kkt-web's and kkt-server's tests use it (step 6.3).",
     "kind": "test support",
     "layer": "dev",
     "status": "decided"
@@ -9488,7 +10154,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-rules": {
-    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm: it is the implementation of the application's shared contracts, kkt-api-agent, kkt-api-operator and kkt-api-admin, through Rules, and provides the default wording, DefaultWording, as its own OperatorWording. It holds the core's data privately: its queries as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. kkt-store merged into it; the database stays private.",
+    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm: it is the implementation of the application's shared contracts, kkt-api-agent, kkt-api-operator and kkt-api-admin, through Rules, and provides the default wording, DefaultWording, as its own OperatorWording. Its `start` records a server run, then builds the Rules from a `Startup`, the rules' `Deps` without the run. It holds the core's data privately: its queries as kkt-db operations on a Db it is given, the core's tables as migrations with their history from before kkt-db, and the check that swarms stay apart. kkt-store merged into it; the database stays private.",
     "kind": "logic",
     "layer": "core",
     "must_not": "Name a database or use a database library: it reaches the database through kkt-db's contract, which the program fills with the SQLite backend.",
@@ -9507,7 +10173,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-server": {
-    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits. Binding the socket is in kkt-server-listen.",
+    "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits, and `page` builds the web page alone, over any `OperatorApi` and gate, for a program that serves only the page (kkt-web-preview). Binding the socket is in kkt-server-listen.",
     "kind": "composition",
     "layer": "assembly",
     "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
@@ -9540,14 +10206,14 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-setup": {
-    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server and key this machine's clients use (`kkt switch`), how setup asks its questions (its `Prompter` over its own `Lines`), and what status, upgrade, lanes, backup, key files and `kkt doctor` decide. It reads no files and runs nothing: the program does, through the effect crates, and carries out what is decided here.",
+    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server and key this machine's clients use (`kkt switch`; `connection`, over the reads its `ConnectionSource` asks for in their original order), how setup asks its questions (its `Prompter` over its own `Lines`), and what status, upgrade, uninstall, lanes, backup, key files and `kkt doctor` decide: the status lines, the backup folders, the record uninstall leaves, the per-server client key's name, the lane limit, the import report, and the doctor's checks and fixes as plain `DoctorCheck`s, which the program adapts to kkt-diagnostics' report. It reads no files and runs nothing: the program does, through the effect crates, and carries out what is decided here.",
     "kind": "logic",
     "layer": "operations",
     "must_not": "Read files or run anything: the program does, and carries out what is decided here.",
     "status": "decided"
    },
    "kkt-setup-os": {
-    "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path; and finding a program on `PATH`. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container-os, key files through kkt-admission-os.",
+    "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path, and absolute and canonical paths; and one snapshot of `PATH`, in which it finds programs. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container-os, key files through kkt-admission-os.",
     "kind": "effect",
     "layer": "operations",
     "status": "decided"
@@ -9579,7 +10245,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-web": {
-    "concern": "The human's pages, over the application's operations: it calls kkt-api-agent and kkt-api-operator directly and renders their records. Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is. It keeps the sign-in sessions and form tokens itself (`Sessions`, generic over what the gate says a key admits, and told by its `Access` whether sign-in is required), with their lifetime in its `Settings`, the page-only limits (`PageLimits`), and its live updates, which it draws from kkt-api-operator's subscribe. The page scenarios every implementation must pass (`testing`).",
+    "concern": "The human's pages, over the application's operations: it calls kkt-api-agent and kkt-api-operator directly and renders their records. Its own contract keeps only what is web-specific: `Gate` says whether a key lets a viewer in and who a viewer is, as a `Viewer` record (a swarm and an operator); the page takes the application as one `OperatorApi` and calls it in each viewer's swarm. It keeps the sign-in sessions and form tokens itself (`Sessions`, generic over what the gate says a key admits, and told by its `Access` whether sign-in is required), with their lifetime in its `Settings`, the page-only limits (`PageLimits`, its `Settings`' `page`), and its live updates, which it draws from kkt-api-operator's `Notices` and serializes itself. The page scenarios every implementation must pass (`testing`, over a `testing::App`).",
     "kind": "logic",
     "layer": "surfaces",
     "must_not": "Depend on the rules, the store, admission or identity, or on an implementation crate: it uses the agent and operator levels' contracts, and kkt-server implements its Gate.",
@@ -9587,8 +10253,8 @@ window.KKT_PROPOSED = {
    },
    "kkt-web-preview": {
     "concern": "The web preview program: it serves kkt-web's page over kkt-api-sim's simulated application, from flags (the address, the seed and the preview's settings). A dev-only program that turns kkt-api-sim's testing feature on, since dev tooling counts as test code.",
-    "kind": "logic",
-    "layer": "surfaces",
+    "kind": "composition",
+    "layer": "programs",
     "status": "decided"
    }
   },
@@ -9697,7 +10363,7 @@ window.KKT_PROPOSED = {
     },
     {
      "crate": "kkt-web",
-     "doc": "kkt-web's share of today's Limits: web_page_messages, web_member_excerpt_chars and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules.",
+     "doc": "kkt-web's share of today's Limits: page (a PageLimits of web_page_messages and web_member_excerpt_chars: step 6.2) and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules.",
      "kind": "struct",
      "path": "Settings"
     }
@@ -11088,14 +11754,14 @@ window.KKT_PROPOSED = {
     "how": "constant, private",
     "item": "PREVIEW_AGENTS",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
@@ -11116,154 +11782,154 @@ window.KKT_PROPOSED = {
     "how": "constant, private",
     "item": "PREVIEW_BURST_MAX",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
     "how": "constant, private",
     "item": "PREVIEW_BURST_ONE_IN",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
     "how": "constant, private",
     "item": "PREVIEW_CHANNELS",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
     "how": "constant, private",
     "item": "PREVIEW_HIDE_CHANNEL_ONE_IN",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
     "how": "constant, private",
     "item": "PREVIEW_HISTORY",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
     "how": "constant, private",
     "item": "PREVIEW_LEAVE_ONE_IN",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
     "how": "constant, private",
     "item": "PREVIEW_LONG_MESSAGE_ONE_IN",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
     "how": "constant, private",
     "item": "PREVIEW_MESSAGES",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
     "how": "constant, private",
     "item": "PREVIEW_NEW_AGENT_ONE_IN",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
     "how": "constant, private",
     "item": "PREVIEW_NEW_CHANNEL_ONE_IN",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
     "how": "constant, private",
     "item": "PREVIEW_RECOVERY_CODE_CHARS",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
@@ -11284,37 +11950,37 @@ window.KKT_PROPOSED = {
     "how": "constant, private",
     "item": "PREVIEW_STALE_HOURS",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
     "how": "constant, private",
     "item": "PREVIEW_UNREGISTER_ONE_IN",
     "kind": "const",
-    "note": "the preview's simulation, with the preview (proposed: kkt-web-preview)",
+    "note": "the preview's simulation, with the preview (proposed: kkt-api-sim, step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ],
     "user_moves": {
-     "kkt-web": "kkt-web-preview"
+     "kkt-web": "kkt-api-sim"
     }
    },
    {
-    "how": "injected, public",
+    "how": "injected, public, test-visible (behind testing)",
     "item": "PreviewSettings",
     "kind": "struct",
-    "note": "the preview's settings, with the preview (proposed: kkt-web-preview)",
+    "note": "the simulation's settings, with the simulation in kkt-api-sim (step 6.3)",
     "test_only": [],
-    "to": "kkt-web-preview",
+    "to": "kkt-api-sim",
     "used_by": [
      "kkt-web"
     ]
@@ -12265,6 +12931,16 @@ window.KKT_PROPOSED = {
       "path": "machine::database::pending_upgrade"
      },
      {
+      "doc": "Where this machine's web or admin key file is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
+      "kind": "fn",
+      "path": "machine::keys::local_operator_key"
+     },
+     {
+      "doc": "This machine's web key file, if it runs a server.",
+      "kind": "fn",
+      "path": "machine::keys::local_web_key"
+     },
+     {
       "doc": "The setup record, the note of an unfinished setup, and finding a server kkt installed here with no record.",
       "kind": "mod",
       "path": "machine::record"
@@ -12412,14 +13088,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "machine::connection::serve_connection moves to kkt-setup"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::local_web_key moves to kkt-setup: the order in which keys are looked for, over texts the program reads"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::local_operator_key moves to kkt-setup"
      },
      {
       "status": "decided",
@@ -12864,6 +13532,42 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program's credential check reads the client's CredentialFileFacts and gives its PrivateMode; read_secret, make_private and the lock are the client's own, behind watch_token and StateFile (step 7.4)"
+     },
+     {
+      "status": "decided",
+      "text": "PATH once per client check, paths and the unfinished note (step 7.3a)"
+     },
+     {
+      "status": "decided",
+      "text": "connection selection is kkt-setup's, over the program's ConnectionSource (step 7.3a)"
+     },
+     {
+      "status": "decided",
+      "text": "the doctor's checks, the status lines, the backup folders, uninstall's record, the client key's name, the lane limit and the import report are kkt-setup's, with the fixes and paths they use; the program keeps local_web_key and local_operator_key, which read in kkt-setup's order and ask its operator_key and configured_key (step 7.3b)"
+     },
+     {
+      "status": "decided",
+      "text": "the doctor's checks of kkt in Docker are kkt-setup's (step 7.3b)"
+     },
+     {
+      "status": "decided",
+      "text": "the setup check's name is kkt-setup's own (step 7.3b)"
+     },
+     {
+      "status": "decided",
+      "text": "it makes the events bus and stops it with the server (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it starts the rules with a Startup (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-server's new_server_run gives the NewServerRun (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it maps the run for start (step 5.6a)"
      }
     ],
     "released_program": true,
@@ -13427,7 +14131,7 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text, a failed read as ReadError with its path; reading any one key or name file; whether one is there; making a key's folder; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts (step 7.2).",
+      "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text, a failed read as ReadError with its path; reading any one key or name file; whether one is there, as a file (is_file) or with a failed probe kept as an error (try_exists); making a key's folder; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts (step 7.2).",
       "feature": "real",
       "kind": "struct",
       "methods": [
@@ -13436,11 +14140,13 @@ window.KKT_PROPOSED = {
        "admin_names",
        "create_dir_all",
        "exists",
+       "is_file",
        "keep_staged",
        "new",
        "read",
        "read_optional",
        "remove",
+       "try_exists",
        "web"
       ],
       "path": "KeyFiles",
@@ -13645,10 +14351,30 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Plain HTTP requests, for the fake product's tests: a GET or POST to a URL, with an optional bearer key, giving the status, headers and body.",
+      "doc": "Plain HTTP requests, for the fake product's tests: a GET or POST, with redirects off and TCP_NODELAY on, giving an HttpReply whose HTTP library stays private (step 7.5).",
       "feature": "real",
       "kind": "struct",
+      "methods": [
+       "get",
+       "new",
+       "post"
+      ],
       "path": "Http",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A response whose HTTP library and streaming body stay private (step 7.5).",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "bytes_stream",
+       "header",
+       "header_text",
+       "status",
+       "text"
+      ],
+      "path": "HttpReply",
       "proposed_item": true,
       "status": "decided"
      },
@@ -13867,6 +14593,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new enum LockRefused"
+     },
+     {
+      "status": "decided",
+      "text": "new struct HttpReply"
      },
      {
       "status": "decided",
@@ -15141,6 +15871,10 @@ window.KKT_PROPOSED = {
      },
      {
       "implementors": [],
+      "trait": "Notices"
+     },
+     {
+      "implementors": [],
       "trait": "OperatorApi"
      },
      {
@@ -15191,6 +15925,13 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "An agent unregistered or was hidden by the operator, leaving every channel it was in (step 6.2).",
+      "kind": "struct",
+      "path": "AgentHidden",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "What the operator changes: creating and changing channels as the operator, hiding agents, finding and hiding stale agents, and new recovery codes.",
       "kind": "trait",
       "methods": [
@@ -15234,9 +15975,37 @@ window.KKT_PROPOSED = {
       ]
      },
      {
+      "doc": "A channel was created, open or closed (step 6.2).",
+      "kind": "struct",
+      "path": "ChannelCreated",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A channel was hidden, by its owner or the operator (step 6.2).",
+      "kind": "struct",
+      "path": "ChannelHidden",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A channel and its member count (step 6.2).",
+      "kind": "struct",
+      "path": "ChannelMembers",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "One channel in full, as the operator sees it: its members, their latest messages and a page of messages (step 5.4a).",
       "kind": "struct",
       "path": "ChannelView",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "An agent joined a channel, or was added to it (step 6.2).",
+      "kind": "struct",
+      "path": "Joined",
       "proposed_item": true,
       "status": "decided"
      },
@@ -15296,6 +16065,44 @@ window.KKT_PROPOSED = {
        "retire_lane"
       ],
       "path": "Lanes",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "An agent left a channel, or was removed from it (step 6.2).",
+      "kind": "struct",
+      "path": "Left",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "An agent registered (step 6.2).",
+      "kind": "struct",
+      "path": "NewAgent",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The next notice, or `None` once there will be no more (step 6.2).",
+      "kind": "type",
+      "path": "NextNotice",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "What the operator hears as it happens in its swarm: a new message, a new agent or channel, an agent joining or leaving a channel, and an agent or channel hidden (step 6.2).",
+      "kind": "enum",
+      "path": "Notice",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "One listener's notices, from when it subscribed (`Views::subscribe`) (step 6.2).",
+      "kind": "trait",
+      "methods": [
+       "next"
+      ],
+      "path": "Notices",
       "proposed_item": true,
       "status": "decided"
      },
@@ -15368,7 +16175,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "What the operator sees: the overview, with each channel's activity counted in buckets of the size and over the window the caller gives; hidden channels; one channel or agent in full; and the swarm's live notices (subscribe hears every channel, closed ones included).",
+      "doc": "What the operator sees: the overview, with each channel's activity counted in buckets of the size and over the window the caller gives; hidden channels; one channel or agent in full; and the swarm's live notices (subscribe gives Notices, which hear every channel, closed ones included, and need Read; step 6.2).",
       "kind": "trait",
       "methods": [
        "overview",
@@ -15466,6 +16273,46 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new enum Notice"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Notices"
+     },
+     {
+      "status": "decided",
+      "text": "new type NextNotice"
+     },
+     {
+      "status": "decided",
+      "text": "new struct NewAgent"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ChannelCreated"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Joined"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Left"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ChannelHidden"
+     },
+     {
+      "status": "decided",
+      "text": "new struct AgentHidden"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ChannelMembers"
+     },
+     {
+      "status": "decided",
       "text": "the operator level takes and returns the shared records"
      },
      {
@@ -15540,13 +16387,30 @@ window.KKT_PROPOSED = {
     ],
     "items": [
      {
+      "doc": "What one step of the feed did (step 6.3).",
+      "feature": "testing",
+      "kind": "enum",
+      "path": "Happening",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The preview's one swarm (step 6.3).",
+      "feature": "testing",
+      "kind": "const",
+      "path": "PREVIEW_SWARM",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Simulated data for the web page.",
       "feature": "testing",
       "kind": "struct",
       "methods": [
        "new",
        "run",
-       "step"
+       "step",
+       "swarms"
       ],
       "moved_from": "kkt-web-preview",
       "path": "Preview",
@@ -15557,11 +16421,43 @@ window.KKT_PROPOSED = {
       "feature": "testing",
       "kind": "struct",
       "methods": [
+       "access",
        "open",
        "with_key"
       ],
       "moved_from": "kkt-web-preview",
       "path": "PreviewGate",
+      "status": "decided"
+     },
+     {
+      "doc": "What the preview's operator can change.",
+      "feature": "testing",
+      "fields": [
+       "steps_per_minute",
+       "page_messages"
+      ],
+      "kind": "struct",
+      "methods": [
+       "check"
+      ],
+      "moved_from": "kkt-config",
+      "path": "PreviewSettings",
+      "status": "decided"
+     },
+     {
+      "doc": "Why the simulation refuses a setting or a key: the setting's name and the rule it breaks (step 6.3).",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "SettingError",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The preview's viewer: its one swarm's operator, who may read, change and issue recovery codes, as the server's web page does (step 6.3).",
+      "feature": "testing",
+      "kind": "fn",
+      "path": "preview_viewer",
+      "proposed_item": true,
       "status": "decided"
      }
     ],
@@ -15585,6 +16481,106 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "PREVIEW_AGENTS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_BURST_MAX comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_BURST_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_CHANNELS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_HIDE_CHANNEL_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_HISTORY comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_LEAVE_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_LONG_MESSAGE_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_MESSAGES comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_NEW_AGENT_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_NEW_CHANNEL_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_RECOVERY_CODE_CHARS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_STALE_HOURS comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PREVIEW_UNREGISTER_ONE_IN comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewSettings comes here from kkt-config"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate::with_key no longer takes clock: the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate::with_key no longer takes entropy: the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate::open no longer takes clock: the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate::open no longer takes entropy: the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "Preview gains swarms: the swarms it has made a world for, for kkt-web's viewing test (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "PreviewGate gains access: whether its viewers sign in, for the page's Sessions (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "new enum Happening"
+     },
+     {
+      "status": "decided",
+      "text": "new const PREVIEW_SWARM"
+     },
+     {
+      "status": "decided",
+      "text": "new struct SettingError"
+     },
+     {
+      "status": "decided",
+      "text": "new fn preview_viewer"
+     },
+     {
+      "status": "decided",
       "text": "Preview implements kkt-api-agent::Api, kkt-api-agent::Channels, kkt-api-operator::Views, kkt-api-operator::Changes, kkt-api-operator::Lanes, kkt-api-operator::Server: the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused"
      },
      {
@@ -15593,7 +16589,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the simulated application builds kkt-web's live events and gate answers; its data are kkt-api-agent's records"
+      "text": "the simulated application answers kkt-web's gate; its data are kkt-api-agent's records (step 6.2)"
      },
      {
       "status": "decided",
@@ -15610,6 +16606,30 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Preview implements the operator level the page uses"
+     },
+     {
+      "status": "decided",
+      "text": "Preview::new takes the stop that ends its live notices, and run the one that ends its feed (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its world and its gate answer kkt-web's Gate with kkt-web's records (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "Preview is an OperatorApi, with notices of its own world (steps 6.2 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "the page scenarios over Preview, and the tests of its world, feed and gate, are its unit tests (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests use the fixed clock (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests use seeded and counting entropy (step 6.3)"
      }
     ],
     "released_program": false,
@@ -15627,50 +16647,6 @@ window.KKT_PROPOSED = {
      },
      {
       "at": "Preview::new",
-      "kind": "param",
-      "name": "entropy",
-      "traits": [
-       {
-        "crate": "kkt-entropy",
-        "trait": "Entropy"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::open",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::open",
-      "kind": "param",
-      "name": "entropy",
-      "traits": [
-       {
-        "crate": "kkt-entropy",
-        "trait": "Entropy"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::with_key",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "PreviewGate::with_key",
       "kind": "param",
       "name": "entropy",
       "traits": [
@@ -16798,6 +17774,7 @@ window.KKT_PROPOSED = {
       "methods": [
        "create_dir_all",
        "exists",
+       "is_file",
        "read_file",
        "run",
        "run_attached",
@@ -16805,7 +17782,8 @@ window.KKT_PROPOSED = {
        "working_dir",
        "write_file"
       ],
-      "path": "Host"
+      "path": "Host",
+      "status": "decided"
      },
      {
       "doc": "What to set up.",
@@ -16921,7 +17899,7 @@ window.KKT_PROPOSED = {
       "path": "compare_web_key"
      },
      {
-      "doc": "The Docker folder's .env, read through Host: the settings a Docker install was made with, or none.",
+      "doc": "The Docker folder's .env, read through Host: the settings text a Docker install was made with, or the read's own refusal, which the caller words (step 7.3a).",
       "kind": "fn",
       "path": "docker_env",
       "proposed_item": true,
@@ -17077,6 +18055,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "UNKNOWN_OPTION_EXIT comes here from kkt-config, private"
+     },
+     {
+      "status": "decided",
+      "text": "Host gains is_file: whether a path is a file, not a folder, as an installed file must be (step 7.3a)"
      },
      {
       "status": "decided",
@@ -18231,6 +19213,14 @@ window.KKT_PROPOSED = {
     ],
     "items": [
      {
+      "doc": "Why creating a new database file did not succeed (step 7.5).",
+      "feature": "real",
+      "kind": "enum",
+      "path": "CreateError",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The `user_version` of a database whose versions are recorded in `kkt_db_versions`.",
       "kind": "const",
       "path": "MANAGED"
@@ -18312,6 +19302,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "DB_READERS is no longer public: a field of its Options, whose DEFAULT the program passes (step 3.1a)"
+     },
+     {
+      "status": "decided",
+      "text": "new enum CreateError"
      },
      {
       "status": "decided",
@@ -19422,6 +20416,26 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-settings in its code: the fake product gives each part its own settings (its Settings) and gathers none (steps 3.1d to 3.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-agent-client in its tests: the dependency is a normal one, with real, which only its integration tests use (step 7.5)"
+     },
+     {
+      "status": "decided",
+      "text": "a normal dependency with real, which only its integration tests use: real is allowed in dev-dependencies only for examples (step 7.5)"
+     },
+     {
+      "status": "decided",
+      "text": "it creates its new database through SqlitePlace::create and keeps its own wording for each CreateError (step 7.5)"
+     },
+     {
+      "status": "decided",
+      "text": "it makes the events bus and stops it with the server (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it starts the rules with a Startup (step 5.6a)"
      }
     ],
     "released_program": false,
@@ -19828,6 +20842,26 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "words the run's settings for kkt-provenance (step 3.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "it names the swarm it starts the rules in, SwarmId::main (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it makes the events bus and stops it with the server (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it starts the rules with a Startup (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "kkt-server's new_server_run gives the NewServerRun (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "it maps the run for start (step 5.6a)"
      }
     ],
     "released_program": false,
@@ -20951,6 +21985,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests log through the Log they check (step 4.2)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-api-sim in its tests: its tests already use only stand-ins and need nothing the simulation gives (step 6.3)"
      }
     ],
     "released_program": false,
@@ -22116,6 +23154,7 @@ window.KKT_PROPOSED = {
        "remember",
        "remove_from_channel",
        "retire_lane",
+       "run_id",
        "save_lane",
        "save_server_announcement",
        "search",
@@ -22126,7 +23165,6 @@ window.KKT_PROPOSED = {
        "set_note",
        "set_purpose",
        "stale_agents",
-       "subscribe",
        "take_lane",
        "takeable_lanes_page",
        "transfer_owner",
@@ -22141,6 +23179,13 @@ window.KKT_PROPOSED = {
       "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars.",
       "kind": "struct",
       "path": "Settings",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "What the rules depend on at startup: `Deps` without the run, which `start` records and fills in (step 5.6a).",
+      "kind": "struct",
+      "path": "Startup",
       "proposed_item": true,
       "status": "decided"
      },
@@ -22475,7 +23520,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Rules loses subscribe: the live notices are Views::subscribe's, which Rules implements over its kkt-events subscription, so no contract names kkt-events (step 6.2)"
+     },
+     {
+      "status": "decided",
       "text": "Rules gains create_swarm: records a new swarm as made by this server run; Swarms::create_swarm forwards to it (step 5.4b)"
+     },
+     {
+      "status": "decided",
+      "text": "Rules gains run_id: the run's ID, for the program's log line (step 5.6a)"
      },
      {
       "status": "decided",
@@ -22499,6 +23552,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Startup"
+     },
+     {
+      "status": "decided",
       "text": "new struct Settings"
      },
      {
@@ -22508,6 +23565,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Db::new takes one database value meeting kkt-db::Backend"
+     },
+     {
+      "status": "decided",
+      "text": "Startup takes wording: the rules' Deps without the run, which start records and fills in (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "Startup takes clock: the rules' Deps without the run, which start records and fills in (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "Startup takes entropy: the rules' Deps without the run, which start records and fills in (step 5.6a)"
      },
      {
       "status": "decided",
@@ -22560,6 +23629,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its operations give their answers as kkt-api-agent's Answer, shared by the three levels (steps 5.4a and 5.3b)"
+     },
+     {
+      "status": "decided",
+      "text": "Rules implements Views::subscribe, adapting its kkt-events subscription to Notices (step 6.2)"
      }
     ],
     "released_program": false,
@@ -22693,6 +23766,48 @@ window.KKT_PROPOSED = {
       "kind": "param",
       "name": "store",
       "traits": []
+     },
+     {
+      "at": "Startup",
+      "kind": "param",
+      "name": "wording",
+      "note": "the rules' Deps without the run, which start records and fills in (step 5.6a)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-rules",
+        "trait": "OperatorWording"
+       }
+      ]
+     },
+     {
+      "at": "Startup",
+      "kind": "param",
+      "name": "clock",
+      "note": "the rules' Deps without the run, which start records and fills in (step 5.6a)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-clock",
+        "trait": "Clock"
+       }
+      ]
+     },
+     {
+      "at": "Startup",
+      "kind": "param",
+      "name": "entropy",
+      "note": "the rules' Deps without the run, which start records and fills in (step 5.6a)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-entropy",
+        "trait": "Entropy"
+       }
+      ]
      }
     ],
     "third_party": [
@@ -22933,18 +24048,23 @@ window.KKT_PROPOSED = {
       "path": "Parts"
      },
      {
-      "doc": "Who is viewing the web page, as `AdmissionGate` decides it through `Identify`: the swarm the viewer sees, and the operator they act as.",
-      "fields": [
-       "swarm",
-       "operator"
-      ],
-      "kind": "struct",
-      "path": "WebViewer"
-     },
-     {
       "doc": "The server assembled from `parts` and `config`, to run with `listen`.",
       "kind": "fn",
       "path": "build"
+     },
+     {
+      "doc": "What produced a run, kkt-provenance's ServerRun, as kkt-rules' start records it, a NewServerRun (step 5.6a).",
+      "kind": "fn",
+      "path": "new_server_run",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The web page alone, over `api` in each viewer's swarm and behind `gate`, with no MCP endpoints, for a program that serves only the page, such as the preview over simulated data (step 6.3).",
+      "kind": "fn",
+      "path": "page",
+      "proposed_item": true,
+      "status": "decided"
      }
     ],
     "kind": "composition",
@@ -22984,6 +24104,18 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "WebViewer is no longer public: the gate admits kkt-web's Viewer record (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "new fn page"
+     },
+     {
+      "status": "decided",
+      "text": "new fn new_server_run"
+     },
+     {
+      "status": "decided",
       "text": "AdmissionGate implements kkt-web::Gate itself: the programs' shared adapter: admits combines kkt-admission's decision with Identify; sign_in asks kkt-admission whether a key is good"
      },
      {
@@ -22997,6 +24129,18 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Parts::new takes log: where its events go, in place of tracing"
+     },
+     {
+      "status": "decided",
+      "text": "page takes api: the application the page alone shows (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "page takes gate: who may view the page alone (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "page takes log: where the page's events go (step 6.3)"
      },
      {
       "status": "follows",
@@ -23065,6 +24209,26 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "it makes the page's sessions with their Access and reads a Session for the gate (step 6.1)"
+     },
+     {
+      "status": "decided",
+      "text": "it mounts the page with the rules as one OperatorApi (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "its page tests run over the simulated application (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-events in its code: the program makes the events bus the rules hear on and gives it to start (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests make the bus for the rules they start (step 5.6a)"
+     },
+     {
+      "status": "decided",
+      "text": "new_server_run gives kkt-rules' NewServerRun; Parts takes the Rules start built, not the wording or the rules' settings (step 5.6a)"
      }
     ],
     "released_program": false,
@@ -23311,6 +24475,48 @@ window.KKT_PROPOSED = {
       "kind": "param",
       "name": "log",
       "note": "where its events go, in place of tracing",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-log",
+        "trait": "Log"
+       }
+      ]
+     },
+     {
+      "at": "page",
+      "kind": "param",
+      "name": "api",
+      "note": "the application the page alone shows (step 6.3)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-api-operator",
+        "trait": "OperatorApi"
+       }
+      ]
+     },
+     {
+      "at": "page",
+      "kind": "param",
+      "name": "gate",
+      "note": "who may view the page alone (step 6.3)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-web",
+        "trait": "Gate"
+       }
+      ]
+     },
+     {
+      "at": "page",
+      "kind": "param",
+      "name": "log",
+      "note": "where the page's events go (step 6.3)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -24253,6 +25459,10 @@ window.KKT_PROPOSED = {
      {
       "implementors": [],
       "trait": "ask::Lines"
+     },
+     {
+      "implementors": [],
+      "trait": "connection::ConnectionSource"
      }
     ],
     "crate_doc": "`kkt setup`: what this machine is set up as (a server run as a service, a server in Docker, or a client of a server elsewhere), the record that says so, and what follows from it: whether `kkt serve` may run here, and which server this ma...",
@@ -24706,6 +25916,13 @@ window.KKT_PROPOSED = {
       "path": "admin_key_collision"
      },
      {
+      "doc": "Status's line about the admin key file (step 7.3b).",
+      "kind": "fn",
+      "path": "admin_key_line",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Talking with the person running `kkt setup` (step 7.1b).",
       "kind": "mod",
       "path": "ask",
@@ -24776,6 +25993,13 @@ window.KKT_PROPOSED = {
       "path": "backup_of"
      },
      {
+      "doc": "One key per server, so another server's saved key is never replaced (step 7.3b).",
+      "kind": "fn",
+      "path": "client_key",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The fix doctor gives for a server that does not answer, on a machine set up as `mode` (`None` when not known) whose clients may have been `switched`: see `clients_server_mode` and `server_fix`.",
       "kind": "fn",
       "path": "clients_server_fix"
@@ -24789,6 +26013,20 @@ window.KKT_PROPOSED = {
       "doc": "The key of `kind` beside `access`, the access key file the serve config names (`None` when it turns keys off, which `off` decides about).",
       "kind": "fn",
       "path": "configured_key"
+     },
+     {
+      "doc": "Status's line about the configured name pack (step 7.3b).",
+      "kind": "fn",
+      "path": "configured_name_pack_line",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The ordered choice of a client's endpoint and key, from setup or serve settings (step 7.3a).",
+      "kind": "mod",
+      "path": "connection",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "",
@@ -24811,6 +26049,41 @@ window.KKT_PROPOSED = {
       "kind": "struct",
       "moved_from": "kashkeshet",
       "path": "connection::ConnectionOptions",
+      "status": "decided"
+     },
+     {
+      "doc": "Reads needed by connection selection, requested only in their original order (step 7.3a).",
+      "kind": "trait",
+      "methods": [
+       "absolute",
+       "check_key",
+       "make_default_key",
+       "record",
+       "serve"
+      ],
+      "path": "connection::ConnectionSource",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The checked endpoint and access-key setting; source context is returned to its reader (step 7.3a).",
+      "kind": "struct",
+      "path": "connection::ServeConnection",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The local server's connection for admin tools, even when clients were switched (step 7.3a).",
+      "kind": "fn",
+      "path": "connection::admin_connection",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The admin endpoint, from a client endpoint ending in /mcp (step 7.3a).",
+      "kind": "fn",
+      "path": "connection::admin_endpoint",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -24878,10 +26151,87 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "Status's lines about kkt in Docker, from what kkt-container found in its folder (step 7.3b).",
+      "kind": "fn",
+      "path": "docker_status_lines",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The MCP endpoint of kkt in Docker, published on the host's `port`, or served over Tailscale as `node`, `(hostname, tailnet)`.",
       "kind": "fn",
       "moved_from": "kashkeshet",
       "path": "docker_url",
+      "status": "decided"
+     },
+     {
+      "doc": "The doctor's checks and fixes, from facts read by the program (step 7.3b).",
+      "kind": "mod",
+      "path": "doctor_checks",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Setup's check result, adapted by the program to the diagnostic report (step 7.3b).",
+      "kind": "struct",
+      "path": "doctor_checks::DoctorCheck",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The fix the doctor gives for an admin key that does not match: for Docker, its host copy; otherwise on the server (step 7.3b).",
+      "kind": "fn",
+      "path": "doctor_checks::admin_key_fix",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The doctor's line about kkt in Docker, from what `kkt_container::status` found in the managed `folder` (step 7.3b).",
+      "kind": "fn",
+      "path": "doctor_checks::docker_check",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The doctor's line about whether the web key's host copy is the Docker server's key, from what `kkt_container::compare_web_key` found (step 7.3b).",
+      "kind": "fn",
+      "path": "doctor_checks::docker_web_key_check",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The text of `fix`, kkt-setup's fix for a server that does not answer (step 7.3b).",
+      "kind": "fn",
+      "path": "doctor_checks::server_fix_text",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The doctor's line about the kkt service on this machine (step 7.3b).",
+      "kind": "fn",
+      "path": "doctor_checks::service_check",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The doctor's line about the Tailscale container's login (step 7.3b).",
+      "kind": "fn",
+      "path": "doctor_checks::tailscale_login_check",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The doctor's line about a server kkt installed here with no record, if one was looked for and found (step 7.3b).",
+      "kind": "fn",
+      "path": "doctor_checks::unrecorded_check",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The fix the doctor gives for a web key that does not match: for Docker, its host copy; otherwise on the server (step 7.3b).",
+      "kind": "fn",
+      "path": "doctor_checks::web_key_fix",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -24900,23 +26250,37 @@ window.KKT_PROPOSED = {
       "path": "key_fix"
      },
      {
+      "doc": "The report of a lane import, and the Docker limit when no install is present (step 7.3b).",
+      "kind": "mod",
+      "path": "lane_reports",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The plain import outcome the program adapts from the operator API (step 7.3b).",
+      "kind": "enum",
+      "path": "lane_reports::Outcome",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The lane text limit of kkt in Docker: the default when no install is present, else what the caller's lazy read gives (step 7.3b).",
+      "kind": "fn",
+      "path": "lane_reports::docker_limit",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The report of a lane import: each lane's outcome and the totals, with the folder and its commit (step 7.3b).",
+      "kind": "fn",
+      "path": "lane_reports::import_report",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Which server `kkt lanes` acts on, given the recorded `mode` (`None` with no record) and whether `--db` or `--config` was given (`local_options`).",
       "kind": "fn",
       "path": "lanes_on"
-     },
-     {
-      "doc": "Where this machine's web or admin key file is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "local_operator_key",
-      "status": "decided"
-     },
-     {
-      "doc": "This machine's web key file, if it runs a server.",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "local_web_key",
-      "status": "decided"
      },
      {
       "doc": "Where this machine's key of `kind` is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
@@ -24956,9 +26320,9 @@ window.KKT_PROPOSED = {
       "path": "server_fix"
      },
      {
-      "doc": "The key file's name for a server, from a hash of its URL.",
+      "doc": "The service's backup folder, in the config folder, or a refusal when HOME is unset (step 7.3b).",
       "kind": "fn",
-      "path": "server_key_file_name",
+      "path": "service_backup_folder",
       "proposed_item": true,
       "status": "decided"
      },
@@ -24966,6 +26330,27 @@ window.KKT_PROPOSED = {
       "doc": "Refuses an installed kkt service with no record unless its service file, which runs `kkt <args>`, runs it with the default config file's settings (`runs_defaults`): those are what `kkt setup` and `kkt upgrade` install, so a record could ...",
       "kind": "fn",
       "path": "service_runs_defaults"
+     },
+     {
+      "doc": "Upgrade's error for the service, with what to do when the service did not reload (step 7.3b).",
+      "kind": "fn",
+      "path": "service_upgrade_error",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The lane limit for the purpose a machine was set up for: the local server's, kkt in Docker's, or a refusal for a client (step 7.3b).",
+      "kind": "fn",
+      "path": "setup_lane_limit",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Where setup stages a client's access key before it knows the server (step 7.3b).",
+      "kind": "fn",
+      "path": "staged_client_key",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "What `kkt status` says about this machine: from its `recorded` setup, the note of an `unfinished` one, or an `unrecorded` install (looked for only as `status_looks_for_unrecorded` says; otherwise `Ok(None)`).",
@@ -25024,6 +26409,20 @@ window.KKT_PROPOSED = {
       "path": "unfinished_path"
      },
      {
+      "doc": "What uninstall says it removed and kept (step 7.3b).",
+      "kind": "fn",
+      "path": "uninstall_line",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Clients switched to another server keep using it after the local install goes (step 7.3b).",
+      "kind": "fn",
+      "path": "uninstall_record",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "What is said of an installed kkt service with no record that cannot be recorded as it is; `what` says why.",
       "kind": "fn",
       "path": "unreadable_service"
@@ -25044,9 +26443,30 @@ window.KKT_PROPOSED = {
       "path": "upgrade"
      },
      {
+      "doc": "The folder upgrade backs the database up into, beside the database (step 7.3b).",
+      "kind": "fn",
+      "path": "upgrade_backup_folder",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "What `kkt upgrade` does to the server `record` describes, which runs kkt `running`, to bring it to `target`.",
       "kind": "fn",
       "path": "upgrade_plan"
+     },
+     {
+      "doc": "What setup says while it waits for the server at `url`, set up as `mode`, to answer (step 7.3b).",
+      "kind": "fn",
+      "path": "waiting_note",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Status's line about the web key file (step 7.3b).",
+      "kind": "fn",
+      "path": "web_key_line",
+      "proposed_item": true,
+      "status": "decided"
      }
     ],
     "kind": "logic",
@@ -25075,14 +26495,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "machine::connection::serve_connection comes here from kashkeshet as connection::serve_connection"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::local_web_key comes here from kashkeshet as local_web_key"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::local_operator_key comes here from kashkeshet as local_operator_key"
      },
      {
       "status": "decided",
@@ -25206,10 +26618,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new fn server_key_file_name"
-     },
-     {
-      "status": "decided",
       "text": "new fn data_dir"
      },
      {
@@ -25258,6 +26666,134 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new mod connection"
+     },
+     {
+      "status": "decided",
+      "text": "new trait connection::ConnectionSource"
+     },
+     {
+      "status": "decided",
+      "text": "new struct connection::ServeConnection"
+     },
+     {
+      "status": "decided",
+      "text": "new fn connection::admin_connection"
+     },
+     {
+      "status": "decided",
+      "text": "new fn connection::admin_endpoint"
+     },
+     {
+      "status": "decided",
+      "text": "new mod doctor_checks"
+     },
+     {
+      "status": "decided",
+      "text": "new struct doctor_checks::DoctorCheck"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::docker_check"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::docker_web_key_check"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::server_fix_text"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::service_check"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::tailscale_login_check"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::unrecorded_check"
+     },
+     {
+      "status": "decided",
+      "text": "new mod lane_reports"
+     },
+     {
+      "status": "decided",
+      "text": "new enum lane_reports::Outcome"
+     },
+     {
+      "status": "decided",
+      "text": "new fn client_key"
+     },
+     {
+      "status": "decided",
+      "text": "new fn uninstall_record"
+     },
+     {
+      "status": "decided",
+      "text": "new fn waiting_note"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::web_key_fix"
+     },
+     {
+      "status": "decided",
+      "text": "new fn doctor_checks::admin_key_fix"
+     },
+     {
+      "status": "decided",
+      "text": "new fn lane_reports::docker_limit"
+     },
+     {
+      "status": "decided",
+      "text": "new fn lane_reports::import_report"
+     },
+     {
+      "status": "decided",
+      "text": "new fn staged_client_key"
+     },
+     {
+      "status": "decided",
+      "text": "new fn upgrade_backup_folder"
+     },
+     {
+      "status": "decided",
+      "text": "new fn service_backup_folder"
+     },
+     {
+      "status": "decided",
+      "text": "new fn uninstall_line"
+     },
+     {
+      "status": "decided",
+      "text": "new fn setup_lane_limit"
+     },
+     {
+      "status": "decided",
+      "text": "new fn web_key_line"
+     },
+     {
+      "status": "decided",
+      "text": "new fn admin_key_line"
+     },
+     {
+      "status": "decided",
+      "text": "new fn configured_name_pack_line"
+     },
+     {
+      "status": "decided",
+      "text": "new fn docker_status_lines"
+     },
+     {
+      "status": "decided",
+      "text": "new fn service_upgrade_error"
+     },
+     {
+      "status": "decided",
       "text": "ask::Prompter::new takes lines: where the questions are asked; the program wires its terminal in"
      },
      {
@@ -25267,6 +26803,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "hashes through kkt-hash, not sha2"
+     },
+     {
+      "status": "decided",
+      "text": "the doctor's and status's lines read what kkt-container found (step 7.3b)"
      }
     ],
     "released_program": false,
@@ -25349,6 +26889,22 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
+      "doc": "Resolves a relative path against this process's working directory (step 7.3a).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "absolute",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Follows links and resolves the actual file path (step 7.3a).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "canonicalize",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "This program's absolute path, for client configs that run it.",
       "feature": "real",
       "kind": "fn",
@@ -25369,6 +26925,14 @@ window.KKT_PROPOSED = {
       "feature": "real",
       "kind": "fn",
       "path": "on_path",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "One snapshot of PATH, shared by all client checks in a setup invocation (step 7.3a).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "path_dirs",
       "proposed_item": true,
       "status": "decided"
      },
@@ -25405,11 +26969,27 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "Removes the unfinished note, accepting an already-missing file (step 7.3a).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "remove_unfinished",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Writes the setup record whole, where kkt-setup says it is.",
       "feature": "real",
       "kind": "fn",
       "moved_from": "kashkeshet",
       "path": "write_record",
+      "status": "decided"
+     },
+     {
+      "doc": "Saves the unfinished note with the same write-then-rename operation (step 7.3a).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "write_unfinished",
+      "proposed_item": true,
       "status": "decided"
      }
     ],
@@ -25465,7 +27045,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new fn absolute"
+     },
+     {
+      "status": "decided",
+      "text": "new fn canonicalize"
+     },
+     {
+      "status": "decided",
+      "text": "new fn path_dirs"
+     },
+     {
+      "status": "decided",
+      "text": "new fn write_unfinished"
+     },
+     {
+      "status": "decided",
+      "text": "new fn remove_unfinished"
+     },
+     {
+      "status": "decided",
       "text": "the record and its note are where kkt-setup says"
+     },
+     {
+      "status": "decided",
+      "text": "it reads and writes kkt-setup's Record and Unfinished note (step 7.3a)"
      }
     ],
     "released_program": false,
@@ -25950,15 +27554,6 @@ window.KKT_PROPOSED = {
      {
       "implementors": [],
       "trait": "Held"
-     },
-     {
-      "implementors": [
-       {
-        "crate": "kkt-web",
-        "type": null
-       }
-      ],
-      "trait": "Viewer"
      }
     ],
     "crate_doc": "The human's view: pages for all channels, one channel, and one agent, plus a stream of new messages for live updates, and the changes the human makes from them.",
@@ -25973,6 +27568,7 @@ window.KKT_PROPOSED = {
     "implements": [
      {
       "crate": "kkt-web",
+      "status": "decided",
       "trait": "Viewer",
       "trait_crate": "kkt-web",
       "type": null
@@ -25997,7 +27593,7 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "doc": "Who is viewing: whether a key lets a viewer in (sign_in), and who a signed-in or open viewer is (admits), asked about what a session holds, its SignedIn (kkt-server's Principal). kkt-web keeps the sessions itself (step 6.1).",
+      "doc": "Who is viewing: whether a key lets a viewer in (sign_in), and who a signed-in or open viewer is (admits, a Viewer record), asked about what a session holds, its SignedIn (kkt-server's Principal). kkt-web keeps the sessions itself (steps 6.1 and 6.2).",
       "kind": "trait",
       "methods": [
        "admits",
@@ -26014,45 +27610,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "An agent joined a channel, or was added to it.",
-      "fields": [
-       "agent",
-       "channel_id",
-       "channel_name",
-       "member_count"
-      ],
-      "kind": "struct",
-      "path": "Joined"
-     },
-     {
-      "doc": "An agent left a channel, or was removed from it.",
-      "fields": [
-       "agent",
-       "channel_id",
-       "channel_name",
-       "member_count",
-       "by",
-       "by_operator"
-      ],
-      "kind": "struct",
-      "path": "Left"
-     },
-     {
-      "doc": "Something that happened, for the live feed.",
-      "kind": "enum",
-      "path": "LiveEvent",
-      "variants": [
-       "Message",
-       "Agent",
-       "Channel",
-       "Joined",
-       "Left",
-       "ChannelHidden",
-       "AgentHidden",
-       "Missed"
-      ]
-     },
-     {
       "doc": "Largest `web_page_messages`.",
       "kind": "const",
       "moved_from": "kkt-config",
@@ -26060,28 +27617,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "An agent registered.",
-      "fields": [
-       "handle",
-       "created_at"
-      ],
-      "kind": "struct",
-      "path": "NewAgent"
-     },
-     {
-      "doc": "A channel was created, open or closed.",
-      "fields": [
-       "id",
-       "name",
-       "open",
-       "created_by",
-       "member_count"
-      ],
-      "kind": "struct",
-      "path": "NewChannel"
-     },
-     {
-      "doc": "The limits only the page applies: messages per page and member excerpt length. The limits the rules enforce (the announcement's and lanes' sizes) come from kkt-api-agent's Api::limits.",
+      "doc": "The limits only the page applies: messages per page and member excerpt length, as kkt-web's Settings' page (step 6.2). The limits the rules enforce (the announcement's and lanes' sizes) come from kkt-api-agent's Api::limits.",
       "kind": "struct",
       "path": "PageLimits",
       "proposed_item": true,
@@ -26113,7 +27649,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "kkt-web's share of today's Limits: web_page_messages, web_member_excerpt_chars and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules.",
+      "doc": "kkt-web's share of today's Limits: page (a PageLimits of web_page_messages and web_member_excerpt_chars: step 6.2) and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules.",
       "kind": "struct",
       "path": "Settings",
       "proposed_item": true,
@@ -26129,9 +27665,11 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "doc": "Who is viewing, as the `Gate` decides and `Sources` reads it.",
-      "kind": "trait",
-      "path": "Viewer"
+      "doc": "Who is viewing, as the Gate decides it: a record of the swarm whose operations the page shows and changes, and the operator they act as there (step 6.2).",
+      "kind": "struct",
+      "path": "Viewer",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "Characters in a web session ID, from the 36-character alphabet: about 165 bits.",
@@ -26139,11 +27677,6 @@ window.KKT_PROPOSED = {
       "moved_from": "kkt-config",
       "path": "WEB_SESSION_ID_CHARS",
       "status": "decided"
-     },
-     {
-      "doc": "",
-      "kind": "fn",
-      "path": "live_event"
      },
      {
       "doc": "The web page.",
@@ -26157,16 +27690,28 @@ window.KKT_PROPOSED = {
       "path": "testing"
      },
      {
-      "doc": "A channel was hidden, by its owner or the operator.",
+      "doc": "The application a scenario's page shows, and the operator the scenario reads and changes it as, to check what the page did (step 6.2).",
       "feature": "testing",
-      "fields": [
-       "channel_id",
-       "channel_name",
-       "by",
-       "by_operator"
-      ],
       "kind": "struct",
-      "path": "testing::ChannelHidden"
+      "methods": [
+       "agent",
+       "change_channel",
+       "channel",
+       "hidden_channels",
+       "hide_agent",
+       "hide_stale_agents",
+       "lane",
+       "lanes",
+       "live",
+       "new",
+       "overview",
+       "server_announcement",
+       "server_runs",
+       "stale_agents"
+      ],
+      "path": "testing::App",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "What a site in a scenario is behind: a gate, and the page's sessions, which the caller makes with its own clock and entropy (step 6.1).",
@@ -26576,6 +28121,34 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "LiveEvent is no longer public: the live feed serializes kkt-api-operator's Notice records (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "live_event is no longer public: the live feed serializes kkt-api-operator's Notice records (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "NewAgent is no longer public: kkt-api-operator's NewAgent is the notice record (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "NewChannel is no longer public: kkt-api-operator's ChannelCreated is the notice record (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "Joined is no longer public: kkt-api-operator's Joined is the notice record (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "Left is no longer public: kkt-api-operator's Left is the notice record (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "testing::ChannelHidden is no longer public: the scenarios use kkt-api-operator's ChannelHidden (step 6.2)"
+     },
+     {
+      "status": "decided",
       "text": "new struct PageLimits"
      },
      {
@@ -26596,11 +28169,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Viewer"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::App"
+     },
+     {
+      "status": "decided",
       "text": "new struct Settings"
      },
      {
       "status": "decided",
-      "text": "router takes api: the application, which the page calls directly; each viewer's swarm through Api::in_swarm"
+      "text": "router takes api: the application as one OperatorApi, which the page calls directly; each request's viewer's swarm through in_swarm_operator (step 6.2)"
      },
      {
       "status": "decided",
@@ -26665,6 +28246,22 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests read the captured entries (step 4.2)"
+     },
+     {
+      "status": "decided",
+      "text": "it takes the application as one OperatorApi and hears its live updates as Notices (step 6.2)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-events in its code: the page hears notices through kkt-api-operator's Notices; only the preview used kkt-events, and it is kkt-api-sim (steps 6.2 and 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its viewing test reads the preview's swarms through OperatorApi (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests stop the simulated feed by hand (step 6.3)"
      }
     ],
     "released_program": false,
@@ -27025,13 +28622,13 @@ window.KKT_PROPOSED = {
       "at": "router",
       "kind": "param",
       "name": "api",
-      "note": "the application, which the page calls directly; each viewer's swarm through Api::in_swarm",
+      "note": "the application as one OperatorApi, which the page calls directly; each request's viewer's swarm through in_swarm_operator (step 6.2)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
        {
-        "crate": "kkt-api-agent",
-        "trait": "Api"
+        "crate": "kkt-api-operator",
+        "trait": "OperatorApi"
        }
       ]
      },
@@ -27062,39 +28659,17 @@ window.KKT_PROPOSED = {
    },
    {
     "bins": [
-     "web_preview (example)"
+     "kkt-web-preview"
     ],
     "builds": [],
     "contracts": [],
     "crate_doc": "",
-    "dev_only": false,
+    "dev_only": true,
     "features": {},
     "holders": [],
     "implements": [],
-    "items": [
-     {
-      "doc": "What the preview's operator can change.",
-      "fields": [
-       "steps_per_minute",
-       "page_messages"
-      ],
-      "kind": "struct",
-      "methods": [
-       "check"
-      ],
-      "moved_from": "kkt-config",
-      "path": "PreviewSettings",
-      "status": "decided"
-     },
-     {
-      "doc": "Why the preview's flags are refused.",
-      "kind": "struct",
-      "path": "SettingError",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "logic",
+    "items": [],
+    "kind": "composition",
     "lib": "kkt_web_preview",
     "name": "kkt-web-preview",
     "path": "(proposed)",
@@ -27102,7 +28677,7 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "new logic crate, from kkt-web"
+      "text": "new composition crate, from kkt-web"
      },
      {
       "status": "decided",
@@ -27122,75 +28697,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "PREVIEW_AGENTS comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
       "text": "PREVIEW_BIND comes here from kkt-config, private"
      },
      {
       "status": "decided",
-      "text": "PREVIEW_BURST_MAX comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_BURST_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_CHANNELS comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_HIDE_CHANNEL_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_HISTORY comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_LEAVE_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_LONG_MESSAGE_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_MESSAGES comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_NEW_AGENT_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_NEW_CHANNEL_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_RECOVERY_CODE_CHARS comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
       "text": "PREVIEW_SEED comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_STALE_HOURS comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PREVIEW_UNREGISTER_ONE_IN comes here from kkt-config, private"
-     },
-     {
-      "status": "decided",
-      "text": "PreviewSettings comes here from kkt-config"
-     },
-     {
-      "status": "decided",
-      "text": "new struct SettingError"
      },
      {
       "status": "decided",
@@ -27231,6 +28742,90 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the preview program keeps the operating system's randomness"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-clock in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-clock-system in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-entropy in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-entropy-os in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-hosts in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-shutdown in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-shutdown-os in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-web in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the real clock"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the sessions' randomness"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the simulated world, repeatable from its seed"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the stop signals"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the host names it answers to"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the page's settings and sessions"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): it serves the page alone, without naming axum"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): binding the socket"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): its log, on standard error"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the log's level"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): what it logs itself"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): its key file"
+     },
+     {
+      "status": "decided",
+      "text": "the preview program (step 6.3): the preview's settings and their error"
      }
     ],
     "released_program": false,
@@ -27731,16 +29326,12 @@ window.KKT_PROPOSED = {
     "items": [
      "ContainerConfig",
      "DOCKER_ADMIN_KEY_FILE_NAME",
-     "DockerError",
      "ENV_FILE",
      "Folder",
      "Inputs",
-     "KeyCopy",
      "LanesImport",
-     "Login",
      "NO_ADMIN_KEY_EXIT",
      "Settings",
-     "State",
      "Tailscale",
      "add_admin_key",
      "backup",
@@ -27774,16 +29365,12 @@ window.KKT_PROPOSED = {
       "detail": [
        "ContainerConfig",
        "DOCKER_ADMIN_KEY_FILE_NAME",
-       "DockerError",
        "ENV_FILE",
        "Folder",
        "Inputs",
-       "KeyCopy",
        "LanesImport",
-       "Login",
        "NO_ADMIN_KEY_EXIT",
        "Settings",
-       "State",
        "Tailscale",
        "add_admin_key",
        "backup",
@@ -27935,7 +29522,6 @@ window.KKT_PROPOSED = {
      "KeyToCheck",
      "Plan",
      "SERVER_CHECK",
-     "SETUP_CHECK",
      "ServerLines",
      "Settings",
      "SetupServer",
@@ -27968,7 +29554,6 @@ window.KKT_PROPOSED = {
        "KeyToCheck",
        "Plan",
        "SERVER_CHECK",
-       "SETUP_CHECK",
        "ServerLines",
        "Settings",
        "SetupServer",
@@ -28066,6 +29651,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
+     "Events",
      "Settings"
     ],
     "kind": "normal",
@@ -28075,6 +29661,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Events",
        "Settings"
       ],
       "role": "uses"
@@ -28551,12 +30138,11 @@ window.KKT_PROPOSED = {
      "CommandLine",
      "Db",
      "DefaultWording",
-     "Deps",
      "ImportedLane",
      "LaneImport",
      "LaneOutcome",
-     "NewServerRun",
      "Revoked",
+     "Startup",
      "check_lane_import",
      "check_retire_missing",
      "legacy",
@@ -28571,12 +30157,11 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "CORE",
-       "Deps",
        "ImportedLane",
        "LaneImport",
        "LaneOutcome",
-       "NewServerRun",
        "Revoked",
+       "Startup",
        "check_lane_import",
        "check_retire_missing",
        "schema",
@@ -28628,7 +30213,8 @@ window.KKT_PROPOSED = {
     "items": [
      "AppConfig",
      "Parts",
-     "build"
+     "build",
+     "new_server_run"
     ],
     "kind": "normal",
     "optional": false,
@@ -28638,7 +30224,8 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "AppConfig",
-       "build"
+       "build",
+       "new_server_run"
       ],
       "role": "uses"
      },
@@ -28648,6 +30235,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "wires"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -28819,7 +30409,6 @@ window.KKT_PROPOSED = {
      "Here",
      "InstallCheck",
      "Installed",
-     "KeyFix",
      "KeyKind",
      "KeyPlace",
      "KeysOff",
@@ -28831,7 +30420,6 @@ window.KKT_PROPOSED = {
      "Replace",
      "RunningVersion",
      "Server",
-     "ServerFix",
      "StatusThen",
      "Steps",
      "Switch",
@@ -28841,14 +30429,18 @@ window.KKT_PROPOSED = {
      "Unfinished",
      "Unrecorded",
      "admin_key_collision",
+     "admin_key_line",
      "ask::Prompter",
      "backup_keys",
      "backup_of",
+     "client_key",
      "clients_server_fix",
      "clients_server_mode",
      "configured_key",
-     "connection::Connection",
-     "connection::ConnectionOptions",
+     "configured_name_pack_line",
+     "connection",
+     "connection::admin_connection",
+     "connection::admin_endpoint",
      "connection::client_connection",
      "connection::recorded_connection",
      "connection::serve_connection",
@@ -28856,34 +30448,39 @@ window.KKT_PROPOSED = {
      "create_checks",
      "create_destination_check",
      "credential_file_check",
-     "data_dir",
      "default_db",
      "docker_folder",
-     "docker_url",
+     "docker_status_lines",
+     "doctor_checks",
      "doctor_record",
      "guard",
-     "key_fix",
+     "lane_reports::Outcome",
+     "lane_reports::docker_limit",
+     "lane_reports::import_report",
      "lanes_on",
-     "local_operator_key",
-     "local_web_key",
      "operator_key",
-     "record_path",
      "recorded_key",
      "recorded_setup",
      "run",
      "running_version",
      "server_fix",
-     "server_key_file_name",
+     "service_backup_folder",
      "service_runs_defaults",
+     "service_upgrade_error",
+     "setup_lane_limit",
+     "staged_client_key",
      "status",
      "status_looks_for_unrecorded",
      "switch",
-     "unfinished_mode",
-     "unfinished_path",
+     "uninstall_line",
+     "uninstall_record",
      "unreadable_service",
      "unrecorded_here",
      "unrecorded_service",
-     "upgrade_plan"
+     "upgrade_backup_folder",
+     "upgrade_plan",
+     "waiting_note",
+     "web_key_line"
     ],
     "kind": "normal",
     "optional": false,
@@ -28910,7 +30507,6 @@ window.KKT_PROPOSED = {
        "Here",
        "InstallCheck",
        "Installed",
-       "KeyFix",
        "KeyKind",
        "KeyPlace",
        "KeysOff",
@@ -28921,7 +30517,6 @@ window.KKT_PROPOSED = {
        "Replace",
        "RunningVersion",
        "Server",
-       "ServerFix",
        "StatusThen",
        "Switch",
        "TailscaleLogin",
@@ -28929,14 +30524,18 @@ window.KKT_PROPOSED = {
        "Unfinished",
        "Unrecorded",
        "admin_key_collision",
+       "admin_key_line",
        "ask::Prompter",
        "backup_keys",
        "backup_of",
+       "client_key",
        "clients_server_fix",
        "clients_server_mode",
        "configured_key",
-       "connection::Connection",
-       "connection::ConnectionOptions",
+       "configured_name_pack_line",
+       "connection",
+       "connection::admin_connection",
+       "connection::admin_endpoint",
        "connection::client_connection",
        "connection::recorded_connection",
        "connection::serve_connection",
@@ -28944,34 +30543,39 @@ window.KKT_PROPOSED = {
        "create_checks",
        "create_destination_check",
        "credential_file_check",
-       "data_dir",
        "default_db",
        "docker_folder",
-       "docker_url",
+       "docker_status_lines",
+       "doctor_checks",
        "doctor_record",
        "guard",
-       "key_fix",
+       "lane_reports::Outcome",
+       "lane_reports::docker_limit",
+       "lane_reports::import_report",
        "lanes_on",
-       "local_operator_key",
-       "local_web_key",
        "operator_key",
-       "record_path",
        "recorded_key",
        "recorded_setup",
        "run",
        "running_version",
        "server_fix",
-       "server_key_file_name",
+       "service_backup_folder",
        "service_runs_defaults",
+       "service_upgrade_error",
+       "setup_lane_limit",
+       "staged_client_key",
        "status",
        "status_looks_for_unrecorded",
        "switch",
-       "unfinished_mode",
-       "unfinished_path",
+       "uninstall_line",
+       "uninstall_record",
        "unreadable_service",
        "unrecorded_here",
        "unrecorded_service",
-       "upgrade_plan"
+       "upgrade_backup_folder",
+       "upgrade_plan",
+       "waiting_note",
+       "web_key_line"
       ],
       "role": "uses"
      }
@@ -28987,14 +30591,19 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
+     "absolute",
+     "canonicalize",
      "kkt_path",
      "make_data_folder",
      "on_path",
+     "path_dirs",
      "program_path",
      "read_record",
      "read_unfinished",
      "remove_record",
-     "write_record"
+     "remove_unfinished",
+     "write_record",
+     "write_unfinished"
     ],
     "kind": "normal",
     "optional": false,
@@ -29003,14 +30612,19 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "absolute",
+       "canonicalize",
        "kkt_path",
        "make_data_folder",
        "on_path",
+       "path_dirs",
        "program_path",
        "read_record",
        "read_unfinished",
        "remove_record",
-       "write_record"
+       "remove_unfinished",
+       "write_record",
+       "write_unfinished"
       ],
       "role": "uses"
      }
@@ -29550,12 +31164,29 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-api-sim",
     "items": [
+     "ActivityCount",
+     "AgentActivity",
+     "AgentHidden",
      "Changes",
      "ChannelActivity",
      "ChannelChange",
+     "ChannelCreated",
+     "ChannelHidden",
+     "ChannelMembers",
+     "ChannelView",
+     "Joined",
+     "Kept",
      "KeptReason",
+     "LaneHistory",
      "LaneSave",
      "Lanes",
+     "Left",
+     "NewAgent",
+     "NextNotice",
+     "Notice",
+     "Notices",
+     "OperatorApi",
+     "Overview",
      "Server",
      "ServerRunInfo",
      "StaleAgent",
@@ -29578,10 +31209,27 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
+       "ActivityCount",
+       "AgentActivity",
+       "AgentHidden",
        "ChannelActivity",
        "ChannelChange",
+       "ChannelCreated",
+       "ChannelHidden",
+       "ChannelMembers",
+       "ChannelView",
+       "Joined",
+       "Kept",
        "KeptReason",
+       "LaneHistory",
        "LaneSave",
+       "Left",
+       "NewAgent",
+       "NextNotice",
+       "Notice",
+       "Notices",
+       "OperatorApi",
+       "Overview",
        "ServerRunInfo",
        "StaleAgent",
        "StaleHidden"
@@ -29595,6 +31243,37 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-api-operator"
+   },
+   {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-api-sim",
+    "items": [
+     "Span",
+     "testing::FixedClock",
+     "to_text"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Span",
+       "testing::FixedClock",
+       "to_text"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-clock"
    },
    {
     "features": [],
@@ -29624,6 +31303,35 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-clock"
+   },
+   {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-api-sim",
+    "items": [
+     "SeededEntropy",
+     "testing::SeqEntropy"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "SeededEntropy",
+       "testing::SeqEntropy"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-entropy"
    },
    {
     "features": [],
@@ -29730,12 +31438,110 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-api-sim",
     "items": [
-     "Admit",
-     "LiveEvent",
+     "Shutdown"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Shutdown"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-shutdown"
+   },
+   {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-api-sim",
+    "items": [
+     "PageLimits",
      "Sessions",
+     "Settings",
+     "testing",
+     "testing::App",
+     "testing::Door",
+     "testing::administration_works",
+     "testing::announcement_editor_works",
+     "testing::changes_work",
+     "testing::channel_creation_works",
+     "testing::earlier_pages_work",
+     "testing::get",
+     "testing::handoff_works",
+     "testing::hidden_channels_show_only_on_request",
+     "testing::history_works",
+     "testing::lanes_pages_work",
+     "testing::member_lists_show_lanes_and_latest_messages",
+     "testing::operator_changes_are_live",
+     "testing::page_script_works",
+     "testing::pages_work",
+     "testing::site",
+     "testing::stale_agents_work",
+     "testing::start_time",
+     "testing::summaries_agree_with_the_pages"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "PageLimits",
+       "Sessions",
+       "Settings",
+       "testing",
+       "testing::App",
+       "testing::Door",
+       "testing::administration_works",
+       "testing::announcement_editor_works",
+       "testing::changes_work",
+       "testing::channel_creation_works",
+       "testing::earlier_pages_work",
+       "testing::get",
+       "testing::handoff_works",
+       "testing::hidden_channels_show_only_on_request",
+       "testing::history_works",
+       "testing::lanes_pages_work",
+       "testing::member_lists_show_lanes_and_latest_messages",
+       "testing::operator_changes_are_live",
+       "testing::page_script_works",
+       "testing::pages_work",
+       "testing::site",
+       "testing::stale_agents_work",
+       "testing::start_time",
+       "testing::summaries_agree_with_the_pages"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-web"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-sim",
+    "items": [
+     "Access",
+     "Admit",
+     "Gate",
+     "Session",
      "SignIn",
-     "WEB_SESSION_ID_CHARS",
-     "live_event"
+     "Viewer"
     ],
     "kind": "normal",
     "optional": false,
@@ -29750,12 +31556,11 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
+       "Access",
        "Admit",
-       "LiveEvent",
-       "Sessions",
+       "Session",
        "SignIn",
-       "WEB_SESSION_ID_CHARS",
-       "live_event"
+       "Viewer"
       ],
       "role": "uses"
      }
@@ -30556,16 +32361,18 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-fake-product",
     "items": [
-     "Http"
+     "Http",
+     "HttpReply"
     ],
-    "kind": "dev",
+    "kind": "normal",
     "optional": false,
     "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Http"
+       "Http",
+       "HttpReply"
       ],
       "role": "uses"
      }
@@ -30761,6 +32568,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-fake-product",
     "items": [
+     "CreateError",
      "Options",
      "SqlitePlace"
     ],
@@ -30771,6 +32579,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "CreateError",
        "Options"
       ],
       "role": "uses"
@@ -30781,6 +32590,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "wires"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [
@@ -30846,6 +32658,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-fake-product",
     "items": [
+     "Events",
      "Settings"
     ],
     "kind": "normal",
@@ -30855,6 +32668,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Events",
        "Settings"
       ],
       "role": "uses"
@@ -31079,8 +32893,8 @@ window.KKT_PROPOSED = {
     "items": [
      "Db",
      "DefaultWording",
-     "Deps",
      "NewServerRun",
+     "Startup",
      "schema",
      "start"
     ],
@@ -31091,8 +32905,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Deps",
        "NewServerRun",
+       "Startup",
        "schema",
        "start"
       ],
@@ -31907,6 +33721,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
+     "SwarmId"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "SwarmId"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-agent"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
      "Clock"
     ],
     "kind": "normal",
@@ -32068,6 +33907,7 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
+     "Events",
      "Settings"
     ],
     "kind": "normal",
@@ -32077,6 +33917,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Events",
        "Settings"
       ],
       "role": "uses"
@@ -32276,8 +34117,7 @@ window.KKT_PROPOSED = {
     "items": [
      "Db",
      "DefaultWording",
-     "Deps",
-     "NewServerRun",
+     "Startup",
      "schema",
      "start"
     ],
@@ -32288,8 +34128,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Deps",
-       "NewServerRun",
+       "Startup",
        "schema",
        "start"
       ],
@@ -32316,7 +34155,8 @@ window.KKT_PROPOSED = {
     "items": [
      "AppConfig",
      "Parts",
-     "build"
+     "build",
+     "new_server_run"
     ],
     "kind": "normal",
     "optional": false,
@@ -32326,7 +34166,8 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "AppConfig",
-       "build"
+       "build",
+       "new_server_run"
       ],
       "role": "uses"
      },
@@ -32336,6 +34177,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "wires"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -32843,33 +34687,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-api-operator"
-   },
-   {
-    "features": [
-     "testing"
-    ],
-    "from": "kkt-mcp",
-    "items": [
-     "Preview"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Preview"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-api-sim"
    },
    {
     "features": [
@@ -33482,11 +35299,21 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-rules",
     "items": [
+     "AgentHidden",
      "ChannelActivity",
      "ChannelChange",
+     "ChannelCreated",
+     "ChannelHidden",
+     "ChannelMembers",
+     "Joined",
      "Kept",
      "KeptReason",
      "LaneSave",
+     "Left",
+     "NewAgent",
+     "NextNotice",
+     "Notice",
+     "Notices",
      "ServerRunInfo",
      "StaleAgent",
      "StaleHidden"
@@ -33507,11 +35334,21 @@ window.KKT_PROPOSED = {
      },
      {
       "detail": [
+       "AgentHidden",
        "ChannelActivity",
        "ChannelChange",
+       "ChannelCreated",
+       "ChannelHidden",
+       "ChannelMembers",
+       "Joined",
        "Kept",
        "KeptReason",
        "LaneSave",
+       "Left",
+       "NewAgent",
+       "NextNotice",
+       "Notice",
+       "Notices",
        "ServerRunInfo",
        "StaleAgent",
        "StaleHidden"
@@ -33582,6 +35419,9 @@ window.KKT_PROPOSED = {
       ],
       "role": "uses"
      }
+    ],
+    "statuses": [
+     "decided"
     ],
     "target": null,
     "test_items": [
@@ -34034,6 +35874,7 @@ window.KKT_PROPOSED = {
     "items": [
      "Changes",
      "Lanes",
+     "OperatorApi",
      "Server",
      "Views"
     ],
@@ -34046,6 +35887,7 @@ window.KKT_PROPOSED = {
       "detail": [
        "Changes",
        "Lanes",
+       "OperatorApi",
        "Server",
        "Views"
       ],
@@ -34058,6 +35900,37 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-api-operator"
+   },
+   {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-server",
+    "items": [
+     "Preview",
+     "PreviewGate",
+     "PreviewSettings"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Preview",
+       "PreviewGate",
+       "PreviewSettings"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-api-sim"
    },
    {
     "features": [
@@ -34178,9 +36051,9 @@ window.KKT_PROPOSED = {
      "Events",
      "Settings"
     ],
-    "kind": "normal",
+    "kind": "dev",
     "optional": false,
-    "proposed": "changed",
+    "proposed": "new",
     "role": "uses",
     "roles": [
      {
@@ -34501,7 +36374,7 @@ window.KKT_PROPOSED = {
     "from": "kkt-server",
     "items": [
      "DefaultWording",
-     "Settings"
+     "NewServerRun"
     ],
     "kind": "normal",
     "optional": false,
@@ -34510,7 +36383,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "Settings"
+       "NewServerRun"
       ],
       "role": "uses"
      },
@@ -34561,12 +36434,9 @@ window.KKT_PROPOSED = {
     "items": [
      "Admit",
      "Gate",
-     "Left",
-     "LiveEvent",
      "SignIn",
      "router",
      "testing",
-     "testing::ChannelHidden",
      "testing::administration_works",
      "testing::agent_row",
      "testing::announcement_editor_works",
@@ -34605,12 +36475,9 @@ window.KKT_PROPOSED = {
       "detail": [
        "Admit",
        "Gate",
-       "Left",
-       "LiveEvent",
        "SignIn",
        "router",
        "testing",
-       "testing::ChannelHidden",
        "testing::administration_works",
        "testing::agent_row",
        "testing::announcement_editor_works",
@@ -34654,13 +36521,11 @@ window.KKT_PROPOSED = {
      "Access",
      "Admit",
      "Gate",
-     "LiveEvent",
      "PageLimits",
      "Session",
      "Sessions",
      "Settings",
      "SignIn",
-     "live_event",
      "router"
     ],
     "kind": "normal",
@@ -34678,13 +36543,11 @@ window.KKT_PROPOSED = {
       "detail": [
        "Access",
        "Admit",
-       "LiveEvent",
        "PageLimits",
        "Session",
        "Sessions",
        "Settings",
        "SignIn",
-       "live_event",
        "router"
       ],
       "role": "uses"
@@ -34695,9 +36558,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [
-     "Left",
      "testing",
-     "testing::ChannelHidden",
      "testing::administration_works",
      "testing::agent_row",
      "testing::announcement_editor_works",
@@ -35107,7 +36968,11 @@ window.KKT_PROPOSED = {
     "from": "kkt-setup",
     "items": [
      "DOCKER_ADMIN_KEY_FILE_NAME",
-     "DOCKER_WEB_KEY_FILE_NAME"
+     "DOCKER_WEB_KEY_FILE_NAME",
+     "DockerError",
+     "KeyCopy",
+     "Login",
+     "State"
     ],
     "kind": "normal",
     "optional": false,
@@ -35117,7 +36982,11 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "DOCKER_ADMIN_KEY_FILE_NAME",
-       "DOCKER_WEB_KEY_FILE_NAME"
+       "DOCKER_WEB_KEY_FILE_NAME",
+       "DockerError",
+       "KeyCopy",
+       "Login",
+       "State"
       ],
       "role": "uses"
      }
@@ -35210,6 +37079,8 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-setup-os",
     "items": [
+     "Record",
+     "Unfinished",
      "record_path",
      "unfinished_path"
     ],
@@ -35220,6 +37091,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Record",
+       "Unfinished",
        "record_path",
        "unfinished_path"
       ],
@@ -35396,6 +37269,9 @@ window.KKT_PROPOSED = {
      "KeptReason",
      "LaneSave",
      "Lanes",
+     "Notice",
+     "Notices",
+     "OperatorApi",
      "Server",
      "ServerRunInfo",
      "StaleAgent",
@@ -35415,6 +37291,9 @@ window.KKT_PROPOSED = {
        "KeptReason",
        "LaneSave",
        "Lanes",
+       "Notice",
+       "Notices",
+       "OperatorApi",
        "Server",
        "ServerRunInfo",
        "StaleAgent",
@@ -35437,8 +37316,10 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-web",
     "items": [
+     "PREVIEW_SWARM",
      "Preview",
-     "PreviewGate"
+     "PreviewSettings",
+     "preview_viewer"
     ],
     "kind": "dev",
     "optional": false,
@@ -35447,8 +37328,10 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "PREVIEW_SWARM",
        "Preview",
-       "PreviewGate"
+       "PreviewSettings",
+       "preview_viewer"
       ],
       "role": "uses"
      }
@@ -35583,28 +37466,6 @@ window.KKT_PROPOSED = {
      "testing::SeqEntropy"
     ],
     "to": "kkt-entropy"
-   },
-   {
-    "features": [],
-    "from": "kkt-web",
-    "items": [
-     "Notice"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Notice"
-      ],
-      "role": "uses"
-     }
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-events"
    },
    {
     "features": [],
@@ -35748,19 +37609,80 @@ window.KKT_PROPOSED = {
     "to": "kkt-names"
    },
    {
+    "features": [],
+    "from": "kkt-web",
+    "items": [
+     "Shutdown"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "changed",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Shutdown"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-shutdown"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-web-preview",
+    "items": [
+     "KeyFiles"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "KeyFiles"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-admission-os"
+   },
+   {
     "features": [
      "testing"
     ],
     "from": "kkt-web-preview",
     "items": [
      "Preview",
-     "PreviewGate"
+     "PreviewGate",
+     "PreviewSettings",
+     "SettingError"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "new",
-    "role": "wires",
+    "role": "uses",
     "roles": [
+     {
+      "detail": [
+       "PreviewSettings",
+       "SettingError"
+      ],
+      "role": "uses"
+     },
      {
       "detail": [
        "Preview",
@@ -35778,40 +37700,13 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [
-     "testing"
-    ],
-    "from": "kkt-web-preview",
-    "items": [
-     "testing::FixedClock"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "testing::FixedClock"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-clock"
-   },
-   {
-    "features": [
      "real"
     ],
     "from": "kkt-web-preview",
     "items": [
      "SystemClock"
     ],
-    "kind": "dev",
+    "kind": "normal",
     "optional": false,
     "proposed": "new",
     "role": "wires",
@@ -35836,20 +37731,18 @@ window.KKT_PROPOSED = {
     ],
     "from": "kkt-web-preview",
     "items": [
-     "SeededEntropy",
-     "testing::SeqEntropy"
+     "SeededEntropy"
     ],
-    "kind": "dev",
+    "kind": "normal",
     "optional": false,
     "proposed": "new",
-    "role": "uses",
+    "role": "wires",
     "roles": [
      {
       "detail": [
-       "SeededEntropy",
-       "testing::SeqEntropy"
+       "SeededEntropy"
       ],
-      "role": "uses"
+      "role": "wires"
      }
     ],
     "statuses": [
@@ -35867,7 +37760,7 @@ window.KKT_PROPOSED = {
     "items": [
      "OsEntropy"
     ],
-    "kind": "dev",
+    "kind": "normal",
     "optional": false,
     "proposed": "new",
     "role": "wires",
@@ -35892,7 +37785,7 @@ window.KKT_PROPOSED = {
     "items": [
      "AllowedHosts"
     ],
-    "kind": "dev",
+    "kind": "normal",
     "optional": false,
     "proposed": "new",
     "role": "uses",
@@ -35915,16 +37808,18 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-web-preview",
     "items": [
-     "Shutdown"
+     "Level",
+     "Log"
     ],
-    "kind": "dev",
+    "kind": "normal",
     "optional": false,
     "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Shutdown"
+       "Level",
+       "Log"
       ],
       "role": "uses"
      }
@@ -35934,7 +37829,118 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-shutdown"
+    "to": "kkt-log"
+   },
+   {
+    "features": [],
+    "from": "kkt-web-preview",
+    "items": [
+     "LogLevel"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "LogLevel"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-logs"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-web-preview",
+    "items": [
+     "TracingLog",
+     "init_stderr_logging"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "init_stderr_logging"
+      ],
+      "role": "uses"
+     },
+     {
+      "detail": [
+       "TracingLog"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-logs-os"
+   },
+   {
+    "features": [],
+    "from": "kkt-web-preview",
+    "items": [
+     "page"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "page"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-server"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-web-preview",
+    "items": [
+     "listen"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "listen"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-server-listen"
    },
    {
     "features": [],
@@ -35969,7 +37975,7 @@ window.KKT_PROPOSED = {
     "items": [
      "StopSignals"
     ],
-    "kind": "dev",
+    "kind": "normal",
     "optional": false,
     "proposed": "new",
     "role": "wires",
@@ -35982,8 +37988,7 @@ window.KKT_PROPOSED = {
      }
     ],
     "statuses": [
-     "decided",
-     "follows"
+     "decided"
     ],
     "target": null,
     "test_items": [],
@@ -35993,32 +37998,22 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-web-preview",
     "items": [
-     "Gate",
-     "router",
-     "testing",
-     "testing::changes_work",
-     "testing::get",
-     "testing::history_works",
-     "testing::pages_work",
-     "testing::site",
-     "testing::start_time"
+     "MAX_WEB_PAGE_MESSAGES",
+     "PageLimits",
+     "Sessions",
+     "Settings"
     ],
-    "kind": "dev",
+    "kind": "normal",
     "optional": false,
     "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Gate",
-       "router",
-       "testing",
-       "testing::changes_work",
-       "testing::get",
-       "testing::history_works",
-       "testing::pages_work",
-       "testing::site",
-       "testing::start_time"
+       "MAX_WEB_PAGE_MESSAGES",
+       "PageLimits",
+       "Sessions",
+       "Settings"
       ],
       "role": "uses"
      }
@@ -36709,7 +38704,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "Viewer",
-   "result": "Unchanged: kkt-web's own, with kkt-web's blanket implementation (the \"a type of its own\" in the table); no other crate takes it.",
+   "result": "Gone as a trait: Viewer is kkt-web's record of a swarm and an operator, which Gate::admits gives and the page reads to call the operations in the viewer's swarm (step 6.2).",
    "rule": "declared by its consumers",
    "test_only": [],
    "trait": "kkt-web::Viewer",
