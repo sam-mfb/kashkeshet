@@ -208,7 +208,7 @@
   },
   "kkt-service": {
    "layer": "operations",
-   "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs, from the settings it needs, which the program gives and checks.",
+   "concern": "Running kkt as a service under launchd or systemd, choosing its manager from the supplied optional home and config-home paths (`Manager::for_this_os`), and the plan of what the service runs, from the settings it needs, which the program gives and checks.",
    "must_not": "Touch the machine except through its `System` contract.",
    "kind": "logic"
   },

@@ -147,7 +147,7 @@ pub async fn run(
 
 fn service_check(env: &Env) -> diagnostics::Check {
     diagnostic_check(checks::service_check(
-        Manager::for_this_os(env)
+        Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref())
             .and_then(|manager| manager.state(&ServiceSystem))
             .map(|state| (state.installed, state.running))
             .map_err(|e| e.to_string()),

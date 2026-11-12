@@ -40,7 +40,8 @@ pub struct ServiceInstall {
 /// manager and prints what happened. Installing may wait on the system
 /// clock while launchd lets the new service load.
 pub async fn run(env: &Env, platform: Platform, command: ServiceAction) -> Result<(), String> {
-    let manager = Manager::for_this_os(env).map_err(|e| e.to_string())?;
+    let manager = Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref())
+        .map_err(|e| e.to_string())?;
     let system = ServiceSystem;
     let said = match command {
         ServiceAction::Install(ServiceInstall {

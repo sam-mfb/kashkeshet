@@ -1194,3 +1194,60 @@ fn a_key_that_cannot_be_inspected_is_not_made() {
     assert!(!made.get());
     assert!(system.ran().is_empty(), "{:?}", system.ran());
 }
+
+#[test]
+fn this_platforms_service_uses_only_its_supplied_folder() {
+    let home = Some(Path::new("/Users/sam"));
+    let config_home = Some(Path::new("/home/sam/.config"));
+    if !cfg!(any(target_os = "macos", target_os = "linux")) {
+        assert!(matches!(
+            Manager::for_this_os(home, config_home),
+            Err(ServiceError::Unsupported)
+        ));
+        return;
+    }
+    let (spec, path, without_the_other) = if cfg!(target_os = "macos") {
+        (mac_spec(), PLIST, (home, None))
+    } else {
+        (linux_spec(), UNIT, (None, config_home))
+    };
+    for (home, config_home) in [(home, config_home), without_the_other] {
+        let manager = Manager::for_this_os(home, config_home).expect("the platform's folder");
+        let system = Fake::default();
+        system.files.borrow_mut().insert(
+            PathBuf::from(path),
+            manager.render(&spec).expect("service file"),
+        );
+        assert_eq!(
+            manager.installed_args(&system).expect("read service"),
+            Some(spec.args.clone())
+        );
+    }
+}
+
+#[test]
+fn this_platforms_service_keeps_its_missing_folder_and_unsupported_messages() {
+    let other_only = if cfg!(target_os = "macos") {
+        (None, Some(Path::new("/config")))
+    } else {
+        (Some(Path::new("/home/sam")), None)
+    };
+    for (home, config_home) in [(None, None), other_only] {
+        let error = Manager::for_this_os(home, config_home)
+            .err()
+            .expect("no platform folder");
+        if cfg!(any(target_os = "macos", target_os = "linux")) {
+            assert!(matches!(error, ServiceError::NoHome));
+            assert_eq!(
+                error.to_string(),
+                "no home directory to install the service in: set HOME"
+            );
+        } else {
+            assert!(matches!(error, ServiceError::Unsupported));
+            assert_eq!(
+                error.to_string(),
+                "kkt service works with launchd on macOS and systemd on Linux, not on this system"
+            );
+        }
+    }
+}
