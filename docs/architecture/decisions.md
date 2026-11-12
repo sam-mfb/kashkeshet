@@ -326,20 +326,21 @@ kkt-settings and its arrows as extra until phase 9 lands.
 
 Apart from phase 9, the code matches the proposal, as last amended, except
 for two differences that `progress.py --list` reports. Each has a row in the
-plan's differences table, and Sam has not yet ruled on either.
+plan's differences table, and Sam has ruled on both (2026-11-12).
 
 - **The arrow kkt-server → kkt-api-admin is missing** (step 5.6a). kkt-server's
   `Parts` holds the concrete `Rules` and passes it to each surface, which
-  takes it as its own contract (`Api`, `OperatorApi`, `AdminApi`). Naming the
-  traits in `Parts` would add a type parameter or a boxed value and change
-  nothing any surface can reach.
+  takes it as its own contract (`Api`, `OperatorApi`, `AdminApi`). Sam
+  decided that `Parts` takes the contract, an `Arc<dyn AdminApi>`, so
+  kkt-server no longer depends on kkt-rules in its code (step 9.2, msg 2837).
 - **kkt-rules' tests depend on the effect crate kkt-db-sqlite** (step 5.3b),
   a break of the rule that keeps effect crates out of other crates' tests.
   The reason is speed: kkt-rules' 200 tests take under 5 seconds on SQLite in
   memory and over 10 minutes on kkt-db's `MemoryPlace`, which copies the
   whole database on every change. kkt-db's conformance checks keep the two
   backends in step, and kkt-rules' `testing::memory` still serves other
-  crates' tests.
+  crates' tests. Sam did not accept this: a fast stand-in replaces it
+  (msg 2805).
 
 The final scorecard, on the code at the end of the refactor:
 
