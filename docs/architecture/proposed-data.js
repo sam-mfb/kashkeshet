@@ -1886,15 +1886,6 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-mcp"
-   },
-   {
-    "from": "kkt-agent-commands",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
     "to": "kkt-names"
    },
    {
@@ -5873,10 +5864,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "what its commands use of kkt-names (step 10.3)"
-     },
-     {
-      "status": "decided",
-      "text": "what its commands use of kkt-mcp (step 10.3)"
      },
      {
       "status": "decided",
@@ -15647,7 +15634,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The effects and facts the agents' commands take: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the client configs' host, this program's path, the terminal and the clock (step 10.3).",
+      "doc": "The effects and facts the agents' commands take: kkt-setup's connection question, where the admin key is and the admin endpoint's path (which the program takes from kkt-mcp, so that the assembly needs no arrow to it), the server's client, the credential files, the client configs' host, this program's path, the terminal and the clock (step 10.3).",
       "kind": "struct",
       "path": "AgentParts",
       "proposed_item": true,
@@ -15877,10 +15864,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "what its commands use of kkt-names (step 10.3)"
-     },
-     {
-      "status": "decided",
-      "text": "what its commands use of kkt-mcp (step 10.3)"
      },
      {
       "status": "decided",
@@ -33066,31 +33049,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-machine"
-   },
-   {
-    "features": [],
-    "from": "kkt-agent-commands",
-    "items": [
-     "MCP_ADMIN_PATH"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "MCP_ADMIN_PATH"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-mcp"
    },
    {
     "features": [],
