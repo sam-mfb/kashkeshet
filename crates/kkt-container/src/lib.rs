@@ -28,6 +28,7 @@ impl Folder {
     pub fn path(&self) -> &Path {
         &self.0
     }
+    /// The backups folder on the host.
     pub fn backups(&self) -> PathBuf {
         self.0.join("backups")
     }
@@ -36,67 +37,104 @@ impl Folder {
 /// The version, installation name, port and network access requested.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Inputs {
+    /// The kkt version whose image to run, such as `0.4.0`.
     pub version: String,
+    /// The installation name, grouping its containers and volumes.
+    /// `kkt` unless testing beside a real setup.
     pub project: String,
+    /// The port on the host's `127.0.0.1` that kkt is published on.
+    /// The port of kkt's default bind address, 7420, unless testing beside
+    /// a real setup.
     pub port: u16,
+    /// Host names kkt answers to besides its own, such as a container host's
+    /// name.
     pub allow_hosts: Vec<String>,
-    pub tailscale: Option<Sharing>,
+    /// Share the server over the configured network, if given.
+    pub sharing: Option<Sharing>,
 }
 
 /// The network name and optional login key requested for sharing.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Sharing {
+    /// The name asked for on the tailnet.
     pub hostname: String,
+    /// An auth key, if there is one. Without it the person logs in with a
+    /// link, which setup shows.
     pub auth_key: Option<String>,
 }
 
 /// An installation's files, running server, version and network login.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct State {
+    /// Whether the managed folder has its settings file.
     pub files_present: bool,
+    /// Whether the kkt container is running.
     pub running: bool,
+    /// The kkt version the settings file names.
     pub version: Option<String>,
+    /// The selected name pack, or why it could not be read.
     pub name_pack: Result<String, String>,
-    pub tailscale: bool,
+    /// Whether it is set up to be shared over the network.
+    pub sharing: bool,
+    /// The network login, for an installation configured for sharing.
     pub login: Option<Login>,
 }
 
 /// Whether the installation's sharing connection is logged in.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Login {
+    /// Logged in to the sharing network.
     LoggedIn,
+    /// Not logged in: the machine's key expired, or it was logged out. It is
+    /// off the tailnet until someone logs it in again.
     NeedsLogin,
+    /// The sharing connection does not answer, such as when the installation
+    /// is not running.
     Unreachable,
+    /// Some other state, as the network provider reports it.
     Other(String),
 }
 
 /// An installation discovered in the managed folder.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Existing {
-    pub tailscale: bool,
+    /// Shared over the network.
+    pub sharing: bool,
+    /// The node's name on the tailnet, as `(hostname, tailnet)`, when it is
+    /// shared over the network.
     pub node: Option<(String, String)>,
+    /// The port on the host's `127.0.0.1` that kkt is published on.
     pub port: u16,
 }
 
 /// Whether the saved web key still matches the running server.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeyCopy {
+    /// The saved and running server keys match.
     Same,
+    /// The container's key changed after the copy was saved, such as when
+    /// it was rotated inside the container.
     Differs,
 }
 
 /// Lane files and their original source to import into the server.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LanesImport {
+    /// Absolute paths of the `.md` files to import.
     pub files: Vec<PathBuf>,
+    /// The original folder on the host, recorded with the import.
     pub source_folder: String,
+    /// The original source folder's commit, if known.
     pub source_commit: Option<String>,
+    /// Retire installed lanes absent from this import.
     pub retire_missing: bool,
 }
 
 /// The network name discovered while starting the installation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Provisioned {
+    /// The node's name on the tailnet, as `(hostname, tailnet)`, if kkt is
+    /// shared over the network. kkt answers to `<hostname>.<tailnet>`.
     pub node: Option<(String, String)>,
 }
 
@@ -136,7 +174,6 @@ pub trait Container {
     fn down(&self, folder: &Folder, remove_data: bool) -> Result<(), String>;
     /// Back up the server, optionally copying the backup to a destination.
     fn backup(&self, folder: &Folder, dest: Option<&Path>) -> Result<PathBuf, String>;
-    /// Start the installation.
     /// Back up and upgrade the server, preserving its settings and saved keys.
     fn upgrade<'a>(
         &'a self,
@@ -156,9 +193,11 @@ pub trait Container {
         reader: &dyn ConfigReader,
         default: usize,
     ) -> Result<usize, String>;
-    /// Whether the managed settings exist, including an unfinished installation.
+    /// Whether the managed settings path exists, including a directory or an
+    /// unfinished installation. Follows symbolic links.
     fn has_settings(&self, folder: &Folder) -> bool;
-    /// Whether a managed settings file is present for resuming setup.
+    /// Whether the managed settings path is a regular file, following symbolic
+    /// links, so an unfinished setup can resume from it.
     fn settings_file(&self, folder: &Folder) -> bool;
     /// Read the version selected in the installation's settings.
     fn version(&self, folder: &Folder) -> Result<String, String>;

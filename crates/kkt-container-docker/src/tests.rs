@@ -213,7 +213,7 @@ fn plain() -> Inputs {
         project: "kkt".into(),
         port: 7420,
         allow_hosts: vec![],
-        tailscale: None,
+        sharing: None,
     }
 }
 
@@ -223,7 +223,7 @@ fn with_tailscale(auth_key: Option<&str>) -> Inputs {
         project: "kkt".into(),
         port: 7420,
         allow_hosts: vec![],
-        tailscale: Some(Tailscale {
+        sharing: Some(Tailscale {
             hostname: "kkt".into(),
             auth_key: auth_key.map(str::to_string),
         }),
@@ -607,7 +607,7 @@ fn status_says_whether_it_is_set_up_and_running() {
             running: false,
             version: None,
             name_pack: Err("container is not set up".into()),
-            tailscale: false,
+            sharing: false,
             login: None
         }
     );
@@ -621,7 +621,7 @@ fn status_says_whether_it_is_set_up_and_running() {
             running: true,
             version: Some("0.4.0".into()),
             name_pack: Err("could not identify the kkt container".into()),
-            tailscale: true,
+            sharing: true,
             // This fake host's Tailscale container answers nothing readable.
             login: Some(Login::Other("an unreadable answer".into()))
         }
@@ -632,7 +632,7 @@ fn status_says_whether_it_is_set_up_and_running() {
         (env_text(&plain(), None), true),
     );
     let state = status(&stopped, &folder(), &Reader, DEFAULT_PACK).unwrap();
-    assert!(state.files_present && !state.running && !state.tailscale);
+    assert!(state.files_present && !state.running && !state.sharing);
 }
 
 /// The settings file `kkt setup` 0.4.1 wrote for Docker over Tailscale once
@@ -660,7 +660,7 @@ fn an_install_is_read_from_the_files_setup_left_without_running_anything() {
     assert_eq!(
         existing(&host, &folder()).unwrap(),
         Some(Existing {
-            tailscale: true,
+            sharing: true,
             node: Some(("kkt".into(), "tail1234.ts.net".into())),
             port: 7420,
         })
@@ -669,7 +669,7 @@ fn an_install_is_read_from_the_files_setup_left_without_running_anything() {
     assert_eq!(
         existing(&host, &folder()).unwrap(),
         Some(Existing {
-            tailscale: false,
+            sharing: false,
             node: None,
             port: 7420,
         })

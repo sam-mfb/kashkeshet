@@ -40,7 +40,7 @@ pub fn env_text(inputs: &Inputs, node: Option<(&str, &str)>) -> String {
             inputs.allow_hosts.join(",")
         ));
     }
-    if let Some(tailscale) = &inputs.tailscale {
+    if let Some(tailscale) = &inputs.sharing {
         let (hostname, tailnet) = node.unwrap_or((&tailscale.hostname, DOCKER_PENDING_TAILNET));
         text.push_str("COMPOSE_FILE=compose.tailscale.yaml\n");
         text.push_str(&format!("TS_HOSTNAME={hostname}\n"));

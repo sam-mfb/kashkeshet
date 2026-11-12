@@ -63,7 +63,7 @@ impl Container for Memory {
     ) -> LocalBoxFuture<'a, Result<Provisioned, String>> {
         self.note("provision");
         Box::pin(async move {
-            let node = if inputs.tailscale.is_some() {
+            let node = if inputs.sharing.is_some() {
                 Some(
                     self.node
                         .clone()
@@ -105,15 +105,15 @@ impl Container for Memory {
                 running: i.running,
                 version: Some(i.inputs.version.clone()),
                 name_pack: Ok(default_name_pack.into()),
-                tailscale: i.inputs.tailscale.is_some(),
-                login: i.inputs.tailscale.as_ref().map(|_| Login::LoggedIn),
+                sharing: i.inputs.sharing.is_some(),
+                login: i.inputs.sharing.as_ref().map(|_| Login::LoggedIn),
             },
             None => State {
                 files_present: false,
                 running: false,
                 version: None,
                 name_pack: Err("container is not installed".into()),
-                tailscale: false,
+                sharing: false,
                 login: None,
             },
         })
@@ -121,8 +121,8 @@ impl Container for Memory {
     fn existing(&self, folder: &Folder) -> Result<Option<Existing>, String> {
         self.note("existing");
         Ok(self.installs.borrow().get(folder.path()).map(|i| Existing {
-            tailscale: i.inputs.tailscale.is_some(),
-            node: if i.inputs.tailscale.is_some() {
+            sharing: i.inputs.sharing.is_some(),
+            node: if i.inputs.sharing.is_some() {
                 self.node.clone()
             } else {
                 None
@@ -255,7 +255,7 @@ mod tests {
                 project: "kkt".into(),
                 port: 7420,
                 allow_hosts: vec![],
-                tailscale: None,
+                sharing: None,
             };
             assert!(!memory.has_settings(&one));
             assert!(memory.existing(&one).unwrap().is_none());
@@ -288,7 +288,7 @@ mod tests {
             );
             let shared = Folder("/shared".into());
             let inputs = Inputs {
-                tailscale: Some(Sharing {
+                sharing: Some(Sharing {
                     hostname: "shared".into(),
                     auth_key: None,
                 }),

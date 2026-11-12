@@ -1,4 +1,4 @@
-//! The contract for showing the Tailscale login link. Showing it, and
+//! The contract for showing the network login link. Showing it, and
 //! opening it in a browser when the person asks, happen at the edge of the
 //! program, so setup can be tested without a terminal or a browser.
 

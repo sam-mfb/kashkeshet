@@ -6,6 +6,10 @@
 //! This part only runs Docker. It does not decide what a person wants (the
 //! setup answers) or remember what was set up (the setup record); the caller
 //! passes those in.
+//!
+//! `Inputs.project` names the Compose project and its containers and volumes.
+//! `Inputs.allow_hosts` is written to `.env` as `KKT_ALLOW_HOSTS`;
+//! `Inputs.sharing` starts the Tailscale sidecar and waits for its login.
 
 #![cfg(any(feature = "real", test))]
 
@@ -81,7 +85,7 @@ const DOCKER_MANAGED_VARIABLES: &[&str] = &[
 const DOCKER_PENDING_TAILNET: &str = "pending.invalid";
 
 /// How long setup and upgrade wait on the containers, and how often they
-/// ask. The program passes [`Settings::DEFAULT`].
+/// ask. The wrapper uses [`Settings::DEFAULT`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Settings {
     /// How long to wait for someone to log the Tailscale container in.
@@ -203,9 +207,6 @@ impl Finished {
         }
     }
 }
-
-/// The folder kkt manages for the Compose files, the settings file and the
-/// backups folder.
 
 #[derive(Debug, thiserror::Error)]
 enum DockerError {

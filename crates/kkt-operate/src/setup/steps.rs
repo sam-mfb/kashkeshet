@@ -127,7 +127,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             project: options.docker_project.clone(),
             port: options.docker_port,
             allow_hosts: allow_hosts.to_vec(),
-            tailscale: tailscale_inputs,
+            sharing: tailscale_inputs,
         };
         let tailscale = tailscale.is_some();
         let provisioned = tokio::runtime::Handle::current()

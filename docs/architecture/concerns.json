@@ -215,7 +215,7 @@
   "kkt-container": {
    "layer": "operations",
    "concern": "The container installation contract, its requests and results, config parsing and login-link contracts, and an in-memory testing stand-in.",
-   "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
+   "must_not": "Know Docker commands, Compose files or their formats; touch the machine.",
    "kind": "contract"
   },
   "kkt-remote-access": {
@@ -410,7 +410,7 @@
    "layer": "operations",
    "kind": "effect",
    "concern": "Docker and Compose implement Container directly; all Docker files, commands, output and sidecar status, tested over a private runner.",
-   "must_not": "Decide what Docker setup does."
+   "must_not": "Decide setup answers or remember the setup record."
   }
  },
  "kinds": [

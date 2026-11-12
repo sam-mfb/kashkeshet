@@ -33,7 +33,7 @@ pub async fn provision(
     key_file: &Path,
 ) -> Result<Provisioned, DockerError> {
     check_docker(host)?;
-    let tailscale = inputs.tailscale.is_some();
+    let tailscale = inputs.sharing.is_some();
     create_dir(host, folder.path())?;
     create_dir(host, &folder.backups())?;
     write_embedded(host, folder, tailscale)?;

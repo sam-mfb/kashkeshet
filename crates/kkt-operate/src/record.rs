@@ -64,7 +64,7 @@ fn unrecorded_docker<D>(
         url: docker_url(existing.port, existing.node.as_ref()),
         mode: setup::Mode::Docker(setup::DockerSetup {
             folder,
-            tailscale: existing.tailscale,
+            tailscale: existing.sharing,
             hostname,
             tailnet,
         }),

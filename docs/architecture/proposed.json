@@ -9542,6 +9542,41 @@
    "item": "kkt-remote-access::Node",
    "doc": "The network name by which clients reach this machine.",
    "status": "decided"
+  },
+  {
+   "item": "kkt-container::Inputs",
+   "fields": [
+    "version",
+    "project",
+    "port",
+    "allow_hosts",
+    "sharing"
+   ],
+   "status": "decided",
+   "doc": "The requested container installation."
+  },
+  {
+   "item": "kkt-container::State",
+   "fields": [
+    "files_present",
+    "running",
+    "version",
+    "name_pack",
+    "sharing",
+    "login"
+   ],
+   "status": "decided",
+   "doc": "The installation and its sharing state."
+  },
+  {
+   "item": "kkt-container::Existing",
+   "fields": [
+    "sharing",
+    "node",
+    "port"
+   ],
+   "status": "decided",
+   "doc": "An existing installation and its shared network name."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -10047,7 +10082,8 @@
   },
   "kkt-container": {
    "status": "decided",
-   "concern": "Container operations, requests and results in project terms; config parsing and login-link contracts; a testing stand-in."
+   "concern": "Container operations, requests and results in project terms; config parsing and login-link contracts; a testing stand-in.",
+   "must_not": "Know Docker commands, Compose files or their formats; touch the machine."
   },
   "kkt-service": {
    "status": "decided",
@@ -10105,6 +10141,11 @@
   "kkt-web-preview": {
    "status": "decided",
    "concern": "The web preview program: it serves kkt-web's page over kkt-api-sim's simulated application, from flags (the address, the seed and the preview's settings). A dev-only program that turns kkt-api-sim's testing feature on, since dev tooling counts as test code."
+  },
+  "kkt-container-docker": {
+   "status": "decided",
+   "concern": "Docker and Compose implement Container directly, including their files, commands, output and sidecar status; native execution is behind real.",
+   "must_not": "Decide setup answers or remember the setup record."
   }
  },
  "feature_moves": [

@@ -10964,13 +10964,14 @@ window.KKT_PROPOSED = {
     "concern": "Container operations, requests and results in project terms; config parsing and login-link contracts; a testing stand-in.",
     "kind": "contract",
     "layer": "operations",
-    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
+    "must_not": "Know Docker commands, Compose files or their formats; touch the machine.",
     "status": "decided"
    },
    "kkt-container-docker": {
-    "concern": "Docker implements Container directly; owns Docker and Compose knowledge, files, sidecar status and its private native runner, running behind real (12.2).",
+    "concern": "Docker and Compose implement Container directly, including their files, commands, output and sidecar status; native execution is behind real.",
     "kind": "effect",
     "layer": "operations",
+    "must_not": "Decide setup answers or remember the setup record.",
     "status": "decided"
    },
    "kkt-db": {
@@ -19171,9 +19172,9 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "What an install in the managed folder is, read from its files alone, as any version of `kkt setup` leaves them.",
+      "doc": "An existing installation and its shared network name.",
       "fields": [
-       "tailscale",
+       "sharing",
        "node",
        "port"
       ],
@@ -19190,13 +19191,13 @@ window.KKT_PROPOSED = {
       "path": "Folder"
      },
      {
-      "doc": "What to set up.",
+      "doc": "The requested container installation.",
       "fields": [
        "version",
        "project",
        "port",
        "allow_hosts",
-       "tailscale"
+       "sharing"
       ],
       "kind": "struct",
       "path": "Inputs"
@@ -19266,13 +19267,13 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "How kkt in Docker stands.",
+      "doc": "The installation and its sharing state.",
       "fields": [
        "files_present",
        "running",
        "version",
        "name_pack",
-       "tailscale",
+       "sharing",
        "login"
       ],
       "kind": "struct",

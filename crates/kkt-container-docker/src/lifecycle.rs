@@ -28,7 +28,7 @@ pub fn status(
             running: false,
             version: None,
             name_pack: Err("container is not set up".into()),
-            tailscale: false,
+            sharing: false,
             login: None,
         });
     }
@@ -63,7 +63,7 @@ pub fn status(
         running,
         version: version_in_env(&env),
         name_pack,
-        tailscale,
+        sharing: tailscale,
         login,
     })
 }
@@ -144,7 +144,7 @@ pub fn existing(host: &dyn Runner, folder: &Folder) -> Result<Option<Existing>, 
         false => None,
     };
     Ok(Some(Existing {
-        tailscale,
+        sharing: tailscale,
         node,
         port,
     }))
