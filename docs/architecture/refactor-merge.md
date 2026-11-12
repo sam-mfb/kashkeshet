@@ -131,6 +131,26 @@ the real implementation.
 Sam edits the template himself; this pull request does not change
 `principles/`.
 
+### Notes on third-party dependencies, for Sam's edit (nobody edits `principles/`)
+
+From Sam's ruling of 2026-11-12: a third-party dependency is always split
+into a contract crate named for the scope and a wrapper crate named for the
+tool, which implements the contract directly. The program only injects it.
+
+1. **3.1.2.1** should say that the wrapping module implements the project's
+   contract directly, and that a parent only injects it: no adapter between
+   them.
+2. **3.3.1** (loose coupling for third-party dependencies) conflicts with
+   3.2.3.1's example, where `vpn-tailscale` implements the `vpn` contract
+   that `network` depends on.
+3. **Where contracts are defined** (section 2 or 3.2), it should say that a
+   contract is in the project's terms, never the tool's: "run `tailscale`
+   with these arguments" is not a contract.
+4. **1.2.1 against 2.3.2** for a single implementation: 1.2.1 names the
+   module for its scope, while 2.3.2 names an implementer of an external
+   contract for the tool. Sam's ruling: always split, and name the wrapper
+   for the tool.
+
 ### Candidates to revisit (not decided)
 
 Sam wants these kept to one side, to come back to. None is a rule yet, and
