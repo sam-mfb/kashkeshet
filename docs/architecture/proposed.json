@@ -318,6 +318,48 @@
    "from": "kashkeshet",
    "status": "decided",
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: the connection question kkt-setup declares, where the admin key is, the server's client, the credential files and the terminal. It depends on no `-os` crate, not on kkt-agent-client, and on no other assembly."
+  },
+  {
+   "name": "kkt-agent-client-rmcp",
+   "layer": "clients",
+   "kind": "effect",
+   "from": "kkt-agent-client",
+   "status": "decided",
+   "concern": "Implements kkt-agent-client's contract directly over MCP, through rmcp and reqwest: Mcp, Client, Remote and AdminRemote, with Settings; plain Http requests for a program's test client. Everything that reaches the server is behind real (step 12.4).",
+   "third_party": [
+    "futures",
+    "reqwest",
+    "rmcp",
+    "serde_json",
+    "tokio"
+   ]
+  },
+  {
+   "name": "kkt-agent-files-os",
+   "layer": "clients",
+   "kind": "effect",
+   "from": "kkt-agent-client",
+   "status": "decided",
+   "concern": "Agent credential files and kkt watch's state files on this machine, moved from kkt-agent-client, which becomes a contract (step 12.4).",
+   "third_party": [
+    "libc"
+   ]
+  },
+  {
+   "name": "kkt-client-command",
+   "layer": "operations",
+   "kind": "contract",
+   "from": "kkt-client-config",
+   "status": "decided",
+   "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand, with the testing Recorder (step 12.5c)."
+  },
+  {
+   "name": "kkt-client-command-claude",
+   "layer": "operations",
+   "kind": "effect",
+   "from": "kkt-client-config-os",
+   "status": "decided",
+   "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json, CLAUDE_CONFIG_DIR and the wording, over a private runner; running claude is behind real (step 12.5c)."
   }
  ],
  "moves": [
@@ -1344,6 +1386,24 @@
    "status": "decided",
    "as": "connect::run",
    "note": "phase 10, step 10.3"
+  },
+  {
+   "item": "kkt-agent-client::Client",
+   "to": "kkt-agent-client-rmcp",
+   "status": "decided",
+   "note": "the MCP client implements kkt-agent-client's contract (step 12.4)"
+  },
+  {
+   "item": "kkt-agent-client::Remote",
+   "to": "kkt-agent-client-rmcp",
+   "status": "decided",
+   "note": "the MCP client implements kkt-agent-client's contract (step 12.4)"
+  },
+  {
+   "item": "kkt-agent-client::AdminRemote",
+   "to": "kkt-agent-client-rmcp",
+   "status": "decided",
+   "note": "the MCP client implements kkt-agent-client's contract (step 12.4)"
   }
  ],
  "remove_items": [
@@ -1977,6 +2037,36 @@
    "item": "kkt-container::lane_limit",
    "status": "decided",
    "note": "The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+  },
+  {
+   "item": "kkt-watch::Server",
+   "status": "decided",
+   "note": "kkt-watch uses kkt-agent-client's contract and records (step 12.4)"
+  },
+  {
+   "item": "kkt-watch::Channel",
+   "status": "decided",
+   "note": "kkt-watch uses kkt-agent-client's contract and records (step 12.4)"
+  },
+  {
+   "item": "kkt-watch::Failure",
+   "status": "decided",
+   "note": "kkt-watch uses kkt-agent-client's contract and records (step 12.4)"
+  },
+  {
+   "item": "kkt-watch::Message",
+   "status": "decided",
+   "note": "kkt-watch uses kkt-agent-client's contract and records (step 12.4)"
+  },
+  {
+   "item": "kkt-watch::NewerLane",
+   "status": "decided",
+   "note": "kkt-watch uses kkt-agent-client's contract and records (step 12.4)"
+  },
+  {
+   "item": "kkt-watch::Waited",
+   "status": "decided",
+   "note": "kkt-watch uses kkt-agent-client's contract and records (step 12.4)"
   }
  ],
  "method_moves": [
@@ -2395,58 +2485,6 @@
    "feature": "real"
   },
   {
-   "crate": "kkt-agent-client",
-   "path": "CredentialFile",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "A new agent credential file, made only its owner can read and removed unless saved; a failed removal goes to the caller's callback, which keeps the log's target (step 7.4).",
-   "feature": "real",
-   "methods": [
-    "create",
-    "save"
-   ]
-  },
-  {
-   "crate": "kkt-agent-client",
-   "path": "read_secret",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "Reads an agent secret from the same opened file whose owner and mode the caller's CredentialCheck judges, tightening it as the check's PrivateMode says and passing its warning to the caller's callback (step 7.4).",
-   "feature": "real"
-  },
-  {
-   "crate": "kkt-agent-client",
-   "path": "watch_token",
-   "kind": "fn",
-   "status": "decided",
-   "doc": "The token kkt watch uses: from its file, read as read_secret reads, else from KKT_TOKEN (step 7.4).",
-   "feature": "real"
-  },
-  {
-   "crate": "kkt-agent-client",
-   "path": "FileLock",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "A lock on a state file, so one watch uses it at a time.",
-   "feature": "real",
-   "methods": [
-    "take"
-   ]
-  },
-  {
-   "crate": "kkt-agent-client",
-   "path": "StateFile",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "The file where kkt watch keeps the highest message ID it has seen. The program adapts it to kkt-watch's Place.",
-   "feature": "real",
-   "methods": [
-    "claim",
-    "load",
-    "save"
-   ]
-  },
-  {
    "crate": "kkt-config-file-os",
    "path": "write",
    "kind": "fn",
@@ -2585,19 +2623,6 @@
    "doc": "The SHA-256 digest of some bytes."
   },
   {
-   "crate": "kkt-agent-client",
-   "path": "Http",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "real",
-   "doc": "Plain HTTP requests, for the fake product's tests: a GET or POST, with redirects off and TCP_NODELAY on, giving an HttpReply whose HTTP library stays private (step 7.5).",
-   "methods": [
-    "get",
-    "new",
-    "post"
-   ]
-  },
-  {
    "crate": "kkt-setup-os",
    "path": "remove_record",
    "kind": "fn",
@@ -2619,14 +2644,6 @@
    "kind": "fn",
    "status": "decided",
    "doc": "The rule for an agent credential file, from its owner and mode: refuse one another user owns, with the advice to fix it, quoting the caller's path; tighten one others can read, as a CredentialFileFix with a warning (step 7.4)."
-  },
-  {
-   "crate": "kkt-agent-client",
-   "path": "make_private",
-   "kind": "fn",
-   "status": "decided",
-   "feature": "real",
-   "doc": "Applies the caller's CredentialCheck to an opened credential file: takes group and other access off it as the PrivateMode says, and returns the warning (step 7.4)."
   },
   {
    "crate": "kkt-logs",
@@ -2824,13 +2841,6 @@
    "kind": "struct",
    "status": "decided",
    "doc": "How long the watch's calls wait, and how it retries. (step 3.1c-1)"
-  },
-  {
-   "crate": "kkt-agent-client",
-   "path": "Settings",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "How much the watch asks for at a time, and how often it asks the admin endpoint. (step 3.1c-1)"
   },
   {
    "crate": "kkt-mcp",
@@ -3161,38 +3171,6 @@
    ]
   },
   {
-   "crate": "kkt-agent-client",
-   "path": "CredentialCheck",
-   "kind": "type",
-   "status": "decided",
-   "doc": "The caller's rule over the path and named file/caller facts (step 7.4).",
-   "feature": "real"
-  },
-  {
-   "crate": "kkt-agent-client",
-   "path": "CredentialFileFacts",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "The inspected file and the caller whose access is checked (step 7.4).",
-   "feature": "real"
-  },
-  {
-   "crate": "kkt-agent-client",
-   "path": "PrivateMode",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "A checked permission change, with caller-supplied advice and warning (step 7.4).",
-   "feature": "real"
-  },
-  {
-   "crate": "kkt-agent-client",
-   "path": "LockRefused",
-   "kind": "enum",
-   "status": "decided",
-   "doc": "Why a `FileLock` was not taken (step 7.4).",
-   "feature": "real"
-  },
-  {
    "crate": "kkt-setup",
    "path": "CredentialFileFix",
    "kind": "struct",
@@ -3377,21 +3355,6 @@
    "kind": "fn",
    "status": "decided",
    "doc": "The web page alone, over `api` in each viewer's swarm and behind `gate`, with no MCP endpoints, for a program that serves only the page, such as the preview over simulated data (step 6.3)."
-  },
-  {
-   "crate": "kkt-agent-client",
-   "path": "HttpReply",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "A response whose HTTP library and streaming body stay private (step 7.5).",
-   "feature": "real",
-   "methods": [
-    "bytes_stream",
-    "header",
-    "header_text",
-    "status",
-    "text"
-   ]
   },
   {
    "crate": "kkt-db-sqlite",
@@ -3838,13 +3801,6 @@
   },
   {
    "crate": "kkt-agent-commands",
-   "path": "Servers",
-   "kind": "trait",
-   "status": "decided",
-   "doc": "A client of the server at an address, with an optional key: register, reclaim, describe, and kkt-watch's Server for an agent or the admin endpoint (step 10.3)."
-  },
-  {
-   "crate": "kkt-agent-commands",
    "path": "Credentials",
    "kind": "trait",
    "status": "decided",
@@ -4119,15 +4075,253 @@
    "feature": "real",
    "status": "decided",
    "doc": "Docker and Compose implement the container contract directly."
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "path": "CredentialFile",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A new agent credential file, made only its owner can read and removed unless saved; a failed removal goes to the caller's callback, which keeps the log's target (step 7.4).",
+   "feature": "real",
+   "methods": [
+    "create",
+    "save"
+   ]
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "path": "read_secret",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Reads an agent secret from the same opened file whose owner and mode the caller's CredentialCheck judges, tightening it as the check's PrivateMode says and passing its warning to the caller's callback (step 7.4).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "path": "watch_token",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The token kkt watch uses: from its file, read as read_secret reads, else from KKT_TOKEN (step 7.4).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "path": "FileLock",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A lock on a state file, so one watch uses it at a time.",
+   "feature": "real",
+   "methods": [
+    "take"
+   ]
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "path": "StateFile",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The file where kkt watch keeps the highest message ID it has seen. The program adapts it to kkt-watch's Place.",
+   "feature": "real",
+   "methods": [
+    "claim",
+    "load",
+    "save"
+   ]
+  },
+  {
+   "crate": "kkt-agent-client-rmcp",
+   "path": "Http",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "real",
+   "doc": "Plain HTTP requests, for the fake product's tests: a GET or POST, with redirects off and TCP_NODELAY on, giving an HttpReply whose HTTP library stays private (step 7.5).",
+   "methods": [
+    "get",
+    "new",
+    "post"
+   ]
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "path": "make_private",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "real",
+   "doc": "Applies the caller's CredentialCheck to an opened credential file: takes group and other access off it as the PrivateMode says, and returns the warning (step 7.4)."
+  },
+  {
+   "crate": "kkt-agent-client-rmcp",
+   "path": "Settings",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "How much the watch asks for at a time, and how often it asks the admin endpoint. (step 3.1c-1)"
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "path": "CredentialCheck",
+   "kind": "type",
+   "status": "decided",
+   "doc": "The caller's rule over the path and named file/caller facts (step 7.4).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "path": "CredentialFileFacts",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The inspected file and the caller whose access is checked (step 7.4).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "path": "PrivateMode",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A checked permission change, with caller-supplied advice and warning (step 7.4).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "path": "LockRefused",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "Why a `FileLock` was not taken (step 7.4).",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-agent-client-rmcp",
+   "path": "HttpReply",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A response whose HTTP library and streaming body stay private (step 7.5).",
+   "feature": "real",
+   "methods": [
+    "bytes_stream",
+    "header",
+    "header_text",
+    "status",
+    "text"
+   ]
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "Servers",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Clients of a server: Avatars and Watched for an Address. (step 12.4)",
+   "methods": [
+    "avatars",
+    "agent",
+    "admin"
+   ]
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "Avatars",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "What a client asks of a server for an avatar: register, reclaim, describe. (step 12.4)",
+   "methods": [
+    "register",
+    "reclaim",
+    "describe"
+   ]
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "Watched",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "What watching asks of a server, as an agent or with the admin key. (step 12.4)",
+   "methods": [
+    "handle",
+    "channels",
+    "latest_id",
+    "message",
+    "wait"
+   ]
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "Address",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A server, as a client reaches it: its MCP endpoint and the key it is reached with. (step 12.4)"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "testing::Memory",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A stand-in server in memory. (step 12.4)",
+   "feature": "testing",
+   "methods": [
+    "new",
+    "registered"
+   ]
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "testing::Avatar",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "One avatar, as testing::Memory keeps it. (step 12.4)",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "path": "testing::ADMIN_HANDLE",
+   "kind": "const",
+   "status": "decided",
+   "doc": "The admin's name as a watch of testing::Memory sees it. (step 12.4)",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-agent-client-rmcp",
+   "path": "Mcp",
+   "kind": "struct",
+   "status": "decided",
+   "feature": "real",
+   "doc": "kkt's servers over MCP, which the program injects as kkt-agent-client's Servers (step 12.4)."
+  },
+  {
+   "crate": "kkt-client-command",
+   "path": "ClientCommand",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "A client's own command, as kkt-client-config asks it: remove kkt's server, add it as the client's own entry. (step 12.5c)",
+   "methods": [
+    "remove_server",
+    "add_server"
+   ]
+  },
+  {
+   "crate": "kkt-client-command",
+   "path": "testing::Recorder",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A stand-in that records each call and can fail them. (step 12.5c)",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-client-command",
+   "path": "testing::Call",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "One call, as Recorder keeps it. (step 12.5c)",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-client-command-claude",
+   "path": "Claude",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "Claude Code's own command, which the program injects as ClientCommand. (step 12.5c)",
+   "feature": "real"
   }
  ],
  "declared": [],
  "stop_implementing": [
-  {
-   "trait": "kkt-watch::Server",
-   "status": "decided",
-   "note": "kkt-agent-client stops depending on kkt-watch; it offers plain methods with its own types, and the program's thin adapter implements kkt-watch's Server, mapping one Failure to the other."
-  },
   {
    "trait": "kkt-service::System",
    "status": "decided",
@@ -4171,18 +4365,6 @@
  ],
  "adapters": {
   "kashkeshet": [
-   {
-    "adapts": "kkt-agent-client::Remote",
-    "to": "kkt-watch::Server",
-    "status": "decided",
-    "note": "with AdminRemote, one adapter, WatchServer, an enum over the two that maps kkt-agent-client's Failure to kkt-watch's (step 1.9)"
-   },
-   {
-    "adapts": "kkt-agent-client::AdminRemote",
-    "to": "kkt-watch::Server",
-    "status": "decided",
-    "note": "the same WatchServer as Remote (step 1.9)"
-   },
    {
     "adapts": "kkt-service-os::OsSystem",
     "to": "kkt-service::System",
@@ -4238,16 +4420,16 @@
     "note": "4 forwarding methods: the Tailscale login link"
    },
    {
-    "adapts": "kkt-agent-client::StateFile",
-    "to": "kkt-watch::Place",
-    "status": "decided",
-    "note": "2 forwarding methods: watch's state file"
-   },
-   {
     "adapts": "kkt-lane-files-os::OsDisk",
     "to": "kkt-lane-files::git::Git",
     "status": "decided",
     "note": "1 method: runs git through OsDisk and translates its output to Ran (step 2.6)"
+   },
+   {
+    "adapts": "kkt-agent-files-os::StateFile",
+    "to": "kkt-watch::Place",
+    "status": "decided",
+    "note": "2 forwarding methods: watch's state file"
    }
   ],
   "kkt-keymode": [
@@ -5226,22 +5408,6 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-agent-client",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "CredentialFile",
-     "read_secret",
-     "watch_token",
-     "FileLock",
-     "StateFile"
-    ]
-   },
-   "status": "decided",
-   "note": "agent credential files and watch's state file"
-  },
-  {
-   "from": "kashkeshet",
    "to": "kkt-logs-os",
    "kind": "normal",
    "add": {
@@ -5782,22 +5948,6 @@
    "note": "hashes through kkt-hash, not sha2"
   },
   {
-   "from": "kkt-fake-product",
-   "to": "kkt-agent-client",
-   "kind": "dev",
-   "add": {
-    "uses": [
-     "Http",
-     "HttpReply"
-    ]
-   },
-   "status": "decided",
-   "features": [
-    "real"
-   ],
-   "note": "its tests drive the running product over HTTP with kkt-agent-client's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
-  },
-  {
    "from": "kashkeshet",
    "to": "kkt-setup",
    "kind": "normal",
@@ -5808,18 +5958,6 @@
    },
    "status": "decided",
    "note": "the rule for agent credential files"
-  },
-  {
-   "from": "kashkeshet",
-   "to": "kkt-agent-client",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "make_private"
-    ]
-   },
-   "status": "decided",
-   "note": "tightening a credential file, when kkt-setup's rule says so"
   },
   {
    "from": "kkt-logs-os",
@@ -6318,18 +6456,6 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-agent-client",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Settings"
-    ]
-   },
-   "status": "decided",
-   "note": "the program fills its settings (step 3.1c-1)"
-  },
-  {
-   "from": "kashkeshet",
    "to": "kkt-diagnostics",
    "kind": "normal",
    "add": {
@@ -6699,24 +6825,6 @@
    ],
    "status": "decided",
    "note": "the wording's tests moved with it to kkt-rules (step 5.5)"
-  },
-  {
-   "from": "kashkeshet",
-   "to": "kkt-agent-client",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "CredentialFileFacts",
-     "PrivateMode"
-    ]
-   },
-   "drop": [
-    "FileLock",
-    "make_private",
-    "read_secret"
-   ],
-   "status": "decided",
-   "note": "the program's credential check reads the client's CredentialFileFacts and gives its PrivateMode; read_secret, make_private and the lock are the client's own, behind watch_token and StateFile (step 7.4)"
   },
   {
    "from": "kkt-server",
@@ -8009,23 +8117,6 @@
   },
   {
    "from": "kkt-agent-commands",
-   "to": "kkt-watch",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Options",
-     "Outcome",
-     "Settings",
-     "run",
-     "Server",
-     "Place"
-    ]
-   },
-   "status": "decided",
-   "note": "what its commands use of kkt-watch (step 10.3)"
-  },
-  {
-   "from": "kkt-agent-commands",
    "to": "kkt-client-config",
    "kind": "normal",
    "add": {
@@ -8300,19 +8391,6 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-watch",
-   "kind": "normal",
-   "drop": [
-    "Outcome",
-    "Server",
-    "Settings",
-    "run"
-   ],
-   "status": "decided",
-   "note": "its commands' uses of kkt-watch move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
-  },
-  {
-   "from": "kashkeshet",
    "to": "kkt-operate",
    "kind": "normal",
    "add": {
@@ -8572,6 +8650,261 @@
    },
    "status": "decided",
    "note": "Existing Docker knowledge and supplied dependencies stay inside the wrapper (12.2)."
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-files-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "CredentialFile",
+     "read_secret",
+     "watch_token",
+     "FileLock",
+     "StateFile"
+    ]
+   },
+   "status": "decided",
+   "note": "agent credential files and watch's state file"
+  },
+  {
+   "from": "kkt-fake-product",
+   "to": "kkt-agent-client-rmcp",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Http",
+     "HttpReply"
+    ]
+   },
+   "status": "decided",
+   "features": [
+    "real"
+   ],
+   "note": "its tests drive the running product over HTTP with kkt-agent-client-rmcp's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-files-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "make_private"
+    ]
+   },
+   "status": "decided",
+   "note": "tightening a credential file, when kkt-setup's rule says so"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-client-rmcp",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "the program fills its settings (step 3.1c-1)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-files-os",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "CredentialFileFacts",
+     "PrivateMode"
+    ]
+   },
+   "status": "decided",
+   "note": "the program's credential check reads the client's CredentialFileFacts and gives its PrivateMode; read_secret, make_private and the lock are the client's own, behind watch_token and StateFile (step 7.4)"
+  },
+  {
+   "from": "kkt-agent-commands",
+   "to": "kkt-watch",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Options",
+     "Outcome",
+     "Settings",
+     "run",
+     "Place"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-watch (step 10.3)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-watch",
+   "kind": "normal",
+   "drop": [
+    "Outcome",
+    "Settings",
+    "run"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-watch move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-client-rmcp",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Mcp"
+    ]
+   },
+   "note": "the program injects the MCP client as it is (step 12.4)",
+   "status": "decided"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-client",
+   "kind": "normal",
+   "remove": true,
+   "note": "the program names the contract only in its tests (step 12.4)",
+   "status": "decided"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-client",
+   "kind": "dev",
+   "add": {
+    "uses": [
+     "Watched"
+    ]
+   },
+   "note": "the register tests read through Watched (step 12.4)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-agent-client-rmcp",
+   "to": "kkt-agent-client",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Servers",
+     "Avatars",
+     "Watched",
+     "Address",
+     "Failure",
+     "Registered",
+     "Reclaimed",
+     "Channel",
+     "Message",
+     "NewerLane",
+     "Waited"
+    ]
+   },
+   "note": "it implements the contract directly (step 12.4)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-agent-client-rmcp",
+   "to": "kkt-clock",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Clock",
+     "Span"
+    ]
+   },
+   "note": "the admin watch's polling (step 12.4)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-agent-commands",
+   "to": "kkt-agent-client",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Servers",
+     "Address",
+     "Failure"
+    ]
+   },
+   "note": "AgentParts takes the client contract (step 12.4)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-watch",
+   "to": "kkt-agent-client",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Watched",
+     "Channel",
+     "Failure",
+     "Message",
+     "NewerLane",
+     "Waited"
+    ]
+   },
+   "note": "it watches through the client contract (step 12.4)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-client-config",
+   "to": "kkt-client-command",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ClientCommand"
+    ]
+   },
+   "note": "configure asks a client's own command through the contract (step 12.5c)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-client-command",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ClientCommand"
+    ]
+   },
+   "note": "OperateParts takes the client command (step 12.5c)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-agent-commands",
+   "to": "kkt-client-command",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ClientCommand"
+    ]
+   },
+   "note": "AgentParts takes the client command (step 12.5c)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-client-command-claude",
+   "to": "kkt-client-command",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ClientCommand"
+    ]
+   },
+   "note": "it implements the contract directly (step 12.5c)",
+   "status": "decided"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-client-command-claude",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Claude"
+    ]
+   },
+   "note": "the program injects Claude Code's command as it is (step 12.5c)",
+   "status": "decided"
   }
  ],
  "decisions": {
@@ -9275,30 +9608,6 @@
  ],
  "method_adds": [
   {
-   "type": "kkt-agent-client::Remote",
-   "methods": [
-    "channels",
-    "handle",
-    "latest_id",
-    "message",
-    "wait"
-   ],
-   "status": "decided",
-   "note": "plain methods with kkt-agent-client's own types, the operations watch::Server has"
-  },
-  {
-   "type": "kkt-agent-client::AdminRemote",
-   "methods": [
-    "channels",
-    "handle",
-    "latest_id",
-    "message",
-    "wait"
-   ],
-   "status": "decided",
-   "note": "as Remote, with the admin polling inside wait"
-  },
-  {
    "type": "kkt-web::Sessions",
    "methods": [
     "form_token",
@@ -9411,10 +9720,6 @@
   }
  ],
  "doc_edits": [
-  {
-   "item": "kkt-agent-client::AdminRemote",
-   "doc": "The server over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included, through plain methods; the program adapts it to kkt-watch's `Server`."
-  },
   {
    "item": "kkt-db::Backend",
    "doc": "A database a store can run work on, through BackendExt. `read` and `write` are async: a backend that blocks, as SQLite does, runs the work on a thread pool of its own."
@@ -9939,16 +10244,6 @@
   {
    "crate": "kkt-agent-commands",
    "at": "AgentParts",
-   "name": "servers",
-   "traits": [
-    "kkt-agent-commands::Servers"
-   ],
-   "status": "decided",
-   "note": "injected by the program (step 10.3)"
-  },
-  {
-   "crate": "kkt-agent-commands",
-   "at": "AgentParts",
    "name": "credentials",
    "traits": [
     "kkt-agent-commands::Credentials"
@@ -10012,6 +10307,16 @@
    "name": "clock",
    "traits": [
     "kkt-clock::Clock"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.3)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "servers",
+   "traits": [
+    "kkt-agent-client::Servers"
    ],
    "status": "decided",
    "note": "injected by the program (step 10.3)"
@@ -10366,6 +10671,10 @@
      {
       "impl": "kkt-clock::SystemClock",
       "crate": "kkt-container"
+     },
+     {
+      "impl": "kkt-clock::SystemClock",
+      "crate": "kkt-agent-client"
      }
     ],
     "wiring_add": [
@@ -10416,18 +10725,6 @@
       ],
       "status": "decided",
       "note": "kkt serve"
-     },
-     {
-      "impl": "kkt-agent-client::StateFile",
-      "crate": "kkt-watch",
-      "to": [
-       {
-        "at": "run",
-        "param": "place"
-       }
-      ],
-      "status": "decided",
-      "note": "kkt watch"
      },
      {
       "impl": "kkt-terminal-os::Terminal",
@@ -10516,6 +10813,18 @@
       ],
       "status": "decided",
       "note": "Direct delivery to the receiving operator assembly (12.2)."
+     },
+     {
+      "impl": "kkt-agent-files-os::StateFile",
+      "crate": "kkt-watch",
+      "to": [
+       {
+        "at": "run",
+        "param": "place"
+       }
+      ],
+      "status": "decided",
+      "note": "kkt watch"
      }
     ]
    },
@@ -11019,7 +11328,8 @@
   "kkt-backup": "logic",
   "kkt-shutdown": "logic",
   "kkt-identity": "contract",
-  "kkt-logs": "logic"
+  "kkt-logs": "logic",
+  "kkt-agent-client": "contract"
  },
  "open_questions": [
   {
@@ -11470,14 +11780,6 @@
    "note": "the program does no machine work itself: libc goes to kkt-terminal-os and kkt-agent-client, tracing-subscriber to kkt-logs, and sha2, for the per-server key file name, to kkt-setup"
   },
   {
-   "crate": "kkt-agent-client",
-   "add": [
-    "libc"
-   ],
-   "status": "decided",
-   "note": "the owner check on agent credential files"
-  },
-  {
    "crate": "kkt-logs-os",
    "add": [
     "tracing",
@@ -11578,6 +11880,25 @@
    ],
    "status": "decided",
    "note": "Docker parsing and errors move into its wrapper; the contract uses local boxed futures (12.2)."
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "add": [
+    "libc"
+   ],
+   "status": "decided",
+   "note": "the owner check on agent credential files"
+  },
+  {
+   "crate": "kkt-agent-client",
+   "remove": [
+    "reqwest",
+    "rmcp",
+    "serde_json",
+    "tokio"
+   ],
+   "status": "decided",
+   "note": "the contract names no transport: rmcp, reqwest and the JSON go to kkt-agent-client-rmcp (step 12.4)"
   }
  ],
  "replace_items": [
@@ -11805,6 +12126,14 @@
    ],
    "status": "decided",
    "note": "the live notices are Views::subscribe's, which Rules implements over its kkt-events subscription, so no contract names kkt-events (step 6.2)"
+  },
+  {
+   "type": "kkt-client-config::Host",
+   "methods": [
+    "claude"
+   ],
+   "status": "decided",
+   "note": "Claude Code's command is kkt-client-command's ClientCommand, implemented by kkt-client-command-claude (step 12.5c)"
   }
  ],
  "slot_removes": [
@@ -12017,16 +12346,6 @@
     "keeps": "argument parsing, choosing each command's log and the dispatch to the commands"
    },
    {
-    "file": "src/commands/agent.rs",
-    "what": "its output, credential files",
-    "to": [
-     "kkt-terminal-os",
-     "kkt-agent-client"
-    ],
-    "status": "decided",
-    "keeps": "register, reclaim and kkt agent as thin bodies"
-   },
-   {
     "file": "src/commands/connect.rs",
     "what": "its output, this program's path",
     "to": [
@@ -12176,18 +12495,6 @@
     "decides": "which server and key a client uses, and the admin endpoint"
    },
    {
-    "file": "src/machine/credentials.rs",
-    "what": "agent credential files, their owner and mode, KKT_TOKEN, watch's state file",
-    "to": [
-     "kkt-agent-client"
-    ],
-    "status": "decided",
-    "decisions": [
-     "kkt-setup"
-    ],
-    "decides": "refusing a file another user owns and tightening one others can read, with their advice"
-   },
-   {
     "file": "src/machine/keys.rs",
     "what": "reading and writing key files",
     "to": [
@@ -12257,6 +12564,28 @@
      "kkt-terminal-os"
     ],
     "status": "decided"
+   },
+   {
+    "file": "src/commands/agent.rs",
+    "what": "its output, credential files",
+    "to": [
+     "kkt-terminal-os",
+     "kkt-agent-files-os"
+    ],
+    "status": "decided",
+    "keeps": "register, reclaim and kkt agent as thin bodies"
+   },
+   {
+    "file": "src/machine/credentials.rs",
+    "what": "agent credential files, their owner and mode, KKT_TOKEN, watch's state file",
+    "to": [
+     "kkt-agent-files-os"
+    ],
+    "status": "decided",
+    "decisions": [
+     "kkt-setup"
+    ],
+    "decides": "refusing a file another user owns and tightening one others can read, with their advice"
    }
   ],
   "kkt-keymode": [
@@ -12311,6 +12640,30 @@
    "feature": "testing",
    "status": "decided",
    "note": "The contract supplies its own in-memory implementation (12.2)."
+  },
+  {
+   "crate": "kkt-agent-client-rmcp",
+   "feature": "real",
+   "status": "decided",
+   "note": "what reaches the server or the machine (step 12.4)"
+  },
+  {
+   "crate": "kkt-agent-files-os",
+   "feature": "real",
+   "status": "decided",
+   "note": "what reaches the server or the machine (step 12.4)"
+  },
+  {
+   "crate": "kkt-client-command-claude",
+   "feature": "real",
+   "status": "decided",
+   "note": "running the host's claude (step 12.5c)"
+  },
+  {
+   "crate": "kkt-client-command",
+   "feature": "testing",
+   "status": "decided",
+   "note": "its Recorder stand-in (step 12.5c)"
   }
  ]
 }

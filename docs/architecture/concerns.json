@@ -232,15 +232,27 @@
   },
   "kkt-client-config": {
    "layer": "operations",
-   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client.",
-   "must_not": "Touch the machine except through `Host`.",
+   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through kkt-client-command's ClientCommand, and its file restored if that fails.",
+   "must_not": "Touch the machine except through `Host` and `ClientCommand`.",
    "kind": "logic"
   },
   "kkt-client-config-os": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "The machine's client-config files and claude command: plain OsHost methods, adapted by the program.",
+   "concern": "The machine's client-config files: plain OsHost methods, adapted by the program.",
    "must_not": "Decide a client config's content."
+  },
+  "kkt-client-command": {
+   "layer": "operations",
+   "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand (remove kkt's server, add it as the client's own entry), with the testing Recorder.",
+   "must_not": "Know a client's command, its arguments or output; touch the machine.",
+   "kind": "contract"
+  },
+  "kkt-client-command-claude": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner; running claude is behind real.",
+   "must_not": "Echo the command's output, which may hold credentials."
   },
   "kkt-diagnostics": {
    "layer": "operations",
@@ -274,19 +286,31 @@
   },
   "kkt-agent-client": {
    "layer": "clients",
-   "concern": "The shared MCP client, agent credential and watch-state files, plain Http requests for test callers, and reaching the server as an agent or admin.",
+   "concern": "The project's contract for a client of kkt's server, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records and Failure; the testing Memory stand-in.",
+   "must_not": "Know a transport, a protocol library or its errors; touch the machine.",
+   "kind": "contract"
+  },
+  "kkt-agent-client-rmcp": {
+   "layer": "clients",
    "kind": "effect",
-   "must_not": "Choose the credential-file rule or warning output; implement kkt-watch's contract: the program adapts its records and failures."
+   "concern": "Implements kkt-agent-client directly over MCP through rmcp and reqwest: Mcp, Client, Remote and AdminRemote, with Settings; plain Http requests for a program's test client. Everything that reaches the server is behind real.",
+   "must_not": "Let an rmcp or reqwest type out of the crate."
   },
   "kkt-agent-commands": {
    "layer": "assembly",
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
-   "must_not": "Depend on an `-os` crate, on kkt-agent-client or on another assembly; touch the machine except through `AgentParts`.",
+   "must_not": "Depend on an `-os` crate, on a contract's implementation (such as kkt-agent-client-rmcp) or on another assembly; touch the machine except through `AgentParts`.",
    "kind": "composition"
+  },
+  "kkt-agent-files-os": {
+   "layer": "clients",
+   "kind": "effect",
+   "concern": "Agent credential files and kkt watch's state files on this machine: reserving and saving a token or recovery code, reading a token file under the caller's credential-file rule, file locks, claiming a state file.",
+   "must_not": "Choose the credential-file rule or where its warnings go."
   },
   "kkt-watch": {
    "layer": "clients",
-   "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server, clock, saved place and output are injected.",
+   "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server (kkt-agent-client's Watched), clock, saved place and output are injected.",
    "must_not": "Reach the server, the time, its place or its output except through what is injected.",
    "kind": "logic"
   },

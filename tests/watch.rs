@@ -5,7 +5,6 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kashkeshet::commands::watch::WatchServer;
 use kkt_watch as watch;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
@@ -660,12 +659,12 @@ async fn recovers_from(stall: Stall) {
     let before = other.send(&channel, "before").await;
     let proxy = Proxy::start(&server, stall).await;
     let clock = ManualClock::new();
-    let remote = WatchServer::Agent(kkt_agent_client::Remote::new(
+    let remote = kkt_agent_client_rmcp::Remote::new(
         proxy.url.clone(),
         Some(KEY.into()),
         me.token.clone(),
-        kkt_agent_client::Settings::DEFAULT,
-    ));
+        kkt_agent_client_rmcp::Settings::DEFAULT,
+    );
     let options = watch::Options {
         channels: None,
         channel_names: Vec::new(),
@@ -802,12 +801,12 @@ async fn a_key_refused_after_watching_started_ends_it() {
     let me = Agent::new(&server).await;
     let proxy = Switch::start(&server, &rotated).await;
     let clock = ManualClock::new();
-    let remote = WatchServer::Agent(kkt_agent_client::Remote::new(
+    let remote = kkt_agent_client_rmcp::Remote::new(
         proxy.url.clone(),
         Some(KEY.into()),
         me.token,
-        kkt_agent_client::Settings::DEFAULT,
-    ));
+        kkt_agent_client_rmcp::Settings::DEFAULT,
+    );
     let options = watch::Options {
         channels: None,
         channel_names: Vec::new(),

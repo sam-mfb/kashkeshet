@@ -481,8 +481,13 @@ mod tests {
             self.0.borrow_mut().push("clients.process_id");
             0
         }
-        fn claude(&self, _: &[&str], _: Option<&Path>) -> Result<(), String> {
-            self.refused("clients.claude")
+    }
+    impl kkt_client_command::ClientCommand for Untouched {
+        fn remove_server(&self, _: Option<&Path>) -> Result<(), String> {
+            self.refused("client_command.remove_server")
+        }
+        fn add_server(&self, _: &str, _: Option<&Path>) -> Result<(), String> {
+            self.refused("client_command.add_server")
         }
     }
 
@@ -806,6 +811,7 @@ mod tests {
             try_bind: &try_bind,
             remote: &remote,
             clients: &untouched,
+            client_command: &untouched,
             prober: &NoProbes,
             lanes: &untouched,
             connection: &untouched,

@@ -17,7 +17,7 @@ pub mod watch;
 
 pub use agent::{NewAvatar, reclaim, register};
 
-use futures::future::BoxFuture;
+use kkt_agent_client::Servers;
 use kkt_clock::Clock;
 use kkt_setup::connection::ConnectionSource;
 use std::path::{Path, PathBuf};
@@ -35,7 +35,7 @@ pub struct AgentParts<C: ConnectionSource> {
     /// server's address for `kkt watch --admin`: the path the server's
     /// transport serves it at.
     pub admin_path: &'static str,
-    /// Clients of a server.
+    /// Clients of a server, as kkt-agent-client's contract.
     pub servers: Box<dyn Servers>,
     /// Agent credential files and watch state files.
     pub credentials: Box<dyn Credentials>,
@@ -43,6 +43,9 @@ pub struct AgentParts<C: ConnectionSource> {
     pub key_files: Box<dyn KeyText>,
     /// The client configs' files, for `kkt connect`.
     pub clients: Box<dyn kkt_client_config::Host>,
+    /// A client's own command, for the clients whose settings only it should
+    /// change.
+    pub client_command: Box<dyn kkt_client_command::ClientCommand>,
     /// This program's path, for a client's config.
     pub program: Box<dyn Program>,
     /// Where `kkt watch` prints messages and notes.
@@ -58,71 +61,6 @@ pub struct AgentParts<C: ConnectionSource> {
 pub trait AdminKey {
     /// The file `given`, else where `kkt key show --admin` finds it.
     fn path(&self, given: Option<PathBuf>) -> Result<PathBuf, String>;
-}
-
-/// A server, as a client reaches it: its MCP endpoint and the key it is
-/// reached with, if it needs one.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Address {
-    pub url: String,
-    pub key: Option<String>,
-    /// How a refusal of `key` names it, such as "the access key in
-    /// /home/me/key".
-    pub key_name: Option<String>,
-}
-
-/// Clients of a server.
-pub trait Servers {
-    /// A client that registers and reclaims avatars at `at`.
-    fn avatars(&self, at: Address) -> Box<dyn Avatars>;
-    /// The agent endpoint at `at`, watched as the agent `token` names.
-    fn agent(&self, at: Address, token: String) -> Box<dyn kkt_watch::Server>;
-    /// The admin endpoint at `at`, watched with the key it is reached with;
-    /// its waits are timed by `clock`.
-    fn admin(&self, at: Address, clock: Arc<dyn Clock>) -> Box<dyn kkt_watch::Server>;
-}
-
-/// What a client asks of a server for an avatar.
-pub trait Avatars {
-    /// A new avatar, with the handle and the lane asked for, if any.
-    fn register<'a>(
-        &'a self,
-        handle: Option<&'a str>,
-        lane: Option<&'a str>,
-    ) -> BoxFuture<'a, Result<Registered, Failure>>;
-    /// A fresh token for the avatar `handle`.
-    fn reclaim<'a>(
-        &'a self,
-        handle: &'a str,
-        recovery_code: &'a str,
-    ) -> BoxFuture<'a, Result<Reclaimed, Failure>>;
-    /// Sets the description of the avatar `token` names.
-    fn describe<'a>(&'a self, token: &'a str, text: &'a str) -> BoxFuture<'a, Result<(), Failure>>;
-}
-
-/// A new avatar's handle and credentials.
-pub struct Registered {
-    pub handle: String,
-    pub token: String,
-    pub recovery_code: String,
-}
-
-/// A replacement token for an existing avatar.
-pub struct Reclaimed {
-    pub handle: String,
-    pub token: String,
-}
-
-/// Why a call to a server failed. The commands never say more than this:
-/// a server's or a transport's own words may carry a credential.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Failure {
-    /// The server could not be reached, or its reply read.
-    Lost,
-    /// The server refused the key the client was given.
-    KeyRefused,
-    /// The server refused the call, with a code and its message.
-    Refused { code: String, message: String },
 }
 
 /// Agent credential files and watch state files.

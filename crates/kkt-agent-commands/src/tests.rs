@@ -4,7 +4,9 @@
 use super::*;
 use crate::agent::lane_refused;
 use futures::executor::block_on;
+use futures::future::BoxFuture;
 use kkt_admission::AccessKey;
+use kkt_agent_client::{Address, Avatars, Failure, Reclaimed, Registered, Servers, Watched};
 use kkt_setup::connection::{ConnectionOptions, ServeConnection};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -80,10 +82,10 @@ impl Servers for Answering {
         self.seen.borrow_mut().addresses.push(at);
         Box::new(Answer(self.answer))
     }
-    fn agent(&self, _: Address, _: String) -> Box<dyn kkt_watch::Server> {
+    fn agent(&self, _: Address, _: String) -> Box<dyn Watched> {
         unreachable!("no test watches")
     }
-    fn admin(&self, _: Address, _: Arc<dyn Clock>) -> Box<dyn kkt_watch::Server> {
+    fn admin(&self, _: Address, _: Arc<dyn Clock>) -> Box<dyn Watched> {
         unreachable!("no test watches")
     }
 }
@@ -164,9 +166,6 @@ impl kkt_client_config::Host for NoClients {
     fn process_id(&self) -> u32 {
         1
     }
-    fn claude(&self, _: &[&str], _: Option<&Path>) -> Result<(), String> {
-        unreachable!("no test runs claude")
-    }
 }
 
 struct Kkt;
@@ -216,6 +215,7 @@ fn parts(
                 .collect(),
         )),
         clients: Box::new(NoClients),
+        client_command: Box::new(kkt_client_command::testing::Recorder::default()),
         program: Box::new(Kkt),
         report: Box::new(Lines),
         output: Box::new(Out(seen.clone())),
@@ -242,7 +242,7 @@ fn lane_gone() -> Result<Registered, Failure> {
 }
 
 fn lost() -> Result<Registered, Failure> {
-    Err(Failure::Lost)
+    Err(Failure::Lost("connection refused".into()))
 }
 
 fn new_avatar(lane: Option<&str>) -> NewAvatar<'_> {

@@ -1,12 +1,12 @@
-//! The machine's client-config files and `claude` command, as plain
-//! OsHost methods adapted by the program to the client-config logic.
+//! The machine's client-config files, as plain OsHost methods adapted by
+//! the program to the client-config logic. (Claude Code's `claude` command
+//! is kkt-client-command-claude's.)
 
 #![cfg(feature = "real")]
 
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 #[cfg(unix)]
 const PRIVATE_FILE_MODE: u32 = 0o600;
@@ -69,26 +69,5 @@ impl OsHost {
 
     pub fn process_id(&self) -> u32 {
         std::process::id()
-    }
-
-    pub fn claude(&self, args: &[&str], config_dir: Option<&Path>) -> Result<(), String> {
-        let mut command = Command::new("claude");
-        command.args(args);
-        match config_dir {
-            Some(dir) => command.env("CLAUDE_CONFIG_DIR", dir),
-            None => command.env_remove("CLAUDE_CONFIG_DIR"),
-        };
-        let result = command.output().map_err(|e| {
-            if e.kind() == io::ErrorKind::NotFound {
-                "claude was not found on PATH; install Claude Code, then retry --write".to_string()
-            } else {
-                format!("could not run claude: {e}")
-            }
-        })?;
-        if !result.status.success() {
-            // The CLI may echo credentials in its output. Report only the status.
-            return Err(format!("claude mcp failed with {}", result.status));
-        }
-        Ok(())
     }
 }
