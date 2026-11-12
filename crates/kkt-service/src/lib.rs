@@ -28,7 +28,6 @@ pub use dry_run::DryRun;
 pub use plan::{Plan, PlanError, Request, ServiceSettings, plan};
 
 use kkt_clock::Clock;
-use kkt_machine::Env;
 use launchd::Launchd;
 use std::fmt;
 use std::io;
@@ -279,14 +278,18 @@ fn reload_failed(
 }
 
 impl Manager {
-    /// The service manager of the system this binary was built for.
-    pub fn for_this_os(env: &Env) -> Result<Manager, ServiceError> {
+    /// The service manager of the system this binary was built for:
+    /// launchd under `home` on macOS, systemd under `config_home` on Linux.
+    pub fn for_this_os(
+        home: Option<&Path>,
+        config_home: Option<&Path>,
+    ) -> Result<Manager, ServiceError> {
         if cfg!(target_os = "macos") {
-            let home = env.home.as_ref().ok_or(ServiceError::NoHome)?;
+            let home = home.ok_or(ServiceError::NoHome)?;
             Ok(Manager::launchd(home))
         } else if cfg!(target_os = "linux") {
-            let config_home = env.config_home().ok_or(ServiceError::NoHome)?;
-            Ok(Manager::systemd(&config_home))
+            let config_home = config_home.ok_or(ServiceError::NoHome)?;
+            Ok(Manager::systemd(config_home))
         } else {
             Err(ServiceError::Unsupported)
         }
