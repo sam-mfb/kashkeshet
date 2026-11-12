@@ -96,7 +96,7 @@
     },
     {
      "title": "The operator's commands",
-     "text": "The program supplies native containers, services, client files, probes, lane disk, clock, setup/key files, database and terminal through OperateParts. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults; the program constructs that capability with ServeArgs, while record/config-only parts cannot ask it. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. The native try_bind callback checks the address before installation.",
+     "text": "The program supplies native containers, services, client files, probes, lane disk, clock, setup/key files, database and terminal through OperateParts. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults; the program constructs that capability with ServeArgs, while record/config-only parts cannot ask it. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. The native try_bind callback checks the address before installation. Setup and switch compose their steps in operate, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login.",
      "items": [
       "kkt-operate::OperateParts",
       "kkt-operate::ServeFacts",
@@ -113,7 +113,11 @@
       "kkt-operate::service::run",
       "kkt-operate::service::service_plan",
       "kkt-operate::ServiceInputs",
-      "kkt-operate::CheckService"
+      "kkt-operate::CheckService",
+      "kkt-operate::setup::run",
+      "kkt-operate::setup::run_switch",
+      "kkt-operate::setup::InstallOptions",
+      "kkt-operate::ConfigText"
      ]
     }
    ],
@@ -827,6 +831,39 @@
       {
        "at": "ServiceInputs",
        "param": "check"
+      }
+     ]
+    },
+    {
+     "own": "TerminalLink, adapting the native browser link",
+     "supplier": "kkt-terminal-os::BrowserLink",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "login_link"
+      }
+     ]
+    },
+    {
+     "own": "TerminalLines, adapting the terminal",
+     "supplier": "kkt-terminal-os::Terminal",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "lines"
+      }
+     ]
+    },
+    {
+     "own": "NativeConfigText, forwarding config text reads and writes",
+     "supplier": "kkt-config-file-os::read",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "config_file"
       }
      ]
     }

@@ -1,19 +1,9 @@
-//! `kkt setup` and `kkt switch`: ask on the terminal if there is one, and
-//! do the work through [`steps::OsSteps`] and [`steps::OsSwitchSteps`], the
-//! program's real implementation of setup's steps.
-
-mod steps;
-
+//! Supplies native parts to the operator's setup and switch commands.
 use crate::machine::settings::ServeArgs;
-use crate::terminal::TerminalLines;
 use kkt_machine::{Env, Platform};
-use kkt_provenance::Build;
+pub use kkt_operate::setup::InstallOptions;
 use kkt_setup as setup;
-use kkt_setup::ask::Prompter;
-use steps::{OsSteps, OsSwitchSteps};
 
-/// `kkt setup`: asks on the terminal if there is one, and does the work
-/// through [`OsSteps`].
 pub async fn run(
     env: &Env,
     platform: Platform,
@@ -21,33 +11,12 @@ pub async fn run(
     answers: setup::Answers,
     options: InstallOptions,
 ) -> Result<(), String> {
-    let ask = Prompter::new(&TerminalLines);
-    let steps = OsSteps {
-        env,
-        platform,
-        serve_args,
-        options,
-    };
-    // Steps are synchronous; doctor's checks are async, so they block on
-    // this runtime from inside.
-    tokio::task::block_in_place(|| {
-        setup::run(&answers, Build::CURRENT.version, &ask, &steps).map(|_| ())
-    })
+    let native =
+        crate::machine::operate::NativeOperate::new(env, platform).with_service_args(serve_args);
+    kkt_operate::setup::run(env, platform, &native.parts(), answers, options).await
 }
 
-/// `kkt switch`: asks on the terminal if there is one, and does the work
-/// through [`OsSwitchSteps`].
-pub async fn run_switch(env: &Env, how: setup::Switch) -> Result<(), String> {
-    let ask = Prompter::new(&TerminalLines);
-    let steps = OsSwitchSteps { env };
-    tokio::task::block_in_place(|| {
-        setup::switch(&how, Build::CURRENT.version, &ask, &steps).map(|_| ())
-    })
-}
-
-/// How to install, beyond what setup asks.
-pub struct InstallOptions {
-    pub kkt_version: String,
-    pub docker_project: String,
-    pub docker_port: u16,
+pub async fn run_switch(env: &Env, platform: Platform, how: setup::Switch) -> Result<(), String> {
+    let native = crate::machine::operate::NativeOperate::new(env, platform);
+    kkt_operate::setup::run_switch(&native.parts(), env, how).await
 }

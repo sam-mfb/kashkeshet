@@ -13,6 +13,7 @@ pub(crate) struct NativeOperate<'a, D = ()> {
     serve: ServeReads<'a>,
     connection: ConnectionReads<'a>,
     service_defaults: D,
+    login_link: crate::terminal::browser_login::TerminalLink,
 }
 
 impl<'a> NativeOperate<'a> {
@@ -21,6 +22,7 @@ impl<'a> NativeOperate<'a> {
             serve: ServeReads { env, platform },
             connection: ConnectionReads { env, platform },
             service_defaults: (),
+            login_link: crate::terminal::browser_login::TerminalLink::new(),
         }
     }
 
@@ -37,6 +39,7 @@ impl<'a> NativeOperate<'a> {
             serve: self.serve,
             connection: self.connection,
             service_defaults,
+            login_link: self.login_link,
         }
     }
 }
@@ -46,12 +49,15 @@ impl<'a, D> NativeOperate<'a, D> {
         OperateParts {
             container: &super::container::ContainerHost,
             container_configs: &settings::ContainerConfigs,
+            login_link: &self.login_link,
             service: &super::service::ServiceSystem,
             try_bind: &kkt_service_os::try_bind,
             remote: &super::remote_access::RemoteHost,
             clients: &super::client_config::ClientHost,
             prober: &super::diagnostics::DiagnosticProber,
             lanes: &crate::commands::lanes::LaneDisk,
+            lines: &crate::terminal::TerminalLines,
+            config_file: &NativeConfigText,
             connection: &self.connection,
             clock: Arc::new(kkt_clock_system::SystemClock),
             serve: &self.serve,
@@ -211,6 +217,25 @@ impl SetupFiles for NativeSetupFiles {
     fn write_record(&self, dir: &Path, record: &kkt_setup::Record) -> Result<(), String> {
         kkt_setup_os::write_record(dir, record)
     }
+    fn write_unfinished(
+        &self,
+        dir: &Path,
+        unfinished: &kkt_setup::Unfinished,
+    ) -> Result<(), String> {
+        kkt_setup_os::write_unfinished(dir, unfinished)
+    }
+    fn remove_unfinished(&self, dir: &Path) -> Result<(), String> {
+        kkt_setup_os::remove_unfinished(dir)
+    }
+    fn kkt_path(&self) -> Result<PathBuf, String> {
+        kkt_setup_os::kkt_path()
+    }
+    fn path_dirs(&self) -> Vec<PathBuf> {
+        kkt_setup_os::path_dirs()
+    }
+    fn on_path(&self, dirs: &[PathBuf], program: &str) -> bool {
+        kkt_setup_os::on_path(dirs, program)
+    }
     fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
         kkt_setup_os::absolute(path)
     }
@@ -235,6 +260,15 @@ impl KeyFiles for NativeKeyFiles {
     }
     fn is_file(&self, path: &Path) -> bool {
         kkt_admission_os::KeyFiles::is_file(path)
+    }
+    fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
+        kkt_admission_os::KeyFiles::create_dir_all(dir)
+    }
+    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String> {
+        kkt_admission_os::KeyFiles::keep_staged(staged, path)
+    }
+    fn remove(&self, path: &Path) -> std::io::Result<()> {
+        kkt_admission_os::KeyFiles::remove(path)
     }
     fn new_key(&self, path: &Path, force: bool) -> Result<String, String> {
         kkt_admission_os::new_key_file(path, force, || {
@@ -266,5 +300,15 @@ impl Output for NativeOutput {
     }
     fn errors(&self, text: Arguments<'_>) {
         kkt_terminal_os::Terminal.errors(text);
+    }
+}
+
+struct NativeConfigText;
+impl kkt_operate::ConfigText for NativeConfigText {
+    fn read(&self, path: &Path) -> Result<Option<String>, String> {
+        kkt_config_file_os::read(path).map_err(|e| e.to_string())
+    }
+    fn write(&self, path: &Path, text: &str) -> Result<(), String> {
+        kkt_config_file_os::write(path, text).map_err(|e| e.to_string())
     }
 }

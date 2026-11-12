@@ -109,14 +109,14 @@ pub(super) fn create_dir(host: &dyn Host, path: &Path) -> Result<(), DockerError
 }
 
 /// The Tailscale auth key from the named file, trimmed as setup's inputs require.
-pub fn tailscale_auth_key(host: &impl Host, path: &Path) -> Result<String, String> {
+pub fn tailscale_auth_key(host: &(impl Host + ?Sized), path: &Path) -> Result<String, String> {
     host.read_file(path)
         .map(|key| key.trim().to_string())
         .map_err(|e| format!("could not read {}: {e}", path.display()))
 }
 
 /// The managed Docker folder's settings text; retain the original read error.
-pub fn docker_env(host: &impl Host, folder: &Path) -> Result<String, String> {
+pub fn docker_env(host: &(impl Host + ?Sized), folder: &Path) -> Result<String, String> {
     let path = folder.join(ENV_FILE);
     host.read_file(&path)
         .map_err(|e| format!("could not read {}: {e}", path.display()))
