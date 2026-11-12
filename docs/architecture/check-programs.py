@@ -5,8 +5,8 @@ It builds the map from the code (generate.py --out, into target/tmp) and
 fails on any crate concerns.json marks as composition, the programs
 included, whose own code does machine work (kinds.py's reading of the map:
 a third-party crate that reaches the machine, or a std path for files, the
-environment, processes, sockets, the terminal or the clock, or a print
-macro), or which has a `real` feature of its own without being a program.
+environment, processes, sockets, the terminal or the clock, a print
+macro, or a `Path` method that asks the file system about a path), or which has a `real` feature of its own without being a program.
 
 Machine work the refactor has not yet moved out is allowed only where the
 plan's "Temporary breaks" table lists it, as a row naming the crate and

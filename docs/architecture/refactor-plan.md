@@ -133,6 +133,7 @@ this list; one that is not on it blocks.
 | The preview has its own copy of the access-key check (kkt-web may not depend on kkt-admission); since 6.1 it uses kkt-web's sessions, so the session ID length is no longer copied | 3.1b | 6.3, where kkt-api-sim uses kkt-admission's |
 | `kashkeshet` does machine work in `src/commands/lifecycle.rs`, `src/commands/service.rs`, `src/commands/setup/steps.rs`, `src/machine/record.rs`, `src/machine/settings.rs` and `src/process.rs` | before the refactor | 7.3a, 7.3b |
 | `kashkeshet` does machine work in `src/machine/connection.rs` | before the refactor | 7.3a: it reads the client's key file, which goes through kkt-admission-os' key files (msg 2619) |
+| `kashkeshet` does machine work in `src/bin/kkt/cli.rs`, `src/commands/doctor.rs`, `src/commands/key.rs` and `src/commands/lanes.rs`: path probes (Path::exists, is_file, canonicalize, std::path::absolute), which check-programs.py counts since this row | before the refactor | 7.3b |
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.

@@ -68,3 +68,25 @@ class CheckPrograms(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PathProbes(unittest.TestCase):
+    """A program asking the file system about a path counts as machine work."""
+
+    def test_a_path_method_with_no_arguments_is_a_probe(self):
+        text = "if path.exists() { let real = dir.join(x).canonicalize()?; }\nlet m = p . metadata ( );"
+        self.assertEqual(check.kinds.path_probes(text),
+                         ["Path::canonicalize", "Path::exists", "Path::metadata"])
+
+    def test_a_call_through_the_type_is_a_probe(self):
+        self.assertEqual(check.kinds.path_probes("Path::is_file(&p) && PathBuf::is_dir(&q)"),
+                         ["Path::is_dir", "Path::is_file"])
+
+    def test_another_types_method_with_arguments_is_not(self):
+        # An effect crate's adapter, called with the path to ask about.
+        self.assertEqual(check.kinds.path_probes("self.system.exists(&path).unwrap_or(false); host.is_file(p)"), [])
+        self.assertEqual(check.kinds.path_probes("let exists = true; fn is_file() {}"), [])
+
+    def test_std_path_absolute_is_machine_work(self):
+        self.assertTrue(check.kinds.is_std_io("path::absolute"))
+        self.assertFalse(check.kinds.is_std_io("path::Path"))

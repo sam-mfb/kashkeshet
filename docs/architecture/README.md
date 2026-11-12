@@ -82,7 +82,10 @@ Machine work is what `generate.py` finds in a crate's own code, outside its
 tests: a third-party crate that reaches the machine (libc, tracing-subscriber,
 rusqlite, reqwest, rand); a path under `std` for files, the environment,
 processes, sockets, the terminal or the clock (`std::fs`, `std::env::var`,
-`std::process::Command`, `std::io::stdin` and the like); or a print macro.
+`std::process::Command`, `std::io::stdin`, `std::path::absolute` and the
+like); a print macro; or a `Path` method that asks the file system about a
+path (`exists`, `is_file`, `canonicalize` and the like, called with no
+arguments, so an effect crate's `host.exists(path)` is not counted).
 Reading the command line (`std::env::args`) is not machine work: parsing its
 arguments is the program's. Value types such as `SocketAddr` and `ExitCode`
 are not either. The scan reads names, so it misses calls such as
