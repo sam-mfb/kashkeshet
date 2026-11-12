@@ -40,7 +40,7 @@ pub(crate) fn admin<C: ConnectionSource>(
 ) -> Result<Address, String> {
     let key_file = flags.key_file.clone();
     let connection = connection::admin_connection(&parts.connection, flags)?;
-    let url = connection::admin_endpoint(&connection.url, kkt_mcp::MCP_ADMIN_PATH)?;
+    let url = connection::admin_endpoint(&connection.url, parts.admin_path)?;
     let path = parts.admin_key.path(key_file)?;
     let key = parts.key_files.read(&path).map_err(|e| match e.missing {
         true => format!(

@@ -31,6 +31,10 @@ pub struct AgentParts<C: ConnectionSource> {
     pub connection: C,
     /// Where the admin key is, for `kkt watch --admin`.
     pub admin_key: Box<dyn AdminKey>,
+    /// The admin endpoint's path, which takes the place of `/mcp` in the
+    /// server's address for `kkt watch --admin`: the path the server's
+    /// transport serves it at.
+    pub admin_path: &'static str,
     /// Clients of a server.
     pub servers: Box<dyn Servers>,
     /// Agent credential files and watch state files.

@@ -1138,7 +1138,6 @@ dependencies = [
  "kkt-client-config",
  "kkt-clock",
  "kkt-machine",
- "kkt-mcp",
  "kkt-names",
  "kkt-setup",
  "kkt-watch",

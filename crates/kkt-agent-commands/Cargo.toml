@@ -12,7 +12,6 @@ futures.workspace = true
 kkt-client-config = { path = "../kkt-client-config" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-machine = { path = "../kkt-machine" }
-kkt-mcp = { path = "../kkt-mcp" }
 kkt-names = { path = "../kkt-names" }
 kkt-setup = { path = "../kkt-setup" }
 kkt-watch = { path = "../kkt-watch" }

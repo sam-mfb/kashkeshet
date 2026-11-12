@@ -1112,6 +1112,7 @@ commands.
   |---|---|---|
   | `connection` | kkt-setup's `connection::ConnectionSource` | `ConnectionReads` |
   | `admin_key` | `AdminKey` (kkt-agent-commands'): where the admin key is, given `--key-file` or not | kkt-operate's `selected_key_path` |
+  | `admin_path` | The admin endpoint's path, a plain value | kkt-mcp's `MCP_ADMIN_PATH` |
   | `servers` | `Servers`: a client of the server at an address with an optional key, which registers, reclaims and sets a description and reports its own failures (lost, key refused, refused with a code); and kkt-watch's `Server` for an agent or the admin endpoint | kkt-agent-client's `Client`, `Remote`, `AdminRemote`, with `WatchServer` |
   | `credentials` | `Credentials`: reserve a credential file and save to it, read a token file, claim a state file as kkt-watch's `Place` | `credentials.rs` |
   | `key_files` | `KeyText`: read the client's key file | kkt-admission-os |
@@ -1120,9 +1121,11 @@ commands.
   | `report`, `output` | kkt-watch's `Report`; `Output` for the handle lines | `WatchOutput`; kkt-terminal-os |
   | `clock` | kkt-clock's `Clock` | kkt-clock-system |
 
-- Depends on (7 kkt crates): kkt-setup, kkt-watch, kkt-client-config,
-  kkt-names, kkt-mcp (`MCP_ADMIN_PATH`), kkt-machine and kkt-clock.
-  Third-party: futures.
+- Depends on (6 kkt crates): kkt-setup, kkt-watch, kkt-client-config,
+  kkt-names, kkt-machine and kkt-clock. Third-party: futures. The admin
+  endpoint's path comes in `AgentParts` (10.3): an arrow to kkt-mcp for
+  one constant would add kkt-mcp's build to the assembly's, and changed
+  the third-party feature list `cargo tree` reports.
 - Takes no arrow from kashkeshet, which still uses each of these crates
   for serving, its adapters or `cli.rs`.
 
@@ -1163,7 +1166,7 @@ proposed map.
 | kkt-fake-product | 23 | 23 | Phase 10 does not touch it: it serves two swarms with its own `Identify` and no settings surface |
 | kkt-web-preview | 14 | 14 | Phase 10 does not touch it: it serves the page alone over simulated data |
 | kkt-operate | | 17 | New |
-| kkt-agent-commands | | 7 | New |
+| kkt-agent-commands | | 6 | New |
 
 **What must not change, and what pins it.** Every command's output, exit
 codes and help, and every install's files.
@@ -1378,7 +1381,8 @@ With 10.3 (kkt-agent-commands), on the code after #495 (9.3) merged:
   10.2b move; the 16 `kkt_rules::testing` re-exports that #492 removed and
   `new_server_run`, which 9.3 left in kkt's `server_run`, both for 10.4 to
   chart;
-- arrows: 221 of 239 proposed arrows exist; 18 missing, all kkt-operate's
+- arrows: 220 of 238 proposed arrows exist (the proposal lost
+  kkt-agent-commands → kkt-mcp in 10.3); 18 missing, all kkt-operate's
   or kashkeshet's to it; 1 extra (kashkeshet → kkt-api-operator, which
   10.2a moves);
 - rules: no kind check fails; no break of the proposal's rules.
