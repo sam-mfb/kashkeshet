@@ -3,27 +3,33 @@
 //! consistent, and never replace a file.
 
 use kashkeshet::machine::database;
-use kkt_api_agent::SwarmId;
-use kkt_rules::testing::{
-    self, NewAgentRecord, NewChannelRecord, NewMessageRecord, NewServerRunRecord,
-};
+use kkt_rules::testing::{self, Memory};
 use kkt_scratch as scratch;
-
-const T: &str = "2026-10-23T14:00:00Z";
+use std::sync::Arc;
 
 /// A fresh, empty directory for one test's files, removed when dropped.
 fn scratch_dir(test: &str) -> scratch::Dir {
     scratch::Dir::new(&format!("database-files-{test}"))
 }
 
-fn run(version: &str) -> NewServerRunRecord {
-    NewServerRunRecord {
-        started_at: T.into(),
-        version: version.into(),
-        git_commit: "abc123".into(),
-        settings: "default_limit=20".into(),
-        instructions_sha256: "00".into(),
-    }
+/// The rules over `db`, on the real clock and randomness, with no limit on
+/// how fast an avatar sends that a test could meet.
+async fn rules_on(db: kkt_rules::Db) -> kkt_rules::Rules {
+    testing::rules_on(
+        db,
+        Memory {
+            settings: kkt_rules::Settings {
+                sends_per_minute: u32::MAX,
+                ..kkt_rules::Settings::DEFAULT
+            },
+            ..Memory::new(
+                Arc::new(kkt_clock_system::SystemClock),
+                Arc::new(kkt_entropy_os::OsEntropy),
+            )
+        },
+    )
+    .await
+    .expect("the rules start")
 }
 
 #[tokio::test]
@@ -32,39 +38,20 @@ async fn file_database_reopens_without_rerunning_migrations() {
     let path = dir.join("test.db");
 
     let db = database::open(&path).expect("open");
-    testing::write(&db, |w| {
-        let run_id = w.insert_server_run(&run("1.0.0"))?;
-        w.insert_agent(
-            &SwarmId::main(),
-            &NewAgentRecord {
-                name: "a".into(),
-                token_hash: vec![0],
-                recovery_hash: Some(vec![42]),
-                created_at: T.into(),
-                last_seen: None,
-                run_id,
-            },
-        )
-    })
-    .await
-    .expect("insert");
-    drop(db);
+    let registered = rules_on(db).await.register().await.expect("an avatar");
 
+    // Reopened, the file still holds the avatar and its recovery code.
     let db = database::open(&path).expect("reopen");
-    let found = testing::read(&db, |r| r.agent(&SwarmId::main(), "a"))
+    let rules = rules_on(db).await;
+    rules
+        .authenticate(Some(&registered.token))
         .await
-        .expect("read");
-    assert_eq!(found.map(|a| a.name), Some("a".to_string()));
-    assert!(
-        testing::read(&db, |r| r.agent_by_recovery_hash(
-            &SwarmId::main(),
-            "a",
-            &[42]
-        ))
+        .expect("the avatar's token after restart");
+    let reclaimed = rules
+        .reclaim(registered.handle.clone(), registered.recovery_code.clone())
         .await
-        .expect("recovery lookup after restart")
-        .is_some()
-    );
+        .expect("recovery after restart");
+    assert_eq!(reclaimed.handle, registered.handle);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -73,54 +60,34 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
     let dir = scratch_dir("copy");
     let path = dir.join("live.db");
     let db = database::open(&path).expect("open");
-    testing::write(&db, |w| {
-        let run_id = w.insert_server_run(&run("1.0.0"))?;
-        w.insert_agent(
-            &SwarmId::main(),
-            &NewAgentRecord {
-                name: "a".into(),
-                token_hash: vec![0],
-                recovery_hash: None,
-                created_at: T.into(),
-                last_seen: None,
-                run_id,
-            },
-        )?;
-        w.insert_channel(
-            &SwarmId::main(),
-            &NewChannelRecord {
-                id: "ch_1".into(),
+    let rules = rules_on(db).await;
+    let registered = rules.register().await.expect("an avatar");
+    let me = rules
+        .authenticate(Some(&registered.token))
+        .await
+        .expect("its token");
+    let channel = rules
+        .create_channel(
+            &me,
+            kkt_api_agent::NewChannel {
                 name: "general".into(),
-                purpose: None,
                 open: true,
-                created_by: "a".into(),
-                created_at: T.into(),
-                owner: None,
-                run_id,
+                purpose: None,
+                members: Vec::new(),
             },
         )
-    })
-    .await
-    .expect("seed");
+        .await
+        .expect("a channel")
+        .id;
 
     let writer = {
-        let db = db.clone();
+        let rules = rules.clone();
         tokio::spawn(async move {
             for i in 0..MESSAGES {
-                testing::write(&db, move |w| {
-                    w.insert_message(
-                        &SwarmId::main(),
-                        &NewMessageRecord {
-                            channel_id: "ch_1".into(),
-                            agent: "a".into(),
-                            body: format!("message {i}"),
-                            created_at: T.into(),
-                            run_id: 1,
-                        },
-                    )
-                })
-                .await
-                .expect("insert");
+                rules
+                    .send(&me, channel.clone(), format!("message {i}"))
+                    .await
+                    .expect("send");
             }
         })
     };
@@ -159,10 +126,11 @@ async fn copies_taken_during_writes_are_whole_and_consistent() {
         counts.push(count);
         drop(conn);
         let reopened = database::open(copy).expect("a copy opens as a database");
-        let agent = testing::read(&reopened, |r| r.agent(&SwarmId::main(), "a"))
+        rules_on(reopened)
             .await
-            .expect("read copy");
-        assert!(agent.is_some());
+            .authenticate(Some(&registered.token))
+            .await
+            .expect("the avatar in the copy");
     }
     assert!(
         counts.iter().any(|&n| n > 0 && n < MESSAGES),

@@ -1542,7 +1542,6 @@ dependencies = [
  "kkt-api-operator",
  "kkt-clock",
  "kkt-db",
- "kkt-db-sqlite",
  "kkt-entropy",
  "kkt-events",
  "kkt-hash",

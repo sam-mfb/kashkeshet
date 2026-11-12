@@ -63,7 +63,7 @@ fn memory_db() -> Db {
 }
 
 fn memory_backend() -> Arc<dyn kkt_db::Backend> {
-    let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
+    let place = kkt_db::testing::FastPlace::new().expect("an in-memory database");
     place.open(&[crate::schema()]).expect("the core's tables")
 }
 

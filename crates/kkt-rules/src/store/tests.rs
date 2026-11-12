@@ -6,7 +6,7 @@ use super::*;
 
 /// A fresh database in memory, with the core's tables.
 fn memory() -> Db {
-    let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
+    let place = kkt_db::testing::FastPlace::new().expect("an in-memory database");
     Db::new(place.open(&[schema()]).expect("the core's tables"))
 }
 
@@ -795,12 +795,7 @@ async fn message_times_since_finds_every_message_in_the_window() {
 
 #[tokio::test]
 async fn two_swarms_stay_apart() {
-    let db = memory();
-    let outcome = db
-        .write(|w| Ok::<_, StoreError>(testing::swarms_stay_apart(w)))
-        .await
-        .expect("write");
-    if let Err(leak) = outcome {
+    if let Err(leak) = testing::swarms_stay_apart_in(&memory()).await {
         panic!("{leak}");
     }
 }
