@@ -1,13 +1,14 @@
 //! The page scenarios run against the preview, behind its simulated gate;
 //! plus tests of the preview's simulated world, feed and gate.
 
-use crate::preview::Happening;
+use crate::preview::records::ChannelAction;
+use crate::preview::{Happening, preview_viewer};
 use crate::testing::{
-    Door, administration_works, announcement_editor_works, changes_work, channel_creation_works,
-    earlier_pages_work, get, handoff_works, hidden_channels_show_only_on_request, history_works,
-    lanes_pages_work, member_lists_show_lanes_and_latest_messages, operator_changes_are_live,
-    page_script_works, pages_work, site, stale_agents_work, start_time,
-    summaries_agree_with_the_pages,
+    App, Door, administration_works, announcement_editor_works, changes_work,
+    channel_creation_works, earlier_pages_work, get, handoff_works,
+    hidden_channels_show_only_on_request, history_works, lanes_pages_work,
+    member_lists_show_lanes_and_latest_messages, operator_changes_are_live, page_script_works,
+    pages_work, site, stale_agents_work, start_time, summaries_agree_with_the_pages,
 };
 use crate::*;
 use futures::StreamExt;
@@ -18,7 +19,7 @@ use kkt_entropy::testing::SeqEntropy;
 use kkt_shutdown::Shutdown;
 
 /// The preview's simulated gate, open: for the preview's runs.
-fn preview_gate() -> Door<(), ()> {
+fn preview_gate() -> Door<()> {
     let gate = PreviewGate::open();
     let sessions = Sessions::new(
         Arc::new(FixedClock::new(start_time())),
@@ -35,7 +36,7 @@ fn preview_gate() -> Door<(), ()> {
 #[tokio::test]
 async fn handoff_works_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    handoff_works(preview(1, clock, &Shutdown::new()), preview_gate()).await;
+    handoff_works(app(&preview(1, clock, &Shutdown::new())), preview_gate()).await;
 }
 
 #[tokio::test]
@@ -43,7 +44,7 @@ async fn the_preview_has_a_channel_long_enough_to_page_back_through() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let source = preview(1, clock, &Shutdown::new());
     assert!(
-        earlier_pages_work(source, preview_gate(), Settings::DEFAULT).await >= 3,
+        earlier_pages_work(app(&source), preview_gate(), Settings::DEFAULT).await >= 3,
         "several pages back"
     );
 }
@@ -52,14 +53,19 @@ async fn the_preview_has_a_channel_long_enough_to_page_back_through() {
 fn the_preview_pages_as_the_server_does_by_default() {
     assert_eq!(
         PreviewSettings::DEFAULT.page_messages,
-        Settings::DEFAULT.page_messages
+        PageLimits::DEFAULT.page_messages
     );
 }
 
 #[tokio::test]
 async fn changes_work_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    changes_work(preview(1, clock, &Shutdown::new()), preview_gate()).await;
+    changes_work(app(&preview(1, clock, &Shutdown::new())), preview_gate()).await;
+}
+
+/// The preview as the page's scenarios read it, as the preview's operator.
+fn app(p: &Arc<Preview>) -> App {
+    App::new(p.clone(), preview_viewer().operator)
 }
 
 fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Preview> {
@@ -78,19 +84,19 @@ fn preview(seed: u64, clock: Arc<FixedClock>, shutdown: &Shutdown) -> Arc<Previe
 async fn member_lists_show_lanes_and_latest_messages_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let source = preview(1, clock, &Shutdown::new());
-    member_lists_show_lanes_and_latest_messages(source, preview_gate()).await;
+    member_lists_show_lanes_and_latest_messages(app(&source), preview_gate()).await;
 }
 
 #[tokio::test]
 async fn pages_work_from_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    pages_work(preview(1, clock, &Shutdown::new()), preview_gate()).await;
+    pages_work(app(&preview(1, clock, &Shutdown::new())), preview_gate()).await;
 }
 
 #[tokio::test]
 async fn the_page_script_shows_toasts_and_updates_the_dashboard_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    let site = site(preview(1, clock, &Shutdown::new()), preview_gate());
+    let site = site(app(&preview(1, clock, &Shutdown::new())), preview_gate());
     let (_, page) = get(&site, "/").await;
     let (_, with_hidden) = get(&site, "/?hidden=1").await;
     page_script_works(&page, &with_hidden);
@@ -108,14 +114,14 @@ async fn hidden_channels_show_only_on_request_from_the_preview() {
     assert_eq!(hidden.len(), 1);
     assert!(hidden[0].message_count > 1);
     assert!(hidden[0].last_from_operator);
-    hidden_channels_show_only_on_request(p, preview_gate()).await;
+    hidden_channels_show_only_on_request(app(&p), preview_gate()).await;
 }
 
 #[tokio::test]
 async fn the_show_older_link_appears_only_when_older_messages_exist() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let p = preview(1, clock, &Shutdown::new());
-    let site = site(p.clone(), preview_gate());
+    let site = site(app(&p), preview_gate());
     let overview = p
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
@@ -124,7 +130,7 @@ async fn the_show_older_link_appears_only_when_older_messages_exist() {
     let mut seen_single = false;
     for c in overview.channels.iter().map(|s| &s.channel) {
         let view = p
-            .channel(c.id.clone(), None, Settings::DEFAULT.page_messages)
+            .channel(c.id.clone(), None, PageLimits::DEFAULT.page_messages)
             .await
             .expect("view");
         let (status, page) = get(&site, &format!("/channels/{}", c.id)).await;
@@ -157,7 +163,7 @@ async fn summaries_agree_with_the_pages_from_the_preview() {
     for _ in 0..30 {
         p.step();
     }
-    summaries_agree_with_the_pages(p, preview_gate()).await;
+    summaries_agree_with_the_pages(app(&p), preview_gate()).await;
 }
 
 const PREVIEW_KEY: &str = "preview-key-0123456789-abcdefghijklmnop";
@@ -190,7 +196,7 @@ async fn admits(
     gate: &PreviewGate,
     sessions: &Sessions<()>,
     session_id: Option<&str>,
-) -> Admit<()> {
+) -> Admit<Viewer> {
     gate.admits(sessions.session(session_id)).await
 }
 
@@ -204,10 +210,13 @@ async fn the_preview_gate_is_open_without_a_key() {
         PREVIEW_SESSION_LIFETIME,
         gate.access(),
     );
-    assert_eq!(admits(&gate, &sessions, None).await, Admit::Yes(()));
+    assert_eq!(
+        admits(&gate, &sessions, None).await,
+        Admit::Yes(preview_viewer())
+    );
     assert_eq!(
         admits(&gate, &sessions, Some("never-issued")).await,
-        Admit::Yes(())
+        Admit::Yes(preview_viewer())
     );
     // One form token for everyone, as the server gives an open page.
     let token = sessions.form_token(None).expect("a form token");
@@ -234,7 +243,10 @@ async fn the_preview_gate_refuses_a_wrong_key() {
     }
     // The right key, typed with spaces around it, starts a session.
     let id = signed_in(&gate, &sessions, &format!(" {PREVIEW_KEY} "));
-    assert_eq!(admits(&gate, &sessions, Some(&id)).await, Admit::Yes(()));
+    assert_eq!(
+        admits(&gate, &sessions, Some(&id)).await,
+        Admit::Yes(preview_viewer())
+    );
     assert_eq!(
         admits(&gate, &sessions, Some("never-issued")).await,
         Admit::No("the session has ended; sign in again".into())
@@ -264,7 +276,10 @@ async fn a_preview_session_ends_after_its_lifetime() {
     let id = signed_in(&gate, &sessions, PREVIEW_KEY);
     let lifetime = Span::from_std(PREVIEW_SESSION_LIFETIME).expect("a lifetime a span can hold");
     clock.advance(lifetime - Span::seconds(1));
-    assert_eq!(admits(&gate, &sessions, Some(&id)).await, Admit::Yes(()));
+    assert_eq!(
+        admits(&gate, &sessions, Some(&id)).await,
+        Admit::Yes(preview_viewer())
+    );
     assert!(sessions.form_token(Some(&id)).is_some());
     clock.advance(Span::seconds(1));
     assert_eq!(
@@ -275,7 +290,10 @@ async fn a_preview_session_ends_after_its_lifetime() {
     // Signing in again starts a fresh session.
     let again = signed_in(&gate, &sessions, PREVIEW_KEY);
     assert_ne!(again, id);
-    assert_eq!(admits(&gate, &sessions, Some(&again)).await, Admit::Yes(()));
+    assert_eq!(
+        admits(&gate, &sessions, Some(&again)).await,
+        Admit::Yes(preview_viewer())
+    );
 }
 
 #[tokio::test]
@@ -292,7 +310,10 @@ async fn signing_out_of_the_preview_ends_the_session() {
     assert_eq!(sessions.form_token(Some(&id)), None);
     assert!(!sessions.form_token_matches(Some(&id), &token));
     // Only that session ends.
-    assert_eq!(admits(&gate, &sessions, Some(&other)).await, Admit::Yes(()));
+    assert_eq!(
+        admits(&gate, &sessions, Some(&other)).await,
+        Admit::Yes(preview_viewer())
+    );
 }
 
 #[tokio::test]
@@ -375,7 +396,7 @@ async fn the_preview_world_has_what_the_page_must_show() {
     let mut long = false;
     for c in overview.channels.iter().map(|s| &s.channel) {
         let view = p
-            .channel(c.id.clone(), None, Settings::DEFAULT.page_messages)
+            .channel(c.id.clone(), None, PageLimits::DEFAULT.page_messages)
             .await
             .expect("view");
         if view.messages.is_empty() {
@@ -383,9 +404,13 @@ async fn the_preview_world_has_what_the_page_must_show() {
         }
         if let Some(before) = view.older_before_id {
             paged += 1;
-            assert_eq!(view.messages.len(), Settings::DEFAULT.page_messages);
+            assert_eq!(view.messages.len(), PageLimits::DEFAULT.page_messages);
             let older = p
-                .channel(c.id.clone(), Some(before), Settings::DEFAULT.page_messages)
+                .channel(
+                    c.id.clone(),
+                    Some(before),
+                    PageLimits::DEFAULT.page_messages,
+                )
                 .await
                 .expect("older");
             assert!(older.messages.iter().all(|m| m.id < before));
@@ -405,7 +430,7 @@ async fn the_preview_world_has_what_the_page_must_show() {
 async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let p = preview(3, clock, &Shutdown::new());
-    let mut live = p.live();
+    let mut live = app(&p).live().await;
     let before = p
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
@@ -462,30 +487,30 @@ async fn the_preview_feed_has_every_kind_of_happening_and_publishes_it() {
         tokio::time::timeout(std::time::Duration::from_millis(50), live.next()).await
     {
         match event {
-            Some(LiveEvent::Message(m)) => {
+            Some(Notice::Message(m)) => {
                 assert!(m.id > last);
                 last = m.id;
                 heard_messages += 1;
             }
-            Some(LiveEvent::Agent(a)) => {
+            Some(Notice::Agent(a)) => {
                 newest_agent = a.handle;
                 heard_agents += 1;
             }
-            Some(LiveEvent::Channel(_)) => heard_channels += 1,
-            Some(LiveEvent::Joined(j)) => {
+            Some(Notice::Channel(_)) => heard_channels += 1,
+            Some(Notice::Joined(j)) => {
                 joined_new_agent &= j.agent == newest_agent;
                 heard_joins += 1;
             }
             // In the feed, agents leave, unregister and hide channels themselves.
-            Some(LiveEvent::Left(l)) => {
+            Some(Notice::Left(l)) => {
                 assert!(l.by == l.agent && !l.by_operator, "{l:?}");
                 heard_leaves += 1;
             }
-            Some(LiveEvent::AgentHidden(h)) => {
+            Some(Notice::AgentHidden(h)) => {
                 assert!(h.by == h.agent && !h.by_operator, "{h:?}");
                 heard_unregistered += 1;
             }
-            Some(LiveEvent::ChannelHidden(h)) => {
+            Some(Notice::ChannelHidden(h)) => {
                 assert!(!h.by_operator, "{h:?}");
                 heard_hidden += 1;
             }
@@ -514,7 +539,7 @@ async fn the_preview_runs_by_the_clock_and_stops_with_the_server() {
     let clock = Arc::new(FixedClock::new(start_time()));
     let shutdown = Shutdown::new();
     let p = preview(2, clock.clone(), &shutdown);
-    let mut live = p.live();
+    let mut live = app(&p).live().await;
     let runner = {
         let p = p.clone();
         let shutdown = shutdown.clone();
@@ -527,7 +552,7 @@ async fn the_preview_runs_by_the_clock_and_stops_with_the_server() {
         .await
         .expect("a step after two seconds");
     assert!(
-        matches!(first, Some(ref e) if !matches!(e, LiveEvent::Missed)),
+        matches!(first, Some(ref e) if !matches!(e, Notice::Missed)),
         "{first:?}"
     );
     shutdown.stop();
@@ -544,7 +569,11 @@ async fn the_preview_runs_by_the_clock_and_stops_with_the_server() {
 #[tokio::test]
 async fn administration_works_through_the_preview() {
     administration_works(
-        preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new()),
+        app(&preview(
+            1,
+            Arc::new(FixedClock::new(start_time())),
+            &Shutdown::new(),
+        )),
         preview_gate(),
     )
     .await;
@@ -552,11 +581,11 @@ async fn administration_works_through_the_preview() {
 
 #[tokio::test]
 async fn operator_changes_are_live_in_the_preview() {
-    operator_changes_are_live(preview(
+    operator_changes_are_live(app(&preview(
         1,
         Arc::new(FixedClock::new(start_time())),
         &Shutdown::new(),
-    ))
+    )))
     .await;
 }
 
@@ -608,13 +637,17 @@ async fn preview_feed_survives_empty_channels_and_hiding_every_entry() {
 #[tokio::test]
 async fn announcement_editor_works_in_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    announcement_editor_works(preview(1, clock, &Shutdown::new()), preview_gate()).await;
+    announcement_editor_works(app(&preview(1, clock, &Shutdown::new())), preview_gate()).await;
 }
 
 #[tokio::test]
 async fn lanes_pages_work_in_the_preview() {
     lanes_pages_work(
-        preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new()),
+        app(&preview(
+            1,
+            Arc::new(FixedClock::new(start_time())),
+            &Shutdown::new(),
+        )),
         preview_gate(),
     )
     .await;
@@ -623,7 +656,11 @@ async fn lanes_pages_work_in_the_preview() {
 #[tokio::test]
 async fn channel_creation_through_preview() {
     channel_creation_works(
-        preview(1, Arc::new(FixedClock::new(start_time())), &Shutdown::new()),
+        app(&preview(
+            1,
+            Arc::new(FixedClock::new(start_time())),
+            &Shutdown::new(),
+        )),
         preview_gate(),
     )
     .await;
@@ -632,14 +669,14 @@ async fn channel_creation_through_preview() {
 #[tokio::test]
 async fn stale_agents_work_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
-    stale_agents_work(preview(1, clock, &Shutdown::new()), preview_gate()).await;
+    stale_agents_work(app(&preview(1, clock, &Shutdown::new())), preview_gate()).await;
 }
 
 #[tokio::test]
 async fn history_works_in_the_preview() {
     let clock = Arc::new(FixedClock::new(start_time()));
     history_works(
-        preview(1, clock, &Shutdown::new()),
+        app(&preview(1, clock, &Shutdown::new())),
         preview_gate(),
         "6 hours",
     )

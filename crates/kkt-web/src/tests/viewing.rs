@@ -1,11 +1,14 @@
 //! Who is viewing: the gate is asked about every request, open page or
-//! not, and each request reads the source `Sources` gives its viewer.
+//! not, and each request reads the application in its viewer's swarm.
 
+use crate::preview::PREVIEW_SWARM;
 use crate::testing::start_time;
 use crate::*;
 use axum::body::Body;
 use axum::http::Request as HttpRequest;
 use futures::future::BoxFuture;
+use kkt_api_agent::{Audit, Operator, Permissions, SwarmId};
+use kkt_api_operator::OperatorApi;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::SeededEntropy;
 use kkt_entropy::testing::SeqEntropy;
@@ -13,11 +16,11 @@ use kkt_shutdown::Shutdown;
 use std::sync::Mutex;
 use tower::ServiceExt;
 
-/// A gate whose viewer is named by what the session holds, `default`
-/// without a live one; or, with a `refusal`, one that gives that answer to
-/// everyone. It counts the requests it is asked about.
+/// A gate whose viewer's swarm is named by what the session holds,
+/// `default` without a live one; or, with a `refusal`, one that gives that
+/// answer to everyone. It counts the requests it is asked about.
 struct Named {
-    refusal: Option<Admit<String>>,
+    refusal: Option<Admit<Viewer>>,
     asked: Mutex<usize>,
 }
 
@@ -30,16 +33,23 @@ impl Named {
     }
 }
 
+/// The viewer who sees the swarm `name`.
+fn viewer(name: &str) -> Viewer {
+    Viewer {
+        swarm: SwarmId::new(name),
+        operator: Operator::new(Permissions::of(&[]), Audit::WebPage),
+    }
+}
+
 impl Gate for Named {
-    type Viewer = String;
     type SignedIn = String;
 
-    fn admits(&self, session: Session<String>) -> BoxFuture<'_, Admit<String>> {
+    fn admits(&self, session: Session<String>) -> BoxFuture<'_, Admit<Viewer>> {
         *self.asked.lock().expect("count") += 1;
         let admit = match (&self.refusal, session) {
             (Some(refusal), _) => refusal.clone(),
-            (None, Session::Live(name)) => Admit::Yes(name),
-            (None, Session::Absent | Session::Ended) => Admit::Yes("default".to_string()),
+            (None, Session::Live(name)) => Admit::Yes(viewer(&name)),
+            (None, Session::Absent | Session::Ended) => Admit::Yes(viewer("default")),
         };
         Box::pin(std::future::ready(admit))
     }
@@ -59,41 +69,18 @@ fn sessions(access: Access) -> Arc<Sessions<String>> {
     ))
 }
 
-/// A preview world for each viewer name, made on first use and kept, with
-/// a record of the viewers asked for.
-struct PerViewer {
-    worlds: Mutex<Vec<(String, Arc<Preview>)>>,
-    asked: Mutex<Vec<String>>,
-}
-
-impl PerViewer {
-    fn world(&self, viewer: &str) -> Arc<Preview> {
-        let mut worlds = self.worlds.lock().expect("worlds");
-        if let Some((_, world)) = worlds.iter().find(|(name, _)| name == viewer) {
-            return world.clone();
-        }
-        let seed = worlds.len() as u64 + 1;
-        let world = Arc::new(
-            Preview::new(
-                Arc::new(FixedClock::new(start_time())),
-                Arc::new(SeededEntropy::new(seed)),
-                PreviewSettings::DEFAULT,
-                &Shutdown::new(),
-            )
-            .expect("the preview's constants are valid"),
-        );
-        worlds.push((viewer.to_string(), world.clone()));
-        world
-    }
-}
-
-impl Sources for PerViewer {
-    type Viewer = String;
-
-    fn source(&self, viewer: &String) -> Arc<dyn Source> {
-        self.asked.lock().expect("asked").push(viewer.clone());
-        self.world(viewer)
-    }
+/// A preview, which makes a world for each swarm the first time it is
+/// asked for.
+fn preview() -> Arc<Preview> {
+    Arc::new(
+        Preview::new(
+            Arc::new(FixedClock::new(start_time())),
+            Arc::new(SeededEntropy::new(1)),
+            PreviewSettings::DEFAULT,
+            &Shutdown::new(),
+        )
+        .expect("the preview's constants are valid"),
+    )
 }
 
 async fn get_as(site: &Router, path: &str, session: Option<&str>) -> (StatusCode, String) {
@@ -110,9 +97,10 @@ async fn get_as(site: &Router, path: &str, session: Option<&str>) -> (StatusCode
     (status, String::from_utf8_lossy(&bytes).into_owned())
 }
 
-/// The ID of each channel `source`'s front page lists.
-async fn channel_ids(source: &Preview) -> Vec<String> {
-    let overview = source
+/// The ID of each channel the front page of `swarm`'s world lists.
+async fn channel_ids(preview: &Preview, swarm: &str) -> Vec<String> {
+    let overview = preview
+        .in_swarm(SwarmId::new(swarm))
         .overview(WEB_ACTIVITY_WINDOW, WEB_ACTIVITY_BUCKET)
         .await
         .expect("overview");
@@ -124,16 +112,13 @@ async fn channel_ids(source: &Preview) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn each_request_reads_the_source_of_the_viewer_the_gate_names() {
+async fn each_request_reads_the_swarm_of_the_viewer_the_gate_names() {
     let gate = Arc::new(Named::open());
-    let sources = Arc::new(PerViewer {
-        worlds: Mutex::new(Vec::new()),
-        asked: Mutex::new(Vec::new()),
-    });
+    let sources = preview();
     let sessions = sessions(Access::Open);
     let alice = sessions.start("alice".to_string());
     let site = router(
-        sources.clone(),
+        sources.clone() as Arc<dyn OperatorApi>,
         AllowedHosts::new(&[]).expect("loopback hosts"),
         gate.clone(),
         sessions,
@@ -149,14 +134,14 @@ async fn each_request_reads_the_source_of_the_viewer_the_gate_names() {
     assert_eq!(status, StatusCode::OK);
 
     // The gate was asked about every request, though the page is open, and
-    // each request read its own viewer's source.
+    // each request read its own viewer's swarm.
     assert_eq!(*gate.asked.lock().expect("count"), 3);
     assert_eq!(
-        *sources.asked.lock().expect("asked"),
-        ["default", "alice", "alice"]
+        sources.swarms(),
+        [PREVIEW_SWARM, "default", "alice"].map(SwarmId::new)
     );
-    let default_ids = channel_ids(&sources.world("default")).await;
-    let alice_ids = channel_ids(&sources.world("alice")).await;
+    let default_ids = channel_ids(&sources, "default").await;
+    let alice_ids = channel_ids(&sources, "alice").await;
     assert_ne!(default_ids, alice_ids, "the two worlds differ");
     for id in &default_ids {
         assert!(default_page.contains(id.as_str()), "{id} on default's page");
@@ -169,7 +154,7 @@ async fn each_request_reads_the_source_of_the_viewer_the_gate_names() {
 
 /// What a refused viewer gets, by whether the site has sign-in and how the
 /// gate refused: sent to sign in only when there is sign-in and signing in
-/// would help; otherwise `403` with the gate's reason. No source is made.
+/// would help; otherwise `403` with the gate's reason. No swarm is read.
 #[tokio::test]
 async fn a_refused_viewer_sees_no_page_and_is_told_why_unless_signing_in_helps() {
     let no = || Admit::No("sign in first".to_string());
@@ -203,12 +188,9 @@ async fn a_refused_viewer_sees_no_page_and_is_told_why_unless_signing_in_helps()
     ];
     for (sign_in, refusal, page, feed) in cases {
         let case = format!("sign-in {sign_in}, {refusal:?}");
-        let sources = Arc::new(PerViewer {
-            worlds: Mutex::new(Vec::new()),
-            asked: Mutex::new(Vec::new()),
-        });
+        let sources = preview();
         let site = router(
-            sources.clone(),
+            sources.clone() as Arc<dyn OperatorApi>,
             AllowedHosts::new(&[]).expect("loopback hosts"),
             Arc::new(Named {
                 refusal: Some(refusal),
@@ -228,7 +210,7 @@ async fn a_refused_viewer_sees_no_page_and_is_told_why_unless_signing_in_helps()
                 assert_eq!(body, reason, "{case}: {path}");
             }
         }
-        assert!(sources.asked.lock().expect("asked").is_empty(), "{case}");
+        assert_eq!(sources.swarms(), [SwarmId::new(PREVIEW_SWARM)], "{case}");
     }
 }
 
@@ -249,10 +231,7 @@ async fn signing_out_ends_the_session_of_any_viewer_let_in() {
             .form_token(Some(&id))
             .expect("a live session's token");
         let site = router(
-            Arc::new(PerViewer {
-                worlds: Mutex::new(Vec::new()),
-                asked: Mutex::new(Vec::new()),
-            }),
+            preview(),
             AllowedHosts::new(&[]).expect("loopback hosts"),
             Arc::new(Named {
                 refusal,
@@ -284,13 +263,10 @@ async fn signing_out_ends_the_session_of_any_viewer_let_in() {
 #[tokio::test]
 async fn host_refusals_reach_the_injected_log_before_the_gate_is_asked() {
     let gate = Arc::new(Named::open());
-    let sources = Arc::new(PerViewer {
-        worlds: Mutex::new(Vec::new()),
-        asked: Mutex::new(Vec::new()),
-    });
+    let sources = preview();
     let log = Arc::new(kkt_log::testing::CapturedLog::default());
     let site = router(
-        sources.clone(),
+        sources.clone() as Arc<dyn OperatorApi>,
         AllowedHosts::new(&[]).expect("loopback hosts"),
         gate.clone(),
         sessions(Access::Open),
@@ -305,7 +281,7 @@ async fn host_refusals_reach_the_injected_log_before_the_gate_is_asked() {
     let response = site.oneshot(request).await.expect("response");
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     assert_eq!(*gate.asked.lock().expect("gate count"), 0);
-    assert!(sources.asked.lock().expect("source calls").is_empty());
+    assert_eq!(sources.swarms(), [SwarmId::new(PREVIEW_SWARM)]);
     assert_eq!(
         log.entries(),
         vec![kkt_log::testing::Entry {

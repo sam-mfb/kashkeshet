@@ -1,10 +1,11 @@
-//! The page's tests. `testing` holds what every source must do, written
-//! once over a source and a gate, and the helpers for driving the page;
-//! `preview` runs them against the preview behind its simulated gate, and
-//! tests the preview itself. The server's runs, over the rules behind real
-//! admission, are in `web_real`'s tests. `viewing` tests that the gate is
-//! asked about every request and each viewer reads its own source. Below
-//! are tests of how the page words times, which need no source.
+//! The page's tests. `testing` holds what every implementation of the
+//! application must do, written once over the application and a gate, and
+//! the helpers for driving the page; `preview` runs them against the
+//! preview behind its simulated gate, and tests the preview itself. The
+//! server's runs, over the rules behind real admission, are in `web_real`'s
+//! tests. `viewing` tests that the gate is asked about every request and
+//! each viewer reads its own swarm. Below are tests of how the page words
+//! times, which need no application.
 
 mod preview;
 mod viewing;

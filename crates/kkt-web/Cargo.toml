@@ -1,6 +1,6 @@
 [package]
 name = "kkt-web"
-description = "The human's pages, through their own contract, and the preview with simulated data"
+description = "The human's pages, over the kkt-api crates' operations, and the preview with simulated data"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,6 +8,8 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-api-agent = { path = "../kkt-api-agent" }
+kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-log = { path = "../kkt-log" }
 askama.workspace = true
 axum.workspace = true

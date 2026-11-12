@@ -8,12 +8,14 @@
 //!
 //! It decides nothing about who a caller is: the program passes in
 //! [`Identify`] through [`Parts`], and the admission mode (open or keys)
-//! through [`AppConfig`]. Its adapters from the rules to kkt-web's contract
-//! are public, for a product that assembles its own web page.
+//! through [`AppConfig`]. The web page reads and changes the rules through
+//! the kkt-api crates' contracts; the gate that adapts admission and
+//! identity to kkt-web's contract ([`AdmissionGate`]) is public, for a
+//! product that assembles its own web page.
 
 mod web_real;
 
-pub use crate::web_real::{AdmissionGate, RulesSource, RulesSources, WebViewer};
+pub use crate::web_real::AdmissionGate;
 
 use axum::Router;
 use axum::extract::{Request, State};
@@ -235,7 +237,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         )
     });
     let router = web::router(
-        Arc::new(RulesSources::new(rules)),
+        Arc::new(rules),
         config.allowed_hosts.clone(),
         web_gate,
         web_sessions,
