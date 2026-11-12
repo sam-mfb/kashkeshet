@@ -11,6 +11,7 @@ publish = false
 kkt-admission = { path = "../kkt-admission" }
 kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-api-operator = { path = "../kkt-api-operator" }
+kkt-backup = { path = "../kkt-backup" }
 kkt-client-config = { path = "../kkt-client-config" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-config-file = { path = "../kkt-config-file" }

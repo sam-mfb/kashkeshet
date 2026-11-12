@@ -801,6 +801,17 @@
      ]
     },
     {
+     "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os with this program's database copy",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "backups"
+      }
+     ],
+     "supplier": "kkt-backup-os::write"
+    },
+    {
      "own": "NativeOutput, adapting kkt-terminal-os",
      "crate": "kkt-operate",
      "to": [

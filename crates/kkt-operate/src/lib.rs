@@ -6,6 +6,7 @@ pub mod doctor;
 pub mod key;
 pub mod keys;
 pub mod lanes;
+pub mod lifecycle;
 pub mod record;
 pub mod service;
 
@@ -16,8 +17,16 @@ use std::sync::Arc;
 
 /// The facts these commands read from the program's serve configuration.
 pub struct Config {
+    /// The config file read, if there was one.
+    pub file: Option<PathBuf>,
     pub db: Option<PathBuf>,
     pub max_lane_chars: usize,
+    /// The access key file the config file names, if it names one.
+    pub access_key_file: Option<PathBuf>,
+    /// Whether the config file turns the access key off, if it says.
+    pub no_access_key: Option<bool>,
+    /// The name pack named, else the default's name, unchecked.
+    pub name_pack: String,
 }
 
 /// Questions about serving; no file is read until a command asks.
@@ -80,6 +89,8 @@ pub trait SetupFiles {
     fn absolute(&self, path: &Path) -> std::io::Result<PathBuf>;
     fn program_path(&self) -> std::io::Result<PathBuf>;
     fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf>;
+    /// Removes the setup record in `dir`, for `kkt uninstall`.
+    fn remove_record(&self, dir: &Path) -> Result<(), String>;
 }
 
 /// Key files, including generation of a fresh key by the chosen entropy source.
@@ -87,6 +98,8 @@ pub trait KeyFiles {
     fn read(&self, path: &Path) -> std::io::Result<String>;
     fn read_optional(&self, path: &Path) -> std::io::Result<Option<String>>;
     fn exists(&self, path: &Path) -> bool;
+    /// Whether a key file is at `path`, or why that cannot be told.
+    fn try_exists(&self, path: &Path) -> std::io::Result<bool>;
     fn is_file(&self, path: &Path) -> bool;
     fn new_key(&self, path: &Path, force: bool) -> Result<String, String>;
     fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String>;
@@ -97,6 +110,12 @@ pub trait KeyFiles {
 pub trait Databases {
     fn exists(&self, path: &Path) -> bool;
     fn open(&self, path: &Path) -> Result<kkt_rules::Db, String>;
+}
+
+/// Writes kkt-backup's layout of a backup into a folder, copying the
+/// database as the program's database chooses. Returns the backup written.
+pub trait BackupWriter {
+    fn write(&self, folder: &Path, layout: &kkt_backup::Layout<'_>) -> Result<PathBuf, String>;
 }
 
 /// Command output, with standard output and standard error kept separate.
@@ -124,5 +143,6 @@ pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     pub setup_files: &'a dyn SetupFiles,
     pub key_files: &'a dyn KeyFiles,
     pub database: &'a dyn Databases,
+    pub backups: &'a dyn BackupWriter,
     pub output: &'a dyn Output,
 }

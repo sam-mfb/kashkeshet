@@ -1519,6 +1519,7 @@ dependencies = [
  "kkt-admission",
  "kkt-api-agent",
  "kkt-api-operator",
+ "kkt-backup",
  "kkt-client-config",
  "kkt-clock",
  "kkt-config-file",
