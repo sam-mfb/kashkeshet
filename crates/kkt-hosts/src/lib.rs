@@ -204,6 +204,14 @@ fn is_name_byte(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'-' || b == b'_'
 }
 
+/// Where a server listens when neither a flag nor the config file says.
+pub const DEFAULT_BIND: SocketAddr = SocketAddr::V4(std::net::SocketAddrV4::new(
+    std::net::Ipv4Addr::LOCALHOST,
+    7420,
+));
+/// Whether `bind` may be a non-loopback address when nothing says.
+pub const DEFAULT_ALLOW_ANY_BIND: bool = false;
+
 /// Checks the listen address. Only loopback addresses are allowed unless
 /// `allow_any_bind` is set: the server is meant for one machine, and a
 /// container needs to listen on its own network interface. `has_key` says

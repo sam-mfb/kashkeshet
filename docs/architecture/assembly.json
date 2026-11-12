@@ -6,15 +6,18 @@
    "steps": [
     {
      "title": "Settings",
-     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "items": [
       "kkt-machine-os::OsMachine",
       "kkt-config-file::config_file",
       "kkt-config-file-os::read",
       "kkt-config-file::parse_file",
       "kkt-setup::default_db",
-      "kkt-settings::ServeSettings",
-      "kkt-settings::Limits",
+      "kashkeshet::machine::settings::ServeOptions",
+      "kashkeshet::machine::settings::ServeSettings",
+      "kashkeshet::machine::settings::server_settings",
+      "kkt-rules::Settings",
+      "kkt-backup::Settings",
       "kkt-admission::server_keys::check",
       "kkt-admission::server_keys::ServerKeys"
      ]
@@ -670,11 +673,14 @@
    "steps": [
     {
      "title": "Settings",
-     "text": "The same config file as kkt serve, read through kkt-config-file-os, parsed by kkt-config-file and gathered by kkt-settings, and the same key check.",
+     "text": "The same config file as kkt serve, read through kkt-config-file-os, parsed by kkt-config-file and turned by the program into each owner's settings, with the owners' defaults for the rest, and the same key check.",
      "items": [
       "kkt-config-file-os::read_named",
       "kkt-config-file::parse_file",
-      "kkt-settings::ServeSettings",
+      "kkt-rules::Settings",
+      "kkt-mcp-formatter::Settings",
+      "kkt-web::Settings",
+      "kkt-backup::Settings",
       "kkt-admission::server_keys::check"
      ]
     },

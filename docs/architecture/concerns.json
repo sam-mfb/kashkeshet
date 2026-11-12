@@ -176,16 +176,10 @@
    "must_not": "Know a product's tables, or let a rusqlite type out of the crate.",
    "kind": "effect"
   },
-  "kkt-settings": {
-   "layer": "operations",
-   "concern": "Gathering a server's settings from flags, what the config file gives and defaults. Only the programs depend on this temporary gathering crate, removed in phase 9.3; run-record ordering now belongs to kkt-server.",
-   "must_not": "Read files or the environment, or parse the config file: callers pass in what the file gives and the defaults that depend on the machine.",
-   "kind": "logic"
-  },
   "kkt-config-file": {
    "layer": "operations",
    "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), under a supplied config-home folder.",
-   "must_not": "Read or write files, or know kkt-settings or the settings' checks beyond each value's kind.",
+   "must_not": "Read or write files, or know the settings' checks beyond each value's kind.",
    "kind": "logic"
   },
   "kkt-config-file-os": {

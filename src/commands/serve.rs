@@ -5,9 +5,10 @@ use crate::commands::lifecycle::backup_before_upgrade;
 use crate::machine::keys::make_default_key;
 use crate::machine::server_run::{RecordedSettings, new_server_run};
 use crate::machine::settings::{
-    Checked, DefaultDb, NO_HOME_TO_KEEP_DB, Report, Sources, backup_settings, check_settings,
-    load_serve_options, resolve, rules_settings,
+    Checked, DefaultDb, NO_HOME_TO_KEEP_DB, Report, Sources, check_settings, load_serve_options,
+    resolve,
 };
+use crate::machine::settings::{ServeOptions, ServeSettings};
 use kkt_api_agent::SwarmId;
 use kkt_clock_system::SystemClock;
 use kkt_entropy_os::OsEntropy;
@@ -18,7 +19,6 @@ use kkt_logs_os::init_logging;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
-use kkt_settings::{ServeOptions, ServeSettings};
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use kkt_terminal_os::Terminal;
@@ -77,7 +77,8 @@ async fn serve(
         config,
         server_settings,
         allowed_hosts,
-        limits,
+        rules,
+        backups,
         admin_name,
         allow_any_bind,
         config_file,
@@ -86,7 +87,7 @@ async fn serve(
         dependency_log_level,
     } = check_settings(settings, sources)?;
     let clock = Arc::new(SystemClock);
-    backup_before_upgrade(&db_path, limits.upgrade_backups_kept, clock.as_ref())?;
+    backup_before_upgrade(&db_path, backups.upgrade_backups_kept, clock.as_ref())?;
     let db = crate::machine::database::open(&db_path)?;
     let run = ServerRun::new(
         Build::CURRENT,
@@ -94,8 +95,8 @@ async fn serve(
             settings: RecordedSettings {
                 allow_any_bind,
                 server: &server_settings,
-                rules: rules_settings(&limits),
-                backup: backup_settings(&limits),
+                rules: rules.clone(),
+                backup: backups,
                 log_level,
                 dependency_log_level,
                 config_file: config_file.clone(),
@@ -154,7 +155,7 @@ async fn serve(
             events: Events::new(kkt_events::Settings::DEFAULT).until_stopped(shutdown.clone()),
             clock: clock.clone(),
             entropy: entropy.clone(),
-            settings: rules_settings(&limits),
+            settings: rules,
             wording: Arc::new(kkt_rules::DefaultWording),
         },
     )

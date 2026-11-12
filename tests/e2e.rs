@@ -974,7 +974,7 @@ async fn reconnect_and_reclaim_keeps_closed_channel_access() {
 )]
 async fn disconnect_clears_listening_without_completion_grace() {
     let mut config = test_config();
-    config.limits.waiting_grace = Duration::from_secs(30);
+    config.rules.waiting_grace = Duration::from_secs(30);
     let server = start_with(config).await;
     let observer = connect_new(&server).await;
     let (name, token) = register(&observer).await;
