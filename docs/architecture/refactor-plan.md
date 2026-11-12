@@ -13,12 +13,13 @@ The plan has five parts: the rules every step follows; how progress is
 measured; how parallel work avoids collisions; the steps; and what needs
 Sam, each with the default we proceed on.
 
-The refactor is done. What is left for Sam comes first, below; the final
-scorecard is at the end.
+The refactor's phases 0 to 8 are done. Sam then decided that kkt-settings
+goes too (2026-11-12): phase 9 removes it. What is left for Sam comes first,
+below; the scorecards are at the end.
 
 ## Awaiting Sam
 
-The refactor is done, and these questions are left for Sam: every row of
+Phases 0 to 8 are done, and these questions are left for Sam: every row of
 "Differences from the proposed map" still marked "awaiting Sam", and the
 items of "What needs Sam" that are still open. They are grouped by how much
 they change, so the last group can be accepted in one go. Each line gives
@@ -32,8 +33,8 @@ plan's author. Where a difference is a compromise, the line says so.
 | The shared crates' public surface changes for kkt-pro, which builds on them by git ("What needs Sam" 2) | all | **Accepted by Sam, 2026-11-12.** The CHANGELOG entry says what a dependant must change, and the outside-crate CI job still builds |
 | check-crates rule 3 lets a dev-only program turn on another package's `testing` (the web preview, kkt-api-sim) ("What needs Sam" 4; the 6.3 row on kkt-web-preview) | 6.3 | **Accepted by Sam, 2026-11-12.** A dev-only package can never be in a release, and check-release-packages.sh enforces that |
 | The fake product's tests turn on kkt-agent-client's `real` | 7.5; fixed after 8.1 | **Decided by Sam, 2026-11-12: SHOULD, with this documented exception.** Tests SHOULD NOT turn on `real`; check-crates.sh takes a list of documented exceptions (`.github/scripts/real-exceptions.json`: package, dependency, reason), and fails on any other and on a listed one that no longer applies. Its one entry is the fake product's tests, which drive a running server over HTTP. kkt-agent-client is a dev-dependency of the fake product again, so the arrow is a test arrow |
-| A contract crate depends on a contract crate: kkt-api-admin on kkt-api-operator (`AdminApi` extends `OperatorApi`) | 5.4b | Accept: an endpoint moved into a swarm needs every operation it uses there, and contracts depending on contracts adds no effect or logic |
-| kkt-settings depends on kkt-admission, kkt-logs, kkt-mcp-formatter, kkt-web and kkt-names | 3.1b, 3.5b, 3.5c | Accept, as a compromise: its values hold those crates' types and `Limits::check` reads their bounds; none of them depends on kkt-settings and only programs do, so no cycle can form |
+| A contract crate depends on a contract crate: kkt-api-admin on kkt-api-operator (`AdminApi` extends `OperatorApi`) | 5.4b | **Accepted by Sam, 2026-11-12.** An endpoint moved into a swarm needs every operation it uses there, and contracts depending on contracts adds no effect or logic |
+| kkt-settings depends on kkt-admission, kkt-logs, kkt-mcp-formatter, kkt-web and kkt-names | 3.1b, 3.5b, 3.5c | **Not accepted by Sam, 2026-11-12: kkt-settings goes (phase 9).** It gathers other crates' concerns under one name, as kkt-config did. (The recommendation was to accept, as a compromise, since no cycle could form.) |
 | kkt-config-file takes the config-home folder; `config_home` stays a method of `Env` | 3.4 | **Decided by Sam, 2026-11-12: kkt-config-file takes the folder, not Env.** The caller computes `env.config_home()` and passes its optional path; kkt-config-file no longer depends on kkt-machine |
 
 **(b) Differences that leave a rule broken.** The scorecard counts the
@@ -41,7 +42,7 @@ first two.
 
 | Difference | Step | Recommended |
 |---|---|---|
-| kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's | 5.3b | Accept, with a later fix: it breaks the rule for speed (under 5 seconds in place of over 10 minutes); a faster kkt-db `MemoryPlace` would let the tests use it, and kkt-db's conformance checks keep the two in step meanwhile |
+| kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's | 5.3b | **Not accepted by Sam, 2026-11-12, and no exception:** a fast stand-in replaces it now (kkt-build-b designs it, msg 2805). The recommendation was to accept, with a later fix |
 | The arrow kkt-server → kkt-api-admin is missing: `Parts` holds the concrete `Rules` | 5.6a | Accept, and drop the arrow from the proposal: naming the traits in `Parts` would change nothing a surface can reach |
 | `kkt_rules::testing` gives the program's tests the store's `Reader`, `Writer`, records and filters, with `read` and `write`; `testing::database` gives other tests (the fake product's, for its own `start`, and `CommandLine`) a bare `Db` | 5.6b | Accept: the 0.10.0 fixture must answer every pinned read, which are the store's questions, and a released build reaches none of it; the cost is that changing a store question can break those tests, which is what they are for |
 
@@ -65,8 +66,8 @@ left unnamed.
 | `parse_file` takes the caller's log-level check; `ConfigReader` returns its own `ContainerConfig` | 3.3 | Accept: kkt-config-file need not know kkt-logs |
 | `serve_bind` stays in the program; kkt-service's `check_bind`; kkt-keymode keeps four refusal messages | 3.5b | Accept: each piece sits with what it reads or words |
 | No `SettingsSource`: the programs turn `Config` into `ServeOptions` | 3.3, 3.5c | Accept: a trait would add code and no behaviour |
-| Each program keeps `check_settings`, about 25 lines in both kkt and kkt-keymode | 3.5c | Accept, as a compromise: no crate may own the mapping, so it is written twice |
-| kkt-settings words the run's settings; kkt-provenance depends only on kkt-hash | 3.5c | Accept: the run record stays byte for byte the same |
+| Each program keeps `check_settings`, about 25 lines in both kkt and kkt-keymode | 3.5c | Superseded by phase 9: the order of the checks moves to kkt-server, and each program maps its keys onto kkt-server's `ServerSettings` |
+| kkt-settings words the run's settings; kkt-provenance depends only on kkt-hash | 3.5c | Superseded by phase 9: kkt-server words them (`ServerSettings::record_lines`); kkt-provenance still depends only on kkt-hash |
 | kkt-logs gives rollover and pruning plans, which kkt-logs-os carries out | 4.1 | Accept: the rules stay in logic |
 | kkt-logs' plans' names; `LOG_PRUNE_INTERVAL` stays private; kkt-logs' own `SettingError` | 3.1c-2, 4.1 | Accept: names for what the plans do |
 | The log contract's field records, `Level::Trace` and `testing::Entry` | 4.2 | Accept: keeps every level and field without tracing's types |
@@ -257,9 +258,9 @@ the last column says so.
 | `config_home` is a method of kkt-machine's `Env`, with `absolute_xdg_config_home` and `absolute_xdg_data_home`, not a function of kkt-config-file; `config_dir` and `config_file` take the optional config-home folder, with no kkt-config-file dependency on kkt-machine; `kkt_admission::access_key_file` and kkt-setup's record paths take the config folder, not `Env`; the program has `NewKey` and `NewAvatar` | 3.4 (#448) | `config_home` is shared by other programs' config (kkt-service's and kkt-client-config's), and the XDG values count only when absolute, so `Env` gives them in one place; a path inside kkt's config folder takes that folder; `NewKey` and `NewAvatar` group two commands' arguments to stay within clippy's limit | decided by Sam, 2026-11-12: kkt-config-file takes the folder, not Env; other placements awaiting Sam | removed dependency to be charted |
 | `serve_bind` stays in the program; the service's bind check is kkt-service's `check_bind`, supplied with kkt-service-os's `try_bind` by the program; kkt-keymode keeps four key-refusal messages of its own beside kkt-admission's `key_refusal` | 3.5b (#449) | `serve_bind` gathers the settings from the machine, which kkt-hosts cannot; `check_bind` decides and words the refusal, and trying the address is an effect of service-os (7.3a); kkt-keymode's messages differ from kkt's, and its output stays the same | awaiting Sam | yes |
 | kkt-settings has no `SettingsSource`: kkt and kkt-keymode turn kkt-config-file's `Config` and the flags each into kkt-settings' `ServeOptions`, which kkt-settings combines; `Sources`, `Loaded` and `read_config` stay in the program | 3.3 (#445), 3.5c (#450) | `ServeOptions` already is a plain record of one source's optional settings; a trait over it would add a method and two adapters with no new behaviour | awaiting Sam | yes |
-| kkt-settings depends on kkt-admission (`AccessKey` in `ServeSettings`, the key paths), kkt-logs (`LogLevel`, `LogPolicy`), kkt-mcp-formatter and kkt-web (the bounds `Limits::check` reads, now public) and kkt-names (`NamePack`) | 3.1b (#431), 3.5b (#449), 3.5c (#450) | Its values hold those types, and `Limits::check` reads the bounds their owners state. None of them depends on kkt-settings, and only the programs do | awaiting Sam | yes |
-| Each program keeps `check_settings`: a short function that turns kkt-settings' values into each crate's settings and calls each owner's check, with the mapping of `Limits` to kkt-rules' and kkt-web's settings (about 25 lines) in both kkt and kkt-keymode; `Limits::check` stays one ordered list; kkt-keymode keeps its own `KeyFiles` | 3.5c (#450) | No allowed owner exists for the mapping: kkt-rules and kkt-web may not know kkt-settings, nor kkt-settings them. One ordered list keeps the first bad limit named the same. `KeyFiles` goes with the proposal's kkt-admission-os (7.2) | awaiting Sam | yes |
-| kkt-settings words the settings a run records (`RecordedSettings`); kkt-provenance's `RunSettings` holds those lines and depends only on kkt-hash; kkt-service's plan takes its own `ServiceSettings`; kkt-container's `status` and `lane_limit` take their defaults from the program; `DEFAULT_ALLOW_ANY_BIND` is private | 3.5c (#450) | The wording moved unchanged with the golden tests that pin it, and the run record stays byte for byte the same; kkt-settings' defaults are `Limits::DEFAULT`'s, so no separate `DEFAULT_NAME_PACK` | awaiting Sam | yes |
+| kkt-settings depends on kkt-admission (`AccessKey` in `ServeSettings`, the key paths), kkt-logs (`LogLevel`, `LogPolicy`), kkt-mcp-formatter and kkt-web (the bounds `Limits::check` reads, now public) and kkt-names (`NamePack`) | 3.1b (#431), 3.5b (#449), 3.5c (#450) | Its values hold those types, and `Limits::check` reads the bounds their owners state. None of them depends on kkt-settings, and only the programs do | not accepted by Sam, 2026-11-12: kkt-settings goes (phase 9) | yes; phase 9's chart removes the crate and these arrows |
+| Each program keeps `check_settings`: a short function that turns kkt-settings' values into each crate's settings and calls each owner's check, with the mapping of `Limits` to kkt-rules' and kkt-web's settings (about 25 lines) in both kkt and kkt-keymode; `Limits::check` stays one ordered list; kkt-keymode keeps its own `KeyFiles` | 3.5c (#450) | No allowed owner exists for the mapping: kkt-rules and kkt-web may not know kkt-settings, nor kkt-settings them. One ordered list keeps the first bad limit named the same. `KeyFiles` goes with the proposal's kkt-admission-os (7.2) | superseded by phase 9: kkt-server keeps the order, and each program maps its keys onto `ServerSettings` | yes; phase 9 charted |
+| kkt-settings words the settings a run records (`RecordedSettings`); kkt-provenance's `RunSettings` holds those lines and depends only on kkt-hash; kkt-service's plan takes its own `ServiceSettings`; kkt-container's `status` and `lane_limit` take their defaults from the program; `DEFAULT_ALLOW_ANY_BIND` is private | 3.5c (#450) | The wording moved unchanged with the golden tests that pin it, and the run record stays byte for byte the same; kkt-settings' defaults are `Limits::DEFAULT`'s, so no separate `DEFAULT_NAME_PACK` | superseded by phase 9 for the wording, which moves to kkt-server; the rest awaiting Sam | yes; phase 9 charted |
 | kkt-logs supplies explicit pure rollover and age-pruning plans, which logs-os performs | 4.1 | Keeps thresholds, rename order and expiry rules in logic while retaining the writer's existing I/O order | awaiting Sam | yes |
 | kkt-logs' plans are `should_roll`, `rotation` (with `Rotation`), `prune_due` and `pruning` (with `Pruning` and its `expired`), in place of `rolls_over`, `rolled_name` and `expired`; `LOG_PRUNE_INTERVAL` stays a private constant, not a setting; kkt-logs has its own `SettingError`; kkt-logs-os keeps the program's names `init_logging` and `init_stderr_logging`, not `start` and `start_stderr` | 3.1c-2, 4.1 (#452) | Found when charting 4.1, with no row of their own. A plan names a whole rollover or pruning, so the writer only carries it out; the interval kept the fixed value it had; kkt-logs checks its own settings and may not use kkt-settings' error, as kkt-web, kkt-admission and kkt-hosts; the start functions moved unchanged | awaiting Sam | yes |
 | The shared log contract carries borrowed named Field/Value records with Display or Debug formatting, Level::Trace, and testing::Entry | 4.2 | Preserves all five severity levels and structured fields without exposing tracing types or flattening fields into text; Entry retains captured events for assertions | awaiting Sam | yes |
@@ -271,7 +272,7 @@ the last column says so.
 | Terminal::interactive checks stdin, while output_is_terminal checks stdout separately | 7.1b | Preserves setup asking when stdin is a terminal even if stdout is redirected; browser opening still requires both | awaiting Sam | yes |
 | Key-file helpers take a caller-supplied key factory; make_default_key reports its created path, write_admin_name takes bound text, and KeyFiles adds read, read_optional and create_dir_all with ReadError retaining its path and I/O cause | 7.2 | Keeps admission-os dependent only on admission; the program preserves its info-event target and admin-name wording, and the two KeyTexts adapters translate native read errors into each program's existing refusal messages | awaiting Sam | yes |
 | kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's, not kkt-db's `MemoryPlace` | 5.3b | Speed: the 200 tests take under 5 seconds on SQLite in memory and over 10 minutes on kkt-db's `MemoryPlace`, which copies the whole database on every change. kkt-db's conformance checks keep both in step, and kkt-rules' `testing::memory` still serves other crates (msg 2498) | awaiting Sam | noted on the arrow the proposal removes: its rule keeps effect crates out of a logic crate's tests, so the scorecard counts this as a break |
-| Two combined traits: kkt-api-operator's `OperatorApi` (`Api` + `Views` + `Changes` + `Lanes` + `Server`, with `in_swarm_operator`) and kkt-api-admin's `AdminApi` (`OperatorApi` + `Admin`, with `in_swarm_admin`); kkt-api-admin depends on kkt-api-operator | 5.4b | An endpoint that moves into the caller's swarm needs every operation it uses in that swarm, which `Api::in_swarm` alone cannot give; `Rules` implements both, so no adapter (msg 2562) | awaiting Sam | yes |
+| Two combined traits: kkt-api-operator's `OperatorApi` (`Api` + `Views` + `Changes` + `Lanes` + `Server`, with `in_swarm_operator`) and kkt-api-admin's `AdminApi` (`OperatorApi` + `Admin`, with `in_swarm_admin`); kkt-api-admin depends on kkt-api-operator | 5.4b | An endpoint that moves into the caller's swarm needs every operation it uses in that swarm, which `Api::in_swarm` alone cannot give; `Rules` implements both, so no adapter (msg 2562) | accepted by Sam, 2026-11-12 | yes |
 | kkt-mcp-formatter no longer depends on kkt-rules (only its tests do, for kkt-rules' default settings) | 5.5 | The proposal kept the arrow from the old map; with the wording in kkt-rules and the records in the kkt-api crates, the formatter's library uses nothing of kkt-rules (msg 2580) | awaiting Sam | yes |
 | kkt-web's `Sessions<T>` is generic over what a session holds (bound by its `Held`), `Gate::SignedIn` (kkt-server's `Principal`, the preview's `()`); `Gate::admits` takes kkt-web's `Session<T>` (absent, ended or live) and `Gate::sign_in` returns `SignIn<T>` (admitted, or refused with a reason) in place of a session ID; `Sessions::new` takes an `Access` (open or sign-in), from which the page knows whether sign-in is required; the lifetime is `session_lifetime` in kkt-web's `Settings`, so kkt-server's `AppConfig` loses `sessions` and the program's `session_settings` goes (its `web_settings` fills the lifetime); kkt-web's `testing::Door` holds a gate and its sessions for the page scenarios | 6.1 | The page keeps the sessions, so the gate is asked about what a session holds, not its ID; form tokens need to know whether sign-in is required, so the sessions know it from construction and `Gate` drops `sign_in_required`; one settings value per crate | awaiting Sam | yes |
 | kkt-admission's `WebAdmission` decides over its own `WebSession` (absent, ended or live with a `Principal`), and `WebAdmission::sign_in` returns a `Decision`; its `SignIn` and `Settings` go | 6.1 | kkt-admission keeps the access decision and its refusal texts ("sign in first", "the session has ended; sign in again") without knowing kkt-web's sessions | awaiting Sam | yes |
@@ -290,7 +291,7 @@ the last column says so.
 | kkt-api-sim has `PreviewSettings` (the feed's steps per minute) and its own `SettingError`; the page size is kkt-web-preview's flag, checked by the program (its `SettingError`) into kkt-web's `PageLimits`; the preview's bind address, seed and session lifetime are the program's (the lifetime is kkt-web's default); kkt-web's `SettingError`, which only the preview used, goes; kkt-api-sim's `PREVIEW_SWARM`, `preview_viewer` and `Preview::swarms` are public, for kkt-web's viewing test | 6.3 | Each crate declares the settings it takes and its check's error (decision 42); the simulation never used the page size | awaiting Sam | yes |
 | kkt-api-sim depends on kkt-shutdown: `Preview::new` takes the stop that ends its live notices and `Preview::run` the one that ends its feed; kkt-web no longer depends on kkt-events, which only the preview used since 6.2 | 6.3 | The stop is the caller's, as it was in kkt-web; the page hears notices through kkt-api-operator's `Notices` (6.2) | awaiting Sam | yes |
 | kkt-mcp's tests do not use kkt-api-sim | 6.3 | They already use only stand-ins (the fixed clock, counting entropy, the rules over an in-memory database) and need nothing the simulation gives; the arrow can come when a test does | awaiting Sam | yes |
-| kkt-fake-product's tests turn on kkt-agent-client's `real` (a dev-dependency): a documented exception to "tests SHOULD NOT turn on `real`", listed in `.github/scripts/real-exceptions.json` | 7.5; fixed after 8.1 | Only its integration tests use this dependency (msg 2604): they drive a running server over HTTP with kkt-agent-client's client, which only `real` builds. Until Sam's decision it was a normal dependency, since check-crates allowed `real` in dev-dependencies only for examples | decided by Sam, 2026-11-12: SHOULD, with this documented exception | the arrow is a test arrow again; charted after it merges |
+| kkt-fake-product's tests turn on kkt-agent-client's `real` (a dev-dependency): a documented exception to "tests SHOULD NOT turn on `real`", listed in `.github/scripts/real-exceptions.json` | 7.5; fixed after 8.1 | Only its integration tests use this dependency (msg 2604): they drive a running server over HTTP with kkt-agent-client's client, which only `real` builds. Until Sam's decision it was a normal dependency, since check-crates allowed `real` in dev-dependencies only for examples | decided by Sam, 2026-11-12: SHOULD, with this documented exception | yes: a test arrow, with `real` |
 | Http returns an opaque HttpReply with status, header and text/byte-stream methods; SqlitePlace::create reports CreateError::Exists or Open | 7.5 | Keeps HTTP library types inside agent-client and preserves streaming/form behavior; the program keeps its existing-file and failed-open wording | awaiting Sam | yes |
 | Setup's client/admin connection and endpoint decisions use consumer-owned `ConnectionSource` and `ServeConnection<S>` records; recorded selection takes a path-resolution callback, and `recorded_setup` takes lazy unfinished/unrecorded readers | 7.3a | Preserves the first read/error and avoids setup depending on program settings, diagnostics or native providers | awaiting Sam | yes |
 | Setup-os adds `path_dirs`, `absolute`, `canonicalize`, `write_unfinished` and `remove_unfinished`; container Host and native key files expose `is_file` | 7.3a | PATH is captured once for all client checks; path I/O stays native; note writes keep their original rename and missing-file semantics; install presence distinguishes files from directories | awaiting Sam | yes |
@@ -699,6 +700,253 @@ two that the code can now meet:
 
 It runs on pull requests into `refactor`, `next` and `main`. Depends on 8.1.
 
+### Phase 9: kkt-settings goes (Sam, 2026-11-12)
+
+**Why.** kkt-settings gathers other crates' concerns under one name, as the
+removed kkt-config did. Its `Limits` repeats the defaults that kkt-rules,
+kkt-mcp-formatter and kkt-web already state in their own `Settings`, and
+tests exist only to keep the two copies equal. Settings are not a domain:
+each crate owns its own settings, defaults and checks, and gathering them is
+composition (msgs 2773 and 2775).
+
+**The design.**
+
+1. **Defaults, bounds and record lines stay with their owners.** Each
+   crate's own `Settings`, `DEFAULT` and check are the only copy. Each
+   owner's `Settings` gains `problems()`, every bad setting it holds, and
+   `record_lines()`, its own name and value lines for the run record, byte
+   for byte as today. `Limits` and its repeated defaults go, with the tests
+   that compared the two.
+2. **The serve surface is composition**, in no logic crate: which flags and
+   config keys `kkt serve` has, how a flag, the file and a default layer, the
+   order in which bad settings are reported, and the run record's wording.
+3. **kkt-server gets `ServerSettings`**, which holds only the settings of
+   what kkt-server builds or passes on, so kkt-server does not become the
+   next kkt-settings. Each field is one owner's own `Settings`, or a plain
+   value kkt-server uses itself.
+   - `DEFAULT` is built only from the owners' `DEFAULT`s.
+   - `check` asks its fields' owners for their problems, takes the
+     program's problems as plain values, and names the first of all of them
+     in today's order. A problem is the setting's name, which of the
+     owner's checks found it (a short check name the owner states, such as
+     a floor or a bound against another setting), and the rule as the
+     owner words it. The checks stay the owners'. kkt-server keeps the
+     order as a list of (setting, check) pairs, and knows nothing of the
+     program's crates: the program passes kkt-rules', kkt-backup's and its
+     own problems in as plain values. So the list names some settings
+     kkt-server does not hold, such as `max_lane_chars` or
+     `upgrade_backups_kept`, as plain names only: that is the price of one
+     order kept in one place, and kkt-server still knows nothing of what the
+     names belong to.
+   - `record_lines` puts every line of the run record in today's order, by
+     name. Its own fields' lines come from their owners' `record_lines()`;
+     the program passes its lines in as plain name and value pairs
+     (kkt-rules' and kkt-backup's `record_lines()`, and its own). Only the
+     allowed origins and hosts, kkt-server's own plain values, are worded
+     by kkt-server. With the owners' lines, the text is byte for byte what
+     kkt-settings' `RecordedSettings` writes today.
+   - `Parts::new` takes `&ServerSettings` in place of today's separate
+     settings argument (the formatter's). kkt-server learns nothing of flags,
+     files or how they layer.
+4. **Settings only the program uses stay with the program.** The test for
+   each setting: does kkt-server build or pass on the thing that uses it?
+   There is no arrow from kkt-server to kkt-backup or kkt-logs just to carry
+   a value.
+5. **The programs keep the surface:** the flags (`cli.rs`), the config keys
+   (kkt-config-file's `Config`), layering flag over file over
+   `ServerSettings::DEFAULT` and the program's own defaults, resolving the key
+   files and the database, and mapping each key onto one `ServerSettings`
+   field or a setting of the program. kkt-keymode keeps its own, smaller
+   surface (the config file only). It repeats about 40 lines of mapping from
+   keys to fields, which is what any product would write. The check's order
+   and the record's wording exist once, in kkt-server.
+
+**Where each setting goes.** Every field of today's `Limits`, and every
+field of `ServeOptions` and `ServeSettings`:
+
+| Setting | Side | Field and owner | Why |
+|---|---|---|---|
+| `name_pack`, `default_limit`, `max_limit`, `max_body_bytes`, `max_channel_name_chars`, `max_purpose_chars`, `max_description_chars`, `max_note_chars`, `max_server_announcement_chars`, `max_memory_entry_chars`, `max_memory_chars`, `max_lane_chars`, `sends_per_minute`, `registrations_per_minute`, `max_agents`, `default_wait`, `max_wait`, `waiting_grace` (`waiting_grace_seconds`), `member_preview`, `purpose_preview_chars` | program | kkt-rules' `Settings`, which the program puts in `kkt_rules::Startup` | The program builds the `Rules` (5.6a); kkt-server receives them built and never reads their settings |
+| `max_response_bytes` | kkt-server | `formatter`, kkt-mcp-formatter's `Settings` | `Parts::new` builds the formatter |
+| `web_session_lifetime`, `web_page_messages`, `web_member_excerpt_chars` | kkt-server | `web`, kkt-web's `Settings` | kkt-server builds the page and its sessions |
+| (no key) the MCP event streams' timing | kkt-server | `mcp`, kkt-mcp's `Settings` | kkt-server builds the transport; not an operator setting, so it is never recorded |
+| `allow_origins` | kkt-server | `allowed_origins`, a plain list | kkt-server's transport uses it |
+| `allow_hosts` | kkt-server | `allowed_hosts`, a plain list; kkt-hosts checks it (`AllowedHosts::new`) | kkt-server's transport and page use it |
+| `upgrade_backups_kept` | program | kkt-backup's new `Settings` (default 5, at least 1) | The program makes the backups before it opens the database. kkt-backup owns pruning, and its `old_names` already takes the count; both programs need the default and the check, for the record |
+| `db` | program | | The program opens the database before the rules start; kkt-server never sees it |
+| `bind`, `allow_any_bind` | program | `DEFAULT_BIND` and `DEFAULT_ALLOW_ANY_BIND` in kkt-hosts, beside `check_bind` | kkt-server-listen binds, not kkt-server |
+| `instructions` (the file) | program | | The program reads the file. kkt-server uses the text, in `AppConfig::instructions` |
+| `access_key_file`, `no_access_key`, the web and admin key files | program | kkt-admission's `AccessKey` and key paths | The program resolves and reads the key files. kkt-server uses what they give: the admissions in `AppConfig` |
+| `log_file`, `log_level`, `dependency_log_level`, and the log file's `LogPolicy` | program | the level defaults in kkt-logs, beside `LogLevel` | The program starts the log |
+| the config file's path (recorded as `config_file`) | program | | The program reads it |
+
+So `ServerSettings` holds `formatter`, `web`, `mcp`, `allowed_origins`
+and `allowed_hosts`. kkt-server uses program-side things only as built
+values or plain values: the `Rules` (built with kkt-rules' `Settings`), the
+instructions text and the three admissions in `AppConfig`, and the
+program's problems and record lines, which `check` and `record_lines`
+order.
+`AppConfig` keeps the admissions and the instructions text and loses `web`,
+`mcp`, `allowed_origins` and `allowed_hosts`, which `ServerSettings` holds.
+kkt-server makes `AllowedHosts` from the list `check` passed; 9.2 chooses
+how, so long as kkt-hosts' check runs once, in its place in the order.
+
+**Where today's items go.** `DEFAULT_BIND` (and the private
+`DEFAULT_ALLOW_ANY_BIND`, now public) to kkt-hosts. `DEFAULT_LOG_LEVEL` and
+`DEFAULT_DEPENDENCY_LOG_LEVEL` to kkt-logs. The defaults of the allowed
+origins and hosts (none) into `ServerSettings::DEFAULT`. `upgrade_backups_kept`'s
+default to kkt-backup's new `Settings`, since kkt-backup has none today.
+`InvalidSetting` goes: each owner's error already prints as "name rule", and
+the programs add "invalid setting: " (kkt's `Sources::invalid`, kkt-keymode's
+own wording), as they do today for kkt-hosts', kkt-logs' and kkt-admission's
+errors. `ServeOptions` (with `over`, `gives`, `lane_limit`, `name_pack_name`
+and `resolve`), `ServeSettings` and resolving the `AccessKey` move into kkt's
+`src/machine/settings.rs`, beside `Sources`, and kkt-keymode keeps its own
+smaller copy. `RecordedSettings`' wording goes to kkt-server's
+`record_lines`. The commands that read a default without a server (`kkt
+status`, doctor, `kkt lanes`, `cli.rs`'s help) read it from its owner:
+kkt-rules' `Settings::DEFAULT` for the name pack and lane limit,
+kkt-backup's for the backups.
+
+**The order of the check.** Today a setting can be named at two places:
+`max_memory_chars` and `web_page_messages` are each checked once against
+their floor, among the "must be at least 1" checks, and once more later
+(against `max_memory_entry_chars`, and against the page ceiling). That is
+why each problem carries the name of the owner's check that found it, and
+kkt-server's list holds (setting, check) pairs: those two settings appear
+twice, once with their floor check and once with the other. Today's order,
+which the list keeps:
+
+1. Before the check, as now, the program's own: the database, the key file
+   (`no_access_key`, `access_key_file`) and the name pack, while resolving;
+   and in kkt, `dependency_log_level` before the log starts.
+2. `bind` or `allow_any_bind` (kkt-hosts' `check_bind`, the program's).
+3. `dependency_log_level` (kkt-logs, the program's; kkt-keymode does not
+   check it today and does not start to).
+4. "must be at least 1", in this order: `default_limit`, `max_body_bytes`,
+   `max_channel_name_chars`, `max_purpose_chars`, `max_description_chars`,
+   `max_note_chars`, `max_server_announcement_chars`,
+   `max_memory_entry_chars`, `max_memory_chars`, `max_lane_chars`,
+   `sends_per_minute`, `registrations_per_minute`, `max_agents`,
+   `web_page_messages`, `web_member_excerpt_chars`, `upgrade_backups_kept`
+   (the program's).
+5. `max_response_bytes`, `max_limit`, `max_memory_chars`,
+   `web_page_messages`, `web_session_lifetime`, `waiting_grace`,
+   `max_wait`.
+6. `allow_host` (kkt-hosts).
+7. After the check, as now, the program's: the instructions file, then the
+   key files.
+
+**What must not change, and the tests that pin it.**
+
+- The config file's keys: kkt-config-file's `every_setting_can_be_given`
+  (it leaves `waiting_grace_seconds` and `upgrade_backups_kept` out) and
+  `src/machine/settings.rs`' `a_parsed_config_file_gives_each_setting_it_says`
+  (all 21 keys), and `tests/serve.rs`' `flags_win_over_the_config_file`.
+- The flags and their help, with the defaults it shows: `tests/help.rs`'
+  `every_help_page_matches_its_snapshot` (`kkt serve --help` included), and
+  `cli.rs`' `serve_args_reads_a_service_files_arguments` and
+  `serve_args_refuses_what_serve_does_not_take`. `tests/contract/` pins the
+  MCP tools, not the flags; `tests/contract.rs`'
+  `descriptions_state_the_live_limits` pins that the tools state the limits
+  given.
+- Every refusal text and which bad setting is named first:
+  kkt-settings' `zero_is_refused_for_every_count`,
+  `maximums_may_not_be_below_defaults`,
+  `an_avatars_memory_holds_at_least_one_whole_entry`,
+  `response_cap_has_a_floor`, `web_pages_have_a_ceiling`,
+  `web_sessions_last_at_least_a_second` and
+  `grace_is_configurable_with_flag_precedence_and_checked` (they move with
+  each check to its owner); `src/machine/settings.rs`'
+  `a_config_files_bad_value_is_refused_naming_the_setting` and
+  `a_bad_setting_names_the_config_file_only_when_it_set_it`;
+  `src/commands/service.rs`' `a_bad_setting_names_the_config_file_that_set_it`,
+  `a_key_file_given_with_no_key_is_refused`,
+  `without_a_home_the_database_must_be_given` and
+  `without_a_home_the_key_must_be_given_or_turned_off`; `serve.rs`'
+  `without_a_home_or_a_db_serve_refuses_before_other_settings`; and
+  `tests/serve.rs`' `a_bad_config_file_stops_serve_naming_the_setting`,
+  `a_bad_flag_is_not_blamed_on_the_config_file`,
+  `unknown_name_packs_name_the_flag_or_config_file` and
+  `no_access_key_and_a_key_file_together_are_refused`. Today nothing pins
+  which setting is named first when several are bad: 9.1 adds that test
+  before anything moves.
+- The run record, byte for byte: kkt-settings' `record/golden.rs`
+  (`a_server_with_every_setting_given_records_them_all` and the seven other
+  `a_*_server_*` cases) and `record.rs`' tests of order and wording
+  (`default_settings_text_is_fixed`,
+  `a_run_records_the_config_file_before_the_key_file`,
+  `origin_order_does_not_change_the_text`,
+  `host_order_does_not_change_the_text`,
+  `a_run_records_whether_any_address_may_be_bound`,
+  `a_run_records_the_key_files`,
+  `a_run_records_the_admin_key_file_and_name`,
+  `a_run_records_its_log_file_and_how_it_is_bounded`). They move to
+  kkt-server in 9.2 and keep their expected text, building the program's
+  lines from kkt-rules' and kkt-backup's `record_lines()`; each owner's
+  `record_lines()` gets a test of its own lines in 9.1.
+
+Existing installs: nothing on disk changes. The config file, the flags, the
+service files and the database stay as they are, and a run's record is the
+same text, so its hash is too.
+
+**The steps.** Each is one pull request into `refactor`. 9.2 and 9.3
+change kkt-server's `Parts::new` and `AppConfig`, so they follow the rule
+for the shared constructors: one at a time.
+
+- **9.1 Each owner checks and words its own settings.** S. Parallel: two
+  builders, disjoint crates.
+  - **kkt-build-b:** first, a test that pins which setting today's code
+    names first when several are bad (through `src/machine/settings.rs`'
+    `check_settings`, so `bind`, `dependency_log_level`, the limits and
+    `allow_host` are all in it, including both places of `max_memory_chars`
+    and `web_page_messages`); then kkt-rules' `Settings::problems()` and
+    `Settings::record_lines()`.
+  - **kkt-build-c:** `problems()` and `record_lines()` for
+    kkt-mcp-formatter's and kkt-web's `Settings`, and kkt-backup's new
+    `Settings` (`upgrade_backups_kept`, default 5, at least 1, its one
+    record line), the one default only `Limits` holds today.
+
+  Each problem carries the setting's name, the owner's name for the check
+  that found it, and the rule. Each owner's tests show its `problems()`
+  gives the same names and rules as `Limits::check` for its fields, and its
+  `record_lines()` the same lines as `RecordedSettings` today. Nothing calls
+  them yet.
+- **9.2 kkt-server's `ServerSettings`.** M. Constructor work in kkt-server,
+  one builder. `ServerSettings` holds `formatter`, `web`, `mcp`,
+  `allowed_origins` and `allowed_hosts`; its `DEFAULT`, `check` and
+  `record_lines` compose the owners': `check` orders its fields' owners'
+  problems and the program's by (setting, check), and `record_lines` orders
+  its fields' owners' lines and the program's by name (the golden and order
+  tests move here from kkt-settings, and keep their expected text).
+  Naming the first of all the problems gives what today's early returns
+  give, because no check relies on an earlier one having passed.
+  `Parts::new` takes `&ServerSettings`; `AppConfig` loses `web`, `mcp`,
+  `allowed_origins` and `allowed_hosts`. The three programs and
+  `tests/common` follow; kkt and kkt-keymode build `ServerSettings`,
+  kkt-rules' `Settings` and kkt-backup's from `Limits` for now, and
+  `Limits::check` gives way to `ServerSettings::check`. After 9.1.
+- **9.3 The programs keep the surface; kkt-settings goes.** M. `ServeOptions`,
+  `resolve`, `ServeSettings` and the program's checks move into kkt
+  (`src/machine/settings.rs`) and kkt-keymode, which map each key onto a
+  `ServerSettings` field or a program setting (kkt-rules' `Settings`,
+  kkt-backup's, or its own). kkt-keymode makes no backups: it depends on
+  kkt-backup only so that its run record keeps the `upgrade_backups_kept`
+  line byte for byte, which is deliberate. Each program passes kkt-rules' and
+  kkt-backup's problems and record lines, and its own, to kkt-server's
+  `check` and `record_lines`. kkt-settings is deleted, with
+  `Limits` and the tests that compared its defaults with the owners'
+  (`each_parts_defaults_are_the_gathered_defaults`, in kkt and in
+  kkt-keymode). The users of `Limits::DEFAULT` (`cli.rs`, `kkt status`,
+  doctor, `kkt lanes`, `tests/common`, `tests/contract.rs`) read their
+  owners' defaults. The crate's paperwork goes too: the workspace members,
+  CLAUDE.md's row, `concerns.json` and `assembly.json`. Rebase on
+  kkt-build-c's change to kkt-config-file (msg 2779), which touches the
+  same file. After 9.2.
+- **9.4 Chart what differs.** S. kkt-mt-step1. Compare the code with
+  phase 9's proposal, chart any difference made on purpose, and update the
+  scorecard. After 9.3.
+
 ## Order at a glance
 
 ```
@@ -713,6 +961,7 @@ lane A: 1.3 → 1.1 → 1.6 → 1.7    lane B: 1.2 → 1.4 → 1.5 → 1.9    an
 6.1 (after 3.1b) → 6.2 (after 5.4) → 6.3
 7.1a (after phase 3) → 7.1b, 7.2, 7.4, 7.5, 7.6 in parallel; 7.3a → 7.3b → 7.7
 8.1 → 8.2
+9.1 (kkt-build-b and kkt-build-c in parallel) → 9.2 → 9.3 → 9.4
 ```
 
 Three builders can work most of the time: one on phases 1 and 2, one on
@@ -787,3 +1036,23 @@ On the code at the end of the refactor (`progress.py`, step 8.1):
 
 `decisions.md` ("After the refactor") gives each remaining difference with
 its reason.
+
+### Against phase 9's proposal
+
+With phase 9 charted, and kkt-config-file taking the config home folder as a
+path (msg 2779), the code at 2715da9 (#480 merged) scores lower, as
+expected until phase 9 and kkt-build-c's change land:
+
+- crates: 59 of 59 proposed crates exist; none missing; 1 to remove
+  (kkt-settings);
+- items: 786 of 795 proposed items are in their proposed crate. Missing:
+  kkt-server's `ServerSettings`, kkt-backup's `Settings`, kkt-hosts'
+  `DEFAULT_BIND` and `DEFAULT_ALLOW_ANY_BIND`, kkt-logs' two level
+  defaults, and the program's `ServeOptions`, `ServeSettings` and
+  `server_settings`;
+- arrows: 213 of 216 proposed arrows exist; 3 missing (kkt-keymode →
+  kkt-backup and → kkt-names, which 9.3 adds, and kkt-server →
+  kkt-api-admin, 5.6a's row); 8 extra (the 7 to and from kkt-settings, and
+  kkt-config-file → kkt-machine until kkt-build-c's change merges);
+- rules: no kind check fails; 1 break of the proposal's rules (kkt-rules'
+  tests on kkt-db-sqlite, 5.3b's row).
