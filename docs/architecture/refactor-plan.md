@@ -269,7 +269,7 @@ the last column says so.
 | Difference | Step | Why | Sam | On the map |
 |---|---|---|---|---|
 | kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | accepted by Sam, 2026-11-12 | yes |
-| One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | accepted by Sam, 2026-11-12 | yes |
+| One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | accepted by Sam, 2026-11-12 | overtaken by 12.4: the adapter is gone, and kkt-agent-client-rmcp's `Remote` and `AdminRemote` implement kkt-agent-client's `Watched` directly |
 | kkt-container's `tailscale_auth_key` and `docker_env` accept a possibly unsized `Host` | 10.2b (setup) | Setup now passes the plan's injected host trait object to the existing file readers; the widening accepts all previous callers and changes no reads or output | awaiting Sam | no arrow or slot change |
 | `ServeFacts::service_settings` returns service-plan inputs and a deferred `CheckService`, which retains opaque program options and their source context | 10.2b (service) | The assembly owns planning and its ordered check/install sequence; the program alone knows and validates its whole serving surface. No serving option type or assembly dependency crosses the boundary | awaiting Sam | yes (10.4) |
 | A third-party tool has a project-scope contract plus a named wrapper implementing it directly, regardless of consumer count; the program only injects it. The effect wrapper owns tool knowledge and a private runner, with running behind `real` | 12.1 | The scope is the abstraction consumers use; keeping one tool's knowledge and execution together avoids a shared process concern. The remote-access pilot replaces `Host::run` and the program adapter with `RemoteAccess` and `Tailscale` | decided by Sam, 2026-11-12 (msgs 3041, 3050) | yes |
@@ -278,6 +278,7 @@ the last column says so.
 | kkt's `new_server_run` is in `machine::server_run`, public, not in `commands::serve` | 9.2, 9.3 | The integration tests' harness records a run as `kkt serve` does, with the program's own mapping, in place of a third copy of it (the 9.2 review) | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.4) |
 | kkt-operate's module for `kkt agent` is `agent`, not `agents` | 10.2a (#496) | It holds one command, `kkt agent`, as `lanes` and `key` hold theirs | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.4) |
 | kkt-agent-commands takes the admin endpoint's path in `AgentParts` (`admin_path`), and has no arrow to kkt-mcp | 10.3 (#497) | The arrow was for one constant, `MCP_ADMIN_PATH`, and brought kkt-mcp's build script into the assembly's build; kkt-setup's `admin_endpoint` already takes the path from its caller | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.3) |
+| The agent credential and watch-state files leave kkt-agent-client for a crate of their own, kkt-agent-files-os, and the program keeps adapting them to kkt-agent-commands' `Credentials` | 12.4 | kkt-agent-client becomes a contract, which may hold no `real`; the files are the machine's, not a third-party tool's, so they take an `-os` crate (Sam's answer 4), and kkt-setup's credential-file rule stays the program's to apply | to show Sam with phase 12 | yes (12.4) |
 | kkt-service-os reports with its own `Finished`, which the program translates to kkt-service's in `run` and `run_attached` | 2.2 (#427) | So kkt-service-os depends on neither kkt-service nor kkt-config; two adapter methods translate | accepted by Sam, 2026-11-12 | yes |
 | kkt-remote-access-os returns its own output and I/O error, which the program maps to the remote-access host contract | 2.3 (#436) | The effect has no dependencies; the adapter preserves all output fields and launch-failure advice | accepted by Sam, 2026-11-12 | yes |
 | kkt-client-config-os states its own 0600 private-file mode beside the file operations | 2.4 (#437) | The same fixed value moves with its writer early, so the effect depends on neither client-config nor config | accepted by Sam, 2026-11-12 | not a map change |
@@ -1381,10 +1382,10 @@ by kkt-review-373).
 
 | Step | What | Size | Builds | Reviews |
 |---|---|---|---|---|
-| 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (in progress) | kkt-review-373 |
+| 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (done: #507) | kkt-review-373 |
 | 12.2 | container: contract and kkt-container-docker, with the Docker logic, its tests and the sidecar's status | L | kkt-build-c, after 12.1: the same pattern, and it knows kkt-operate's parts | kkt-review-373 |
 | 12.3 | service: contract, kkt-service-launchd and kkt-service-systemd | M to L | kkt-build-b | kkt-review-b |
-| 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | kkt-mt-step1, who built kkt-agent-commands (10.3) | kkt-review-b |
+| 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | kkt-mt-step1 (this pull request) | kkt-review-b |
 | 12.5a | lane-files' git: kkt-lane-files-git | S | kkt-build-b, after 12.3 | kkt-review-b |
 | 12.5b | The probe: kkt-probe and kkt-probe-reqwest | S | kkt-build-b, after 12.5a | kkt-review-b |
 | 12.5c | The `claude` command: kkt-client-config-claude | S | kkt-mt-step1, after 12.4 | kkt-review-b |

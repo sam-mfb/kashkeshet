@@ -1,6 +1,7 @@
 //! Message and channel reads over the shared MCP client.
-use super::{Channel, Client, Failure, Message, NewerLane, Settings, Waited};
+use super::{Client, Settings};
 use futures::future::BoxFuture;
+use kkt_agent_client::{Channel, Failure, Message, NewerLane, Waited, Watched};
 use kkt_clock::{Clock, Span};
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
@@ -39,8 +40,8 @@ impl Remote {
     }
 }
 
-impl Remote {
-    pub fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
+impl Watched for Remote {
+    fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         let mut arguments = Map::new();
         arguments.insert("token".into(), json!(self.token));
         Box::pin(all_channels(
@@ -50,7 +51,7 @@ impl Remote {
         ))
     }
 
-    pub fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
+    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
         Box::pin(async move {
             let value = self.call("whoami", Map::new()).await?;
             value["handle"]
@@ -60,7 +61,7 @@ impl Remote {
         })
     }
 
-    pub fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
+    fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
         Box::pin(async move {
             let mut arguments = Map::new();
             arguments.insert("after_id".into(), json!(0));
@@ -70,7 +71,7 @@ impl Remote {
         })
     }
 
-    pub fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>> {
+    fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>> {
         Box::pin(async move {
             let mut arguments = Map::new();
             arguments.insert("message_id".into(), json!(id));
@@ -79,7 +80,7 @@ impl Remote {
         })
     }
 
-    pub fn wait<'a>(
+    fn wait<'a>(
         &'a self,
         after_id: i64,
         channels: Option<&'a [String]>,
@@ -152,8 +153,8 @@ impl AdminRemote {
     }
 }
 
-impl AdminRemote {
-    pub fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
+impl Watched for AdminRemote {
+    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>> {
         Box::pin(async move {
             // Watching asks for the handle first, even when it
             // resumes from a known place, so this read is what turns a wrong
@@ -170,7 +171,7 @@ impl AdminRemote {
         })
     }
 
-    pub fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
+    fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         Box::pin(all_channels(
             &self.client,
             self.settings.watch_batch,
@@ -178,7 +179,7 @@ impl AdminRemote {
         ))
     }
 
-    pub fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
+    fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>> {
         Box::pin(async move {
             let mut arguments = Map::new();
             arguments.insert("after_id".into(), json!(0));
@@ -187,7 +188,7 @@ impl AdminRemote {
         })
     }
 
-    pub fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>> {
+    fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>> {
         Box::pin(async move {
             let mut arguments = Map::new();
             arguments.insert("message_id".into(), json!(id));
@@ -196,7 +197,7 @@ impl AdminRemote {
         })
     }
 
-    pub fn wait<'a>(
+    fn wait<'a>(
         &'a self,
         after_id: i64,
         channels: Option<&'a [String]>,

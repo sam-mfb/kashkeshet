@@ -3,17 +3,17 @@
 //! with `once`, stops after the first new messages. When the agent's lane
 //! has a newer version, it says so once, apart from the message lines.
 //!
-//! What it depends on is injected: the server (`Server`), the time
-//! (`Clock`), where it keeps its place (`Place`) and where its output goes
-//! (`Report`).
+//! What it depends on is injected: the server, as kkt-agent-client's
+//! `Watched` contract, the time (`Clock`), where it keeps its place
+//! (`Place`) and where its output goes (`Report`).
 
 mod filters;
 #[cfg(test)]
 mod tests;
 
 use futures::future::BoxFuture;
+use kkt_agent_client::{Channel, Failure, Message, NewerLane, Waited, Watched};
 use kkt_clock::{Clock, Span, Time};
-use std::fmt;
 use std::time::Duration;
 
 /// The most characters of a message body on its line.
@@ -46,102 +46,15 @@ impl Settings {
     };
 }
 
-/// Why a call to the server failed.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Failure {
-    /// The server could not be reached, the connection broke, or its answer
-    /// made no sense.
-    Lost(String),
-    /// The server answered with one of its error codes, such as
-    /// `unauthenticated`.
-    Refused { code: String, message: String },
-    /// The server refused the key the watch reaches it with (HTTP 401), at
-    /// start or after a key change. `key` names it, such as `the access key
-    /// in /home/me/.kkt/key`, when the caller knows where it came from.
-    KeyRefused { key: Option<String> },
-}
-
-impl fmt::Display for Failure {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Failure::Lost(reason) => write!(f, "could not reach the server: {reason}"),
-            Failure::Refused { code, message } => write!(f, "{code}: {message}"),
-            Failure::KeyRefused { key: Some(key) } => write!(f, "the server refused {key}"),
-            Failure::KeyRefused { key: None } => write!(f, "the server refused the access key"),
-        }
+/// Whether trying again later may work. A lost connection or a busy
+/// server may recover; a bad token, a refused key or a missing channel will
+/// not.
+fn passing(failure: &Failure) -> bool {
+    match failure {
+        Failure::Lost(_) => true,
+        Failure::Refused { code, .. } => matches!(code.as_str(), "rate_limited" | "internal"),
+        Failure::KeyRefused { .. } => false,
     }
-}
-
-/// A new message, as `kkt watch` shows it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Message {
-    pub id: i64,
-    pub channel_name: String,
-    pub agent: String,
-    pub body: String,
-    /// Whether the server cut the body to fit its answer.
-    pub cut: bool,
-}
-
-/// What a wait gave: new messages, and the agent's lane if it has a newer
-/// version.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Waited {
-    pub messages: Vec<Message>,
-    pub newer_lane: Option<NewerLane>,
-}
-
-/// The lane the agent holds, which has a newer version than the one it took.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NewerLane {
-    pub name: String,
-    /// The version the agent took.
-    pub version: i64,
-    /// The lane's newest version.
-    pub current_version: i64,
-}
-
-/// A visible channel, for resolving names before watching starts.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Channel {
-    pub id: String,
-    pub name: String,
-}
-
-impl Failure {
-    /// Whether trying again later may work. A lost connection or a busy
-    /// server may recover; a bad token, a refused key or a missing channel
-    /// will not.
-    fn passing(&self) -> bool {
-        match self {
-            Failure::Lost(_) => true,
-            Failure::Refused { code, .. } => matches!(code.as_str(), "rate_limited" | "internal"),
-            Failure::KeyRefused { .. } => false,
-        }
-    }
-}
-
-/// The server, acting as one agent.
-pub trait Server: Send + Sync {
-    /// The agent's handle. `run` asks for it first, on every start, so it
-    /// must reach the server with the watcher's credentials: a failure here
-    /// is what reports a wrong address, key or token at once.
-    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>>;
-    /// All visible channels, including every page of the server's list.
-    fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>>;
-    /// The highest message ID in the agent's channels, or 0 if none.
-    fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>>;
-    /// One message, with its whole body.
-    fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>>;
-    /// Messages newer than `after_id`, oldest first, waiting up to `wait`
-    /// for one, and the agent's lane if it has a newer version. `channels`
-    /// limits the messages to those channels.
-    fn wait<'a>(
-        &'a self,
-        after_id: i64,
-        channels: Option<&'a [String]>,
-        wait: Duration,
-    ) -> BoxFuture<'a, Result<Waited, Failure>>;
 }
 
 /// Where the highest message ID seen is kept between runs.
@@ -205,7 +118,7 @@ pub enum Outcome {
 /// `TimedOut`. Each call made with no sooner deadline may take its wait
 /// plus `settings.watch_call_grace` before it counts as lost.
 pub async fn run(
-    server: &dyn Server,
+    server: &dyn Watched,
     clock: &dyn Clock,
     settings: Settings,
     place: Option<&dyn Place>,
@@ -290,10 +203,10 @@ pub async fn run(
                     return Ok(Outcome::Received);
                 }
             }
-            Err(failure) if failure.passing() && deadline.is_some_and(|d| clock.now() >= d) => {
+            Err(failure) if passing(&failure) && deadline.is_some_and(|d| clock.now() >= d) => {
                 return Ok(Outcome::TimedOut);
             }
-            Err(failure) if failure.passing() => {
+            Err(failure) if passing(&failure) => {
                 report.note(&format!("{failure}; trying again in {}s", pause.as_secs()));
                 let resume = later(clock.now(), pause).ok_or(OUT_OF_RANGE)?;
                 clock
@@ -337,7 +250,7 @@ async fn starting<T>(
 /// for `full` and for finding mentions beyond the server's preview. The
 /// agent's own messages are not shown, so they are not fetched.
 async fn fetch(
-    server: &dyn Server,
+    server: &dyn Watched,
     me: &str,
     after: i64,
     options: &Options,

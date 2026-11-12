@@ -13,7 +13,7 @@ pub(crate) struct CredentialFiles;
 
 impl Credentials for CredentialFiles {
     fn reserve(&self, path: PathBuf) -> Result<Box<dyn CredentialSlot>, String> {
-        kkt_agent_client::CredentialFile::create(path, |path, e| {
+        kkt_agent_files_os::CredentialFile::create(path, |path, e| {
             tracing::warn!(
                 "could not remove incomplete credential file {}: {e}",
                 path.display()
@@ -23,17 +23,17 @@ impl Credentials for CredentialFiles {
     }
 
     fn token(&self, file: Option<&Path>) -> Result<String, String> {
-        kkt_agent_client::watch_token(file, credential_check, private_warning)
+        kkt_agent_files_os::watch_token(file, credential_check, private_warning)
     }
 
     fn claim_state(&self, path: PathBuf) -> Result<Box<dyn watch::Place>, String> {
-        kkt_agent_client::StateFile::claim(path)
+        kkt_agent_files_os::StateFile::claim(path)
             .map(|file| Box::new(StateFile(file)) as Box<dyn watch::Place>)
     }
 }
 
 /// A reserved destination for an agent token or recovery code.
-struct CredentialFile(kkt_agent_client::CredentialFile);
+struct CredentialFile(kkt_agent_files_os::CredentialFile);
 
 impl CredentialSlot for CredentialFile {
     fn save(&mut self, secret: &str) -> Result<(), String> {
@@ -43,12 +43,12 @@ impl CredentialSlot for CredentialFile {
 
 fn credential_check(
     path: &Path,
-    facts: kkt_agent_client::CredentialFileFacts,
-) -> Result<Option<kkt_agent_client::PrivateMode>, String> {
+    facts: kkt_agent_files_os::CredentialFileFacts,
+) -> Result<Option<kkt_agent_files_os::PrivateMode>, String> {
     let quoted = diagnostics::shell_word(&path.to_string_lossy());
     kkt_setup::credential_file_check(path, &quoted, facts.owner, facts.mode, facts.caller_uid).map(
         |fix| {
-            fix.map(|fix| kkt_agent_client::PrivateMode {
+            fix.map(|fix| kkt_agent_files_os::PrivateMode {
                 mode: fix.mode,
                 advice: fix.advice,
                 warning: fix.warning,
@@ -62,7 +62,7 @@ fn private_warning(text: &str) {
 }
 
 /// The native state file supplied to watch's Place.
-struct StateFile(kkt_agent_client::StateFile);
+struct StateFile(kkt_agent_files_os::StateFile);
 
 impl watch::Place for StateFile {
     fn load(&self) -> Result<Option<i64>, String> {
