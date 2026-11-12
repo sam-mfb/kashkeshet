@@ -9,6 +9,7 @@ members = [
     "crates/kkt-api-admin",
     "crates/kkt-api-agent",
     "crates/kkt-api-operator",
+    "crates/kkt-api-sim",
     "crates/kkt-backup",
     "crates/kkt-backup-os",
     "crates/kkt-client-config",
@@ -60,6 +61,7 @@ members = [
     "crates/kkt-web",
     "programs/kkt-fake-product",
     "programs/kkt-keymode",
+    "programs/kkt-web-preview",
 ]
 default-members = [
     ".",
@@ -69,6 +71,7 @@ default-members = [
     "crates/kkt-api-admin",
     "crates/kkt-api-agent",
     "crates/kkt-api-operator",
+    "crates/kkt-api-sim",
     "crates/kkt-backup",
     "crates/kkt-backup-os",
     "crates/kkt-client-config",
@@ -120,6 +123,7 @@ default-members = [
     "crates/kkt-web",
     "programs/kkt-fake-product",
     "programs/kkt-keymode",
+    "programs/kkt-web-preview",
 ]
 resolver = "3"
 

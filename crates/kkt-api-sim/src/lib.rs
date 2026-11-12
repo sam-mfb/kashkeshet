@@ -1,5 +1,8 @@
-//! The preview: a [`Source`] with simulated data, so the page can run and be
-//! worked on with no database, no MCP and no agents.
+//! A simulated application, for tests and the web preview: the parts of
+//! the kkt-api crates' operations the web page uses, over simulated data
+//! (`api`), so the page can run and be worked on with no database, no MCP
+//! and no agents. Inside, it keeps its world in records of its own
+//! (`records`). Everything here is a stand-in, built only with `testing`.
 //!
 //! The world starts with agents, open and closed channels (one still empty),
 //! and a few hundred messages, some very long. [`Preview::run`] then keeps
@@ -7,22 +10,16 @@
 //! channels. Everything comes from the injected clock and entropy, so a
 //! seeded entropy gives the same world and the same feed every time.
 //!
-//! [`PreviewGate`] is the preview's simulated sign-in, so the page runs with
-//! no admission either.
+//! [`PreviewGate`] is a stand-in for the web page's gate, with an access key
+//! or open, so the page runs with no admission either.
 
-use super::notice::live_event;
-use super::sessions::{Access, Session};
-use super::settings::MAX_WEB_PAGE_MESSAGES;
-use super::settings::SettingError;
-use super::source::{
-    ActivityCount, Admit, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction,
-    ChannelLink, ChannelSummary, ChannelView, Gate, KeptAgent, KeptReason, LaneLimits, LaneRetired,
-    LaneSave, LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, LiveEvent, MemoryEntry,
-    Message, Overview, ServerRun, SignIn, Source, SourceError, StaleAgent, StaleHidden,
-};
-use futures::StreamExt;
+#![cfg(any(test, feature = "testing"))]
+
+mod api;
+mod records;
+
 use futures::future::BoxFuture;
-use futures::stream::BoxStream;
+use kkt_api_agent::{Audit, Limits, Operator, Permission, Permissions, SwarmId};
 use kkt_clock::{self as clock, Clock, Span, Time};
 use kkt_entropy::Entropy;
 use kkt_events::{
@@ -31,7 +28,14 @@ use kkt_events::{
 };
 use kkt_names::{self as names, CHANNEL_RANDOM_LEN, MAX_LANE_NAME_CHARS};
 use kkt_shutdown::Shutdown;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use kkt_web::{Access, Admit, Gate, Session, SignIn, Viewer};
+use records::{
+    ActivityCount, Agent, AgentLane, AgentSummary, AgentView, Channel, ChannelAction, ChannelLink,
+    ChannelSummary, ChannelView, KeptAgent, KeptReason, LaneLimits, LaneRetired, LaneSave,
+    LaneSource, LaneSummary, LaneVersion, LaneView, LanesView, MemoryEntry, Message, Overview,
+    ServerAnnouncementVersion, ServerAnnouncementView, ServerRun, SourceError, StaleAgent,
+    StaleHidden,
+};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -42,10 +46,6 @@ const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 // The preview's fixed settings: how big its simulated world is and how it
 // moves.
 
-/// Address the preview listens on: next to the server's default port.
-pub const PREVIEW_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7421));
-/// Seed for the simulated data when none is given.
-pub const PREVIEW_SEED: u64 = 1;
 /// Agents in the simulated world at the start.
 const PREVIEW_AGENTS: usize = 8;
 /// Agents at the start that registered this many hours ago and have made no
@@ -79,27 +79,17 @@ const PREVIEW_HIDE_CHANNEL_ONE_IN: usize = 50;
 const PREVIEW_LONG_MESSAGE_ONE_IN: usize = 10;
 /// Characters in a simulated recovery code after its `arc_` prefix.
 const PREVIEW_RECOVERY_CODE_CHARS: usize = 26;
-/// How long a sign-in to the preview lasts, as the server's default
-/// `web_session_lifetime`.
-pub const PREVIEW_SESSION_LIFETIME: Duration = Duration::from_secs(12 * 60 * 60);
-/// Shortest key the preview's gate takes, in bytes, as the server's
-/// (`kkt_admission::check_access_key`).
-const PREVIEW_MIN_KEY_BYTES: usize = 32;
 
 /// What the preview's operator can change.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PreviewSettings {
     /// Steps of the simulated feed per minute. Most steps are one message.
     pub steps_per_minute: u32,
-    /// The most messages one page shows, as the server's `web_page_messages`.
-    pub page_messages: usize,
 }
 
 impl PreviewSettings {
     pub const DEFAULT: PreviewSettings = PreviewSettings {
         steps_per_minute: 30,
-        // As kkt-web's default page size.
-        page_messages: 50,
     };
 
     /// Checks the settings. The preview refuses to start with ones that fail.
@@ -110,38 +100,34 @@ impl PreviewSettings {
                 "must be from 1 to 60000 steps per minute",
             ));
         }
-        if self.page_messages == 0 || self.page_messages > MAX_WEB_PAGE_MESSAGES {
-            return Err(SettingError::new(
-                "page_messages",
-                format!("must be from 1 to {MAX_WEB_PAGE_MESSAGES}"),
-            ));
-        }
         Ok(())
     }
 }
 
-/// Checks a key for the preview's gate as the server checks its keys
-/// (`kkt_admission::check_access_key`, which kkt-web may not use), with the
-/// same rules and words: at least [`PREVIEW_MIN_KEY_BYTES`] long, and only
-/// printable ASCII with no spaces.
-fn check_preview_key(key: &str) -> Result<(), SettingError> {
-    if key.is_empty() {
-        return Err(SettingError::new("access_key_file", "must not be empty"));
-    }
-    if !key.bytes().all(|b| b.is_ascii_graphic()) {
-        return Err(SettingError::new(
-            "access_key_file",
-            "must hold only printable ASCII with no spaces",
-        ));
-    }
-    if key.len() < PREVIEW_MIN_KEY_BYTES {
-        return Err(SettingError::new(
-            "access_key_file",
-            format!("must hold a key of at least {PREVIEW_MIN_KEY_BYTES} characters"),
-        ));
-    }
-    Ok(())
+/// Why the simulation refuses a setting or a key: the setting's name and
+/// the rule it breaks.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SettingError {
+    pub name: &'static str,
+    pub rule: String,
 }
+
+impl SettingError {
+    fn new(name: &'static str, rule: impl Into<String>) -> SettingError {
+        SettingError {
+            name,
+            rule: rule.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for SettingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.name, self.rule)
+    }
+}
+
+impl std::error::Error for SettingError {}
 
 /// The simulated server run that is running, which every row belongs to.
 /// The runs before it make the upgrade history.
@@ -283,7 +269,7 @@ const PARAGRAPHS: &[&str] = &[
 
 /// A simulated [`Gate`] for the preview and the page tests, so they need no
 /// admission. It holds one key, fixed when it is made, or none for an open
-/// page. The page keeps the sessions ([`Sessions`](crate::Sessions)), with
+/// page. The page keeps the sessions ([`kkt_web::Sessions`]), with
 /// the access [`PreviewGate::access`] gives.
 ///
 /// It answers like the server's gate for an open page, a wrong key and a
@@ -301,10 +287,11 @@ impl PreviewGate {
 
     /// A gate that lets in viewers who sign in with the key in `text`,
     /// without surrounding whitespace. Fails, as the server does, if the key
-    /// is not one the server's check accepts (`check_preview_key`).
+    /// is not one the server's check accepts
+    /// ([`kkt_admission::check_access_key`]).
     pub fn with_key(text: &str) -> Result<PreviewGate, SettingError> {
         let key = text.trim();
-        check_preview_key(key)?;
+        kkt_admission::check_access_key(key).map_err(|e| SettingError::new(e.name, e.rule))?;
         Ok(PreviewGate {
             key: Some(key.to_string()),
         })
@@ -319,15 +306,17 @@ impl PreviewGate {
     }
 }
 
-/// The preview has one view, so its viewers are all the same: `()`, and so
-/// is what their sessions hold.
+/// The preview's one swarm.
+pub const PREVIEW_SWARM: &str = "sw_preview";
+
+/// The preview has one swarm and one operator, who may do everything, so
+/// its viewers are all the same, and its sessions hold `()`.
 impl Gate for PreviewGate {
-    type Viewer = ();
     type SignedIn = ();
 
-    fn admits(&self, session: Session<()>) -> BoxFuture<'_, Admit<()>> {
+    fn admits(&self, session: Session<()>) -> BoxFuture<'_, Admit<Viewer>> {
         let admit = match (&self.key, session) {
-            (None, _) | (Some(_), Session::Live(())) => Admit::Yes(()),
+            (None, _) | (Some(_), Session::Live(())) => Admit::Yes(preview_viewer()),
             (Some(_), Session::Absent) => Admit::No("sign in first".into()),
             (Some(_), Session::Ended) => Admit::No("the session has ended; sign in again".into()),
         };
@@ -342,13 +331,40 @@ impl Gate for PreviewGate {
     }
 }
 
-/// Simulated data for the web page.
+/// The preview's viewer: its one swarm's operator, who may read, change
+/// and issue recovery codes, as the server's web page does.
+pub fn preview_viewer() -> Viewer {
+    Viewer {
+        swarm: SwarmId::new(PREVIEW_SWARM),
+        operator: Operator::new(
+            Permissions::of(&[
+                Permission::Read,
+                Permission::Change,
+                Permission::IssueRecoveryCodes,
+            ]),
+            Audit::WebPage,
+        ),
+    }
+}
+
+/// Simulated data for the web page: one world for its own swarm, which
+/// the feed keeps moving, and a still one for each other swarm asked for
+/// ([`Preview::in_swarm`]). A clone is the same world.
+#[derive(Clone)]
 pub struct Preview {
     clock: Arc<dyn Clock>,
     entropy: Arc<dyn Entropy>,
     settings: PreviewSettings,
+    /// How far back a new world's messages go.
+    history: Span,
+    /// The bus every swarm's notices go on.
+    bus: Events,
+    /// This world's swarm's notices.
     events: SwarmEvents,
-    world: Mutex<World>,
+    world: Arc<Mutex<World>>,
+    /// Each swarm's world, in the order they were made, the preview's own
+    /// first.
+    swarms: Arc<Mutex<Vec<(SwarmId, SharedWorld)>>>,
 }
 
 /// What one step of the feed did.
@@ -377,6 +393,9 @@ enum Out {
     AgentHidden(AgentHidden),
 }
 
+/// A world that every clone of a preview in its swarm shares.
+type SharedWorld = Arc<Mutex<World>>;
+
 struct World {
     retired_names: std::collections::HashSet<String>,
     agents: Vec<Agent>,
@@ -387,7 +406,7 @@ struct World {
     /// Every message, by ID.
     messages: Vec<Message>,
     runs: Vec<ServerRun>,
-    server_announcement: Vec<super::source::ServerAnnouncementVersion>,
+    server_announcement: Vec<ServerAnnouncementVersion>,
     /// In name order, each with its history newest first.
     lanes: Vec<LaneView>,
     next_id: i64,
@@ -418,17 +437,58 @@ impl Preview {
             Span::from_std(d).map_err(|e| SettingError::new(name, e.to_string()))
         };
         let history = span("PREVIEW_HISTORY", PREVIEW_HISTORY)?;
-        let world = World::start(clock.now(), history, entropy.as_ref(), &settings);
+        let world = Arc::new(Mutex::new(World::start(
+            clock.now(),
+            history,
+            entropy.as_ref(),
+            &settings,
+        )));
+        let bus = Events::new(kkt_events::Settings::DEFAULT).until_stopped(shutdown.clone());
         Ok(Preview {
             clock,
             entropy,
             settings,
-            // The preview is one made-up swarm.
-            events: Events::new(kkt_events::Settings::DEFAULT)
-                .until_stopped(shutdown.clone())
-                .in_swarm("sw_preview"),
-            world: Mutex::new(world),
+            history,
+            events: bus.in_swarm(PREVIEW_SWARM),
+            bus,
+            swarms: Arc::new(Mutex::new(vec![(
+                SwarmId::new(PREVIEW_SWARM),
+                world.clone(),
+            )])),
+            world,
         })
+    }
+
+    /// The preview in `swarm`: its own world for the preview's swarm, and
+    /// for any other a world of its own, made from the clock and entropy
+    /// the first time it is asked for. Only the preview's own world moves.
+    pub(crate) fn in_swarm(&self, swarm: SwarmId) -> Preview {
+        let mut swarms = self.swarms.lock().unwrap_or_else(|p| p.into_inner());
+        let world = match swarms.iter().find(|(id, _)| *id == swarm) {
+            Some((_, world)) => world.clone(),
+            None => {
+                let world = Arc::new(Mutex::new(World::start(
+                    self.clock.now(),
+                    self.history,
+                    self.entropy.as_ref(),
+                    &self.settings,
+                )));
+                swarms.push((swarm.clone(), world.clone()));
+                world
+            }
+        };
+        Preview {
+            events: self.bus.in_swarm(swarm.as_str()),
+            world,
+            ..self.clone()
+        }
+    }
+
+    /// The swarms that have a world, in the order they were made, for a
+    /// test to see which swarms a page asked about.
+    pub fn swarms(&self) -> Vec<SwarmId> {
+        let swarms = self.swarms.lock().unwrap_or_else(|p| p.into_inner());
+        swarms.iter().map(|(id, _)| id.clone()).collect()
     }
 
     /// Keeps the world moving, one step every `60 / steps_per_minute`
@@ -573,8 +633,10 @@ impl Preview {
     }
 }
 
-impl Source for Preview {
-    fn overview(
+/// What the page asks of the preview, in the preview's own records; `api`
+/// gives them to the page as the kkt-api crates' operations.
+impl Preview {
+    pub(crate) fn overview(
         &self,
         window: Duration,
         bucket: Duration,
@@ -586,7 +648,7 @@ impl Source for Preview {
         Box::pin(async move { overview })
     }
 
-    fn hidden_channels(
+    pub(crate) fn hidden_channels(
         &self,
         window: Duration,
         bucket: Duration,
@@ -597,12 +659,12 @@ impl Source for Preview {
         Box::pin(async move { hidden })
     }
 
-    fn server_runs(&self) -> BoxFuture<'_, Result<Vec<ServerRun>, SourceError>> {
+    pub(crate) fn server_runs(&self) -> BoxFuture<'_, Result<Vec<ServerRun>, SourceError>> {
         let runs = self.world().runs.clone();
         Box::pin(async move { Ok(runs) })
     }
 
-    fn channel(
+    pub(crate) fn channel(
         &self,
         id: String,
         before_id: Option<i64>,
@@ -613,13 +675,13 @@ impl Source for Preview {
         Box::pin(async move { view })
     }
 
-    fn agent(&self, handle: String) -> BoxFuture<'_, Result<AgentView, SourceError>> {
+    pub(crate) fn agent(&self, handle: String) -> BoxFuture<'_, Result<AgentView, SourceError>> {
         let world = self.world();
         let view = world.agent_view(&handle);
         Box::pin(async move { view })
     }
 
-    fn create_channel(
+    pub(crate) fn create_channel(
         &self,
         name: String,
         purpose: String,
@@ -649,7 +711,7 @@ impl Source for Preview {
         Box::pin(async move { result })
     }
 
-    fn set_purpose(
+    pub(crate) fn set_purpose(
         &self,
         channel_id: String,
         purpose: String,
@@ -660,7 +722,7 @@ impl Source for Preview {
         Box::pin(async move { said })
     }
 
-    fn change_channel(
+    pub(crate) fn change_channel(
         &self,
         channel_id: String,
         change: ChannelAction,
@@ -672,13 +734,16 @@ impl Source for Preview {
         Box::pin(async move { result })
     }
 
-    fn hide_agent(&self, handle: String) -> BoxFuture<'_, Result<(), SourceError>> {
+    pub(crate) fn hide_agent(&self, handle: String) -> BoxFuture<'_, Result<(), SourceError>> {
         let result = self.world().hide_agent(self.clock.now(), &handle);
         let result = result.map(|out| self.publish(out));
         Box::pin(async move { result })
     }
 
-    fn stale_agents(&self, idle: Duration) -> BoxFuture<'_, Result<Vec<StaleAgent>, SourceError>> {
+    pub(crate) fn stale_agents(
+        &self,
+        idle: Duration,
+    ) -> BoxFuture<'_, Result<Vec<StaleAgent>, SourceError>> {
         let result = stale_cutoff(self.clock.now(), idle).map(|cutoff| {
             let world = self.world();
             let mut stale: Vec<StaleAgent> = world
@@ -693,7 +758,7 @@ impl Source for Preview {
         Box::pin(async move { result })
     }
 
-    fn hide_stale_agents(
+    pub(crate) fn hide_stale_agents(
         &self,
         idle: Duration,
         chosen: Vec<String>,
@@ -735,7 +800,10 @@ impl Source for Preview {
         Box::pin(async move { result })
     }
 
-    fn new_recovery_code(&self, handle: String) -> BoxFuture<'_, Result<String, SourceError>> {
+    pub(crate) fn new_recovery_code(
+        &self,
+        handle: String,
+    ) -> BoxFuture<'_, Result<String, SourceError>> {
         let known = self.world().agents.iter().any(|a| a.handle == handle);
         let code = match known {
             true => Ok(format!(
@@ -748,16 +816,19 @@ impl Source for Preview {
         Box::pin(async move { code })
     }
 
-    fn server_announcement(
+    pub(crate) fn server_announcement(
         &self,
-    ) -> BoxFuture<'_, Result<super::source::ServerAnnouncementView, SourceError>> {
-        let view = super::source::ServerAnnouncementView {
+    ) -> BoxFuture<'_, Result<ServerAnnouncementView, SourceError>> {
+        let view = ServerAnnouncementView {
             history: self.world().server_announcement.clone(),
             max_chars: LIMITS.max_server_announcement_chars,
         };
         Box::pin(async move { Ok(view) })
     }
-    fn save_server_announcement(&self, text: String) -> BoxFuture<'_, Result<(), SourceError>> {
+    pub(crate) fn save_server_announcement(
+        &self,
+        text: String,
+    ) -> BoxFuture<'_, Result<(), SourceError>> {
         let max = LIMITS.max_server_announcement_chars;
         if text.chars().count() > max {
             return Box::pin(async move {
@@ -773,7 +844,7 @@ impl Source for Preview {
             .map_or(1, |v| v.version + 1);
         world.server_announcement.insert(
             0,
-            super::source::ServerAnnouncementVersion {
+            ServerAnnouncementVersion {
                 version,
                 text,
                 saved_at: clock::to_text(self.clock.now()),
@@ -784,7 +855,7 @@ impl Source for Preview {
         Box::pin(async { Ok(()) })
     }
 
-    fn lanes(&self) -> BoxFuture<'_, Result<LanesView, SourceError>> {
+    pub(crate) fn lanes(&self) -> BoxFuture<'_, Result<LanesView, SourceError>> {
         let view = LanesView {
             lanes: self
                 .world()
@@ -802,7 +873,7 @@ impl Source for Preview {
         Box::pin(async move { Ok(view) })
     }
 
-    fn lane(&self, name: String) -> BoxFuture<'_, Result<LaneView, SourceError>> {
+    pub(crate) fn lane(&self, name: String) -> BoxFuture<'_, Result<LaneView, SourceError>> {
         let found = self
             .world()
             .lanes
@@ -813,13 +884,17 @@ impl Source for Preview {
         Box::pin(async move { found })
     }
 
-    fn save_lane(&self, save: LaneSave, create: bool) -> BoxFuture<'_, Result<(), SourceError>> {
+    pub(crate) fn save_lane(
+        &self,
+        save: LaneSave,
+        create: bool,
+    ) -> BoxFuture<'_, Result<(), SourceError>> {
         let now = clock::to_text(self.clock.now());
         let result = self.world().save_lane(save, create, now);
         Box::pin(async move { result })
     }
 
-    fn retire_lane(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
+    pub(crate) fn retire_lane(&self, name: String) -> BoxFuture<'_, Result<(), SourceError>> {
         let now = clock::to_text(self.clock.now());
         let mut world = self.world();
         let result = match world.lanes.iter_mut().find(|l| l.name == name) {
@@ -836,32 +911,25 @@ impl Source for Preview {
         };
         Box::pin(async move { result })
     }
-
-    fn live(&self) -> BoxStream<'static, LiveEvent> {
-        self.events
-            .subscribe()
-            .into_stream()
-            .map(live_event)
-            .boxed()
-    }
 }
 
-/// The limits the preview keeps to, as a server keeps to its defaults.
-struct PreviewLimits {
-    max_channel_name_chars: usize,
-    max_purpose_chars: usize,
-    max_server_announcement_chars: usize,
-    max_lane_description_chars: usize,
-    max_lane_chars: usize,
-}
-
-/// The preview's limits: a server's defaults.
-const LIMITS: PreviewLimits = PreviewLimits {
+/// The limits the preview keeps to: a server's defaults.
+const LIMITS: Limits = Limits {
+    default_limit: 20,
+    max_limit: 100,
+    max_body_bytes: 8 * 1024,
     max_channel_name_chars: 64,
     max_purpose_chars: 500,
+    max_description_chars: 300,
+    max_note_chars: 10_000,
     max_server_announcement_chars: 4000,
-    max_lane_description_chars: 200,
+    max_memory_entry_chars: 20_000,
+    max_memory_chars: 100_000,
     max_lane_chars: 8000,
+    max_lane_description_chars: 200,
+    purpose_preview_chars: 120,
+    default_wait: Duration::from_secs(30),
+    max_wait: Duration::from_secs(50),
 };
 
 /// The server's lane limits, at their defaults.
@@ -1734,3 +1802,6 @@ fn body(e: &dyn Entropy) -> String {
         LINES[e.below(LINES.len())].to_string()
     }
 }
+
+#[cfg(test)]
+mod tests;

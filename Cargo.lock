@@ -1155,6 +1155,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-api-sim"
+version = "0.10.0"
+dependencies = [
+ "futures",
+ "kkt-admission",
+ "kkt-api-agent",
+ "kkt-api-operator",
+ "kkt-clock",
+ "kkt-entropy",
+ "kkt-events",
+ "kkt-names",
+ "kkt-shutdown",
+ "kkt-web",
+ "tokio",
+]
+
+[[package]]
 name = "kkt-backup"
 version = "0.10.0"
 dependencies = [
@@ -1550,6 +1567,7 @@ dependencies = [
  "kkt-admission",
  "kkt-api-agent",
  "kkt-api-operator",
+ "kkt-api-sim",
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",
@@ -1678,26 +1696,43 @@ version = "0.10.0"
 dependencies = [
  "askama",
  "axum",
- "clap",
  "futures",
+ "kkt-api-agent",
+ "kkt-api-operator",
+ "kkt-api-sim",
  "kkt-clock",
- "kkt-clock-system",
  "kkt-entropy",
- "kkt-entropy-os",
- "kkt-events",
  "kkt-hash",
  "kkt-hosts",
  "kkt-log",
- "kkt-logs-os",
  "kkt-names",
  "kkt-shutdown",
- "kkt-shutdown-os",
  "serde",
  "serde_json",
  "tokio",
  "tower",
- "tracing",
- "tracing-subscriber",
+]
+
+[[package]]
+name = "kkt-web-preview"
+version = "0.10.0"
+dependencies = [
+ "clap",
+ "kkt-admission-os",
+ "kkt-api-sim",
+ "kkt-clock-system",
+ "kkt-entropy",
+ "kkt-entropy-os",
+ "kkt-hosts",
+ "kkt-log",
+ "kkt-logs",
+ "kkt-logs-os",
+ "kkt-server",
+ "kkt-server-listen",
+ "kkt-shutdown",
+ "kkt-shutdown-os",
+ "kkt-web",
+ "tokio",
 ]
 
 [[package]]

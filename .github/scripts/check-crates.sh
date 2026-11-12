@@ -21,9 +21,13 @@
 #    `testing`, or a workspace dependency's, directly or through its other
 #    features at any depth.
 # 3. No package turns on another workspace package's `testing` outside
-#    [dev-dependencies], except that a package's own `testing` feature may
-#    turn on a workspace dependency's `testing`: it is itself on only from
-#    [dev-dependencies] (Sam, 2026-11-11).
+#    [dev-dependencies], with two exceptions. A package's own `testing`
+#    feature may turn on a workspace dependency's `testing`: it is itself on
+#    only from [dev-dependencies] (Sam, 2026-11-11). And a dev-only program
+#    (a binary target and `[package.metadata.kkt] dev-only = true`) may turn
+#    on `testing` in [dependencies]: dev tooling counts as test code, and
+#    check-release-packages.sh keeps it out of every release (the plan's
+#    "What needs Sam", item 4).
 # 4. `kkt-scratch` (test scratch folders) appears only in
 #    [dev-dependencies].
 # 5. Every package's name starts with `kkt-`, so its code logs under a

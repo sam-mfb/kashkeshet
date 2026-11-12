@@ -963,7 +963,7 @@
    ],
    "to": "split",
    "how": "injected",
-   "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes, kkt-admission's session lifetime), each with its own check; kkt-settings gathers them and the program fills them"
+   "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes and session lifetime (step 6.1)), each with its own check; kkt-settings gathers them and the program fills them"
   },
   {
    "item": "LogLevel",
@@ -2103,8 +2103,7 @@
    "kkt-server": [
     "kkt-rules::Settings",
     "kkt-mcp-formatter::Settings",
-    "kkt-web::Settings",
-    "kkt-admission::Settings"
+    "kkt-web::Settings"
    ],
    "kkt-web": [
     "kkt-web::Settings"
@@ -2141,13 +2140,7 @@
     "crate": "kkt-web",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-web's share of today's Limits: web_page_messages and web_member_excerpt_chars, and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules."
-   },
-   {
-    "crate": "kkt-admission",
-    "path": "Settings",
-    "kind": "struct",
-    "doc": "kkt-admission's share of today's Limits: web_session_lifetime."
+    "doc": "kkt-web's share of today's Limits: web_page_messages, web_member_excerpt_chars and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules."
    }
   ]
  }

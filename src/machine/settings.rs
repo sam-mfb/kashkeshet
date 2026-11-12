@@ -473,8 +473,10 @@ pub fn format_settings(limits: &Limits) -> kkt_mcp_formatter::Settings {
 /// The web page's share of `limits`.
 pub fn web_settings(limits: &Limits) -> kkt_web::Settings {
     kkt_web::Settings {
-        page_messages: limits.web_page_messages,
-        member_excerpt_chars: limits.web_member_excerpt_chars,
+        page: kkt_web::PageLimits {
+            page_messages: limits.web_page_messages,
+            member_excerpt_chars: limits.web_member_excerpt_chars,
+        },
         keep_alive: kkt_web::Settings::DEFAULT.keep_alive,
         session_lifetime: limits.web_session_lifetime,
     }
@@ -487,7 +489,6 @@ pub(crate) use test_support::{TEST_PLATFORM, test_env, write_default_config};
 mod test_support {
     use super::*;
     /// An environment with only `home` set, for tests.
-    #[cfg(test)]
     pub(crate) fn test_env(home: Option<&Path>) -> Env {
         Env {
             home: home.map(Path::to_path_buf),
@@ -500,12 +501,10 @@ mod test_support {
 
     /// The platform the tests place files for. Every place a test looks is
     /// worked out for it too, so it need not be this machine's.
-    #[cfg(test)]
     pub(crate) const TEST_PLATFORM: Platform = Platform::Xdg;
 
     /// Writes `text` as the default config file under `home`, and returns its
     /// path, for tests.
-    #[cfg(test)]
     pub(crate) fn write_default_config(home: &Path, text: &str) -> PathBuf {
         let path = kkt_config_file::config_file(&test_env(Some(home))).expect("a config path");
         std::fs::create_dir_all(path.parent().expect("a folder")).expect("config folder");

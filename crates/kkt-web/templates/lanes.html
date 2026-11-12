@@ -7,11 +7,11 @@
 <summary>New lane</summary>
 <form method="post" action="/lanes">
 <input type="hidden" name="form_token" value="{{ form_token }}">
-<label for="lane-name">Name: lowercase letters and digits in words joined by single hyphens, such as <code>code-reviewer</code> (up to {{ limits.max_name_chars }} characters)</label>
+<label for="lane-name">Name: lowercase letters and digits in words joined by single hyphens, such as <code>code-reviewer</code> (up to {{ max_name_chars }} characters)</label>
 <input id="lane-name" type="text" name="name" required style="width: 100%">
-<label for="lane-description">Description: one line (up to {{ limits.max_description_chars }} characters)</label>
+<label for="lane-description">Description: one line (up to {{ limits.max_lane_description_chars }} characters)</label>
 <input id="lane-description" type="text" name="description" required style="width: 100%">
-<label for="lane-text">Instructions (up to {{ limits.max_text_chars }} characters)</label>
+<label for="lane-text">Instructions (up to {{ limits.max_lane_chars }} characters)</label>
 <textarea id="lane-text" name="text" rows="8" required style="width: 100%"></textarea>
 <button type="submit">Create lane</button>
 </form>
