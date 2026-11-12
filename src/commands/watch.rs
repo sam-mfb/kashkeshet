@@ -10,7 +10,7 @@ use kkt_watch as watch;
 
 /// Message lines to standard output, flushed one by one; notes to
 /// standard error.
-pub struct WatchOutput;
+pub(crate) struct WatchOutput;
 
 impl watch::Report for WatchOutput {
     fn message(&mut self, line: &str) -> Result<(), String> {

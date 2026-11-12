@@ -1,20 +1,12 @@
-//! Wires the operator's lane commands to this program's database, disk and configuration.
+//! The lane folder on this machine's disk and git, which kkt-operate's lane
+//! commands take (`LaneDisk`), and tests of those commands over this
+//! program's real parts.
 mod disk;
 pub(crate) use disk::LaneDisk;
+#[cfg(test)]
 use kkt_machine::{Env, Platform};
-pub use kkt_operate::lanes::LanesAction;
+#[cfg(test)]
 use std::path::PathBuf;
-
-pub async fn run(
-    env: &Env,
-    platform: Platform,
-    command: LanesAction,
-    db: Option<PathBuf>,
-    config: Option<PathBuf>,
-) -> Result<(), String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform);
-    kkt_operate::lanes::run(&native.parts(), env, command, db, config).await
-}
 
 #[cfg(test)]
 fn existing_db(
