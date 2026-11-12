@@ -72,8 +72,7 @@ pub(crate) fn database(
         DefaultDb::Made(without_home) => {
             let db = found.ok_or_else(|| without_home.to_string())?;
             if let Some(dir) = db.parent() {
-                std::fs::create_dir_all(dir)
-                    .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
+                kkt_setup_os::make_data_folder(dir)?;
             }
             Ok(db)
         }
@@ -482,31 +481,35 @@ pub fn web_settings(limits: &Limits) -> kkt_web::Settings {
     }
 }
 
-/// An environment with only `home` set, for tests.
 #[cfg(test)]
-pub(crate) fn test_env(home: Option<&Path>) -> Env {
-    Env {
-        home: home.map(Path::to_path_buf),
-        claude_config_dir: None,
-        codex_home: None,
-        xdg_config_home: None,
-        xdg_data_home: None,
+pub(crate) use test_support::{TEST_PLATFORM, test_env, write_default_config};
+
+#[cfg(test)]
+mod test_support {
+    use super::*;
+    /// An environment with only `home` set, for tests.
+    pub(crate) fn test_env(home: Option<&Path>) -> Env {
+        Env {
+            home: home.map(Path::to_path_buf),
+            claude_config_dir: None,
+            codex_home: None,
+            xdg_config_home: None,
+            xdg_data_home: None,
+        }
     }
-}
 
-/// The platform the tests place files for. Every place a test looks is
-/// worked out for it too, so it need not be this machine's.
-#[cfg(test)]
-pub(crate) const TEST_PLATFORM: Platform = Platform::Xdg;
+    /// The platform the tests place files for. Every place a test looks is
+    /// worked out for it too, so it need not be this machine's.
+    pub(crate) const TEST_PLATFORM: Platform = Platform::Xdg;
 
-/// Writes `text` as the default config file under `home`, and returns its
-/// path, for tests.
-#[cfg(test)]
-pub(crate) fn write_default_config(home: &Path, text: &str) -> PathBuf {
-    let path = kkt_config_file::config_file(&test_env(Some(home))).expect("a config path");
-    std::fs::create_dir_all(path.parent().expect("a folder")).expect("config folder");
-    std::fs::write(&path, text).expect("config file");
-    path
+    /// Writes `text` as the default config file under `home`, and returns its
+    /// path, for tests.
+    pub(crate) fn write_default_config(home: &Path, text: &str) -> PathBuf {
+        let path = kkt_config_file::config_file(&test_env(Some(home))).expect("a config path");
+        std::fs::create_dir_all(path.parent().expect("a folder")).expect("config folder");
+        std::fs::write(&path, text).expect("config file");
+        path
+    }
 }
 
 #[cfg(test)]

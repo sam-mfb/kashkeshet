@@ -17,12 +17,22 @@ mod acts_on;
 mod adopt;
 pub mod ask;
 mod backup_keys;
+pub mod connection;
 mod credentials;
 mod doctor;
+pub mod doctor_checks;
+mod program;
+pub use program::{
+    admin_key_line, client_key, configured_name_pack_line, docker_status_lines,
+    service_backup_folder, service_upgrade_error, setup_lane_limit, staged_client_key,
+    uninstall_line, uninstall_record, upgrade_backup_folder, waiting_note, web_key_line,
+};
 mod flow;
 mod guard;
 mod keys;
+pub mod lane_reports;
 mod lifecycle;
+mod local;
 mod record;
 mod switch;
 #[cfg(feature = "testing")]
@@ -52,6 +62,7 @@ pub use lifecycle::{
     Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,
     status_looks_for_unrecorded, upgrade_plan,
 };
+pub use local::{docker_folder, docker_url, recorded_setup, unfinished_mode};
 pub use record::{DockerSetup, InstallCheck, Mode, Record, Server, TailscaleLogin, Unfinished};
 pub use switch::{Switch, SwitchSteps, Target, switch};
 pub use upgrade::{Upgrade, upgrade};

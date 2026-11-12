@@ -11,10 +11,10 @@ use crate::process::program_path;
 use kkt_clock_system::SystemClock;
 use kkt_machine::{Env, Platform};
 use kkt_service::{DryRun, Manager, Request, ServiceSettings, Spec, check_bind};
+use kkt_service_os::try_bind;
 use kkt_settings::ServeOptions;
 use kkt_terminal_os::Terminal;
-use std::io;
-use std::net::{SocketAddr, TcpListener};
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
 /// What `kkt service` does.
@@ -146,12 +146,6 @@ fn service_settings(options: &ServeOptions) -> ServiceSettings {
     }
 }
 
-/// Listens on `address` and lets it go at once: the program's answer to
-/// [`kkt_service::check_bind`], whether the server could listen there.
-fn try_bind(address: SocketAddr) -> io::Result<()> {
-    TcpListener::bind(address).map(drop)
-}
-
 /// What the service runs, as [`kkt_service::plan`] works it out. This reads
 /// the config file, finds this program's path and which key files exist,
 /// and checks the settings now, so a bad one fails here rather than in a
@@ -166,7 +160,7 @@ pub fn service_plan(
 ) -> Result<ServicePlan, String> {
     let program = program_path().map_err(|e| format!("could not find this program's path: {e}"))?;
     let config = match config {
-        Some(path) => Some(path.canonicalize().map_err(|e| {
+        Some(path) => Some(kkt_setup_os::canonicalize(&path).map_err(|e| {
             format!(
                 "invalid setting: config could not be read from {}: {e}",
                 path.display()
@@ -175,7 +169,7 @@ pub fn service_plan(
         None => None,
     };
     let absolute = |path: PathBuf| {
-        std::path::absolute(&path)
+        kkt_setup_os::absolute(&path)
             .map_err(|e| format!("could not make {} absolute: {e}", path.display()))
     };
     let flags = ServeOptions {
@@ -194,7 +188,7 @@ pub fn service_plan(
             default_db: kkt_setup::default_db(env, platform),
             default_key: crate::machine::settings::default_access_key(env),
         },
-        &|path: &Path| path.exists(),
+        &|path: &Path| kkt_service_os::OsSystem.exists(path).unwrap_or(false),
     )
     .map_err(|e| e.to_string())?;
     // What the flags and the config file give together, with the plan's
@@ -228,6 +222,7 @@ mod tests {
     use super::*;
     use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};
     use crate::scratch;
+    use std::net::TcpListener;
 
     fn args(plan: &ServicePlan) -> Vec<&str> {
         plan.spec.args.iter().map(String::as_str).collect()

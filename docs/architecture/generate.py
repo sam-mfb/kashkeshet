@@ -621,6 +621,7 @@ def main():
                 # The machine work the file's own code does (kinds.py).
                 work = sorted(p for p in uses_in(text, "std") if kinds.is_std_io(p))
                 work += sorted(f"{m}!" for m in set(re.findall(r"\b(\w+)!", text)) if m in kinds.PRINT_MACROS)
+                work += kinds.path_probes(text)
                 if work:
                     machine_work[str(path.relative_to(package_dir))] = work
             texts[kind] += text
