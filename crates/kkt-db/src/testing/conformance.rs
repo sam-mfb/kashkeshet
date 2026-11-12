@@ -26,6 +26,16 @@ pub trait Place {
     fn pending(&self, sets: &[Set]) -> Result<Vec<crate::Upgrade>, DbError>;
 }
 
+impl Place for super::FastPlace {
+    fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
+        super::FastPlace::open(self, sets)
+    }
+
+    fn pending(&self, sets: &[Set]) -> Result<Vec<crate::Upgrade>, DbError> {
+        Evolve::pending(self, sets)
+    }
+}
+
 impl Place for MemoryPlace {
     fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
         MemoryPlace::open(self, sets)
@@ -164,7 +174,7 @@ fn fill_nicks(c: &dyn Connection) -> Result<(), DbError> {
     Ok(())
 }
 
-fn library() -> Set {
+pub(super) fn library() -> Set {
     Set {
         name: "library",
         migrations: vec![first(), second()],
