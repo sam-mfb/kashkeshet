@@ -4,13 +4,17 @@
 //! output file only catches what comes before logging starts, and crashes.
 //! It runs in the user's `gui/<uid>` domain.
 
-use super::{
-    Command, SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, ServiceError, ServiceState, Settings,
-    Spec, System, create_dir, exists, failure_detail, path_text, plain_text, read_service_file,
-    remove_file, run, run_attached, run_ok, write_file,
+use crate::system::{
+    Command, DryRun, System, create_dir, exists, failure_detail, read_service_file, remove_file,
+    run, run_attached, run_ok, write_file,
 };
 use kkt_clock::Clock;
+use kkt_service::{
+    SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, ServiceError, ServiceState, Settings, Spec,
+    path_text, plain_text,
+};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 /// The launchd job label on macOS. The plist is `<label>.plist`.
 const LAUNCHD_LABEL: &str = "com.sam-mfb.kashkeshet";
@@ -32,18 +36,20 @@ const NOT_FOUND: i32 = 113;
 /// `launchctl kill`'s exit status when the service has no process (ESRCH).
 const NO_PROCESS: i32 = 3;
 
-pub struct Launchd {
+pub(crate) struct Agent {
     home: PathBuf,
     agents_dir: PathBuf,
     log_dir: PathBuf,
+    waits: crate::Settings,
 }
 
-impl Launchd {
-    pub fn new(home: &Path) -> Launchd {
-        Launchd {
+impl Agent {
+    pub(crate) fn new(home: &Path, waits: crate::Settings) -> Agent {
+        Agent {
             home: home.to_path_buf(),
             agents_dir: home.join(LAUNCH_AGENTS_DIR),
             log_dir: home.join(MACOS_LOG_DIR),
+            waits,
         }
     }
 
@@ -59,7 +65,7 @@ impl Launchd {
         self.log_dir.join(MACOS_CRASH_LOG_FILE_NAME)
     }
 
-    pub fn render(&self, spec: &Spec) -> Result<String, ServiceError> {
+    pub(crate) fn render(&self, spec: &Spec) -> Result<String, ServiceError> {
         let mut arguments = format!("    <string>{}</string>\n", xml(path_text(&spec.program)?)?);
         // The server's own, bounded log; it goes last, so it wins over a
         // `log_file` in the config file.
@@ -112,7 +118,10 @@ impl Launchd {
 
     /// The installed plist's `ProgramArguments`, after the program and
     /// without the `--log-file` that `render` adds, if it is there.
-    pub fn installed_args(&self, system: &dyn System) -> Result<Option<Vec<String>>, ServiceError> {
+    pub(crate) fn installed_args(
+        &self,
+        system: &dyn System,
+    ) -> Result<Option<Vec<String>>, ServiceError> {
         let plist = self.plist();
         let Some(text) = read_service_file(system, &plist)? else {
             return Ok(None);
@@ -187,17 +196,13 @@ impl Launchd {
     /// `bootstrap` before it has finished fails ("Operation already in
     /// progress", shown as "Input/output error"). So while `launchctl
     /// print` still finds the old service, a failed `bootstrap` is tried
-    /// again every `settings.launchd_reload_retry` on `clock`, for up to
-    /// `settings.launchd_removal_wait`. Once the old service is gone, one
+    /// again every `reload_retry` of its settings on `clock`, for up to
+    /// their `removal_wait`. Once the old service is gone, one
     /// more try; a failure then is the new service's own, and final.
-    async fn reload(
-        &self,
-        system: &dyn System,
-        clock: &dyn Clock,
-        settings: Settings,
-    ) -> Result<(), ServiceError> {
+    async fn reload(&self, system: &dyn System, clock: &dyn Clock) -> Result<(), ServiceError> {
+        let waits = self.waits;
         let bootstrap = self.bootstrap_command(system)?;
-        let end = clock.now() + settings.launchd_removal_wait;
+        let end = clock.now() + waits.removal_wait;
         let mut tries = 0;
         // Whether the old service was already gone before the latest try.
         let mut removed = false;
@@ -208,11 +213,13 @@ impl Launchd {
             if finished.success() {
                 return Ok(());
             }
-            let failed = |still_removing_for| ServiceError::ReloadFailed {
-                command: bootstrap.to_string(),
-                detail: failure_detail(&finished),
-                tries,
-                still_removing_for,
+            let failed = |still_removing_for| {
+                ServiceError::ReloadFailed(reload_failed(
+                    &bootstrap.to_string(),
+                    &failure_detail(&finished),
+                    tries,
+                    still_removing_for,
+                ))
             };
             if removed {
                 return Err(failed(None));
@@ -220,11 +227,9 @@ impl Launchd {
             removed = !self.loaded(system)?;
             if !removed {
                 if began >= end {
-                    return Err(failed(Some(settings.launchd_removal_wait)));
+                    return Err(failed(Some(waits.removal_wait)));
                 }
-                clock
-                    .sleep_until(began + settings.launchd_reload_retry)
-                    .await;
+                clock.sleep_until(began + waits.reload_retry).await;
             }
         }
     }
@@ -252,11 +257,78 @@ impl Launchd {
         Ok(self.print(system)?.is_some())
     }
 
-    pub async fn install(
+    /// Writes the service file, starts the service, and has it start at
+    /// each login, after making the folders the server needs. Installing
+    /// again replaces the file and restarts it, which waits on `clock`
+    /// while launchd removes the old service (#369), as its settings say.
+    pub(crate) async fn install(
+        &self,
+        system: &dyn System,
+        clock: &dyn Clock,
+        spec: &Spec,
+    ) -> Result<Vec<String>, ServiceError> {
+        for dir in &spec.dirs {
+            create_dir(system, dir)?;
+        }
+        self.load_new(system, clock, spec).await
+    }
+
+    /// What [`Agent::install`] would change on `system`, changing nothing.
+    pub(crate) async fn dry_run(
+        &self,
+        system: &dyn System,
+        clock: &dyn Clock,
+        spec: &Spec,
+    ) -> Result<Vec<String>, ServiceError> {
+        let dry = DryRun::new(system);
+        self.install(&dry, clock, spec).await?;
+        Ok(dry.actions())
+    }
+
+    /// Checks, after waiting `settings.service_start_check` on `clock`, that
+    /// the server the service just started is still running. If not, the
+    /// service is unloaded: a stop is not enough, since launchd starts a
+    /// failed server again.
+    pub(crate) async fn check_started(
         &self,
         system: &dyn System,
         clock: &dyn Clock,
         settings: Settings,
+    ) -> Result<(), ServiceError> {
+        clock
+            .sleep_until(clock.now() + settings.service_start_check)
+            .await;
+        if self.state(system)?.running {
+            return Ok(());
+        }
+        let stopped = self.unload(system);
+        Err(ServiceError::DidNotStayUp {
+            checked_after: settings.service_start_check,
+            stop_failed: stopped.err().map(|e| e.to_string()),
+        })
+    }
+
+    /// Gives the server the key file `key`: `make` writes it unless it is
+    /// already there, then the service is stopped and started.
+    pub(crate) fn add_key(
+        &self,
+        system: &dyn System,
+        key: &Path,
+        make: &dyn Fn(&Path) -> Result<(), String>,
+    ) -> Result<bool, ServiceError> {
+        let made = !exists(system, key)?;
+        if made {
+            make(key).map_err(ServiceError::Key)?;
+        }
+        self.stop(system)?;
+        self.start(system)?;
+        Ok(made)
+    }
+
+    async fn load_new(
+        &self,
+        system: &dyn System,
+        clock: &dyn Clock,
         spec: &Spec,
     ) -> Result<Vec<String>, ServiceError> {
         let plist = self.render(spec)?;
@@ -268,7 +340,7 @@ impl Launchd {
         if self.loaded(system)? {
             let target = self.target(system)?;
             run_ok(system, &Command::new("launchctl", &["bootout", &target]))?;
-            self.reload(system, clock, settings).await?;
+            self.reload(system, clock).await?;
         } else {
             self.bootstrap(system)?;
         }
@@ -283,7 +355,7 @@ impl Launchd {
     /// keeps launchd from starting it again until the next login or
     /// `start`. A `stop` is not enough for a server that keeps failing:
     /// launchd starts it again after each failure.
-    pub fn unload(&self, system: &dyn System) -> Result<(), ServiceError> {
+    pub(crate) fn unload(&self, system: &dyn System) -> Result<(), ServiceError> {
         if self.loaded(system)? {
             let target = self.target(system)?;
             run_ok(system, &Command::new("launchctl", &["bootout", &target]))?;
@@ -291,7 +363,7 @@ impl Launchd {
         Ok(())
     }
 
-    pub fn uninstall(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+    pub(crate) fn uninstall(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
         let mut said = Vec::new();
         if self.loaded(system)? {
             let target = self.target(system)?;
@@ -306,7 +378,7 @@ impl Launchd {
         Ok(said)
     }
 
-    pub fn start(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+    pub(crate) fn start(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
         if !exists(system, &self.plist())? {
             return Err(ServiceError::NotInstalled);
         }
@@ -320,7 +392,7 @@ impl Launchd {
         Ok(vec!["Started kashkeshet.".to_string()])
     }
 
-    pub fn stop(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+    pub(crate) fn stop(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
         if !exists(system, &self.plist())? {
             return Err(ServiceError::NotInstalled);
         }
@@ -347,7 +419,7 @@ impl Launchd {
         }
     }
 
-    pub fn state(&self, system: &dyn System) -> Result<ServiceState, ServiceError> {
+    pub(crate) fn state(&self, system: &dyn System) -> Result<ServiceState, ServiceError> {
         if !exists(system, &self.plist())? {
             return Ok(ServiceState {
                 installed: false,
@@ -364,7 +436,7 @@ impl Launchd {
         })
     }
 
-    pub fn status(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+    pub(crate) fn status(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
         let plist = self.plist();
         if !exists(system, &plist)? {
             return Ok(vec![format!(
@@ -393,7 +465,7 @@ impl Launchd {
         Ok(said)
     }
 
-    pub fn logs(
+    pub(crate) fn logs(
         &self,
         system: &dyn System,
         lines: usize,
@@ -418,7 +490,7 @@ impl Launchd {
 
 /// The parts of `launchctl print` that `status` reports.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(super) struct PrintedState {
+pub(crate) struct PrintedState {
     pub state: Option<String>,
     pub pid: Option<String>,
     pub last_exit: Option<String>,
@@ -427,7 +499,7 @@ pub(super) struct PrintedState {
 impl PrintedState {
     /// Reads `key = value` lines, keeping the first of each key: later ones
     /// belong to nested sections.
-    pub fn read(printed: &str) -> PrintedState {
+    pub(crate) fn read(printed: &str) -> PrintedState {
         let mut found = PrintedState::default();
         for line in printed.lines() {
             let Some((key, value)) = line.trim().split_once(" = ") else {
@@ -464,4 +536,26 @@ fn unxml(text: &str) -> String {
         .replace("&quot;", "\"")
         .replace("&apos;", "'")
         .replace("&amp;", "&")
+}
+
+/// [`ServiceError::ReloadFailed`]'s text for launchd: `command` failed after
+/// `tries`; with `still_removing_for`, launchd was still removing the old
+/// service when the tries over that long ran out, and without it the old
+/// service was gone and the failure is the new service's own.
+fn reload_failed(
+    command: &str,
+    detail: &str,
+    tries: u32,
+    still_removing_for: Option<Duration>,
+) -> String {
+    const STOPPED: &str = "kashkeshet is stopped: the old service was unloaded, and the new one is installed but not loaded.";
+    match still_removing_for {
+        Some(waited) => format!(
+            "`{command}` failed on each of {tries} tries over {} seconds, while launchd was still removing the old service: {detail}. {STOPPED} Once the old service is gone, run `kkt service start` to load the new one, and `kkt service status` to check.",
+            waited.as_secs()
+        ),
+        None => format!(
+            "`{command}` failed after launchd removed the old service: {detail}. {STOPPED} Run `kkt service start` to load it, and `kkt service status` to check."
+        ),
+    }
 }

@@ -1,7 +1,6 @@
 //! The operator's service commands and the ordered plan/check/install sequence.
 use crate::keys::new_key_file;
-use kkt_machine::Env;
-use kkt_service::{DryRun, Manager, Spec, check_bind};
+use kkt_service::{Spec, check_bind};
 use kkt_setup::connection::ConnectionSource;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -41,12 +40,10 @@ impl ServiceInstall {
 /// clock while launchd lets the new service load.
 pub async fn run<D>(
     parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
-    env: &Env,
     command: ServiceAction,
 ) -> Result<(), String> {
-    let manager = Manager::for_this_os(env.home.as_deref(), env.config_home().as_deref())
-        .map_err(|e| e.to_string())?;
-    let system = parts.service;
+    let service = parts.service;
+    service.ready().map_err(|e| e.to_string())?;
     let said = match command {
         ServiceAction::Install(ServiceInstall {
             config,
@@ -65,7 +62,7 @@ pub async fn run<D>(
                     dry_run,
                 },
             )?;
-            let running = manager.state(system).map_err(|e| e.to_string())?.running;
+            let running = service.state().map_err(|e| e.to_string())?.running;
             check_bind(
                 running,
                 plan.bind,
@@ -73,10 +70,8 @@ pub async fn run<D>(
                 parts.try_bind,
             )?;
             if dry_run {
-                let dry = DryRun::new(system);
-                manager
-                    .install(
-                        &dry,
+                let actions = service
+                    .dry_run(
                         parts.clock.as_ref(),
                         kkt_service::Settings::DEFAULT,
                         &plan.spec,
@@ -93,7 +88,7 @@ pub async fn run<D>(
                         key.display()
                     ));
                 }
-                said.extend(dry.actions());
+                said.extend(actions);
                 Ok(said)
             } else {
                 // Said at once, so they are seen even if the start fails.
@@ -111,9 +106,8 @@ pub async fn run<D>(
                         key.display()
                     ));
                 }
-                match manager
+                match service
                     .install(
-                        system,
                         parts.clock.as_ref(),
                         kkt_service::Settings::DEFAULT,
                         &plan.spec,
@@ -122,19 +116,19 @@ pub async fn run<D>(
                 {
                     // The service manager took the request; whether the
                     // server stays up is checked before saying it started.
-                    Ok(said) => manager
-                        .check_started(system, parts.clock.as_ref(), kkt_service::Settings::DEFAULT)
+                    Ok(said) => service
+                        .check_started(parts.clock.as_ref(), kkt_service::Settings::DEFAULT)
                         .await
                         .map(|()| said),
                     Err(e) => Err(e),
                 }
             }
         }
-        ServiceAction::Uninstall => manager.uninstall(system),
-        ServiceAction::Start => manager.start(system),
-        ServiceAction::Stop => manager.stop(system),
-        ServiceAction::Status => manager.status(system),
-        ServiceAction::Logs { lines, follow } => manager.logs(system, lines, follow),
+        ServiceAction::Uninstall => service.uninstall(),
+        ServiceAction::Start => service.start(),
+        ServiceAction::Stop => service.stop(),
+        ServiceAction::Status => service.status(),
+        ServiceAction::Logs { lines, follow } => service.logs(lines, follow),
     }
     .map_err(|e| e.to_string())?;
     for line in said {
@@ -194,10 +188,8 @@ pub fn service_plan<D>(
         no_access_key: no_access_key.then_some(true),
     };
     let inputs = parts.serve.service_settings(config, flags)?;
-    let plan = kkt_service::plan(inputs.request, &|path: &Path| {
-        parts.service.exists(path).unwrap_or(false)
-    })
-    .map_err(|e| e.to_string())?;
+    let plan = kkt_service::plan(inputs.request, &|path: &Path| parts.key_files.exists(path))
+        .map_err(|e| e.to_string())?;
     let checked = inputs.check.check(&plan)?;
     Ok(ServicePlan {
         spec: plan.spec(program).map_err(|e| e.to_string())?,

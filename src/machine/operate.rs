@@ -20,6 +20,7 @@ pub struct NativeOperate<'a, D = ()> {
     serve: ServeReads<'a>,
     connection: ConnectionReads<'a>,
     service_defaults: D,
+    service: Box<dyn kkt_service::Service>,
     login_link: crate::terminal::browser_login::TerminalLink,
 }
 
@@ -30,6 +31,7 @@ impl<'a> NativeOperate<'a> {
             serve: ServeReads { env, platform },
             connection: ConnectionReads { env, platform },
             service_defaults: (),
+            service: super::service::for_this_os(env),
             login_link: crate::terminal::browser_login::TerminalLink::new(),
         }
     }
@@ -46,6 +48,7 @@ impl<'a> NativeOperate<'a> {
             serve: self.serve,
             connection: self.connection,
             service_defaults,
+            service: self.service,
             login_link: self.login_link,
         }
     }
@@ -58,7 +61,7 @@ impl<'a, D> NativeOperate<'a, D> {
             container: &kkt_container_docker::Docker,
             container_configs: &settings::ContainerConfigs,
             login_link: &self.login_link,
-            service: &super::service::ServiceSystem,
+            service: self.service.as_ref(),
             try_bind: &kkt_service_os::try_bind,
             remote: &kkt_remote_access_tailscale::Tailscale,
             clients: &super::client_config::ClientHost,

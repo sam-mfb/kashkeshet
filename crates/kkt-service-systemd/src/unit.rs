@@ -1,29 +1,33 @@
 //! A systemd user unit on Linux. The unit starts the server at login and
 //! again only if it fails; its output goes to the journal.
 
-use super::{
-    Command, SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, ServiceError, ServiceState, Spec, System,
-    create_dir, exists, failure_detail, path_text, plain_text, read_service_file, remove_file, run,
-    run_attached, run_ok, write_file,
+use crate::system::{
+    Command, DryRun, System, create_dir, exists, failure_detail, read_service_file, remove_file,
+    run, run_attached, run_ok, write_file,
+};
+use kkt_clock::Clock;
+use kkt_service::{
+    SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, ServiceError, ServiceState, Settings, Spec,
+    path_text, plain_text,
 };
 use std::path::{Path, PathBuf};
 
 /// The systemd user unit on Linux.
-pub(super) const SYSTEMD_UNIT: &str = "kashkeshet.service";
+pub(crate) const SYSTEMD_UNIT: &str = "kashkeshet.service";
 /// Where systemd user units live, under `$XDG_CONFIG_HOME`.
-pub(super) const SYSTEMD_USER_DIR: &str = "systemd/user";
+pub(crate) const SYSTEMD_USER_DIR: &str = "systemd/user";
 
 /// `systemctl status` and `is-active`'s exit status for a unit that is
 /// loaded but not running (stopped or failed): an answer, not a failure.
 const INACTIVE: i32 = 3;
 
-pub struct Systemd {
+pub(crate) struct Unit {
     unit_dir: PathBuf,
 }
 
-impl Systemd {
-    pub fn new(config_home: &Path) -> Systemd {
-        Systemd {
+impl Unit {
+    pub(crate) fn new(config_home: &Path) -> Unit {
+        Unit {
             unit_dir: config_home.join(SYSTEMD_USER_DIR),
         }
     }
@@ -32,7 +36,7 @@ impl Systemd {
         self.unit_dir.join(SYSTEMD_UNIT)
     }
 
-    pub fn render(&self, spec: &Spec) -> Result<String, ServiceError> {
+    pub(crate) fn render(&self, spec: &Spec) -> Result<String, ServiceError> {
         let mut exec = quote(path_text(&spec.program)?)?;
         for arg in &spec.args {
             exec.push(' ');
@@ -61,7 +65,10 @@ WantedBy=default.target
     }
 
     /// The arguments in the installed unit's `ExecStart`, after the program.
-    pub fn installed_args(&self, system: &dyn System) -> Result<Option<Vec<String>>, ServiceError> {
+    pub(crate) fn installed_args(
+        &self,
+        system: &dyn System,
+    ) -> Result<Option<Vec<String>>, ServiceError> {
         let unit = self.unit();
         let Some(text) = read_service_file(system, &unit)? else {
             return Ok(None);
@@ -89,7 +96,74 @@ WantedBy=default.target
         Command::new("systemctl", &all)
     }
 
-    pub fn install(&self, system: &dyn System, spec: &Spec) -> Result<Vec<String>, ServiceError> {
+    /// Writes the unit, enables it and starts it, after making the folders
+    /// the server needs. Installing again replaces the unit and restarts it.
+    pub(crate) fn install(
+        &self,
+        system: &dyn System,
+        spec: &Spec,
+    ) -> Result<Vec<String>, ServiceError> {
+        for dir in &spec.dirs {
+            create_dir(system, dir)?;
+        }
+        self.write_and_start(system, spec)
+    }
+
+    /// What [`Unit::install`] would change on `system`, changing nothing.
+    pub(crate) fn dry_run(
+        &self,
+        system: &dyn System,
+        spec: &Spec,
+    ) -> Result<Vec<String>, ServiceError> {
+        let dry = DryRun::new(system);
+        self.install(&dry, spec)?;
+        Ok(dry.actions())
+    }
+
+    /// Checks, after waiting `settings.service_start_check` on `clock`, that
+    /// the server the service just started is still running. If not, the
+    /// service is stopped, so it does not start again every few seconds.
+    pub(crate) async fn check_started(
+        &self,
+        system: &dyn System,
+        clock: &dyn Clock,
+        settings: Settings,
+    ) -> Result<(), ServiceError> {
+        clock
+            .sleep_until(clock.now() + settings.service_start_check)
+            .await;
+        if self.state(system)?.running {
+            return Ok(());
+        }
+        let stopped = self.stop(system).map(drop);
+        Err(ServiceError::DidNotStayUp {
+            checked_after: settings.service_start_check,
+            stop_failed: stopped.err().map(|e| e.to_string()),
+        })
+    }
+
+    /// Gives the server the key file `key`: `make` writes it unless it is
+    /// already there, then the service is stopped and started.
+    pub(crate) fn add_key(
+        &self,
+        system: &dyn System,
+        key: &Path,
+        make: &dyn Fn(&Path) -> Result<(), String>,
+    ) -> Result<bool, ServiceError> {
+        let made = !exists(system, key)?;
+        if made {
+            make(key).map_err(ServiceError::Key)?;
+        }
+        self.stop(system)?;
+        self.start(system)?;
+        Ok(made)
+    }
+
+    fn write_and_start(
+        &self,
+        system: &dyn System,
+        spec: &Spec,
+    ) -> Result<Vec<String>, ServiceError> {
         let unit = self.render(spec)?;
         create_dir(system, &self.unit_dir)?;
         write_file(system, &self.unit(), &unit)?;
@@ -105,7 +179,7 @@ WantedBy=default.target
         ])
     }
 
-    pub fn uninstall(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+    pub(crate) fn uninstall(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
         if !exists(system, &self.unit())? {
             return Ok(vec!["The service was not installed.".to_string()]);
         }
@@ -121,7 +195,7 @@ WantedBy=default.target
         ])
     }
 
-    pub fn start(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+    pub(crate) fn start(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
         if !exists(system, &self.unit())? {
             return Err(ServiceError::NotInstalled);
         }
@@ -129,7 +203,7 @@ WantedBy=default.target
         Ok(vec!["Started kashkeshet.".to_string()])
     }
 
-    pub fn stop(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+    pub(crate) fn stop(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
         if !exists(system, &self.unit())? {
             return Err(ServiceError::NotInstalled);
         }
@@ -140,7 +214,7 @@ WantedBy=default.target
         ])
     }
 
-    pub fn state(&self, system: &dyn System) -> Result<ServiceState, ServiceError> {
+    pub(crate) fn state(&self, system: &dyn System) -> Result<ServiceState, ServiceError> {
         if !exists(system, &self.unit())? {
             return Ok(ServiceState {
                 installed: false,
@@ -165,7 +239,7 @@ WantedBy=default.target
         })
     }
 
-    pub fn status(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+    pub(crate) fn status(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
         let unit = self.unit();
         if !exists(system, &unit)? {
             return Ok(vec![format!(
@@ -185,7 +259,7 @@ WantedBy=default.target
         Ok(vec![format!("Installed: {}", unit.display())])
     }
 
-    pub fn logs(
+    pub(crate) fn logs(
         &self,
         system: &dyn System,
         lines: usize,

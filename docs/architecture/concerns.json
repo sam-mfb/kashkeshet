@@ -208,9 +208,21 @@
   },
   "kkt-service": {
    "layer": "operations",
-   "concern": "Running kkt as a service under launchd or systemd, choosing its manager from the supplied optional home and config-home paths (`Manager::for_this_os`), and the plan of what the service runs, from the settings it needs, which the program gives and checks.",
-   "must_not": "Touch the machine except through its `System` contract.",
-   "kind": "logic"
+   "concern": "The project's contract for running kkt as a service of the user's login (`Service`: install, check it started, start, stop, status, logs, add a key, uninstall), with the values it takes and gives and its errors; `Unsupported` for a system with no service manager kkt works with; the plan of what the service runs, from the settings it needs, and the bind check, both on plain values; its testing Memory stand-in.",
+   "must_not": "Know a service manager, its commands or file formats; touch the machine.",
+   "kind": "contract"
+  },
+  "kkt-service-launchd": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "Implements Service as a launchd user agent on macOS: the plist, launchctl's commands and answers, the log file and the retries while launchd removes an old service, tested against a private system; the real files and commands are behind real.",
+   "must_not": "Decide what the service runs or check the server's settings."
+  },
+  "kkt-service-systemd": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "Implements Service as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system; the real files and commands are behind real.",
+   "must_not": "Decide what the service runs or check the server's settings."
   },
   "kkt-container": {
    "layer": "operations",
@@ -427,8 +439,8 @@
   "kkt-service-os": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "The machine's service files and commands: plain OsSystem methods, adapted by the program.",
-   "must_not": "Decide what a service command does."
+   "concern": "Trying whether the service's server could listen on its address (`try_bind`), which the program passes to kkt-service's bind check.",
+   "must_not": "Decide what the answer means, or work a service manager."
   },
   "kkt-container-docker": {
    "layer": "operations",

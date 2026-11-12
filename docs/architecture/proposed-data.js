@@ -254,14 +254,6 @@ window.KKT_PROPOSED = {
    "kashkeshet": {
     "adapters": [
      {
-      "adapts": "kkt-service-os::OsSystem",
-      "large": false,
-      "methods": 8,
-      "note": "8 methods; run and run_attached translate kkt-service-os' own Finished into kkt-service's (step 2.2)",
-      "status": "decided",
-      "to": "kkt-service::System"
-     },
-     {
       "adapts": "kkt-client-config-os::OsHost",
       "large": false,
       "methods": 10,
@@ -573,82 +565,6 @@ window.KKT_PROPOSED = {
        {
         "at": "switch",
         "param": "steps"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-service",
-      "impl": "kkt-service-os::OsSystem",
-      "note": "kkt service, setup, upgrade, status and doctor",
-      "through_adapter": [
-       "kkt-service::System"
-      ],
-      "to": [
-       {
-        "at": "Manager::install",
-        "param": "system"
-       },
-       {
-        "at": "Manager::state",
-        "param": "system"
-       },
-       {
-        "at": "Manager::check_started",
-        "param": "system"
-       },
-       {
-        "at": "Manager::uninstall",
-        "param": "system"
-       },
-       {
-        "at": "Manager::start",
-        "param": "system"
-       },
-       {
-        "at": "Manager::stop",
-        "param": "system"
-       },
-       {
-        "at": "Manager::status",
-        "param": "system"
-       },
-       {
-        "at": "Manager::logs",
-        "param": "system"
-       },
-       {
-        "at": "Manager::add_key",
-        "param": "system"
-       },
-       {
-        "at": "Manager::installed_args",
-        "param": "system"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-service",
-      "impl": "kkt-service::DryRun",
-      "note": "kkt service install --dry-run",
-      "to": [
-       {
-        "at": "Manager::install",
-        "param": "system"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-service",
-      "impl": "kkt-clock-system::SystemClock",
-      "note": "kkt service install, kkt upgrade",
-      "to": [
-       {
-        "at": "Manager::install",
-        "param": "clock"
-       },
-       {
-        "at": "Manager::check_started",
-        "param": "clock"
        }
       ]
      },
@@ -1652,11 +1568,29 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-service-launchd"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
     ],
     "to": "kkt-service-os"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-service-systemd"
    },
    {
     "from": "kashkeshet",
@@ -3077,6 +3011,42 @@ window.KKT_PROPOSED = {
     "to": "kkt-admission"
    },
    {
+    "from": "kkt-service-launchd",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-service-launchd",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-service"
+   },
+   {
+    "from": "kkt-service-systemd",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-service-systemd",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-service"
+   },
+   {
     "from": "kkt-setup",
     "kind": "normal",
     "role": "uses",
@@ -3705,7 +3675,6 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "roles_after": [
-     "implements",
      "uses"
     ],
     "roles_before": [
@@ -5043,7 +5012,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/service.rs: its machine work (its output, trying the address, this program's path) moves to kkt-terminal-os, kkt-service-os and kkt-setup-os; its decisions (whether a busy address stops the install, and the dry run's text) to kkt-service. It keeps kkt service as a thin body."
+      "text": "src/commands/service.rs: its machine work (its output, trying the address, this program's path) moves to kkt-terminal-os, kkt-service-os and kkt-setup-os. It keeps kkt service as a thin body."
      },
      {
       "status": "decided",
@@ -5396,6 +5365,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program injects Claude Code's command as it is (step 12.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "Builds Launchd for its platform and hands it directly to kkt-operate (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "Builds Systemd for its platform and hands it directly to kkt-operate (12.3)."
      }
     ]
    },
@@ -9429,10 +9406,6 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "OsSystem moves to kkt-service-os"
-     },
-     {
-      "status": "decided",
       "text": "LAUNCHD_LABEL comes here from kkt-config, private"
      },
      {
@@ -9493,6 +9466,30 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "OsSystem is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "System is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "Command is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "Finished is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "DryRun is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "Manager is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
       "text": "new fn check_bind"
      },
      {
@@ -9502,6 +9499,50 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Service"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Unsupported"
+     },
+     {
+      "status": "decided",
+      "text": "new type Pending"
+     },
+     {
+      "status": "decided",
+      "text": "new fn path_text"
+     },
+     {
+      "status": "decided",
+      "text": "new fn plain_text"
+     },
+     {
+      "status": "decided",
+      "text": "new constant SERVICE_RESTART_DELAY"
+     },
+     {
+      "status": "decided",
+      "text": "new constant SERVICE_STOP_TIMEOUT"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "testing::Memory implements kkt-service::Service: The contract owns its testing stand-in (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "Unsupported implements kkt-service::Service: The contract's own answer for other systems (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.3)."
      },
      {
       "status": "decided",
@@ -9518,6 +9559,35 @@ window.KKT_PROPOSED = {
     ]
    },
    {
+    "crate": "kkt-service-launchd",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-service"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Launchd"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "Launchd implements kkt-service::Service: A tool wrapper implements its scope contract directly (step 12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "The named wrapper implements the scope contract directly (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "waits on the clock it is given, as the contract says (12.3)."
+     }
+    ]
+   },
+   {
     "crate": "kkt-service-os",
     "notes": [
      {
@@ -9526,23 +9596,36 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "OsSystem comes here from kkt-service"
-     },
-     {
-      "status": "decided",
       "text": "new fn try_bind"
      },
      {
       "status": "decided",
-      "text": "new struct Finished"
-     },
-     {
-      "status": "decided",
-      "text": "OsSystem no longer implements kkt-service::System"
-     },
-     {
-      "status": "decided",
       "text": "takes the real feature from kkt-service"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-service-systemd",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-service"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Systemd"
+     },
+     {
+      "status": "decided",
+      "text": "Systemd implements kkt-service::Service: A tool wrapper implements its scope contract directly (step 12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "The named wrapper implements the scope contract directly (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "waits on the clock it is given, as the contract says (12.3)."
      }
     ]
    },
@@ -11445,14 +11528,26 @@ window.KKT_PROPOSED = {
     "status": "follows"
    },
    "kkt-service": {
-    "concern": "Running kkt as a service under launchd or systemd, and the plan of what the service runs. It declares the `System` it works through, and keeps `DryRun`; the real one is in kkt-service-os, adapted by the program.",
-    "kind": "logic",
+    "concern": "The project's contract for running kkt as a service of the user's login (Service), its values and errors, Unsupported for other systems, and the service plan and bind check on plain values; its testing stand-in. No service manager's knowledge.",
+    "kind": "contract",
     "layer": "operations",
     "must_not": "Touch the machine except through its `System` contract.",
     "status": "decided"
    },
+   "kkt-service-launchd": {
+    "concern": "Implements kkt-service's Service directly as a launchd user agent on macOS: the plist, launchctl's commands and answers, the log file and the retries while launchd removes an old service, tested against a private system; the real files and commands are behind real (step 12.3, option a).",
+    "kind": "effect",
+    "layer": "operations",
+    "status": "decided"
+   },
    "kkt-service-os": {
-    "concern": "The machine's service manager: `OsSystem`, a plain type that implements nothing; the program adapts it to kkt-service's `System`. kkt-service's `real` feature moves here.",
+    "concern": "Trying whether the service's server could listen on its address: `try_bind`, which the program passes to kkt-service's bind check. Its service files and commands went to the service manager wrappers (step 12.3).",
+    "kind": "effect",
+    "layer": "operations",
+    "status": "decided"
+   },
+   "kkt-service-systemd": {
+    "concern": "Implements kkt-service's Service directly as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system; the real files and commands are behind real (step 12.3, option a).",
     "kind": "effect",
     "layer": "operations",
     "status": "decided"
@@ -13824,15 +13919,6 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-service-os::OsSystem",
-      "crate": "kashkeshet",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "System",
-      "trait_crate": "kkt-service",
-      "type": null
-     },
-     {
       "crate": "kashkeshet",
       "trait": "AdoptSteps",
       "trait_crate": "kkt-setup",
@@ -14454,7 +14540,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/service.rs: its machine work (its output, trying the address, this program's path) moves to kkt-terminal-os, kkt-service-os and kkt-setup-os; its decisions (whether a busy address stops the install, and the dry run's text) to kkt-service. It keeps kkt service as a thin body."
+      "text": "src/commands/service.rs: its machine work (its output, trying the address, this program's path) moves to kkt-terminal-os, kkt-service-os and kkt-setup-os. It keeps kkt service as a thin body."
      },
      {
       "status": "decided",
@@ -14807,6 +14893,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program injects Claude Code's command as it is (step 12.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "Builds Launchd for its platform and hands it directly to kkt-operate (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "Builds Systemd for its platform and hands it directly to kkt-operate (12.3)."
      }
     ],
     "released_program": true,
@@ -25252,7 +25346,7 @@ window.KKT_PROPOSED = {
       "traits": [
        {
         "crate": "kkt-service",
-        "trait": "System"
+        "trait": "Service"
        }
       ]
      },
@@ -27612,96 +27706,54 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kashkeshet",
-        "type": null
+        "crate": "kkt-service",
+        "type": "Unsupported"
        },
        {
         "crate": "kkt-service",
-        "type": "DryRun"
+        "type": "testing::Memory"
+       },
+       {
+        "crate": "kkt-service-launchd",
+        "type": "Launchd"
+       },
+       {
+        "crate": "kkt-service-systemd",
+        "type": "Systemd"
        }
       ],
-      "trait": "System"
+      "trait": "Service"
      }
     ],
     "crate_doc": "Running the server as a background service of the user's login: a launchd user agent on macOS, a systemd user unit on Linux.",
     "dev_only": false,
-    "features": {},
-    "holders": [
-     {
-      "holds": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ],
-      "type": "DryRun"
-     }
-    ],
+    "features": {
+     "testing": []
+    },
+    "holders": [],
     "implements": [
      {
       "crate": "kkt-service",
-      "trait": "System",
+      "status": "decided",
+      "trait": "Service",
       "trait_crate": "kkt-service",
-      "type": "DryRun"
+      "type": "Unsupported"
+     },
+     {
+      "crate": "kkt-service",
+      "status": "decided",
+      "trait": "Service",
+      "trait_crate": "kkt-service",
+      "type": "testing::Memory"
      }
     ],
     "items": [
      {
-      "doc": "A program to run and its arguments.",
-      "fields": [
-       "program",
-       "args",
-       "query"
-      ],
-      "kind": "struct",
-      "path": "Command"
-     },
-     {
-      "doc": "Looks at the real system but changes nothing: each change, and each command that changes something, is written down instead and taken as succeeding.",
-      "kind": "struct",
-      "methods": [
-       "actions",
-       "new"
-      ],
-      "path": "DryRun"
-     },
-     {
-      "doc": "How a command ended.",
-      "fields": [
-       "code",
-       "stdout",
-       "stderr"
-      ],
-      "kind": "struct",
-      "methods": [
-       "success"
-      ],
-      "path": "Finished"
-     },
-     {
-      "doc": "The service manager of one platform; for_this_os chooses it from the home folder and the config home folder, given as plain optional paths.",
-      "kind": "enum",
-      "methods": [
-       "add_key",
-       "check_started",
-       "for_this_os",
-       "install",
-       "installed_args",
-       "launchd",
-       "logs",
-       "render",
-       "start",
-       "state",
-       "status",
-       "stop",
-       "systemd",
-       "uninstall"
-      ],
-      "path": "Manager",
-      "variants": [
-       "Launchd",
-       "Systemd"
-      ]
+      "doc": "An answer that comes after waiting on the clock it is given (step 12.3).",
+      "kind": "type",
+      "path": "Pending",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "The plan for the service, before its arguments are written out.",
@@ -27739,6 +27791,41 @@ window.KKT_PROPOSED = {
       ],
       "kind": "struct",
       "path": "Request"
+     },
+     {
+      "doc": "How long the service manager waits before starting the server again after it failed (step 12.3).",
+      "kind": "constant",
+      "path": "SERVICE_RESTART_DELAY",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "How long the service manager waits for the server to stop before it kills it (step 12.3).",
+      "kind": "constant",
+      "path": "SERVICE_STOP_TIMEOUT",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "What kkt asks of this machine's service manager (step 12.3).",
+      "kind": "trait",
+      "methods": [
+       "ready",
+       "install",
+       "dry_run",
+       "check_started",
+       "installed_args",
+       "uninstall",
+       "start",
+       "stop",
+       "add_key",
+       "state",
+       "status",
+       "logs"
+      ],
+      "path": "Service",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "",
@@ -27792,19 +27879,11 @@ window.KKT_PROPOSED = {
       "path": "Spec"
      },
      {
-      "doc": "What the system must do for the service.",
-      "kind": "trait",
-      "methods": [
-       "create_dir_all",
-       "exists",
-       "read_file",
-       "remove_file",
-       "run",
-       "run_attached",
-       "user_id",
-       "write_file"
-      ],
-      "path": "System"
+      "doc": "The service on a system with no service manager kkt works with (step 12.3).",
+      "kind": "struct",
+      "path": "Unsupported",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "Refuses a service whose server could not listen on its address, from the answer of the program's try_bind, and says why (step 3.5b).",
@@ -27814,12 +27893,39 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "A path as service-file text (step 12.3).",
+      "kind": "fn",
+      "path": "path_text",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Refuses text a service file cannot hold safely (step 12.3).",
+      "kind": "fn",
+      "path": "plain_text",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Works out the plan.",
       "kind": "fn",
       "path": "plan"
+     },
+     {
+      "doc": "One service, held in memory (step 12.3).",
+      "feature": "testing",
+      "kind": "struct",
+      "methods": [
+       "new",
+       "installed",
+       "done"
+      ],
+      "path": "testing::Memory",
+      "proposed_item": true,
+      "status": "decided"
      }
     ],
-    "kind": "logic",
+    "kind": "contract",
     "lib": "kkt_service",
     "machine_work": {
      "src/os.rs": [
@@ -27836,10 +27942,6 @@ window.KKT_PROPOSED = {
     "path": "crates/kkt-service",
     "proposed": "changed",
     "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "OsSystem moves to kkt-service-os"
-     },
      {
       "status": "decided",
       "text": "LAUNCHD_LABEL comes here from kkt-config, private"
@@ -27902,6 +28004,30 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "OsSystem is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "System is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "Command is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "Finished is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "DryRun is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "Manager is no longer public: The service manager's files and commands become private to each wrapper; callers use Service (12.3)."
+     },
+     {
+      "status": "decided",
       "text": "new fn check_bind"
      },
      {
@@ -27911,6 +28037,50 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "new trait Service"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Unsupported"
+     },
+     {
+      "status": "decided",
+      "text": "new type Pending"
+     },
+     {
+      "status": "decided",
+      "text": "new fn path_text"
+     },
+     {
+      "status": "decided",
+      "text": "new fn plain_text"
+     },
+     {
+      "status": "decided",
+      "text": "new constant SERVICE_RESTART_DELAY"
+     },
+     {
+      "status": "decided",
+      "text": "new constant SERVICE_STOP_TIMEOUT"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "testing::Memory implements kkt-service::Service: The contract owns its testing stand-in (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "Unsupported implements kkt-service::Service: The contract's own answer for other systems (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.3)."
      },
      {
       "status": "decided",
@@ -27926,154 +28096,82 @@ window.KKT_PROPOSED = {
      }
     ],
     "released_program": false,
-    "slots": [
-     {
-      "at": "DryRun::new",
-      "kind": "param",
-      "name": "real",
-      "traits": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ]
-     },
-     {
-      "at": "Manager::add_key",
-      "kind": "param",
-      "name": "system",
-      "traits": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ]
-     },
-     {
-      "at": "Manager::check_started",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "Manager::check_started",
-      "kind": "param",
-      "name": "system",
-      "traits": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ]
-     },
-     {
-      "at": "Manager::install",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "Manager::install",
-      "kind": "param",
-      "name": "system",
-      "traits": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ]
-     },
-     {
-      "at": "Manager::installed_args",
-      "kind": "param",
-      "name": "system",
-      "traits": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ]
-     },
-     {
-      "at": "Manager::logs",
-      "kind": "param",
-      "name": "system",
-      "traits": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ]
-     },
-     {
-      "at": "Manager::start",
-      "kind": "param",
-      "name": "system",
-      "traits": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ]
-     },
-     {
-      "at": "Manager::state",
-      "kind": "param",
-      "name": "system",
-      "traits": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ]
-     },
-     {
-      "at": "Manager::status",
-      "kind": "param",
-      "name": "system",
-      "traits": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ]
-     },
-     {
-      "at": "Manager::stop",
-      "kind": "param",
-      "name": "system",
-      "traits": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ]
-     },
-     {
-      "at": "Manager::uninstall",
-      "kind": "param",
-      "name": "system",
-      "traits": [
-       {
-        "crate": "kkt-service",
-        "trait": "System"
-       }
-      ]
-     }
-    ],
+    "slots": [],
     "third_party": [
      "thiserror"
     ]
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {},
+    "holders": [],
+    "implements": [
+     {
+      "crate": "kkt-service-launchd",
+      "status": "decided",
+      "trait": "Service",
+      "trait_crate": "kkt-service",
+      "type": "Launchd"
+     }
+    ],
+    "items": [
+     {
+      "doc": "The launchd user agent of the user whose home folder it is given, waiting for launchd as its Settings say (step 12.3).",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "new"
+      ],
+      "path": "Launchd",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "How long installing the service again waits for launchd to let the new one load; the program passes its DEFAULT (step 12.3).",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
+      "status": "decided"
+     }
+    ],
+    "kind": "effect",
+    "lib": "kkt_service_launchd",
+    "name": "kkt-service-launchd",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-service"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Launchd"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
+      "text": "Launchd implements kkt-service::Service: A tool wrapper implements its scope contract directly (step 12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "The named wrapper implements the scope contract directly (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "waits on the clock it is given, as the contract says (12.3)."
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
    },
    {
     "bins": [],
@@ -28087,21 +28185,6 @@ window.KKT_PROPOSED = {
     "holders": [],
     "implements": [],
     "items": [
-     {
-      "doc": "How a command ended, in kkt-service-os' own terms; the program translates it to kkt-service's Finished.",
-      "kind": "struct",
-      "path": "Finished",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "The real system: files on disk and real commands.",
-      "feature": "real",
-      "kind": "struct",
-      "moved_from": "kkt-service",
-      "path": "OsSystem",
-      "status": "decided"
-     },
      {
       "doc": "Tries to bind an address, to see whether it is free.",
       "feature": "real",
@@ -28123,23 +28206,72 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "OsSystem comes here from kkt-service"
-     },
-     {
-      "status": "decided",
       "text": "new fn try_bind"
      },
      {
       "status": "decided",
-      "text": "new struct Finished"
-     },
-     {
-      "status": "decided",
-      "text": "OsSystem no longer implements kkt-service::System"
-     },
-     {
-      "status": "decided",
       "text": "takes the real feature from kkt-service"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {},
+    "holders": [],
+    "implements": [
+     {
+      "crate": "kkt-service-systemd",
+      "status": "decided",
+      "trait": "Service",
+      "trait_crate": "kkt-service",
+      "type": "Systemd"
+     }
+    ],
+    "items": [
+     {
+      "doc": "The systemd user unit of the user whose config base it is given (step 12.3).",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "new"
+      ],
+      "path": "Systemd",
+      "proposed_item": true,
+      "status": "decided"
+     }
+    ],
+    "kind": "effect",
+    "lib": "kkt_service_systemd",
+    "name": "kkt-service-systemd",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-service"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Systemd"
+     },
+     {
+      "status": "decided",
+      "text": "Systemd implements kkt-service::Service: A tool wrapper implements its scope contract directly (step 12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "The named wrapper implements the scope contract directly (12.3)."
+     },
+     {
+      "status": "decided",
+      "text": "waits on the clock it is given, as the contract says (12.3)."
      }
     ],
     "released_program": false,
@@ -32960,14 +33092,8 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "optional": false,
     "proposed": "changed",
-    "role": "implements",
+    "role": "uses",
     "roles": [
-     {
-      "detail": [
-       "adapter for kkt-service-os::OsSystem implements System"
-      ],
-      "role": "implements"
-     },
      {
       "detail": [
        "Settings"
@@ -32983,12 +33109,36 @@ window.KKT_PROPOSED = {
     "to": "kkt-service"
    },
    {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [
+     "Launchd"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "Launchd"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-service-launchd"
+   },
+   {
     "features": [
      "real"
     ],
     "from": "kashkeshet",
     "items": [
-     "OsSystem",
      "try_bind"
     ],
     "kind": "normal",
@@ -33001,10 +33151,29 @@ window.KKT_PROPOSED = {
        "try_bind"
       ],
       "role": "uses"
-     },
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-service-os"
+   },
+   {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [
+     "Systemd"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
      {
       "detail": [
-       "OsSystem"
+       "Systemd"
       ],
       "role": "wires"
      }
@@ -33014,7 +33183,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-service-os"
+    "to": "kkt-service-systemd"
    },
    {
     "features": [],
@@ -38437,12 +38606,10 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-operate",
     "items": [
-     "DryRun",
-     "Manager",
      "Request",
+     "Service",
      "ServiceError",
      "Spec",
-     "System",
      "check_bind",
      "plan"
     ],
@@ -38453,12 +38620,10 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "DryRun",
-       "Manager",
        "Request",
+       "Service",
        "ServiceError",
        "Spec",
-       "System",
        "check_bind",
        "plan"
       ],
@@ -40199,6 +40364,140 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
+    "from": "kkt-service-launchd",
+    "items": [
+     "Clock"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Clock"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-service-launchd",
+    "items": [
+     "Service",
+     "ServiceError",
+     "ServiceState",
+     "Settings",
+     "Spec",
+     "path_text",
+     "plain_text"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "Launchd implements Service"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "ServiceError",
+       "ServiceState",
+       "Settings",
+       "Spec",
+       "path_text",
+       "plain_text"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-service"
+   },
+   {
+    "features": [],
+    "from": "kkt-service-systemd",
+    "items": [
+     "Clock"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Clock"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-service-systemd",
+    "items": [
+     "Service",
+     "ServiceError",
+     "ServiceState",
+     "Settings",
+     "Spec",
+     "path_text",
+     "plain_text"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "Systemd implements Service"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "ServiceError",
+       "ServiceState",
+       "Settings",
+       "Spec",
+       "path_text",
+       "plain_text"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-service"
+   },
+   {
+    "features": [],
     "from": "kkt-setup",
     "items": [
      "ACCESS_KEY_FILE_NAME",
@@ -41350,7 +41649,9 @@ window.KKT_PROPOSED = {
    }
   ],
   "kind_mismatches": [
-   "kkt-agent-client is marked contract but has an effect: a `real` feature or an I/O dependency"
+   "kkt-agent-client is marked contract but has an effect: a `real` feature or an I/O dependency",
+   "kkt-service-launchd is marked effect but has no `real` feature and no I/O dependency",
+   "kkt-service-systemd is marked effect but has no `real` feature and no I/O dependency"
   ],
   "pending": []
  },
@@ -41773,10 +42074,11 @@ window.KKT_PROPOSED = {
     }
    ],
    "new": [
-    "kkt-service-os"
+    "kkt-service-launchd",
+    "kkt-service-systemd"
    ],
    "path": "System",
-   "result": "Declared by its consumer, kkt-service. OsSystem moves to kkt-service-os as a plain type that implements nothing; kkt-service's real feature moves with it, and the program adapts it. DryRun stays in kkt-service, implementing its own crate's System.",
+   "result": "Removed: the project-level Service scope contract replaces working the system through files and commands. A named wrapper for each service manager implements it directly, kkt-service-launchd and kkt-service-systemd, and the program only picks one by platform and injects it (step 12.3).",
    "rule": "declared by its consumers",
    "test_only": [],
    "trait": "kkt-service::System",

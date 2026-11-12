@@ -1,5 +1,5 @@
 {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install). \"injectors\" lists the wiring that a shared crate does itself (kkt-server, which assembles the server), in the same form; an entry that passes on what it was given names it in \"own\" and its supplier in \"supplier\".",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself (kkt-server, which assembles the server), in the same form; an entry that passes on what it was given names it in \"own\" and its supplier in \"supplier\".",
  "programs": {
   "kashkeshet": {
    "title": "kkt serve",
@@ -439,80 +439,6 @@
      "note": "kkt switch"
     },
     {
-     "crate": "kkt-service",
-     "to": [
-      {
-       "at": "Manager::install",
-       "param": "system"
-      },
-      {
-       "at": "Manager::state",
-       "param": "system"
-      },
-      {
-       "at": "Manager::check_started",
-       "param": "system"
-      },
-      {
-       "at": "Manager::uninstall",
-       "param": "system"
-      },
-      {
-       "at": "Manager::start",
-       "param": "system"
-      },
-      {
-       "at": "Manager::stop",
-       "param": "system"
-      },
-      {
-       "at": "Manager::status",
-       "param": "system"
-      },
-      {
-       "at": "Manager::logs",
-       "param": "system"
-      },
-      {
-       "at": "Manager::add_key",
-       "param": "system"
-      },
-      {
-       "at": "Manager::installed_args",
-       "param": "system"
-      }
-     ],
-     "note": "kkt service, setup, upgrade, status and doctor",
-     "own": "ServiceSystem, adapting kkt-service-os's OsSystem",
-     "supplier": "kkt-service-os's OsSystem"
-    },
-    {
-     "impl": "kkt-service::DryRun",
-     "crate": "kkt-service",
-     "to": [
-      {
-       "at": "Manager::install",
-       "param": "system"
-      }
-     ],
-     "note": "kkt service install --dry-run"
-    },
-    {
-     "impl": "kkt-clock-system::SystemClock",
-     "crate": "kkt-service",
-     "to": [
-      {
-       "at": "Manager::install",
-       "param": "clock"
-      },
-      {
-       "at": "Manager::check_started",
-       "param": "clock"
-      }
-     ],
-     "note": "kkt service install, kkt upgrade"
-    },
-    {
      "crate": "kkt-client-config",
      "to": [
       {
@@ -658,7 +584,7 @@
      ]
     },
     {
-     "own": "ServiceSystem",
+     "impl": "kkt-service-launchd::Launchd",
      "crate": "kkt-operate",
      "to": [
       {
@@ -666,7 +592,29 @@
        "param": "service"
       }
      ],
-     "supplier": "kkt-service-os::OsSystem"
+     "note": "On macOS: the program picks the service manager by platform and injects it directly (12.3)."
+    },
+    {
+     "impl": "kkt-service-systemd::Systemd",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "service"
+      }
+     ],
+     "note": "On Linux (12.3)."
+    },
+    {
+     "impl": "kkt-service::Unsupported",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "service"
+      }
+     ],
+     "note": "On any other system (12.3)."
     },
     {
      "crate": "kkt-operate",
