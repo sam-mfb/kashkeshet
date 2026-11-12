@@ -15,9 +15,9 @@ Sam, each with the default we proceed on.
 
 The refactor's phases 0 to 8 are done. Sam then decided that kkt-settings
 goes too (2026-11-12): phase 9 removes it. He also decided that the
-program's library becomes three assemblies, kkt-serve, kkt-operate and
-kkt-agent-commands (2026-11-12): phase 10, which runs together with
-phase 9. What is left for Sam comes first, below; the scorecards are at
+program's tools leave its library as two assemblies, kkt-operate and
+kkt-agent-commands, while the program keeps composing the server
+(2026-11-12): phase 10, which runs together with phase 9. What is left for Sam comes first, below; the scorecards are at
 the end.
 
 ## Awaiting Sam
@@ -117,8 +117,8 @@ merges.
 
 | Difference | Step | Replaced by |
 |---|---|---|
-| `serve_bind` stays in the program; kkt-service's `check_bind`; kkt-keymode keeps four refusal messages | 3.5b | 9.3 and 10.1: the serve pieces go to kkt-serve |
-| No `SettingsSource`: the programs turn `Config` into `ServeOptions` | 3.3, 3.5c | 9.3: kkt-settings goes, and the serve surface is kkt-serve's |
+| `serve_bind` stays in the program; kkt-service's `check_bind`; kkt-keymode keeps four refusal messages | 3.5b | 9.3: the serve pieces stay in the programs, which keep the serve surface; kkt has no kkt-serve (Sam, 2026-11-12) |
+| No `SettingsSource`: the programs turn `Config` into `ServeOptions` | 3.3, 3.5c | 9.3: kkt-settings goes, and the serve surface is each program's |
 | Each program keeps `check_settings`, about 25 lines in both kkt and kkt-keymode | 3.5c | 9.2 and 9.3: kkt-server keeps the order of the checks, and each program maps its keys onto `ServerSettings` |
 | kkt-settings words the run's settings; kkt-provenance depends only on kkt-hash | 3.5c | 9.2: kkt-server words them (`ServerSettings::record_lines`); kkt-provenance still depends only on kkt-hash |
 | `start` takes `NewServerRun` and `Startup`; `Parts::new` takes the `Rules`; the program makes the events bus | 5.6a | 9.2: `Parts` takes an `Arc<dyn AdminApi>`, and `NewServerRun` moves to whoever calls `start` |
@@ -268,7 +268,7 @@ the last column says so.
 | kkt-config-file's `parse_file` takes the caller's log-level check, and `Config` carries what it makes of the levels; kkt-container's `ConfigReader` returns its own `ContainerConfig` | 3.3 (#445) | kkt-config-file need not know kkt-logs, and of two bad settings the first by name is still the one named, as before | accepted by Sam, 2026-11-12 | yes |
 | `config_home` is a method of kkt-machine's `Env`, with `absolute_xdg_config_home` and `absolute_xdg_data_home`, not a function of kkt-config-file; `config_dir` and `config_file` take the optional config-home folder, with no kkt-config-file dependency on kkt-machine; `kkt_admission::access_key_file` and kkt-setup's record paths take the config folder, not `Env`; the program has `NewKey` and `NewAvatar` | 3.4 (#448) | `config_home` is shared by other programs' config (kkt-service's and kkt-client-config's), and the XDG values count only when absolute, so `Env` gives them in one place; a path inside kkt's config folder takes that folder; `NewKey` and `NewAvatar` group two commands' arguments to stay within clippy's limit | decided by Sam, 2026-11-12: kkt-config-file takes the folder, not Env; other placements accepted by Sam, 2026-11-12 | removed dependency to be charted |
 | `kkt_service::Manager::for_this_os` takes the optional home and config-home paths, not `Env`; kkt-service no longer depends on kkt-machine. kkt-setup, kkt-client-config and kkt-container keep the environment record | 3.4 follow-up (audit msg 2788) | The service chooses one path per supported target; each of the other three reads several facts. The caller passes `env.home` and `env.config_home()`; platform choices, missing-home and unsupported-target behaviour stay the same | decided by Sam, 2026-11-12 | yes |
-| `serve_bind` stays in the program; the service's bind check is kkt-service's `check_bind`, supplied with kkt-service-os's `try_bind` by the program; kkt-keymode keeps four key-refusal messages of its own beside kkt-admission's `key_refusal` | 3.5b (#449) | `serve_bind` gathers the settings from the machine, which kkt-hosts cannot; `check_bind` decides and words the refusal, and trying the address is an effect of service-os (7.3a); kkt-keymode's messages differ from kkt's, and its output stays the same | to re-show Sam after 9.3 and 10.1 | yes |
+| `serve_bind` stays in the program; the service's bind check is kkt-service's `check_bind`, supplied with kkt-service-os's `try_bind` by the program; kkt-keymode keeps four key-refusal messages of its own beside kkt-admission's `key_refusal` | 3.5b (#449) | `serve_bind` gathers the settings from the machine, which kkt-hosts cannot; `check_bind` decides and words the refusal, and trying the address is an effect of service-os (7.3a); kkt-keymode's messages differ from kkt's, and its output stays the same | to re-show Sam after 9.3 | yes |
 | kkt-settings has no `SettingsSource`: kkt and kkt-keymode turn kkt-config-file's `Config` and the flags each into kkt-settings' `ServeOptions`, which kkt-settings combines; `Sources`, `Loaded` and `read_config` stay in the program | 3.3 (#445), 3.5c (#450) | `ServeOptions` already is a plain record of one source's optional settings; a trait over it would add a method and two adapters with no new behaviour | to re-show Sam after 9.3 | yes |
 | kkt-settings depends on kkt-admission (`AccessKey` in `ServeSettings`, the key paths), kkt-logs (`LogLevel`, `LogPolicy`), kkt-mcp-formatter and kkt-web (the bounds `Limits::check` reads, now public) and kkt-names (`NamePack`) | 3.1b (#431), 3.5b (#449), 3.5c (#450) | Its values hold those types, and `Limits::check` reads the bounds their owners state. None of them depends on kkt-settings, and only the programs do | not accepted by Sam, 2026-11-12: kkt-settings goes (phase 9) | yes; phase 9's chart removes the crate and these arrows |
 | Each program keeps `check_settings`: a short function that turns kkt-settings' values into each crate's settings and calls each owner's check, with the mapping of `Limits` to kkt-rules' and kkt-web's settings (about 25 lines) in both kkt and kkt-keymode; `Limits::check` stays one ordered list; kkt-keymode keeps its own `KeyFiles` | 3.5c (#450) | No allowed owner exists for the mapping: kkt-rules and kkt-web may not know kkt-settings, nor kkt-settings them. One ordered list keeps the first bad limit named the same. `KeyFiles` goes with the proposal's kkt-admission-os (7.2) | superseded by phase 9: kkt-server keeps the order, and each program maps its keys onto `ServerSettings`; to re-show Sam after 9.2 and 9.3 | yes; phase 9 charted |
@@ -948,51 +948,47 @@ for the shared constructors: one at a time.
   contract changes. `new_server_run`, which turns kkt-provenance's
   `ServerRun` into kkt-rules' `NewServerRun`, moves out of kkt-server to
   whoever calls `start`: for now each program has its own copy (eight
-  lines), and 10.1 moves kkt's into kkt-serve; kkt-keymode keeps its own.
+  lines), beside the program's other serving code.
   So kkt-server's normal dependency on kkt-rules goes. Its tests keep a
   dev-dependency on kkt-rules for `kkt_rules::testing`, and are not
   rewritten onto kkt-api-sim. kkt-server keeps kkt-provenance for `Build`.
-- **9.3 kkt's serve surface lands in kkt-serve; kkt-settings goes.** M,
-  smaller than first planned. After 10.1, so kkt's surface moves once,
-  into kkt-serve (phase 10), and not into the program first. `ServeOptions`,
-  `resolve`, `ServeSettings` and the checks move from kkt-settings into
-  kkt-serve's settings module (today's `src/machine/settings.rs`, moved by
-  10.1), which maps each key onto a `ServerSettings` field or a setting of
-  kkt-serve's own (kkt-rules' `Settings`, kkt-backup's, the log, the
-  database, the key files). kkt-serve passes kkt-rules' and kkt-backup's
-  problems and record lines, and its own, to kkt-server's `check` and
-  `record_lines`. kkt-keymode keeps its own, smaller surface (the config
-  file only), as phase 9's design says: it maps each key onto a
-  `ServerSettings` field or a program setting in about 40 lines of its
-  own, and the check's order and the record's wording exist once, in
-  kkt-server. It makes no backups: it depends on kkt-backup only so that
-  its run record keeps the `upgrade_backups_kept` line byte for byte, and
-  on kkt-names for the name pack. kkt-settings is deleted, with `Limits` and
-  the tests that compared its defaults with the owners'
-  (`each_parts_defaults_are_the_gathered_defaults`, in kkt and in
-  kkt-keymode). The users of `Limits::DEFAULT` (`cli.rs`, `kkt status`,
-  doctor, `kkt lanes`, `tests/common`, `tests/contract.rs`) read their
-  owners' defaults. The crate's paperwork goes too: the workspace members,
-  CLAUDE.md's row, `concerns.json` and `assembly.json`. Rebase on
+- **9.3 The programs keep the surface; kkt-settings goes.** M. `ServeOptions`,
+  `resolve`, `ServeSettings` and the program's checks move into kkt
+  (`src/machine/settings.rs`) and kkt-keymode, which map each key onto a
+  `ServerSettings` field or a program setting (kkt-rules' `Settings`,
+  kkt-backup's, or its own). kkt-keymode makes no backups: it depends on
+  kkt-backup only so that its run record keeps the `upgrade_backups_kept`
+  line byte for byte, which is deliberate, and on kkt-names for the name
+  pack. Each program passes kkt-rules' and kkt-backup's problems and record
+  lines, and its own, to kkt-server's `check` and `record_lines`.
+  kkt-settings is deleted, with `Limits` and the tests that compared its
+  defaults with the owners' (`each_parts_defaults_are_the_gathered_defaults`,
+  in kkt and in kkt-keymode). The users of `Limits::DEFAULT` (`cli.rs`, `kkt
+  status`, doctor, `kkt lanes`, `tests/common`, `tests/contract.rs`) read
+  their owners' defaults. The crate's paperwork goes too: the workspace
+  members, CLAUDE.md's row, `concerns.json` and `assembly.json`. Rebase on
   kkt-build-c's change to kkt-config-file (msg 2779), which touches the
-  same file. kkt-build-b, after its 11.1; 11.x does not run beside it.
+  same file. After 9.2. kkt-build-b, after its 11.1; 11.x does not run
+  beside it.
 - **9.4 Chart what differs.** Folded into 10.4, which charts phases 9 and
   10 together.
 
-### Phase 10: the program's library becomes assemblies (Sam, 2026-11-12)
+### Phase 10: the program's tools become assemblies (Sam, 2026-11-12)
 
 **Why.** kkt's library is about 5,400 lines: `src/commands` (about 2,900)
 and `src/machine` (about 2,450), with `src/bin/kkt/cli.rs` (1,067) and
 `main.rs` (265) beside it. It composes the server and a dozen small tools
 in one package, so kashkeshet depends on 48 kkt crates for unrelated
-reasons, and nothing shows which command needs which crate. The library
-splits into composition crates by who uses each part, beside kkt-server:
-one for serving, one for the operator's commands and one for the agents'
-commands (msgs 2789, 2794, 2803, 2825).
+reasons, and nothing shows which command needs which crate. The tools
+split into composition crates by who uses them, beside kkt-server: one for
+the operator's commands and one for the agents' commands (msgs 2789, 2794,
+2803, 2825). The serving code stays in kashkeshet (msg 2876): kkt-server
+is already the server's assembly, and the wiring above it is what the
+program is for.
 
-**The rules for the three assemblies.**
+**The rules for the two assemblies.**
 
-- No assembly depends on another, and none depends on an `-os` crate or
+- No assembly depends on the other, and none depends on an `-os` crate or
   on kkt-agent-client, which is an effect crate too. Each takes its
   effects in a `Parts` value, as kkt-server takes `Parts`.
 - kashkeshet, the `kkt` program, chooses every implementation and injects
@@ -1018,72 +1014,29 @@ commands (msgs 2789, 2794, 2803, 2825).
 - Where a command needs a fact about the local server (where it listens,
   which key reaches it, which database it uses, what the setup record
   says), its assembly asks a question through its `Parts`, and kashkeshet
-  answers by calling kkt-serve or kkt-operate. A question, not a value
-  worked out up front, because today each fact is read only by the command
-  that needs it, at the point it needs it, and a missing record or a bad
-  config file is reported only then, with its own text. That stays.
+  answers from its own serving code or with kkt-operate's functions, and
+  adapts. A question, not a value worked out up front, because today each
+  fact is read only by the command that needs it, at the point it needs
+  it, and a missing record or a bad config file is reported only then,
+  with its own text. That stays.
 
-**kkt-serve** (kind composition, layer assembly). What `kkt serve` runs.
-kkt-keymode does not use it. kkt-keymode exists to assemble key mode again
-from the shared crates with none of the kkt program's code, and the
-end-to-end tests run against both programs to check that the two
-assemblies agree; if kkt-keymode reused kkt-serve, the second run would
-test the same code twice.
-
-- Moves in: `src/commands/serve.rs` (`run`, and the core that records the
-  run, builds the `Rules`, the `Parts` and the server and listens, which
-  stays private: only kkt's `run` uses it); from `src/machine/settings.rs`, the
-  serve settings (`ServeOptions` and `ServeSettings` after 9.3, `resolve`,
-  `database` with `DefaultDb`, `default_access_key`, `serve_settings`,
-  `serve_settings_and_sources`, `serve_settings_from_args` with the
-  `ServeArgs` type, `as_running`, `serve_bind`, `Loaded`,
-  `load_serve_options`, `read_config`, `parse_config`, `Sources`,
-  `BadSetting`, `Checked`, `check_settings`, the two `NO_HOME_TO_*`
-  texts); the server half of `src/machine/keys.rs` (`read_server_keys`
-  with its `KeyTexts` adapter and wording, `make_default_key`, `read_key`);
-  and `backup_before_upgrade` with `write_backup`, from
-  `src/commands/lifecycle.rs`. Phase 9.3 then lands the serve surface
-  here, not in the programs.
-- Stays in kashkeshet: `src/machine/database.rs`. It is kkt-db-sqlite
-  calls (open with adoption, the pending upgrade, the copy), so it becomes
-  the adapter of kkt-serve's database contract, and the program's tests
-  that open database files keep using it. `ContainerConfigs`, which adapts
-  `parse_config` to kkt-container's `ConfigReader`, stays too, as an
-  adapter.
-- `ServeParts`, worked out from what `serve.rs`, `settings.rs`, the key
-  readers and the backup touch today:
-
-  | Field | Contract | Answered today by |
-  |---|---|---|
-  | `clock` | kkt-clock's `Clock` | kkt-clock-system |
-  | `entropy` | kkt-entropy's `Entropy` | kkt-entropy-os |
-  | `log` | kkt-log's `Log`, for `Parts::new` and kkt-serve's own log lines, which keep their target, `kashkeshet::commands::serve`, so the log reads the same | kkt-logs-os' `TracingLog` |
-  | `start_log` | `StartLog` (kkt-serve's): start the log at two levels, with an optional file and policy | kkt-logs-os' `init_logging` |
-  | `config_files` | `ConfigFiles`: read a named config file, the default one if it is there, and the instructions file | kkt-config-file-os |
-  | `key_files` | `KeyFiles`: the three key texts for kkt-admission's `server_keys::check`, make a missing default key, read one key file | kkt-admission-os |
-  | `database` | `Database`: make the default database's folder, the pending upgrade, open with the core's tables (a `kkt_rules::Db`), copy | kashkeshet's `database.rs`, over kkt-db-sqlite; kkt-setup-os' `make_data_folder` |
-  | `backups` | `Backups`: write kkt-backup's layout, prune | kkt-backup-os |
-  | `listen` | `Listen`: bind kkt-server's `App` to an address and serve until a stop, giving the bound address | kkt-server-listen |
-  | `stop_signals` | `StopSignals`: stop a `Shutdown` on the system's stop signals | kkt-shutdown-os |
-  | `errors` | `Errors`: a line on standard error (`error: … (logged in …)`) | kkt-terminal-os |
-
-  `run` also takes the machine's facts (`Env`, `Platform`) and the
-  request (the config file and flags), as today. The facts kkt-serve gives
-  others (`serve_settings`, `serve_bind`, `read_config`, the database in
-  effect, the default access key, `read_key`, `make_default_key`) take
-  only the contracts they read, mostly `config_files`, so kashkeshet can
-  answer a question without building a whole `ServeParts`.
-- Depends on (21 kkt crates): kkt-server, kkt-rules, kkt-api-agent
-  (`SwarmId`), kkt-events, kkt-identity-keymode, kkt-provenance,
-  kkt-admission, kkt-hosts, kkt-logs, kkt-config-file, kkt-machine,
-  kkt-names, kkt-backup, kkt-setup (`default_db`,
-  `upgrade_backup_folder`), kkt-clock, kkt-entropy, kkt-log, kkt-shutdown,
-  kkt-mcp, kkt-mcp-formatter and kkt-web (until 9.3: kkt-settings).
-  Third-party: futures, for the boxed futures of `Listen` and
-  `StopSignals`. No tracing: it logs through `Log`.
-- Takes from kashkeshet the arrows to kkt-events, kkt-identity-keymode,
-  kkt-mcp, kkt-web, kkt-names, kkt-config-file and kkt-api-agent, which
-  kashkeshet needed only for serving.
+**The serving code stays in kashkeshet** (msg 2876). There is no
+kkt-serve. `src/commands/serve.rs`, `src/machine/settings.rs` (where 9.3
+lands the serve surface), `src/machine/database.rs`, the server half of
+`src/machine/keys.rs` (`read_server_keys`, `make_default_key`,
+`read_key`) and the backup before an upgrade stay in kashkeshet.
+`backup_before_upgrade` and the `write_backup` it calls leave
+`src/commands/lifecycle.rs` for `serve.rs` when 10.2b moves lifecycle to
+kkt-operate, whose `kkt backup` writes through its own `BackupWriter`.
+Choosing the database, reading the
+keys, resolving the settings, starting the rules and listening is how the
+program composes a server from the implementations it chooses. As a
+crate it would have had one user, since kkt-keymode must not use it: the
+end-to-end tests run against both programs to check two separate
+assemblies. So kashkeshet keeps its arrows to kkt-events,
+kkt-identity-keymode, kkt-mcp, kkt-web, kkt-names, kkt-config-file and
+kkt-api-agent, which only serving needs, and kkt-keymode is untouched by
+phase 10.
 
 **kkt-operate** (kind composition, layer assembly). The operator's
 commands on this machine.
@@ -1096,7 +1049,7 @@ commands on this machine.
   operator's command on the local database, beside `kkt lanes`, and shares
   its `existing_db`); `src/machine/record.rs` whole (the record, the
   unfinished note, the unrecorded installs, `check_setup`, which `main.rs`
-  calls before kkt-serve's `run` unless `--ignore-setup`); and the
+  calls before serving unless `--ignore-setup`); and the
   operator half of `src/machine/keys.rs` (the key finders `find_key`,
   `find_operator_key`, `find_here` and their reads, `selected_key_path`,
   `optional_key_path`, `runs_in_docker`, `local_web_key`,
@@ -1107,7 +1060,7 @@ commands on this machine.
 
   | Field | Contract | Answered by |
   |---|---|---|
-  | `container`, `container_configs`, `login_link` | kkt-container's `Host`, `ConfigReader`, `LoginLink` | `ContainerHost`; `ContainerConfigs` (kkt-serve's `parse_config`); `TerminalLink` |
+  | `container`, `container_configs`, `login_link` | kkt-container's `Host`, `ConfigReader`, `LoginLink` | `ContainerHost`; `ContainerConfigs` (the program's `parse_config`); `TerminalLink` |
   | `service`, `try_bind` | kkt-service's `System`, and the address check `check_bind` takes | `ServiceSystem`; kkt-service-os' `try_bind` |
   | `remote` | kkt-remote-access' `Host` | `RemoteHost` |
   | `clients` | kkt-client-config's `Host` | `ClientHost` |
@@ -1116,7 +1069,7 @@ commands on this machine.
   | `lines` | kkt-setup's `Lines` | `TerminalLines` |
   | `connection` | kkt-setup's `connection::ConnectionSource` | `ConnectionReads` |
   | `clock` | kkt-clock's `Clock` | kkt-clock-system |
-  | `serve` | `ServeFacts` (kkt-operate's): the local server's facts, below | kkt-serve's functions, and `cli::serve_args` |
+  | `serve` | `ServeFacts` (kkt-operate's): the local server's facts, below | kashkeshet's serving code (`src/machine/settings.rs` and the database it uses), and `cli::serve_args` |
   | `setup_files` | `SetupFiles`: read, write and remove the setup record and the unfinished note; make a path absolute or canonical; this program's path and `kkt`'s | kkt-setup-os |
   | `key_files` | `KeyFiles`: read, read if there, whether there (and its error), whether a file; write a new key, a given key, the admin name | kkt-admission-os, with kkt-entropy-os for new keys |
   | `config_file` | `ConfigText`: read and write the default config file's text, for setup's `allow_hosts` | kkt-config-file-os |
@@ -1131,10 +1084,10 @@ commands on this machine.
   limit after 9.3), kkt-api-agent, kkt-api-operator, kkt-config-file,
   kkt-machine, kkt-provenance and kkt-clock. Third-party: tokio (setup's
   steps wait on async work from inside, as today).
-- Takes from kashkeshet the arrows to kkt-api-operator and kkt-names, and
-  most uses of kkt-setup, kkt-container, kkt-service, kkt-diagnostics,
-  kkt-lane-files and kkt-backup, which then stay in kashkeshet only for
-  the adapters.
+- Takes from kashkeshet the arrow to kkt-api-operator, and most uses of
+  kkt-setup, kkt-container, kkt-service, kkt-diagnostics, kkt-lane-files
+  and kkt-backup, which then stay in kashkeshet only for serving and the
+  adapters.
 
 **kkt-agent-commands** (kind composition, layer assembly). The agents'
 commands.
@@ -1162,7 +1115,8 @@ commands.
 - Depends on (7 kkt crates): kkt-setup, kkt-watch, kkt-client-config,
   kkt-names, kkt-mcp (`MCP_ADMIN_PATH`), kkt-machine and kkt-clock.
   Third-party: futures.
-- Takes from kashkeshet the arrow to kkt-mcp.
+- Takes no arrow from kashkeshet, which still uses each of these crates
+  for serving, its adapters or `cli.rs`.
 
 **The local server's questions.** Each assembly declares only what its own
 commands ask. Every one is lazy today, and stays so: asked only on the
@@ -1188,18 +1142,18 @@ code, through `SetupFiles`; `recorded_setup` keeps its lazy readers, so
 Only one fact is asked by both: how a client reaches the local server.
 It is kkt-setup's `ConnectionSource`, the question kkt-setup's connection
 functions already ask, so neither assembly declares a copy of it, and
-kashkeshet's `ConnectionReads` answers both through kkt-serve.
+kashkeshet's `ConnectionReads` answers both from its serving code.
 
 **Dependency counts, before and after.** Normal dependencies on kkt
-crates, from the manifests today and estimated from the code after phase 10.
+crates, from the manifests today, and after phases 9 and 10 from the
+proposed map.
 
 | Package | Today | After | What changes |
 |---|---|---|---|
-| kashkeshet | 48 | about 44 | Gains the 3 assemblies, kkt-entropy and kkt-log (it passes the clock, entropy and log as contracts). Loses kkt-api-agent, kkt-api-operator, kkt-config-file, kkt-events, kkt-identity-keymode, kkt-mcp, kkt-names and kkt-web to the assemblies, and kkt-settings in 9.3. Keeps the 19 effect crates it chooses, and 22 crates whose contracts or types its adapters and `cli.rs` name |
-| kkt-keymode | 25 | 26 | Phase 10 does not touch it: it keeps its own surface and serving (see kkt-serve). Phase 9 takes away kkt-settings and adds kkt-backup (for the record's `upgrade_backups_kept` line) and kkt-names (the name pack) |
-| kkt-fake-product | 23 | 23 | Reuses nothing: it serves two swarms with its own `Identify` and no settings surface, while kkt-serve is kkt's key mode with one swarm |
-| kkt-web-preview | 14 | 14 | Reuses nothing: it serves the page alone over simulated data |
-| kkt-serve | | 21 | New |
+| kashkeshet | 48 | 48 | Gains the 2 assemblies. Loses kkt-api-operator to kkt-operate, and kkt-settings in 9.3. Keeps its serving code's crates (kkt-events, kkt-identity-keymode, kkt-mcp, kkt-web and the rest), the 19 effect crates it chooses, kkt-server, and in all 26 crates whose contracts or types its serving code, adapters and `cli.rs` name. The count stays, but each arrow now has one reason: serving, an adapter, the flags, or an assembly |
+| kkt-keymode | 25 | 26 | Phase 10 does not touch it: it keeps its own surface and serving. Phase 9 takes away kkt-settings and adds kkt-backup (for the record's `upgrade_backups_kept` line) and kkt-names (the name pack) |
+| kkt-fake-product | 23 | 23 | Phase 10 does not touch it: it serves two swarms with its own `Identify` and no settings surface |
+| kkt-web-preview | 14 | 14 | Phase 10 does not touch it: it serves the page alone over simulated data |
 | kkt-operate | | 17 | New |
 | kkt-agent-commands | | 7 | New |
 
@@ -1234,9 +1188,9 @@ codes and help, and every install's files.
 
 Unit tests move with their code where they test values or fakes (the key
 finders' read-order tests, the lane refusals, the bad-setting wording).
-Those that read real files today (the settings, `existing_db`, the
-service plan) would need the `-os` crates in an assembly's tests, which
-CLAUDE.md asks tests not to turn on. They move instead to kashkeshet's
+Those that read real files today (`existing_db`, the service plan) would
+need the `-os` crates in an assembly's tests, which CLAUDE.md asks tests
+not to turn on. They move instead to kashkeshet's
 tests, where they call the assembly through the program's real `Parts`
 and keep pinning the same texts. None is deleted.
 
@@ -1252,12 +1206,11 @@ crate's paperwork (workspace members, CLAUDE.md's row, `concerns.json`,
 |---|---|---|---|---|
 | 9.1 | Each owner checks and words its own settings | S | (in progress) | kkt-build-b, kkt-build-c |
 | 9.2 | kkt-server's `ServerSettings`; `Parts` takes `Arc<dyn AdminApi>` | M | 9.1 | kkt-build-c, after its small kkt-service pull request |
-| 10.1 | kkt-serve, with `ServeParts`: `serve.rs`, the serve settings, the server's keys, the backup before an upgrade | L in lines, M in substance (mostly moved code); split in two if it grows: the crate with `ServeParts` and `serve.rs`, then the settings | 9.2 | kkt-build-c (the same area as 9.2) |
-| 9.3 | kkt's serve surface lands in kkt-serve, and kkt-keymode keeps its own; kkt-settings goes | M, smaller than planned: kkt's surface moves once | 10.1 | kkt-build-b, after its 11.1 |
+| 9.3 | The programs keep the serve surface (kkt, and kkt-keymode's own smaller one); kkt-settings goes | M | 9.2 | kkt-build-b, after its 11.1 |
 | 10.2a | kkt-operate, with `OperateParts`: the record, the operator's key finders, doctor, lanes, `kkt key` and `kkt agent` | L in lines, M in substance | 9.3 | kkt-build-b |
 | 10.2b | setup, service and lifecycle move into kkt-operate | M | 10.2a | kkt-build-c |
 | 10.3 | kkt-agent-commands, with `AgentParts`: register, reclaim, watch, connect | M | 9.3; beside 10.2a and 10.2b | kkt-mt-step1 |
-| 10.4 | `main.rs` builds the three `Parts` in one place; CLAUDE.md's tables; chart what differs (9.4 folds in here) and the scorecard | S | 10.2b, 10.3 | kkt-mt-step1 |
+| 10.4 | `main.rs` builds the two `Parts` in one place; CLAUDE.md's tables; chart what differs (9.4 folds in here) and the scorecard | S | 10.2b, 10.3 | kkt-mt-step1 |
 
 10.2a comes before 10.2b, not beside it: setup calls lanes' checks and
 import and doctor's server fix, lifecycle calls lanes' `existing_db` and
@@ -1265,8 +1218,11 @@ the key finders, and all of them read the record. So 10.2a makes the crate
 with the shared parts, and 10.2b adds the commands that build on them.
 10.3 touches only the agents' commands and `connection.rs`' clients, so it
 runs beside both. 11.x (kkt-db's test stand-in, kkt-build-b) must not run
-beside 9.3. 10.1, 9.3, 10.2a, 10.2b and 10.3 all change `main.rs`, a few
+beside 9.3. 9.3, 10.2a, 10.2b and 10.3 all change `main.rs`, a few
 lines each: rebase, not conflict.
+
+10.1 was dropped (msg 2876): it was kkt-serve, and the serving code now
+stays in kashkeshet. The other steps keep their numbers.
 
 ## Order at a glance
 
@@ -1282,7 +1238,7 @@ lane A: 1.3 → 1.1 → 1.6 → 1.7    lane B: 1.2 → 1.4 → 1.5 → 1.9    an
 6.1 (after 3.1b) → 6.2 (after 5.4) → 6.3
 7.1a (after phase 3) → 7.1b, 7.2, 7.4, 7.5, 7.6 in parallel; 7.3a → 7.3b → 7.7
 8.1 → 8.2
-9.1 (kkt-build-b and kkt-build-c in parallel) → 9.2 → 10.1 → 9.3
+9.1 (kkt-build-b and kkt-build-c in parallel) → 9.2 → 9.3
   → 10.2a → 10.2b, with 10.3 beside them → 10.4 (charts 9 and 10)
 ```
 
@@ -1383,24 +1339,24 @@ expected until phase 9 and kkt-build-c's change land:
 ### Against phases 9 and 10's proposal
 
 With phase 10 charted, with 9.2's `Parts` taking `AdminApi`, with
-kkt-service's `Manager::for_this_os` taking plain paths (msg 2829) and with
-kkt-keymode keeping its own surface, the code at 50e6e8e (#488 merged)
-scores lower again, as expected until phases 9 and 10 land:
+kkt-service's `Manager::for_this_os` taking plain paths (msg 2829), with
+kkt-keymode keeping its own surface, and with the serving code staying in
+kashkeshet (msg 2876), the code at 50e6e8e (#488 merged) scores lower
+again, as expected until phases 9 and 10 land:
 
-- crates: 59 of 62 proposed crates exist; 3 missing (kkt-serve,
-  kkt-operate, kkt-agent-commands); 1 to remove (kkt-settings);
-- items: 733 of 819 proposed items are in their proposed crate. Missing:
-  phase 9's 5 in the owners (kkt-server's `ServerSettings`, kkt-hosts' two
-  defaults, kkt-logs' two defaults), and the 81 in the three assemblies:
-  their `Parts`, the contracts they declare, `new_server_run`, the
-  commands that move out of kashkeshet, and the serve surface 9.3 puts in
-  kkt-serve;
-- arrows: 203 of 256 proposed arrows exist; 53 missing (the assemblies'
-  45, kashkeshet's 3 to them and its 2 to kkt-entropy and kkt-log,
-  kkt-keymode → kkt-backup and → kkt-names, which 9.3 adds, and
-  kkt-server → kkt-api-admin, which 9.2 makes); 16 extra (the 9 kashkeshet
-  arrows phase 10 moves into the assemblies, its arrow to kkt-settings
-  among them, kkt-keymode → kkt-settings, kkt-settings' 5, and kkt-server
-  → kkt-rules until 9.2);
+- crates: 59 of 61 proposed crates exist; 2 missing (kkt-operate,
+  kkt-agent-commands); 1 to remove (kkt-settings);
+- items: 745 of 811 proposed items are in their proposed crate. Missing:
+  phase 9's 9 (kkt-server's `ServerSettings`, kkt-hosts' two defaults,
+  kkt-logs' two defaults, and kashkeshet's `ServeOptions`,
+  `ServeSettings`, `server_settings` and `new_server_run`), and the 57 in
+  the two assemblies: their `Parts`, the contracts they declare, and the
+  commands that move out of kashkeshet;
+- arrows: 210 of 239 proposed arrows exist; 29 missing (the assemblies'
+  24, kashkeshet's 2 to them, kkt-keymode → kkt-backup and → kkt-names,
+  which 9.3 adds, and kkt-server → kkt-api-admin, which 9.2 makes); 9
+  extra (kashkeshet → kkt-api-operator, which moves to kkt-operate,
+  kashkeshet → kkt-settings and kkt-keymode → kkt-settings, kkt-settings'
+  5, and kkt-server → kkt-rules until 9.2);
 - rules: no kind check fails; 1 break of the proposal's rules (kkt-rules'
   tests on kkt-db-sqlite, until kkt-build-b's stand-in replaces it).
