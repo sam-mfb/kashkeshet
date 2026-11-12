@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "e19e3fe",
+ "commit": "0147960",
  "crates": [
   {
    "bins": [
@@ -4371,7 +4371,7 @@ window.KKT_GRAPH = {
     {
      "doc": "An installation discovered in the managed folder.",
      "fields": [
-      "tailscale",
+      "sharing",
       "node",
       "port"
      ],
@@ -4394,7 +4394,7 @@ window.KKT_GRAPH = {
       "project",
       "port",
       "allow_hosts",
-      "tailscale"
+      "sharing"
      ],
      "kind": "struct",
      "path": "Inputs"
@@ -4470,7 +4470,7 @@ window.KKT_GRAPH = {
       "running",
       "version",
       "name_pack",
-      "tailscale",
+      "sharing",
       "login"
      ],
      "kind": "struct",
@@ -25542,13 +25542,13 @@ window.KKT_CONCERNS = {
    "concern": "The container installation contract, its requests and results, config parsing and login-link contracts, and an in-memory testing stand-in.",
    "kind": "contract",
    "layer": "operations",
-   "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`."
+   "must_not": "Know Docker commands, Compose files or their formats; touch the machine."
   },
   "kkt-container-docker": {
    "concern": "Docker and Compose implement Container directly; all Docker files, commands, output and sidecar status, tested over a private runner.",
    "kind": "effect",
    "layer": "operations",
-   "must_not": "Decide what Docker setup does."
+   "must_not": "Decide setup answers or remember the setup record."
   },
   "kkt-db": {
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
