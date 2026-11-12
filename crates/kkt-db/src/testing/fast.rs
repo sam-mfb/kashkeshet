@@ -477,10 +477,32 @@ impl FastConnection<'_> {
         alias: &str,
         condition: &Condition,
     ) -> Result<String, DbError> {
+        self.judged(sql, table, alias, condition, false)
+    }
+
+    /// `condition` as SQL. Where it stands, a null is as good as false, so a
+    /// comparison stays plain and SQLite can use an index for it; beneath a
+    /// `NOT` (`negated`) each is made 1 or 0, never null, so that `NOT`
+    /// gives the contract's two-valued logic.
+    fn judged(
+        &self,
+        sql: &mut Sql,
+        table: &Table,
+        alias: &str,
+        condition: &Condition,
+        negated: bool,
+    ) -> Result<String, DbError> {
+        let sure = |test: String| {
+            if negated {
+                format!("COALESCE({test}, 0)")
+            } else {
+                format!("({test})")
+            }
+        };
         let compare = |sql: &mut Sql, o: &Operand, op: &str, v: &Value| {
             let o = self.operand(sql, table, alias, o)?;
             let mark = sql.bind(v);
-            Ok::<_, DbError>(format!("COALESCE({o} {op} {mark}, 0)"))
+            Ok::<_, DbError>(sure(format!("{o} {op} {mark}")))
         };
         Ok(match condition {
             Condition::True => "1".into(),
@@ -505,18 +527,18 @@ impl FastConnection<'_> {
                 match json(values) {
                     Some(array) => {
                         let mark = sql.bind(&Value::Text(array));
-                        format!("COALESCE({o} IN (SELECT value FROM json_each({mark})), 0)")
+                        sure(format!("{o} IN (SELECT value FROM json_each({mark}))"))
                     }
                     None => {
                         let marks: Vec<&str> = values.iter().map(|v| sql.bind(v)).collect();
-                        format!("COALESCE({o} IN ({}), 0)", marks.join(", "))
+                        sure(format!("{o} IN ({})", marks.join(", ")))
                     }
                 }
             }
             Condition::In(o, inner) => {
                 let o = self.operand(sql, table, alias, o)?;
                 let inner = self.select_sql(sql, inner, true)?;
-                format!("COALESCE({o} IN ({inner}), 0)")
+                sure(format!("{o} IN ({inner})"))
             }
             Condition::EqIgnoringAsciiCase(o, wanted) => {
                 // The operand twice, each with its own parameters. SQLite's
@@ -546,7 +568,7 @@ impl FastConnection<'_> {
                 }
                 let parts = all
                     .iter()
-                    .map(|c| self.condition(sql, table, alias, c))
+                    .map(|c| self.judged(sql, table, alias, c, negated))
                     .collect::<Result<Vec<_>, _>>()?;
                 format!("({})", parts.join(" AND "))
             }
@@ -556,11 +578,11 @@ impl FastConnection<'_> {
                 }
                 let parts = any
                     .iter()
-                    .map(|c| self.condition(sql, table, alias, c))
+                    .map(|c| self.judged(sql, table, alias, c, negated))
                     .collect::<Result<Vec<_>, _>>()?;
                 format!("({})", parts.join(" OR "))
             }
-            Condition::Not(c) => format!("(NOT {})", self.condition(sql, table, alias, c)?),
+            Condition::Not(c) => format!("(NOT {})", self.judged(sql, table, alias, c, true)?),
         })
     }
 
