@@ -106,3 +106,19 @@ needs Sam", item 6).
 proposal Sam has not yet ruled on, and the open questions, each with a
 recommended answer. They need not hold up the merge: each was made on
 purpose, with its reason, and none affects an install.
+
+## For the principles template
+
+Sam wants the principles to say, for future projects, that settings are not
+a domain: each component owns its own settings, their defaults and their
+checks, and gathering them for a program is composition, not a component of
+its own. kkt learned this twice, with kkt-config and kkt-settings (phase 9).
+Sam is also considering a note for RUST.md on two points about tests. How
+to handle integration tests: a suite written for its purpose, such as the
+rules against the real database, not coverage hidden in an exception a later
+developer may undo. And that a test stand-in is free to use any tool, the
+real engine's included, since its job is to serve the tests, not to mimic
+the real implementation.
+
+Sam edits the template himself; this pull request does not change
+`principles/`.

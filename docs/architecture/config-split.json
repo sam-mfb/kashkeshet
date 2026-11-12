@@ -1,11 +1,7 @@
 {
  "about": "For each public item of today's kkt-config, where it lives in the proposed map and whether it stays a constant or becomes injected (a field of a settings struct the program fills). Format and fixed facts live in the crate that owns them, private there or public when others use them; tuning values are settings fields; operator settings and defaults are in kkt-settings or the program; Nothing stays in kkt-config: it goes, and its last items live with their owners. An item other crates read only in their tests is test-visible, public behind `testing`; one they use in their own code is public. Crates are named as the proposed map names them; used_by and test_only name today's users.",
  "status": "decided",
- "concern_edits": {
-  "kkt-settings": {
-   "concern": "Gathering a server's settings from flags, the config file and defaults: the default paths, the operator's defaults and log levels, the log file's `LogPolicy`, and what kkt-settings gathers from today's `Limits` for the program to hand to each crate's settings."
-  }
- },
+ "concern_edits": {},
  "items": [
   {
    "item": "ACCESS_KEY_FILE_MODE",
@@ -346,13 +342,11 @@
    "test_only": [
     "kkt-provenance"
    ],
-   "to": "kkt-settings",
-   "how": "operator default, private",
-   "note": "a default kkt-settings fills in; private, since kkt-settings words the run record's settings itself (step 3.5c)",
+   "to": "kkt-hosts",
+   "how": "operator default, public",
+   "note": "whether the server may listen beyond loopback when nothing says, beside check_bind; both programs read it (step 9.1)",
    "replace_users": {
-    "kkt-settings": [
-     "kkt-settings::DEFAULT_ALLOW_ANY_BIND"
-    ],
+    "kkt-settings": [],
     "kkt-provenance": []
    }
   },
@@ -363,9 +357,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-server",
    "how": "operator default, private",
-   "note": "a default path or setting kkt-settings fills in"
+   "note": "no added host names: part of ServerSettings::DEFAULT, since kkt-server uses the list itself (step 9.2)",
+   "replace_users": {
+    "kkt-settings": []
+   }
   },
   {
    "item": "DEFAULT_ALLOW_ORIGINS",
@@ -374,9 +371,12 @@
     "kkt-settings"
    ],
    "test_only": [],
-   "to": "kkt-settings",
+   "to": "kkt-server",
    "how": "operator default, private",
-   "note": "a default path or setting kkt-settings fills in"
+   "note": "no added browser origins: part of ServerSettings::DEFAULT, since kkt-server uses the list itself (step 9.2)",
+   "replace_users": {
+    "kkt-settings": []
+   }
   },
   {
    "item": "DEFAULT_BIND",
@@ -388,16 +388,14 @@
    "test_only": [
     "kkt-remote-access"
    ],
-   "to": "kkt-settings",
+   "to": "kkt-hosts",
    "how": "operator default, public",
-   "note": "also read by the program",
+   "note": "the listen address's default, beside check_bind; both programs read it (step 9.1)",
    "replace_users": {
     "kashkeshet": [
-     "kkt-settings::DEFAULT_BIND"
+     "kkt-hosts::DEFAULT_BIND"
     ],
-    "kkt-settings": [
-     "kkt-settings::DEFAULT_BIND"
-    ],
+    "kkt-settings": [],
     "kkt-remote-access": []
    }
   },
@@ -411,16 +409,14 @@
    "test_only": [
     "kkt-provenance"
    ],
-   "to": "kkt-settings",
+   "to": "kkt-logs",
    "how": "operator default, public",
-   "note": "also read by the program",
+   "note": "the log's own default, beside LogLevel; the programs start the log and read it (step 9.1)",
    "replace_users": {
     "kashkeshet": [
-     "kkt-settings::DEFAULT_DEPENDENCY_LOG_LEVEL"
+     "kkt-logs::DEFAULT_DEPENDENCY_LOG_LEVEL"
     ],
-    "kkt-settings": [
-     "kkt-settings::DEFAULT_DEPENDENCY_LOG_LEVEL"
-    ],
+    "kkt-settings": [],
     "kkt-provenance": []
    }
   },
@@ -434,16 +430,14 @@
    "test_only": [
     "kkt-provenance"
    ],
-   "to": "kkt-settings",
+   "to": "kkt-logs",
    "how": "operator default, public",
-   "note": "also read by the program",
+   "note": "the log's own default, beside LogLevel; the programs start the log and read it (step 9.1)",
    "replace_users": {
     "kashkeshet": [
-     "kkt-settings::DEFAULT_LOG_LEVEL"
+     "kkt-logs::DEFAULT_LOG_LEVEL"
     ],
-    "kkt-settings": [
-     "kkt-settings::DEFAULT_LOG_LEVEL"
-    ],
+    "kkt-settings": [],
     "kkt-provenance": []
    }
   },
@@ -845,20 +839,16 @@
    "test_only": [],
    "to": "kkt-settings",
    "how": "type, public",
-   "note": "kkt-settings' own error for a source's bad value; each crate that checks settings has its own",
+   "note": "kkt-settings' own error for a source's bad value; it goes with kkt-settings (step 9.3): each crate that checks settings has its own error, and the programs word their own refusals",
    "replace_users": {
-    "kashkeshet": [
-     "kkt-settings::InvalidSetting"
-    ],
+    "kashkeshet": [],
     "kkt-admission": [
      "kkt-admission::SettingError"
     ],
     "kkt-hosts": [
      "kkt-hosts::SettingError"
     ],
-    "kkt-keymode": [
-     "kkt-settings::InvalidSetting"
-    ],
+    "kkt-keymode": [],
     "kkt-service": [
      "kkt-service::SettingError"
     ],
@@ -963,7 +953,7 @@
    ],
    "to": "split",
    "how": "injected",
-   "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes and session lifetime (step 6.1)), each with its own check; kkt-settings gathers them and the program fills them"
+   "note": "split into per-crate settings structs (kkt-rules' limits, kkt-mcp-formatter's response cap, kkt-web's page sizes and session lifetime (step 6.1), kkt-backup's upgrade_backups_kept (step 9.1)), each with its own check and record lines; kkt-server's ServerSettings holds those of the parts it builds or passes on, the program fills the rest, and the gathered Limits goes with kkt-settings (phase 9)"
   },
   {
    "item": "LogLevel",
@@ -1138,7 +1128,7 @@
    ],
    "to": "kkt-settings",
    "how": "operator default, private",
-   "note": "the lane description's longest length becomes one of kkt-rules' settings; its default is gathered with the others, and Api::limits reports it in kkt-api-agent's Limits",
+   "note": "the lane description's longest length becomes one of kkt-rules' settings, with its default in kkt-rules' Settings::DEFAULT, and Api::limits reports it in kkt-api-agent's Limits",
    "replace_users": {
     "kkt-mcp": [
      "kkt-api-agent::Limits"
@@ -2112,35 +2102,46 @@
     "kkt-rules::Settings"
    ],
    "kkt-provenance": [],
-   "kkt-settings": [
-    "kkt-settings::Limits"
-   ],
+   "kkt-settings": [],
    "kashkeshet": [
-    "kkt-settings::Limits"
+    "kkt-server::ServerSettings",
+    "kkt-rules::Settings"
    ],
    "kkt-fake-product": [
     "kkt-settings::Limits"
    ]
   },
-  "note": "Limits becomes what kkt-settings gathers from flags, the config file and defaults; its fields split into per-crate settings structs, each checked by its own crate, which the program fills (names to be chosen in the refactor). upgrade_backups_kept stays with what kkt-settings gathers: kkt-backup's prune already takes the count as an argument, which the program passes",
+  "note": "Limits was what kkt-settings gathered from flags, the config file and defaults; its fields split into per-crate settings structs, each checked and worded for the run record by its own crate. In phase 9 kkt-settings and the gathered Limits go: kkt-server's ServerSettings holds the settings of what it builds or passes on (the formatter's and the page's), and the program fills kkt-rules' Settings, for the Rules it builds, and kkt-backup's",
   "parts": [
    {
     "crate": "kkt-rules",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars."
+    "doc": "kkt-rules' share of today's Limits: name_pack, default_limit, max_limit, max_body_bytes, the name, purpose, description, note, announcement, memory and lane lengths, the lane description's length (today's MAX_LANE_DESCRIPTION_CHARS), sends_per_minute, registrations_per_minute, max_agents, default_wait, max_wait, waiting_grace, member_preview and purpose_preview_chars; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
+    "methods": [
+     "problems",
+     "record_lines"
+    ]
    },
    {
     "crate": "kkt-mcp-formatter",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes."
+    "doc": "kkt-mcp-formatter's share of today's Limits: max_response_bytes; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
+    "methods": [
+     "problems",
+     "record_lines"
+    ]
    },
    {
     "crate": "kkt-web",
     "path": "Settings",
     "kind": "struct",
-    "doc": "kkt-web's share of today's Limits: page (a PageLimits of web_page_messages and web_member_excerpt_chars: step 6.2) and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules."
+    "doc": "kkt-web's share of today's Limits: page (a PageLimits of web_page_messages and web_member_excerpt_chars: step 6.2) and web_session_lifetime (session_lifetime, since the sessions are kkt-web's: step 6.1), and the lengths its forms check (channel name, purpose, description), which the program fills from kkt-rules' since kkt-web must not depend on kkt-rules; problems() gives every bad setting it holds, each with the setting's name and which of its own checks found it, and record_lines() its own name and value lines for the run record (step 9.1).",
+    "methods": [
+     "problems",
+     "record_lines"
+    ]
    }
   ]
  }

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "484d549",
+ "commit": "b73c7c4",
  "crates": [
   {
    "bins": [
@@ -3613,7 +3613,7 @@ window.KKT_GRAPH = {
      "path": "ConfigError"
     },
     {
-     "doc": "kkt's config directory: `kkt` in the machine's config home (`Env::config_home`), `$XDG_CONFIG_HOME/kkt` or `~/.config/kkt`.",
+     "doc": "kkt's config directory: `kkt` under the supplied config-home folder.",
      "kind": "fn",
      "path": "config_dir"
     },
@@ -15829,27 +15829,6 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-config-file",
-   "items": [
-    "Env"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Env"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-machine"
-  },
-  {
-   "features": [],
    "from": "kkt-config-file-os",
    "items": [
     "Dir"
@@ -16435,28 +16414,6 @@ window.KKT_GRAPH = {
    "to": "kkt-admission"
   },
   {
-   "features": [
-    "real"
-   ],
-   "from": "kkt-fake-product",
-   "items": [],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Http",
-    "HttpReply"
-   ],
-   "to": "kkt-agent-client"
-  },
-  {
    "features": [],
    "from": "kkt-fake-product",
    "items": [
@@ -16997,6 +16954,31 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-web"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kkt-fake-product",
+   "items": [
+    "Http",
+    "HttpReply"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Http",
+      "HttpReply"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-agent-client"
   },
   {
    "features": [
@@ -21784,7 +21766,7 @@ window.KKT_CONCERNS = {
    "must_not": "Define time values or formatting."
   },
   "kkt-config-file": {
-   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), in kkt-machine's `Env::config_home`.",
+   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), under a supplied config-home folder.",
    "kind": "logic",
    "layer": "operations",
    "must_not": "Read or write files, or know kkt-settings or the settings' checks beyond each value's kind."

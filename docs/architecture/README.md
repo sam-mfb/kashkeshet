@@ -45,7 +45,8 @@ The page has two maps, switched by the toggle in its header.
 - **Proposed** is the refactor's plan, as it was last amended while the
   refactor ran, kept as a record. `propose.py` rebuilds it from
   `proposal-base-data.js` (the map the proposal was made from, at 27f1d11),
-  `proposed.json` and `config-split.json`. Nothing changes it any more.
+  `proposed.json` and `config-split.json`. It changes only when Sam
+  decides a further change, such as phase 9, in which kkt-settings goes.
 
 `decisions.md` says where the two still differ, and why, in "After the
 refactor".
