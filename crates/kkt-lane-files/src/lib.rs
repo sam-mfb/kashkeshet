@@ -3,20 +3,21 @@
 //! lanes import` reads, and the folder's git commit, which an import
 //! records. A `README.md`, or a Markdown file with no lane header, is
 //! skipped, so a folder can hold notes beside its lanes. Everything on disk
-//! goes through [`Disk`], so this part is tested against a fake. The program
-//! supplies the real disk and git runner through adapters.
+//! goes through [`Disk`], and the commit through kkt-lane-commit's
+//! `LaneCommit`, so this part is tested against fakes. The program supplies
+//! the real disk through an adapter, and injects the commit's git wrapper.
 //!
 //! This part only reads and writes files. Whether a lane is acceptable, and
 //! what an import changes, is for the lane rules (`rules::Operator`).
 
 mod format;
-pub mod git;
 #[cfg(test)]
 mod tests;
 
 pub use format::{EXTENSION, LaneFile, parse, render};
 
 use format::has_header;
+use kkt_lane_commit::LaneCommit;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -31,12 +32,6 @@ pub trait Disk {
     fn write(&self, path: &Path, contents: &str) -> io::Result<()>;
     /// `path` made absolute, from the current folder.
     fn absolute(&self, path: &Path) -> io::Result<PathBuf>;
-    /// The git commit checked out where `folder` is, with `-dirty` added
-    /// when files in `folder` differ from it; `None` when `folder` is not in
-    /// a git checkout (or one with no commit yet), git ignores it, or git is
-    /// not installed. Any other failure of git is an error with git's
-    /// message.
-    fn git_commit(&self, folder: &Path) -> io::Result<Option<String>>;
 }
 
 /// The file every folder may hold to describe itself, never read as a lane.
@@ -120,8 +115,12 @@ impl fmt::Display for Skipped {
 /// folders are left alone. `README.md`, and a `.md` file that does not
 /// start with a lane header, are skipped and listed. A file with a header
 /// that is otherwise wrong is an error naming it, so a mistake in a lane
-/// is never skipped.
-pub fn read_folder(disk: &dyn Disk, folder: &Path) -> Result<Read, String> {
+/// is never skipped. The commit the folder is at comes from `commits`.
+pub fn read_folder(
+    disk: &dyn Disk,
+    commits: &dyn LaneCommit,
+    folder: &Path,
+) -> Result<Read, String> {
     let absolute = disk
         .absolute(folder)
         .map_err(|e| format!("could not find {}: {e}", folder.display()))?;
@@ -155,8 +154,8 @@ pub fn read_folder(disk: &dyn Disk, folder: &Path) -> Result<Read, String> {
         }
         lanes.push(parse(stem, &contents).map_err(|e| format!("{}: {e}", path.display()))?);
     }
-    let commit = disk
-        .git_commit(&absolute)
+    let commit = commits
+        .commit(&absolute)
         .map_err(|e| format!("could not ask git about {}: {e}", absolute.display()))?;
     Ok(Read {
         lanes,

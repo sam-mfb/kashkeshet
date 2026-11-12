@@ -298,9 +298,21 @@
   },
   "kkt-lane-files": {
    "layer": "operations",
-   "concern": "Lanes as files: the `<lane>.md` format, reading and writing a folder of them, and the folder's git commit.",
-   "must_not": "Touch the machine except through `Disk` and `git::Git`.",
+   "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from kkt-lane-commit's `LaneCommit`.",
+   "must_not": "Touch the machine except through `Disk`; know a version-control tool.",
    "kind": "logic"
+  },
+  "kkt-lane-commit": {
+   "layer": "operations",
+   "concern": "The project's contract for the commit a lane folder is at (`LaneCommit`), and its testing Memory stand-in.",
+   "must_not": "Know a version-control tool, its commands or output; touch the machine.",
+   "kind": "contract"
+  },
+  "kkt-lane-commit-git": {
+   "layer": "operations",
+   "kind": "effect",
+   "concern": "Implements LaneCommit with git: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner; running git is behind real.",
+   "must_not": "Read or write the lane files."
   },
   "kkt-agent-client": {
    "layer": "clients",
@@ -427,7 +439,7 @@
   "kkt-lane-files-os": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "The machine's files and git for lane folders: plain OsDisk methods, adapted by the program.",
+   "concern": "The machine's files for lane folders: plain OsDisk methods, adapted by the program.",
    "must_not": "Decide which lanes to import or export."
   },
   "kkt-clock-system": {
