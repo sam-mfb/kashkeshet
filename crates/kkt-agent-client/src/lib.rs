@@ -1,29 +1,79 @@
-//! Shared MCP client for avatar commands and watching. Connects on first use and again
-//! after a call fails to reach the server.
+//! A client of kkt's server, as kkt's commands use it: registering and
+//! reclaiming avatars, and watching for an agent's new messages or, with
+//! the admin key, for every channel's. In kkt's terms only: nothing here
+//! names a transport or a library. kkt-agent-client-rmcp implements it over
+//! MCP; `testing::Memory` is a stand-in.
 
+use futures::future::BoxFuture;
+use kkt_clock::Clock;
 use std::fmt;
+use std::sync::Arc;
+use std::time::Duration;
 
-#[cfg(feature = "real")]
-mod credentials;
-#[cfg(all(feature = "real", unix))]
-pub use credentials::make_private;
-#[cfg(feature = "real")]
-pub use credentials::{
-    CredentialCheck, CredentialFile, CredentialFileFacts, FileLock, LockRefused, PrivateMode,
-    StateFile, read_secret, watch_token,
-};
+/// A server, as a client reaches it: its MCP endpoint and the key it is
+/// reached with, if it needs one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Address {
+    pub url: String,
+    pub key: Option<String>,
+    /// How a refusal of `key` names it, such as "the access key in
+    /// /home/me/key".
+    pub key_name: Option<String>,
+}
 
-#[cfg(feature = "real")]
-mod http;
-#[cfg(feature = "real")]
-pub use http::{Http, HttpReply};
+/// Clients of a server.
+pub trait Servers {
+    /// A client that registers and reclaims avatars at `at`.
+    fn avatars(&self, at: Address) -> Box<dyn Avatars>;
+    /// The agent endpoint at `at`, watched as the agent `token` names.
+    fn agent(&self, at: Address, token: String) -> Box<dyn Watched>;
+    /// The admin endpoint at `at`, watched with the key it is reached with;
+    /// its waits are timed by `clock`.
+    fn admin(&self, at: Address, clock: Arc<dyn Clock>) -> Box<dyn Watched>;
+}
 
-mod settings;
-#[cfg(feature = "real")]
-mod watching;
-pub use settings::Settings;
-#[cfg(feature = "real")]
-pub use watching::{AdminRemote, Remote};
+/// What a client asks of a server for an avatar.
+pub trait Avatars {
+    /// A new avatar, with the handle and the lane asked for, if any.
+    fn register<'a>(
+        &'a self,
+        handle: Option<&'a str>,
+        lane: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<Registered, Failure>>;
+    /// A fresh token for the avatar `handle`.
+    fn reclaim<'a>(
+        &'a self,
+        handle: &'a str,
+        recovery_code: &'a str,
+    ) -> BoxFuture<'a, Result<Reclaimed, Failure>>;
+    /// Sets the description of the avatar `token` names.
+    fn describe<'a>(&'a self, token: &'a str, text: &'a str) -> BoxFuture<'a, Result<(), Failure>>;
+}
+
+/// What watching asks of a server: as an agent, the agent's channels; with
+/// the admin key, every channel.
+pub trait Watched: Send + Sync {
+    /// The watcher's name: the agent's handle, or the admin's. A watch asks
+    /// for it first, on every start, so it must reach the server with the
+    /// watcher's credentials: a failure here is what reports a wrong
+    /// address, key or token at once.
+    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>>;
+    /// All visible channels, including every page of the server's list.
+    fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>>;
+    /// The highest message ID in the watched channels, or 0 if none.
+    fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>>;
+    /// One message, with its whole body.
+    fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>>;
+    /// Messages newer than `after_id`, oldest first, waiting up to `wait`
+    /// for one, and the agent's lane if it has a newer version. `channels`
+    /// limits the messages to those channels.
+    fn wait<'a>(
+        &'a self,
+        after_id: i64,
+        channels: Option<&'a [String]>,
+        wait: Duration,
+    ) -> BoxFuture<'a, Result<Waited, Failure>>;
+}
 
 /// Why a call to the server failed.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -36,8 +86,8 @@ pub enum Failure {
     Refused { code: String, message: String },
     /// The server refused the access key: it answered HTTP 401 with a
     /// `WWW-Authenticate` challenge, as kkt's admission does. Trying again
-    /// with the same key will not help. `key` is what the caller said the
-    /// key is (`Client::describe_key`), if it did.
+    /// with the same key will not help. `key` names it, such as `the access
+    /// key in /home/me/.kkt/key`, when the caller knows where it came from.
     KeyRefused { key: Option<String> },
 }
 
@@ -51,25 +101,6 @@ impl fmt::Display for Failure {
         }
     }
 }
-#[cfg(feature = "real")]
-use rmcp::model::CallToolRequestParams;
-#[cfg(feature = "real")]
-use rmcp::service::{ClientInitializeError, RoleClient, RunningService};
-#[cfg(feature = "real")]
-use rmcp::transport::streamable_http_client::{
-    StreamableHttpClientTransportConfig, StreamableHttpError,
-};
-#[cfg(feature = "real")]
-use rmcp::transport::{DynamicTransportError, StreamableHttpClientTransport};
-#[cfg(feature = "real")]
-use rmcp::{ClientLifecycleMode, ClientServiceExt, ServiceError};
-#[cfg(feature = "real")]
-use serde_json::{Map, Value, json};
-#[cfg(feature = "real")]
-use tokio::sync::Mutex;
-
-#[cfg(feature = "real")]
-type Session = RunningService<RoleClient, ()>;
 
 /// A new message, as `kkt watch` shows it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -120,287 +151,37 @@ pub struct Reclaimed {
     pub token: String,
 }
 
-/// The server at `url`, reached with the access key `key` (if it needs one),
-/// with no agent credentials held in the transport.
-#[cfg(feature = "real")]
-pub struct Client {
-    url: String,
-    key: Option<String>,
-    /// What `KeyRefused` calls the key; see `describe_key`.
-    key_description: Option<String>,
-    client: Mutex<Option<Session>>,
-}
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 
-#[cfg(feature = "real")]
-impl Client {
-    /// Registers a new avatar, with the handle `handle` if given, else one
-    /// the server chooses, taking the lane named `lane` if given.
-    pub async fn register(
-        &self,
-        handle: Option<&str>,
-        lane: Option<&str>,
-    ) -> Result<Registered, Failure> {
-        let mut args = Map::new();
-        if let Some(handle) = handle {
-            args.insert("handle".into(), json!(handle));
-        }
-        if let Some(lane) = lane {
-            args.insert("lane".into(), json!(lane));
-        }
-        let value = self.call("register", args).await?;
-        Ok(Registered {
-            handle: field(&value, "handle")?,
-            token: field(&value, "token")?,
-            recovery_code: field(&value, "recovery_code")?,
-        })
-    }
-
-    pub async fn reclaim(&self, handle: &str, recovery_code: &str) -> Result<Reclaimed, Failure> {
-        let mut args = Map::new();
-        args.insert("handle".into(), json!(handle));
-        args.insert("recovery_code".into(), json!(recovery_code));
-        let value = self.call("reclaim", args).await?;
-        Ok(Reclaimed {
-            handle: field(&value, "handle")?,
-            token: field(&value, "token")?,
-        })
-    }
-
-    pub async fn set_description(&self, token: &str, description: &str) -> Result<(), Failure> {
-        let mut args = Map::new();
-        args.insert("token".into(), json!(token));
-        args.insert("text".into(), json!(description));
-        self.call("set_description", args).await?;
-        Ok(())
-    }
-
-    pub fn new(url: String, key: Option<String>) -> Client {
-        Client {
-            url,
-            key,
-            key_description: None,
-            client: Mutex::new(None),
-        }
-    }
-
-    /// Names the key in a `KeyRefused` failure, such as `the access key in
-    /// /home/me/.kkt/key`, so its message says which key the server refused.
-    pub fn describe_key(self, description: String) -> Client {
-        Client {
-            key_description: Some(description),
-            ..self
-        }
-    }
-
-    async fn connect(&self) -> Result<Session, Failure> {
-        let mut config = StreamableHttpClientTransportConfig::with_uri(self.url.clone());
-        if let Some(key) = &self.key {
-            config = config.auth_header(key.clone());
-        }
-        let transport = StreamableHttpClientTransport::from_config(config);
-        ().serve_with_lifecycle(transport, ClientLifecycleMode::Initialize)
-            .await
-            .map_err(|e| self.failure(refused_at_start(&e), "MCP connection failed"))
-    }
-
-    /// `KeyRefused` if the server refused the key, else `Lost` for `reason`.
-    fn failure(&self, key_refused: bool, reason: &str) -> Failure {
-        if key_refused {
-            Failure::KeyRefused {
-                key: self.key_description.clone(),
-            }
-        } else {
-            Failure::Lost(reason.into())
-        }
-    }
-
-    /// Calls `tool`, asking for JSON.
-    async fn call(&self, tool: &str, mut arguments: Map<String, Value>) -> Result<Value, Failure> {
-        arguments.insert("format".into(), json!("json"));
-        let mut slot = self.client.lock().await;
-        let client = match slot.take() {
-            Some(client) => client,
-            None => self.connect().await?,
-        };
-        let params = CallToolRequestParams::new(tool.to_string()).with_arguments(arguments);
-        // A failed call drops the connection, so the next call makes a new one.
-        let result = client
-            .call_tool(params)
-            .await
-            .map_err(|e| self.failure(refused_in_call(&e), "MCP connection failed"))?;
-        *slot = Some(client);
-        let text: String = result
-            .content
-            .iter()
-            .filter_map(|c| c.as_text().map(|t| t.text.as_str()))
-            .collect();
-        let value = parse_answer(tool, &text)?;
-        if result.is_error != Some(true) {
-            return Ok(value);
-        }
-        let field = |name: &str| value["error"][name].as_str().map(str::to_string);
-        match (field("code"), field("message")) {
-            (Some(code), Some(message)) => Err(Failure::Refused { code, message }),
-            _ => Err(Failure::Lost(format!(
-                "{tool} failed without an error code"
-            ))),
-        }
-    }
-}
-
-/// Whether connecting failed because the server refused the key.
-#[cfg(feature = "real")]
-fn refused_at_start(error: &ClientInitializeError) -> bool {
-    matches!(error, ClientInitializeError::TransportError { error, .. } if refused(error))
-}
-
-/// Whether a call failed because the server refused the key, as it does
-/// once the key changes under a running connection.
-#[cfg(feature = "real")]
-fn refused_in_call(error: &ServiceError) -> bool {
-    matches!(error, ServiceError::TransportSend(error) if refused(error))
-}
-
-/// Whether the HTTP transport's error is the server's 401 with a
-/// `WWW-Authenticate` challenge, which rmcp reports as `AuthRequired`: the
-/// status, not the error's text, decides.
-#[cfg(feature = "real")]
-fn refused(error: &DynamicTransportError) -> bool {
-    matches!(
-        error
-            .error
-            .downcast_ref::<StreamableHttpError<reqwest::Error>>(),
-        Some(StreamableHttpError::AuthRequired(_))
-    )
-}
-
-/// `tool`'s answer `text` as JSON. When it is not JSON, the failure gives the
-/// parser's reason: only the kind of error and where, never its message,
-/// which can quote the answer, and answers can hold tokens and recovery codes.
-#[cfg(feature = "real")]
-fn parse_answer(tool: &str, text: &str) -> Result<Value, Failure> {
-    serde_json::from_str(text).map_err(|e| {
-        let kind = match e.classify() {
-            serde_json::error::Category::Io => "read error",
-            serde_json::error::Category::Syntax => "syntax error",
-            serde_json::error::Category::Data => "data error",
-            serde_json::error::Category::Eof => "unexpected end of input",
-        };
-        Failure::Lost(format!(
-            "{tool} gave an answer that is not JSON: {kind} at line {}, column {}",
-            e.line(),
-            e.column()
-        ))
-    })
-}
-
-#[cfg(feature = "real")]
-fn field(value: &Value, name: &str) -> Result<String, Failure> {
-    value[name]
-        .as_str()
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| Failure::Lost(format!("the server gave no {name}")))
-}
-
-#[cfg(all(test, feature = "real"))]
+#[cfg(test)]
 mod tests {
-    use super::*;
-    use rmcp::transport::streamable_http_client::AuthRequiredError;
-
-    fn transport(error: StreamableHttpError<reqwest::Error>) -> DynamicTransportError {
-        DynamicTransportError::from_parts("test", std::any::TypeId::of::<()>(), Box::new(error))
-    }
-
-    fn challenge() -> StreamableHttpError<reqwest::Error> {
-        StreamableHttpError::AuthRequired(AuthRequiredError::new("Bearer".into()))
-    }
-
-    /// Not a refusal, though its text names the status.
-    fn other() -> StreamableHttpError<reqwest::Error> {
-        StreamableHttpError::UnexpectedServerResponse("HTTP 401 Unauthorized: no".into())
-    }
+    use super::Failure;
 
     #[test]
-    fn a_challenge_at_start_is_a_refused_key() {
-        let at_start = |error| ClientInitializeError::TransportError {
-            error: transport(error),
-            context: "send initialize request".into(),
-        };
-        assert!(refused_at_start(&at_start(challenge())));
-        assert!(!refused_at_start(&at_start(other())));
-        assert!(!refused_at_start(&ClientInitializeError::ConnectionClosed(
-            "closed".into()
-        )));
-    }
-
-    #[test]
-    fn a_challenge_in_a_call_is_a_refused_key() {
-        assert!(refused_in_call(&ServiceError::TransportSend(transport(
-            challenge()
-        ))));
-        assert!(!refused_in_call(&ServiceError::TransportSend(transport(
-            other()
-        ))));
-        assert!(!refused_in_call(&ServiceError::TransportClosed));
-    }
-
-    #[test]
-    fn a_refused_key_names_the_key_it_was_given() {
-        let client = Client::new("http://127.0.0.1:9/mcp".into(), Some("k".into()));
+    fn each_failure_is_worded_without_more_than_it_was_given() {
         assert_eq!(
-            client.failure(true, "lost").to_string(),
-            "the server refused the access key"
+            Failure::Lost("MCP connection failed".into()).to_string(),
+            "could not reach the server: MCP connection failed"
         );
-        let client = client.describe_key("the access key in /home/me/key".into());
         assert_eq!(
-            client.failure(true, "lost").to_string(),
+            Failure::Refused {
+                code: "rate_limited".into(),
+                message: "slow down".into()
+            }
+            .to_string(),
+            "rate_limited: slow down"
+        );
+        assert_eq!(
+            Failure::KeyRefused {
+                key: Some("the access key in /home/me/key".into())
+            }
+            .to_string(),
             "the server refused the access key in /home/me/key"
         );
-        assert_eq!(client.failure(false, "lost"), Failure::Lost("lost".into()));
-    }
-
-    #[test]
-    fn a_not_json_answer_keeps_the_reason() {
         assert_eq!(
-            parse_answer("register", "{\"handle\": }"),
-            Err(Failure::Lost(
-                "register gave an answer that is not JSON: syntax error at line 1, column 12"
-                    .into()
-            ))
+            Failure::KeyRefused { key: None }.to_string(),
+            "the server refused the access key"
         );
-        assert_eq!(
-            parse_answer("register", "{\"handle\": \"a\""),
-            Err(Failure::Lost(
-                "register gave an answer that is not JSON: unexpected end of input at line 1, column 14"
-                    .into()
-            ))
-        );
-        assert_eq!(parse_answer("register", "{}"), Ok(json!({})));
-    }
-
-    /// Answers can hold tokens and recovery codes, so the reason never
-    /// repeats any of the answer's text.
-    #[test]
-    fn a_not_json_answer_does_not_repeat_the_answer() {
-        let marker = "act_marker7q3z";
-        let answers = [
-            marker.to_string(),
-            format!("{{\"token\": \"{marker}\" x}}"),
-            format!("{{\"token\": \"{marker}\\q\"}}"),
-            format!("{{\"token\": {marker}}}"),
-            format!("{{\"{marker}\": 1,}}"),
-            format!("[\"{marker}\"] {marker}"),
-        ];
-        for answer in answers {
-            let Err(Failure::Lost(reason)) = parse_answer("register", &answer) else {
-                panic!("{answer:?} should not parse");
-            };
-            assert!(
-                reason.starts_with("register gave an answer that is not JSON: "),
-                "{reason}"
-            );
-            assert!(!reason.contains("marker"), "{reason}");
-        }
     }
 }

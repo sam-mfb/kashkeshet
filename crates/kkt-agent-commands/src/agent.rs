@@ -1,7 +1,8 @@
 //! `kkt register` and `kkt reclaim`: an avatar from a server, with its
 //! credentials saved.
 
-use crate::{AgentParts, Failure, client};
+use crate::{AgentParts, client};
+use kkt_agent_client::Failure;
 use kkt_names as names;
 use kkt_setup::connection::{ConnectionOptions, ConnectionSource};
 use std::path::PathBuf;
@@ -107,7 +108,7 @@ pub(crate) fn lane_refused(code: &str, message: &str) -> bool {
 fn avatar_error(error: Failure) -> String {
     match error {
         // A refused key keeps the message it had when it counted as lost.
-        Failure::Lost | Failure::KeyRefused => {
+        Failure::Lost(_) | Failure::KeyRefused { .. } => {
             "could not reach the server or read its reply".into()
         }
         Failure::Refused { code, .. } => {

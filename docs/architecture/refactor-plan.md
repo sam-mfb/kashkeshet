@@ -140,6 +140,7 @@ differences table below, and is charted into the proposal.
 | kkt-container's `tailscale_auth_key` and `docker_env` take a possibly unsized `Host` | 10.2b (#499) | Accept: every earlier caller still compiles |
 | kkt-operate's module for `kkt agent` is `agent`, not `agents` | 10.2a (#496) | Accept: a name only |
 | kkt-agent-commands takes the admin endpoint's path in `AgentParts`, with no arrow to kkt-mcp | 10.3 (#497) | Accept: one arrow fewer, and kkt-mcp's build script stays out of the assembly's build |
+| The agent credential and watch-state files leave kkt-agent-client for a crate of their own, kkt-agent-files-os, and the program keeps adapting them to kkt-agent-commands' `Credentials` | 12.4 | kkt-agent-client becomes a contract, which may hold no `real`; the files are the machine's, not a third-party tool's, so they take an `-os` crate (Sam's answer 4), and kkt-setup's credential-file rule stays the program's to apply | to show Sam with phase 12 | yes (12.4) |
 
 ## Rules for every step
 
@@ -269,7 +270,7 @@ the last column says so.
 | Difference | Step | Why | Sam | On the map |
 |---|---|---|---|---|
 | kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | accepted by Sam, 2026-11-12 | yes |
-| One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | accepted by Sam, 2026-11-12 | yes |
+| One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | accepted by Sam, 2026-11-12 | overtaken by 12.4: the adapter is gone, and kkt-agent-client-rmcp's `Remote` and `AdminRemote` implement kkt-agent-client's `Watched` directly |
 | kkt-container's `tailscale_auth_key` and `docker_env` accept a possibly unsized `Host` | 10.2b (setup) | Setup now passes the plan's injected host trait object to the existing file readers; the widening accepts all previous callers and changes no reads or output | awaiting Sam | no arrow or slot change |
 | `ServeFacts::service_settings` returns service-plan inputs and a deferred `CheckService`, which retains opaque program options and their source context | 10.2b (service) | The assembly owns planning and its ordered check/install sequence; the program alone knows and validates its whole serving surface. No serving option type or assembly dependency crosses the boundary | awaiting Sam | yes (10.4) |
 | A third-party tool has a project-scope contract plus a named wrapper implementing it directly, regardless of consumer count; the program only injects it. The effect wrapper owns tool knowledge and a private runner, with running behind `real` | 12.1 | The scope is the abstraction consumers use; keeping one tool's knowledge and execution together avoids a shared process concern. The remote-access pilot replaces `Host::run` and the program adapter with `RemoteAccess` and `Tailscale` | decided by Sam, 2026-11-12 (msgs 3041, 3050) | yes |
@@ -1381,10 +1382,10 @@ by kkt-review-373).
 
 | Step | What | Size | Builds | Reviews |
 |---|---|---|---|---|
-| 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (in progress) | kkt-review-373 |
+| 12.1 | remote-access: contract and kkt-remote-access-tailscale; the program's adapter goes; the rule's new text | S | kkt-build-c (done: #507) | kkt-review-373 |
 | 12.2 | container: contract and kkt-container-docker, with the Docker logic, its tests and the sidecar's status | L | kkt-build-c, after 12.1: the same pattern, and it knows kkt-operate's parts | kkt-review-373 |
 | 12.3 | service: contract, kkt-service-launchd and kkt-service-systemd | M to L | kkt-build-b | kkt-review-b |
-| 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | kkt-mt-step1, who built kkt-agent-commands (10.3) | kkt-review-b |
+| 12.4 | agent-client: the client contract, kkt-agent-client-rmcp; kkt-watch and kkt-agent-commands use the contract | M | kkt-mt-step1 (this pull request) | kkt-review-b |
 | 12.5a | lane-files' git: kkt-lane-files-git | S | kkt-build-b, after 12.3 | kkt-review-b |
 | 12.5b | The probe: kkt-probe and kkt-probe-reqwest | S | kkt-build-b, after 12.5a | kkt-review-b |
 | 12.5c | The `claude` command: kkt-client-config-claude | S | kkt-mt-step1, after 12.4 | kkt-review-b |

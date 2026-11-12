@@ -1,0 +1,19 @@
+[package]
+name = "kkt-agent-files-os"
+description = "Agent credential files and kkt watch's state files on this machine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+libc = { workspace = true, optional = true }
+
+[features]
+# All of it: the files are on this machine. libc reads the effective uid for
+# the credential-ownership check on Unix.
+real = ["dep:libc"]
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }

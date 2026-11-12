@@ -118,7 +118,7 @@ Each arrow its code uses (Cargo's dependency) has one or more roles. It is drawn
 
 | Role | Drawn as | Means | Derived from |
 |---|---|---|---|
-| implements a contract of | green, hollow triangle | the crate implements a trait the other crate defines (kkt-agent-client's `Remote` implements kkt-watch's `Server`) | the trait impls in rustdoc's JSON, including impls by private types, which the page names only as "a type of its own" |
+| implements a contract of | green, hollow triangle | the crate implements a trait the other crate defines (kkt-remote-access-tailscale's `Tailscale` implements kkt-remote-access's `RemoteAccess`) | the trait impls in rustdoc's JSON, including impls by private types, which the page names only as "a type of its own" |
 | uses | grey, filled arrow | the crate calls or reads the other crate's items | every named item that is not one of the others |
 | wires | amber, open arrow | the crate builds the other crate's implementation of a contract, or a type that holds one, to hand it on (a program building `SqlitePlace` for `Db::new`) | items that implement a contract, build one (a public method returns another crate's holder, as `SqlitePlace::open` gives a `Database`), or hold one, which the crate builds: it calls one of the type's constructors (a public function giving back the type, such as `KeyMode::new`), or names it if it has none (`SystemClock`). Calling another function of such a type (`KeyMode::admin_operator`) is using it. Plain settings structs and the traits the wired types implement go with the wiring |
 
