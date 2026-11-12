@@ -248,6 +248,9 @@ fn line(name: &str, value: impl std::fmt::Display) -> (String, String) {
 mod tests {
     use super::*;
 
+    /// A change to make to the default settings.
+    type Make = fn(&mut Settings);
+
     fn named(settings: &Settings) -> Vec<(&'static str, &'static str)> {
         settings
             .problems()
@@ -263,7 +266,7 @@ mod tests {
 
     #[test]
     fn every_count_must_be_at_least_one() {
-        let counts: [(&str, fn(&mut Settings)); 13] = [
+        let counts: [(&str, Make); 13] = [
             ("default_limit", |s| s.default_limit = 0),
             ("max_body_bytes", |s| s.max_body_bytes = 0),
             ("max_channel_name_chars", |s| s.max_channel_name_chars = 0),
@@ -301,7 +304,7 @@ mod tests {
 
     #[test]
     fn settings_bounded_by_another_name_it_and_the_rule() {
-        let cases: [(fn(&mut Settings), &str, &str, &str); 4] = [
+        let cases: [(Make, &str, &str, &str); 4] = [
             (
                 |s| s.max_limit = s.default_limit - 1,
                 "max_limit",
