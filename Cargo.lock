@@ -1321,6 +1321,7 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-admission",
+ "kkt-agent-client",
  "kkt-api-agent",
  "kkt-clock",
  "kkt-clock-system",
@@ -1340,6 +1341,7 @@ dependencies = [
  "kkt-server-listen",
  "kkt-shutdown",
  "kkt-shutdown-os",
+ "kkt-terminal-os",
  "kkt-web",
  "reqwest",
  "serde_json",
@@ -1407,6 +1409,7 @@ dependencies = [
  "kkt-settings",
  "kkt-shutdown",
  "kkt-shutdown-os",
+ "kkt-terminal-os",
  "kkt-web",
  "tokio",
 ]
@@ -2056,7 +2059,6 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
- "serde_urlencoded",
  "sync_wrapper",
  "tokio",
  "tokio-rustls",

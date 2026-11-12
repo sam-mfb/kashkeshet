@@ -529,3 +529,15 @@ async fn the_schema_is_the_same_however_a_database_got_there() {
         .expect("version 2 at once");
     assert_eq!(master(&stepwise), master(&at_once));
 }
+
+#[test]
+fn creating_a_database_refuses_an_existing_file_without_opening_it() {
+    let dir = scratch::Dir::new("create-existing");
+    let path = dir.join("existing.db");
+    std::fs::write(&path, b"keep this file").expect("write");
+    assert!(matches!(
+        SqlitePlace::new(&path, options()).create(&[]),
+        Err(crate::CreateError::Exists)
+    ));
+    assert_eq!(std::fs::read(path).expect("read"), b"keep this file");
+}

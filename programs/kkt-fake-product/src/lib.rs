@@ -12,8 +12,6 @@
 //! program serves it over a database file, to look at by hand. Never part
 //! of a release; see `[package.metadata.kkt]` in Cargo.toml.
 
-pub mod client;
-
 use kkt_admission::{AdminAdmission, Admission, Principal};
 use kkt_api_agent::Api;
 use kkt_api_agent::{Agent, Audit, Code, Operator, Permission, Permissions, RuleError, SwarmId};
@@ -26,6 +24,7 @@ use kkt_names::AdminName;
 use kkt_rules::{Db, NewServerRunRecord};
 use kkt_server::{AppConfig, Parts};
 use kkt_shutdown::Shutdown;
+use kkt_terminal_os::Terminal;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -264,7 +263,9 @@ impl Product {
         tokio::spawn(async move {
             listening
                 .serve_until(async move { stop.stopped().await }, |e| {
-                    eprintln!("kkt-fake-product: could not set TCP_NODELAY on a connection: {e}")
+                    Terminal.errors(format_args!(
+                        "kkt-fake-product: could not set TCP_NODELAY on a connection: {e}\n"
+                    ))
                 })
                 .await
                 .expect("serving")
