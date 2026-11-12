@@ -67,21 +67,6 @@ impl Http {
             .map(|response| HttpReply { response })
             .map_err(|e| e.to_string())
     }
-    /// Sends URL-encoded form fields in a POST with the supplied headers.
-    pub async fn form(
-        &self,
-        url: &str,
-        bearer: Option<&str>,
-        headers: &[(&str, &str)],
-        fields: &[(&str, &str)],
-    ) -> Result<HttpReply, String> {
-        self.request(reqwest::Method::POST, url, bearer, headers)
-            .form(fields)
-            .send()
-            .await
-            .map(|response| HttpReply { response })
-            .map_err(|e| e.to_string())
-    }
 }
 
 impl HttpReply {

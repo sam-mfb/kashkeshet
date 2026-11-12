@@ -13,7 +13,7 @@ libc = { workspace = true, optional = true }
 kkt-clock = { path = "../kkt-clock" }
 # Written out rather than left to the program: rmcp's client transport talks
 # TLS through reqwest's `rustls` (reorganization plan, risk 4).
-reqwest = { workspace = true, optional = true, features = ["rustls", "form", "stream"] }
+reqwest = { workspace = true, optional = true, features = ["rustls", "stream"] }
 rmcp = { workspace = true, optional = true, features = ["client", "transport-streamable-http-client-reqwest"] }
 serde_json.workspace = true
 tokio.workspace = true

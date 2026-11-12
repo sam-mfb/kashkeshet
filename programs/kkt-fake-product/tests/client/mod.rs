@@ -178,11 +178,14 @@ impl Client {
         body.extend_from_slice(fields);
         let response = self
             .http
-            .form(
+            .post(
                 &format!("{}{path}", self.base),
                 None,
-                &[(COOKIE.as_str(), cookie)],
-                &body,
+                &[
+                    (COOKIE.as_str(), cookie),
+                    (CONTENT_TYPE.as_str(), "application/x-www-form-urlencoded"),
+                ],
+                form_body(&body),
             )
             .await
             .expect("an answer");
@@ -396,4 +399,37 @@ fn dechunk(chunked: &[u8]) -> Vec<u8> {
         rest = &rest[start + size + 2..];
     }
     body
+}
+
+// application/x-www-form-urlencoded encodes UTF-8 bytes, with spaces as +.
+fn form_body(fields: &[(&str, &str)]) -> String {
+    fn encoded(text: &str) -> String {
+        let mut out = String::new();
+        for byte in text.bytes() {
+            match byte {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'*' | b'-' | b'.' | b'_' => {
+                    out.push(char::from(byte))
+                }
+                b' ' => out.push('+'),
+                _ => {
+                    use std::fmt::Write;
+                    write!(out, "%{byte:02X}").expect("a string");
+                }
+            }
+        }
+        out
+    }
+    fields
+        .iter()
+        .map(|(key, value)| format!("{}={}", encoded(key), encoded(value)))
+        .collect::<Vec<_>>()
+        .join("&")
+}
+
+#[test]
+fn form_fields_preserve_spaces_separators_and_utf8() {
+    assert_eq!(
+        form_body(&[("name", "a b+c&d=e/é"), ("", "*")]),
+        "name=a+b%2Bc%26d%3De%2F%C3%A9&=*"
+    );
 }
