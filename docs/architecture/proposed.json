@@ -293,6 +293,30 @@
     "testing": []
    },
    "concern": "Recording an event: `Log`, \"record this event at this level\", with `Level` (error to trace) and its named fields (`Field`, whose `Value` is formatted with Display or Debug), and a stand-in behind `testing` that captures events, as `Entry`s, for tests. A shared contract: the logic crates that log take it, and kkt-logs-os implements it."
+  },
+  {
+   "name": "kkt-serve",
+   "layer": "assembly",
+   "kind": "composition",
+   "from": "kashkeshet",
+   "status": "decided",
+   "concern": "What `kkt serve` runs: the serve settings (the flags and config keys, layering flag over file over the defaults, mapping each onto a `ServerSettings` field or a setting of its own, and the checks), the server's keys, the backup before the database is upgraded, recording the run, building the `Rules` and kkt-server's `Parts`, and listening until a stop. `start`, the part after the settings, is shared with kkt-keymode. It takes its effects in `ServeParts` and depends on no `-os` crate and no other assembly; it gives other commands the local server's facts as `kkt serve` would see them."
+  },
+  {
+   "name": "kkt-operate",
+   "layer": "assembly",
+   "kind": "composition",
+   "from": "kashkeshet",
+   "status": "decided",
+   "concern": "The operator's commands on this machine: `kkt setup` and `kkt switch`, `kkt service`, `kkt status`, `kkt upgrade`, `kkt uninstall`, `kkt backup`, `kkt doctor`, `kkt lanes`, `kkt key` and `kkt agent`, with the setup record, the unfinished note, installs with no record, and where the operator's keys are. It takes its effects and the local server's facts in `OperateParts`, mostly as the contracts its logic crates already declare, and depends on no `-os` crate and no other assembly."
+  },
+  {
+   "name": "kkt-agent-commands",
+   "layer": "assembly",
+   "kind": "composition",
+   "from": "kashkeshet",
+   "status": "decided",
+   "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: the connection question kkt-setup declares, where the admin key is, the server's client, the credential files and the terminal. It depends on no `-os` crate, not on kkt-agent-client, and on no other assembly."
   }
  ],
  "moves": [
@@ -1056,6 +1080,349 @@
    "to": "kkt-api-agent",
    "status": "decided",
    "note": "Lane, a shared record, holds it (step 5.3a)"
+  },
+  {
+   "item": "kashkeshet::commands::serve::run",
+   "to": "kkt-serve",
+   "status": "decided",
+   "as": "run",
+   "note": "phase 10, step 10.1"
+  },
+  {
+   "item": "kashkeshet::machine::settings",
+   "to": "kkt-serve",
+   "status": "decided",
+   "as": "settings",
+   "note": "phase 10, step 10.1"
+  },
+  {
+   "item": "kashkeshet::machine::settings::Checked",
+   "to": "kkt-serve",
+   "status": "decided",
+   "as": "settings::Checked",
+   "note": "phase 10, step 10.1"
+  },
+  {
+   "item": "kashkeshet::machine::settings::Loaded",
+   "to": "kkt-serve",
+   "status": "decided",
+   "as": "settings::Loaded",
+   "note": "phase 10, step 10.1"
+  },
+  {
+   "item": "kashkeshet::machine::settings::ServeArgs",
+   "to": "kkt-serve",
+   "status": "decided",
+   "as": "settings::ServeArgs",
+   "note": "phase 10, step 10.1"
+  },
+  {
+   "item": "kashkeshet::machine::settings::Sources",
+   "to": "kkt-serve",
+   "status": "decided",
+   "as": "settings::Sources",
+   "note": "phase 10, step 10.1"
+  },
+  {
+   "item": "kashkeshet::machine::settings::check_settings",
+   "to": "kkt-serve",
+   "status": "decided",
+   "as": "settings::check_settings",
+   "note": "phase 10, step 10.1"
+  },
+  {
+   "item": "kashkeshet::machine::settings::load_serve_options",
+   "to": "kkt-serve",
+   "status": "decided",
+   "as": "settings::load_serve_options",
+   "note": "phase 10, step 10.1"
+  },
+  {
+   "item": "kashkeshet::machine::settings::read_config",
+   "to": "kkt-serve",
+   "status": "decided",
+   "as": "settings::read_config",
+   "note": "phase 10, step 10.1"
+  },
+  {
+   "item": "kashkeshet::machine::settings::serve_bind",
+   "to": "kkt-serve",
+   "status": "decided",
+   "as": "settings::serve_bind",
+   "note": "phase 10, step 10.1"
+  },
+  {
+   "item": "kashkeshet::commands::setup",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "setup",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::setup::InstallOptions",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "setup::InstallOptions",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::setup::run",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "setup::run",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::setup::run_switch",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "setup::run_switch",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::service",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "service",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::service::ServiceAction",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "service::ServiceAction",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::service::ServiceInstall",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "service::ServiceInstall",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::service::ServicePlan",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "service::ServicePlan",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::service::run",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "service::run",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::service::service_plan",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "service::service_plan",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::lifecycle",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "lifecycle",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::lifecycle::backup",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "lifecycle::backup",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::lifecycle::status",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "lifecycle::status",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::lifecycle::uninstall",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "lifecycle::uninstall",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::lifecycle::upgrade",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "lifecycle::upgrade",
+   "note": "phase 10, step 10.2a"
+  },
+  {
+   "item": "kashkeshet::commands::doctor",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "doctor",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::doctor::run",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "doctor::run",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::lanes",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "lanes",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::lanes::LanesAction",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "lanes::LanesAction",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::lanes::run",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "lanes::run",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::key",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "key",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::key::create",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "key::create",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::key::header",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "key::header",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::key::show",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "key::show",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::agent",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "agents",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::agent::AgentAction",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "agents::AgentAction",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::agent::run",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "agents::run",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::machine::record",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "record",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::machine::record::check_setup",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "record::check_setup",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::machine::record::read_unrecorded",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "record::read_unrecorded",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::machine::keys::local_operator_key",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "keys::local_operator_key",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::machine::keys::local_web_key",
+   "to": "kkt-operate",
+   "status": "decided",
+   "as": "keys::local_web_key",
+   "note": "phase 10, step 10.2b"
+  },
+  {
+   "item": "kashkeshet::commands::agent::register",
+   "to": "kkt-agent-commands",
+   "status": "decided",
+   "as": "register",
+   "note": "phase 10, step 10.3"
+  },
+  {
+   "item": "kashkeshet::commands::agent::reclaim",
+   "to": "kkt-agent-commands",
+   "status": "decided",
+   "as": "reclaim",
+   "note": "phase 10, step 10.3"
+  },
+  {
+   "item": "kashkeshet::commands::watch",
+   "to": "kkt-agent-commands",
+   "status": "decided",
+   "as": "watch",
+   "note": "phase 10, step 10.3"
+  },
+  {
+   "item": "kashkeshet::commands::watch::WatchTask",
+   "to": "kkt-agent-commands",
+   "status": "decided",
+   "as": "watch::WatchTask",
+   "note": "phase 10, step 10.3"
+  },
+  {
+   "item": "kashkeshet::commands::watch::run",
+   "to": "kkt-agent-commands",
+   "status": "decided",
+   "as": "watch::run",
+   "note": "phase 10, step 10.3"
+  },
+  {
+   "item": "kashkeshet::commands::connect",
+   "to": "kkt-agent-commands",
+   "status": "decided",
+   "as": "connect",
+   "note": "phase 10, step 10.3"
+  },
+  {
+   "item": "kashkeshet::commands::connect::run",
+   "to": "kkt-agent-commands",
+   "status": "decided",
+   "as": "connect::run",
+   "note": "phase 10, step 10.3"
   }
  ],
  "remove_items": [
@@ -1534,6 +1901,11 @@
   {
    "item": "kkt-config::Limits",
    "status": "decided"
+  },
+  {
+   "item": "kashkeshet::commands",
+   "status": "decided",
+   "note": "the commands go to kkt-serve, kkt-operate and kkt-agent-commands (phase 10)"
   }
  ],
  "method_moves": [
@@ -2521,15 +2893,15 @@
    "doc": "`$XDG_CONFIG_HOME` when it is not set, under the home directory. (step 3.4)"
   },
   {
-   "crate": "kashkeshet",
-   "path": "commands::key::NewKey",
+   "crate": "kkt-operate",
+   "path": "key::NewKey",
    "kind": "struct",
    "status": "decided",
    "doc": "The key `kkt key create` makes: its kind, the file to write it to if given, and the admin agent's name if given. (step 3.4)"
   },
   {
-   "crate": "kashkeshet",
-   "path": "commands::agent::NewAvatar",
+   "crate": "kkt-agent-commands",
+   "path": "NewAvatar",
    "kind": "struct",
    "status": "decided",
    "doc": "What `kkt register` asks the server for: a handle, a lane to take, and a description, each if given. (step 3.4)"
@@ -2542,8 +2914,8 @@
    "doc": "What to say when a key file's key is refused; the same function as key_refusal (step 3.5b)"
   },
   {
-   "crate": "kashkeshet",
-   "path": "machine::settings::BadSetting",
+   "crate": "kkt-serve",
+   "path": "settings::BadSetting",
    "kind": "trait",
    "status": "decided",
    "doc": "A bad setting, as each part that checks settings reports it in its own error type: the setting's name, and a message that starts with it. (step 3.5c)",
@@ -3279,11 +3651,11 @@
    "doc": "What the rules depend on at startup: `Deps` without the run, which `start` records and fills in (step 5.6a)."
   },
   {
-   "crate": "kkt-server",
+   "crate": "kkt-serve",
    "path": "new_server_run",
    "kind": "fn",
    "status": "decided",
-   "doc": "What produced a run, kkt-provenance's ServerRun, as kkt-rules' start records it, a NewServerRun (step 5.6a)."
+   "doc": "What produced a run, kkt-provenance's ServerRun, as kkt-rules' start records it, a NewServerRun (steps 9.2 and 10.1)."
   },
   {
    "crate": "kkt-admission",
@@ -3451,8 +3823,8 @@
    "doc": "How many of the backups made before upgrading the database are kept (upgrade_backups_kept), with its default, its check and its line in the run record (step 9.1)."
   },
   {
-   "crate": "kashkeshet",
-   "path": "machine::settings::ServeOptions",
+   "crate": "kkt-serve",
+   "path": "settings::ServeOptions",
    "kind": "struct",
    "status": "decided",
    "doc": "What one source, the flags or the config file, gives of kkt serve's settings; over layers flags over the file, and resolve fills the rest from ServerSettings::DEFAULT and the program's own defaults (step 9.3).",
@@ -3465,18 +3837,212 @@
    ]
   },
   {
-   "crate": "kashkeshet",
-   "path": "machine::settings::ServeSettings",
+   "crate": "kkt-serve",
+   "path": "settings::ServeSettings",
    "kind": "struct",
    "status": "decided",
    "doc": "The settings kkt serve runs with: kkt-server's ServerSettings, and the program's own (the database, the address, the key files, the log and the upgrade backups) (step 9.3)."
   },
   {
-   "crate": "kashkeshet",
-   "path": "machine::settings::server_settings",
+   "crate": "kkt-serve",
+   "path": "settings::server_settings",
    "kind": "fn",
    "status": "decided",
    "doc": "Each config key and flag mapped onto one ServerSettings field (step 9.3)."
+  },
+  {
+   "crate": "kkt-serve",
+   "path": "ServeParts",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The effects kkt serve takes: the clock, entropy and log as their shared contracts, and its own contracts for starting the log, the config and instructions files, the key files, the database file, the backups, listening, the stop signals and standard error (step 10.1)."
+  },
+  {
+   "crate": "kkt-serve",
+   "path": "start",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "The server after its settings are checked: records the run, builds the Rules and kkt-server's Parts in key mode, and listens, giving what started, for kkt serve and kkt-keymode (step 10.1)."
+  },
+  {
+   "crate": "kkt-serve",
+   "path": "Started",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A server that is listening: its run, the address bound, and serving until a stop (step 10.1).",
+   "methods": [
+    "address",
+    "run_id",
+    "serve_until"
+   ]
+  },
+  {
+   "crate": "kkt-serve",
+   "path": "StartLog",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Starts the log at two levels, to a file within its policy or to the terminal (step 10.1)."
+  },
+  {
+   "crate": "kkt-serve",
+   "path": "ConfigFiles",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Reads a named config file, the default one if it is there, and the instructions file (step 10.1)."
+  },
+  {
+   "crate": "kkt-serve",
+   "path": "KeyFiles",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "The key texts kkt-admission's check reads, a missing default key made, and one key file read (step 10.1)."
+  },
+  {
+   "crate": "kkt-serve",
+   "path": "Database",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "The database file: its folder made, the upgrade opening it would make, opened with the core's tables, copied (step 10.1)."
+  },
+  {
+   "crate": "kkt-serve",
+   "path": "Backups",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Writes kkt-backup's layout of a backup, and prunes old ones (step 10.1)."
+  },
+  {
+   "crate": "kkt-serve",
+   "path": "Listen",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Binds kkt-server's App to an address and serves it until a stop (step 10.1)."
+  },
+  {
+   "crate": "kkt-serve",
+   "path": "StopSignals",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Stops a Shutdown on the system's stop signals (step 10.1)."
+  },
+  {
+   "crate": "kkt-serve",
+   "path": "Errors",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "A line on standard error (step 10.1)."
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "OperateParts",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The effects and facts the operator's commands take: the contracts kkt-container, kkt-service, kkt-remote-access, kkt-client-config, kkt-diagnostics, kkt-lane-files and kkt-setup declare, the clock, and its own contracts for the local server's facts, setup's files, the key files, the config file's text, the database files, the backups and the terminal (steps 10.2a and 10.2b)."
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "ServeFacts",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "The local server's facts as kkt serve would see them, each asked only where a command needs it: the config file and what it gives, the configured access key, the database in effect, the address, the settings a service runs with and their check, and the default access key file (step 10.2b)."
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "SetupFiles",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "The setup record and the unfinished note, read, written and removed; paths made absolute or canonical; this program's path (step 10.2b)."
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "KeyFiles",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Key files read, probed and written, with the admin name beside an admin key (step 10.2b)."
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "ConfigText",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "The default config file's text, read and written, for setup's allowed hosts (step 10.2a)."
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "Databases",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Whether a database file is there, opening it for the operator's commands, and copying it (step 10.2b)."
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "BackupWriter",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Writes kkt-backup's layout of a backup (step 10.2a)."
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "Output",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Standard output and error (step 10.2b)."
+  },
+  {
+   "crate": "kkt-operate",
+   "path": "keys::selected_key_path",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "Where the key of a kind is: the path given, else the record, the unfinished note, an install with no record and the serve config, each read only if the one before leaves it open (step 10.2b)."
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "path": "AgentParts",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The effects and facts the agents' commands take: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the client configs' host, this program's path, the terminal and the clock (step 10.3)."
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "path": "AdminKey",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Where the admin key is, given a path or not (step 10.3)."
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "path": "Servers",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "A client of the server at an address, with an optional key: register, reclaim, describe, and kkt-watch's Server for an agent or the admin endpoint (step 10.3)."
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "path": "Credentials",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Reserving and saving a credential file, reading a token file, and claiming a state file as kkt-watch's Place (step 10.3)."
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "path": "KeyText",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Reads the client's key file (step 10.3)."
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "path": "Program",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "kkt's path, for a client's config (step 10.3)."
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "path": "Output",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "Standard output and error (step 10.3)."
   }
  ],
  "declared": [],
@@ -6941,18 +7507,6 @@
    "note": "kkt-server's new_server_run gives the NewServerRun (step 5.6a)"
   },
   {
-   "from": "kashkeshet",
-   "to": "kkt-server",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "new_server_run"
-    ]
-   },
-   "status": "decided",
-   "note": "it maps the run for start (step 5.6a)"
-  },
-  {
    "from": "kkt-keymode",
    "to": "kkt-rules",
    "kind": "normal",
@@ -6961,18 +7515,6 @@
    ],
    "status": "decided",
    "note": "kkt-server's new_server_run gives the NewServerRun (step 5.6a)"
-  },
-  {
-   "from": "kkt-keymode",
-   "to": "kkt-server",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "new_server_run"
-    ]
-   },
-   "status": "decided",
-   "note": "it maps the run for start (step 5.6a)"
   },
   {
    "from": "kkt-server",
@@ -7258,6 +7800,1252 @@
    },
    "status": "decided",
    "note": "fills kkt-rules' Settings for the Rules it builds, and passes its problems and record lines to kkt-server as plain values (phase 9)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "Parts takes the application as kkt-api-admin's AdminApi, and new_server_run is the caller's of start, so its code names nothing of kkt-rules; its tests still use kkt_rules::testing (step 9.2)"
+  },
+  {
+   "from": "kkt-server",
+   "to": "kkt-provenance",
+   "kind": "normal",
+   "drop": [
+    "ServerRun"
+   ],
+   "status": "decided",
+   "note": "new_server_run, which read the ServerRun, goes to kkt-serve; it keeps Build for the version it serves (step 9.2)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-server",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "AppConfig",
+     "Parts",
+     "ServerSettings",
+     "build",
+     "App"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-server (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Startup",
+     "start",
+     "DefaultWording",
+     "Settings",
+     "Db",
+     "NewServerRun"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-rules (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-api-agent",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "SwarmId"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-api-agent (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-events",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Events",
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-events (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-identity-keymode",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "KeyMode"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-identity-keymode (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-provenance",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Build",
+     "RunSettings",
+     "ServerRun"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-provenance (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "AccessKey",
+     "AdminAdmission",
+     "SharedKey",
+     "ServerKey",
+     "key_refusal",
+     "server_keys",
+     "access_key_file",
+     "admin_name_path"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-admission (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-hosts",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "AllowedHosts",
+     "DEFAULT_BIND",
+     "DEFAULT_ALLOW_ANY_BIND",
+     "check_bind",
+     "SettingError"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-hosts (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-logs",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "LogLevel",
+     "LogPolicy",
+     "check_dependency_log_level",
+     "DEFAULT_LOG_LEVEL",
+     "DEFAULT_DEPENDENCY_LOG_LEVEL",
+     "SettingError"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-logs (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-config-file",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Config",
+     "ConfigError",
+     "config_dir",
+     "config_file",
+     "parse_file"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-config-file (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-machine",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Env",
+     "Platform"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-machine (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-names",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "AdminName",
+     "NamePack",
+     "PACKS"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-names (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-backup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Contents",
+     "Settings",
+     "layout"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-backup (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-setup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "default_db",
+     "upgrade_backup_folder"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-setup (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-shutdown",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Shutdown"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-shutdown (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-mcp",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "MCP_ADMIN_PATH",
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-mcp (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-format",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-format (step 10.1)"
+  },
+  {
+   "from": "kkt-serve",
+   "to": "kkt-web",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-web (step 10.1)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-setup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Answers",
+     "Steps",
+     "SwitchSteps",
+     "AdoptSteps",
+     "KeyKind",
+     "Record",
+     "Mode",
+     "recorded_setup",
+     "docker_folder",
+     "connection::client_connection",
+     "connection::serve_connection",
+     "connection::recorded_connection"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-setup (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-container",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Folder",
+     "status",
+     "upgrade",
+     "backup",
+     "down",
+     "existing",
+     "import_lanes",
+     "export_lanes",
+     "lane_limit",
+     "ENV_FILE",
+     "NO_ADMIN_KEY_EXIT"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-container (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-service",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Manager",
+     "ServiceError",
+     "DryRun",
+     "Request",
+     "Spec",
+     "check_bind",
+     "plan"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-service (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-remote-access",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "prepare",
+     "serve",
+     "served",
+     "stop"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-remote-access (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-client-config",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Client",
+     "Setup",
+     "allow_kkt",
+     "configure",
+     "header",
+     "codex_password_store_hint"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-client-config (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-diagnostics",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Inspector",
+     "ServerLines",
+     "ThisMachine",
+     "KeyToCheck",
+     "Check",
+     "inspect"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-diagnostics (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-lane-files",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "LaneFile",
+     "Read",
+     "Skipped",
+     "file_name",
+     "read_folder",
+     "write_folder"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-lane-files (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-backup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Contents",
+     "layout"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-backup (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "admin_key_path",
+     "server_keys",
+     "AccessKey"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-admission (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-names",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "AdminName",
+     "MAX_ADMIN_NAME_CHARS"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-names (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "CommandLine",
+     "ImportedLane",
+     "LaneImport",
+     "LaneOutcome",
+     "Revoked",
+     "check_lane_import",
+     "check_retire_missing",
+     "Db",
+     "Settings"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-rules (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-api-agent",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "LaneSource",
+     "SwarmId"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-api-agent (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-api-operator",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "LaneSave"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-api-operator (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-config-file",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "config_dir",
+     "config_file",
+     "with_allowed_host"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-config-file (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-machine",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Env",
+     "Platform"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-machine (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-provenance",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Build"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-provenance (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kkt-agent-commands",
+   "to": "kkt-setup",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "connection::client_connection",
+     "connection::ConnectionOptions",
+     "connection::Connection"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-setup (step 10.3)"
+  },
+  {
+   "from": "kkt-agent-commands",
+   "to": "kkt-watch",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Options",
+     "Outcome",
+     "Settings",
+     "run",
+     "Server",
+     "Place"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-watch (step 10.3)"
+  },
+  {
+   "from": "kkt-agent-commands",
+   "to": "kkt-client-config",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Client",
+     "Setup",
+     "configure"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-client-config (step 10.3)"
+  },
+  {
+   "from": "kkt-agent-commands",
+   "to": "kkt-names",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "MAX_HANDLE_CHARS",
+     "MAX_LANE_NAME_CHARS",
+     "check_lane_name",
+     "check_proposed_handle"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-names (step 10.3)"
+  },
+  {
+   "from": "kkt-agent-commands",
+   "to": "kkt-mcp",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "MCP_ADMIN_PATH"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-mcp (step 10.3)"
+  },
+  {
+   "from": "kkt-agent-commands",
+   "to": "kkt-machine",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Env",
+     "Platform"
+    ]
+   },
+   "status": "decided",
+   "note": "what its commands use of kkt-machine (step 10.3)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "drop": [
+    "ACCESS_KEY_FILE_MODE",
+    "AdminAdmission",
+    "ServerKey",
+    "SettingError",
+    "access_key_file",
+    "admin_key_path",
+    "admin_name_path",
+    "key_refusal",
+    "server_keys::KeyText",
+    "server_keys::ServerKeys",
+    "server_keys::admin_name_line",
+    "server_keys::admin_name_written",
+    "server_keys::bound_to",
+    "server_keys::check",
+    "web_key_path"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-admission move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-api-agent",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "only its commands used kkt-api-agent, and they move to the assemblies (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-api-operator",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "only its commands used kkt-api-operator, and they move to the assemblies (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-config-file",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "only its commands used kkt-config-file, and they move to the assemblies (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-events",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "only its commands used kkt-events, and they move to the assemblies (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-identity-keymode",
+   "kind": "normal",
+   "drop": [
+    "KeyMode"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-identity-keymode move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-mcp",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "only its commands used kkt-mcp, and they move to the assemblies (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-names",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "only its commands used kkt-names, and they move to the assemblies (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-web",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "only its commands used kkt-web, and they move to the assemblies (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-backup",
+   "kind": "normal",
+   "drop": [
+    "Contents",
+    "layout"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-backup move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-client-config",
+   "kind": "normal",
+   "drop": [
+    "Setup",
+    "allow_kkt",
+    "codex_password_store_hint",
+    "configure",
+    "header"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-client-config move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-container",
+   "kind": "normal",
+   "drop": [
+    "DOCKER_ADMIN_KEY_FILE_NAME",
+    "ENV_FILE",
+    "Folder",
+    "Inputs",
+    "LanesImport",
+    "NO_ADMIN_KEY_EXIT",
+    "Settings",
+    "Tailscale",
+    "add_admin_key",
+    "backup",
+    "compare_web_key",
+    "docker_env",
+    "down",
+    "existing",
+    "export_lanes",
+    "import_lanes",
+    "lane_limit",
+    "provision",
+    "status",
+    "tailscale_auth_key",
+    "upgrade",
+    "version_in_env"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-container move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-diagnostics",
+   "kind": "normal",
+   "drop": [
+    "Check",
+    "Inspector",
+    "KEY_CHECK",
+    "KeyToCheck",
+    "SERVER_CHECK",
+    "ServerLines",
+    "SetupServer",
+    "ThisMachine",
+    "endpoint",
+    "inspect",
+    "inspect_address",
+    "inspect_with_key",
+    "point_server_fix_at",
+    "report",
+    "setup_wait",
+    "shell_word",
+    "until_reachable"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-diagnostics move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-hosts",
+   "kind": "normal",
+   "drop": [
+    "AllowedHosts",
+    "DEFAULT_ALLOW_ANY_BIND",
+    "SettingError",
+    "check_bind"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-hosts move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-lane-files",
+   "kind": "normal",
+   "drop": [
+    "LaneFile",
+    "Read",
+    "Skipped",
+    "file_name",
+    "read_folder",
+    "write_folder"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-lane-files move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-logs",
+   "kind": "normal",
+   "drop": [
+    "LogPolicy",
+    "SettingError",
+    "check_dependency_log_level"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-logs move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-provenance",
+   "kind": "normal",
+   "drop": [
+    "RunSettings",
+    "ServerRun"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-provenance move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "drop": [
+    "CommandLine",
+    "DefaultWording",
+    "ImportedLane",
+    "LaneImport",
+    "LaneOutcome",
+    "Revoked",
+    "Startup",
+    "check_lane_import",
+    "check_retire_missing",
+    "legacy",
+    "schema",
+    "start"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-rules move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-server",
+   "kind": "normal",
+   "drop": [
+    "AppConfig",
+    "Parts",
+    "ServerSettings",
+    "build"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-server move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-service",
+   "kind": "normal",
+   "drop": [
+    "DryRun",
+    "Manager",
+    "PlanError",
+    "Request",
+    "ServiceError",
+    "Spec",
+    "check_bind",
+    "plan"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-service move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-setup",
+   "kind": "normal",
+   "drop": [
+    "AccessKeyFrom",
+    "AdoptSteps",
+    "BackupKeys",
+    "BackupOf",
+    "ClientKey",
+    "DockerSetup",
+    "Here",
+    "InstallCheck",
+    "Installed",
+    "KeyPlace",
+    "KeysOff",
+    "LanesOn",
+    "Lines",
+    "Mode",
+    "Purpose",
+    "Record",
+    "Replace",
+    "RunningVersion",
+    "Server",
+    "StatusThen",
+    "Steps",
+    "Switch",
+    "SwitchSteps",
+    "TailscaleLogin",
+    "Target",
+    "Unfinished",
+    "Unrecorded",
+    "admin_key_collision",
+    "admin_key_line",
+    "ask::Prompter",
+    "backup_keys",
+    "backup_of",
+    "client_key",
+    "clients_server_fix",
+    "clients_server_mode",
+    "configured_key",
+    "configured_name_pack_line",
+    "connection",
+    "connection::admin_connection",
+    "connection::admin_endpoint",
+    "connection::client_connection",
+    "connection::recorded_connection",
+    "connection::serve_connection",
+    "create_asks_for_docker",
+    "create_checks",
+    "create_destination_check",
+    "credential_file_check",
+    "default_db",
+    "docker_folder",
+    "docker_status_lines",
+    "doctor_checks",
+    "doctor_record",
+    "guard",
+    "lane_reports::Outcome",
+    "lane_reports::docker_limit",
+    "lane_reports::import_report",
+    "lanes_on",
+    "operator_key",
+    "recorded_key",
+    "recorded_setup",
+    "run",
+    "running_version",
+    "server_fix",
+    "service_backup_folder",
+    "service_runs_defaults",
+    "service_upgrade_error",
+    "setup_lane_limit",
+    "staged_client_key",
+    "status",
+    "status_looks_for_unrecorded",
+    "switch",
+    "uninstall_line",
+    "uninstall_record",
+    "unreadable_service",
+    "unrecorded_here",
+    "unrecorded_service",
+    "upgrade_backup_folder",
+    "upgrade_plan",
+    "waiting_note",
+    "web_key_line"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-setup move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-watch",
+   "kind": "normal",
+   "drop": [
+    "Outcome",
+    "Server",
+    "Settings",
+    "run"
+   ],
+   "status": "decided",
+   "note": "its commands' uses of kkt-watch move to the assemblies; it keeps what its adapters and command line name (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-serve",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "run",
+     "ServeParts",
+     "settings::read_config",
+     "settings::serve_bind",
+     "settings::Sources"
+    ]
+   },
+   "status": "decided",
+   "note": "builds ServeParts from the implementations it chooses and runs the commands; answers the other assemblies' questions with it (step 10.1)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-operate",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "OperateParts",
+     "ServeFacts",
+     "setup::run",
+     "lanes::run",
+     "record::check_setup",
+     "keys::selected_key_path"
+    ]
+   },
+   "status": "decided",
+   "note": "builds OperateParts from the implementations it chooses and runs the commands; answers the other assemblies' questions with it (steps 10.2a and 10.2b)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-agent-commands",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "AgentParts",
+     "watch::run",
+     "register",
+     "reclaim",
+     "connect::run"
+    ]
+   },
+   "status": "decided",
+   "note": "builds AgentParts from the implementations it chooses and runs the commands; answers the other assemblies' questions with it (step 10.3)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-entropy",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Entropy"
+    ]
+   },
+   "status": "decided",
+   "note": "passes kkt-entropy-os' entropy as the contract (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-log",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Log"
+    ]
+   },
+   "status": "decided",
+   "note": "passes kkt-logs-os' log as the contract (phase 10)"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-server",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "App"
+    ]
+   },
+   "status": "decided",
+   "note": "its listening adapter hands kkt-server's App to kkt-server-listen (step 10.1)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-admission",
+   "kind": "normal",
+   "drop": [
+    "AccessKey",
+    "AdminAdmission",
+    "SettingError",
+    "admin_name_path",
+    "key_refusal",
+    "server_keys::ServerKeys",
+    "server_keys::check"
+   ],
+   "status": "decided",
+   "note": "kkt-serve uses the rest of kkt-admission for it; it keeps what its adapters name (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-api-agent",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-api-agent for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-backup",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-backup for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-clock",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-clock for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-config-file",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-config-file for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-events",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-events for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-format",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-format for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-hosts",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-hosts for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-identity-keymode",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-identity-keymode for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-logs",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-logs for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-mcp",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-mcp for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-names",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-names for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-provenance",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-provenance for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-rules",
+   "kind": "normal",
+   "drop": [
+    "DefaultWording",
+    "Settings",
+    "Startup",
+    "start"
+   ],
+   "status": "decided",
+   "note": "kkt-serve uses the rest of kkt-rules for it; it keeps what its adapters name (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-server",
+   "kind": "normal",
+   "drop": [
+    "AppConfig",
+    "Parts",
+    "ServerSettings",
+    "build"
+   ],
+   "status": "decided",
+   "note": "kkt-serve uses the rest of kkt-server for it; it keeps what its adapters name (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-web",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "kkt-serve uses kkt-web for it (phase 10)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-server",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "App"
+    ]
+   },
+   "status": "decided",
+   "note": "its listening adapter hands kkt-server's App to kkt-server-listen (step 10.1)"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-serve",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ServeParts",
+     "start",
+     "Started",
+     "settings::ServeOptions",
+     "settings::ServeSettings"
+    ]
+   },
+   "status": "decided",
+   "note": "its settings through kkt-serve's surface, with its own arguments, and the server through start, with its own output (steps 9.3 and 10.1)"
   }
  ],
  "decisions": {
@@ -7690,6 +9478,14 @@
   {
    "id": "53",
    "text": "Msgs 2773 and 2775 (phase 9): kkt-settings goes, as kkt-config did, since it gathered other crates' concerns under one name. Each crate's own Settings, DEFAULT, check (problems) and run-record wording (record_lines) are the only copy, and Limits goes. kkt-server's ServerSettings holds only the settings of what kkt-server builds or passes on (the formatter's, the page's, the MCP transport's, the allowed origins and hosts), with DEFAULT built from the owners', check naming the first bad setting in today's order of (setting, check) pairs (the program's problems passed in as plain values) and record_lines putting every line in today's order (the program's lines passed in as plain values); Parts::new takes it. The program builds the Rules, so kkt-rules' Settings is the program's, as are the log and the upgrade backups; the serve surface (flags, config keys, layering, the key files and the database) is each program's."
+  },
+  {
+   "id": "54",
+   "text": "Msgs 2789, 2794, 2803 and 2825 (phase 10): the program's library becomes three composition crates by who uses each part: kkt-serve (serving, with ServeParts), kkt-operate (the operator's commands, with OperateParts) and kkt-agent-commands (the agents' commands, with AgentParts). No assembly depends on another or on an -os crate; kashkeshet chooses every implementation, keeps the adapters and cli.rs, and answers each assembly's questions about the local server, which stay lazy, with their errors."
+  },
+  {
+   "id": "55",
+   "text": "Msg 2837 (step 9.2): kkt-server's Parts takes an Arc<dyn AdminApi>, not kkt-rules' Rules; new_server_run moves to whoever calls start (kkt-serve after 10.1); kkt-server's normal dependency on kkt-rules goes, and its tests keep kkt_rules::testing."
   }
  ],
  "not_traits": [
@@ -8173,19 +9969,19 @@
    "doc": "Where an unfinished setup is noted: `setup-unfinished.toml` in kkt's config folder, which the caller gives (step 3.4)."
   },
   {
-   "item": "kashkeshet::machine::settings::serve_bind",
+   "item": "kkt-serve::settings::serve_bind",
    "doc": "The address kkt serve would listen on with the default config file: it gathers the settings from the machine, which kkt-hosts cannot (step 3.5b)."
   },
   {
-   "item": "kashkeshet::machine::settings::read_config",
+   "item": "kkt-serve::settings::read_config",
    "doc": "The config file to use and what it gives: read with kkt-config-file-os, parsed with kkt-config-file, and turned into the program's ServeOptions (steps 3.3 and 9.3)."
   },
   {
-   "item": "kashkeshet::machine::settings::Sources",
+   "item": "kkt-serve::settings::Sources",
    "doc": "Where a server's settings came from, the flags or the config file, so a bad one can name the file that set it (step 3.5c)."
   },
   {
-   "item": "kashkeshet::machine::settings::check_settings",
+   "item": "kkt-serve::settings::check_settings",
    "doc": "Asks kkt-server's ServerSettings::check, with the program's own problems by name, so the first bad setting is the one named as before, and reads the files the settings name (steps 3.5c and 9.3)."
   },
   {
@@ -8206,7 +10002,7 @@
   },
   {
    "item": "kkt-server::Parts",
-   "doc": "The parts the server is built from: the clock and entropy, the identity for the endpoints and for the web gate, and the Rules, as one value meeting the kkt-api contracts it hands on; Parts::new also takes the ServerSettings, in place of the formatter's settings (step 9.2)."
+   "doc": "The parts the server is built from: the clock and entropy, the identity for the endpoints and for the web gate, and the application as one Arc<dyn AdminApi>, which each surface takes as its own contract; Parts::new also takes the ServerSettings, in place of the formatter's settings (steps 9.2)."
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
@@ -8230,40 +10026,20 @@
    "at": "Parts::new",
    "name": "rules",
    "traits": [
-    "kkt-api-agent::Api",
-    "kkt-api-agent::Agents",
-    "kkt-api-agent::Channels",
-    "kkt-api-agent::Messages",
-    "kkt-api-agent::Memory",
-    "kkt-api-agent::Lanes",
-    "kkt-api-operator::Views",
-    "kkt-api-operator::Changes",
-    "kkt-api-operator::Lanes",
-    "kkt-api-operator::Server",
-    "kkt-api-admin::Admin"
+    "kkt-api-admin::AdminApi"
    ],
    "status": "decided",
-   "note": "one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin"
+   "note": "one Arc<dyn AdminApi>, what kkt-rules' start returned; each surface takes it as its own contract, Api, OperatorApi or AdminApi (step 9.2)"
   },
   {
    "crate": "kkt-server",
    "at": "Parts",
    "name": "rules",
    "traits": [
-    "kkt-api-agent::Api",
-    "kkt-api-agent::Agents",
-    "kkt-api-agent::Channels",
-    "kkt-api-agent::Messages",
-    "kkt-api-agent::Memory",
-    "kkt-api-agent::Lanes",
-    "kkt-api-operator::Views",
-    "kkt-api-operator::Changes",
-    "kkt-api-operator::Lanes",
-    "kkt-api-operator::Server",
-    "kkt-api-admin::Admin"
+    "kkt-api-admin::AdminApi"
    ],
    "status": "decided",
-   "note": "one value, the Rules kkt-rules' start built, meeting every contract kkt-server hands on: the agent level to /mcp, agent and operator to the page, admin and the operator operations to /mcp-admin"
+   "note": "one Arc<dyn AdminApi>, what kkt-rules' start returned; each surface takes it as its own contract, Api, OperatorApi or AdminApi (step 9.2)"
   },
   {
    "crate": "kkt-container",
@@ -8404,6 +10180,397 @@
    ],
    "status": "decided",
    "note": "the rules' Deps without the run, which start records and fills in (step 5.6a)"
+  },
+  {
+   "crate": "kkt-serve",
+   "at": "ServeParts",
+   "name": "clock",
+   "traits": [
+    "kkt-clock::Clock"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.1)"
+  },
+  {
+   "crate": "kkt-serve",
+   "at": "ServeParts",
+   "name": "entropy",
+   "traits": [
+    "kkt-entropy::Entropy"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.1)"
+  },
+  {
+   "crate": "kkt-serve",
+   "at": "ServeParts",
+   "name": "log",
+   "traits": [
+    "kkt-log::Log"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.1)"
+  },
+  {
+   "crate": "kkt-serve",
+   "at": "ServeParts",
+   "name": "start_log",
+   "traits": [
+    "kkt-serve::StartLog"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.1)"
+  },
+  {
+   "crate": "kkt-serve",
+   "at": "ServeParts",
+   "name": "config_files",
+   "traits": [
+    "kkt-serve::ConfigFiles"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.1)"
+  },
+  {
+   "crate": "kkt-serve",
+   "at": "ServeParts",
+   "name": "key_files",
+   "traits": [
+    "kkt-serve::KeyFiles"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.1)"
+  },
+  {
+   "crate": "kkt-serve",
+   "at": "ServeParts",
+   "name": "database",
+   "traits": [
+    "kkt-serve::Database"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.1)"
+  },
+  {
+   "crate": "kkt-serve",
+   "at": "ServeParts",
+   "name": "backups",
+   "traits": [
+    "kkt-serve::Backups"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.1)"
+  },
+  {
+   "crate": "kkt-serve",
+   "at": "ServeParts",
+   "name": "listen",
+   "traits": [
+    "kkt-serve::Listen"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.1)"
+  },
+  {
+   "crate": "kkt-serve",
+   "at": "ServeParts",
+   "name": "stop_signals",
+   "traits": [
+    "kkt-serve::StopSignals"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.1)"
+  },
+  {
+   "crate": "kkt-serve",
+   "at": "ServeParts",
+   "name": "errors",
+   "traits": [
+    "kkt-serve::Errors"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.1)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "container",
+   "traits": [
+    "kkt-container::Host"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "container_configs",
+   "traits": [
+    "kkt-container::ConfigReader"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "login_link",
+   "traits": [
+    "kkt-container::LoginLink"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "service",
+   "traits": [
+    "kkt-service::System"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "remote",
+   "traits": [
+    "kkt-remote-access::Host"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "clients",
+   "traits": [
+    "kkt-client-config::Host"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "prober",
+   "traits": [
+    "kkt-diagnostics::Prober"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "lanes",
+   "traits": [
+    "kkt-lane-files::Disk",
+    "kkt-lane-files::git::Git"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "lines",
+   "traits": [
+    "kkt-setup::Lines"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "connection",
+   "traits": [
+    "kkt-setup::connection::ConnectionSource"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "clock",
+   "traits": [
+    "kkt-clock::Clock"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "serve",
+   "traits": [
+    "kkt-operate::ServeFacts"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "setup_files",
+   "traits": [
+    "kkt-operate::SetupFiles"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "key_files",
+   "traits": [
+    "kkt-operate::KeyFiles"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "config_file",
+   "traits": [
+    "kkt-operate::ConfigText"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "database",
+   "traits": [
+    "kkt-operate::Databases"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "backups",
+   "traits": [
+    "kkt-operate::BackupWriter"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "output",
+   "traits": [
+    "kkt-operate::Output"
+   ],
+   "status": "decided",
+   "note": "injected by the program (steps 10.2a and 10.2b)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "connection",
+   "traits": [
+    "kkt-setup::connection::ConnectionSource"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.3)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "admin_key",
+   "traits": [
+    "kkt-agent-commands::AdminKey"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.3)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "servers",
+   "traits": [
+    "kkt-agent-commands::Servers"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.3)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "credentials",
+   "traits": [
+    "kkt-agent-commands::Credentials"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.3)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "key_files",
+   "traits": [
+    "kkt-agent-commands::KeyText"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.3)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "clients",
+   "traits": [
+    "kkt-client-config::Host"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.3)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "program",
+   "traits": [
+    "kkt-agent-commands::Program"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.3)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "report",
+   "traits": [
+    "kkt-watch::Report"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.3)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "output",
+   "traits": [
+    "kkt-agent-commands::Output"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.3)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "clock",
+   "traits": [
+    "kkt-clock::Clock"
+   ],
+   "status": "decided",
+   "note": "injected by the program (step 10.3)"
   }
  ],
  "renames": [
@@ -8440,7 +10607,7 @@
   },
   "kkt-server": {
    "status": "decided",
-   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the Rules that kkt-rules' `start` built, as one value meeting every kkt-api contract it hands on, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits, and `page` builds the web page alone, over any `OperatorApi` and gate, for a program that serves only the page (kkt-web-preview). Binding the socket is in kkt-server-listen. It holds `ServerSettings`, the settings of what it builds or passes on, each an owner's own `Settings`, and puts in a fixed order the problems and run-record lines that the owners and the program give it. It knows nothing of flags, files or how they layer."
+   "concern": "Assembling the server from its parts and running it: the rules, `/mcp`, `/mcp-admin` and the web page. Its parts take the application that kkt-rules' `start` built as one `Arc<dyn AdminApi>`, which each surface takes as its own contract, and one value meeting kkt-identity's `Identify`, which it hands to the endpoints and its web gate asks. It writes the adapters the three programs share, once, and decides nothing: AdmissionGate implements kkt-web's Gate. It builds the page's sessions and page-only limits, and `page` builds the web page alone, over any `OperatorApi` and gate, for a program that serves only the page (kkt-web-preview). Binding the socket is in kkt-server-listen. It holds `ServerSettings`, the settings of what it builds or passes on, each an owner's own `Settings`, and puts in a fixed order the problems and run-record lines that the owners and the program give it. It knows nothing of flags, files or how they layer."
   },
   "kkt-agent-client": {
    "status": "decided",
@@ -8452,7 +10619,7 @@
   },
   "kashkeshet": {
    "status": "decided",
-   "concern": "The `kkt` command: parsing its arguments, wiring the crates together for each subcommand, and one thin module per command. It does no machine work itself: files, keys, credentials, the terminal, the environment and the log go through effect crates, and the decisions its commands made are kkt-setup's and kkt-service's. It holds the adapters the strict rule needs: one per consumer-declared contract it fills with another crate's implementation (kkt-agent-client's watching and state file, the key files, the terminal and the six -os crates). Shared contracts' implementations need none, and kkt-server writes the web page's and the wording's adapters for it. It keeps `kkt serve`'s surface: its flags and config keys, layering flag over file over the defaults, and mapping each onto a `ServerSettings` field or a setting of its own.",
+   "concern": "The `kkt` command: parsing its arguments, wiring the crates together for each subcommand, and one thin module per command. It does no machine work itself: files, keys, credentials, the terminal, the environment and the log go through effect crates, and the decisions its commands made are kkt-setup's and kkt-service's. It holds the adapters the strict rule needs: one per consumer-declared contract it fills with another crate's implementation (kkt-agent-client's watching and state file, the key files, the terminal and the six -os crates). Shared contracts' implementations need none, and kkt-server writes the web page's and the wording's adapters for it. It keeps `kkt serve`'s surface: its flags and config keys, layering flag over file over the defaults, and mapping each onto a `ServerSettings` field or a setting of its own. Its commands are three assemblies, kkt-serve, kkt-operate and kkt-agent-commands; it keeps the command line (`cli.rs`), `main.rs`, which builds each assembly's `Parts` from the implementations it chooses, and the adapters, and answers each assembly's questions about the local server.",
    "must_not": "Do machine work itself (files, the terminal, the environment, the log, libc); hold a decision a logic crate owns; hold a clap type outside `cli.rs`, or let a command take one."
   },
   "kkt-keymode": {
@@ -8654,20 +10821,27 @@
        "kkt-server::ServerSettings",
        "kkt-rules::Settings",
        "kkt-provenance::ServerRun",
-       "kkt-server::new_server_run",
+       "kkt-serve::new_server_run",
        "kkt-rules::NewServerRun",
        "kkt-rules::Startup",
        "kkt-rules::start"
       ]
      },
      "Parts": {
-      "text": "kkt-rules' Db, the system clock and the operating system's randomness, and the program's adapter over key mode's identity go into the server's parts. kkt-server hands the rules to /mcp, /mcp-admin and the web page as kkt-api-agent's Api, and adapts the rest itself, once for the three programs: the web page's gate and the notices' wording.",
+      "text": "kkt is three assemblies over kkt-server: kkt-serve runs kkt serve, kkt-operate the operator's commands and kkt-agent-commands the agents'. The program builds ServeParts, OperateParts and AgentParts from the implementations it chooses, with its adapters, and answers the assemblies' questions about the local server with kkt-serve's and kkt-operate's functions. For kkt serve: kkt-rules' Db, the system clock and the operating system's randomness, and the program's adapter over key mode's identity go into the server's parts. kkt-server hands the rules to /mcp, /mcp-admin and the web page as kkt-api-agent's Api, and adapts the rest itself, once for the three programs: the web page's gate and the notices' wording.",
       "items": [
        "kkt-server::Parts",
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy",
        "kkt-identity-keymode::KeyMode",
-       "kkt-server::AdmissionGate"
+       "kkt-server::AdmissionGate",
+       "kkt-serve::ServeParts",
+       "kkt-serve::run",
+       "kkt-operate::OperateParts",
+       "kkt-operate::ServeFacts",
+       "kkt-agent-commands::AgentParts",
+       "kkt-agent-commands::AdminKey",
+       "kkt-setup::connection::ConnectionSource"
       ],
       "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log)"
      },
@@ -8679,8 +10853,8 @@
        "kkt-config-file-os::read",
        "kkt-config-file::parse_file",
        "kkt-setup::default_db",
-       "kashkeshet::machine::settings::ServeOptions",
-       "kashkeshet::machine::settings::ServeSettings",
+       "kkt-serve::settings::ServeOptions",
+       "kkt-serve::settings::ServeSettings",
        "kkt-server::ServerSettings",
        "kkt-rules::Settings",
        "kkt-hosts::DEFAULT_BIND",
@@ -8902,7 +11076,7 @@
       "fills": "kkt-rules::Db::new (database)"
      },
      "Parts and config": {
-      "text": "The same parts as kkt serve, with KeyMode adapted to kkt-mcp's Identify; the admin key, if there is one, is the admin admission.",
+      "text": "kkt-keymode reads its config file through kkt-serve's surface, with its own arguments and key refusals, and serves through kkt-serve's start, with its own output and its own ServeParts. The same parts as kkt serve, with KeyMode adapted to kkt-mcp's Identify; the admin key, if there is one, is the admin admission.",
       "items": [
        "kkt-server::Parts",
        "kkt-clock-system::SystemClock",
@@ -8911,7 +11085,10 @@
        "kkt-server::AdmissionGate",
        "kkt-server::AppConfig",
        "kkt-admission::AdminAdmission",
-       "kkt-hosts::AllowedHosts"
+       "kkt-hosts::AllowedHosts",
+       "kkt-serve::ServeParts",
+       "kkt-serve::start",
+       "kkt-serve::settings::ServeOptions"
       ],
       "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log)"
      },
@@ -8920,7 +11097,7 @@
       "items": [
        "kkt-server::ServerSettings",
        "kkt-provenance::ServerRun",
-       "kkt-server::new_server_run",
+       "kkt-serve::new_server_run",
        "kkt-rules::NewServerRun",
        "kkt-rules::Startup",
        "kkt-rules::start"
