@@ -199,14 +199,16 @@ fn make(conn: &rusqlite::Connection, step: &Step) -> Result<(), DbError> {
     }
 }
 
-/// An index, for speed only: it changes no answer. Its name says what it
-/// is for, so an index a table declares never clashes with the stand-in's
-/// own, whatever it is called.
+/// An index, for speed only: it changes no answer. Its name is the table's
+/// name after its length, then what the index is for (`key`, `unique` or
+/// `index`), then the column's or the declared index's name: no two tables
+/// and names can meet in one, so an index a table declares never clashes
+/// with another table's or with the stand-in's own, whatever it is called.
 fn index(table: &str, kind: &str, name: &str, columns: &[&str]) -> String {
     let columns: Vec<String> = columns.iter().map(|c| quote(c)).collect();
     format!(
         "CREATE INDEX {} ON {} ({});",
-        quote(&format!("_fast_{table}_{kind}_{name}")),
+        quote(&format!("_fast_{}_{table}_{kind}_{name}", table.len())),
         quote(table),
         columns.join(", ")
     )
