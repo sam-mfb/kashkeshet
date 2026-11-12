@@ -6,6 +6,8 @@ what the map shows, and reports a crate whose kind does not fit rather than
 changing it. generate.py and propose.py both use it.
 """
 
+import re
+
 KINDS = ["contract", "logic", "effect", "composition", "test support", "mixed"]
 
 # Third-party crates that reach the machine: a crate that uses one does
@@ -19,9 +21,18 @@ IO_CRATES = {"rusqlite", "reqwest", "rand", "libc", "tracing-subscriber"}
 # parsing its own arguments is the program's.
 STD_IO = ["fs", "env", "os::unix::fs", "process::Command", "process::Stdio", "process::exit", "process::id",
           "net::TcpListener", "net::TcpStream", "net::UdpSocket", "io::stdin", "io::stdout", "io::stderr",
-          "io::IsTerminal", "time::SystemTime::now", "time::Instant::now", "thread::sleep"]
+          "io::IsTerminal", "time::SystemTime::now", "time::Instant::now", "thread::sleep",
+          "path::absolute"]
 # Macros that write to the terminal.
 PRINT_MACROS = ["print", "println", "eprint", "eprintln"]
+# Methods of `Path` and `PathBuf` that ask the file system about a path:
+# whether it is there, what it is, where it really leads. The scan reads
+# text, not types, so it counts a call with no arguments (`p.exists()`),
+# as these methods take none, or one spelled through the type
+# (`Path::exists(p)`). A call with arguments (`host.exists(p)`) is some
+# other type's method, such as an effect crate's, and is not counted.
+PATH_PROBES = ["exists", "try_exists", "is_file", "is_dir", "is_symlink", "metadata",
+               "symlink_metadata", "canonicalize", "read_dir", "read_link"]
 
 
 ARGUMENTS = ["env::args", "env::args_os"]
@@ -32,6 +43,14 @@ def is_std_io(path):
     if any(path == p or path.startswith(p + "::") for p in ARGUMENTS):
         return False
     return any(path == p or path.startswith(p + "::") for p in STD_IO)
+
+
+def path_probes(text):
+    """The `Path` methods in PATH_PROBES that `text` calls, as `Path::name`."""
+    names = "|".join(PATH_PROBES)
+    found = set(re.findall(rf"\.\s*({names})\s*\(\s*\)", text))
+    found |= set(re.findall(rf"\b(?:Path|PathBuf)\s*::\s*({names})\s*\(", text))
+    return sorted(f"Path::{m}" for m in found)
 
 
 def unknown(crates, kind_of):
