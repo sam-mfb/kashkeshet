@@ -253,6 +253,7 @@ the last column says so.
 |---|---|---|---|---|
 | kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | accepted by Sam, 2026-11-12 | yes |
 | One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | accepted by Sam, 2026-11-12 | yes |
+| `ServiceDefaults::matches_defaults(args)` answers the installed/default settings comparison; only service-capable `OperateParts` can ask it | 10.2a | Both serving surfaces stay in the program. A service-capable adapter requires `ServeArgs` at construction; record/config-only parts have no such capability. Installed arguments are resolved before defaults; the assembly retains the service-file check and refusal wrapping | required by the 10.2a review; awaiting Sam for the narrowed question | to chart at 10.4 |
 | `ServerSettings::check` returns opaque `CheckedSettings` containing the immutable settings and their host policy; `Parts::new` consumes that one value | 9.2 | The constructor cannot skip validation or combine settings with a different host policy; the program reads the checked values for its record. The integration harness uses the program's own run-record mapping | requested in the 9.2 review; awaiting Sam for the constructor detail | to chart at 10.4 |
 | kkt-service-os reports with its own `Finished`, which the program translates to kkt-service's in `run` and `run_attached` | 2.2 (#427) | So kkt-service-os depends on neither kkt-service nor kkt-config; two adapter methods translate | accepted by Sam, 2026-11-12 | yes |
 | kkt-remote-access-os returns its own output and I/O error, which the program maps to the remote-access host contract | 2.3 (#436) | The effect has no dependencies; the adapter preserves all output fields and launch-failure advice | accepted by Sam, 2026-11-12 | yes |
@@ -1372,17 +1373,15 @@ again, as expected until phases 9 and 10 land:
 - rules: no kind check fails; 1 break of the proposal's rules (kkt-rules'
   tests on kkt-db-sqlite, until kkt-build-b's stand-in replaces it).
 
-With 10.3 (kkt-agent-commands), on the code after #495 (9.3) merged:
+With 10.2a (kkt-operate's base) and 10.3 (kkt-agent-commands) merged:
 
-- crates: 60 of 61 proposed crates exist; 1 missing (kkt-operate); none to
-  remove;
-- items: 752 of 811 proposed items are in their proposed crate. Every item
-  of kkt-agent-commands is in. Missing: kkt-operate's, which 10.2a and
-  10.2b move; the 16 `kkt_rules::testing` re-exports that #492 removed and
-  `new_server_run`, which 9.3 left in kkt's `server_run`, both for 10.4 to
-  chart;
-- arrows: 220 of 238 proposed arrows exist (the proposal lost
-  kkt-agent-commands → kkt-mcp in 10.3); 18 missing, all kkt-operate's
-  or kashkeshet's to it; 1 extra (kashkeshet → kkt-api-operator, which
-  10.2a moves);
+- crates: 61 of 61 proposed crates exist; none missing; none to remove;
+- items: 774 of 811 proposed items are in their proposed crate. Every item
+  of kkt-agent-commands is in. Missing: what 10.2b moves into kkt-operate
+  (setup, service and lifecycle); the 16 `kkt_rules::testing` re-exports
+  that #492 removed and `new_server_run`, which 9.3 left in kkt's
+  `server_run`, both for 10.4 to chart;
+- arrows: 237 of 238 proposed arrows exist (the proposal lost
+  kkt-agent-commands → kkt-mcp in 10.3); 1 missing (kkt-operate →
+  kkt-backup, which 10.2b adds); none extra;
 - rules: no kind check fails; no break of the proposal's rules.

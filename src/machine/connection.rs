@@ -18,8 +18,8 @@ use std::path::Path;
 /// kkt-setup's connection question, answered from this machine's setup
 /// record and serve settings.
 pub struct ConnectionReads<'a> {
-    env: &'a Env,
-    platform: Platform,
+    pub(crate) env: &'a Env,
+    pub(crate) platform: Platform,
 }
 
 impl<'a> ConnectionReads<'a> {

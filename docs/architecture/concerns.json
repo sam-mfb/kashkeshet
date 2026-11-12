@@ -78,6 +78,12 @@
    "must_not": "Be released.",
    "kind": "composition"
   },
+  "kkt-operate": {
+   "layer": "assembly",
+   "kind": "composition",
+   "concern": "The operator's commands and this machine's setup record and key selection; effects and lazy serving facts are supplied through OperateParts.",
+   "must_not": "Choose native implementations, depend on an effect or another assembly, or parse command-line flags."
+  },
   "kkt-server": {
    "layer": "assembly",
    "concern": "Assembling the server around the program's `Arc<dyn AdminApi>` in `Parts`: `/mcp`, `/mcp-admin` and the web page; its `ServerSettings` returns an opaque `CheckedSettings` snapshot for `Parts::new` and composes owner checks and run-record lines with the program's plain values, with `SettingError`; the public adapter from admission and identity to the web gate; the page's sessions; the web page alone over its API and gate (`page`).",

@@ -42,6 +42,7 @@ members = [
     "crates/kkt-mcp",
     "crates/kkt-mcp-formatter",
     "crates/kkt-names",
+    "crates/kkt-operate",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
     "crates/kkt-remote-access-os",
@@ -104,6 +105,7 @@ default-members = [
     "crates/kkt-mcp",
     "crates/kkt-mcp-formatter",
     "crates/kkt-names",
+    "crates/kkt-operate",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
     "crates/kkt-remote-access-os",
@@ -200,7 +202,6 @@ kkt-admission = { path = "crates/kkt-admission" }
 kkt-admission-os = { path = "crates/kkt-admission-os", features = ["real"] }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
 kkt-agent-commands = { path = "crates/kkt-agent-commands" }
-kkt-api-operator = { path = "crates/kkt-api-operator" }
 kkt-api-agent = { path = "crates/kkt-api-agent" }
 kkt-backup = { path = "crates/kkt-backup" }
 kkt-backup-os = { path = "crates/kkt-backup-os", features = ["real"] }
@@ -229,6 +230,7 @@ kkt-machine = { path = "crates/kkt-machine" }
 kkt-machine-os = { path = "crates/kkt-machine-os", features = ["real"] }
 kkt-mcp = { path = "crates/kkt-mcp" }
 kkt-names = { path = "crates/kkt-names" }
+kkt-operate = { path = "crates/kkt-operate" }
 kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access = { path = "crates/kkt-remote-access" }
 kkt-remote-access-os = { path = "crates/kkt-remote-access-os", features = ["real"] }
