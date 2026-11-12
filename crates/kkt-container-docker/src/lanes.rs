@@ -5,12 +5,13 @@
 //! afterwards, so two runs at the same time never see or remove each other's
 //! files.
 
+use super::LanesImport;
 use super::compose::compose;
 use super::provision::run;
-use super::{Command, ConfigReader, DockerError, Folder, Host};
+use super::{Command, ConfigReader, DockerError, Folder, Runner};
 use kkt_config_file::{CONFIG_DIR, CONFIG_FILE_NAME};
 use kkt_machine::XDG_CONFIG_HOME_DEFAULT;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// The start of the name of the folder in the kkt container that `kkt lanes
 /// import` copies the lane files into, to import them there. Each run makes
@@ -22,22 +23,10 @@ const DOCKER_LANES_IMPORT_DIR: &str = "/tmp/kkt-lanes-import";
 /// [`DOCKER_LANES_IMPORT_DIR`].
 const DOCKER_LANES_EXPORT_DIR: &str = "/tmp/kkt-lanes-export";
 
-/// What to import: the lane files, and the source to record for them, which
-/// is the folder on the host and its git commit, not the copy in the
-/// container.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LanesImport {
-    /// Absolute paths of the `.md` files to import.
-    pub files: Vec<PathBuf>,
-    pub source_folder: String,
-    pub source_commit: Option<String>,
-    pub retire_missing: bool,
-}
-
 /// Imports the lane files into kkt in Docker. Returns what `kkt lanes
 /// import` printed in the container.
 pub fn import_lanes(
-    host: &dyn Host,
+    host: &dyn Runner,
     folder: &Folder,
     import: &LanesImport,
 ) -> Result<String, DockerError> {
@@ -47,7 +36,7 @@ pub fn import_lanes(
 }
 
 fn copy_in_and_import(
-    host: &dyn Host,
+    host: &dyn Runner,
     folder: &Folder,
     dir: &str,
     import: &LanesImport,
@@ -98,14 +87,18 @@ fn copy_in_and_import(
 /// Exports every current lane from kkt in Docker to `dest`, an absolute
 /// folder on the host, created if missing. Returns what `kkt lanes export`
 /// printed in the container.
-pub fn export_lanes(host: &dyn Host, folder: &Folder, dest: &Path) -> Result<String, DockerError> {
+pub fn export_lanes(
+    host: &dyn Runner,
+    folder: &Folder,
+    dest: &Path,
+) -> Result<String, DockerError> {
     let dir = make_dir(host, folder, DOCKER_LANES_EXPORT_DIR)?;
     let done = export_and_copy_out(host, folder, &dir, dest);
     finish(host, folder, &dir, done)
 }
 
 fn export_and_copy_out(
-    host: &dyn Host,
+    host: &dyn Runner,
     folder: &Folder,
     dir: &str,
     dest: &Path,
@@ -143,7 +136,7 @@ fn export_and_copy_out(
 /// also gives a limit while the install is stopped, which setup's lane
 /// check needs. So the two stay apart.
 pub fn lane_limit(
-    host: &dyn Host,
+    host: &dyn Runner,
     folder: &Folder,
     reader: &dyn ConfigReader,
     default: usize,
@@ -194,7 +187,7 @@ fn config_script() -> String {
 /// Makes a new, empty folder in the kkt container whose name starts with
 /// `prefix` and a dot, as the kkt user, and returns its path. `mktemp`
 /// picks a name no other folder has, so this run owns it.
-fn make_dir(host: &dyn Host, folder: &Folder, prefix: &str) -> Result<String, DockerError> {
+fn make_dir(host: &dyn Runner, folder: &Folder, prefix: &str) -> Result<String, DockerError> {
     let template = format!("{prefix}.XXXXXXXXXX");
     let said = succeed(
         host,
@@ -220,7 +213,7 @@ fn make_dir(host: &dyn Host, folder: &Folder, prefix: &str) -> Result<String, Do
 /// failure to remove it after `done` worked is an error; after `done`
 /// failed, it is said, and `done`'s error returned.
 fn finish(
-    host: &dyn Host,
+    host: &dyn Runner,
     folder: &Folder,
     dir: &str,
     done: Result<String, DockerError>,
@@ -239,7 +232,7 @@ fn finish(
 }
 
 /// Removes `dir` in the kkt container, if it is there.
-fn remove(host: &dyn Host, folder: &Folder, dir: &str) -> Result<(), DockerError> {
+fn remove(host: &dyn Runner, folder: &Folder, dir: &str) -> Result<(), DockerError> {
     succeed(
         host,
         &compose(
@@ -251,7 +244,7 @@ fn remove(host: &dyn Host, folder: &Folder, dir: &str) -> Result<(), DockerError
 }
 
 /// Runs `command`; its output, or an error saying how it failed.
-fn succeed(host: &dyn Host, command: &Command) -> Result<String, DockerError> {
+fn succeed(host: &dyn Runner, command: &Command) -> Result<String, DockerError> {
     let done = run(host, command)?;
     if !done.success() {
         return Err(DockerError::Command {

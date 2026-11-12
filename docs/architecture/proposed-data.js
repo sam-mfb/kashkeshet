@@ -254,14 +254,6 @@ window.KKT_PROPOSED = {
    "kashkeshet": {
     "adapters": [
      {
-      "adapts": "kkt-container-os::OsHost",
-      "large": false,
-      "methods": 9,
-      "note": "8 methods; run and run_attached translate kkt-container's Command and Finished to and from kkt-container-os' own (step 2.1)",
-      "status": "decided",
-      "to": "kkt-container::Host"
-     },
-     {
       "adapts": "kkt-service-os::OsSystem",
       "large": false,
       "methods": 8,
@@ -334,20 +326,20 @@ window.KKT_PROPOSED = {
       "to": "kkt-container::LoginLink"
      },
      {
-      "adapts": "kkt-agent-files-os::StateFile",
-      "large": false,
-      "methods": 2,
-      "note": "2 forwarding methods: watch's state file",
-      "status": "decided",
-      "to": "kkt-watch::Place"
-     },
-     {
       "adapts": "kkt-lane-files-os::OsDisk",
       "large": false,
       "methods": 1,
       "note": "1 method: runs git through OsDisk and translates its output to Ran (step 2.6)",
       "status": "decided",
       "to": "kkt-lane-files::git::Git"
+     },
+     {
+      "adapts": "kkt-agent-files-os::StateFile",
+      "large": false,
+      "methods": 2,
+      "note": "2 forwarding methods: watch's state file",
+      "status": "decided",
+      "to": "kkt-watch::Place"
      }
     ],
     "also": [
@@ -585,79 +577,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-container",
-      "impl": "kkt-container-os::OsHost",
-      "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install",
-      "through_adapter": [
-       "kkt-container::Host"
-      ],
-      "to": [
-       {
-        "at": "provision",
-        "param": "host"
-       },
-       {
-        "at": "upgrade",
-        "param": "host"
-       },
-       {
-        "at": "status",
-        "param": "host"
-       },
-       {
-        "at": "compare_web_key",
-        "param": "host"
-       },
-       {
-        "at": "lane_limit",
-        "param": "host"
-       },
-       {
-        "at": "import_lanes",
-        "param": "host"
-       },
-       {
-        "at": "export_lanes",
-        "param": "host"
-       },
-       {
-        "at": "backup",
-        "param": "host"
-       },
-       {
-        "at": "down",
-        "param": "host"
-       },
-       {
-        "at": "existing",
-        "param": "host"
-       },
-       {
-        "at": "add_admin_key",
-        "param": "host"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-container",
-      "impl": "kkt-clock-system::SystemClock",
-      "note": "kkt setup and upgrade, for a Docker install",
-      "to": [
-       {
-        "at": "provision",
-        "param": "clock"
-       },
-       {
-        "at": "upgrade",
-        "param": "clock"
-       },
-       {
-        "at": "add_admin_key",
-        "param": "clock"
-       }
-      ]
-     },
-     {
       "crate": "kkt-service",
       "impl": "kkt-service-os::OsSystem",
       "note": "kkt service, setup, upgrade, status and doctor",
@@ -867,25 +786,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-container",
-      "impl": "kkt-config-file::parse_file",
-      "note": "through the program's adapter to kkt-container's ConfigReader",
-      "status": "decided",
-      "through_adapter": [
-       "kkt-container::ConfigReader"
-      ],
-      "to": [
-       {
-        "at": "status",
-        "param": "config"
-       },
-       {
-        "at": "lane_limit",
-        "param": "config"
-       }
-      ]
-     },
-     {
       "crate": "kkt-admission",
       "impl": "kkt-admission-os::KeyFiles",
       "note": "kkt serve",
@@ -897,21 +797,6 @@ window.KKT_PROPOSED = {
        {
         "at": "server_keys::check",
         "param": "texts"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-watch",
-      "impl": "kkt-agent-files-os::StateFile",
-      "note": "kkt watch",
-      "status": "decided",
-      "through_adapter": [
-       "kkt-watch::Place"
-      ],
-      "to": [
-       {
-        "at": "run",
-        "param": "place"
        }
       ]
      },
@@ -964,21 +849,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-container",
-      "impl": "kkt-terminal-os::BrowserLink",
-      "note": "kkt setup for Docker, with Tailscale",
-      "status": "decided",
-      "through_adapter": [
-       "kkt-container::LoginLink"
-      ],
-      "to": [
-       {
-        "at": "provision",
-        "param": "login"
-       }
-      ]
-     },
-     {
       "crate": "kkt-logs-os",
       "impl": "kkt-clock-system::SystemClock",
       "note": "kkt serve --log-file",
@@ -1011,6 +881,33 @@ window.KKT_PROPOSED = {
        {
         "at": "OperateParts",
         "param": "remote"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-operate",
+      "impl": "kkt-container-docker::Docker",
+      "note": "Direct delivery to the receiving operator assembly (12.2).",
+      "status": "decided",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "container"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-watch",
+      "impl": "kkt-agent-files-os::StateFile",
+      "note": "kkt watch",
+      "status": "decided",
+      "through_adapter": [
+       "kkt-watch::Place"
+      ],
+      "to": [
+       {
+        "at": "run",
+        "param": "place"
        }
       ]
      }
@@ -1624,7 +1521,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-container-os"
+    "to": "kkt-container-docker"
    },
    {
     "from": "kashkeshet",
@@ -2114,7 +2011,16 @@ window.KKT_PROPOSED = {
     "to": "kkt-clock"
    },
    {
-    "from": "kkt-container",
+    "from": "kkt-container-docker",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-clock"
+   },
+   {
+    "from": "kkt-container-docker",
     "kind": "normal",
     "role": "uses",
     "statuses": [
@@ -2123,13 +2029,31 @@ window.KKT_PROPOSED = {
     "to": "kkt-config-file"
    },
    {
-    "from": "kkt-container",
+    "from": "kkt-container-docker",
+    "kind": "normal",
+    "role": "implements",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-container"
+   },
+   {
+    "from": "kkt-container-docker",
     "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
     ],
     "to": "kkt-machine"
+   },
+   {
+    "from": "kkt-container-docker",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-names"
    },
    {
     "from": "kkt-db",
@@ -3518,14 +3442,7 @@ window.KKT_PROPOSED = {
     "items_gone": [
      "DockerError",
      "ENV_FILE",
-     "Folder",
-     "Inputs",
-     "KeyCopy",
-     "LanesImport",
-     "Login",
-     "LoginLink",
      "OsHost",
-     "State",
      "Tailscale",
      "add_admin_key",
      "backup",
@@ -3541,7 +3458,9 @@ window.KKT_PROPOSED = {
      "version_in_env"
     ],
     "items_new": [
-     "ContainerConfig"
+     "ConfigReader",
+     "ContainerConfig",
+     "NO_ADMIN_KEY_EXIT"
     ],
     "kind": "normal",
     "roles_after": [
@@ -5112,11 +5031,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the database is there, the Docker folder's .env) moves to kkt-terminal-os, kkt-db-sqlite and kkt-container-os; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
+      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the database is there, the Docker folder's .env) moves to kkt-terminal-os, kkt-db-sqlite and kkt-container-docker; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container-os; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
+      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container-docker; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
      },
      {
       "status": "decided",
@@ -5132,7 +5051,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container-os; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container-docker; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -5204,10 +5123,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "agent credential files and watch's state file"
-     },
-     {
-      "status": "decided",
       "text": "starting the log; init_logging opens the RotatingFile itself (step 4.1)"
      },
      {
@@ -5264,15 +5179,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the Docker folder's .env and the Tailscale auth key file, read through kkt-container's Host"
-     },
-     {
-      "status": "decided",
       "text": "the rule for agent credential files"
-     },
-     {
-      "status": "decided",
-      "text": "tightening a credential file, when kkt-setup's rule says so"
      },
      {
       "status": "decided",
@@ -5320,10 +5227,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its ConfigReader adapter gives kkt-container's own ContainerConfig (step 3.3)"
-     },
-     {
-      "status": "decided",
       "text": "the log settings' checks fail with kkt-logs' own SettingError (step 3.1c-2)"
      },
      {
@@ -5336,10 +5239,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program's credential check reads the client's CredentialFileFacts and gives its PrivateMode; read_secret, make_private and the lock are the client's own, behind watch_token and StateFile (step 7.4)"
-     },
-     {
-      "status": "decided",
       "text": "PATH once per client check, paths and the unfinished note (step 7.3a)"
      },
      {
@@ -5349,10 +5248,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the doctor's checks, the status lines, the backup folders, uninstall's record, the client key's name, the lane limit and the import report are kkt-setup's, with the fixes and paths they use; the program keeps local_web_key and local_operator_key, which read in kkt-setup's order and ask its operator_key and configured_key (step 7.3b)"
-     },
-     {
-      "status": "decided",
-      "text": "the doctor's checks of kkt in Docker are kkt-setup's (step 7.3b)"
      },
      {
       "status": "decided",
@@ -5428,10 +5323,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its commands' uses of kkt-container move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
-     },
-     {
-      "status": "decided",
       "text": "its commands' uses of kkt-diagnostics move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
      },
      {
@@ -5452,10 +5343,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its commands' uses of kkt-watch move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
-     },
-     {
-      "status": "decided",
       "text": "builds OperateParts from the implementations it chooses and runs the commands; answers its questions about the local server from its own serving code (steps 10.2b and 10.2a)"
      },
      {
@@ -5469,6 +5356,30 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Builds and hands Tailscale directly to kkt-operate (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "The program supplies config parsing and the login link; it holds no container adapter (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "Injects Docker into OperateParts.container (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "agent credential files and watch's state file"
+     },
+     {
+      "status": "decided",
+      "text": "tightening a credential file, when kkt-setup's rule says so"
+     },
+     {
+      "status": "decided",
+      "text": "the program's credential check reads the client's CredentialFileFacts and gives its PrivateMode; read_secret, make_private and the lock are the client's own, behind watch_token and StateFile (step 7.4)"
+     },
+     {
+      "status": "decided",
+      "text": "its commands' uses of kkt-watch move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
      },
      {
       "status": "decided",
@@ -5877,10 +5788,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "AgentParts takes servers: injected by the program (step 10.3)"
-     },
-     {
-      "status": "decided",
       "text": "AgentParts takes credentials: injected by the program (step 10.3)"
      },
      {
@@ -5909,11 +5816,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-setup (step 10.3)"
+      "text": "AgentParts takes servers: injected by the program (step 10.3)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-watch (step 10.3)"
+      "text": "what its commands use of kkt-setup (step 10.3)"
      },
      {
       "status": "decided",
@@ -5926,6 +5833,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "what its commands use of kkt-machine (step 10.3)"
+     },
+     {
+      "status": "decided",
+      "text": "what its commands use of kkt-watch (step 10.3)"
      },
      {
       "status": "decided",
@@ -6933,10 +6844,6 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "OsHost moves to kkt-container-os"
-     },
-     {
-      "status": "decided",
       "text": "DOCKER_ADMIN_KEY_FILE_NAME comes here from kkt-config"
      },
      {
@@ -7017,19 +6924,99 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Host is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "Command is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "Finished is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "OsHost is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "DockerError is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "ENV_FILE is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "Tailscale is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "DOCKER_WEB_KEY_FILE_NAME is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "DOCKER_ADMIN_KEY_FILE_NAME is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "env_text is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "version_in_env is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "provision is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "add_admin_key is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "status is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "existing is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "compare_web_key is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "up is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "down is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "backup is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "upgrade is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "import_lanes is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "export_lanes is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "lane_limit is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
       "text": "new trait ConfigReader"
-     },
-     {
-      "status": "decided",
-      "text": "new fn docker_env"
-     },
-     {
-      "status": "decided",
-      "text": "new fn tailscale_auth_key"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Settings"
      },
      {
       "status": "decided",
@@ -7037,28 +7024,52 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "status takes config: reads the name pack from the container's config"
+      "text": "new trait Container"
      },
      {
       "status": "decided",
-      "text": "lane_limit takes config: reads the lane limit from the container's config"
+      "text": "new struct Sharing"
      },
      {
       "status": "decided",
-      "text": "its real feature moves to kkt-container-os"
+      "text": "new const WEB_KEY_FILE_NAME"
      },
      {
       "status": "decided",
-      "text": "kkt-container's status and lane_limit take the default name pack and lane limit from the program (step 3.5c)"
+      "text": "new const ADMIN_KEY_FILE_NAME"
      },
      {
       "status": "decided",
-      "text": "the container's config folder when $XDG_CONFIG_HOME is not set (step 3.4)"
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "testing::Memory implements kkt-container::Container: The contract owns its stand-in (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: The contract supplies its own in-memory implementation (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-container-docker"
+     },
+     {
+      "status": "decided",
+      "text": "Docker parsing and errors move into its wrapper; the contract uses local boxed futures (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-config-file in its code: Container-tool implementation knowledge moves into Docker (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-machine in its code: Container-tool implementation knowledge moves into Docker (12.2)."
      }
     ]
    },
    {
-    "crate": "kkt-container-os",
+    "crate": "kkt-container-docker",
     "notes": [
      {
       "status": "decided",
@@ -7066,23 +7077,23 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "OsHost comes here from kkt-container"
+      "text": "new struct Docker"
      },
      {
       "status": "decided",
-      "text": "new struct Command"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Finished"
-     },
-     {
-      "status": "decided",
-      "text": "OsHost no longer implements kkt-container::Host"
+      "text": "Docker implements kkt-container::Container: The tool wrapper implements the scope contract directly (12.2)."
      },
      {
       "status": "decided",
       "text": "takes the real feature from kkt-container"
+     },
+     {
+      "status": "decided",
+      "text": "Directly implements the scope contract (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "Existing Docker knowledge and supplied dependencies stay inside the wrapper (12.2)."
      }
     ]
    },
@@ -7502,10 +7513,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its tests drive the running product over HTTP with kkt-agent-client-rmcp's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
-     },
-     {
-      "status": "decided",
       "text": "the Log it gives kkt-server's parts"
      },
      {
@@ -7547,6 +7554,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests take a database from testing::database and start the product's own rules on it (step 5.6b)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests drive the running product over HTTP with kkt-agent-client-rmcp's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
      }
     ]
    },
@@ -8578,10 +8589,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-container (steps 10.2b and 10.2a)"
-     },
-     {
-      "status": "decided",
       "text": "what its commands use of kkt-service (steps 10.2b and 10.2a)"
      },
      {
@@ -8635,6 +8642,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "The operator assembly asks sharing operations in project terms (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "Requests and records in container terms (12.2)."
      },
      {
       "status": "decided",
@@ -9868,7 +9879,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the doctor's and status's lines read what kkt-container found (step 7.3b)"
+      "text": "Setup reads container results and key-file names (12.2)."
      }
     ]
    },
@@ -11214,16 +11225,17 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-container": {
-    "concern": "Running kkt in Docker: its Compose files, its folder, and the commands that set it up, start, back up, upgrade and stop it. It declares the `Host` it runs them through; the real one is in kkt-container-os, adapted by the program. It reads the container's config through its Host and parses it through its own ConfigReader.",
-    "kind": "logic",
+    "concern": "Container operations, requests and results in project terms; config parsing and login-link contracts; a testing stand-in.",
+    "kind": "contract",
     "layer": "operations",
-    "must_not": "Decide what a person wants, remember what was set up, or touch the machine except through `Host`.",
+    "must_not": "Know Docker commands, Compose files or their formats; touch the machine.",
     "status": "decided"
    },
-   "kkt-container-os": {
-    "concern": "The machine kkt-container runs Docker on: `OsHost`, a plain type that implements nothing; the program adapts it to kkt-container's `Host`. kkt-container's `real` feature moves here.",
+   "kkt-container-docker": {
+    "concern": "Docker and Compose implement Container directly, including their files, commands, output and sidecar status; native execution is behind real.",
     "kind": "effect",
     "layer": "operations",
+    "must_not": "Decide setup answers or remember the setup record.",
     "status": "decided"
    },
    "kkt-db": {
@@ -11453,7 +11465,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-setup-os": {
-    "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path, and absolute and canonical paths; and one snapshot of `PATH`, in which it finds programs. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container-os, key files through kkt-admission-os.",
+    "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path, and absolute and canonical paths; and one snapshot of `PATH`, in which it finds programs. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container-docker, key files through kkt-admission-os.",
     "kind": "effect",
     "layer": "operations",
     "status": "decided"
@@ -13776,15 +13788,6 @@ window.KKT_PROPOSED = {
       "type": null
      },
      {
-      "adapts": "kkt-container-os::OsHost",
-      "crate": "kashkeshet",
-      "kind": "normal",
-      "status": "decided",
-      "trait": "Host",
-      "trait_crate": "kkt-container",
-      "type": null
-     },
-     {
       "adapts": "kkt-terminal-os::BrowserLink",
       "crate": "kashkeshet",
       "kind": "normal",
@@ -14439,11 +14442,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the database is there, the Docker folder's .env) moves to kkt-terminal-os, kkt-db-sqlite and kkt-container-os; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
+      "text": "src/commands/lanes.rs: its machine work (its output and errors, whether the database is there, the Docker folder's .env) moves to kkt-terminal-os, kkt-db-sqlite and kkt-container-docker; its decisions (the Docker lane limit when there is no .env, and the import report) to kkt-setup. It keeps kkt lanes as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container-os; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
+      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container-docker; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
      },
      {
       "status": "decided",
@@ -14459,7 +14462,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container-os; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container-docker; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -14531,10 +14534,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "agent credential files and watch's state file"
-     },
-     {
-      "status": "decided",
       "text": "starting the log; init_logging opens the RotatingFile itself (step 4.1)"
      },
      {
@@ -14591,15 +14590,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the Docker folder's .env and the Tailscale auth key file, read through kkt-container's Host"
-     },
-     {
-      "status": "decided",
       "text": "the rule for agent credential files"
-     },
-     {
-      "status": "decided",
-      "text": "tightening a credential file, when kkt-setup's rule says so"
      },
      {
       "status": "decided",
@@ -14647,10 +14638,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its ConfigReader adapter gives kkt-container's own ContainerConfig (step 3.3)"
-     },
-     {
-      "status": "decided",
       "text": "the log settings' checks fail with kkt-logs' own SettingError (step 3.1c-2)"
      },
      {
@@ -14663,10 +14650,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program's credential check reads the client's CredentialFileFacts and gives its PrivateMode; read_secret, make_private and the lock are the client's own, behind watch_token and StateFile (step 7.4)"
-     },
-     {
-      "status": "decided",
       "text": "PATH once per client check, paths and the unfinished note (step 7.3a)"
      },
      {
@@ -14676,10 +14659,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the doctor's checks, the status lines, the backup folders, uninstall's record, the client key's name, the lane limit and the import report are kkt-setup's, with the fixes and paths they use; the program keeps local_web_key and local_operator_key, which read in kkt-setup's order and ask its operator_key and configured_key (step 7.3b)"
-     },
-     {
-      "status": "decided",
-      "text": "the doctor's checks of kkt in Docker are kkt-setup's (step 7.3b)"
      },
      {
       "status": "decided",
@@ -14755,10 +14734,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its commands' uses of kkt-container move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
-     },
-     {
-      "status": "decided",
       "text": "its commands' uses of kkt-diagnostics move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
      },
      {
@@ -14779,10 +14754,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its commands' uses of kkt-watch move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
-     },
-     {
-      "status": "decided",
       "text": "builds OperateParts from the implementations it chooses and runs the commands; answers its questions about the local server from its own serving code (steps 10.2b and 10.2a)"
      },
      {
@@ -14796,6 +14767,30 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "Builds and hands Tailscale directly to kkt-operate (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "The program supplies config parsing and the login link; it holds no container adapter (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "Injects Docker into OperateParts.container (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "agent credential files and watch's state file"
+     },
+     {
+      "status": "decided",
+      "text": "tightening a credential file, when kkt-setup's rule says so"
+     },
+     {
+      "status": "decided",
+      "text": "the program's credential check reads the client's CredentialFileFacts and gives its PrivateMode; read_secret, make_private and the lock are the client's own, behind watch_token and StateFile (step 7.4)"
+     },
+     {
+      "status": "decided",
+      "text": "its commands' uses of kkt-watch move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
      },
      {
       "status": "decided",
@@ -16133,10 +16128,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "AgentParts takes servers: injected by the program (step 10.3)"
-     },
-     {
-      "status": "decided",
       "text": "AgentParts takes credentials: injected by the program (step 10.3)"
      },
      {
@@ -16165,11 +16156,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-setup (step 10.3)"
+      "text": "AgentParts takes servers: injected by the program (step 10.3)"
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-watch (step 10.3)"
+      "text": "what its commands use of kkt-setup (step 10.3)"
      },
      {
       "status": "decided",
@@ -16182,6 +16173,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "what its commands use of kkt-machine (step 10.3)"
+     },
+     {
+      "status": "decided",
+      "text": "what its commands use of kkt-watch (step 10.3)"
      },
      {
       "status": "decided",
@@ -16219,20 +16214,6 @@ window.KKT_PROPOSED = {
        {
         "crate": "kkt-agent-commands",
         "trait": "AdminKey"
-       }
-      ]
-     },
-     {
-      "at": "AgentParts",
-      "kind": "param",
-      "name": "servers",
-      "note": "injected by the program (step 10.3)",
-      "proposed_slot": true,
-      "status": "decided",
-      "traits": [
-       {
-        "crate": "kkt-agent-client",
-        "trait": "Servers"
        }
       ]
      },
@@ -16331,6 +16312,20 @@ window.KKT_PROPOSED = {
        {
         "crate": "kkt-clock",
         "trait": "Clock"
+       }
+      ]
+     },
+     {
+      "at": "AgentParts",
+      "kind": "param",
+      "name": "servers",
+      "note": "injected by the program (step 10.3)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-agent-client",
+        "trait": "Servers"
        }
       ]
      }
@@ -19675,11 +19670,15 @@ window.KKT_PROPOSED = {
      {
       "implementors": [
        {
-        "crate": "kashkeshet",
-        "type": null
+        "crate": "kkt-container",
+        "type": "testing::Memory"
+       },
+       {
+        "crate": "kkt-container-docker",
+        "type": "Docker"
        }
       ],
-      "trait": "Host"
+      "trait": "Container"
      },
      {
       "implementors": [
@@ -19693,20 +19692,26 @@ window.KKT_PROPOSED = {
     ],
     "crate_doc": "kkt in Docker: the Compose files that come with this program, the folder kkt manages for them, and the commands that set it up, start it, back it up, import and export its lanes, upgrade it and remove it.",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "testing": []
+    },
     "holders": [],
-    "implements": [],
+    "implements": [
+     {
+      "crate": "kkt-container",
+      "status": "decided",
+      "trait": "Container",
+      "trait_crate": "kkt-container",
+      "type": "testing::Memory"
+     }
+    ],
     "items": [
      {
-      "doc": "A program to run and its arguments.",
-      "fields": [
-       "program",
-       "args",
-       "unset",
-       "current_dir"
-      ],
-      "kind": "struct",
-      "path": "Command"
+      "doc": "The host copy of the admin key.",
+      "kind": "const",
+      "path": "ADMIN_KEY_FILE_NAME",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "What kkt-container needs of the container's config file, which it reads through its Host: its own ContainerConfig, the name pack and the lane limit (step 3.3).",
@@ -19719,6 +19724,31 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "Running and managing a kkt container installation.",
+      "kind": "trait",
+      "methods": [
+       "provision",
+       "add_admin_key",
+       "status",
+       "existing",
+       "compare_web_key",
+       "up",
+       "down",
+       "backup",
+       "upgrade",
+       "import_lanes",
+       "export_lanes",
+       "lane_limit",
+       "has_settings",
+       "settings_file",
+       "version",
+       "sharing_key"
+      ],
+      "path": "Container",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "The settings of the container's config file that kkt-container uses. (step 3.3)",
       "kind": "struct",
       "path": "ContainerConfig",
@@ -19726,61 +19756,14 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Docker setup's host copy of the admin key.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DOCKER_ADMIN_KEY_FILE_NAME",
-      "status": "decided"
-     },
-     {
-      "doc": "Docker setup's host copy of the operator key.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "DOCKER_WEB_KEY_FILE_NAME",
-      "status": "decided"
-     },
-     {
-      "doc": "",
-      "kind": "enum",
-      "path": "DockerError",
-      "variants": [
-       "NotAvailable",
-       "Command",
-       "Io",
-       "LoginTimeout",
-       "HttpsDisabled",
-       "StartTimeout",
-       "Unexpected",
-       "Incomplete"
-      ]
-     },
-     {
-      "doc": "The file Compose reads its settings from, in the managed folder.",
-      "kind": "const",
-      "path": "ENV_FILE"
-     },
-     {
-      "doc": "What an install in the managed folder is, read from its files alone, as any version of `kkt setup` leaves them.",
+      "doc": "An existing installation and its shared network name.",
       "fields": [
-       "tailscale",
+       "sharing",
        "node",
        "port"
       ],
       "kind": "struct",
       "path": "Existing"
-     },
-     {
-      "doc": "How a command ended.",
-      "fields": [
-       "code",
-       "stdout",
-       "stderr"
-      ],
-      "kind": "struct",
-      "methods": [
-       "success"
-      ],
-      "path": "Finished"
      },
      {
       "doc": "The folder kkt manages for the Compose files, the settings file and the backups folder.",
@@ -19792,30 +19775,13 @@ window.KKT_PROPOSED = {
       "path": "Folder"
      },
      {
-      "doc": "What the host must do for Docker setup.",
-      "kind": "trait",
-      "methods": [
-       "create_dir_all",
-       "exists",
-       "is_file",
-       "read_file",
-       "run",
-       "run_attached",
-       "say",
-       "working_dir",
-       "write_file"
-      ],
-      "path": "Host",
-      "status": "decided"
-     },
-     {
-      "doc": "What to set up.",
+      "doc": "The requested container installation.",
       "fields": [
        "version",
        "project",
        "port",
        "allow_hosts",
-       "tailscale"
+       "sharing"
       ],
       "kind": "struct",
       "path": "Inputs"
@@ -19878,120 +19844,47 @@ window.KKT_PROPOSED = {
       "path": "Provisioned"
      },
      {
-      "doc": "How long setup and upgrade wait on the containers, and how often they ask. (step 3.1c-1)",
+      "doc": "The network sharing requested for an installation.",
       "kind": "struct",
-      "path": "Settings",
+      "path": "Sharing",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "How kkt in Docker stands.",
+      "doc": "The installation and its sharing state.",
       "fields": [
        "files_present",
        "running",
        "version",
        "name_pack",
-       "tailscale",
+       "sharing",
        "login"
       ],
       "kind": "struct",
       "path": "State"
      },
      {
-      "doc": "Tailscale settings for `Inputs`.",
-      "fields": [
-       "hostname",
-       "auth_key"
-      ],
+      "doc": "The host copy of the operator key.",
+      "kind": "const",
+      "path": "WEB_KEY_FILE_NAME",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Container installations in memory, with a supplied sharing name, lane output and sharing keys.",
+      "feature": "testing",
       "kind": "struct",
-      "path": "Tailscale"
-     },
-     {
-      "doc": "Gives the running kkt container in `folder` an admin key named `name`, unless it has one, then restarts kkt so it serves `/mcp-admin`; then saves the keys' host copies beside the access key's at `key_file`, as setup does, and returns the...",
-      "kind": "fn",
-      "path": "add_admin_key"
-     },
-     {
-      "doc": "Backs kkt up with `kkt backup` inside the container, then copies the new backup folder into `dest`, if given, owned by the person running this.",
-      "kind": "fn",
-      "path": "backup"
-     },
-     {
-      "doc": "Compares the web key's host copy at `web_key_file` with the running kkt container's web key.",
-      "kind": "fn",
-      "path": "compare_web_key"
-     },
-     {
-      "doc": "The Docker folder's .env, read through Host: the settings text a Docker install was made with, or the read's own refusal, which the caller words (step 7.3a).",
-      "kind": "fn",
-      "path": "docker_env",
+      "methods": [
+       "new",
+       "set_sharing_key",
+       "calls"
+      ],
+      "path": "testing::Memory",
       "proposed_item": true,
       "status": "decided"
-     },
-     {
-      "doc": "Stops and removes the containers.",
-      "kind": "fn",
-      "path": "down"
-     },
-     {
-      "doc": "The settings file.",
-      "kind": "fn",
-      "path": "env_text"
-     },
-     {
-      "doc": "The install in `folder`, if its settings file is there; runs nothing.",
-      "kind": "fn",
-      "path": "existing"
-     },
-     {
-      "doc": "Exports every current lane from kkt in Docker to `dest`, an absolute folder on the host, created if missing.",
-      "kind": "fn",
-      "path": "export_lanes"
-     },
-     {
-      "doc": "Imports the lane files into kkt in Docker.",
-      "kind": "fn",
-      "path": "import_lanes"
-     },
-     {
-      "doc": "The `max_lane_chars` that `kkt lanes import` in the kkt container uses: from the config file it finds there, else the default.",
-      "kind": "fn",
-      "path": "lane_limit"
-     },
-     {
-      "doc": "Writes the files for `inputs` into `folder`, starts kkt (and Tailscale) and saves the access key at `key_file` and the web key beside it, both readable only by their owner.",
-      "kind": "fn",
-      "path": "provision"
-     },
-     {
-      "doc": "",
-      "kind": "fn",
-      "path": "status"
-     },
-     {
-      "doc": "A Tailscale auth key from the file the operator names, read through Host, for the Tailscale inputs.",
-      "kind": "fn",
-      "path": "tailscale_auth_key",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Starts the containers.",
-      "kind": "fn",
-      "path": "up"
-     },
-     {
-      "doc": "Moves kkt to `new_version`: a backup first (so a failed backup stops the upgrade), then this program's Compose files and the new version in the settings file, then the new image.",
-      "kind": "fn",
-      "path": "upgrade"
-     },
-     {
-      "doc": "The kkt version `env` runs, from its `KKT_VERSION` line.",
-      "kind": "fn",
-      "path": "version_in_env"
      }
     ],
-    "kind": "logic",
+    "kind": "contract",
     "lib": "kkt_container",
     "machine_work": {
      "src/os.rs": [
@@ -20015,10 +19908,6 @@ window.KKT_PROPOSED = {
     "path": "crates/kkt-container",
     "proposed": "changed",
     "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "OsHost moves to kkt-container-os"
-     },
      {
       "status": "decided",
       "text": "DOCKER_ADMIN_KEY_FILE_NAME comes here from kkt-config"
@@ -20101,19 +19990,99 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Host is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "Command is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "Finished is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "OsHost is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "DockerError is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "ENV_FILE is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "Tailscale is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "DOCKER_WEB_KEY_FILE_NAME is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "DOCKER_ADMIN_KEY_FILE_NAME is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "env_text is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "version_in_env is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "provision is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "add_admin_key is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "status is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "existing is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "compare_web_key is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "up is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "down is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "backup is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "upgrade is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "import_lanes is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "export_lanes is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "lane_limit is no longer public: The container scope becomes a contract; Docker knowledge and its native runner are private in the named wrapper (12.2)."
+     },
+     {
+      "status": "decided",
       "text": "new trait ConfigReader"
-     },
-     {
-      "status": "decided",
-      "text": "new fn docker_env"
-     },
-     {
-      "status": "decided",
-      "text": "new fn tailscale_auth_key"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Settings"
      },
      {
       "status": "decided",
@@ -20121,235 +20090,53 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "status takes config: reads the name pack from the container's config"
+      "text": "new trait Container"
      },
      {
       "status": "decided",
-      "text": "lane_limit takes config: reads the lane limit from the container's config"
+      "text": "new struct Sharing"
      },
      {
       "status": "decided",
-      "text": "its real feature moves to kkt-container-os"
+      "text": "new const WEB_KEY_FILE_NAME"
      },
      {
       "status": "decided",
-      "text": "kkt-container's status and lane_limit take the default name pack and lane limit from the program (step 3.5c)"
+      "text": "new const ADMIN_KEY_FILE_NAME"
      },
      {
       "status": "decided",
-      "text": "the container's config folder when $XDG_CONFIG_HOME is not set (step 3.4)"
+      "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "testing::Memory implements kkt-container::Container: The contract owns its stand-in (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: The contract supplies its own in-memory implementation (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "its real feature moves to kkt-container-docker"
+     },
+     {
+      "status": "decided",
+      "text": "Docker parsing and errors move into its wrapper; the contract uses local boxed futures (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-config-file in its code: Container-tool implementation knowledge moves into Docker (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-machine in its code: Container-tool implementation knowledge moves into Docker (12.2)."
      }
     ],
     "released_program": false,
-    "slots": [
-     {
-      "at": "add_admin_key",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "add_admin_key",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "backup",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "compare_web_key",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "down",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "existing",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "export_lanes",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "import_lanes",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "lane_limit",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "provision",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "provision",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "provision",
-      "kind": "param",
-      "name": "login",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "LoginLink"
-       }
-      ]
-     },
-     {
-      "at": "status",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "up",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "upgrade",
-      "kind": "param",
-      "name": "clock",
-      "traits": [
-       {
-        "crate": "kkt-clock",
-        "trait": "Clock"
-       }
-      ]
-     },
-     {
-      "at": "upgrade",
-      "kind": "param",
-      "name": "host",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "Host"
-       }
-      ]
-     },
-     {
-      "at": "status",
-      "kind": "param",
-      "name": "config",
-      "note": "reads the name pack from the container's config",
-      "proposed_slot": true,
-      "status": "decided",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "ConfigReader"
-       }
-      ]
-     },
-     {
-      "at": "lane_limit",
-      "kind": "param",
-      "name": "config",
-      "note": "reads the lane limit from the container's config",
-      "proposed_slot": true,
-      "status": "decided",
-      "traits": [
-       {
-        "crate": "kkt-container",
-        "trait": "ConfigReader"
-       }
-      ]
-     }
-    ],
+    "slots": [],
     "third_party": [
-     "serde_json",
-     "thiserror"
+     "futures"
     ]
    },
    {
@@ -20362,34 +20149,28 @@ window.KKT_PROPOSED = {
      "real": []
     },
     "holders": [],
-    "implements": [],
+    "implements": [
+     {
+      "crate": "kkt-container-docker",
+      "status": "decided",
+      "trait": "Container",
+      "trait_crate": "kkt-container",
+      "type": "Docker"
+     }
+    ],
     "items": [
      {
-      "doc": "A command to run, in kkt-container-os' own terms; the program translates kkt-container's Command into it (step 2.1).",
-      "kind": "struct",
-      "path": "Command",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "How a command ended, in kkt-container-os' own terms; the program translates it to kkt-container's Finished (step 2.1).",
-      "kind": "struct",
-      "path": "Finished",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "",
+      "doc": "Docker and Compose implement the container contract directly.",
       "feature": "real",
       "kind": "struct",
-      "moved_from": "kkt-container",
-      "path": "OsHost",
+      "path": "Docker",
+      "proposed_item": true,
       "status": "decided"
      }
     ],
     "kind": "effect",
-    "lib": "kkt_container_os",
-    "name": "kkt-container-os",
+    "lib": "kkt_container_docker",
+    "name": "kkt-container-docker",
     "path": "(proposed)",
     "proposed": "new",
     "proposed_notes": [
@@ -20399,28 +20180,31 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "OsHost comes here from kkt-container"
+      "text": "new struct Docker"
      },
      {
       "status": "decided",
-      "text": "new struct Command"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Finished"
-     },
-     {
-      "status": "decided",
-      "text": "OsHost no longer implements kkt-container::Host"
+      "text": "Docker implements kkt-container::Container: The tool wrapper implements the scope contract directly (12.2)."
      },
      {
       "status": "decided",
       "text": "takes the real feature from kkt-container"
+     },
+     {
+      "status": "decided",
+      "text": "Directly implements the scope contract (12.2)."
+     },
+     {
+      "status": "decided",
+      "text": "Existing Docker knowledge and supplied dependencies stay inside the wrapper (12.2)."
      }
     ],
     "released_program": false,
     "slots": [],
-    "third_party": []
+    "third_party": [
+     "serde_json",
+     "thiserror"
+    ]
    },
    {
     "bins": [],
@@ -22426,10 +22210,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its tests drive the running product over HTTP with kkt-agent-client-rmcp's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
-     },
-     {
-      "status": "decided",
       "text": "the Log it gives kkt-server's parts"
      },
      {
@@ -22471,6 +22251,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "its tests take a database from testing::database and start the product's own rules on it (step 5.6b)"
+     },
+     {
+      "status": "decided",
+      "text": "its tests drive the running product over HTTP with kkt-agent-client-rmcp's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
      }
     ],
     "released_program": false,
@@ -25351,10 +25135,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-container (steps 10.2b and 10.2a)"
-     },
-     {
-      "status": "decided",
       "text": "what its commands use of kkt-service (steps 10.2b and 10.2a)"
      },
      {
@@ -25411,6 +25191,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Requests and records in container terms (12.2)."
+     },
+     {
+      "status": "decided",
       "text": "OperateParts takes the client command (step 12.5c)"
      }
     ],
@@ -25426,7 +25210,7 @@ window.KKT_PROPOSED = {
       "traits": [
        {
         "crate": "kkt-container",
-        "trait": "Host"
+        "trait": "Container"
        }
       ]
      },
@@ -29765,7 +29549,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the doctor's and status's lines read what kkt-container found (step 7.3b)"
+      "text": "Setup reads container results and key-file names (12.2)."
      }
     ],
     "released_program": false,
@@ -32309,7 +32093,16 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "ContainerConfig"
+     "ConfigReader",
+     "ContainerConfig",
+     "Folder",
+     "Inputs",
+     "KeyCopy",
+     "LanesImport",
+     "Login",
+     "LoginLink",
+     "NO_ADMIN_KEY_EXIT",
+     "State"
     ],
     "kind": "normal",
     "optional": false,
@@ -32319,14 +32112,20 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "adapter for kkt-config-file::parse_file implements ConfigReader",
-       "adapter for kkt-container-os::OsHost implements Host",
        "adapter for kkt-terminal-os::BrowserLink implements LoginLink"
       ],
       "role": "implements"
      },
      {
       "detail": [
-       "ContainerConfig"
+       "ContainerConfig",
+       "Folder",
+       "Inputs",
+       "KeyCopy",
+       "LanesImport",
+       "Login",
+       "NO_ADMIN_KEY_EXIT",
+       "State"
       ],
       "role": "uses"
      }
@@ -32344,7 +32143,7 @@ window.KKT_PROPOSED = {
     ],
     "from": "kashkeshet",
     "items": [
-     "OsHost"
+     "Docker"
     ],
     "kind": "normal",
     "optional": false,
@@ -32353,7 +32152,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "OsHost"
+       "Docker"
       ],
       "role": "wires"
      }
@@ -32363,7 +32162,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-container-os"
+    "to": "kkt-container-docker"
    },
    {
     "features": [],
@@ -34836,60 +34635,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-container",
     "items": [
-     "CONFIG_DIR",
-     "CONFIG_FILE_NAME"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "CONFIG_DIR",
-       "CONFIG_FILE_NAME"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-config-file"
-   },
-   {
-    "features": [],
-    "from": "kkt-container",
-    "items": [
-     "Env",
-     "XDG_CONFIG_HOME_DEFAULT"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Env",
-       "XDG_CONFIG_HOME_DEFAULT"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-machine"
-   },
-   {
-    "features": [],
-    "from": "kkt-container",
-    "items": [
      "AdminName"
     ],
     "kind": "normal",
@@ -34929,6 +34674,166 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-scratch"
+   },
+   {
+    "features": [],
+    "from": "kkt-container-docker",
+    "items": [
+     "Clock",
+     "Span"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Clock",
+       "Span"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-container-docker",
+    "items": [
+     "CONFIG_DIR",
+     "CONFIG_FILE_NAME"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "CONFIG_DIR",
+       "CONFIG_FILE_NAME"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-config-file"
+   },
+   {
+    "features": [],
+    "from": "kkt-container-docker",
+    "items": [
+     "ADMIN_KEY_FILE_NAME",
+     "ConfigReader",
+     "Container",
+     "Existing",
+     "Folder",
+     "Inputs",
+     "KeyCopy",
+     "LanesImport",
+     "Login",
+     "LoginLink",
+     "NO_ADMIN_KEY_EXIT",
+     "Provisioned",
+     "State",
+     "WEB_KEY_FILE_NAME"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "implements",
+    "roles": [
+     {
+      "detail": [
+       "Docker implements Container"
+      ],
+      "role": "implements"
+     },
+     {
+      "detail": [
+       "ADMIN_KEY_FILE_NAME",
+       "ConfigReader",
+       "Existing",
+       "Folder",
+       "Inputs",
+       "KeyCopy",
+       "LanesImport",
+       "Login",
+       "LoginLink",
+       "NO_ADMIN_KEY_EXIT",
+       "Provisioned",
+       "State",
+       "WEB_KEY_FILE_NAME"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-container"
+   },
+   {
+    "features": [],
+    "from": "kkt-container-docker",
+    "items": [
+     "XDG_CONFIG_HOME_DEFAULT"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "XDG_CONFIG_HOME_DEFAULT"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-machine"
+   },
+   {
+    "features": [],
+    "from": "kkt-container-docker",
+    "items": [
+     "AdminName"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "AdminName"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-names"
    },
    {
     "features": [],
@@ -38266,20 +38171,16 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-operate",
     "items": [
+     "ADMIN_KEY_FILE_NAME",
      "ConfigReader",
-     "ENV_FILE",
+     "Container",
      "Folder",
-     "Host",
+     "Inputs",
+     "LanesImport",
      "LoginLink",
      "NO_ADMIN_KEY_EXIT",
-     "backup",
-     "down",
-     "existing",
-     "export_lanes",
-     "import_lanes",
-     "lane_limit",
-     "status",
-     "upgrade"
+     "Sharing",
+     "WEB_KEY_FILE_NAME"
     ],
     "kind": "normal",
     "optional": false,
@@ -38288,20 +38189,16 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "ADMIN_KEY_FILE_NAME",
        "ConfigReader",
-       "ENV_FILE",
+       "Container",
        "Folder",
-       "Host",
+       "Inputs",
+       "LanesImport",
        "LoginLink",
        "NO_ADMIN_KEY_EXIT",
-       "backup",
-       "down",
-       "existing",
-       "export_lanes",
-       "import_lanes",
-       "lane_limit",
-       "status",
-       "upgrade"
+       "Sharing",
+       "WEB_KEY_FILE_NAME"
       ],
       "role": "uses"
      }
@@ -40358,12 +40255,12 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-setup",
     "items": [
-     "DOCKER_ADMIN_KEY_FILE_NAME",
-     "DOCKER_WEB_KEY_FILE_NAME",
-     "DockerError",
+     "ADMIN_KEY_FILE_NAME",
+     "Folder",
      "KeyCopy",
      "Login",
-     "State"
+     "State",
+     "WEB_KEY_FILE_NAME"
     ],
     "kind": "normal",
     "optional": false,
@@ -40372,12 +40269,12 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "DOCKER_ADMIN_KEY_FILE_NAME",
-       "DOCKER_WEB_KEY_FILE_NAME",
-       "DockerError",
+       "ADMIN_KEY_FILE_NAME",
+       "Folder",
        "KeyCopy",
        "Login",
-       "State"
+       "State",
+       "WEB_KEY_FILE_NAME"
       ],
       "role": "uses"
      }
@@ -41590,10 +41487,10 @@ window.KKT_PROPOSED = {
     }
    ],
    "new": [
-    "kkt-container-os"
+    "kkt-container-docker"
    ],
    "path": "Host",
-   "result": "Declared by its consumer, kkt-container. OsHost moves to kkt-container-os as a plain type that implements nothing; kkt-container's real feature moves with it, and the program adapts it.",
+   "result": "Retired: the scope contract Container replaces machine operations. Docker implements it directly; the program only injects it.",
    "rule": "declared by its consumers",
    "test_only": [],
    "trait": "kkt-container::Host",
@@ -41610,7 +41507,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "path": "LoginLink",
-   "result": "Declared by kkt-container; the program adapts kkt-terminal-os' BrowserLink to it.",
+   "result": "The scope owns its login-link contract; operate receives the program's adapter and supplies it to the selected container implementation.",
    "rule": "declared by its consumers",
    "test_only": [],
    "trait": "kkt-container::LoginLink",

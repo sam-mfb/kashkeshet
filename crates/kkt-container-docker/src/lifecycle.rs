@@ -5,46 +5,18 @@ use super::files::{ENV_FILE, embedded, set_version, version_in_env, write_embedd
 use super::provision::{ServerKey, key_show, run, run_attached, save_keys, say_saved};
 use super::tailscale::parse_status;
 use super::{
-    ConfigReader, DOCKER_BACKUPS_MOUNT, DOCKER_PENDING_TAILNET, DockerError, Folder, Host, Settings,
+    ConfigReader, DOCKER_BACKUPS_MOUNT, DOCKER_PENDING_TAILNET, DockerError, Folder, Runner,
+    Settings,
 };
+use super::{Existing, KeyCopy, Login, State};
 use kkt_clock::Clock;
 use std::path::{Path, PathBuf};
-
-/// How kkt in Docker stands.
-#[derive(Debug, PartialEq, Eq)]
-pub struct State {
-    /// Whether the managed folder has its settings file.
-    pub files_present: bool,
-    /// Whether the kkt container is running.
-    pub running: bool,
-    /// The kkt version the settings file names.
-    pub version: Option<String>,
-    /// The selected name pack, or why it could not be read.
-    pub name_pack: Result<String, String>,
-    /// Whether it is set up to be served over Tailscale.
-    pub tailscale: bool,
-    /// The Tailscale container's login, for a setup served over Tailscale.
-    pub login: Option<Login>,
-}
-
-/// Whether the Tailscale container is logged in to the tailnet.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Login {
-    LoggedIn,
-    /// Not logged in: the machine's key expired, or it was logged out. It is
-    /// off the tailnet until someone logs it in again.
-    NeedsLogin,
-    /// The Tailscale container does not answer, such as when it is not running.
-    Unreachable,
-    /// Some other state, as Tailscale names it.
-    Other(String),
-}
 
 /// `reader` parses the container's config file, for its name pack.
 /// `default_name_pack` is the name pack `kkt serve` uses when its settings
 /// name none; the caller gives it.
 pub fn status(
-    host: &dyn Host,
+    host: &dyn Runner,
     folder: &Folder,
     reader: &dyn ConfigReader,
     default_name_pack: &str,
@@ -56,7 +28,7 @@ pub fn status(
             running: false,
             version: None,
             name_pack: Err("container is not set up".into()),
-            tailscale: false,
+            sharing: false,
             login: None,
         });
     }
@@ -91,28 +63,15 @@ pub fn status(
         running,
         version: version_in_env(&env),
         name_pack,
-        tailscale,
+        sharing: tailscale,
         login,
     })
-}
-
-/// What an install in the managed folder is, read from its files alone, as
-/// any version of `kkt setup` leaves them.
-#[derive(Debug, PartialEq, Eq)]
-pub struct Existing {
-    /// Served over a Tailscale container.
-    pub tailscale: bool,
-    /// The node's name on the tailnet, as `(hostname, tailnet)`, when it is
-    /// served over Tailscale.
-    pub node: Option<(String, String)>,
-    /// The port on the host's `127.0.0.1` that kkt is published on.
-    pub port: u16,
 }
 
 /// The install in `folder`, if its settings file is there; runs nothing.
 /// A folder setup did not finish writing, or whose Tailscale login never
 /// finished (so its address is not known), is [`DockerError::Incomplete`].
-pub fn existing(host: &dyn Host, folder: &Folder) -> Result<Option<Existing>, DockerError> {
+pub fn existing(host: &dyn Runner, folder: &Folder) -> Result<Option<Existing>, DockerError> {
     let env_path = folder.path().join(ENV_FILE);
     if !host.exists(&env_path) {
         return Ok(None);
@@ -185,7 +144,7 @@ pub fn existing(host: &dyn Host, folder: &Folder) -> Result<Option<Existing>, Do
         false => None,
     };
     Ok(Some(Existing {
-        tailscale,
+        sharing: tailscale,
         node,
         port,
     }))
@@ -204,7 +163,7 @@ fn dns_name(name: &str) -> bool {
 }
 
 /// Asks the Tailscale container whether it is logged in.
-fn login_state(host: &dyn Host, folder: &Folder) -> Result<Login, DockerError> {
+fn login_state(host: &dyn Runner, folder: &Folder) -> Result<Login, DockerError> {
     let done = run(host, &tailscale_status(folder))?;
     if !done.success() {
         return Ok(Login::Unreachable);
@@ -219,19 +178,10 @@ fn login_state(host: &dyn Host, folder: &Folder) -> Result<Login, DockerError> {
     })
 }
 
-/// How the host's copy of a key compares with the running kkt container's.
-#[derive(Debug, PartialEq, Eq)]
-pub enum KeyCopy {
-    Same,
-    /// The container's key changed after the copy was saved, such as when
-    /// it was rotated inside the container.
-    Differs,
-}
-
 /// Compares the web key's host copy at `web_key_file` with the running kkt
 /// container's web key. Neither key is shown, nor put in an error.
 pub fn compare_web_key(
-    host: &dyn Host,
+    host: &dyn Runner,
     folder: &Folder,
     web_key_file: &Path,
 ) -> Result<KeyCopy, DockerError> {
@@ -259,13 +209,13 @@ pub fn compare_web_key(
 }
 
 /// Starts the containers.
-pub fn up(host: &dyn Host, folder: &Folder) -> Result<(), DockerError> {
+pub fn up(host: &dyn Runner, folder: &Folder) -> Result<(), DockerError> {
     run_attached(host, &compose(folder, &["up", "-d"]))
 }
 
 /// Stops and removes the containers. The data stays, in its volumes, unless
 /// `remove_data`.
-pub fn down(host: &dyn Host, folder: &Folder, remove_data: bool) -> Result<(), DockerError> {
+pub fn down(host: &dyn Runner, folder: &Folder, remove_data: bool) -> Result<(), DockerError> {
     let args: &[&str] = if remove_data {
         &["down", "--volumes"]
     } else {
@@ -279,7 +229,7 @@ pub fn down(host: &dyn Host, folder: &Folder, remove_data: bool) -> Result<(), D
 /// Without a destination, returns the path in the managed backups folder.
 /// The managed copy stays in either case.
 pub fn backup(
-    host: &dyn Host,
+    host: &dyn Runner,
     folder: &Folder,
     dest: Option<&Path>,
 ) -> Result<PathBuf, DockerError> {
@@ -317,7 +267,7 @@ pub fn backup(
 /// is said, with how to get the keys, and does not fail the upgrade. It
 /// waits for the keys as `settings` say.
 pub async fn upgrade(
-    host: &dyn Host,
+    host: &dyn Runner,
     clock: &dyn Clock,
     settings: Settings,
     folder: &Folder,
@@ -361,7 +311,7 @@ pub async fn upgrade(
 }
 
 /// Runs `kkt backup` in the container and returns the new folder's name.
-fn backup_in_container(host: &dyn Host, folder: &Folder) -> Result<String, DockerError> {
+fn backup_in_container(host: &dyn Runner, folder: &Folder) -> Result<String, DockerError> {
     let command = compose(
         folder,
         &["exec", "-T", "kkt", "kkt", "backup", DOCKER_BACKUPS_MOUNT],

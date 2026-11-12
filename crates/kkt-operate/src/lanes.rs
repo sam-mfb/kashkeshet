@@ -44,7 +44,9 @@ pub async fn run<D>(
                         .setup_files
                         .absolute(&dest)
                         .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
-                    let said = kkt_container::export_lanes(parts.container, &folder, &dest)
+                    let said = parts
+                        .container
+                        .export_lanes(&folder, &dest)
                         .map_err(|e| e.to_string())?;
                     parts.output.output(format_args!("{said}"));
                     parts
@@ -248,16 +250,19 @@ pub(crate) fn docker_lane_limit<D>(
 ) -> Result<usize, String> {
     let folder = docker_folder(env, platform)?;
     setup::lane_reports::docker_limit(
-        kkt_container::Host::exists(parts.container, &folder.join(kkt_container::ENV_FILE)),
+        parts
+            .container
+            .has_settings(&kkt_container::Folder(folder.clone())),
         kkt_rules::Settings::DEFAULT.max_lane_chars,
         || {
-            kkt_container::lane_limit(
-                parts.container,
-                &kkt_container::Folder(folder),
-                parts.container_configs,
-                kkt_rules::Settings::DEFAULT.max_lane_chars,
-            )
-            .map_err(|e| e.to_string())
+            parts
+                .container
+                .lane_limit(
+                    &kkt_container::Folder(folder),
+                    parts.container_configs,
+                    kkt_rules::Settings::DEFAULT.max_lane_chars,
+                )
+                .map_err(|e| e.to_string())
         },
     )
 }
@@ -286,7 +291,7 @@ pub(crate) fn check_lanes_folder(
 /// its path on the host; [`lane_files::Read::files_to_copy`] says which go
 /// in. Returns the report to print.
 pub(crate) fn docker_import_lanes(
-    container: &dyn kkt_container::Host,
+    container: &dyn kkt_container::Container,
     folder: &kkt_container::Folder,
     read: lane_files::Read,
     retire_missing: bool,
@@ -297,7 +302,9 @@ pub(crate) fn docker_import_lanes(
         source_commit: read.commit,
         retire_missing,
     };
-    kkt_container::import_lanes(container, folder, &import).map_err(|e| e.to_string())
+    container
+        .import_lanes(folder, &import)
+        .map_err(|e| e.to_string())
 }
 
 /// One line for each lane an import touched, then one saying where from and

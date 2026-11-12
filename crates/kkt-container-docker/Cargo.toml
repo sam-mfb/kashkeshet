@@ -1,0 +1,27 @@
+[package]
+name = "kkt-container-docker"
+description = "kkt in Docker: its Compose files, the folder kkt manages and the commands"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# Docker and its private native runner; logic tests use a private fake without this.
+real = []
+
+[dependencies]
+futures.workspace = true
+kkt-container = { path = "../kkt-container" }
+kkt-clock = { path = "../kkt-clock" }
+kkt-config-file = { path = "../kkt-config-file" }
+kkt-machine = { path = "../kkt-machine" }
+kkt-names = { path = "../kkt-names" }
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+tokio.workspace = true

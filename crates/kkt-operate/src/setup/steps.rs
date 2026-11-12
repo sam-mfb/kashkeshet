@@ -113,13 +113,10 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             .ok_or("set HOME to keep the access key")?
             .join(DOCKER_KEY_FILE_NAME);
         let tailscale_inputs = match tailscale {
-            Some(login) => Some(kkt_container::Tailscale {
+            Some(login) => Some(kkt_container::Sharing {
                 hostname: login.hostname.clone(),
                 auth_key: match &login.auth_key_file {
-                    Some(path) => Some(kkt_container::tailscale_auth_key(
-                        self.parts.container,
-                        path,
-                    )?),
+                    Some(path) => Some(self.parts.container.sharing_key(path)?),
                     None => None,
                 },
             }),
@@ -130,14 +127,12 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             project: options.docker_project.clone(),
             port: options.docker_port,
             allow_hosts: allow_hosts.to_vec(),
-            tailscale: tailscale_inputs,
+            sharing: tailscale_inputs,
         };
         let tailscale = tailscale.is_some();
         let provisioned = tokio::runtime::Handle::current()
-            .block_on(kkt_container::provision(
-                self.parts.container,
+            .block_on(self.parts.container.provision(
                 self.parts.clock.as_ref(),
-                kkt_container::Settings::DEFAULT,
                 self.parts.login_link,
                 &kkt_container::Folder(folder.clone()),
                 &inputs,
@@ -255,10 +250,8 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             .ok_or("an admin key needs the server to have an access key")?;
         match &record.mode {
             setup::Mode::Docker(install) => tokio::runtime::Handle::current()
-                .block_on(kkt_container::add_admin_key(
-                    self.parts.container,
+                .block_on(self.parts.container.add_admin_key(
                     self.parts.clock.as_ref(),
-                    kkt_container::Settings::DEFAULT,
                     &kkt_container::Folder(install.folder.clone()),
                     access,
                     name,

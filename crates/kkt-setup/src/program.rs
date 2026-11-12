@@ -106,7 +106,7 @@ pub fn docker_status_lines(state: &kkt_container::State, folder: &Path) -> Vec<S
         state.files_present,
         state.running,
         state.version.as_deref().unwrap_or("unknown"),
-        state.tailscale
+        state.sharing
     ));
     match &state.login {
         Some(kkt_container::Login::LoggedIn) => lines.push("Tailscale login: logged in\n".into()),

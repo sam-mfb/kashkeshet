@@ -140,9 +140,9 @@ fn docker_admin_key_fix(folder: &Path) -> String {
 }
 
 /// The doctor's line about whether the web key's host copy is the Docker
-/// server's key, from what `kkt_container::compare_web_key` found.
+/// server's key, from what `kkt_container::Container::compare_web_key` found.
 pub fn docker_web_key_check(
-    compared: Result<kkt_container::KeyCopy, kkt_container::DockerError>,
+    compared: Result<kkt_container::KeyCopy, String>,
     folder: &kkt_container::Folder,
 ) -> DoctorCheck {
     match compared {
@@ -193,10 +193,10 @@ pub fn tailscale_login_check(
     }
 }
 
-/// The doctor's line about kkt in Docker, from what `kkt_container::status` found
+/// The doctor's line about kkt in Docker, from what `kkt_container::Container::status` found
 /// in the managed `folder`.
 pub fn docker_check(
-    state: Result<kkt_container::State, kkt_container::DockerError>,
+    state: Result<kkt_container::State, String>,
     folder: &kkt_container::Folder,
 ) -> DoctorCheck {
     let shown = folder.path().display().to_string();

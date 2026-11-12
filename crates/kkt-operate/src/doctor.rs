@@ -85,8 +85,7 @@ pub async fn run<D: crate::ServiceDefaults>(
         Some(setup::Mode::Client) => diagnostics::ThisMachine::Elsewhere,
         Some(setup::Mode::Docker(install)) => {
             let folder = kkt_container::Folder(install.folder);
-            let state = kkt_container::status(
-                parts.container,
+            let state = parts.container.status(
                 &folder,
                 parts.container_configs,
                 kkt_rules::Settings::DEFAULT.name_pack.name(),
@@ -99,7 +98,7 @@ pub async fn run<D: crate::ServiceDefaults>(
             // A missing or unreadable copy has its own line.
             let web_key_copy = match &web_key {
                 Some(path) if running && parts.key_files.is_file(path) => {
-                    let compared = kkt_container::compare_web_key(parts.container, &folder, path);
+                    let compared = parts.container.compare_web_key(&folder, path);
                     Some(diagnostic_check(checks::docker_web_key_check(
                         compared, &folder,
                     )))
