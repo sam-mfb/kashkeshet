@@ -1,0 +1,24 @@
+[package]
+name = "kkt-agent-commands"
+description = "The agents' commands: kkt register, reclaim, watch and connect"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+futures.workspace = true
+kkt-client-config = { path = "../kkt-client-config" }
+kkt-clock = { path = "../kkt-clock" }
+kkt-machine = { path = "../kkt-machine" }
+kkt-mcp = { path = "../kkt-mcp" }
+kkt-names = { path = "../kkt-names" }
+kkt-setup = { path = "../kkt-setup" }
+kkt-watch = { path = "../kkt-watch" }
+
+[dev-dependencies]
+# The access key a stand-in connection question answers with.
+kkt-admission = { path = "../kkt-admission" }
+# A clock for the parts, which no test reads.
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }

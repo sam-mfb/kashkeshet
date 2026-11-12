@@ -1212,11 +1212,11 @@ crate's paperwork (workspace members, CLAUDE.md's row, `concerns.json`,
 
 | Step | What | Size | After | Who |
 |---|---|---|---|---|
-| 9.1 | Each owner checks and words its own settings | S | (in progress) | kkt-build-b, kkt-build-c |
-| 9.2 | kkt-server's `ServerSettings`; `Parts` takes `Arc<dyn AdminApi>` | M | 9.1 | kkt-build-c, after its small kkt-service pull request |
-| 9.3 | The programs keep the serve surface (kkt, and kkt-keymode's own smaller one); kkt-settings goes | M | 9.2 | kkt-build-b, after its 11.1 |
-| 10.2a | kkt-operate, with `OperateParts`: the record, the operator's key finders, doctor, lanes, `kkt key` and `kkt agent` | L in lines, M in substance | 9.3 | kkt-build-b |
-| 10.2b | setup, service and lifecycle move into kkt-operate | M | 10.2a | kkt-build-c |
+| 9.1 | Each owner checks and words its own settings | S | (done: #484, #485) | kkt-build-b, kkt-build-c |
+| 9.2 | kkt-server's `ServerSettings`; `Parts` takes `Arc<dyn AdminApi>` | M | (done: #494) | kkt-build-c |
+| 9.3 | The programs keep the serve surface (kkt, and kkt-keymode's own smaller one); kkt-settings goes | M | (done: #495) | kkt-build-b |
+| 10.2a | kkt-operate, with `OperateParts`: the record, the operator's key finders, doctor, lanes, `kkt key` and `kkt agent` | L in lines, M in substance | 9.3 | kkt-build-c (msg 2896: swapped from kkt-build-b, who took 9.3 and then 11.3) |
+| 10.2b | setup, service and lifecycle move into kkt-operate | M | 10.2a | kkt-build-c, with kkt-build-b taking one of its moves on a branch stacked on it |
 | 10.3 | kkt-agent-commands, with `AgentParts`: register, reclaim, watch, connect | M | 9.3; beside 10.2a and 10.2b | kkt-mt-step1 |
 | 10.4 | `main.rs` builds the two `Parts` in one place; CLAUDE.md's tables; chart what differs (9.4 folds in here) and the scorecard | S | 10.2b, 10.3 | kkt-mt-step1 |
 
@@ -1368,3 +1368,17 @@ again, as expected until phases 9 and 10 land:
   5, and kkt-server → kkt-rules until 9.2);
 - rules: no kind check fails; 1 break of the proposal's rules (kkt-rules'
   tests on kkt-db-sqlite, until kkt-build-b's stand-in replaces it).
+
+With 10.3 (kkt-agent-commands), on the code after #495 (9.3) merged:
+
+- crates: 60 of 61 proposed crates exist; 1 missing (kkt-operate); none to
+  remove;
+- items: 752 of 811 proposed items are in their proposed crate. Every item
+  of kkt-agent-commands is in. Missing: kkt-operate's, which 10.2a and
+  10.2b move; the 16 `kkt_rules::testing` re-exports that #492 removed and
+  `new_server_run`, which 9.3 left in kkt's `server_run`, both for 10.4 to
+  chart;
+- arrows: 221 of 239 proposed arrows exist; 18 missing, all kkt-operate's
+  or kashkeshet's to it; 1 extra (kashkeshet → kkt-api-operator, which
+  10.2a moves);
+- rules: no kind check fails; no break of the proposal's rules.

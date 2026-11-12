@@ -4,7 +4,6 @@
 //! each instead.
 
 pub mod agent;
-pub mod connect;
 pub mod doctor;
 pub mod key;
 pub mod lanes;

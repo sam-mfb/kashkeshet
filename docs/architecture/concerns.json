@@ -56,7 +56,7 @@
   "kashkeshet": {
    "layer": "programs",
    "title": "kkt (package kashkeshet)",
-   "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs.",
+   "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs. The agents' commands run in kkt-agent-commands, over the `AgentParts` it builds.",
    "must_not": "Hold a clap type outside `cli.rs`, or let a command take one.",
    "kind": "composition"
   },
@@ -277,6 +277,12 @@
    "concern": "The shared MCP client, agent credential and watch-state files, plain Http requests for test callers, and reaching the server as an agent or admin.",
    "kind": "effect",
    "must_not": "Choose the credential-file rule or warning output; implement kkt-watch's contract: the program adapts its records and failures."
+  },
+  "kkt-agent-commands": {
+   "layer": "assembly",
+   "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
+   "must_not": "Depend on an `-os` crate, on kkt-agent-client or on another assembly; touch the machine except through `AgentParts`.",
+   "kind": "composition"
   },
   "kkt-watch": {
    "layer": "clients",
