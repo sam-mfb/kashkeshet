@@ -389,18 +389,10 @@
   {
    "name": "kkt-browser",
    "layer": "operations",
-   "kind": "contract",
+   "kind": "contract and effect",
    "from": "kkt-terminal-os",
    "status": "decided",
-   "concern": "The project's contract for opening a link in the person's browser: Browser, with the testing Recorder (step 12.5d)."
-  },
-  {
-   "name": "kkt-browser-os",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kkt-terminal-os",
-   "status": "decided",
-   "concern": "Implements Browser with the system's own opener: starting it, reaping it, keeping a failure to report once; starting it is behind real (step 12.5d)."
+   "concern": "Opening a link in the person's browser: the contract, Browser, with the testing Recorder (step 12.5d), and its one implementation, SystemBrowser, the system's own opener: starting it, reaping it, keeping a failure to report once; starting it is behind real (step 13.3, merging kkt-browser-os back)."
   }
  ],
  "moves": [
@@ -4480,7 +4472,7 @@
    "feature": "testing"
   },
   {
-   "crate": "kkt-browser-os",
+   "crate": "kkt-browser",
    "path": "SystemBrowser",
    "kind": "struct",
    "status": "decided",
@@ -9168,20 +9160,8 @@
    "status": "decided"
   },
   {
-   "from": "kkt-browser-os",
-   "to": "kkt-browser",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Browser"
-    ]
-   },
-   "note": "it implements the contract directly (step 12.5d)",
-   "status": "decided"
-  },
-  {
    "from": "kashkeshet",
-   "to": "kkt-browser-os",
+   "to": "kkt-browser",
    "kind": "normal",
    "add": {
     "uses": [
@@ -9189,7 +9169,10 @@
     ]
    },
    "note": "the program gives the Docker wrapper the system's opener as it is (step 12.5d)",
-   "status": "decided"
+   "status": "decided",
+   "features": [
+    "real"
+   ]
   },
   {
    "from": "kkt-probe-reqwest",
@@ -12757,6 +12740,14 @@
    ],
    "status": "decided",
    "note": "the crate's one implementation of its own contract, behind real (step 13.6)"
+  },
+  {
+   "type": "kkt-browser::SystemBrowser",
+   "to": [
+    "kkt-browser::Browser"
+   ],
+   "status": "decided",
+   "note": "the crate's one implementation of its own contract, behind real (step 13.3)"
   }
  ],
  "trait_swaps": [
@@ -13125,7 +13116,7 @@
    "note": "The scope contract supplies its own in-memory stand-in (12.5a)."
   },
   {
-   "crate": "kkt-browser-os",
+   "crate": "kkt-browser",
    "feature": "real",
    "status": "decided",
    "note": "starting the system's opener (step 12.5d)"
