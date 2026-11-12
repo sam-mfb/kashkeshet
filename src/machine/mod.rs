@@ -11,7 +11,6 @@ pub mod database;
 pub mod diagnostics;
 pub mod keys;
 pub mod operate;
-pub(crate) mod remote_access;
 mod serve_options;
 pub mod server_run;
 pub(crate) mod service;

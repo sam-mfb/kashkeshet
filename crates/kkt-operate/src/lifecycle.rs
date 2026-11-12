@@ -254,10 +254,10 @@ pub async fn uninstall<D: ServiceDefaults>(
 fn stop_sharing(
     shared: bool,
     serve: &dyn ServeFacts,
-    remote: &dyn kkt_remote_access::Host,
+    remote: &dyn kkt_remote_access::RemoteAccess,
 ) -> Result<(), String> {
     if shared {
-        kkt_remote_access::stop(remote, serve.bind()?)?;
+        remote.stop(serve.bind()?)?;
     }
     Ok(())
 }
@@ -391,13 +391,28 @@ mod tests {
         }
     }
 
-    /// A `tailscale` that logs each command and fails it.
+    /// A sharing provider that logs each operation and fails it.
     #[derive(Default)]
     struct Tailscale(RefCell<Vec<Vec<String>>>);
 
-    impl kkt_remote_access::Host for Tailscale {
-        fn run(&self, args: &[String]) -> Result<kkt_remote_access::Output, String> {
-            self.0.borrow_mut().push(args.to_vec());
+    impl kkt_remote_access::RemoteAccess for Tailscale {
+        fn prepare(&self) -> Result<kkt_remote_access::Node, String> {
+            self.0.borrow_mut().push(vec!["prepare".into()]);
+            Err("tailscale is not here".into())
+        }
+        fn serve(&self, _: std::net::SocketAddr) -> Result<(), String> {
+            self.0.borrow_mut().push(vec!["serve".into()]);
+            Err("tailscale is not here".into())
+        }
+        fn served(
+            &self,
+            _: std::net::SocketAddr,
+        ) -> Result<Option<kkt_remote_access::Node>, String> {
+            self.0.borrow_mut().push(vec!["served".into()]);
+            Err("tailscale is not here".into())
+        }
+        fn stop(&self, _: std::net::SocketAddr) -> Result<(), String> {
+            self.0.borrow_mut().push(vec!["stop".into()]);
             Err("tailscale is not here".into())
         }
     }

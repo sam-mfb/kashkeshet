@@ -596,30 +596,6 @@
      "note": "kkt service install, kkt upgrade"
     },
     {
-     "crate": "kkt-remote-access",
-     "to": [
-      {
-       "at": "prepare",
-       "param": "host"
-      },
-      {
-       "at": "serve",
-       "param": "host"
-      },
-      {
-       "at": "served",
-       "param": "host"
-      },
-      {
-       "at": "stop",
-       "param": "host"
-      }
-     ],
-     "note": "kkt setup with Tailscale, status, uninstall",
-     "own": "RemoteHost, adapting kkt-remote-access-os's OsHost",
-     "supplier": "kkt-remote-access-os's OsHost"
-    },
-    {
      "crate": "kkt-client-config",
      "to": [
       {
@@ -776,14 +752,15 @@
      "supplier": "kkt-service-os::OsSystem"
     },
     {
-     "own": "RemoteHost",
      "crate": "kkt-operate",
      "to": [
       {
        "at": "OperateParts",
        "param": "remote"
       }
-     ]
+     ],
+     "impl": "kkt-remote-access-tailscale::Tailscale",
+     "note": "The program injects the sharing implementation directly into the operator assembly."
     },
     {
      "own": "ClientHost",

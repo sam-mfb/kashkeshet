@@ -1074,8 +1074,7 @@ dependencies = [
  "kkt-names",
  "kkt-operate",
  "kkt-provenance",
- "kkt-remote-access",
- "kkt-remote-access-os",
+ "kkt-remote-access-tailscale",
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
@@ -1562,14 +1561,15 @@ dependencies = [
 [[package]]
 name = "kkt-remote-access"
 version = "0.10.0"
+
+[[package]]
+name = "kkt-remote-access-tailscale"
+version = "0.10.0"
 dependencies = [
+ "kkt-remote-access",
  "serde",
  "serde_json",
 ]
-
-[[package]]
-name = "kkt-remote-access-os"
-version = "0.10.0"
 
 [[package]]
 name = "kkt-rules"

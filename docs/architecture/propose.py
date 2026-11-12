@@ -1125,8 +1125,9 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             if not any(e["from"] == program and e["to"] == t and e["kind"] == "normal" for e in edges):
                 problems.append(f"program_work: {program}'s machine work moves to {t}, but it has no arrow to {t}")
     # The strict rule covers only a contract a consumer declares for
-    # itself: any crate may implement a shared contract crate's contract
-    # (msg 2020); only programs and compositions implement another's, and
+    # itself: any crate may implement a contract crate's contract
+    # (msg 2020, extended to single-tool scope contracts in phase 12); only
+    # programs and compositions implement another consumer's, and
     # test support, whose stand-ins do (kkt-api-sim's fake gate, msg 2137).
     stand_ins = {n for n, k in kinds.items() if k == "test support"}
     for c in crates.values():

@@ -81,10 +81,10 @@ Each box is outlined in its kind's colour, written by hand per crate:
 
 - **contract**: traits and plain values, with pure behaviour on its own value types (Time arithmetic, query checks, search matching), and no effect or wiring;
 - **logic**: behaviour, with every effect injected (protocol translation counts, so kkt-mcp and kkt-web are logic);
-- **effect**: touches the operating system, disk, network, real time or real randomness directly;
+- **effect**: touches the operating system, disk, network, real time or real randomness directly; a named tool wrapper also owns its tool knowledge, tested through a private runner, with process execution behind `real`;
 - **composition**: wires others and decides nothing (kkt-server and the programs);
 - **test support**: for tests only;
-- **mixed**: a contract or logic together with a real effect, in the current map only. In the proposed map a mixed crate is a violation.
+- **mixed**: a contract or logic together with a real effect, in the current map only. Named tool wrappers are the explicit exception and are marked effect. In the proposed map a mixed crate is a violation.
 
 `kinds.py` checks what it can: a contract that does more than compute on its
 own values (behaviour through an injected dependency, wiring, or an effect), a logic crate that turns on `real`,

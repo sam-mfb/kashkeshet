@@ -152,7 +152,7 @@ pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     pub login_link: &'a dyn kkt_container::LoginLink,
     pub service: &'a dyn kkt_service::System,
     pub try_bind: &'a dyn Fn(std::net::SocketAddr) -> std::io::Result<()>,
-    pub remote: &'a dyn kkt_remote_access::Host,
+    pub remote: &'a dyn kkt_remote_access::RemoteAccess,
     pub clients: &'a dyn kkt_client_config::Host,
     pub prober: &'a dyn kkt_diagnostics::Prober,
     pub lanes: &'a dyn kkt_lane_files::Disk,

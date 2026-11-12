@@ -1,5 +1,5 @@
 {
- "about": "Written by hand: the workspace reorganized by one dependency-injection rule (Sam, msg 1938), with Sam's decisions on it (msgs 1939, 1952, 1978, 1979, 1981, 1984, 1986, 1987, and 2009–2022), as a transformation of the current map. propose.py applies it to map-data.js and writes proposed-data.js; it stops if a trait has no decision, or anything named here is not in the map. A chart for planning, not a change to the code. Every entry has a status: decided (by Sam) or recommended (pending Sam). Item 7, the kkt-config breakup in config-split.json, is part of the proposal, accepted by Sam (msg 1979).",
+ "about": "Written by hand: the workspace reorganized by one dependency-injection rule (Sam, msg 1938), with Sam's decisions on it (msgs 1939, 1952, 1978, 1979, 1981, 1984, 1986, 1987, and 2009\u20132022), as a transformation of the current map. propose.py applies it to map-data.js and writes proposed-data.js; it stops if a trait has no decision, or anything named here is not in the map. A chart for planning, not a change to the code. Every entry has a status: decided (by Sam) or recommended (pending Sam). Item 7, the kkt-config breakup in config-split.json, is part of the proposal, accepted by Sam (msg 1979).",
  "statuses": {
   "decided": "decided by Sam",
   "recommended": "recommended, pending Sam",
@@ -8,8 +8,9 @@
  "rule": [
   "Every trait a crate depends on is a contract, and it is declared by its consumers, not by the crate that implements it.",
   "If a contract is used by more than two crates, it lives in its own contract-only crate (traits, pure value types, and test doubles behind `testing`). Its real implementations live in separate implementation crates, which implement it directly (msg 2020); only programs depend on them. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
-  "If it is used by two crates or fewer, each consumer declares its own contract, and the program adapts the implementation to it; the shared assembly crate may write an adapter the programs share (msg 2019).",
-  "Used by: crates other than the definer and the implementers that take the trait in a public slot or call through it, in normal dependencies. Test-only use is listed separately."
+  "For dependencies other than the named third-party wrappers below, a contract used by two crates or fewer is declared by each consumer, and the program adapts the implementation to it; the shared assembly may write an adapter the programs share.",
+  "Used by: crates other than the definer and the implementers that take the trait in a public slot or call through it, in normal dependencies. Test-only use is listed separately.",
+  "For a third-party tool or library, always split the scope contract from a named wrapper that implements it directly, independent of consumer count. The program only injects it. A tool wrapper is an effect crate holding tool knowledge and a private runner, with process execution behind real (phase 12). Language-shaping libraries retain the RUST rule 7 exemption."
  ],
  "layers_added": [],
  "new_crates": [
@@ -60,12 +61,16 @@
    "concern": "The machine's service manager: `OsSystem`, a plain type that implements nothing; the program adapts it to kkt-service's `System`. kkt-service's `real` feature moves here."
   },
   {
-   "name": "kkt-remote-access-os",
+   "name": "kkt-remote-access-tailscale",
    "layer": "operations",
    "kind": "effect",
    "from": "kkt-remote-access",
    "status": "decided",
-   "concern": "The machine's `tailscale`: `OsHost`, a plain type that implements nothing; the program adapts it to kkt-remote-access's `Host`. kkt-remote-access's `real` feature moves here."
+   "concern": "Implements the project's RemoteAccess contract directly; owns Tailscale arguments, parsing, messages and its private process runner behind real (step 12.1, option a).",
+   "third_party": [
+    "serde",
+    "serde_json"
+   ]
   },
   {
    "name": "kkt-client-config-os",
@@ -364,11 +369,6 @@
   {
    "item": "kkt-service::OsSystem",
    "to": "kkt-service-os",
-   "status": "decided"
-  },
-  {
-   "item": "kkt-remote-access::OsHost",
-   "to": "kkt-remote-access-os",
    "status": "decided"
   },
   {
@@ -1828,6 +1828,41 @@
    "item": "kkt-rules::testing::swarms_stay_apart",
    "status": "decided",
    "note": "becomes swarms_stay_apart_in, which takes the database to check (step 11.2)"
+  },
+  {
+   "item": "kkt-remote-access::Host",
+   "status": "decided",
+   "note": "The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+  },
+  {
+   "item": "kkt-remote-access::Output",
+   "status": "decided",
+   "note": "The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+  },
+  {
+   "item": "kkt-remote-access::OsHost",
+   "status": "decided",
+   "note": "The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+  },
+  {
+   "item": "kkt-remote-access::prepare",
+   "status": "decided",
+   "note": "The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+  },
+  {
+   "item": "kkt-remote-access::serve",
+   "status": "decided",
+   "note": "The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+  },
+  {
+   "item": "kkt-remote-access::served",
+   "status": "decided",
+   "note": "The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
+  },
+  {
+   "item": "kkt-remote-access::stop",
+   "status": "decided",
+   "note": "The command boundary and tool operations become private to the Tailscale wrapper; callers use RemoteAccess (12.1)."
   }
  ],
  "method_moves": [
@@ -2595,13 +2630,6 @@
    "kind": "struct",
    "status": "decided",
    "doc": "How a command ended, in kkt-container-os' own terms; the program translates it to kkt-container's Finished (step 2.1)."
-  },
-  {
-   "crate": "kkt-remote-access-os",
-   "path": "Output",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "What the tailscale command gave back, in kkt-remote-access-os' own terms; the program maps it, and a failure to run, to kkt-remote-access' Host (step 2.3)"
   },
   {
    "crate": "kkt-diagnostics-os",
@@ -3909,6 +3937,38 @@
    "kind": "struct",
    "status": "decided",
    "doc": "The facts these commands read from the program's serve configuration. (step 10.2a)"
+  },
+  {
+   "crate": "kkt-remote-access",
+   "path": "RemoteAccess",
+   "kind": "trait",
+   "methods": [
+    "prepare",
+    "serve",
+    "served",
+    "stop"
+   ],
+   "status": "decided",
+   "doc": "Preparing and managing the secure sharing of this machine's server."
+  },
+  {
+   "crate": "kkt-remote-access",
+   "path": "testing::Memory",
+   "kind": "struct",
+   "methods": [
+    "new"
+   ],
+   "feature": "testing",
+   "status": "decided",
+   "doc": "A machine with the given network name, initially sharing nothing."
+  },
+  {
+   "crate": "kkt-remote-access-tailscale",
+   "path": "Tailscale",
+   "kind": "struct",
+   "feature": "real",
+   "status": "decided",
+   "doc": "Shares this machine's server through its existing Tailscale login."
   }
  ],
  "declared": [],
@@ -3927,11 +3987,6 @@
    "trait": "kkt-service::System",
    "status": "decided",
    "note": "OsSystem (kkt-service-os) implements nothing; the program adapts it. DryRun is kkt-service's own and still implements System."
-  },
-  {
-   "trait": "kkt-remote-access::Host",
-   "status": "decided",
-   "note": "OsHost (kkt-remote-access-os) implements nothing; the program adapts it."
   },
   {
    "trait": "kkt-client-config::Host",
@@ -3994,12 +4049,6 @@
     "to": "kkt-service::System",
     "status": "decided",
     "note": "8 methods; run and run_attached translate kkt-service-os' own Finished into kkt-service's (step 2.2)"
-   },
-   {
-    "adapts": "kkt-remote-access-os::OsHost",
-    "to": "kkt-remote-access::Host",
-    "status": "decided",
-    "note": "1 method; run translates kkt-remote-access-os' own Output and I/O error into kkt-remote-access' Output and the launch-failure advice (step 2.3)"
    },
    {
     "adapts": "kkt-client-config-os::OsHost",
@@ -7741,21 +7790,6 @@
   },
   {
    "from": "kkt-operate",
-   "to": "kkt-remote-access",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "prepare",
-     "serve",
-     "served",
-     "stop"
-    ]
-   },
-   "status": "decided",
-   "note": "what its commands use of kkt-remote-access (steps 10.2b and 10.2a)"
-  },
-  {
-   "from": "kkt-operate",
    "to": "kkt-client-config",
    "kind": "normal",
    "add": {
@@ -8330,6 +8364,57 @@
    },
    "status": "decided",
    "note": "its own new_server_run maps the run for start, as kashkeshet's does for kkt; it shares no code with kkt (step 9.2)"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-remote-access",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "RemoteAccess",
+     "Node"
+    ]
+   },
+   "status": "decided",
+   "note": "The operator assembly asks sharing operations in project terms (12.1)."
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-remote-access",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "The program no longer implements or names the sharing contract; it injects Tailscale into OperateParts (12.1)."
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-remote-access-tailscale",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "Tailscale"
+    ]
+   },
+   "features": [
+    "real"
+   ],
+   "status": "decided",
+   "note": "Builds and hands Tailscale directly to kkt-operate (12.1)."
+  },
+  {
+   "from": "kkt-remote-access-tailscale",
+   "to": "kkt-remote-access",
+   "kind": "normal",
+   "add": {
+    "implements": [
+     "RemoteAccess"
+    ],
+    "uses": [
+     "Node"
+    ]
+   },
+   "status": "decided",
+   "note": "The named wrapper implements the scope contract directly (12.1)."
   }
  ],
  "decisions": {
@@ -8495,9 +8580,9 @@
   },
   "kkt-remote-access::Host": {
    "status": "decided",
-   "result": "Declared by its consumer, kkt-remote-access. OsHost moves to kkt-remote-access-os as a plain type that implements nothing; kkt-remote-access's real feature moves with it, and the program adapts it.",
+   "result": "Removed: the project-level RemoteAccess scope contract replaces run-a-command. The named Tailscale wrapper implements it directly, and the program only injects it (step 12.1).",
    "new": [
-    "kkt-remote-access-os"
+    "kkt-remote-access-tailscale"
    ],
    "conflicts": [
     "C2"
@@ -8561,7 +8646,7 @@
   },
   {
    "id": "3",
-   "text": "The history from before kkt-db moves out of the program. kkt-store owned it (kkt-rules since msg 2017) as database-neutral facts (old 21 → core 1, 22 → core 2, the dropped handoff_note columns). kkt-db defines the neutral shape (today kkt-db-sqlite's Legacy). kkt-db-sqlite keeps only the SQLite part (user_version, the adoption). The program wires it and supplies the \"upgrade with kkt 0.10 first\" message."
+   "text": "The history from before kkt-db moves out of the program. kkt-store owned it (kkt-rules since msg 2017) as database-neutral facts (old 21 \u2192 core 1, 22 \u2192 core 2, the dropped handoff_note columns). kkt-db defines the neutral shape (today kkt-db-sqlite's Legacy). kkt-db-sqlite keeps only the SQLite part (user_version, the adoption). The program wires it and supplies the \"upgrade with kkt 0.10 first\" message."
   },
   {
    "id": "4",
@@ -9295,12 +9380,17 @@
   {
    "item": "kkt-service::Manager",
    "doc": "The service manager of one platform; for_this_os chooses it from the home folder and the config home folder, given as plain optional paths."
+  },
+  {
+   "item": "kkt-remote-access::Node",
+   "doc": "The network name by which clients reach this machine.",
+   "status": "decided"
   }
  ],
  "status_legend": "\"Decided by Sam\" covers the rule itself (msg 1938) and what follows from it, and Sam's rulings: msgs 1939 and 1952, the strict rule (msg 1978), and item 7, the kkt-config breakup, accepted as proposed (msg 1979); msg 1984's fixes and its items 7 and 8 (accepted in msg 1987); and the layers, kinds and kkt-format's dissolving (msgs 1981 and 1986). \"Recommended, pending Sam\" is what rests on an assumption, which leaves nothing pending; Q7 is a decision Sam will revisit (msg 2052). \"Follows from Sam's rule\" marks what the rule requires once its checks run, without a ruling of its own (msg 1992): the effects split out of kkt-server, kkt-backup and kkt-shutdown.",
  "strict": {
   "status": "decided",
-  "text": "No implementation implements a contract that another crate declares for itself; the program adapts (Sam, msg 1978). Implementing a shared contract crate's contract is fine, just like consuming it: the strict rule covers only consumer-declared contracts (msg 2020). The shared assembly crate kkt-server writes the adapters the three programs share, as the program would, on condition that it decides nothing (msg 2019). A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, and DryRun implements System (msg 1984; SameSource went with Sources in msg 2031). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling."
+  "text": "No implementation implements a contract that another crate declares for itself; the program adapts (Sam, msg 1978). Implementing a shared contract crate's contract is fine, just like consuming it: the strict rule covers only consumer-declared contracts (msg 2020). The shared assembly crate kkt-server writes the adapters the three programs share, as the program would, on condition that it decides nothing (msg 2019). A crate may implement its own traits: FixedClock implements Clock, the entropy test doubles implement Entropy, kkt-db's own implementations and MemoryPlace's Evolve stay, and DryRun implements System (msg 1984; SameSource went with Sources in msg 2031). Sam rejected the refinement of msg 1952, which let an implementation implement its one consumer's contract directly, because it leads to tight coupling. Sam amended this for third-party tools and libraries in phase 12: always a scope contract and named wrapper, implementing it directly. The program only injects; tool knowledge and the private runner live together in the effect wrapper, running behind real."
  },
  "new_slots": [
   {
@@ -9518,7 +9608,7 @@
    "at": "OperateParts",
    "name": "remote",
    "traits": [
-    "kkt-remote-access::Host"
+    "kkt-remote-access::RemoteAccess"
    ],
    "status": "decided",
    "note": "injected by the program (steps 10.2b and 10.2a)"
@@ -9828,7 +9918,7 @@
   },
   "kkt-remote-access": {
    "status": "decided",
-   "concern": "Sharing a service-mode server over the machine's existing Tailscale login. It declares the `Host` it works through; the real one is in kkt-remote-access-os, adapted by the program."
+   "concern": "The project's sharing contract RemoteAccess, Node and its testing stand-in; no tool knowledge."
   },
   "kkt-client-config": {
    "status": "decided",
@@ -9913,7 +10003,7 @@
   },
   {
    "from": "kkt-remote-access",
-   "to": "kkt-remote-access-os",
+   "to": "kkt-remote-access-tailscale",
    "feature": "real",
    "status": "decided"
   },
@@ -10086,6 +10176,10 @@
      {
       "impl": "kkt-clock::SystemClock",
       "crate": "kkt-logs"
+     },
+     {
+      "impl": "kkt-remote-access::OsHost",
+      "crate": "kkt-remote-access"
      }
     ],
     "wiring_add": [
@@ -10240,6 +10334,18 @@
       ],
       "status": "decided",
       "note": "where the server's events go"
+     },
+     {
+      "impl": "kkt-remote-access-tailscale::Tailscale",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "remote"
+       }
+      ],
+      "status": "decided",
+      "note": "The program directly injects the named sharing implementation into the operator assembly."
      }
     ]
    },
@@ -10736,7 +10842,7 @@
   "kkt-names": "logic",
   "kkt-service": "logic",
   "kkt-container": "logic",
-  "kkt-remote-access": "logic",
+  "kkt-remote-access": "contract",
   "kkt-client-config": "logic",
   "kkt-diagnostics": "logic",
   "kkt-lane-files": "logic",
@@ -11058,7 +11164,7 @@
     "forward": 29,
     "translate": 7,
     "copies": 1,
-    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1). kkt-remote-access-os' run returns its own Output and I/O error, which the adapter translates (step 2.3). kkt-diagnostics-os' key_file and probe return its own KeyFile and Check, which the adapter translates (step 2.5)."
+    "why": "Each OS implementation exists only to meet its consumer's contract. The providers' own code translates in 12 of the 36 (such as user_id, which runs id -u and reads the number; claude, which runs claude with the config folder; file_names, which lists a folder's lane files); the other 24 are one standard-library call each. kkt-service-os' run and run_attached return its own Finished, which the adapter translates (step 2.2). kkt-container-os' run and run_attached take and return its own Command and Finished, which the adapter translates (step 2.1). kkt-remote-access-os' run returns its own Output and I/O error, which the adapter translates (step 2.3). kkt-diagnostics-os' key_file and probe return its own KeyFile and Check, which the adapter translates (step 2.5). This is the historical adapter census before phase 12. The remote-access adapter goes in the pilot; its wrapper implements the scope contract directly."
    },
    {
     "adapter": "kkt-config-file::parse_file",
@@ -11281,6 +11387,15 @@
    ],
    "status": "decided",
    "note": "it logs through kkt-log"
+  },
+  {
+   "crate": "kkt-remote-access",
+   "remove": [
+    "serde",
+    "serde_json"
+   ],
+   "status": "decided",
+   "note": "All tool parsing moves into the named wrapper (12.1)."
   }
  ],
  "replace_items": [
@@ -11643,6 +11758,22 @@
    ],
    "status": "decided",
    "note": "its own stand-in"
+  },
+  {
+   "type": "kkt-remote-access-tailscale::Tailscale",
+   "to": [
+    "kkt-remote-access::RemoteAccess"
+   ],
+   "status": "decided",
+   "note": "A tool wrapper implements its scope contract directly, independent of consumer count (step 12.1)."
+  },
+  {
+   "type": "kkt-remote-access::testing::Memory",
+   "to": [
+    "kkt-remote-access::RemoteAccess"
+   ],
+   "status": "decided",
+   "note": "The contract owns its testing stand-in (12.1)."
   }
  ],
  "trait_swaps": [
@@ -11657,10 +11788,11 @@
  "page_rules": [
   "Every trait a crate depends on is a contract, declared by the crates that use it, not by the crate that implements it. A crate uses a contract when its code calls the contract's methods; naming a trait only to wire an implementation in, or to implement it, is not use.",
   "A contract used by more than two crates lives in a contract-only crate of its own (traits, plain value types with pure behaviour on them, and test doubles behind `testing`). Any crate may implement a shared contract crate's contract directly. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
-  "A contract used by two crates or fewer is declared by each of them. No implementation implements a contract another crate declares for itself: the program adapts the implementation to it. kkt-server, the assembly the three server programs share, writes the adapters they would each write, once, and decides nothing.",
+  "For dependencies other than named third-party wrappers, a contract used by two crates or fewer is declared by each consumer. The program adapts the implementation; kkt-server may share those adapters between its programs.",
   "A crate may implement its own traits (FixedClock implements Clock, DryRun implements System).",
-  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect.",
-  "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three."
+  "Each crate is one kind, by what it does: contract, logic, effect, composition or test support. Only programs and compositions depend on effect crates, and no crate mixes logic or a contract with an effect. Named tool wrappers are the explicit exception: effect crates also hold tool knowledge, tested through a private runner (phase 12, option a).",
+  "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three.",
+  "For a third-party tool or library, always split the scope contract from a named wrapper that implements it directly, independent of consumer count. The program only injects it. A tool wrapper is an effect crate holding tool knowledge and a private runner, with process execution behind real (phase 12). Language-shaping libraries retain the RUST rule 7 exemption."
  ],
  "remove_crates": [
   {
@@ -11969,6 +12101,12 @@
    "feature": "testing",
    "status": "decided",
    "note": "its stand-in, for the tests of the crates that ask it"
+  },
+  {
+   "crate": "kkt-remote-access",
+   "feature": "testing",
+   "status": "decided",
+   "note": "The scope contract supplies its own in-memory stand-in (12.1)."
   }
  ]
 }
