@@ -24,11 +24,11 @@
 //! rules ([`crate::start`]), and [`fail_next_write`] makes a change to it
 //! fail on cue.
 //!
-//! The store's questions and changes are the rules' own. The tests that pin
-//! what a database from an older release answers, and that write rows into
-//! a database file to check how it is kept, ask and change it directly: for
-//! them only, this module gives [`Reader`], [`Writer`], the records they
-//! take, and [`read`] and [`write`].
+//! The store's questions and changes are the rules' own, and nothing here
+//! names them. The program's test that a database an older release left
+//! answers every read as that release did asks them all through one
+//! function, [`every_store_read`], and gets their answers as text;
+//! [`swarms_stay_apart_in`] runs the swarms check on any backend.
 
 use super::*;
 use crate::{DefaultWording, OperatorWording, Rules, Settings, Startup};
@@ -38,32 +38,7 @@ use kkt_entropy::Entropy;
 use kkt_events::Events;
 use std::fmt::Debug;
 
-pub use super::{
-    ChannelFilter, ChannelKind, ChannelScope, MessageRange, NewAgentRecord, NewChannelRecord,
-    NewMessageRecord, NewServerRunRecord, NewerFilter, Reader, SearchFilter, SentFilter, Writer,
-};
-
-/// Runs `f` over a view of one state of `db`, for the tests that pin the
-/// store's reads.
-pub async fn read<T, E, F>(db: &Db, f: F) -> Result<T, E>
-where
-    T: Send + 'static,
-    E: From<StoreError> + Send + 'static,
-    F: FnOnce(&Reader<'_>) -> Result<T, E> + Send + 'static,
-{
-    db.read(f).await
-}
-
-/// Runs `f` inside one transaction of `db`, for the tests that write rows
-/// into a database file directly.
-pub async fn write<T, E, F>(db: &Db, f: F) -> Result<T, E>
-where
-    T: Send + 'static,
-    E: From<StoreError> + Send + 'static,
-    F: FnOnce(&Writer<'_>) -> Result<T, E> + Send + 'static,
-{
-    db.write(f).await
-}
+pub use super::reads::{Probes, every_store_read};
 
 /// What a test's rules are made from: the rules' startup without the
 /// database. [`Memory::new`] fills in the rest as a server in key mode
@@ -95,6 +70,14 @@ impl Memory {
 /// The rules over a new in-memory database with the core's tables, built by
 /// [`crate::start`] after it records a test run at `memory.clock`'s now.
 pub async fn memory(memory: Memory) -> Result<Rules, StoreError> {
+    rules_on(database()?, memory).await
+}
+
+/// The rules over `db`, a database the test opened itself, such as a file
+/// or one an older release left, after [`crate::start`] records a test run
+/// in it, as [`memory`] starts them on a new one. The test then reads and
+/// changes it through the kkt-api crates' operations.
+pub async fn rules_on(db: Db, memory: Memory) -> Result<Rules, StoreError> {
     crate::start(
         crate::NewServerRun {
             version: "test".into(),
@@ -103,7 +86,7 @@ pub async fn memory(memory: Memory) -> Result<Rules, StoreError> {
             instructions_sha256: "test".into(),
         },
         Startup {
-            db: database()?,
+            db,
             swarm: memory.swarm,
             events: memory.events,
             clock: memory.clock,
@@ -164,7 +147,7 @@ pub async fn swarms_stay_apart_in(db: &Db) -> Result<(), String> {
 
 /// Checks that two swarms stay apart in `store`, which must hold no
 /// avatars or channels yet. `Err` says what leaked.
-pub fn swarms_stay_apart(store: &Writer<'_>) -> Result<(), String> {
+pub(crate) fn swarms_stay_apart(store: &Writer<'_>) -> Result<(), String> {
     let fail = |e: StoreError| e.to_string();
     let run_id = store
         .insert_server_run(&NewServerRunRecord {
