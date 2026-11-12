@@ -340,6 +340,22 @@
    "third_party": [
     "libc"
    ]
+  },
+  {
+   "name": "kkt-client-command",
+   "layer": "operations",
+   "kind": "contract",
+   "from": "kkt-client-config",
+   "status": "decided",
+   "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand, with the testing Recorder (step 12.5c)."
+  },
+  {
+   "name": "kkt-client-command-claude",
+   "layer": "operations",
+   "kind": "effect",
+   "from": "kkt-client-config-os",
+   "status": "decided",
+   "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json, CLAUDE_CONFIG_DIR and the wording, over a private runner; running claude is behind real (step 12.5c)."
   }
  ],
  "moves": [
@@ -4117,6 +4133,41 @@
    "status": "decided",
    "feature": "real",
    "doc": "kkt's servers over MCP, which the program injects as kkt-agent-client's Servers (step 12.4)."
+  },
+  {
+   "crate": "kkt-client-command",
+   "path": "ClientCommand",
+   "kind": "trait",
+   "status": "decided",
+   "doc": "A client's own command, as kkt-client-config asks it: remove kkt's server, add it as the client's own entry. (step 12.5c)",
+   "methods": [
+    "remove_server",
+    "add_server"
+   ]
+  },
+  {
+   "crate": "kkt-client-command",
+   "path": "testing::Recorder",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "A stand-in that records each call and can fail them. (step 12.5c)",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-client-command",
+   "path": "testing::Call",
+   "kind": "enum",
+   "status": "decided",
+   "doc": "One call, as Recorder keeps it. (step 12.5c)",
+   "feature": "testing"
+  },
+  {
+   "crate": "kkt-client-command-claude",
+   "path": "Claude",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "Claude Code's own command, which the program injects as ClientCommand. (step 12.5c)",
+   "feature": "real"
   }
  ],
  "declared": [],
@@ -8637,6 +8688,66 @@
    },
    "note": "it watches through the client contract (step 12.4)",
    "status": "decided"
+  },
+  {
+   "from": "kkt-client-config",
+   "to": "kkt-client-command",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ClientCommand"
+    ]
+   },
+   "note": "configure asks a client's own command through the contract (step 12.5c)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-operate",
+   "to": "kkt-client-command",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ClientCommand"
+    ]
+   },
+   "note": "OperateParts takes the client command (step 12.5c)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-agent-commands",
+   "to": "kkt-client-command",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ClientCommand"
+    ]
+   },
+   "note": "AgentParts takes the client command (step 12.5c)",
+   "status": "decided"
+  },
+  {
+   "from": "kkt-client-command-claude",
+   "to": "kkt-client-command",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "ClientCommand"
+    ]
+   },
+   "note": "it implements the contract directly (step 12.5c)",
+   "status": "decided"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-client-command-claude",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Claude"
+    ]
+   },
+   "note": "the program injects Claude Code's command as it is (step 12.5c)",
+   "status": "decided"
   }
  ],
  "decisions": {
@@ -11833,6 +11944,14 @@
    ],
    "status": "decided",
    "note": "the live notices are Views::subscribe's, which Rules implements over its kkt-events subscription, so no contract names kkt-events (step 6.2)"
+  },
+  {
+   "type": "kkt-client-config::Host",
+   "methods": [
+    "claude"
+   ],
+   "status": "decided",
+   "note": "Claude Code's command is kkt-client-command's ClientCommand, implemented by kkt-client-command-claude (step 12.5c)"
   }
  ],
  "slot_removes": [
@@ -12329,6 +12448,18 @@
    "feature": "real",
    "status": "decided",
    "note": "what reaches the server or the machine (step 12.4)"
+  },
+  {
+   "crate": "kkt-client-command-claude",
+   "feature": "real",
+   "status": "decided",
+   "note": "running the host's claude (step 12.5c)"
+  },
+  {
+   "crate": "kkt-client-command",
+   "feature": "testing",
+   "status": "decided",
+   "note": "its Recorder stand-in (step 12.5c)"
   }
  ]
 }

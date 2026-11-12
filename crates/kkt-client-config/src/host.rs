@@ -33,9 +33,4 @@ pub trait Host {
 
     /// A number that no other process running now has, for temporary names.
     fn process_id(&self) -> u32;
-
-    /// Runs `claude` with `args`, setting `CLAUDE_CONFIG_DIR` to
-    /// `config_dir`, or unsetting it for `None`. The error is for people and
-    /// never holds the command's output, which may hold credentials.
-    fn claude(&self, args: &[&str], config_dir: Option<&Path>) -> Result<(), String>;
 }

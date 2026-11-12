@@ -10,6 +10,7 @@ mod order;
 mod permissions;
 
 pub use host::Host;
+use kkt_client_command::ClientCommand;
 pub use permissions::{KKT_AGENT_TOOLS, allow_kkt};
 
 use kkt_machine::Env;
@@ -235,11 +236,14 @@ pub fn codex_password_store_hint(env: &Env, host: &dyn Host) -> Result<bool, Str
 
 /// Print a plan or apply one change. A plan never contains the key, even for
 /// clients that copy it; --write reads it directly from the key file instead.
+/// A client whose settings only its own command should change (Claude Code)
+/// is changed through `command`.
 pub fn configure(
     client: Client,
     setup: &Setup<'_>,
     write: bool,
     host: &dyn Host,
+    command: &dyn ClientCommand,
 ) -> Result<String, String> {
     client.check_name(setup.client_config, setup.source)?;
     let claude_config_dir = match client {
@@ -288,6 +292,7 @@ pub fn configure(
         })?;
         files::apply_claude(
             host,
+            command,
             &absolute,
             original.as_deref(),
             &updated,

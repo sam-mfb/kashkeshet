@@ -37,7 +37,13 @@ pub fn run<C: ConnectionSource>(
     };
     parts.output.output(&format!(
         "{}\n",
-        clients::configure(client, &setup, write, &*parts.clients)?
+        clients::configure(
+            client,
+            &setup,
+            write,
+            &*parts.clients,
+            &*parts.client_command
+        )?
     ));
     Ok(())
 }

@@ -272,7 +272,7 @@ window.KKT_PROPOSED = {
      {
       "adapts": "kkt-client-config-os::OsHost",
       "large": false,
-      "methods": 11,
+      "methods": 10,
       "note": "the OS implementation, adapted to the contract its consumer declares",
       "status": "decided",
       "to": "kkt-client-config::Host"
@@ -1575,6 +1575,15 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-client-command-claude"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
     "role": "wires",
     "statuses": [
      "decided"
@@ -1858,6 +1867,15 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
+    "to": "kkt-client-command"
+   },
+   {
+    "from": "kkt-agent-commands",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-client-config"
    },
    {
@@ -2051,6 +2069,15 @@ window.KKT_PROPOSED = {
     "to": "kkt-backup"
    },
    {
+    "from": "kkt-client-command-claude",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-client-command"
+   },
+   {
     "from": "kkt-client-config",
     "kind": "normal",
     "role": "uses",
@@ -2058,6 +2085,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-admission"
+   },
+   {
+    "from": "kkt-client-config",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-client-command"
    },
    {
     "from": "kkt-client-config",
@@ -2766,6 +2802,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-backup"
+   },
+   {
+    "from": "kkt-operate",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-client-command"
    },
    {
     "from": "kkt-operate",
@@ -5436,6 +5481,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the register tests read through Watched (step 12.4)"
+     },
+     {
+      "status": "decided",
+      "text": "the program injects Claude Code's command as it is (step 12.5c)"
      }
     ]
    },
@@ -5881,6 +5930,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "AgentParts takes the client contract (step 12.4)"
+     },
+     {
+      "status": "decided",
+      "text": "AgentParts takes the client command (step 12.5c)"
      }
     ]
    },
@@ -6588,6 +6641,52 @@ window.KKT_PROPOSED = {
     ]
    },
    {
+    "crate": "kkt-client-command",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-client-config"
+     },
+     {
+      "status": "decided",
+      "text": "new trait ClientCommand"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Recorder"
+     },
+     {
+      "status": "decided",
+      "text": "new enum testing::Call"
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: its Recorder stand-in (step 12.5c)"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-client-command-claude",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-client-config-os"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Claude"
+     },
+     {
+      "status": "decided",
+      "text": "gains a real feature: running the host's claude (step 12.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "it implements the contract directly (step 12.5c)"
+     }
+    ]
+   },
+   {
     "crate": "kkt-client-config",
     "notes": [
      {
@@ -6664,7 +6763,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Host loses claude: Claude Code's command is kkt-client-command's ClientCommand, implemented by kkt-client-command-claude (step 12.5c)"
+     },
+     {
+      "status": "decided",
       "text": "its real feature moves to kkt-client-config-os"
+     },
+     {
+      "status": "decided",
+      "text": "configure asks a client's own command through the contract (step 12.5c)"
      }
     ]
    },
@@ -8528,6 +8635,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "The operator assembly asks sharing operations in project terms (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "OperateParts takes the client command (step 12.5c)"
      }
     ]
    },
@@ -11051,6 +11162,18 @@ window.KKT_PROPOSED = {
     "kind": "effect",
     "layer": "operations",
     "status": "follows"
+   },
+   "kkt-client-command": {
+    "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand, with the testing Recorder (step 12.5c).",
+    "kind": "contract",
+    "layer": "operations",
+    "status": "decided"
+   },
+   "kkt-client-command-claude": {
+    "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json, CLAUDE_CONFIG_DIR and the wording, over a private runner; running claude is behind real (step 12.5c).",
+    "kind": "effect",
+    "layer": "operations",
+    "status": "decided"
    },
    "kkt-client-config": {
     "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client. It declares the `Host` it works through; the real one is in kkt-client-config-os, adapted by the program.",
@@ -14685,6 +14808,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the register tests read through Watched (step 12.4)"
+     },
+     {
+      "status": "decided",
+      "text": "the program injects Claude Code's command as it is (step 12.5c)"
      }
     ],
     "released_program": true,
@@ -16059,6 +16186,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "AgentParts takes the client contract (step 12.4)"
+     },
+     {
+      "status": "decided",
+      "text": "AgentParts takes the client command (step 12.5c)"
      }
     ],
     "released_program": false,
@@ -18625,6 +18756,130 @@ window.KKT_PROPOSED = {
     "builds": [],
     "contracts": [
      {
+      "implementors": [],
+      "trait": "ClientCommand"
+     }
+    ],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "testing": []
+    },
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "A client's own command, as kkt-client-config asks it: remove kkt's server, add it as the client's own entry. (step 12.5c)",
+      "kind": "trait",
+      "methods": [
+       "remove_server",
+       "add_server"
+      ],
+      "path": "ClientCommand",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "One call, as Recorder keeps it. (step 12.5c)",
+      "feature": "testing",
+      "kind": "enum",
+      "path": "testing::Call",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A stand-in that records each call and can fail them. (step 12.5c)",
+      "feature": "testing",
+      "kind": "struct",
+      "path": "testing::Recorder",
+      "proposed_item": true,
+      "status": "decided"
+     }
+    ],
+    "kind": "contract",
+    "lib": "kkt_client_command",
+    "name": "kkt-client-command",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new contract crate, from kkt-client-config"
+     },
+     {
+      "status": "decided",
+      "text": "new trait ClientCommand"
+     },
+     {
+      "status": "decided",
+      "text": "new struct testing::Recorder"
+     },
+     {
+      "status": "decided",
+      "text": "new enum testing::Call"
+     },
+     {
+      "status": "decided",
+      "text": "gains a testing feature: its Recorder stand-in (step 12.5c)"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "real": []
+    },
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "Claude Code's own command, which the program injects as ClientCommand. (step 12.5c)",
+      "feature": "real",
+      "kind": "struct",
+      "path": "Claude",
+      "proposed_item": true,
+      "status": "decided"
+     }
+    ],
+    "kind": "effect",
+    "lib": "kkt_client_command_claude",
+    "name": "kkt-client-command-claude",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-client-config-os"
+     },
+     {
+      "status": "decided",
+      "text": "new struct Claude"
+     },
+     {
+      "status": "decided",
+      "text": "gains a real feature: running the host's claude (step 12.5c)"
+     },
+     {
+      "status": "decided",
+      "text": "it implements the contract directly (step 12.5c)"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": []
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [
+     {
       "implementors": [
        {
         "crate": "kashkeshet",
@@ -18670,7 +18925,6 @@ window.KKT_PROPOSED = {
       "methods": [
        "absolute",
        "canonicalize",
-       "claude",
        "create_dir_all",
        "create_private",
        "exists",
@@ -18680,7 +18934,8 @@ window.KKT_PROPOSED = {
        "rename",
        "restrict"
       ],
-      "path": "Host"
+      "path": "Host",
+      "status": "decided"
      },
      {
       "doc": "The tools of kkt's agent server (`/mcp`).",
@@ -18819,7 +19074,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Host loses claude: Claude Code's command is kkt-client-command's ClientCommand, implemented by kkt-client-command-claude (step 12.5c)"
+     },
+     {
+      "status": "decided",
       "text": "its real feature moves to kkt-client-config-os"
+     },
+     {
+      "status": "decided",
+      "text": "configure asks a client's own command through the contract (step 12.5c)"
      }
     ],
     "released_program": false,
@@ -25145,6 +25408,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "The operator assembly asks sharing operations in project terms (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "OperateParts takes the client command (step 12.5c)"
      }
     ],
     "released_program": false,
@@ -31837,6 +32104,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
+     "Claude"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Claude"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-client-command-claude"
+   },
+   {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [
      "Client"
     ],
     "kind": "normal",
@@ -33414,6 +33706,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-agent-commands",
     "items": [
+     "ClientCommand"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "ClientCommand"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-client-command"
+   },
+   {
+    "features": [],
+    "from": "kkt-agent-commands",
+    "items": [
      "Client",
      "Host",
      "Setup",
@@ -34328,6 +34645,31 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
+    "from": "kkt-client-command-claude",
+    "items": [
+     "ClientCommand"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "ClientCommand"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-client-command"
+   },
+   {
+    "features": [],
     "from": "kkt-client-config",
     "items": [
      "check_access_key"
@@ -34350,6 +34692,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-admission"
+   },
+   {
+    "features": [],
+    "from": "kkt-client-config",
+    "items": [
+     "ClientCommand"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "ClientCommand"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-client-command"
    },
    {
     "features": [],
@@ -37778,6 +38145,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-backup"
+   },
+   {
+    "features": [],
+    "from": "kkt-operate",
+    "items": [
+     "ClientCommand"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "ClientCommand"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-client-command"
    },
    {
     "features": [],

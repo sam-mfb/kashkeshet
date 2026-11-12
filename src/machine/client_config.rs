@@ -39,7 +39,4 @@ impl Host for ClientHost {
     fn process_id(&self) -> u32 {
         OsHost.process_id()
     }
-    fn claude(&self, args: &[&str], config_dir: Option<&Path>) -> Result<(), String> {
-        OsHost.claude(args, config_dir)
-    }
 }

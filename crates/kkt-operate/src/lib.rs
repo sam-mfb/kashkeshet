@@ -154,6 +154,9 @@ pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     pub try_bind: &'a dyn Fn(std::net::SocketAddr) -> std::io::Result<()>,
     pub remote: &'a dyn kkt_remote_access::RemoteAccess,
     pub clients: &'a dyn kkt_client_config::Host,
+    /// A client's own command, for the clients whose settings only it should
+    /// change.
+    pub client_command: &'a dyn kkt_client_command::ClientCommand,
     pub prober: &'a dyn kkt_diagnostics::Prober,
     pub lanes: &'a dyn kkt_lane_files::Disk,
     pub lines: &'a dyn kkt_setup::Lines,
