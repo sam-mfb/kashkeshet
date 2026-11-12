@@ -12,8 +12,8 @@ pub enum AgentAction {
 
 /// `kkt agent`: the operator's commands, on the database `kkt serve` would
 /// use unless `--db` names another. Never creates a database.
-pub async fn run(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub async fn run<D>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     command: AgentAction,
     db: Option<PathBuf>,
     config: Option<PathBuf>,

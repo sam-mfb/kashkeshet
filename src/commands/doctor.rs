@@ -10,6 +10,7 @@ pub async fn run(
     serve_args: ServeArgs,
     flags: ConnectionOptions,
 ) -> Result<(), String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, Some(serve_args));
+    let native =
+        crate::machine::operate::NativeOperate::new(env, platform).with_service_args(serve_args);
     kkt_operate::doctor::run(&native.parts(), env, platform, flags).await
 }

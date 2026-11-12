@@ -127,7 +127,7 @@ pub async fn run(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, None);
+    let native = crate::machine::operate::NativeOperate::new(env, platform);
     kkt_operate::agent::run(&native.parts(), command, db, config).await
 }
 

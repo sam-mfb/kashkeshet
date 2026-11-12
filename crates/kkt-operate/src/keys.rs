@@ -32,8 +32,8 @@ pub use kkt_setup::{KeyKind, admin_key_collision};
 
 /// Resolve a key without reading its contents or creating a file. An explicit
 /// path names the selected key itself; otherwise use this machine's setup.
-pub fn selected_key_path(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn selected_key_path<D: crate::ServiceDefaults>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
     path: Option<PathBuf>,
@@ -44,8 +44,8 @@ pub fn selected_key_path(
 }
 
 /// None means the access key occupies the implicit admin key's place.
-pub fn optional_key_path(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn optional_key_path<D: crate::ServiceDefaults>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
     path: Option<PathBuf>,
@@ -83,9 +83,9 @@ trait KeyReads: OperatorKeyReads {
 }
 
 /// [`OperatorKeyReads`] on this machine.
-struct EnvReads<'a, 'p, C: ConnectionSource>(&'a Env, &'a crate::OperateParts<'p, C>);
+struct EnvReads<'a, 'p, C: ConnectionSource, D>(&'a Env, &'a crate::OperateParts<'p, C, D>);
 
-impl<C: ConnectionSource> OperatorKeyReads for EnvReads<'_, '_, C> {
+impl<C: ConnectionSource, D> OperatorKeyReads for EnvReads<'_, '_, C, D> {
     fn setup(&self) -> Result<Option<setup::Record>, String> {
         read_setup(self.0, self.1.setup_files)
     }
@@ -97,11 +97,11 @@ impl<C: ConnectionSource> OperatorKeyReads for EnvReads<'_, '_, C> {
     }
 }
 
-struct InstallReads<'a, 'p, C: ConnectionSource> {
-    env: EnvReads<'a, 'p, C>,
+struct InstallReads<'a, 'p, C: ConnectionSource, D> {
+    env: EnvReads<'a, 'p, C, D>,
     platform: Platform,
 }
-impl<C: ConnectionSource> OperatorKeyReads for InstallReads<'_, '_, C> {
+impl<C: ConnectionSource, D> OperatorKeyReads for InstallReads<'_, '_, C, D> {
     fn setup(&self) -> Result<Option<setup::Record>, String> {
         self.env.setup()
     }
@@ -112,7 +112,7 @@ impl<C: ConnectionSource> OperatorKeyReads for InstallReads<'_, '_, C> {
         self.env.config_dir()
     }
 }
-impl<C: ConnectionSource> KeyReads for InstallReads<'_, '_, C> {
+impl<C: ConnectionSource, D: crate::ServiceDefaults> KeyReads for InstallReads<'_, '_, C, D> {
     fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
         let parts = self.env.1;
         read_unfinished(
@@ -209,8 +209,8 @@ fn find_here<R: KeyReads + ?Sized>(reads: &R) -> Result<setup::Here, String> {
 /// A server kkt installed here with no record, for finding its keys. One
 /// that cannot be made out is said on standard error, as `kkt status` says
 /// it, and the keys are then looked for as the serve config says.
-fn unrecorded_for_keys(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+fn unrecorded_for_keys<D: crate::ServiceDefaults>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
 ) -> Option<setup::Unrecorded> {
@@ -227,8 +227,8 @@ fn unrecorded_for_keys(
 
 /// Whether this machine's server runs in Docker, as recorded or, with no
 /// record and no unfinished setup, as found ([`unrecorded_for_keys`]).
-pub(crate) fn runs_in_docker(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub(crate) fn runs_in_docker<D: crate::ServiceDefaults>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
 ) -> Result<bool, String> {
@@ -241,8 +241,8 @@ pub(crate) fn runs_in_docker(
 
 /// This machine's web key file, if it runs a server. See
 /// [`local_operator_key`].
-pub fn local_web_key(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn local_web_key<D>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     unfinished: Option<&setup::Unfinished>,
     unrecorded: Option<&setup::Unrecorded>,
@@ -254,8 +254,8 @@ pub fn local_web_key(
 /// Docker, the host copy `kkt setup` saves, even while that setup is
 /// `unfinished` or the server is `unrecorded`; otherwise the file the server
 /// reads. The file need not exist.
-pub fn local_operator_key(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn local_operator_key<D>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     unfinished: Option<&setup::Unfinished>,
     unrecorded: Option<&setup::Unrecorded>,

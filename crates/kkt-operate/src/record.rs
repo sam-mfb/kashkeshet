@@ -14,8 +14,8 @@ pub const DOCKER_KEY_FILE_NAME: &str = "docker-access-key";
 /// A server kkt installed here, in Docker or as a service, whether or not
 /// it is recorded: for callers that found no record and no note of an
 /// unfinished setup. An error names how the server it is about runs.
-pub fn read_unrecorded(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn read_unrecorded<D: crate::ServiceDefaults>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
 ) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
@@ -27,8 +27,8 @@ pub fn read_unrecorded(
 
 /// kkt in Docker in the folder `kkt setup` uses, with the access key's host
 /// copy it saves.
-fn unrecorded_docker(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+fn unrecorded_docker<D>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
 ) -> Result<Option<setup::Unrecorded>, String> {
@@ -75,8 +75,8 @@ fn unrecorded_docker(
 /// `kkt serve` with the settings `kkt setup` installs and `kkt upgrade`
 /// installs again (the default config file's), so that clients are told
 /// the address it really has and an upgrade keeps its settings.
-fn unrecorded_service(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+fn unrecorded_service<D: crate::ServiceDefaults>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
 ) -> Result<Option<setup::Unrecorded>, String> {
     let service = parts.service;
@@ -96,8 +96,8 @@ fn unrecorded_service(
         .ok_or_else(|| found("its service file went away while it was read".into()))?;
     let unread = |e: String| found(format!("its settings could not be read: {e}"));
     let matches_defaults = parts
-        .serve
-        .service_matches_defaults(&args)
+        .service_defaults
+        .matches_defaults(&args)
         .map_err(unread)?;
     setup::service_runs_defaults(&args, matches_defaults)?;
     let connection = connection::serve_connection(parts.connection, ConnectionOptions::NONE, false)
@@ -203,8 +203,8 @@ pub fn write_setup_record(
 /// This machine's setup record. Without one, the error says so, and names a
 /// server kkt installed here anyway, which `kkt setup` can record without
 /// installing it again.
-pub fn recorded_setup(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn recorded_setup<D: crate::ServiceDefaults>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
 ) -> Result<setup::Record, String> {

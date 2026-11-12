@@ -12,7 +12,8 @@ pub fn read_unrecorded(
     platform: Platform,
     serve_args: ServeArgs,
 ) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, Some(serve_args));
+    let native =
+        crate::machine::operate::NativeOperate::new(env, platform).with_service_args(serve_args);
     kkt_operate::record::read_unrecorded(&native.parts(), env, platform)
 }
 
@@ -21,7 +22,8 @@ pub fn recorded_setup(
     platform: Platform,
     serve_args: ServeArgs,
 ) -> Result<setup::Record, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, Some(serve_args));
+    let native =
+        crate::machine::operate::NativeOperate::new(env, platform).with_service_args(serve_args);
     kkt_operate::record::recorded_setup(&native.parts(), env, platform)
 }
 

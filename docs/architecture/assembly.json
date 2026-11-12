@@ -96,10 +96,11 @@
     },
     {
      "title": "The operator's base commands",
-     "text": "The program supplies native containers, services, client files, probes, lane disk, clock, setup/key files, database and terminal through OperateParts. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. CLI parsing and serving remain in the program.",
+     "text": "The program supplies native containers, services, client files, probes, lane disk, clock, setup/key files, database and terminal through OperateParts. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults; the program constructs that capability with ServeArgs, while record/config-only parts cannot ask it. CLI parsing and serving remain in the program.",
      "items": [
       "kkt-operate::OperateParts",
       "kkt-operate::ServeFacts",
+      "kkt-operate::ServiceDefaults",
       "kkt-operate::SetupFiles",
       "kkt-operate::KeyFiles",
       "kkt-operate::Databases",

@@ -27,8 +27,8 @@ pub enum LanesAction {
 
 /// `kkt lanes`: on the database `kkt serve` would use unless `--db` names
 /// another, or for kkt in Docker, in its container.
-pub async fn run(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub async fn run<D>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     command: LanesAction,
     db: Option<PathBuf>,
@@ -123,8 +123,8 @@ pub async fn run(
 
 /// The database file `kkt serve` would use given the config file's `db`,
 /// unless `db` names another. It must exist.
-pub fn existing_db(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn existing_db<D>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
@@ -141,8 +141,8 @@ pub fn existing_db(
 /// The operator's commands on the local database `kkt serve` would use,
 /// unless `db` names another, and the server's `max_lane_chars` from the
 /// config file.
-pub fn local_operator(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn local_operator<D>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(CommandLine, usize), String> {
@@ -160,8 +160,8 @@ pub fn local_operator(
 /// Imports the lanes `read` from a folder into the local database. The
 /// source recorded is `source` if given, else the folder and its git
 /// commit. Returns the report to print.
-pub async fn local_import_lanes(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub async fn local_import_lanes<D>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
     read: lane_files::Read,
@@ -234,8 +234,8 @@ fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
 /// uses: the container's own setting when the folder holds an install, and
 /// the default for a new one, whose container starts with no config file.
 /// The host's config file plays no part; the container never reads it.
-pub fn docker_lane_limit(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn docker_lane_limit<D>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
 ) -> Result<usize, String> {

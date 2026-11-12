@@ -12,8 +12,8 @@ use kkt_setup as setup;
 use kkt_setup::connection::ConnectionSource;
 use std::path::{Path, PathBuf};
 
-pub fn header(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn header<D: crate::ServiceDefaults>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
     path: Option<PathBuf>,
@@ -33,8 +33,8 @@ pub fn header(
 /// Prints the selected key. A missing admin key is not an error but has its
 /// own exit code, [`kkt_container::NO_ADMIN_KEY_EXIT`], so `kkt setup` and
 /// `kkt upgrade` can tell it from a key they failed to read.
-pub fn show(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn show<D: crate::ServiceDefaults>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
     path: Option<PathBuf>,
@@ -81,8 +81,8 @@ pub struct NewKey<'a> {
     pub name: Option<&'a str>,
 }
 
-pub fn create(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub fn create<D: crate::ServiceDefaults>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
     new: NewKey<'_>,

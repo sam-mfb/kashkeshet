@@ -15,7 +15,7 @@ pub async fn run(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, None);
+    let native = crate::machine::operate::NativeOperate::new(env, platform);
     kkt_operate::lanes::run(&native.parts(), env, command, db, config).await
 }
 
@@ -25,7 +25,7 @@ pub(crate) fn existing_db(
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, None);
+    let native = crate::machine::operate::NativeOperate::new(env, platform);
     kkt_operate::lanes::existing_db(&native.parts(), db, config_db)
 }
 
@@ -36,7 +36,7 @@ fn local_operator(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(kkt_rules::CommandLine, usize), String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, None);
+    let native = crate::machine::operate::NativeOperate::new(env, platform);
     kkt_operate::lanes::local_operator(&native.parts(), db, config)
 }
 
@@ -49,7 +49,7 @@ pub(crate) async fn local_import_lanes(
     retire_missing: bool,
     source: Option<LaneSource>,
 ) -> Result<String, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, None);
+    let native = crate::machine::operate::NativeOperate::new(env, platform);
     kkt_operate::lanes::local_import_lanes(
         &native.parts(),
         db,
@@ -62,7 +62,7 @@ pub(crate) async fn local_import_lanes(
 }
 
 pub(crate) fn docker_lane_limit(env: &Env, platform: Platform) -> Result<usize, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, None);
+    let native = crate::machine::operate::NativeOperate::new(env, platform);
     kkt_operate::lanes::docker_lane_limit(&native.parts(), env, platform)
 }
 

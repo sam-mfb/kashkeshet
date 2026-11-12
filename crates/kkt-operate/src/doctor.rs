@@ -14,8 +14,8 @@ use kkt_setup as setup;
 use kkt_setup::connection::{self, ConnectionOptions, ConnectionSource};
 use setup::doctor_checks as checks;
 
-pub async fn run(
-    parts: &crate::OperateParts<'_, impl ConnectionSource>,
+pub async fn run<D: crate::ServiceDefaults>(
+    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
     flags: ConnectionOptions,

@@ -12,7 +12,8 @@ pub fn header(
     path: Option<PathBuf>,
     json: bool,
 ) -> Result<(), String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, Some(serve_args));
+    let native =
+        crate::machine::operate::NativeOperate::new(env, platform).with_service_args(serve_args);
     kkt_operate::key::header(&native.parts(), env, platform, path, json)
 }
 
@@ -23,7 +24,8 @@ pub fn show(
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<std::process::ExitCode, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, Some(serve_args));
+    let native =
+        crate::machine::operate::NativeOperate::new(env, platform).with_service_args(serve_args);
     kkt_operate::key::show(&native.parts(), env, platform, path, kind)
 }
 
@@ -35,6 +37,7 @@ pub fn create(
     force: bool,
     show: bool,
 ) -> Result<(), String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, Some(serve_args));
+    let native =
+        crate::machine::operate::NativeOperate::new(env, platform).with_service_args(serve_args);
     kkt_operate::key::create(&native.parts(), env, platform, new, force, show)
 }

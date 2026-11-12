@@ -29,9 +29,24 @@ pub trait ServeFacts {
         from_config: Option<PathBuf>,
     ) -> Result<PathBuf, String>;
     fn bind(&self) -> Result<std::net::SocketAddr, String>;
-    /// Resolve the installed arguments first, then defaults, and compare as a running server.
-    fn service_matches_defaults(&self, args: &[String]) -> Result<bool, String>;
     fn default_access_key(&self) -> Option<PathBuf>;
+}
+
+/// Required only by commands that inspect an unrecorded service. The program
+/// supplies its argument parser when constructing this capability.
+/// Parts without it cannot inspect an unrecorded service:
+///
+/// ```compile_fail,E0277
+/// use kkt_machine::{Env, Platform};
+/// use kkt_operate::OperateParts;
+/// use kkt_setup::connection::ConnectionSource;
+/// fn inspect<C: ConnectionSource>(parts: &OperateParts<'_, C>, env: &Env, platform: Platform) {
+///     let _ = kkt_operate::record::read_unrecorded(parts, env, platform);
+/// }
+/// ```
+pub trait ServiceDefaults {
+    /// Resolve installed arguments first, then defaults, and compare as a running server.
+    fn matches_defaults(&self, args: &[String]) -> Result<bool, String>;
 }
 
 /// The setup record and note, and path operations, supplied by the program.
@@ -67,7 +82,9 @@ pub trait Output {
 }
 
 /// Implementations chosen by the program. Connection source context remains opaque.
-pub struct OperateParts<'a, C: ConnectionSource> {
+/// Commands that inspect an unrecorded service require `D: ServiceDefaults`;
+/// record/config-only commands may use `()` and cannot ask that question.
+pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     pub container: &'a dyn kkt_container::Host,
     pub container_configs: &'a dyn kkt_container::ConfigReader,
     pub service: &'a dyn kkt_service::System,
@@ -78,6 +95,7 @@ pub struct OperateParts<'a, C: ConnectionSource> {
     pub connection: &'a C,
     pub clock: Arc<dyn kkt_clock::Clock>,
     pub serve: &'a dyn ServeFacts,
+    pub service_defaults: &'a D,
     pub setup_files: &'a dyn SetupFiles,
     pub key_files: &'a dyn KeyFiles,
     pub database: &'a dyn Databases,

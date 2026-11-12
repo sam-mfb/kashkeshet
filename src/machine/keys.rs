@@ -115,7 +115,8 @@ pub(crate) fn selected_key_path(
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<PathBuf, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, Some(serve_args));
+    let native =
+        crate::machine::operate::NativeOperate::new(env, platform).with_service_args(serve_args);
     kkt_operate::keys::selected_key_path(&native.parts(), env, platform, path, kind)
 }
 
@@ -127,7 +128,8 @@ fn optional_key_path(
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, Some(serve_args));
+    let native =
+        crate::machine::operate::NativeOperate::new(env, platform).with_service_args(serve_args);
     kkt_operate::keys::optional_key_path(&native.parts(), env, platform, path, kind)
 }
 
@@ -137,7 +139,7 @@ pub fn local_web_key(
     unfinished: Option<&setup::Unfinished>,
     unrecorded: Option<&setup::Unrecorded>,
 ) -> Result<Option<PathBuf>, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, None);
+    let native = crate::machine::operate::NativeOperate::new(env, platform);
     kkt_operate::keys::local_web_key(&native.parts(), env, unfinished, unrecorded)
 }
 
@@ -148,7 +150,7 @@ pub fn local_operator_key(
     unrecorded: Option<&setup::Unrecorded>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform, None);
+    let native = crate::machine::operate::NativeOperate::new(env, platform);
     kkt_operate::keys::local_operator_key(&native.parts(), env, unfinished, unrecorded, kind)
 }
 

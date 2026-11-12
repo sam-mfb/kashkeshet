@@ -9,24 +9,40 @@ use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-pub(crate) struct NativeOperate<'a> {
+pub(crate) struct NativeOperate<'a, D = ()> {
     serve: ServeReads<'a>,
     connection: ConnectionReads<'a>,
+    service_defaults: D,
 }
 
 impl<'a> NativeOperate<'a> {
-    pub(crate) fn new(env: &'a Env, platform: Platform, serve_args: Option<ServeArgs>) -> Self {
+    pub(crate) fn new(env: &'a Env, platform: Platform) -> Self {
         Self {
-            serve: ServeReads {
-                env,
-                platform,
-                serve_args,
-            },
+            serve: ServeReads { env, platform },
             connection: ConnectionReads { env, platform },
+            service_defaults: (),
         }
     }
 
-    pub(crate) fn parts(&self) -> OperateParts<'_, ConnectionReads<'a>> {
+    pub(crate) fn with_service_args(
+        self,
+        serve_args: ServeArgs,
+    ) -> NativeOperate<'a, ServiceArgs<'a>> {
+        let service_defaults = ServiceArgs {
+            env: self.serve.env,
+            platform: self.serve.platform,
+            serve_args,
+        };
+        NativeOperate {
+            serve: self.serve,
+            connection: self.connection,
+            service_defaults,
+        }
+    }
+}
+
+impl<'a, D> NativeOperate<'a, D> {
+    pub(crate) fn parts(&self) -> OperateParts<'_, ConnectionReads<'a>, D> {
         OperateParts {
             container: &super::container::ContainerHost,
             container_configs: &settings::ContainerConfigs,
@@ -38,6 +54,7 @@ impl<'a> NativeOperate<'a> {
             connection: &self.connection,
             clock: Arc::new(kkt_clock_system::SystemClock),
             serve: &self.serve,
+            service_defaults: &self.service_defaults,
             setup_files: &NativeSetupFiles,
             key_files: &NativeKeyFiles,
             database: &NativeDatabases,
@@ -49,7 +66,6 @@ impl<'a> NativeOperate<'a> {
 struct ServeReads<'a> {
     env: &'a Env,
     platform: Platform,
-    serve_args: Option<ServeArgs>,
 }
 
 impl ServeFacts for ServeReads<'_> {
@@ -89,16 +105,23 @@ impl ServeFacts for ServeReads<'_> {
     fn bind(&self) -> Result<std::net::SocketAddr, String> {
         settings::serve_bind(self.env, self.platform)
     }
-    fn service_matches_defaults(&self, args: &[String]) -> Result<bool, String> {
-        let parse = self
-            .serve_args
-            .ok_or("service arguments were not supplied to this command")?;
+    fn default_access_key(&self) -> Option<PathBuf> {
+        settings::default_access_key(self.env)
+    }
+}
+
+pub(crate) struct ServiceArgs<'a> {
+    env: &'a Env,
+    platform: Platform,
+    serve_args: ServeArgs,
+}
+
+impl kkt_operate::ServiceDefaults for ServiceArgs<'_> {
+    fn matches_defaults(&self, args: &[String]) -> Result<bool, String> {
+        let parse = self.serve_args;
         let installed = settings::serve_settings_from_args(self.env, self.platform, parse, args)?;
         let defaults = settings::serve_settings(self.env, self.platform, None, ServeOptions::NONE)?;
         Ok(settings::as_running(installed) == settings::as_running(defaults))
-    }
-    fn default_access_key(&self) -> Option<PathBuf> {
-        settings::default_access_key(self.env)
     }
 }
 
