@@ -22,6 +22,8 @@ tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
 kkt-search = { path = "../kkt-search" }
+# The fast stand-in, in kkt-db's own tests, built without `testing`.
+rusqlite.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [features]
