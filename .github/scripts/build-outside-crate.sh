@@ -59,14 +59,25 @@ use kkt_api_agent::SwarmId;
 use kkt_rules::Rules;
 use kkt_server::Parts;
 
+
 /// `rules` acting in the swarm named `id`.
 pub fn in_swarm(rules: &Rules, id: &str) -> Rules {
     rules.in_swarm(SwarmId::new(id))
 }
 
-/// The server run the rules in `parts` were started for.
-pub fn run_of(parts: &Parts) -> i64 {
-    parts.rules.run_id()
+/// The server run these rules were started for, before they are passed as an API.
+pub fn run_of(rules: &Rules) -> i64 {
+    rules.run_id()
+}
+
+/// The server exposes the admin contract, including its agent API limits.
+pub fn limits(parts: &Parts) -> kkt_api_agent::Limits {
+    parts.rules.limits()
+}
+
+/// The shared constructor and settings are usable without workspace-only values.
+pub fn settings() -> kkt_server::ServerSettings {
+    kkt_server::ServerSettings::DEFAULT
 }
 RUST
 cd "$dir"

@@ -8,6 +8,8 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+thiserror.workspace = true
+kkt-api-admin = { path = "../kkt-api-admin" }
 axum.workspace = true
 futures.workspace = true
 kkt-admission = { path = "../kkt-admission" }
@@ -22,11 +24,12 @@ kkt-mcp = { path = "../kkt-mcp" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-names = { path = "../kkt-names" }
 kkt-provenance = { path = "../kkt-provenance" }
-kkt-rules = { path = "../kkt-rules" }
 kkt-shutdown = { path = "../kkt-shutdown" }
 kkt-web = { path = "../kkt-web" }
 
 [dev-dependencies]
+kkt-backup = { path = "../kkt-backup" }
+kkt-logs = { path = "../kkt-logs" }
 # The rules the tests build take an events bus.
 kkt-events = { path = "../kkt-events" }
 kkt-log = { path = "../kkt-log", features = ["testing"] }

@@ -1,7 +1,7 @@
-//! Puts the parts together: the rules, the MCP endpoint at `/mcp`, the admin
+//! Puts the parts together: the application API, the MCP endpoint at `/mcp`, the admin
 //! endpoint at `/mcp-admin` when there is an admin key, and the web page at
-//! `/`; or the web page alone ([`page`]). The program gives it the rules,
-//! which `kkt_rules::start` built after recording the server run.
+//! `/`; or the web page alone ([`page`]). The program gives it the admin API
+//! it built for this server run.
 //! kkt-server-listen binds and runs the assembled server.
 //!
 //! kkt-web and kkt-mcp hand their axum `Router`s to this crate, which mounts
@@ -14,7 +14,9 @@
 //! identity to kkt-web's contract ([`AdmissionGate`]) is public, for a
 //! product that assembles its own web page.
 
+mod settings;
 mod web_real;
+pub use settings::{ServerSettings, SettingError};
 
 pub use crate::web_real::AdmissionGate;
 
@@ -25,6 +27,7 @@ use axum::http::header::{AUTHORIZATION, WWW_AUTHENTICATE};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use kkt_admission::{AdminAdmission, Admission, Credentials, Decision, WebAdmission};
+use kkt_api_admin::AdminApi;
 use kkt_api_operator::OperatorApi;
 use kkt_clock::Clock;
 use kkt_entropy::Entropy;
@@ -35,8 +38,7 @@ use kkt_mcp as mcp;
 use kkt_mcp::mcp_admin;
 use kkt_mcp::mcp_transport::Transport;
 use kkt_mcp_formatter::Formatter;
-use kkt_provenance::{Build, ServerRun};
-use kkt_rules::{NewServerRun, Rules};
+use kkt_provenance::Build;
 use kkt_shutdown::Shutdown;
 use kkt_web as web;
 use std::sync::Arc;
@@ -50,18 +52,6 @@ pub struct AppConfig {
     /// for a credential (there is no open one). `None` turns `/mcp-admin`
     /// off: it is not served at all.
     pub admin_admission: Option<AdminAdmission>,
-    /// How much the web page shows at once, how it keeps its event stream
-    /// open, and how long a sign-in lasts.
-    pub web: web::Settings,
-    /// How the MCP endpoints' event streams keep in touch with their
-    /// clients.
-    pub mcp: mcp::Settings,
-    /// Browser origins allowed to call `/mcp`. Requests with any other
-    /// `Origin` header are refused; requests without one (agents) pass.
-    pub allowed_origins: Vec<String>,
-    /// `Host` names `/mcp` and the web page answer to. Requests naming any
-    /// other host are refused.
-    pub allowed_hosts: AllowedHosts,
     /// The text of the server's instructions file, if it has one, even when
     /// it is empty. `None`: agents get kkt-mcp's built-in instructions. See
     /// [`AppConfig::agent_instructions`].
@@ -77,14 +67,14 @@ impl AppConfig {
 }
 
 /// The parts the server is built from. Callers outside the crate supply the
-/// rules, which [`kkt_rules::start`] built for this server run, and the
+/// admin API it built for this server run, and the
 /// clock, entropy, log and identity decision through [`Parts::new`], which
 /// makes the rest; unit tests inside the crate can replace those too.
 pub struct Parts {
     /// The rules every endpoint and the web page act through, each in the
-    /// swarm its caller is in (`Rules::in_swarm`). The program built them
+    /// swarm its caller is in. The program built them
     /// with an events bus that stops when the server does.
-    pub rules: Rules,
+    pub rules: Arc<dyn AdminApi>,
     /// The rules' clock and entropy: the web page's sessions are timed and
     /// drawn as the rules are.
     pub clock: Arc<dyn Clock>,
@@ -95,42 +85,38 @@ pub struct Parts {
     /// Diagnostic events from both MCP endpoints and the web page.
     pub log: Arc<dyn Log>,
     pub(crate) fmt: Formatter,
+    settings: ServerSettings,
+    hosts: AllowedHosts,
 }
 
 impl Parts {
     /// The usual parts around `rules`, `clock`, `entropy`, `identify` and
-    /// `log`, with responses sized by `fmt`. `clock` and `entropy` are the
+    /// `log`, with the assembly's `settings` and the host policy returned by
+    /// `ServerSettings::check`. `clock` and `entropy` are the
     /// ones the rules were built with.
     pub fn new(
-        rules: Rules,
+        rules: Arc<dyn AdminApi>,
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
         identify: Arc<dyn Identify>,
         log: Arc<dyn Log>,
-        fmt: &kkt_mcp_formatter::Settings,
+        settings: &ServerSettings,
+        hosts: AllowedHosts,
     ) -> Parts {
         Parts {
             rules,
             identify,
             log,
             fmt: Formatter::new(
-                fmt.max_response_bytes,
+                settings.formatter.max_response_bytes,
                 clock.clone(),
                 Build::CURRENT.version,
             ),
             clock,
             entropy,
+            settings: settings.clone(),
+            hosts,
         }
-    }
-}
-
-/// What produced `run`, as [`kkt_rules::start`] records it.
-pub fn new_server_run(run: &ServerRun) -> NewServerRun {
-    NewServerRun {
-        version: run.version.clone(),
-        git_commit: run.commit.clone(),
-        settings: run.settings.clone(),
-        instructions_sha256: run.instructions_sha256.clone(),
     }
 }
 
@@ -173,6 +159,8 @@ pub fn page<S: web::Held>(
 
 fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let fmt = parts.fmt;
+    let settings = parts.settings;
+    let hosts = parts.hosts;
     let instructions: Arc<str> = config.agent_instructions().into();
     let admission = Arc::new(config.admission);
     // The web page's sessions are timed and drawn as the rules are.
@@ -180,17 +168,12 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let identify = parts.identify;
     let log = parts.log;
     // The rules' own swarm decides nothing here: each MCP call and each web
-    // viewer acts in the swarm `identify` names, through `Rules::in_swarm`.
+    // viewer acts in the swarm `identify` names, through the API contract.
     let rules = parts.rules;
 
     // One transport for both endpoints: their sessions end when `shutdown`
     // stops.
-    let transport = Transport::new(
-        config.allowed_origins,
-        &config.allowed_hosts,
-        config.mcp,
-        &shutdown,
-    );
+    let transport = Transport::new(settings.allowed_origins, &hosts, settings.mcp, &shutdown);
     // The web page asks `identify` too: who a viewer is, and what they may
     // do, is decided there alone.
     let web_admission = WebAdmission::new(Arc::new(config.web_admission));
@@ -198,7 +181,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     let web_sessions = Arc::new(web::Sessions::new(
         web_clock,
         web_entropy,
-        config.web.session_lifetime,
+        settings.web.session_lifetime,
         match web_admission.sign_in_required() {
             true => web::Access::SignIn,
             false => web::Access::Open,
@@ -206,7 +189,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
     ));
     let web_gate = Arc::new(AdmissionGate::new(web_admission, identify.clone()));
     let mcp = mcp::endpoint(
-        Arc::new(rules.clone()),
+        rules.clone(),
         identify.clone(),
         log.clone(),
         fmt.clone(),
@@ -219,7 +202,7 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         admin_only(
             admission,
             mcp_admin::endpoint(
-                Arc::new(rules.clone()),
+                rules.clone(),
                 identify.clone(),
                 log.clone(),
                 fmt,
@@ -229,12 +212,12 @@ fn router(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Router {
         )
     });
     let router = web::router(
-        Arc::new(rules),
-        config.allowed_hosts.clone(),
+        rules,
+        hosts.clone(),
         web_gate,
         web_sessions,
         log,
-        config.web,
+        settings.web,
     )
     .merge(mcp);
     match admin {
@@ -335,3 +318,6 @@ mod tests {
         assert_eq!(body, "the access key is wrong");
     }
 }
+
+#[cfg(test)]
+mod record_tests;

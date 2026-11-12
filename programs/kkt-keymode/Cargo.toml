@@ -20,6 +20,7 @@ dist = false
 dev-only = true
 
 [dependencies]
+kkt-backup = { path = "../../crates/kkt-backup" }
 kkt-logs-os = { path = "../../crates/kkt-logs-os", features = ["real"] }
 kkt-admission = { path = "../../crates/kkt-admission" }
 kkt-api-agent = { path = "../../crates/kkt-api-agent" }

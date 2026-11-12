@@ -8,14 +8,11 @@
 //! machine, such as the default database, so every rule here can be tested
 //! directly.
 //!
-//! It also words the settings a server run records ([`RecordedSettings`]),
-//! as lines kkt-provenance stores.
+//! The run record is composed by kkt-server from its owners' plain lines.
 
 mod limits;
-mod record;
 
 pub use limits::Limits;
-pub use record::RecordedSettings;
 
 use kkt_admission::{AccessKey, admin_key_path, web_key_path};
 use kkt_logs::LogLevel;

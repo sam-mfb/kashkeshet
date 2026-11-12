@@ -93,21 +93,18 @@ mod tests {
         .await
         .expect("rules over a new database");
         let parts = Parts::new(
-            rules,
+            Arc::new(rules),
             clock,
             entropy,
             Arc::new(KeyMode::new(None)),
             Arc::new(kkt_log::testing::CapturedLog::default()),
-            &kkt_mcp_formatter::Settings::DEFAULT,
+            &kkt_server::ServerSettings::DEFAULT,
+            AllowedHosts::new(&[]).expect("loopback hosts"),
         );
         let config = AppConfig {
             admission: Admission::Open,
             web_admission: Admission::Open,
             admin_admission: None,
-            web: kkt_web::Settings::DEFAULT,
-            mcp: kkt_mcp::Settings::DEFAULT,
-            allowed_origins: Vec::new(),
-            allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
             instructions: Some("test instructions".into()),
         };
         build(parts, config, shutdown.child())

@@ -13,9 +13,13 @@
 // Each test file builds this module on its own, and none uses every helper.
 #![allow(dead_code)]
 
+mod record;
 pub mod serving;
+use record::{RecordedSettings, new_server_run};
 
-use kashkeshet::machine::settings::{format_settings, rules_settings, web_settings};
+use kashkeshet::machine::settings::{
+    backup_settings, format_settings, rules_settings, web_settings,
+};
 use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
@@ -26,8 +30,8 @@ use kkt_logs::{LogLevel, LogPolicy};
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
-use kkt_server::{self as app, AppConfig, Parts};
-use kkt_settings::{Limits, RecordedSettings, ServeOptions};
+use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
+use kkt_settings::{Limits, ServeOptions};
 use kkt_shutdown::Shutdown;
 use rmcp::model::ProtocolVersion;
 use rmcp::service::{RoleClient, RunningService};
@@ -122,10 +126,6 @@ impl TestConfig {
                     SharedKey::new(ServerKey::Admin, text, KEY_SOURCE).expect("key"),
                 )
             }),
-            web: web_settings(&self.limits),
-            mcp: kkt_mcp::Settings::DEFAULT,
-            allowed_origins: self.allowed_origins.clone(),
-            allowed_hosts: AllowedHosts::new(&self.allowed_hosts).expect("allowed hosts"),
             instructions: self.instructions.clone(),
         }
     }
@@ -137,15 +137,16 @@ fn run_settings(
     limits: &Limits,
     config: &AppConfig,
     admin_name: Option<&AdminName>,
+    server: &ServerSettings,
 ) -> RunSettings {
     RunSettings {
         settings: RecordedSettings {
             allow_any_bind: false,
-            limits: limits.clone(),
+            server,
+            rules: rules_settings(limits),
+            backup: backup_settings(limits),
             log_level: LogLevel::Info,
             dependency_log_level: LogLevel::Warn,
-            allowed_origins: config.allowed_origins.clone(),
-            allowed_hosts: config.allowed_hosts.extra().to_vec(),
             config_file: None,
             access_key_file: config.admission.key_source().map(str::to_string),
             web_key_file: config.web_admission.key_source().map(str::to_string),
@@ -210,14 +211,22 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
     let shutdown = Shutdown::new();
     let admin_name = config.admin_name();
     let limits = config.limits.clone();
+    let server_settings = ServerSettings {
+        formatter: format_settings(&limits),
+        web: web_settings(&limits),
+        mcp: kkt_mcp::Settings::DEFAULT,
+        allowed_origins: config.allowed_origins.clone(),
+        allowed_hosts: config.allowed_hosts.clone(),
+    };
+    let hosts = AllowedHosts::new(&config.allowed_hosts).expect("allowed hosts");
     let config = config.app_config();
     let run = ServerRun::new(
         Build::CURRENT,
-        &run_settings(&limits, &config, admin_name.as_ref()),
+        &run_settings(&limits, &config, admin_name.as_ref(), &server_settings),
     );
     let entropy = Arc::new(OsEntropy);
     let rules = kkt_rules::start(
-        app::new_server_run(&run),
+        new_server_run(&run),
         kkt_rules::Startup {
             db,
             swarm: kkt_api_agent::SwarmId::main(),
@@ -232,12 +241,13 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
     .await
     .expect("record run");
     let parts = Parts::new(
-        rules,
+        Arc::new(rules),
         clock,
         entropy,
         Arc::new(KeyMode::new(admin_name)),
         Arc::new(kkt_logs_os::TracingLog),
-        &format_settings(&limits),
+        &server_settings,
+        hosts,
     );
     let server = app::build(parts, config, shutdown.child());
     let listening = kkt_server_listen::listen(server, "127.0.0.1:0".parse().expect("address"))

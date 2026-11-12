@@ -237,22 +237,26 @@ impl Product {
         Swarms::create_swarm(&rules, other())
             .await
             .expect("the second swarm");
+        let server_settings = kkt_server::ServerSettings {
+            formatter: settings.fmt,
+            web: settings.web,
+            mcp: settings.mcp,
+            ..kkt_server::ServerSettings::DEFAULT
+        };
+        let hosts = AllowedHosts::new(&[]).expect("loopback hosts");
         let parts = Parts::new(
-            rules,
+            Arc::new(rules),
             clock,
             entropy,
             Arc::new(FakeIdentify),
             Arc::new(kkt_logs_os::TracingLog),
-            &settings.fmt,
+            &server_settings,
+            hosts,
         );
         let config = AppConfig {
             admission: Admission::Bearer,
             web_admission: Admission::Bearer,
             admin_admission: Some(AdminAdmission::Bearer),
-            web: settings.web,
-            mcp: settings.mcp,
-            allowed_origins: Vec::new(),
-            allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
             instructions: None,
         };
         Product::serve(parts, config, shutdown).await

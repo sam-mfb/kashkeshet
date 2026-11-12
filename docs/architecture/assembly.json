@@ -35,11 +35,10 @@
     },
     {
      "title": "Run record",
-     "text": "What produced this run, with its settings worded by kkt-settings, goes to kkt-rules' start in its terms (new_server_run), which records it and builds the Rules over the store; new rows carry its ID.",
+     "text": "The owners word their settings and the program supplies its own plain record lines; ServerSettings orders them. The program maps the run into NewServerRun, and kkt-rules start records it and builds the Rules.",
      "items": [
-      "kkt-settings::RecordedSettings",
+      "kkt-server::ServerSettings",
       "kkt-provenance::ServerRun",
-      "kkt-server::new_server_run",
       "kkt-rules::NewServerRun",
       "kkt-rules::Startup",
       "kkt-rules::start"
@@ -47,26 +46,24 @@
     },
     {
      "title": "Parts",
-     "text": "The Rules start built, the system clock and the operating system's randomness they were built with, and key mode's identity go into the server's parts.",
+     "text": "The Rules start built, the system clock and the operating system's randomness they were built with, and key mode's identity go into the server's parts. Parts takes the API as Arc<dyn AdminApi>, the server settings and the checked host policy.",
      "items": [
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy",
-      "kkt-identity-keymode::KeyMode"
+      "kkt-identity-keymode::KeyMode",
+      "kkt-server::ServerSettings",
+      "kkt-api-admin::AdminApi"
      ],
-     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify)"
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, settings, hosts)"
     },
     {
      "title": "Config",
-     "text": "The three admissions from the key check, the allowed hosts, the limits and the MCP event streams' defaults go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey.",
+     "text": "The three admissions and optional instructions text go into AppConfig; component settings and the checked hosts go through Parts.",
      "items": [
       "kkt-server::AppConfig",
       "kkt-admission::Admission",
-      "kkt-admission::AdminAdmission",
-      "kkt-hosts::AllowedHosts",
-      "kkt-rules::Settings",
-      "kkt-web::Settings",
-      "kkt-mcp::Settings"
+      "kkt-admission::AdminAdmission"
      ]
     },
     {
@@ -694,11 +691,10 @@
     },
     {
      "title": "Run record",
-     "text": "The run is recorded, and the Rules built, as kkt serve's are.",
+     "text": "The owners word their settings and the program supplies its own plain record lines; ServerSettings orders them. The program maps the run into NewServerRun, and kkt-rules start records it and builds the Rules.",
      "items": [
-      "kkt-settings::RecordedSettings",
+      "kkt-server::ServerSettings",
       "kkt-provenance::ServerRun",
-      "kkt-server::new_server_run",
       "kkt-rules::NewServerRun",
       "kkt-rules::Startup",
       "kkt-rules::start"
@@ -706,7 +702,7 @@
     },
     {
      "title": "Parts and config",
-     "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission.",
+     "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission. Parts takes the API as Arc<dyn AdminApi>, the server settings and the checked host policy.",
      "items": [
       "kkt-server::Parts",
       "kkt-clock-system::SystemClock",
@@ -714,9 +710,11 @@
       "kkt-identity-keymode::KeyMode",
       "kkt-server::AppConfig",
       "kkt-admission::AdminAdmission",
-      "kkt-hosts::AllowedHosts"
+      "kkt-hosts::AllowedHosts",
+      "kkt-server::ServerSettings",
+      "kkt-api-admin::AdminApi"
      ],
-     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify)"
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, settings, hosts)"
     },
     {
      "title": "Build and run",
@@ -871,25 +869,26 @@
     },
     {
      "title": "Parts",
-     "text": "kkt-rules' start records the product's run and builds the Rules, which make the second swarm (Swarms::create_swarm); the Rules, the clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role), go into the server's parts.",
+     "text": "kkt-rules' start records the product's run and builds the Rules, which make the second swarm (Swarms::create_swarm); the Rules, the clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role), go into the server's parts. Parts takes the API as Arc<dyn AdminApi>, the server settings and the checked host policy.",
      "items": [
       "kkt-rules::start",
       "kkt-rules::Startup",
       "kkt-rules::NewServerRun",
       "kkt-api-admin::Swarms",
       "kkt-server::Parts",
-      "kkt-fake-product::FakeIdentify"
+      "kkt-fake-product::FakeIdentify",
+      "kkt-server::ServerSettings",
+      "kkt-api-admin::AdminApi"
      ],
-     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify)"
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, settings, hosts)"
     },
     {
      "title": "Config",
-     "text": "Any bearer is let in, on /mcp, the web page and /mcp-admin alike, for FakeIdentify to judge.",
+     "text": "The three admissions and optional instructions text go into AppConfig; component settings and the checked hosts go through Parts.",
      "items": [
       "kkt-server::AppConfig",
       "kkt-admission::Admission",
-      "kkt-admission::AdminAdmission",
-      "kkt-hosts::AllowedHosts"
+      "kkt-admission::AdminAdmission"
      ]
     },
     {
@@ -1039,14 +1038,15 @@
   "kkt-server": {
    "wiring": [
     {
-     "impl": "kkt-rules::Rules",
      "crate": "kkt-web",
      "to": [
       {
        "at": "router",
        "param": "api"
       }
-     ]
+     ],
+     "own": "the AdminApi the program gave Parts",
+     "supplier": "the program's AdminApi"
     },
     {
      "impl": "kkt-server::AdmissionGate",
@@ -1059,7 +1059,6 @@
      ]
     },
     {
-     "impl": "kkt-rules::Rules",
      "crate": "kkt-mcp",
      "to": [
       {
@@ -1070,7 +1069,9 @@
        "at": "mcp_admin::endpoint",
        "param": "rules"
       }
-     ]
+     ],
+     "own": "the AdminApi the program gave Parts",
+     "supplier": "the program's AdminApi"
     },
     {
      "impl": "kkt-mcp-formatter::Formatter",
