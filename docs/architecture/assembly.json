@@ -95,8 +95,8 @@
      ]
     },
     {
-     "title": "The operator's base commands",
-     "text": "The program supplies native containers, services, client files, probes, lane disk, clock, setup/key files, database and terminal through OperateParts. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults; the program constructs that capability with ServeArgs, while record/config-only parts cannot ask it. CLI parsing and serving remain in the program.",
+     "title": "The operator's commands",
+     "text": "The program supplies native containers, services, client files, probes, lane disk, clock, setup/key files, database and terminal through OperateParts. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults; the program constructs that capability with ServeArgs, while record/config-only parts cannot ask it. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. The native try_bind callback checks the address before installation.",
      "items": [
       "kkt-operate::OperateParts",
       "kkt-operate::ServeFacts",
@@ -109,7 +109,11 @@
       "kkt-operate::agent::run",
       "kkt-operate::doctor::run",
       "kkt-operate::lanes::run",
-      "kkt-operate::key::create"
+      "kkt-operate::key::create",
+      "kkt-operate::service::run",
+      "kkt-operate::service::service_plan",
+      "kkt-operate::ServiceInputs",
+      "kkt-operate::CheckService"
      ]
     }
    ],
@@ -813,6 +817,16 @@
       {
        "at": "OperateParts",
        "param": "clock"
+      }
+     ]
+    },
+    {
+     "own": "ServiceCheck, keeping the program's loaded serve options and source context until the service plan is checked",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "ServiceInputs",
+       "param": "check"
       }
      ]
     }

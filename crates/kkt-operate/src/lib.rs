@@ -7,6 +7,7 @@ pub mod key;
 pub mod keys;
 pub mod lanes;
 pub mod record;
+pub mod service;
 
 use kkt_setup::connection::ConnectionSource;
 use std::fmt::Arguments;
@@ -30,6 +31,28 @@ pub trait ServeFacts {
     ) -> Result<PathBuf, String>;
     fn bind(&self) -> Result<std::net::SocketAddr, String>;
     fn default_access_key(&self) -> Option<PathBuf>;
+    fn service_settings(
+        &self,
+        config: Option<PathBuf>,
+        flags: kkt_service::ServiceSettings,
+    ) -> Result<ServiceInputs<'_>, String>;
+}
+
+/// Inputs to the service plan, plus a deferred check with opaque program context.
+pub struct ServiceInputs<'a> {
+    pub request: kkt_service::Request,
+    pub check: Box<dyn CheckService + 'a>,
+}
+
+/// The program checks the plan against its whole serving surface, with its source context.
+pub trait CheckService {
+    fn check(self: Box<Self>, plan: &kkt_service::Plan) -> Result<CheckedService, String>;
+}
+
+/// What the service command needs after the program's settings check.
+pub struct CheckedService {
+    pub bind: std::net::SocketAddr,
+    pub config_file: Option<String>,
 }
 
 /// Required only by commands that inspect an unrecorded service. The program
@@ -55,6 +78,7 @@ pub trait SetupFiles {
     fn read_unfinished(&self, dir: &Path) -> Result<Option<kkt_setup::Unfinished>, String>;
     fn write_record(&self, dir: &Path, record: &kkt_setup::Record) -> Result<(), String>;
     fn absolute(&self, path: &Path) -> std::io::Result<PathBuf>;
+    fn program_path(&self) -> std::io::Result<PathBuf>;
     fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf>;
 }
 
@@ -88,6 +112,7 @@ pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     pub container: &'a dyn kkt_container::Host,
     pub container_configs: &'a dyn kkt_container::ConfigReader,
     pub service: &'a dyn kkt_service::System,
+    pub try_bind: &'a dyn Fn(std::net::SocketAddr) -> std::io::Result<()>,
     pub remote: &'a dyn kkt_remote_access::Host,
     pub clients: &'a dyn kkt_client_config::Host,
     pub prober: &'a dyn kkt_diagnostics::Prober,

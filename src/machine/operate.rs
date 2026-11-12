@@ -47,6 +47,7 @@ impl<'a, D> NativeOperate<'a, D> {
             container: &super::container::ContainerHost,
             container_configs: &settings::ContainerConfigs,
             service: &super::service::ServiceSystem,
+            try_bind: &kkt_service_os::try_bind,
             remote: &super::remote_access::RemoteHost,
             clients: &super::client_config::ClientHost,
             prober: &super::diagnostics::DiagnosticProber,
@@ -105,6 +106,36 @@ impl ServeFacts for ServeReads<'_> {
     fn bind(&self) -> Result<std::net::SocketAddr, String> {
         settings::serve_bind(self.env, self.platform)
     }
+    fn service_settings(
+        &self,
+        config: Option<PathBuf>,
+        flags: kkt_service::ServiceSettings,
+    ) -> Result<kkt_operate::ServiceInputs<'_>, String> {
+        let flags = ServeOptions {
+            db: flags.db,
+            access_key_file: flags.access_key_file,
+            no_access_key: flags.no_access_key,
+            ..ServeOptions::NONE
+        };
+        let loaded = settings::load_serve_options(self.env, config, flags)?;
+        let sources = loaded.sources();
+        let request = kkt_service::Request {
+            config_file: loaded.config_file.clone(),
+            flags: service_settings(&loaded.flags),
+            from_file: service_settings(&loaded.from_file),
+            default_db: kkt_setup::default_db(self.env, self.platform),
+            default_key: settings::default_access_key(self.env),
+        };
+        Ok(kkt_operate::ServiceInputs {
+            request,
+            check: Box::new(ServiceCheck {
+                env: self.env,
+                platform: self.platform,
+                loaded,
+                sources,
+            }),
+        })
+    }
     fn default_access_key(&self) -> Option<PathBuf> {
         settings::default_access_key(self.env)
     }
@@ -125,6 +156,50 @@ impl kkt_operate::ServiceDefaults for ServiceArgs<'_> {
     }
 }
 
+fn service_settings(options: &ServeOptions) -> kkt_service::ServiceSettings {
+    kkt_service::ServiceSettings {
+        db: options.db.clone(),
+        access_key_file: options.access_key_file.clone(),
+        no_access_key: options.no_access_key,
+    }
+}
+
+struct ServiceCheck<'a> {
+    env: &'a Env,
+    platform: Platform,
+    loaded: settings::Loaded,
+    sources: settings::Sources,
+}
+impl kkt_operate::CheckService for ServiceCheck<'_> {
+    fn check(
+        self: Box<Self>,
+        plan: &kkt_service::Plan,
+    ) -> Result<kkt_operate::CheckedService, String> {
+        let check = ServeOptions {
+            db: plan.check.db.clone(),
+            access_key_file: plan.check.access_key_file.clone(),
+            no_access_key: plan.check.no_access_key,
+            ..self.loaded.flags.over(self.loaded.from_file)
+        };
+        let mut resolved = settings::resolve(
+            self.env,
+            self.platform,
+            check,
+            DefaultDb::Required(settings::NO_HOME_TO_KEEP_DB),
+            Report::Traced(&self.sources),
+        )?;
+        resolved.web_key = plan.check_web_key.clone();
+        let checked = settings::check_settings(resolved, &self.sources)?;
+        Ok(kkt_operate::CheckedService {
+            bind: checked.bind,
+            config_file: checked.config_file.or_else(|| {
+                kkt_config_file::config_file(self.env.config_home().as_deref())
+                    .map(|p| p.display().to_string())
+            }),
+        })
+    }
+}
+
 pub(crate) struct NativeSetupFiles;
 impl SetupFiles for NativeSetupFiles {
     fn read_record(&self, dir: &Path) -> Result<Option<kkt_setup::Record>, String> {
@@ -138,6 +213,9 @@ impl SetupFiles for NativeSetupFiles {
     }
     fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
         kkt_setup_os::absolute(path)
+    }
+    fn program_path(&self) -> std::io::Result<PathBuf> {
+        kkt_setup_os::program_path()
     }
     fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
         kkt_setup_os::canonicalize(path)
