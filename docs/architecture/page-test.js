@@ -104,6 +104,23 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       check(m("a merged crate's panel lists its two parts"),
         /Contract \(\d+\): .*Servers/.test(parts) && /Implementation, behind real \(\d+\): .*Mcp/.test(parts)
           && /turning real on: .*kashkeshet/.test(parts) && /the contract only: .*kkt-agent-commands/.test(parts), parts.slice(0, 200));
+      // The crate in the panel, not ticked, shows where it is wired to: the
+      // program's dotted line to the receiver, labelled with the item and
+      // the slot, and the panel's "Wired into".
+      // The proposed map keeps the wiring as planned, so only the current
+      // map is checked for the exact line.
+      const wired = await p.$$eval("path.delivery[data-from='kashkeshet']", (x) => x.map((l) => l.dataset.to));
+      const labels = await p.$$eval(".delivery-label", (x) => x.map((t) => t.textContent));
+      check(m("the panel's crate draws where it is wired to"), mode === "current"
+        ? wired.includes("kkt-agent-commands") && labels.includes("Mcp → AgentParts.servers")
+          && /Wired into \(1\)[\s\S]*Mcp → kkt-agent-commands \(AgentParts\.servers\), by kashkeshet/i.test(parts)
+        : wired.length > 0 && labels.some((l) => l.includes(" → ")) && /Wired into/i.test(parts),
+        { wired, labels });
+      // With it, the amber stroke from the crate to that program, at full
+      // strength, but nothing highlighted.
+      const chain = await p.$$eval(`path.edge.chain`, (x) => x.map((l) => l.dataset.edge));
+      check(m("the wiring stroke leads to the program, unhighlighted"),
+        chain.includes(`kashkeshet>${merged}>normal`) && (await p.$$eval("path.edge.focus", (x) => x.length)) === 0, chain);
 
       // Clicking a box shows it in the panel and highlights nothing.
       await p.click(`${node("kkt-hosts")} > rect`);

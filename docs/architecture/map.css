@@ -200,6 +200,8 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .edge.role-implements { stroke: var(--implements); stroke-width: 1.6; }
 .edge.role-wires { stroke: var(--wires); }
 .edge.focus { opacity: .95; stroke-width: 2; }
+/* The panel's crate's wiring strokes, leading to the program that wires it in. */
+.edge.chain { opacity: .95; stroke-width: 2; }
 .edge.role-implements.focus { stroke-width: 2.4; }
 .head-uses { fill: var(--uses); }
 .head-implements { fill: var(--bg); stroke: var(--implements); stroke-width: 1.2; }

@@ -292,7 +292,7 @@
         el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
       el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
-      el("span", { class: "muted" }, "Arrows run from the crate that is used or built to the crate that uses or builds it, and from an implementer to its contract. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role; it points the implementing way when one role implements. Split box: a merged crate, its contract on the left and its implementation, behind real, on the right; the small green triangle is the implementation implementing the contract. Thin dotted amber line, for the highlighted crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Arrows run from the crate that is used or built to the crate that uses or builds it, and from an implementer to its contract. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role; it points the implementing way when one role implements. Split box: a merged crate, its contract on the left and its implementation, behind real, on the right; the small green triangle is the implementation implementing the contract. Thin dotted amber line, for the highlighted crates and the crate in the panel: a program, or kkt-server, injecting things into a crate, labelled with what it injects and where when the crate supplying it is one of those (Mcp → AgentParts.servers), else with the supplying crates (hover for each injection; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -433,6 +433,20 @@
     // Each layer name's focus and hover box fits its text.
     for (const [box, label] of view.bandToggles || []) box.setAttribute("width", label.getBBox().width + 31);
     paint();
+  }
+
+  // Where a crate's implementations go: each program that builds one, and
+  // the slot of the crate it is injected into, for the panel.
+  function wiredInto(name) {
+    const out = deliveries().filter((d) => d.builder === name && !d.passed);
+    if (!out.length) return [];
+    return [
+      el("h3", { title: "From the programs' assembly (assembly.json): what is built from this crate, and where it is injected" },
+        `Wired into (${out.length}) `, source("assembly")),
+      el("ul", { class: "flows" }, out.map((d) => el("li", {},
+        roleItem(d.item, ["wires"], `from ${name}`), " → ", crateLink(d.receiver),
+        ` (${d.slots.map(slotText).join(", ")}), by `, crateLink(d.program)))),
+    ];
   }
 
   // A merged crate's two parts, for its panel: the items of each, and
@@ -633,6 +647,20 @@
     for (const { edge, hit } of view.hitNodes) {
       hit.classList.toggle("faint", !(focus.has(edge.from) || focus.has(edge.to)));
     }
+    // The crate in the panel, if it supplies something a program wires
+    // in: the amber strokes from it to each such program are drawn at full
+    // strength, without highlighting the crate, so that with the dotted
+    // delivery lines its path reads through: its part, the program, the
+    // slot (Sam).
+    const chainFrom = new Set(state.selected && !state.hiddenRoles.has("wires")
+      ? deliveries().filter((d) => d.builder === state.selected && !d.passed).map((d) => d.program) : []);
+    const inChain = (edge) => edge.to === state.selected && chainFrom.has(edge.from);
+    for (const { edge, path } of view.edgeNodes) {
+      const chain = inChain(edge) && path.classList.contains("role-wires");
+      path.classList.toggle("chain", chain);
+      if (chain) path.classList.remove("faint");
+    }
+    for (const { edge, hit } of view.hitNodes) if (inChain(edge)) hit.classList.remove("faint");
     const hits = searchHits();
     for (const [name, node] of view.nodes) {
       node.classList.toggle("checked", focus.has(name));
@@ -711,11 +739,25 @@
   // them all.
   const shortLabel = (names) => (names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", "));
 
+  // Where an injection goes, in short: the slot it fills, as
+  // "AgentParts.servers" for a field or "Docker::new(browser)" for a
+  // parameter.
+  const slotText = (s) => (s.at.includes("::") ? `${s.at}(${s.param})` : `${s.at}.${s.param}`);
+  // One injection as a label: "Mcp → AgentParts.servers".
+  const injectionText = (d) => `${d.item} → ${d.slots.map(slotText).join(", ")}`;
+
+  // The crates whose delivery lines are drawn: the ticked ones and the
+  // crate in the panel (Sam: a crate opened in the panel should show
+  // where it is wired to without ticking it).
+  const deliveryFocus = () => new Set([...state.checked, ...(state.selected ? [state.selected] : [])]);
+
   // Dotted lines from the injecting program to each crate it injects
-  // things into, labelled with the crates that supply them; hovering a
-  // line or its label shows each injection. Drawn for the selected crates,
-  // each as injector, supplier or
-  // receiver.
+  // things into; hovering a line or its label shows each injection. Drawn
+  // for the ticked crates and the crate in the panel, each as injector,
+  // supplier or receiver. A line names what it carries from a crate in
+  // focus that supplies it ("Mcp → AgentParts.servers"), so a supplier's
+  // path reads through: its part, the program, the slot. Otherwise it
+  // names the supplying crates.
   function paintDeliveries() {
     if (!view || !view.deliveryLayer) return;
     const layer = view.deliveryLayer;
@@ -723,7 +765,7 @@
     while (layer.firstChild) layer.removeChild(layer.firstChild);
     while (labelLayer.firstChild) labelLayer.removeChild(labelLayer.firstChild);
     if (state.hiddenRoles.has("wires") || !state.kinds.normal) return;
-    const focus = state.checked;
+    const focus = deliveryFocus();
     const shown = focus.size
       ? deliveries().filter((d) => focus.has(d.program) || focus.has(d.builder) || focus.has(d.receiver)) : [];
     // One line per injector and receiver, carrying every injection between
@@ -750,8 +792,9 @@
       path.addEventListener("mouseleave", hideTip);
       layer.append(path);
       const suppliers = [...new Set(line.all.map((d) => d.builder))].sort();
+      const supplied = line.all.filter((d) => focus.has(d.builder) && !d.passed);
       const label = svg("text", { class: "delivery-label" });
-      label.textContent = shortLabel(suppliers);
+      label.textContent = supplied.length ? shortLabel(supplied.map(injectionText)) : shortLabel(suppliers);
       label.addEventListener("mousemove", tip);
       label.addEventListener("mouseleave", hideTip);
       labelLayer.append(label);
@@ -936,6 +979,7 @@
     const users = graph.edges.filter((e) => e.to === c.name && state.kinds[e.kind]);
     nodes.push(el("h3", { title: "The crates that depend on it" }, `Included in (${users.length}) `, source("code")), flowList(users, "from"));
     if (isMerged(c.name)) nodes.push(...mergedParts(c, users));
+    nodes.push(...wiredInto(c.name));
 
     nodes.push(...contractSections(c));
 

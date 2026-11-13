@@ -4,7 +4,9 @@
 package, in layers, with an arrow for each dependency between crates. Open it in a browser straight from the checkout; it loads nothing from
 the network. Click a crate to show it in the panel: its concern, what it
 must not do, the public items it provides, and which of them flow along each
-arrow. Clicking highlights nothing. Tick the checkbox on a box's top corner
+arrow. Clicking highlights no crate or arrow, but draws where the crate is
+wired to: its delivery lines, and, for a crate a program builds things
+from, the amber strokes from it to that program. Tick the checkbox on a box's top corner
 to light up that crate's arrows, neighbours and delivery lines; several
 ticked crates light up together, and the panel lists them with a button to
 clear them. With nothing ticked, every arrow is faded. Ticks and the panel's
@@ -143,7 +145,7 @@ Which way an arrow points (Sam, msg 3155): a "uses" or "wires" arrow runs from t
 | used by | grey, filled arrow | B calls or reads A's items | every named item that is not one of the others |
 | built by | amber, open arrow | B builds A's implementation of a contract, or a type that holds one, to hand it on (a program building `SqlitePlace` for `Db::new`) | items that implement a contract, build one (a public method returns another crate's holder, as `SqlitePlace::open` gives a `Database`), or hold one, which the crate builds: it calls one of the type's constructors (a public function giving back the type, such as `KeyMode::new`), or names it if it has none (`SystemClock`). Calling another function of such a type (`KeyMode::admin_operator`) is using it. Plain settings structs and the traits the wired types implement go with the wiring |
 
-Where wired things go comes from the assembly data (assembly.json, and the proposal's flows): what a program, or kkt-server where it does the wiring itself (its "injectors" entry), builds or passes on, from which crate, and which slot of which crate it injects it into, with the program's adapter where there is one. A wires arrow's tooltip and its panel entry say so in words. Ticking a crate that injects, supplies or receives things draws thin dotted amber lines from the injecting program, or kkt-server, to each receiving crate, one per pair, labelled with the crates that supply what is injected; hovering a line or its label lists each injection, with the slot it fills and the contract it meets. They are not dependencies, and they follow the filters.
+Where wired things go comes from the assembly data (assembly.json, and the proposal's flows): what a program, or kkt-server where it does the wiring itself (its "injectors" entry), builds or passes on, from which crate, and which slot of which crate it injects it into, with the program's adapter where there is one. A wires arrow's tooltip and its panel entry say so in words. Ticking a crate that injects, supplies or receives things, or opening it in the panel, draws thin dotted amber lines from the injecting program, or kkt-server, to each receiving crate, one per pair. A line is labelled with what it injects and the slot it fills ("Mcp → AgentParts.servers") when the crate that supplies it is ticked or in the panel, and otherwise with the supplying crates; hovering a line or its label lists each injection, with the slot it fills and the contract it meets. For the crate in the panel, the amber strokes from it to each program that wires it in are drawn at full strength too, so its path reads as one: its part, the program, the slot. Its panel lists the same under "Wired into". They are not dependencies, and they follow the filters.
 
 A crate's panel lists the contracts it defines (its public traits, with who
 implements each), the contracts of other crates it implements, and the
