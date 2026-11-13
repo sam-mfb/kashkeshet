@@ -1,34 +1,30 @@
-//! The machine's facts as this process sees them: [`OsMachine`] reads the
-//! environment and the platform this program was built for, and implements
-//! kkt-machine's `Machine`. The program makes one and passes its facts on.
+//! The machine's facts as this process sees them: [`env`] reads the
+//! environment, and [`platform`] gives the platform this program was built
+//! for, as kkt-machine's `Env` and `Platform`. The program asks once and
+//! passes them on.
 
 #[cfg(any(test, feature = "real"))]
-use kkt_machine::{Env, Machine, Platform};
+use kkt_machine::{Env, Platform};
 #[cfg(any(test, feature = "real"))]
 use std::ffi::OsString;
 #[cfg(any(test, feature = "real"))]
 use std::path::PathBuf;
 
-/// The machine as this process sees it: `$HOME` and the folders the
-/// environment names, and the platform it runs on.
+/// The environment as this process sees it: `$HOME` and the folders the
+/// environment names.
 #[cfg(any(test, feature = "real"))]
-#[derive(Clone, Copy, Debug)]
-pub struct OsMachine;
+pub fn env() -> Env {
+    env_from(|name| std::env::var_os(name))
+}
 
+/// The platform this program was built for. Only macOS and Linux are
+/// released; every system but macOS follows XDG.
 #[cfg(any(test, feature = "real"))]
-impl Machine for OsMachine {
-    fn env(&self) -> Env {
-        env_from(|name| std::env::var_os(name))
-    }
-
-    /// Chosen when the program is built. Only macOS and Linux are
-    /// released; every system but macOS follows XDG.
-    fn platform(&self) -> Platform {
-        if cfg!(target_os = "macos") {
-            Platform::MacOs
-        } else {
-            Platform::Xdg
-        }
+pub fn platform() -> Platform {
+    if cfg!(target_os = "macos") {
+        Platform::MacOs
+    } else {
+        Platform::Xdg
     }
 }
 

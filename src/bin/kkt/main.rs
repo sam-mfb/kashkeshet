@@ -16,8 +16,7 @@ use kkt_agent_commands::{self as agent_commands, connect, watch::WatchTask};
 use kkt_clock_system::SystemClock;
 use kkt_logs::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
 use kkt_logs_os::{init_logging, init_stderr_logging};
-use kkt_machine::{Env, Machine, Platform};
-use kkt_machine_os::OsMachine;
+use kkt_machine::{Env, Platform};
 use kkt_operate::agent::AgentAction;
 use kkt_operate::keys::KeyKind;
 use kkt_operate::lanes::LanesAction;
@@ -38,9 +37,8 @@ async fn main() -> std::process::ExitCode {
     if !matches!(task, Ok(Task::Serve { .. })) {
         end_on_closed_output();
     }
-    let machine = OsMachine;
-    let env = machine.env();
-    let platform = machine.platform();
+    let env = kkt_machine_os::env();
+    let platform = kkt_machine_os::platform();
     // `serve` starts logging once its settings say where the log goes.
     let logging = match &task {
         Ok(Task::Serve { .. }) => Ok(()),

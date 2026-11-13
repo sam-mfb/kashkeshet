@@ -249,7 +249,7 @@
    "features": {
     "real": []
    },
-   "concern": "The machine's facts as this process sees them: `OsMachine` reads the environment and the platform, and implements kkt-machine's `Machine` directly, a shared contract. The program wires it in."
+   "concern": "The machine's facts as this process sees them: env reads the environment and platform gives the platform this program was built for, as kkt-machine's Env and Platform (step 13.8: the Machine trait went)."
   },
   {
    "name": "kkt-hash",
@@ -1669,7 +1669,7 @@
   {
    "item": "kashkeshet::process::process_env",
    "status": "decided",
-   "note": "kkt-machine-os' OsMachine reads the environment"
+   "note": "kkt-machine-os' env reads the environment"
   },
   {
    "item": "kkt-setup-os::write_whole",
@@ -2547,31 +2547,20 @@
    "doc": "Why a config file's text could not be read as a config file: the setting and what is wrong with it."
   },
   {
-   "crate": "kkt-machine",
-   "path": "Machine",
-   "kind": "trait",
+   "crate": "kkt-machine-os",
+   "path": "env",
+   "kind": "fn",
    "status": "decided",
-   "methods": [
-    "env",
-    "platform"
-   ],
-   "doc": "Gives the machine's facts: its Env and its Platform."
-  },
-  {
-   "crate": "kkt-machine",
-   "path": "testing::FixedMachine",
-   "kind": "struct",
-   "status": "decided",
-   "feature": "testing",
-   "doc": "A stand-in Machine for tests: the Env and Platform it is given."
+   "feature": "real",
+   "doc": "The environment as this process sees it: HOME and the folders the environment names (step 13.8)."
   },
   {
    "crate": "kkt-machine-os",
-   "path": "OsMachine",
-   "kind": "struct",
+   "path": "platform",
+   "kind": "fn",
    "status": "decided",
    "feature": "real",
-   "doc": "The machine as this process sees it: HOME and the folders the environment names, and the platform it runs on."
+   "doc": "The platform this program was built for (step 13.8)."
   },
   {
    "crate": "kkt-config-file",
@@ -5876,12 +5865,13 @@
    "to": "kkt-machine-os",
    "kind": "normal",
    "add": {
-    "wires": [
-     "OsMachine"
+    "uses": [
+     "env",
+     "platform"
     ]
    },
    "status": "decided",
-   "note": "the machine's facts"
+   "note": "the machine's facts, read once at startup (13.8)"
   },
   {
    "from": "kashkeshet",
@@ -5889,7 +5879,6 @@
    "kind": "normal",
    "add": {
     "uses": [
-     "Machine",
      "Env",
      "Platform"
     ]
@@ -9086,6 +9075,19 @@
    "features": [
     "real"
    ]
+  },
+  {
+   "from": "kkt-machine-os",
+   "to": "kkt-machine",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Env",
+     "Platform"
+    ]
+   },
+   "status": "decided",
+   "note": "env and platform give kkt-machine's values (13.8)."
   }
  ],
  "decisions": {
@@ -10764,7 +10766,8 @@
      "Settings": {
       "text": "Flags over the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) over the defaults (kkt-server's ServerSettings::DEFAULT, kkt-hosts' address, kkt-logs' levels, kkt-backup's Settings and kkt-setup's default database) become the program's ServeSettings, which hold kkt-server's ServerSettings, kkt-rules' Settings and kkt-backup's Settings. ServerSettings::check names the first bad setting, with the program's own problems (kkt-rules' and kkt-backup's among them) placed in it; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
       "items": [
-       "kkt-machine-os::OsMachine",
+       "kkt-machine-os::env",
+       "kkt-machine-os::platform",
        "kkt-config-file::config_file",
        "kkt-config-file-os::read",
        "kkt-config-file::parse_file",
@@ -12108,22 +12111,6 @@
    ],
    "status": "decided",
    "note": "the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused"
-  },
-  {
-   "type": "kkt-machine-os::OsMachine",
-   "to": [
-    "kkt-machine::Machine"
-   ],
-   "status": "decided",
-   "note": "a shared contract crate's contract, implemented directly"
-  },
-  {
-   "type": "kkt-machine::testing::FixedMachine",
-   "to": [
-    "kkt-machine::Machine"
-   ],
-   "status": "decided",
-   "note": "its own stand-in"
   },
   {
    "type": "kkt-logs-os::TracingLog",

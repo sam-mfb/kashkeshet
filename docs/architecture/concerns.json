@@ -349,13 +349,13 @@
   },
   "kkt-machine": {
    "layer": "foundations",
-   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, and `Machine`, which gives them, with a stand-in behind `testing`. The crates that place files on the machine take these facts; none reads them.",
+   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
    "must_not": "Read the environment, or hold any of kkt's paths.",
    "kind": "contract"
   },
   "kkt-machine-os": {
    "layer": "foundations",
-   "concern": "The machine's facts as this process sees them: `OsMachine` reads the environment and the platform, and implements kkt-machine's `Machine`. The program wires it in.",
+   "concern": "The machine's facts as this process sees them: `env` reads the environment and `platform` gives the platform this program was built for, as kkt-machine's values. The program asks once and passes them on.",
    "kind": "effect"
   },
   "kkt-shutdown": {
