@@ -204,6 +204,11 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .head-uses { fill: var(--uses); }
 .head-implements { fill: var(--bg); stroke: var(--implements); stroke-width: 1.2; }
 .head-wires { fill: none; stroke: var(--wires); stroke-width: 1.4; }
+/* A merged crate's implementation part, behind real (phase 13). */
+.node .impl-part { fill: var(--k-effect); fill-opacity: .08; stroke: none; pointer-events: none; }
+.node .impl-divider { fill: none; stroke: var(--kind, var(--box-line)); stroke-width: 1; stroke-dasharray: 3 2; }
+.node .impl-label { text-anchor: middle; }
+.node .self-implements { fill: var(--bg); stroke: var(--implements); stroke-width: 1.2; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12.5px; margin: 8px 0 0; }
 .role-key { display: inline-block; width: 20px; height: 0; border-top: 3px solid var(--uses); vertical-align: middle; margin-right: 4px; }
 .role-key.role-implements { border-top-color: var(--implements); }

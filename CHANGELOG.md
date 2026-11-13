@@ -36,12 +36,15 @@ The shared crates are reorganized so that every dependency is injected and each 
   Consumers without `real` keep the contract and its `testing::Memory`
   stand-in without Docker's dependencies. Files, commands and messages are
   unchanged; this changes the shared Rust API.
-- **Remote sharing contract.** `kkt-remote-access::RemoteAccess` replaces its
-  command-level `Host` and free functions. `kkt-remote-access-tailscale::Tailscale`
-  (behind `real`) implements it directly, replacing `kkt-remote-access-os` and
-  the program adapter. Callers inject that implementation into `OperateParts`;
-  the contract's `testing::Memory` supplies sharing without a real network.
-  Tailscale behaviour and messages are unchanged.
+- **Remote sharing contract and implementation.**
+  `kkt-remote-access::RemoteAccess` replaces its command-level `Host` and free
+  functions. `kkt-remote-access::Tailscale` (behind `real`) implements it in
+  the same crate; `kkt-remote-access-os` and the intermediate
+  `kkt-remote-access-tailscale` go. The program injects it directly, with no
+  adapter. The contract and `testing::Memory` need no parsing dependencies;
+  serde and serde_json are optional under `real`. Files, commands and messages
+  are unchanged; this changes the shared Rust implementation path.
+
 - **Agent client contract.** `kkt-agent-client` is now the contract for a
   client of kkt's server: `Servers`, `Avatars` and `Watched`, with `Address`
   and the records and `Failure` it already had, and `testing::Memory`.
@@ -69,14 +72,15 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **Client command contract.** `kkt-client-command::ClientCommand` (remove
   kkt's server, add it as the client's own entry; `testing::Recorder`) is
   how kkt-client-config changes a client through its own command.
-  `kkt-client-command-claude::Claude` (behind `real`) implements it for
-  Claude Code. `kkt_client_config::Host` and kkt-client-config-os' `OsHost`
+  Its one implementation is in the same crate: `kkt_client_command::Claude`
+  (behind `real`, which only the program turns on), for Claude Code. `kkt_client_config::Host` and kkt-client-config-os' `OsHost`
   lose `claude`, and `configure` takes a `&dyn ClientCommand` after the
   host. The commands run and their messages are unchanged.
 - **Probe contract.** `kkt-probe::Prober`, with `KeyFile`, `Check`
-  and `Probing`, moves out of kkt-diagnostics into a contract crate, with
-  `testing::Memory`. `kkt-probe-reqwest::HttpProber` (behind `real`)
-  implements it directly with the `Settings` the program passes, replacing
+  and `Probing`, moves out of kkt-diagnostics into its own crate, with
+  `testing::Memory`, and with its one implementation: `kkt_probe::HttpProber`
+  (behind `real`, which only the program turns on), with the `Settings` the
+  program passes, replacing
   `kkt-diagnostics-os` and its `OsProber` and records, and the program's
   adapter. `OperateParts::prober` takes a `&dyn kkt_probe::Prober`. The
   checks and their messages are unchanged.

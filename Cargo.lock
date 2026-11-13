@@ -1048,7 +1048,7 @@ dependencies = [
  "kkt-backup",
  "kkt-backup-os",
  "kkt-browser",
- "kkt-client-command-claude",
+ "kkt-client-command",
  "kkt-client-config",
  "kkt-client-config-os",
  "kkt-clock",
@@ -1075,9 +1075,9 @@ dependencies = [
  "kkt-mcp-formatter",
  "kkt-names",
  "kkt-operate",
- "kkt-probe-reqwest",
+ "kkt-probe",
  "kkt-provenance",
- "kkt-remote-access-tailscale",
+ "kkt-remote-access",
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
@@ -1224,13 +1224,6 @@ dependencies = [
 [[package]]
 name = "kkt-client-command"
 version = "0.10.0"
-
-[[package]]
-name = "kkt-client-command-claude"
-version = "0.10.0"
-dependencies = [
- "kkt-client-command",
-]
 
 [[package]]
 name = "kkt-client-config"
@@ -1585,12 +1578,7 @@ dependencies = [
 [[package]]
 name = "kkt-probe"
 version = "0.10.0"
-
-[[package]]
-name = "kkt-probe-reqwest"
-version = "0.10.0"
 dependencies = [
- "kkt-probe",
  "reqwest",
  "serde_json",
 ]
@@ -1605,12 +1593,7 @@ dependencies = [
 [[package]]
 name = "kkt-remote-access"
 version = "0.10.0"
-
-[[package]]
-name = "kkt-remote-access-tailscale"
-version = "0.10.0"
 dependencies = [
- "kkt-remote-access",
  "serde",
  "serde_json",
 ]

@@ -1,6 +1,6 @@
 //! The machine's client-config files, as plain OsHost methods adapted by
 //! the program to the client-config logic. (Claude Code's `claude` command
-//! is kkt-client-command-claude's.)
+//! is kkt-client-command's.)
 
 #![cfg(feature = "real")]
 

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "bb8091a",
+ "commit": "53fcec4",
  "crates": [
   {
    "bins": [
@@ -292,7 +292,7 @@ window.KKT_GRAPH = {
      "path": "machine::database::pending_upgrade"
     },
     {
-     "doc": "The program's prober: kkt-probe-reqwest's `HttpProber`, with the doctor's timeout, response cap, protocol version and check names from kkt-diagnostics.",
+     "doc": "The program's prober: kkt-probe's `HttpProber`, with the doctor's timeout, response cap, protocol version and check names from kkt-diagnostics.",
      "kind": "mod",
      "path": "machine::diagnostics"
     },
@@ -3912,11 +3912,11 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-client-command",
-       "type": "testing::Recorder"
+       "type": "Claude"
       },
       {
-       "crate": "kkt-client-command-claude",
-       "type": "Claude"
+       "crate": "kkt-client-command",
+       "type": "testing::Recorder"
       }
      ],
      "trait": "ClientCommand"
@@ -3925,6 +3925,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Configuring an MCP client through that client's own command line, in kkt's terms: removing kkt's server from the client's settings, and adding it as the client's own entry.",
    "dev_only": false,
    "features": {
+    "real": [],
     "testing": []
    },
    "holders": [],
@@ -3933,10 +3934,22 @@ window.KKT_GRAPH = {
      "crate": "kkt-client-command",
      "trait": "ClientCommand",
      "trait_crate": "kkt-client-command",
+     "type": "Claude"
+    },
+    {
+     "crate": "kkt-client-command",
+     "trait": "ClientCommand",
+     "trait_crate": "kkt-client-command",
      "type": "testing::Recorder"
     }
    ],
    "items": [
+    {
+     "doc": "Claude Code's own command, which the program injects as the `ClientCommand`.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Claude"
+    },
     {
      "doc": "A client's own command, as kkt-client-config asks it.",
      "kind": "trait",
@@ -3974,50 +3987,14 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_client_command",
-   "machine_work": {},
-   "name": "kkt-client-command",
-   "optional_third_party": {},
-   "path": "crates/kkt-client-command",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "kkt-client-command for Claude Code: `claude mcp remove` and `claude mcp add-json`, at user scope, under the name `kkt`, with `CLAUDE_CONFIG_DIR` set to the profile's folder or unset for the default.",
-   "dev_only": false,
-   "features": {
-    "real": []
-   },
-   "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-client-command-claude",
-     "trait": "ClientCommand",
-     "trait_crate": "kkt-client-command",
-     "type": "Claude"
-    }
-   ],
-   "items": [
-    {
-     "doc": "Claude Code's own command, which the program injects as kkt-client-command's `ClientCommand`.",
-     "feature": "real",
-     "kind": "struct",
-     "path": "Claude"
-    }
-   ],
-   "lib": "kkt_client_command_claude",
    "machine_work": {
-    "src/runner.rs": [
+    "src/claude/runner.rs": [
      "process::Command::new"
     ]
    },
-   "name": "kkt-client-command-claude",
+   "name": "kkt-client-command",
    "optional_third_party": {},
-   "path": "crates/kkt-client-command-claude",
+   "path": "crates/kkt-client-command",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11294,23 +11271,33 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-probe",
-       "type": "testing::Memory"
+       "type": "HttpProber"
       },
       {
-       "crate": "kkt-probe-reqwest",
-       "type": "HttpProber"
+       "crate": "kkt-probe",
+       "type": "testing::Memory"
       }
      ],
      "trait": "Prober"
     }
    ],
-   "crate_doc": "Probing a kkt server and reading its key files, as a contract: `Prober`, with what it finds (`KeyFile`) and the checks it gives back (`Check`).",
+   "crate_doc": "Probing a kkt server and reading its key files: `Prober`, with what it finds (`KeyFile`) and the checks it gives back (`Check`), and its one implementation, `HttpProber` (behind `real`), which probes over HTTP with reqwest, whose types s...",
    "dev_only": false,
    "features": {
+    "real": [
+     "dep:reqwest",
+     "dep:serde_json"
+    ],
     "testing": []
    },
    "holders": [],
    "implements": [
+    {
+     "crate": "kkt-probe",
+     "trait": "Prober",
+     "trait_crate": "kkt-probe",
+     "type": "HttpProber"
+    },
     {
      "crate": "kkt-probe",
      "trait": "Prober",
@@ -11333,6 +11320,15 @@ window.KKT_GRAPH = {
       "problem"
      ],
      "path": "Check"
+    },
+    {
+     "doc": "Reads key files and probes servers over HTTP, as its settings say.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "HttpProber"
     },
     {
      "doc": "What a `Prober` found in a key file.",
@@ -11358,6 +11354,18 @@ window.KKT_GRAPH = {
      "path": "Probing"
     },
     {
+     "doc": "What the HTTP prober takes from the program; it chooses no defaults.",
+     "fields": [
+      "timeout",
+      "max_response_bytes",
+      "protocol_version",
+      "server_check",
+      "key_check"
+     ],
+     "kind": "struct",
+     "path": "Settings"
+    },
+    {
      "doc": "A prober in memory, for consumers' tests: key files and each address's checks are given up front, and nothing touches the machine or a network.",
      "feature": "testing",
      "kind": "mod",
@@ -11376,69 +11384,15 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_probe",
-   "machine_work": {},
-   "name": "kkt-probe",
-   "optional_third_party": {},
-   "path": "crates/kkt-probe",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "Probing a kkt server over HTTP, and reading its key files: `HttpProber` implements kkt-probe's `Prober` with reqwest, whose types stay inside this crate.",
-   "dev_only": false,
-   "features": {
-    "real": [
-     "dep:reqwest",
-     "dep:serde_json"
-    ]
-   },
-   "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-probe-reqwest",
-     "trait": "Prober",
-     "trait_crate": "kkt-probe",
-     "type": "HttpProber"
-    }
-   ],
-   "items": [
-    {
-     "doc": "Reads key files and probes servers over HTTP, as its settings say.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "HttpProber"
-    },
-    {
-     "doc": "Values supplied by the program; the prober chooses no defaults.",
-     "fields": [
-      "timeout",
-      "max_response_bytes",
-      "protocol_version",
-      "server_check",
-      "key_check"
-     ],
-     "kind": "struct",
-     "path": "Settings"
-    }
-   ],
-   "lib": "kkt_probe_reqwest",
    "machine_work": {
-    "src/probe.rs": [
+    "src/http.rs": [
      "fs::Metadata",
      "fs::metadata",
      "fs::read_to_string",
      "os::unix::fs::PermissionsExt"
     ]
    },
-   "name": "kkt-probe-reqwest",
+   "name": "kkt-probe",
    "optional_third_party": {
     "reqwest": [
      "real"
@@ -11447,7 +11401,7 @@ window.KKT_GRAPH = {
      "real"
     ]
    },
-   "path": "crates/kkt-probe-reqwest",
+   "path": "crates/kkt-probe",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11517,11 +11471,11 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-remote-access",
-       "type": "testing::Memory"
+       "type": "Tailscale"
       },
       {
-       "crate": "kkt-remote-access-tailscale",
-       "type": "Tailscale"
+       "crate": "kkt-remote-access",
+       "type": "testing::Memory"
       }
      ],
      "trait": "RemoteAccess"
@@ -11530,10 +11484,20 @@ window.KKT_GRAPH = {
    "crate_doc": "Sharing this machine's server securely with clients on its private network.",
    "dev_only": false,
    "features": {
+    "real": [
+     "dep:serde",
+     "dep:serde_json"
+    ],
     "testing": []
    },
    "holders": [],
    "implements": [
+    {
+     "crate": "kkt-remote-access",
+     "trait": "RemoteAccess",
+     "trait_crate": "kkt-remote-access",
+     "type": "Tailscale"
+    },
     {
      "crate": "kkt-remote-access",
      "trait": "RemoteAccess",
@@ -11562,6 +11526,12 @@ window.KKT_GRAPH = {
      "path": "RemoteAccess"
     },
     {
+     "doc": "Shares this machine's server through its existing Tailscale login.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Tailscale"
+    },
+    {
      "doc": "Remote sharing in memory for consumers' tests, without network or processes.",
      "feature": "testing",
      "kind": "mod",
@@ -11578,51 +11548,22 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_remote_access",
-   "machine_work": {},
-   "name": "kkt-remote-access",
-   "optional_third_party": {},
-   "path": "crates/kkt-remote-access",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login.",
-   "dev_only": false,
-   "features": {
-    "real": []
-   },
-   "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-remote-access-tailscale",
-     "trait": "RemoteAccess",
-     "trait_crate": "kkt-remote-access",
-     "type": "Tailscale"
-    }
-   ],
-   "items": [
-    {
-     "doc": "Shares this machine's server through its existing Tailscale login.",
-     "feature": "real",
-     "kind": "struct",
-     "path": "Tailscale"
-    }
-   ],
-   "lib": "kkt_remote_access_tailscale",
    "machine_work": {
-    "src/runner.rs": [
+    "src/tailscale/runner.rs": [
      "process::Command::new",
      "process::Stdio::null"
     ]
    },
-   "name": "kkt-remote-access-tailscale",
-   "optional_third_party": {},
-   "path": "crates/kkt-remote-access-tailscale",
+   "name": "kkt-remote-access",
+   "optional_third_party": {
+    "serde": [
+     "real"
+    ],
+    "serde_json": [
+     "real"
+    ]
+   },
+   "path": "crates/kkt-remote-access",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -16804,7 +16745,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-client-command-claude"
+   "to": "kkt-client-command"
   },
   {
    "features": [],
@@ -17565,7 +17506,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-probe-reqwest"
+   "to": "kkt-probe"
   },
   {
    "features": [],
@@ -17613,7 +17554,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-remote-access-tailscale"
+   "to": "kkt-remote-access"
   },
   {
    "features": [],
@@ -19523,27 +19464,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-scratch"
-  },
-  {
-   "features": [],
-   "from": "kkt-client-command-claude",
-   "items": [
-    "ClientCommand"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "Claude implements ClientCommand"
-     ],
-     "role": "implements"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-client-command"
   },
   {
    "features": [],
@@ -23596,38 +23516,6 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-probe-reqwest",
-   "items": [
-    "Check",
-    "KeyFile",
-    "Prober",
-    "Probing"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "HttpProber implements Prober"
-     ],
-     "role": "implements"
-    },
-    {
-     "detail": [
-      "Check",
-      "KeyFile",
-      "Probing"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-probe"
-  },
-  {
-   "features": [],
    "from": "kkt-provenance",
    "items": [
     "sha256"
@@ -23646,34 +23534,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-hash"
-  },
-  {
-   "features": [],
-   "from": "kkt-remote-access-tailscale",
-   "items": [
-    "Node",
-    "RemoteAccess"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "Tailscale implements RemoteAccess"
-     ],
-     "role": "implements"
-    },
-    {
-     "detail": [
-      "Node"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-remote-access"
   },
   {
    "features": [],
@@ -26666,16 +26526,10 @@ window.KKT_CONCERNS = {
    "must_not": "Name an opener program in the contract; wait for the browser; repeat the link in a message."
   },
   "kkt-client-command": {
-   "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand (remove kkt's server, add it as the client's own entry), with the testing Recorder.",
-   "kind": "contract",
+   "concern": "Configuring an MCP client through that client's own command line: the ClientCommand contract in the open (remove kkt's server, add it as the client's own entry), with the testing Recorder, and its one implementation behind real, Claude: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner.",
+   "kind": "contract and effect",
    "layer": "operations",
-   "must_not": "Know a client's command, its arguments or output; touch the machine."
-  },
-  "kkt-client-command-claude": {
-   "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner; running claude is behind real.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Echo the command's output, which may hold credentials."
+   "must_not": "Echo the command's output, which may hold credentials; let a consumer reach Claude without real."
   },
   "kkt-client-config": {
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through kkt-client-command's ClientCommand, and its file restored if that fails.",
@@ -26859,14 +26713,8 @@ window.KKT_CONCERNS = {
    "must_not": "Choose native implementations, depend on an effect or another assembly, or parse command-line flags."
   },
   "kkt-probe": {
-   "concern": "The project's contract for probing a kkt server and reading its key files (`Prober`), with what it finds (`KeyFile`) and the checks it gives (`Check`); its testing Memory stand-in.",
-   "kind": "contract",
-   "layer": "operations",
-   "must_not": "Know an HTTP library or MCP's wire format; touch the machine."
-  },
-  "kkt-probe-reqwest": {
-   "concern": "Implements Prober directly: the server probe over HTTP with reqwest, MCP's initialize handshake read from its answer, and key files read from disk.",
-   "kind": "effect",
+   "concern": "Probing a kkt server and reading its key files: the `Prober` contract in the open, with what it finds (`KeyFile`), the checks it gives (`Check`), the prober's `Settings` and its testing Memory stand-in; and its one implementation behind real, `HttpProber`: the probe over HTTP with reqwest, MCP's initialize handshake read from its answer, and key files read from disk.",
+   "kind": "contract and effect",
    "layer": "operations",
    "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them."
   },
@@ -26877,16 +26725,10 @@ window.KKT_CONCERNS = {
    "must_not": "Store the run record: kkt-rules' `start` does."
   },
   "kkt-remote-access": {
-   "concern": "The project's contract for preparing, serving, checking and stopping private-network sharing of this machine's server; its Node record and testing Memory stand-in.",
-   "kind": "contract",
+   "concern": "The remote-sharing contract and stand-in, with Tailscale behind real; tool logic is tested over a private runner.",
+   "kind": "contract and effect",
    "layer": "operations",
-   "must_not": "Know a sharing tool, its commands or output format; touch the machine."
-  },
-  "kkt-remote-access-tailscale": {
-   "concern": "Implements RemoteAccess through the host's existing Tailscale login: arguments, parsing and messages tested against a private runner; the process runner is behind real.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Change login, DNS preferences, unrelated sharing, kkt's config or its service."
+   "must_not": "Let tool details into the open contract; change login, DNS preferences, unrelated sharing, config or the service."
   },
   "kkt-rules": {
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm; and starting them for a server run (`start`), which records the run first.",
@@ -27747,7 +27589,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-diagnostics",
-     "impl": "kkt-probe-reqwest::HttpProber",
+     "impl": "kkt-probe::HttpProber",
      "note": "kkt doctor, kkt setup",
      "to": [
       {
@@ -27880,7 +27722,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-remote-access-tailscale::Tailscale",
+     "impl": "kkt-remote-access::Tailscale",
      "note": "The program injects the sharing implementation directly into the operator assembly.",
      "to": [
       {
@@ -27901,7 +27743,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-probe-reqwest::HttpProber",
+     "impl": "kkt-probe::HttpProber",
      "note": "The program builds HttpProber with the doctor's settings and injects it directly (12.5b).",
      "to": [
       {
@@ -28047,7 +27889,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-client-command-claude::Claude",
+     "impl": "kkt-client-command::Claude",
      "note": "kkt setup: Claude Code's own command, injected as it is",
      "to": [
       {
@@ -28058,7 +27900,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-agent-commands",
-     "impl": "kkt-client-command-claude::Claude",
+     "impl": "kkt-client-command::Claude",
      "note": "kkt connect: Claude Code's own command, injected as it is",
      "to": [
       {

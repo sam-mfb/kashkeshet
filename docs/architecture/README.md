@@ -1,8 +1,7 @@
 # The crate map
 
 `index.html` is an interactive map of the workspace's crates: one box per
-package, in layers, with an arrow from each crate to each crate it depends
-on. Open it in a browser straight from the checkout; it loads nothing from
+package, in layers, with an arrow for each dependency between crates. Open it in a browser straight from the checkout; it loads nothing from
 the network. Click a crate to show it in the panel: its concern, what it
 must not do, the public items it provides, and which of them flow along each
 arrow. Clicking highlights nothing. Tick the checkbox on a box's top corner
@@ -118,15 +117,31 @@ crates take its decisions. `propose.py` stops if a file is left out, if a
 crate named is of the wrong kind, or if the program has no arrow to the effect
 crate.
 
+A merged crate, of kind "contract and effect", is drawn as a split box:
+its contract on the left, and on the right a tinted strip labelled `real`,
+its one implementation. A small hollow green triangle on the divider, on
+the second line, is the implementation implementing its own contract. A
+name too long for the contract part is squeezed to end before the divider. An arrow meets the part
+it depends on: one that turns `real` on (the program's, or the fake
+product's tests') meets the implementation; any other meets the contract.
+An arrow with several roles is placed stroke by stroke: an "implements"
+stroke always meets the contract, which is what it implements.
+The merged crate's own optional dependencies, which only `real` turns on,
+leave from the implementation. The page reads all of this from the data
+it already has: the crate's kind, each arrow's features and whether it is
+optional.
+
 ## Roles, contracts and slots
 
-Each arrow its code uses (Cargo's dependency) has one or more roles. It is drawn as one stroke per role, side by side in each role's colour, with one head in the shape of its first role in this order; the header's Arrows menu hides roles, and an arrow with none of its roles shown is not drawn:
+Each arrow its code uses (Cargo's dependency) has one or more roles. It is drawn as one stroke per role, side by side in each role's colour, with one head in the shape of its first role in this order; the header's Arrows menu hides roles, and an arrow with none of its roles shown is not drawn.
 
-| Role | Drawn as | Means | Derived from |
+Which way an arrow points (Sam, msg 3155): a "uses" or "wires" arrow runs from the crate that is used or built to the crate that uses or builds it, the way a part goes into what includes it; an "implements" arrow runs from the implementer to the contract. An arrow that both implements and uses keeps the implementing direction, since using the contract's records is part of implementing it. Only the drawing goes this way: the data, the panel's lists ("Includes" for what a crate depends on, "Included in" for what depends on it) and the scripts keep Cargo's sense, in which a crate depends on another.
+
+| Role | Drawn as | Means, for an arrow from A to B | Derived from |
 |---|---|---|---|
-| implements a contract of | green, hollow triangle | the crate implements a trait the other crate defines (kkt-remote-access-tailscale's `Tailscale` implements kkt-remote-access's `RemoteAccess`) | the trait impls in rustdoc's JSON, including impls by private types, which the page names only as "a type of its own" |
-| uses | grey, filled arrow | the crate calls or reads the other crate's items | every named item that is not one of the others |
-| wires | amber, open arrow | the crate builds the other crate's implementation of a contract, or a type that holds one, to hand it on (a program building `SqlitePlace` for `Db::new`) | items that implement a contract, build one (a public method returns another crate's holder, as `SqlitePlace::open` gives a `Database`), or hold one, which the crate builds: it calls one of the type's constructors (a public function giving back the type, such as `KeyMode::new`), or names it if it has none (`SystemClock`). Calling another function of such a type (`KeyMode::admin_operator`) is using it. Plain settings structs and the traits the wired types implement go with the wiring |
+| implements a contract of | green, hollow triangle | A implements a trait B defines (kkt-remote-access-tailscale's `Tailscale` implements kkt-remote-access's `RemoteAccess`) | the trait impls in rustdoc's JSON, including impls by private types, which the page names only as "a type of its own" |
+| used by | grey, filled arrow | B calls or reads A's items | every named item that is not one of the others |
+| built by | amber, open arrow | B builds A's implementation of a contract, or a type that holds one, to hand it on (a program building `SqlitePlace` for `Db::new`) | items that implement a contract, build one (a public method returns another crate's holder, as `SqlitePlace::open` gives a `Database`), or hold one, which the crate builds: it calls one of the type's constructors (a public function giving back the type, such as `KeyMode::new`), or names it if it has none (`SystemClock`). Calling another function of such a type (`KeyMode::admin_operator`) is using it. Plain settings structs and the traits the wired types implement go with the wiring |
 
 Where wired things go comes from the assembly data (assembly.json, and the proposal's flows): what a program, or kkt-server where it does the wiring itself (its "injectors" entry), builds or passes on, from which crate, and which slot of which crate it injects it into, with the program's adapter where there is one. A wires arrow's tooltip and its panel entry say so in words. Ticking a crate that injects, supplies or receives things draws thin dotted amber lines from the injecting program, or kkt-server, to each receiving crate, one per pair, labelled with the crates that supply what is injected; hovering a line or its label lists each injection, with the slot it fills and the contract it meets. They are not dependencies, and they follow the filters.
 

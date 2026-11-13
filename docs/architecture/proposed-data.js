@@ -760,25 +760,13 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-operate",
-      "impl": "kkt-remote-access-tailscale::Tailscale",
+      "impl": "kkt-remote-access::Tailscale",
       "note": "The program directly injects the named sharing implementation into the operator assembly.",
       "status": "decided",
       "to": [
        {
         "at": "OperateParts",
         "param": "remote"
-       }
-      ]
-     },
-     {
-      "crate": "kkt-operate",
-      "impl": "kkt-container::Docker",
-      "note": "Direct delivery to the receiving operator assembly (12.2).",
-      "status": "decided",
-      "to": [
-       {
-        "at": "OperateParts",
-        "param": "container"
        }
       ]
      },
@@ -794,6 +782,18 @@ window.KKT_PROPOSED = {
        {
         "at": "run",
         "param": "place"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-operate",
+      "impl": "kkt-container::Docker",
+      "note": "Direct delivery to the receiving operator assembly (12.2).",
+      "status": "decided",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "container"
        }
       ]
      }
@@ -1353,7 +1353,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-client-command-claude"
+    "to": "kkt-client-command"
    },
    {
     "from": "kashkeshet",
@@ -1497,16 +1497,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-probe-reqwest"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-remote-access-tailscale"
+    "to": "kkt-probe"
    },
    {
     "from": "kashkeshet",
@@ -1841,15 +1832,6 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "to": "kkt-backup"
-   },
-   {
-    "from": "kkt-client-command-claude",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-client-command"
    },
    {
     "from": "kkt-client-config",
@@ -2749,15 +2731,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-setup"
    },
    {
-    "from": "kkt-probe-reqwest",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-probe"
-   },
-   {
     "from": "kkt-provenance",
     "kind": "normal",
     "role": "uses",
@@ -2765,15 +2738,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-hash"
-   },
-   {
-    "from": "kkt-remote-access-tailscale",
-    "kind": "normal",
-    "role": "implements",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-remote-access"
    },
    {
     "from": "kkt-rules",
@@ -3589,6 +3553,31 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-names"
+   },
+   {
+    "from": "kashkeshet",
+    "items_gone": [
+     "OsHost",
+     "prepare",
+     "serve",
+     "served",
+     "stop"
+    ],
+    "items_new": [
+     "Tailscale"
+    ],
+    "kind": "normal",
+    "roles_after": [
+     "wires"
+    ],
+    "roles_before": [
+     "uses",
+     "wires"
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-remote-access"
    },
    {
     "from": "kashkeshet",
@@ -5160,7 +5149,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "builds HttpProber with kkt-diagnostics' settings and injects it directly (steps 2.5 and 12.5b)"
+      "text": "turns on kkt-probe's real, builds HttpProber with kkt-diagnostics' settings and injects it directly (steps 2.5, 12.5b and 13.5)"
      },
      {
       "status": "decided",
@@ -5324,10 +5313,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Injects Docker into OperateParts.container (12.2)."
-     },
-     {
-      "status": "decided",
       "text": "agent credential files and watch's state file"
      },
      {
@@ -5348,7 +5333,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program injects Claude Code's command as it is (step 12.5c)"
+      "text": "the program turns on kkt-client-command's real and injects Claude Code's command as it is (steps 12.5c and 13.7)"
      },
      {
       "status": "decided",
@@ -5360,15 +5345,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Injects Docker into OperateParts.container (12.2)."
+     },
+     {
+      "status": "decided",
       "text": "Turns on kkt-lane-commit's real and hands its Git directly to kkt-operate (12.5a, 13.4)."
      },
      {
       "status": "decided",
       "text": "the program gives the Docker wrapper the system's opener as it is (step 12.5d)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-probe in its code: the program builds kkt-probe-reqwest's HttpProber and names the probe contract nowhere (12.5b)."
      }
     ]
    },
@@ -6533,7 +6518,7 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "new contract crate, from kkt-client-config"
+      "text": "new contract and effect crate, from kkt-client-config"
      },
      {
       "status": "decided",
@@ -6549,19 +6534,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "gains a testing feature: its Recorder stand-in (step 12.5c)"
-     }
-    ]
-   },
-   {
-    "crate": "kkt-client-command-claude",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-client-config-os"
-     },
-     {
-      "status": "decided",
       "text": "new struct Claude"
      },
      {
@@ -6570,7 +6542,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it implements the contract directly (step 12.5c)"
+      "text": "gains a testing feature: its Recorder stand-in (step 12.5c)"
      }
     ]
    },
@@ -6651,7 +6623,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Host loses claude: Claude Code's command is kkt-client-command's ClientCommand, implemented by kkt-client-command-claude (step 12.5c)"
+      "text": "Host loses claude: Claude Code's command is kkt-client-command's ClientCommand, implemented in the same crate by Claude, behind real (steps 12.5c and 13.7)"
      },
      {
       "status": "decided",
@@ -7025,11 +6997,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Docker implements kkt-container::Container: The tool wrapper implements the scope contract directly (12.2)."
+      "text": "testing::Memory implements kkt-container::Container: The contract owns its stand-in (12.2)."
      },
      {
       "status": "decided",
-      "text": "testing::Memory implements kkt-container::Container: The contract owns its stand-in (12.2)."
+      "text": "Docker implements kkt-container::Container: The tool wrapper implements the scope contract directly (12.2)."
      },
      {
       "status": "decided",
@@ -7232,7 +7204,7 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "OsProber moves to kkt-probe-reqwest"
+      "text": "OsProber moves to kkt-probe"
      },
      {
       "status": "decided",
@@ -7296,7 +7268,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its real feature moves to kkt-probe-reqwest"
+      "text": "its real feature moves to kkt-probe"
      },
      {
       "status": "decided",
@@ -7738,11 +7710,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Git implements kkt-lane-commit::LaneCommit: The crate's one implementation of its own contract, behind real (steps 12.5a and 13.4)."
+      "text": "testing::Memory implements kkt-lane-commit::LaneCommit: The contract owns its testing stand-in (12.5a)."
      },
      {
       "status": "decided",
-      "text": "testing::Memory implements kkt-lane-commit::LaneCommit: The contract owns its testing stand-in (12.5a)."
+      "text": "Git implements kkt-lane-commit::LaneCommit: The crate's one implementation of its own contract, behind real (steps 12.5a and 13.4)."
      },
      {
       "status": "decided",
@@ -8622,7 +8594,11 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "new contract crate, from kkt-diagnostics"
+      "text": "new contract and effect crate, from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "OsProber comes here from kkt-diagnostics as HttpProber"
      },
      {
       "status": "decided",
@@ -8642,7 +8618,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
       "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "HttpProber implements kkt-probe::Prober: The crate's one implementation of its own contract, behind real (steps 12.5b and 13.5)."
      },
      {
       "status": "decided",
@@ -8651,35 +8635,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.5b)."
-     }
-    ]
-   },
-   {
-    "crate": "kkt-probe-reqwest",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "OsProber comes here from kkt-diagnostics as HttpProber"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Settings"
-     },
-     {
-      "status": "decided",
-      "text": "HttpProber implements kkt-probe::Prober: A wrapper implements its scope contract directly (step 12.5b)."
      },
      {
       "status": "decided",
       "text": "takes the real feature from kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "The named wrapper implements the scope contract directly (12.5b)."
      }
     ]
    },
@@ -8741,31 +8700,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "testing::Memory implements kkt-remote-access::RemoteAccess: The contract owns its testing stand-in (12.1)."
-     },
-     {
-      "status": "decided",
-      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.1)."
-     },
-     {
-      "status": "decided",
-      "text": "its real feature moves to kkt-remote-access-tailscale"
-     },
-     {
-      "status": "decided",
-      "text": "All tool parsing moves into the named wrapper (12.1)."
-     }
-    ]
-   },
-   {
-    "crate": "kkt-remote-access-tailscale",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-remote-access"
-     },
-     {
-      "status": "decided",
       "text": "new struct Tailscale"
      },
      {
@@ -8774,11 +8708,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "takes the real feature from kkt-remote-access"
+      "text": "testing::Memory implements kkt-remote-access::RemoteAccess: The contract owns its testing stand-in (12.1)."
      },
      {
       "status": "decided",
-      "text": "The named wrapper implements the scope contract directly (12.1)."
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "Tool parsing stays in the merged scope crate, optional under real; the open contract and stand-in need neither parser (13.2)."
      }
     ]
    },
@@ -10765,12 +10703,6 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "kind": "normal",
     "role": "uses",
-    "to": "kkt-remote-access"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "uses",
     "to": "kkt-settings"
    },
    {
@@ -11305,14 +11237,8 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-client-command": {
-    "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand, with the testing Recorder (step 12.5c).",
-    "kind": "contract",
-    "layer": "operations",
-    "status": "decided"
-   },
-   "kkt-client-command-claude": {
-    "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json, CLAUDE_CONFIG_DIR and the wording, over a private runner; running claude is behind real (step 12.5c).",
-    "kind": "effect",
+    "concern": "Configuring an MCP client through that client's own command line: the ClientCommand contract in the open, with its testing Recorder, and its one implementation, Claude, behind real: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner (steps 12.5c and 13.7).",
+    "kind": "contract and effect",
     "layer": "operations",
     "status": "decided"
    },
@@ -11517,14 +11443,8 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-probe": {
-    "concern": "The project's contract for probing a kkt server and reading its key files (Prober, KeyFile, Check, Probing), with its testing stand-in; no HTTP library (step 12.5b).",
-    "kind": "contract",
-    "layer": "operations",
-    "status": "decided"
-   },
-   "kkt-probe-reqwest": {
-    "concern": "Implements kkt-probe's Prober directly: the HTTP probe and MCP handshake with reqwest, whose types stay inside, and key files read from disk, with the settings the program passes (step 12.5b, option a).",
-    "kind": "effect",
+    "concern": "Probing a kkt server and reading its key files: the Prober contract in the open, with KeyFile, Check, Probing, the prober's Settings and its testing stand-in, and its one implementation, HttpProber, behind real: the HTTP probe and MCP handshake with reqwest, whose types stay inside (steps 12.5b and 13.5).",
+    "kind": "contract and effect",
     "layer": "operations",
     "status": "decided"
    },
@@ -11535,16 +11455,10 @@ window.KKT_PROPOSED = {
     "must_not": "Store the run record: kkt-server does."
    },
    "kkt-remote-access": {
-    "concern": "The project's sharing contract RemoteAccess, Node and its testing stand-in; no tool knowledge.",
-    "kind": "contract",
+    "concern": "The remote-sharing contract and stand-in, with Tailscale behind real; tool logic is tested over a private runner.",
+    "kind": "contract and effect",
     "layer": "operations",
-    "must_not": "Change the Tailscale login, DNS preferences, kkt's config or its service.",
-    "status": "decided"
-   },
-   "kkt-remote-access-tailscale": {
-    "concern": "Implements the project's RemoteAccess contract directly; owns Tailscale arguments, parsing, messages and its private process runner behind real (step 12.1, option a).",
-    "kind": "effect",
-    "layer": "operations",
+    "must_not": "Let tool details into the open contract; change login, DNS preferences, unrelated sharing, config or the service.",
     "status": "decided"
    },
    "kkt-rules": {
@@ -14730,7 +14644,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "builds HttpProber with kkt-diagnostics' settings and injects it directly (steps 2.5 and 12.5b)"
+      "text": "turns on kkt-probe's real, builds HttpProber with kkt-diagnostics' settings and injects it directly (steps 2.5, 12.5b and 13.5)"
      },
      {
       "status": "decided",
@@ -14894,10 +14808,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Injects Docker into OperateParts.container (12.2)."
-     },
-     {
-      "status": "decided",
       "text": "agent credential files and watch's state file"
      },
      {
@@ -14918,7 +14828,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program injects Claude Code's command as it is (step 12.5c)"
+      "text": "the program turns on kkt-client-command's real and injects Claude Code's command as it is (steps 12.5c and 13.7)"
      },
      {
       "status": "decided",
@@ -14930,15 +14840,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "Injects Docker into OperateParts.container (12.2)."
+     },
+     {
+      "status": "decided",
       "text": "Turns on kkt-lane-commit's real and hands its Git directly to kkt-operate (12.5a, 13.4)."
      },
      {
       "status": "decided",
       "text": "the program gives the Docker wrapper the system's opener as it is (step 12.5d)"
-     },
-     {
-      "status": "decided",
-      "text": "no longer uses kkt-probe in its code: the program builds kkt-probe-reqwest's HttpProber and names the probe contract nowhere (12.5b)."
      }
     ],
     "released_program": true,
@@ -19007,11 +18917,20 @@ window.KKT_PROPOSED = {
     "crate_doc": "",
     "dev_only": false,
     "features": {
+     "real": [],
      "testing": []
     },
     "holders": [],
     "implements": [],
     "items": [
+     {
+      "doc": "Claude Code's own command, which the program injects as ClientCommand; behind real. (steps 12.5c and 13.7)",
+      "feature": "real",
+      "kind": "struct",
+      "path": "Claude",
+      "proposed_item": true,
+      "status": "decided"
+     },
      {
       "doc": "A client's own command, as kkt-client-config asks it: remove kkt's server, add it as the client's own entry. (step 12.5c)",
       "kind": "trait",
@@ -19040,7 +18959,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      }
     ],
-    "kind": "contract",
+    "kind": "contract and effect",
     "lib": "kkt_client_command",
     "name": "kkt-client-command",
     "path": "(proposed)",
@@ -19048,7 +18967,7 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "new contract crate, from kkt-client-config"
+      "text": "new contract and effect crate, from kkt-client-config"
      },
      {
       "status": "decided",
@@ -19064,46 +18983,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "gains a testing feature: its Recorder stand-in (step 12.5c)"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [],
-    "items": [
-     {
-      "doc": "Claude Code's own command, which the program injects as ClientCommand. (step 12.5c)",
-      "feature": "real",
-      "kind": "struct",
-      "path": "Claude",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_client_command_claude",
-    "name": "kkt-client-command-claude",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-client-config-os"
-     },
-     {
-      "status": "decided",
       "text": "new struct Claude"
      },
      {
@@ -19112,7 +18991,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it implements the contract directly (step 12.5c)"
+      "text": "gains a testing feature: its Recorder stand-in (step 12.5c)"
      }
     ],
     "released_program": false,
@@ -19318,7 +19197,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Host loses claude: Claude Code's command is kkt-client-command's ClientCommand, implemented by kkt-client-command-claude (step 12.5c)"
+      "text": "Host loses claude: Claude Code's command is kkt-client-command's ClientCommand, implemented in the same crate by Claude, behind real (steps 12.5c and 13.7)"
      },
      {
       "status": "decided",
@@ -20379,11 +20258,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Docker implements kkt-container::Container: The tool wrapper implements the scope contract directly (12.2)."
+      "text": "testing::Memory implements kkt-container::Container: The contract owns its stand-in (12.2)."
      },
      {
       "status": "decided",
-      "text": "testing::Memory implements kkt-container::Container: The contract owns its stand-in (12.2)."
+      "text": "Docker implements kkt-container::Container: The tool wrapper implements the scope contract directly (12.2)."
      },
      {
       "status": "decided",
@@ -21395,14 +21274,14 @@ window.KKT_PROPOSED = {
     "implements": [],
     "items": [
      {
-      "doc": "The most bytes of an MCP response a probe reads; the program passes it to kkt-probe-reqwest's Settings (step 3.1c-1, follow-up)",
+      "doc": "The most bytes of an MCP response a probe reads; the program passes it to kkt-probe's Settings (step 3.1c-1, follow-up)",
       "kind": "const",
       "path": "DOCTOR_MAX_RESPONSE_BYTES",
       "proposed_item": true,
       "status": "decided"
      },
      {
-      "doc": "The MCP protocol version a probe asks for; the program passes it to kkt-probe-reqwest's Settings (step 3.1c-1, follow-up)",
+      "doc": "The MCP protocol version a probe asks for; the program passes it to kkt-probe's Settings (step 3.1c-1, follow-up)",
       "kind": "const",
       "path": "DOCTOR_PROTOCOL_VERSION",
       "proposed_item": true,
@@ -21581,7 +21460,7 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "OsProber moves to kkt-probe-reqwest"
+      "text": "OsProber moves to kkt-probe"
      },
      {
       "status": "decided",
@@ -21645,7 +21524,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its real feature moves to kkt-probe-reqwest"
+      "text": "its real feature moves to kkt-probe"
      },
      {
       "status": "decided",
@@ -22924,11 +22803,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "Git implements kkt-lane-commit::LaneCommit: The crate's one implementation of its own contract, behind real (steps 12.5a and 13.4)."
+      "text": "testing::Memory implements kkt-lane-commit::LaneCommit: The contract owns its testing stand-in (12.5a)."
      },
      {
       "status": "decided",
-      "text": "testing::Memory implements kkt-lane-commit::LaneCommit: The contract owns its testing stand-in (12.5a)."
+      "text": "Git implements kkt-lane-commit::LaneCommit: The crate's one implementation of its own contract, behind real (steps 12.5a and 13.4)."
      },
      {
       "status": "decided",
@@ -25573,11 +25452,11 @@ window.KKT_PROPOSED = {
       "implementors": [
        {
         "crate": "kkt-probe",
-        "type": "testing::Memory"
+        "type": "HttpProber"
        },
        {
-        "crate": "kkt-probe-reqwest",
-        "type": "HttpProber"
+        "crate": "kkt-probe",
+        "type": "testing::Memory"
        }
       ],
       "trait": "Prober"
@@ -25586,10 +25465,20 @@ window.KKT_PROPOSED = {
     "crate_doc": "",
     "dev_only": false,
     "features": {
+     "real": [
+      "dep:reqwest"
+     ],
      "testing": []
     },
     "holders": [],
     "implements": [
+     {
+      "crate": "kkt-probe",
+      "status": "decided",
+      "trait": "Prober",
+      "trait_crate": "kkt-probe",
+      "type": "HttpProber"
+     },
      {
       "crate": "kkt-probe",
       "status": "decided",
@@ -25614,6 +25503,14 @@ window.KKT_PROPOSED = {
       ],
       "moved_from": "kkt-diagnostics",
       "path": "Check",
+      "status": "decided"
+     },
+     {
+      "doc": "The real `Prober`: reads files with `std::fs` and probes over HTTP.",
+      "feature": "real",
+      "kind": "struct",
+      "moved_from": "kkt-diagnostics",
+      "path": "HttpProber",
       "status": "decided"
      },
      {
@@ -25646,6 +25543,13 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "What the probe takes from the program (its timeout, response limit, protocol version and the checks' names); it chooses no defaults (steps 2.5, 12.5b and 13.5)",
+      "kind": "struct",
+      "path": "Settings",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Key files and servers, held in memory (step 12.5b).",
       "feature": "testing",
       "kind": "struct",
@@ -25659,7 +25563,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      }
     ],
-    "kind": "contract",
+    "kind": "contract and effect",
     "lib": "kkt_probe",
     "name": "kkt-probe",
     "path": "(proposed)",
@@ -25667,7 +25571,11 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "new contract crate, from kkt-diagnostics"
+      "text": "new contract and effect crate, from kkt-diagnostics"
+     },
+     {
+      "status": "decided",
+      "text": "OsProber comes here from kkt-diagnostics as HttpProber"
      },
      {
       "status": "decided",
@@ -25687,7 +25595,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "new struct Settings"
+     },
+     {
+      "status": "decided",
       "text": "new struct testing::Memory"
+     },
+     {
+      "status": "decided",
+      "text": "HttpProber implements kkt-probe::Prober: The crate's one implementation of its own contract, behind real (steps 12.5b and 13.5)."
      },
      {
       "status": "decided",
@@ -25696,79 +25612,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.5b)."
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": [
-      "dep:reqwest"
-     ]
-    },
-    "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-probe-reqwest",
-      "status": "decided",
-      "trait": "Prober",
-      "trait_crate": "kkt-probe",
-      "type": "HttpProber"
-     }
-    ],
-    "items": [
-     {
-      "doc": "The real `Prober`: reads files with `std::fs` and probes over HTTP.",
-      "feature": "real",
-      "kind": "struct",
-      "moved_from": "kkt-diagnostics",
-      "path": "HttpProber",
-      "status": "decided"
-     },
-     {
-      "doc": "What the probe takes from the program (its timeout, response limit, protocol version and the checks' names); it chooses no defaults (steps 2.5 and 12.5b)",
-      "kind": "struct",
-      "path": "Settings",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_probe_reqwest",
-    "name": "kkt-probe-reqwest",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "OsProber comes here from kkt-diagnostics as HttpProber"
-     },
-     {
-      "status": "decided",
-      "text": "new struct Settings"
-     },
-     {
-      "status": "decided",
-      "text": "HttpProber implements kkt-probe::Prober: A wrapper implements its scope contract directly (step 12.5b)."
      },
      {
       "status": "decided",
       "text": "takes the real feature from kkt-diagnostics"
-     },
-     {
-      "status": "decided",
-      "text": "The named wrapper implements the scope contract directly (12.5b)."
      }
     ],
     "released_program": false,
@@ -25860,11 +25707,11 @@ window.KKT_PROPOSED = {
       "implementors": [
        {
         "crate": "kkt-remote-access",
-        "type": "testing::Memory"
+        "type": "Tailscale"
        },
        {
-        "crate": "kkt-remote-access-tailscale",
-        "type": "Tailscale"
+        "crate": "kkt-remote-access",
+        "type": "testing::Memory"
        }
       ],
       "trait": "RemoteAccess"
@@ -25873,10 +25720,18 @@ window.KKT_PROPOSED = {
     "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login.",
     "dev_only": false,
     "features": {
+     "real": [],
      "testing": []
     },
     "holders": [],
     "implements": [
+     {
+      "crate": "kkt-remote-access",
+      "status": "decided",
+      "trait": "RemoteAccess",
+      "trait_crate": "kkt-remote-access",
+      "type": "Tailscale"
+     },
      {
       "crate": "kkt-remote-access",
       "status": "decided",
@@ -25908,6 +25763,14 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "Shares this machine's server through its existing Tailscale login.",
+      "feature": "real",
+      "kind": "struct",
+      "path": "Tailscale",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "A machine with the given network name, initially sharing nothing.",
       "feature": "testing",
       "kind": "struct",
@@ -25919,7 +25782,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      }
     ],
-    "kind": "contract",
+    "kind": "contract and effect",
     "lib": "kkt_remote_access",
     "machine_work": {
      "src/os.rs": [
@@ -25929,6 +25792,14 @@ window.KKT_PROPOSED = {
      ]
     },
     "name": "kkt-remote-access",
+    "optional_third_party": {
+     "serde": [
+      "real"
+     ],
+     "serde_json": [
+      "real"
+     ]
+    },
     "path": "crates/kkt-remote-access",
     "proposed": "changed",
     "proposed_notes": [
@@ -25974,66 +25845,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "testing::Memory implements kkt-remote-access::RemoteAccess: The contract owns its testing stand-in (12.1)."
-     },
-     {
-      "status": "decided",
-      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.1)."
-     },
-     {
-      "status": "decided",
-      "text": "its real feature moves to kkt-remote-access-tailscale"
-     },
-     {
-      "status": "decided",
-      "text": "All tool parsing moves into the named wrapper (12.1)."
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-remote-access-tailscale",
-      "status": "decided",
-      "trait": "RemoteAccess",
-      "trait_crate": "kkt-remote-access",
-      "type": "Tailscale"
-     }
-    ],
-    "items": [
-     {
-      "doc": "Shares this machine's server through its existing Tailscale login.",
-      "feature": "real",
-      "kind": "struct",
-      "path": "Tailscale",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_remote_access_tailscale",
-    "name": "kkt-remote-access-tailscale",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-remote-access"
-     },
-     {
-      "status": "decided",
       "text": "new struct Tailscale"
      },
      {
@@ -26042,11 +25853,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "takes the real feature from kkt-remote-access"
+      "text": "testing::Memory implements kkt-remote-access::RemoteAccess: The contract owns its testing stand-in (12.1)."
      },
      {
       "status": "decided",
-      "text": "The named wrapper implements the scope contract directly (12.1)."
+      "text": "gains a testing feature: The scope contract supplies its own in-memory stand-in (12.1)."
+     },
+     {
+      "status": "decided",
+      "text": "Tool parsing stays in the merged scope crate, optional under real; the open contract and stand-in need neither parser (13.2)."
      }
     ],
     "released_program": false,
@@ -32245,7 +32060,9 @@ window.KKT_PROPOSED = {
     "to": "kkt-browser"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kashkeshet",
     "items": [
      "Claude"
@@ -32267,7 +32084,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-client-command-claude"
+    "to": "kkt-client-command"
    },
    {
     "features": [],
@@ -33061,6 +32878,7 @@ window.KKT_PROPOSED = {
     ],
     "from": "kashkeshet",
     "items": [
+     "Check",
      "HttpProber",
      "Settings"
     ],
@@ -33071,6 +32889,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
+       "Check",
        "Settings"
       ],
       "role": "uses"
@@ -33087,7 +32906,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-probe-reqwest"
+    "to": "kkt-probe"
    },
    {
     "features": [],
@@ -33124,7 +32943,7 @@ window.KKT_PROPOSED = {
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "new",
+    "proposed": "changed",
     "role": "wires",
     "roles": [
      {
@@ -33139,7 +32958,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-remote-access-tailscale"
+    "to": "kkt-remote-access"
    },
    {
     "features": [
@@ -34768,31 +34587,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-backup"
-   },
-   {
-    "features": [],
-    "from": "kkt-client-command-claude",
-    "items": [
-     "ClientCommand"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "ClientCommand"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-client-command"
    },
    {
     "features": [],
@@ -38875,42 +38669,6 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-probe-reqwest",
-    "items": [
-     "Check",
-     "KeyFile",
-     "Prober",
-     "Probing"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "HttpProber implements Prober"
-      ],
-      "role": "implements"
-     },
-     {
-      "detail": [
-       "Check",
-       "KeyFile",
-       "Probing"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-probe"
-   },
-   {
-    "features": [],
     "from": "kkt-provenance",
     "items": [
      "sha256"
@@ -38957,38 +38715,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-names"
-   },
-   {
-    "features": [],
-    "from": "kkt-remote-access-tailscale",
-    "items": [
-     "Node",
-     "RemoteAccess"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "implements",
-    "roles": [
-     {
-      "detail": [
-       "Tailscale implements RemoteAccess"
-      ],
-      "role": "implements"
-     },
-     {
-      "detail": [
-       "Node"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-remote-access"
    },
    {
     "features": [],
@@ -41871,7 +41597,9 @@ window.KKT_PROPOSED = {
   ],
   "kind_mismatches": [
    "kkt-service-launchd is marked effect but has no `real` feature and no I/O dependency",
-   "kkt-service-systemd is marked effect but has no `real` feature and no I/O dependency"
+   "kkt-service-systemd is marked effect but has no `real` feature and no I/O dependency",
+   "kkt-probe is marked contract and effect but it has I/O dependencies outside `real`: reqwest",
+   "kkt-client-command is marked contract and effect but nothing in it implements its own contract"
   ],
   "pending": []
  },
@@ -42146,11 +41874,10 @@ window.KKT_PROPOSED = {
     }
    ],
    "new": [
-    "kkt-probe",
-    "kkt-probe-reqwest"
+    "kkt-probe"
    ],
    "path": "Prober",
-   "result": "Moved to its own contract crate, kkt-probe, with KeyFile, Check and Probing. The named wrapper kkt-probe-reqwest implements it directly, and the program only injects it (step 12.5b).",
+   "result": "Moved to its own crate, kkt-probe, with KeyFile, Check and Probing, together with its one implementation, HttpProber, behind real; the program turns real on and injects it (steps 12.5b and 13.5).",
    "rule": "declared by its consumers",
    "test_only": [],
    "trait": "kkt-diagnostics::Prober",
@@ -42251,7 +41978,7 @@ window.KKT_PROPOSED = {
     }
    ],
    "new": [
-    "kkt-remote-access-tailscale"
+    "kkt-remote-access"
    ],
    "path": "Host",
    "result": "Removed: the project-level RemoteAccess scope contract replaces run-a-command. The named Tailscale wrapper implements it directly, and the program only injects it (step 12.1).",

@@ -1,5 +1,5 @@
 use kashkeshet::machine::client_config::ClientHost;
-use kkt_client_command_claude::Claude;
+use kkt_client_command::Claude;
 use kkt_scratch as scratch;
 
 use kkt_client_config::{self as clients, Client, Setup};

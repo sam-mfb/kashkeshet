@@ -21,7 +21,7 @@ pub struct NativeOperate<'a, D = ()> {
     connection: ConnectionReads<'a>,
     service_defaults: D,
     service: Box<dyn kkt_service::Service>,
-    prober: kkt_probe_reqwest::HttpProber,
+    prober: kkt_probe::HttpProber,
     login_link: crate::terminal::browser_login::TerminalLink,
     /// Docker and Compose, opening a sharing setup's login link with the
     /// system's own opener.
@@ -71,9 +71,9 @@ impl<'a, D> NativeOperate<'a, D> {
             login_link: &self.login_link,
             service: self.service.as_ref(),
             try_bind: &kkt_service_os::try_bind,
-            remote: &kkt_remote_access_tailscale::Tailscale,
+            remote: &kkt_remote_access::Tailscale,
             clients: &super::client_config::ClientHost,
-            client_command: &kkt_client_command_claude::Claude,
+            client_command: &kkt_client_command::Claude,
             prober: &self.prober,
             lanes: &crate::commands::lanes::LaneDisk,
             lane_commit: &kkt_lane_commit::Git,
