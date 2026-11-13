@@ -60,6 +60,9 @@
   // part they depend on, on whichever edge faces them.
   const IMPL_W = 34;
   const MARK_Y = 29;
+  // Where a delivery line meets a box: off the middle and off a merged
+  // crate's parts, where arrows meet it.
+  const DELIVERY_X = BOX_W / 4;
   const GAP_X = 18;
   const PAD_X = 16;
   const PAD_Y = 14;
@@ -741,8 +744,16 @@
       .map((q) => ({ x: q.x, y: q.y, w: BOX_W, h: BOX_H }));
     const overlaps = (r) => placed.some((q) => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h);
     for (const line of lines.values()) {
-      const a = view.position.get(line.program);
-      const b = view.position.get(line.receiver);
+      // A quarter of the way along each box, where no arrow meets it
+      // (arrows meet the middle, or a merged crate's parts), so a line
+      // between a program and the crate just below it does not lie on the
+      // arrows leaving the program.
+      const at = (name) => {
+        const p = view.position.get(name);
+        return p && { ...p, mid: DELIVERY_X };
+      };
+      const a = at(line.program);
+      const b = at(line.receiver);
       if (!a || !b) continue;
       const tip = (ev) => showDeliveryTip(ev, line);
       const path = svg("path", { d: edgePath(a, b), class: "delivery", "data-from": line.program, "data-to": line.receiver });
