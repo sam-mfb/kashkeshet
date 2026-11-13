@@ -66,7 +66,7 @@ impl AdminKey for AdminKeyHere {
     }
 }
 
-/// kkt-admission-os' key files.
+/// kkt-server-keys' key files.
 struct KeyFiles;
 
 impl KeyText for KeyFiles {

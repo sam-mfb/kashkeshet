@@ -8,8 +8,11 @@ branch into `next`. Sam opens it.
 It reorganized the workspace's crates so that every dependency is
 injected and each crate is one kind: a contract (traits and plain values),
 logic with every effect injected, an effect on the machine, or the
-assembly. It changed how the code is divided, not what kkt does. The plan
-is `docs/architecture/refactor-plan.md`, the decisions behind it are in
+assembly. Phases 13 and 14 added two kinds that share a crate: a contract
+with its one implementation, and logic with the effect that carries out
+its plans. In both, the effect is behind `real`, which only programs turn
+on. It changed how the code is divided, not what kkt does. The plan is
+`docs/architecture/refactor-plan.md`, the decisions behind it are in
 `decisions.md`, and the page in `docs/architecture/` shows both the code
 ("Current") and the plan ("Proposed").
 
@@ -50,26 +53,29 @@ The map draws a merged crate as a split box, and its grey and amber arrows
 now run from the crate that is used or built to the crate that uses or
 builds it.
 
-Phase 14 (Sam, 2026-11-13) does the same for logic: a logic crate and the
-effect crate that only carries out its plans become one crate named for
+Phase 14 (Sam, 2026-11-13) did the same for logic: a logic crate and the
+effect crate that only carries out its plans became one crate named for
 the domain, of a new kind, "logic and effect", with the effect behind
-`real`. kkt-backup, kkt-setup and kkt-shutdown take back their `-os`
-crates. kkt-logs takes back the log file's writing, and starting tracing,
-the named implementation of kkt-log's contract, becomes kkt-log-tracing.
-kkt-admission splits by domain: who is let in stays, and the server's keys,
-with their files behind `real`, become kkt-server-keys.
+`real`. kkt-backup, kkt-setup and kkt-shutdown took back their `-os`
+crates. kkt-logs took back the log file's writing, and starting tracing,
+the named implementation of kkt-log's contract, became kkt-log-tracing.
+kkt-admission split by domain: who is let in stayed, and the server's keys,
+with their files behind `real`, became kkt-server-keys. Only the programs
+turn on these crates' `real`, so a crate that used only the logic gained
+no access to the effect.
 
-The workspace went from 33 packages to 65. The code now matches the
+The workspace went from 33 packages to 62. The code now matches the
 proposed map, as amended during the refactor, with no difference left
 (`decisions.md`, "After the refactor").
 
 ## Final scorecard
 
-From `progress.py`, on the code at the end of the refactor (46911a8):
+From `progress.py`, on the code at the end of the refactor (f66b0ab,
+phase 14's last code step merged):
 
-- crates: 65 of 65 proposed crates exist; none missing; none to remove;
-- items: 793 of 793 proposed items are in their proposed crate;
-- arrows: 256 of 256 proposed arrows exist; none missing; none extra;
+- crates: 62 of 62 proposed crates exist; none missing; none to remove;
+- items: 795 of 795 proposed items are in their proposed crate;
+- arrows: 248 of 248 proposed arrows exist; none missing; none extra;
 - wiring: 102 of 102 proposed wirings exist; none missing; none extra
   (counted since the proposal's wiring was charted after 13.10; until then
   the proposal had 42 of the 95 in the code's record, and 21 that record
@@ -128,10 +134,11 @@ reviewed by hand until they return. Watch their first runs. The code the refacto
   kkt-service-launchd's `Settings`.
 
 Code under `cfg(unix)` also moved, and runs on both systems: file modes
-(kkt-admission-os, kkt-backup (behind `real`), kkt-client-config-os,
-kkt-container (behind `real`), kkt-config-file-os), the stop signals
-(kkt-shutdown, behind `real`), the agent credential files' owner and mode checks
-(kkt-agent-files-os), and the closed output pipe (kkt-terminal-os).
+(kkt-server-keys (behind `real`), kkt-backup (behind `real`),
+kkt-client-config-os, kkt-container (behind `real`), kkt-config-file-os),
+the stop signals (kkt-shutdown, behind `real`), the agent credential
+files' owner and mode checks (kkt-agent-files-os), and the closed output
+pipe (kkt-terminal-os).
 
 ## How to merge
 

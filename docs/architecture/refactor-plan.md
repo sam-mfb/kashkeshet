@@ -13,7 +13,7 @@ The plan has five parts: the rules every step follows; how progress is
 measured; how parallel work avoids collisions; the steps; and what needs
 Sam, each with the default we proceed on.
 
-The refactor's phases 0 to 13 are done. After phase 8, Sam decided four
+The refactor's phases 0 to 14 are done. After phase 8, Sam decided four
 more (2026-11-12). Phase 9 removed kkt-settings: each owner checks and words
 its own settings, and kkt-server takes them checked. Phase 10 moved the
 program's tools out of its library into two assemblies, kkt-operate and
@@ -23,8 +23,8 @@ crate. Phase 12 split every third-party dependency into a contract crate in
 kkt's terms and a wrapper named for the tool, which the program injects
 with no adapter. Phase 13 (Sam, after phase 12) merged each such pair with one implementation
 into one crate, the implementation behind `real`. Phase 14 (Sam,
-2026-11-13) does the same for logic: a logic crate and the effect crate
-that only carries out its plans become one crate, the effect behind `real`.
+2026-11-13) did the same for logic: a logic crate and the effect crate
+that only carries out its plans became one crate, the effect behind `real`.
 Sam's decisions come first, below; the scorecards are at the end.
 
 ## Sam's decisions
@@ -1829,6 +1829,7 @@ program turns `real` on, as it turned on the `-os` crate's.
 | 14.3 | kkt-shutdown and kkt-shutdown-os become kkt-shutdown: `StopSignals` behind `real`, with tokio optional | S | kkt-build-d (#539) | kkt-review-e |
 | 14.4 | Logs: kkt-logs-os splits in two. The file writer joins kkt-logs behind `real`; the tracing implementation of kkt-log's `Log`, with the subscriber's start, becomes kkt-log-tracing | M | kkt-build-e (#536) | kkt-review-e |
 | 14.5 | Admission: kkt-admission splits by domain. Who is let in stays; the server's keys become kkt-server-keys, with kkt-admission-os' file handling behind `real` | M | kkt-build-e (#538) | kkt-review-e |
+| 14.6 | The plan, refactor-merge.md and decisions.md brought up to date, and phase 14's scorecard | S | kkt-build-f (this pull request) | kkt-review-f |
 
 sage-cardinal merges, one pull request at a time; each merges the tip of
 `refactor` in first. 14.0 comes first. Then kkt-build-d takes 14.1, 14.2
@@ -1935,9 +1936,23 @@ builds and tests alone without `real`.
 Each step brings its crate's counts to the proposal. 14.5 adds its own
 target when it charts kkt-server-keys.
 
-**Existing installs:** none expected. The merges move code between crates
-and change no file, flag, message or command that an install relies on.
-Every step's pull request says so, and how it checked.
+**Existing installs:** none. The merges moved code between crates and
+changed no file, flag, message or command that an install relies on.
+Every step's pull request said so, and how it checked.
+
+**What phase 14 did, against this plan** (step 14.6). Every change the
+plan lists is done. 14.4 merged before 14.2, since the two builders worked
+side by side; nothing depended on the order. Where a step did something
+the plan did not say, the row says what and why.
+
+| Plan | Done | Step | Differs from the plan |
+|---|---|---|---|
+| The rule, the new kind and its checks; 14.1 to 14.4 charted | Kind "logic and effect" in concerns.json, kinds.py, the map's colours and README.md; generate.py's `real_files`; check-crates.sh's check 7; CLAUDE.md's "Logic and its effect" | 14.0 (#534) | No. map-data.js was regenerated for `real_files`, and nothing else in it changed |
+| kkt-backup + kkt-backup-os | Merged; `write` and `prune` behind `real`, in a private `files` module, with their 7 tests; `real` adds no dependency | 14.1 (#535) | No. kkt-scratch became a dev-dependency, for the moved tests |
+| kkt-setup + kkt-setup-os | Merged; setup's files on this machine (13 functions) behind `real`, in a private `files` module; `real` adds no dependency | 14.2 (#537) | No |
+| kkt-shutdown + kkt-shutdown-os | Merged; `StopSignals` behind `real`, in a private `signals` module; tokio optional, only `real` turns it on | 14.3 (#539) | No |
+| Logs: kkt-logs-os splits in two | `RotatingFile` and the new `open_log_file` in kkt-logs behind `real`; `TracingLog`, `init_logging` and `init_stderr_logging` in kkt-log-tracing, with tracing and tracing-subscriber optional | 14.4 (#536) | No. Three new tests cover `open_log_file`: a policy too small, a file that cannot be opened, and a good one |
+| Admission: the server's keys leave kkt-admission | kkt-server-keys, of kind "logic and effect", with kkt-admission-os' files behind `real`; kkt-admission depends on it, never the reverse; `SharedKey::generate` became `kkt_server_keys::generate`; the pull request and the CHANGELOG list every moved item | 14.5 (#538) | No. Review added one CI change: the programs job runs every `test_*.py` in docs/architecture, so propose.py's tests, with `late_moves`' new `as`, run in CI |
 
 ## Order at a glance
 
@@ -1956,7 +1971,7 @@ lane A: 1.3 → 1.1 → 1.6 → 1.7    lane B: 1.2 → 1.4 → 1.5 → 1.9    an
 9.1 (kkt-build-b and kkt-build-c in parallel) → 9.2 → 9.3
   → 10.2a → 10.2b, with 10.3 beside them → 10.4 (charts 9 and 10)
 14.0 → 14.1 → 14.2 → 14.3 (kkt-build-d), 14.4 → 14.5 (kkt-build-e),
-  one pull request at a time
+  one pull request at a time → 14.6
 ```
 
 Three builders can work most of the time: one on phases 1 and 2, one on
@@ -2022,6 +2037,21 @@ Each has the default we proceed on, so nothing waits.
    and the page's "Current" map shows the code. Accepted by Sam, 2026-11-12.
 
 ## Final scorecard
+
+On the code at the end of phase 14, at f66b0ab (#538 merged), against
+the proposal with phases 9 to 14 charted (`progress.py`, step 14.6):
+
+- crates: 62 of 62 proposed crates exist; none missing; none to remove;
+- items: 795 of 795 proposed items are in their proposed crate;
+- arrows: 248 of 248 proposed arrows exist; none missing; none extra;
+- wiring: 102 of 102 proposed wirings exist; none missing; none extra;
+- rules: no kind check fails; no break of the proposal's rules.
+
+Nothing was left to chart: each step charted its own differences as it
+merged. The one temporary break left is still CI's, not the code's: macOS
+is out of CI (#501), until it comes back or a self-hosted runner takes it.
+
+### At the end of phase 13
 
 On the code at the end of phase 13, at 46911a8 (#527 merged), against
 the proposal with phases 9 to 13 charted (`progress.py`, step 13.10):

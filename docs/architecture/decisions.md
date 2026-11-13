@@ -409,6 +409,16 @@ kkt-log's contract, becomes kkt-log-tracing. kkt-admission splits in two:
 who is let in stays, and the server's keys, with their files behind
 `real`, become kkt-server-keys.
 
+Phase 14 is done (steps 14.0 to 14.6). The plan's phase 14 section has a
+table of what each step did against the plan. The final scorecard, on the
+code at f66b0ab:
+
+- crates: 62 of 62 proposed crates exist; none missing; none to remove;
+- items: 795 of 795 proposed items are in their proposed crate;
+- arrows: 248 of 248 proposed arrows exist; none missing; none extra;
+- wiring: 102 of 102 proposed wirings exist; none missing; none extra;
+- rules: no kind check fails; no break of the proposal's rules.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.
