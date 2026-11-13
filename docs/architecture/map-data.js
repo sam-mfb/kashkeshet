@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a6a5495",
+ "commit": "f462b59",
  "crates": [
   {
    "bins": [
@@ -3820,11 +3820,11 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-browser",
-       "type": "testing::Recorder"
+       "type": "SystemBrowser"
       },
       {
-       "crate": "kkt-browser-os",
-       "type": "SystemBrowser"
+       "crate": "kkt-browser",
+       "type": "testing::Recorder"
       }
      ],
      "trait": "Browser"
@@ -3833,10 +3833,17 @@ window.KKT_GRAPH = {
    "crate_doc": "Opening a link in the person's browser, in kkt's terms: start opening it now, and say later, once, if that failed.",
    "dev_only": false,
    "features": {
+    "real": [],
     "testing": []
    },
    "holders": [],
    "implements": [
+    {
+     "crate": "kkt-browser",
+     "trait": "Browser",
+     "trait_crate": "kkt-browser",
+     "type": "SystemBrowser"
+    },
     {
      "crate": "kkt-browser",
      "trait": "Browser",
@@ -3853,6 +3860,15 @@ window.KKT_GRAPH = {
       "open_failure"
      ],
      "path": "Browser"
+    },
+    {
+     "doc": "The system's opener, which the program injects as the `Browser`.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "SystemBrowser"
     },
     {
      "doc": "A stand-in browser, for tests of the crates that open links: it records each link, can refuse to start, and can report a later failure once.",
@@ -3873,55 +3889,16 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_browser",
-   "machine_work": {},
-   "name": "kkt-browser",
-   "optional_third_party": {},
-   "path": "crates/kkt-browser",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "kkt-browser with the system's own opener: `open` on macOS, `xdg-open` elsewhere.",
-   "dev_only": false,
-   "features": {
-    "real": []
-   },
-   "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-browser-os",
-     "trait": "Browser",
-     "trait_crate": "kkt-browser",
-     "type": "SystemBrowser"
-    }
-   ],
-   "items": [
-    {
-     "doc": "The system's opener, which the program injects as kkt-browser's `Browser`.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "SystemBrowser"
-    }
-   ],
-   "lib": "kkt_browser_os",
    "machine_work": {
-    "src/lib.rs": [
+    "src/system.rs": [
      "process::Command::new",
      "process::Stdio",
      "process::Stdio::null"
     ]
    },
-   "name": "kkt-browser-os",
+   "name": "kkt-browser",
    "optional_third_party": {},
-   "path": "crates/kkt-browser-os",
+   "path": "crates/kkt-browser",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4663,11 +4640,11 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-container",
-       "type": "testing::Memory"
+       "type": "Docker"
       },
       {
-       "crate": "kkt-container-docker",
-       "type": "Docker"
+       "crate": "kkt-container",
+       "type": "testing::Memory"
       }
      ],
      "trait": "Container"
@@ -4685,10 +4662,33 @@ window.KKT_GRAPH = {
    "crate_doc": "The operations and records of a kkt container installation.",
    "dev_only": false,
    "features": {
+    "real": [
+     "dep:kkt-browser",
+     "dep:kkt-config-file",
+     "dep:kkt-machine",
+     "dep:serde_json",
+     "dep:thiserror"
+    ],
     "testing": []
    },
-   "holders": [],
+   "holders": [
+    {
+     "holds": [
+      {
+       "crate": "kkt-browser",
+       "trait": "Browser"
+      }
+     ],
+     "type": "Docker"
+    }
+   ],
    "implements": [
+    {
+     "crate": "kkt-container",
+     "trait": "Container",
+     "trait_crate": "kkt-container",
+     "type": "Docker"
+    },
     {
      "crate": "kkt-container",
      "trait": "Container",
@@ -4741,6 +4741,15 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "ContainerConfig"
+    },
+    {
+     "doc": "Docker and Compose implement the container contract directly.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "Docker"
     },
     {
      "doc": "An installation discovered in the managed folder.",
@@ -4872,59 +4881,8 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_container",
-   "machine_work": {},
-   "name": "kkt-container",
-   "optional_third_party": {},
-   "path": "crates/kkt-container",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": [
-    "futures"
-   ]
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "Docker implementation of kkt-container: the Compose files that come with this program, the folder kkt manages for them, and the commands that set it up, start it, back it up, import and export its lanes, upgrade it and remove it.",
-   "dev_only": false,
-   "features": {
-    "real": []
-   },
-   "holders": [
-    {
-     "holds": [
-      {
-       "crate": "kkt-browser",
-       "trait": "Browser"
-      }
-     ],
-     "type": "Docker"
-    }
-   ],
-   "implements": [
-    {
-     "crate": "kkt-container-docker",
-     "trait": "Container",
-     "trait_crate": "kkt-container",
-     "type": "Docker"
-    }
-   ],
-   "items": [
-    {
-     "doc": "Docker and Compose implement the container contract directly.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "Docker"
-    }
-   ],
-   "lib": "kkt_container_docker",
    "machine_work": {
-    "src/runner.rs": [
+    "src/docker/runner.rs": [
      "env::current_dir",
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
@@ -4946,9 +4904,16 @@ window.KKT_GRAPH = {
      "Path::is_file"
     ]
    },
-   "name": "kkt-container-docker",
-   "optional_third_party": {},
-   "path": "crates/kkt-container-docker",
+   "name": "kkt-container",
+   "optional_third_party": {
+    "serde_json": [
+     "real"
+    ],
+    "thiserror": [
+     "real"
+    ]
+   },
+   "path": "crates/kkt-container",
    "released_program": false,
    "slots": [
     {
@@ -6859,19 +6824,20 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-lane-commit",
-       "type": "testing::Memory"
+       "type": "Git"
       },
       {
-       "crate": "kkt-lane-commit-git",
-       "type": "Git"
+       "crate": "kkt-lane-commit",
+       "type": "testing::Memory"
       }
      ],
      "trait": "LaneCommit"
     }
    ],
-   "crate_doc": "The commit a lane folder is at, as a contract: `LaneCommit`, which `kkt lanes import` asks so the lane versions it saves record where they came from.",
+   "crate_doc": "The commit a lane folder is at: `LaneCommit`, which `kkt lanes import` asks so the lane versions it saves record where they came from, and its one implementation, `Git` (behind `real`), which only the program turns on and injects.",
    "dev_only": false,
    "features": {
+    "real": [],
     "testing": []
    },
    "holders": [],
@@ -6880,10 +6846,22 @@ window.KKT_GRAPH = {
      "crate": "kkt-lane-commit",
      "trait": "LaneCommit",
      "trait_crate": "kkt-lane-commit",
+     "type": "Git"
+    },
+    {
+     "crate": "kkt-lane-commit",
+     "trait": "LaneCommit",
+     "trait_crate": "kkt-lane-commit",
      "type": "testing::Memory"
     }
    ],
    "items": [
+    {
+     "doc": "The machine's git, asked where a lane folder is.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Git"
+    },
     {
      "doc": "The commit a lane folder is at.",
      "kind": "trait",
@@ -6910,50 +6888,14 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_lane_commit",
-   "machine_work": {},
-   "name": "kkt-lane-commit",
-   "optional_third_party": {},
-   "path": "crates/kkt-lane-commit",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "The commit a lane folder is at, from git: `Git` implements kkt-lane-commit's `LaneCommit` by running `git -C <folder>` in the C locale and reading its answers.",
-   "dev_only": false,
-   "features": {
-    "real": []
-   },
-   "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-lane-commit-git",
-     "trait": "LaneCommit",
-     "trait_crate": "kkt-lane-commit",
-     "type": "Git"
-    }
-   ],
-   "items": [
-    {
-     "doc": "The machine's git, asked where a lane folder is.",
-     "feature": "real",
-     "kind": "struct",
-     "path": "Git"
-    }
-   ],
-   "lib": "kkt_lane_commit_git",
    "machine_work": {
     "src/git.rs": [
      "process::Command::new"
     ]
    },
-   "name": "kkt-lane-commit-git",
+   "name": "kkt-lane-commit",
    "optional_third_party": {},
-   "path": "crates/kkt-lane-commit-git",
+   "path": "crates/kkt-lane-commit",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -16875,7 +16817,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-browser-os"
+   "to": "kkt-browser"
   },
   {
    "features": [
@@ -17064,11 +17006,14 @@ window.KKT_GRAPH = {
    "to": "kkt-config-file-os"
   },
   {
-   "features": [],
+   "features": [
+    "real"
+   ],
    "from": "kashkeshet",
    "items": [
     "ConfigReader",
     "ContainerConfig",
+    "Docker",
     "LoginLink"
    ],
    "kind": "normal",
@@ -17084,29 +17029,6 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "ContainerConfig"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-container"
-  },
-  {
-   "features": [
-    "real"
-   ],
-   "from": "kashkeshet",
-   "items": [
-    "Docker"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "wires",
-   "roles": [
-    {
-     "detail": [
       "Docker"
      ],
      "role": "wires"
@@ -17114,7 +17036,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-container-docker"
+   "to": "kkt-container"
   },
   {
    "features": [],
@@ -17318,7 +17240,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-lane-commit-git"
+   "to": "kkt-lane-commit"
   },
   {
    "features": [],
@@ -19619,28 +19541,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-browser-os",
-   "items": [
-    "Browser"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "SystemBrowser implements Browser"
-     ],
-     "role": "implements"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-browser"
-  },
-  {
-   "features": [],
-   "from": "kkt-browser-os",
+   "from": "kkt-browser",
    "items": [
     "Dir"
    ],
@@ -19825,54 +19726,10 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-container",
    "items": [
-    "Clock"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Clock"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Time"
-   ],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-container",
-   "items": [
-    "AdminName"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AdminName"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-container-docker",
-   "items": [
     "Browser"
    ],
    "kind": "normal",
-   "optional": false,
+   "optional": true,
    "role": "uses",
    "roles": [
     {
@@ -19888,7 +19745,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
    "items": [
     "Clock",
     "Span"
@@ -19914,14 +19771,14 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
    "items": [
     "CONFIG_DIR",
     "CONFIG_FILE_NAME",
     "config_file"
    ],
    "kind": "normal",
-   "optional": false,
+   "optional": true,
    "role": "uses",
    "roles": [
     {
@@ -19941,69 +19798,13 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container-docker",
-   "items": [
-    "ADMIN_KEY_FILE_NAME",
-    "ConfigReader",
-    "Container",
-    "ContainerConfig",
-    "Existing",
-    "Folder",
-    "Inputs",
-    "KeyCopy",
-    "LanesImport",
-    "Login",
-    "LoginLink",
-    "NO_ADMIN_KEY_EXIT",
-    "Provisioned",
-    "Sharing",
-    "State",
-    "WEB_KEY_FILE_NAME"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "Docker implements Container"
-     ],
-     "role": "implements"
-    },
-    {
-     "detail": [
-      "ADMIN_KEY_FILE_NAME",
-      "ConfigReader",
-      "ContainerConfig",
-      "Existing",
-      "Folder",
-      "Inputs",
-      "KeyCopy",
-      "LanesImport",
-      "Login",
-      "LoginLink",
-      "NO_ADMIN_KEY_EXIT",
-      "Provisioned",
-      "Sharing",
-      "State",
-      "WEB_KEY_FILE_NAME"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-container"
-  },
-  {
-   "features": [],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
    "items": [
     "Env",
     "XDG_CONFIG_HOME_DEFAULT"
    ],
    "kind": "normal",
-   "optional": false,
+   "optional": true,
    "role": "uses",
    "roles": [
     {
@@ -20020,7 +19821,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
    "items": [
     "AdminName"
    ],
@@ -20042,10 +19843,31 @@ window.KKT_GRAPH = {
    "to": "kkt-names"
   },
   {
+   "features": [],
+   "from": "kkt-container",
+   "items": [
+    "Browser"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Browser"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-browser"
+  },
+  {
    "features": [
     "testing"
    ],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
    "items": [
     "Span",
     "Time",
@@ -20075,7 +19897,45 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
+   "items": [
+    "parse_file"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "parse_file"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-config-file"
+  },
+  {
+   "features": [],
+   "from": "kkt-container",
+   "items": [],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-machine"
+  },
+  {
+   "features": [],
+   "from": "kkt-container",
    "items": [
     "Dir"
    ],
@@ -22075,27 +21935,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-web"
-  },
-  {
-   "features": [],
-   "from": "kkt-lane-commit-git",
-   "items": [
-    "LaneCommit"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "Git implements LaneCommit"
-     ],
-     "role": "implements"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-lane-commit"
   },
   {
    "features": [],
@@ -26836,16 +26675,10 @@ window.KKT_CONCERNS = {
    "must_not": "Choose backup names, contents, modes or retention."
   },
   "kkt-browser": {
-   "concern": "The project's contract for opening a link in the person's browser: Browser (start opening it now; say later, once, if that failed), with the testing Recorder.",
-   "kind": "contract",
+   "concern": "Opening a link in the person's browser. The contract: Browser (start opening it now; say later, once, if that failed), with the testing Recorder. Its one implementation, SystemBrowser, with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real (step 13.3).",
+   "kind": "contract and effect",
    "layer": "operations",
-   "must_not": "Know an opener program; touch the machine."
-  },
-  "kkt-browser-os": {
-   "concern": "Implements Browser with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Wait for the browser; repeat the link in a message."
+   "must_not": "Name an opener program in the contract; wait for the browser; repeat the link in a message."
   },
   "kkt-client-command": {
    "concern": "The project's contract for configuring an MCP client through that client's own command line: ClientCommand (remove kkt's server, add it as the client's own entry), with the testing Recorder.",
@@ -26896,16 +26729,10 @@ window.KKT_CONCERNS = {
    "must_not": "Know the files' format."
   },
   "kkt-container": {
-   "concern": "The container installation contract, its requests and results, config parsing, and the login link's terminal half (LoginLink), and an in-memory testing stand-in.",
-   "kind": "contract",
+   "concern": "The container installation contract and stand-in, with Docker and Compose implementation behind real and private tool logic tested against a fake.",
+   "kind": "contract and effect",
    "layer": "operations",
-   "must_not": "Know Docker commands, Compose files or their formats; touch the machine."
-  },
-  "kkt-container-docker": {
-   "concern": "Docker and Compose implement Container directly; all Docker files, commands, output and sidecar status, tested over a private runner. A sharing setup's login link opens in the kkt-browser Browser it is built with.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Decide setup answers or remember the setup record."
+   "must_not": "Let Docker details into the open contract; decide setup answers or remember the setup record."
   },
   "kkt-db": {
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
@@ -26976,16 +26803,10 @@ window.KKT_CONCERNS = {
    "must_not": "Be released, or share code with the `kkt` program."
   },
   "kkt-lane-commit": {
-   "concern": "The project's contract for the commit a lane folder is at (`LaneCommit`), and its testing Memory stand-in.",
-   "kind": "contract",
+   "concern": "The commit a lane folder is at: the `LaneCommit` contract in the open, with its testing Memory stand-in, and its one implementation behind real, `Git`: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner.",
+   "kind": "contract and effect",
    "layer": "operations",
-   "must_not": "Know a version-control tool, its commands or output; touch the machine."
-  },
-  "kkt-lane-commit-git": {
-   "concern": "Implements LaneCommit with git: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner; running git is behind real.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Read or write the lane files."
+   "must_not": "Read or write the lane files; let a consumer reach `Git` without real."
   },
   "kkt-lane-files": {
    "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from kkt-lane-commit's `LaneCommit`.",
@@ -28013,7 +27834,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-container-docker::Docker",
+     "impl": "kkt-container::Docker",
      "note": "Direct injection of the named container implementation into the operator assembly.",
      "to": [
       {
@@ -28109,8 +27930,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-lane-commit-git::Git",
-     "note": "The program injects git directly as the lane folder's commit (12.5a).",
+     "impl": "kkt-lane-commit::Git",
+     "note": "The program turns on kkt-lane-commit's real and injects its Git directly as the lane folder's commit (12.5a, merged in 13.4).",
      "to": [
       {
        "at": "OperateParts",
@@ -28255,8 +28076,8 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-container-docker",
-     "impl": "kkt-browser-os::SystemBrowser",
+     "crate": "kkt-container",
+     "impl": "kkt-browser::SystemBrowser",
      "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener, given to the Docker wrapper as it is",
      "to": [
       {
