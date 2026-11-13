@@ -613,7 +613,7 @@ fn clients_flag(list: Option<&str>) -> Result<Option<Vec<Client>>, String> {
 /// and use it from elsewhere.
 fn absolute_flag(path: Option<PathBuf>) -> Result<Option<PathBuf>, String> {
     match path {
-        Some(path) => kkt_setup_os::absolute(&path)
+        Some(path) => kkt_setup::absolute(&path)
             .map(Some)
             .map_err(|e| format!("could not resolve {}: {e}", path.display())),
         None => Ok(None),
