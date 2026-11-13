@@ -347,11 +347,23 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         if path not in items_of.get(crate, {}):
             problems.append(f"late_moves: no item {path} in {crate}")
             continue
-        items_of[move["to"]][path] = dict(items_of[crate].pop(path), moved_from=crate, status=move["status"])
+        if move["to"] not in crates:
+            problems.append(f"late_moves: no crate {move['to']}")
+            continue
+        item = dict(items_of[crate].pop(path), moved_from=crate, status=move["status"])
+        if move.get("feature"):
+            item["feature"] = move["feature"]
+        # As in moves, a late move may give the item a new path (kkt-admission's
+        # server_keys::KeyText becomes kkt-server-keys' KeyText, step 14.5).
+        if move.get("as"):
+            item["path"] = move["as"]
+            renamed_paths[(crate, path)] = move["as"]
+        items_of[move["to"]][move.get("as", path)] = item
         home[(crate, path)] = move["to"]
-        item_status[(move["to"], path)] = move["status"]
+        item_status[(move["to"], move.get("as", path))] = move["status"]
         note(crate, f"{path} moves to {move['to']}: {move['note']}", move["status"])
-        note(move["to"], f"{path} comes here from {crate}", move["status"])
+        note(move["to"], f"{path} comes here from {crate}" + (f" as {move['as']}" if move.get("as") else ""),
+             move["status"])
 
     table = {r["trait"]: r for r in trait_table(graph, spec.get("wires_only"))}
     declared = {}

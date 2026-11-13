@@ -99,7 +99,7 @@
    "kind": "composition",
    "from": "kkt-web",
    "status": "decided",
-   "concern": "The web page over simulated data, a dev-only program with no library: kkt-web's page over kkt-api-sim's `Preview` and `PreviewGate`, which it turns kkt-api-sim's testing feature on for, with the real clock, randomness and stop signals, served alone through kkt-server's `page` and kkt-server-listen. It logs through kkt-logs-os and reads its key file through kkt-admission-os. Its flags and their checks are its own (step 6.3).",
+   "concern": "The web page over simulated data, a dev-only program with no library: kkt-web's page over kkt-api-sim's `Preview` and `PreviewGate`, which it turns kkt-api-sim's testing feature on for, with the real clock, randomness and stop signals, served alone through kkt-server's `page` and kkt-server-listen. It logs through kkt-logs-os and reads its key file through kkt-server-keys. Its flags and their checks are its own (step 6.3).",
    "program": "kkt-web-preview",
    "dev_only": true
   },
@@ -156,15 +156,16 @@
    "concern": "The config file's format: parsing its TOML into `Config`, its own record of what the file says (`parse_file`), and changing its text (`with_allowed_host`), with its own error. It reads no file and knows nothing of kkt-settings: the program turns a parsed file into kkt-settings' `ServeOptions`, and adapts it to kkt-container's parser."
   },
   {
-   "name": "kkt-admission-os",
+   "name": "kkt-server-keys",
    "layer": "access",
-   "kind": "effect",
-   "from": "kashkeshet",
+   "kind": "logic and effect",
+   "from": "kkt-admission",
    "status": "decided",
    "features": {
-    "real": []
+    "real": [],
+    "testing": []
    },
-   "concern": "The server's key files on disk: reading the access, web and admin keys and the admin name file, and writing a key file only its owner can read, new or replaced when forced, with kkt-admission's file mode. `KeyFiles` is a plain type; the programs adapt it to kkt-admission's `KeyTexts`, and kkt calls it to make and write keys, with a key factory the caller gives, so it draws no randomness of its own; a failed read is its own `ReadError`, with the file's path."
+   "concern": "The server's keys (step 14.5): what a valid key is (`check_access_key`, `SettingError`) and making a new one (`generate`), which access key a server uses (`AccessKey`), a key file's text (`KeyText`), the key files' names, mode and places, and the admin name tied to the admin key (`bound_to`, `bound_in`, `admin_name_line`, `admin_name_written`). Behind real, the key files on disk, from kkt-admission-os: reading the access, web and admin keys and the admin name file, and writing a key file only its owner can read, new or replaced when forced. `KeyFiles` is a plain type; the programs adapt it to kkt-admission's `KeyTexts`, and kkt calls it to make and write keys, with a key factory the caller gives, so it draws no randomness of its own; a failed read is its own `ReadError`, with the file's path. kkt-admission depends on it, never the reverse, and keeps who a key lets in."
   },
   {
    "name": "kkt-terminal-os",
@@ -869,7 +870,7 @@
   },
   {
    "item": "kashkeshet::machine::keys::make_default_key",
-   "to": "kkt-admission-os",
+   "to": "kkt-server-keys",
    "status": "decided",
    "as": "make_default_key",
    "note": "writes a missing default key; the caller gives the key factory, and it returns the path only when it made the file, so the program reports it (step 7.2)",
@@ -877,7 +878,7 @@
   },
   {
    "item": "kashkeshet::machine::keys::new_key_file",
-   "to": "kkt-admission-os",
+   "to": "kkt-server-keys",
    "status": "decided",
    "as": "new_key_file",
    "feature": "real",
@@ -885,14 +886,14 @@
   },
   {
    "item": "kashkeshet::machine::keys::write_key_file",
-   "to": "kkt-admission-os",
+   "to": "kkt-server-keys",
    "status": "decided",
    "as": "write_key_file",
    "feature": "real"
   },
   {
    "item": "kashkeshet::machine::keys::write_admin_name",
-   "to": "kkt-admission-os",
+   "to": "kkt-server-keys",
    "status": "decided",
    "as": "write_admin_name",
    "feature": "real",
@@ -1557,7 +1558,7 @@
   {
    "item": "kashkeshet::machine::keys",
    "status": "decided",
-   "note": "its items move to kkt-setup, kkt-admission and kkt-admission-os"
+   "note": "its items move to kkt-setup, kkt-admission and kkt-server-keys"
   },
   {
    "item": "kashkeshet::logging",
@@ -2375,7 +2376,7 @@
    "doc": "What kkt-container needs of the container's config file, which it reads through its Host: its own ContainerConfig, the name pack and the lane limit (step 3.3)."
   },
   {
-   "crate": "kkt-admission-os",
+   "crate": "kkt-server-keys",
    "path": "KeyFiles",
    "kind": "struct",
    "status": "decided",
@@ -3037,7 +3038,7 @@
    "feature": "testing"
   },
   {
-   "crate": "kkt-admission-os",
+   "crate": "kkt-server-keys",
    "path": "ReadError",
    "kind": "struct",
    "status": "decided",
@@ -4398,6 +4399,13 @@
    "status": "decided",
    "feature": "real",
    "doc": "Checks the log policy and opens the rolling log file, with the same two refusals as before (step 14.4)."
+  },
+  {
+   "crate": "kkt-server-keys",
+   "path": "generate",
+   "kind": "fn",
+   "status": "decided",
+   "doc": "A new random key, such as `kkt key create` writes, drawn from the injected Entropy; it passes check_access_key. It was SharedKey::generate in kkt-admission (step 14.5)."
   }
  ],
  "declared": [],
@@ -4415,7 +4423,7 @@
   {
    "trait": "kkt-admission::server_keys::KeyTexts",
    "status": "decided",
-   "note": "the programs adapt kkt-admission-os' KeyFiles instead of reading key files themselves"
+   "note": "the programs adapt kkt-server-keys' KeyFiles instead of reading key files themselves"
   },
   {
    "trait": "kkt-container::LoginLink",
@@ -4454,7 +4462,7 @@
     "note": "1 translating method: parses the container's config text, which kkt-container reads through its Host, into kkt-container's own ContainerConfig (step 3.3)"
    },
    {
-    "adapts": "kkt-admission-os::KeyFiles",
+    "adapts": "kkt-server-keys::KeyFiles",
     "to": "kkt-admission::server_keys::KeyTexts",
     "status": "decided",
     "note": "4 forwarding methods: the key files' texts"
@@ -4486,7 +4494,7 @@
   ],
   "kkt-keymode": [
    {
-    "adapts": "kkt-admission-os::KeyFiles",
+    "adapts": "kkt-server-keys::KeyFiles",
     "to": "kkt-admission::server_keys::KeyTexts",
     "status": "decided",
     "note": "4 forwarding methods, as in kkt"
@@ -4729,16 +4737,16 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-admission",
+   "to": "kkt-server-keys",
    "kind": "normal",
    "add": {
     "uses": [
-     "server_keys::bound_in",
-     "server_keys::bound_to"
+     "bound_in",
+     "bound_to"
     ]
    },
    "status": "decided",
-   "note": "the program binds admin names to keys through kkt-admission"
+   "note": "the program binds admin names to keys through kkt-admission; the key items are kkt-server-keys' (step 14.5)"
   },
   {
    "from": "kkt-clock-system",
@@ -5385,7 +5393,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-admission-os",
+   "to": "kkt-server-keys",
    "kind": "normal",
    "add": {
     "uses": [
@@ -5397,7 +5405,7 @@
     ]
    },
    "status": "decided",
-   "note": "the program reads and writes key files through kkt-admission-os"
+   "note": "the program reads and writes key files through kkt-server-keys"
   },
   {
    "from": "kashkeshet",
@@ -5508,19 +5516,19 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-admission",
+   "to": "kkt-server-keys",
    "kind": "normal",
    "add": {
     "uses": [
-     "server_keys::admin_name_line"
+     "admin_name_line"
     ]
    },
    "status": "decided",
-   "note": "the admin name file's line"
+   "note": "the admin name file's line; the key items are kkt-server-keys' (step 14.5)"
   },
   {
    "from": "kkt-keymode",
-   "to": "kkt-admission-os",
+   "to": "kkt-server-keys",
    "kind": "normal",
    "add": {
     "uses": [
@@ -5528,7 +5536,7 @@
     ]
    },
    "status": "decided",
-   "note": "key mode reads its key files through kkt-admission-os"
+   "note": "key mode reads its key files through kkt-server-keys"
   },
   {
    "from": "kkt-keymode",
@@ -5553,18 +5561,6 @@
    },
    "status": "decided",
    "note": "its banner and errors"
-  },
-  {
-   "from": "kkt-admission-os",
-   "to": "kkt-admission",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "ACCESS_KEY_FILE_MODE"
-    ]
-   },
-   "status": "decided",
-   "note": "key files are written with kkt-admission's file mode"
   },
   {
    "from": "kkt-identity",
@@ -5819,13 +5815,24 @@
    "kind": "normal",
    "add": {
     "uses": [
-     "key_refusal",
+     "key_refusal"
+    ]
+   },
+   "status": "decided",
+   "note": "the keys' settings, checked by kkt-admission"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-server-keys",
+   "kind": "normal",
+   "add": {
+    "uses": [
      "access_key_file",
      "SettingError"
     ]
    },
    "status": "decided",
-   "note": "the keys' settings, checked by kkt-admission"
+   "note": "the keys' settings, checked by kkt-admission; the key items are kkt-server-keys' (step 14.5)"
   },
   {
    "from": "kashkeshet",
@@ -5871,12 +5878,23 @@
    "kind": "normal",
    "add": {
     "uses": [
-     "key_refusal",
-     "SettingError"
+     "key_refusal"
     ]
    },
    "status": "decided",
    "note": "the keys' settings, checked by kkt-admission"
+  },
+  {
+   "from": "kkt-keymode",
+   "to": "kkt-server-keys",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "SettingError"
+    ]
+   },
+   "status": "decided",
+   "note": "the keys' settings, checked by kkt-admission; the key items are kkt-server-keys' (step 14.5)"
   },
   {
    "from": "kkt-keymode",
@@ -6717,7 +6735,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-admission-os",
+   "to": "kkt-server-keys",
    "kind": "normal",
    "add": {
     "uses": [
@@ -6726,20 +6744,6 @@
    },
    "status": "decided",
    "note": "the program's KeyTexts adapter turns a failed read into its own refusal (step 7.2)"
-  },
-  {
-   "from": "kkt-admission-os",
-   "to": "kkt-admission",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "AccessKey",
-     "admin_name_path",
-     "server_keys::KeyText"
-    ]
-   },
-   "status": "decided",
-   "note": "the key texts it reads, the default key's place and the admin name file's path (step 7.2)"
   },
   {
    "from": "kkt-api-operator",
@@ -7137,7 +7141,7 @@
   },
   {
    "from": "kkt-web-preview",
-   "to": "kkt-admission-os",
+   "to": "kkt-server-keys",
    "kind": "normal",
    "add": {
     "uses": [
@@ -7591,18 +7595,18 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-admission",
+   "to": "kkt-server-keys",
    "kind": "normal",
    "add": {
     "uses": [
-     "server_keys::admin_name_written"
+     "admin_name_written"
     ]
    },
    "drop": [
-    "server_keys::bound_in"
+    "bound_in"
    ],
    "status": "decided",
-   "note": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7)"
+   "note": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7); the key items are kkt-server-keys' (step 14.5)"
   },
   {
    "from": "kkt-identity-keymode",
@@ -7973,17 +7977,19 @@
   },
   {
    "from": "kkt-operate",
-   "to": "kkt-admission",
+   "to": "kkt-server-keys",
    "kind": "normal",
    "add": {
     "uses": [
      "admin_key_path",
-     "server_keys",
-     "AccessKey"
+     "AccessKey",
+     "admin_name_line",
+     "admin_name_written",
+     "bound_to"
     ]
    },
    "status": "decided",
-   "note": "what its commands use of kkt-admission (steps 10.2b and 10.2a)"
+   "note": "what its commands use of kkt-admission (steps 10.2b and 10.2a); the key items are kkt-server-keys' (step 14.5)"
   },
   {
    "from": "kkt-operate",
@@ -8140,18 +8146,18 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-admission",
+   "to": "kkt-server-keys",
    "kind": "normal",
    "drop": [
     "ACCESS_KEY_FILE_MODE",
     "admin_key_path",
-    "server_keys::admin_name_line",
-    "server_keys::admin_name_written",
-    "server_keys::bound_to",
+    "admin_name_line",
+    "admin_name_written",
+    "bound_to",
     "web_key_path"
    ],
    "status": "decided",
-   "note": "its commands' uses of kkt-admission move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
+   "note": "its commands' uses of kkt-admission move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10); the key items are kkt-server-keys' (step 14.5)"
   },
   {
    "from": "kashkeshet",
@@ -8997,6 +9003,51 @@
     "real"
    ],
    "note": "opens the log file, then starts tracing on it through kkt-log-tracing (step 14.4)"
+  },
+  {
+   "from": "kkt-admission",
+   "to": "kkt-entropy",
+   "kind": "normal",
+   "remove": true,
+   "status": "decided",
+   "note": "making new keys moves to kkt-server-keys, which takes the Entropy (step 14.5)"
+  },
+  {
+   "from": "kkt-server-keys",
+   "to": "kkt-entropy",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Entropy"
+    ]
+   },
+   "status": "decided",
+   "note": "generate draws new keys from the injected Entropy (step 14.5)"
+  },
+  {
+   "from": "kkt-server-keys",
+   "to": "kkt-hash",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "sha256"
+    ]
+   },
+   "status": "decided",
+   "note": "the admin name file holds a hash of its key (step 14.5)"
+  },
+  {
+   "from": "kkt-server-keys",
+   "to": "kkt-names",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "AdminName",
+     "MAX_ADMIN_NAME_CHARS"
+    ]
+   },
+   "status": "decided",
+   "note": "the admin name tied to the admin key (step 14.5)"
   }
  ],
  "decisions": {
@@ -9894,15 +9945,15 @@
    "doc": "Asks kkt-server's ServerSettings::check, with the program's own problems by name, so the first bad setting is the one named as before, and reads the files the settings name (steps 3.5c and 9.3)."
   },
   {
-   "item": "kkt-admission-os::make_default_key",
+   "item": "kkt-server-keys::make_default_key",
    "doc": "Writes a missing default key, drawing a key only after making its folder (step 7.2)."
   },
   {
-   "item": "kkt-admission-os::new_key_file",
+   "item": "kkt-server-keys::new_key_file",
    "doc": "Creates a new private key file, making its folder before drawing the key (step 7.2)."
   },
   {
-   "item": "kkt-admission-os::write_admin_name",
+   "item": "kkt-server-keys::write_admin_name",
    "doc": "Writes already-bound admin-name text beside the key, or removes the old name file (step 7.2)."
   },
   {
@@ -10495,6 +10546,16 @@
    ],
    "status": "decided",
    "note": "in the code; charted with the wiring after phase 13"
+  },
+  {
+   "crate": "kkt-server-keys",
+   "at": "generate",
+   "name": "entropy",
+   "traits": [
+    "kkt-entropy::Entropy"
+   ],
+   "status": "decided",
+   "note": "new keys' randomness, as SharedKey::generate took it (step 14.5)"
   }
  ],
  "renames": [
@@ -10558,7 +10619,8 @@
   },
   "kkt-admission": {
    "status": "decided",
-   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also the checks on the server's keys, and which admin name a key carries (`server_keys::bound_to`, `bound_in`). The web page's sessions are kkt-web's; for the page it answers whether sign-in is needed, whether a key is good and whom it admits."
+   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also the server's admission from its keys (`server_keys::check`, over the texts `KeyTexts` gives), as kkt-server-keys' rules say, and what to say when a key is refused. The web page's sessions are kkt-web's; for the page it answers whether sign-in is needed, whether a key is good and whom it admits. What a valid key is, the key files and the admin name tied to a key are kkt-server-keys' (step 14.5).",
+   "must_not": "Know about agent tokens or channel access; decide what a valid key is or where key files go."
   },
   "kkt-container": {
    "status": "decided",
@@ -10863,6 +10925,10 @@
       "crate": "kkt-lane-files",
       "status": "decided",
       "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-names::OsEntropy",
+      "crate": "kkt-admission"
      }
     ],
     "wiring_add": [
@@ -10955,8 +11021,8 @@
       "note": "Direct delivery to the receiving operator assembly (12.2)."
      },
      {
-      "own": "ServerKeyFiles, adapting kkt-admission-os::KeyFiles",
-      "supplier": "kkt-admission-os::KeyFiles",
+      "own": "ServerKeyFiles, adapting kkt-server-keys::KeyFiles",
+      "supplier": "kkt-server-keys::KeyFiles",
       "crate": "kkt-admission",
       "to": [
        {
@@ -11042,8 +11108,8 @@
       "status": "decided"
      },
      {
-      "own": "KeyFiles, adapting kkt-admission-os::KeyFiles",
-      "supplier": "kkt-admission-os::KeyFiles",
+      "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
+      "supplier": "kkt-server-keys::KeyFiles",
       "crate": "kkt-agent-commands",
       "to": [
        {
@@ -11326,7 +11392,7 @@
       "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
      },
      {
-      "own": "NativeKeyFiles, forwarding key files to kkt-admission-os and generation to kkt-entropy-os",
+      "own": "NativeKeyFiles, forwarding key files to kkt-server-keys and generation to kkt-entropy-os",
       "crate": "kkt-operate",
       "to": [
        {
@@ -11472,6 +11538,18 @@
       ],
       "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener, given to the Docker wrapper as it is",
       "status": "decided"
+     },
+     {
+      "impl": "kkt-entropy-os::OsEntropy",
+      "crate": "kkt-server-keys",
+      "to": [
+       {
+        "at": "generate",
+        "param": "entropy"
+       }
+      ],
+      "note": "kkt key create, and kkt serve's first key: new keys' randomness (step 14.5)",
+      "status": "decided"
      }
     ]
    },
@@ -11586,8 +11664,8 @@
       "note": "where the server's events go"
      },
      {
-      "own": "KeyFiles, adapting kkt-admission-os::KeyFiles",
-      "supplier": "kkt-admission-os::KeyFiles",
+      "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
+      "supplier": "kkt-server-keys::KeyFiles",
       "crate": "kkt-admission",
       "to": [
        {
@@ -11773,10 +11851,10 @@
      },
      {
       "title": "Gate",
-      "text": "PreviewGate, with the access key read through kkt-admission-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+      "text": "PreviewGate, with the access key read through kkt-server-keys, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
       "items": [
        "kkt-api-sim::PreviewGate",
-       "kkt-admission-os::KeyFiles",
+       "kkt-server-keys::KeyFiles",
        "kkt-web::Sessions",
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy"
@@ -12675,6 +12753,12 @@
    "param": "entropy",
    "status": "decided",
    "note": "the gate keeps no sessions: the page's Sessions take the clock and entropy (steps 6.1 and 6.3)"
+  },
+  {
+   "slot": "kkt-admission::SharedKey::generate",
+   "param": "entropy",
+   "status": "decided",
+   "note": "making a new key is kkt-server-keys' generate (step 14.5)"
   }
  ],
  "wires_only": {
@@ -12689,7 +12773,104 @@
    "kashkeshet": "names Box<dyn watch::Server> to pick Remote or AdminRemote"
   }
  },
- "late_moves": [],
+ "late_moves": [
+  {
+   "item": "kkt-admission::AccessKey",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+  },
+  {
+   "item": "kkt-admission::SettingError",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+  },
+  {
+   "item": "kkt-admission::check_access_key",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+  },
+  {
+   "item": "kkt-admission::ACCESS_KEY_FILE_MODE",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+  },
+  {
+   "item": "kkt-admission::ACCESS_KEY_FILE_NAME",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+  },
+  {
+   "item": "kkt-admission::access_key_file",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+  },
+  {
+   "item": "kkt-admission::web_key_path",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+  },
+  {
+   "item": "kkt-admission::admin_key_path",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+  },
+  {
+   "item": "kkt-admission::admin_name_path",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+  },
+  {
+   "item": "kkt-admission::server_keys::KeyText",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)",
+   "as": "KeyText"
+  },
+  {
+   "item": "kkt-admission::server_keys::bound_to",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)",
+   "as": "bound_to"
+  },
+  {
+   "item": "kkt-admission::server_keys::bound_in",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)",
+   "as": "bound_in"
+  },
+  {
+   "item": "kkt-admission::server_keys::admin_name_line",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)",
+   "as": "admin_name_line"
+  },
+  {
+   "item": "kkt-admission::server_keys::admin_name_written",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)",
+   "as": "admin_name_written"
+  },
+  {
+   "item": "kkt-admission::testing::MIN_ACCESS_KEY_BYTES",
+   "to": "kkt-server-keys",
+   "status": "decided",
+   "note": "the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)",
+   "feature": "testing"
+  }
+ ],
  "new_implements": [
   {
    "type": "kkt-rules::Rules",
@@ -12935,7 +13116,7 @@
     "what": "its output, whether the key files are there",
     "to": [
      "kkt-terminal-os",
-     "kkt-admission-os"
+     "kkt-server-keys"
     ],
     "status": "decided",
     "decisions": [
@@ -12949,7 +13130,7 @@
     "what": "its output, reading and writing key files, where a key goes",
     "to": [
      "kkt-terminal-os",
-     "kkt-admission-os"
+     "kkt-server-keys"
     ],
     "status": "decided",
     "decisions": [
@@ -12978,7 +13159,7 @@
     "what": "its output, the admin key, the Docker .env, the setup record",
     "to": [
      "kkt-terminal-os",
-     "kkt-admission-os",
+     "kkt-server-keys",
      "kkt-setup",
      "kkt-container"
     ],
@@ -13028,7 +13209,7 @@
      "kkt-terminal-os",
      "kkt-config-file-os",
      "kkt-setup",
-     "kkt-admission-os",
+     "kkt-server-keys",
      "kkt-container"
     ],
     "status": "decided",
@@ -13059,7 +13240,7 @@
     "file": "src/machine/connection.rs",
     "what": "reading key files",
     "to": [
-     "kkt-admission-os"
+     "kkt-server-keys"
     ],
     "status": "decided",
     "decisions": [
@@ -13071,7 +13252,7 @@
     "file": "src/machine/keys.rs",
     "what": "reading and writing key files",
     "to": [
-     "kkt-admission-os"
+     "kkt-server-keys"
     ],
     "status": "decided",
     "decisions": [
@@ -13167,7 +13348,7 @@
     "what": "its banner and errors, reading key files",
     "to": [
      "kkt-terminal-os",
-     "kkt-admission-os"
+     "kkt-server-keys"
     ],
     "status": "decided",
     "keeps": "argument parsing, its wiring, and its own smaller serve surface (the config file only), mapped onto kkt-server's ServerSettings"
@@ -13513,7 +13694,7 @@
     "why": "settings parses the container's config text with kkt-config-file, which kkt-container reads through its Host, and picks the name pack and lane limit into kkt-container's own ContainerConfig (step 3.3)."
    },
    {
-    "adapter": "kkt-admission-os::KeyFiles",
+    "adapter": "kkt-server-keys::KeyFiles",
     "to": "kkt-admission: KeyTexts",
     "where": "kkt, kkt-keymode",
     "methods": 4,

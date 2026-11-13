@@ -45,7 +45,7 @@ window.KKT_PROPOSED = {
     "why": "settings parses the container's config text with kkt-config-file, which kkt-container reads through its Host, and picks the name pack and lane limit into kkt-container's own ContainerConfig (step 3.3)."
    },
    {
-    "adapter": "kkt-admission-os::KeyFiles",
+    "adapter": "kkt-server-keys::KeyFiles",
     "copies": 2,
     "forward": 4,
     "methods": 4,
@@ -348,7 +348,7 @@ window.KKT_PROPOSED = {
       "to": "kkt-container::ConfigReader"
      },
      {
-      "adapts": "kkt-admission-os::KeyFiles",
+      "adapts": "kkt-server-keys::KeyFiles",
       "large": false,
       "methods": 4,
       "note": "4 forwarding methods: the key files' texts",
@@ -495,17 +495,6 @@ window.KKT_PROPOSED = {
     ],
     "title": "kkt serve",
     "wiring": [
-     {
-      "crate": "kkt-admission",
-      "impl": "kkt-entropy-os::OsEntropy",
-      "note": "kkt key create, and kkt serve's first key",
-      "to": [
-       {
-        "at": "SharedKey::generate",
-        "param": "entropy"
-       }
-      ]
-     },
      {
       "crate": "kkt-server",
       "impl": "kkt-clock-system::SystemClock",
@@ -711,9 +700,9 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-admission",
       "note": "kkt serve",
-      "own": "ServerKeyFiles, adapting kkt-admission-os::KeyFiles",
+      "own": "ServerKeyFiles, adapting kkt-server-keys::KeyFiles",
       "status": "decided",
-      "supplier": "kkt-admission-os::KeyFiles",
+      "supplier": "kkt-server-keys::KeyFiles",
       "to": [
        {
         "at": "server_keys::check",
@@ -798,9 +787,9 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-agent-commands",
       "note": "kkt register, reclaim and watch",
-      "own": "KeyFiles, adapting kkt-admission-os::KeyFiles",
+      "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
       "status": "decided",
-      "supplier": "kkt-admission-os::KeyFiles",
+      "supplier": "kkt-server-keys::KeyFiles",
       "to": [
        {
         "at": "AgentParts",
@@ -1082,7 +1071,7 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-operate",
       "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)",
-      "own": "NativeKeyFiles, forwarding key files to kkt-admission-os and generation to kkt-entropy-os",
+      "own": "NativeKeyFiles, forwarding key files to kkt-server-keys and generation to kkt-entropy-os",
       "status": "decided",
       "to": [
        {
@@ -1224,6 +1213,18 @@ window.KKT_PROPOSED = {
        {
         "at": "Docker::new",
         "param": "browser"
+       }
+      ]
+     },
+     {
+      "crate": "kkt-server-keys",
+      "impl": "kkt-entropy-os::OsEntropy",
+      "note": "kkt key create, and kkt serve's first key: new keys' randomness (step 14.5)",
+      "status": "decided",
+      "to": [
+       {
+        "at": "generate",
+        "param": "entropy"
        }
       ]
      }
@@ -1420,7 +1421,7 @@ window.KKT_PROPOSED = {
    "kkt-keymode": {
     "adapters": [
      {
-      "adapts": "kkt-admission-os::KeyFiles",
+      "adapts": "kkt-server-keys::KeyFiles",
       "large": false,
       "methods": 4,
       "note": "4 forwarding methods, as in kkt",
@@ -1586,9 +1587,9 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-admission",
       "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)",
-      "own": "KeyFiles, adapting kkt-admission-os::KeyFiles",
+      "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
       "status": "decided",
-      "supplier": "kkt-admission-os::KeyFiles",
+      "supplier": "kkt-server-keys::KeyFiles",
       "to": [
        {
         "at": "server_keys::check",
@@ -1652,12 +1653,12 @@ window.KKT_PROPOSED = {
      {
       "items": [
        "kkt-api-sim::PreviewGate",
-       "kkt-admission-os::KeyFiles",
+       "kkt-server-keys::KeyFiles",
        "kkt-web::Sessions",
        "kkt-clock-system::SystemClock",
        "kkt-entropy-os::OsEntropy"
       ],
-      "text": "PreviewGate, with the access key read through kkt-admission-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+      "text": "PreviewGate, with the access key read through kkt-server-keys, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
       "title": "Gate"
      },
      {
@@ -1767,15 +1768,6 @@ window.KKT_PROPOSED = {
  },
  "changes": {
   "added": [
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-admission-os"
-   },
    {
     "from": "kashkeshet",
     "kind": "normal",
@@ -1988,6 +1980,15 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "uses",
     "statuses": [
+     "decided"
+    ],
+    "to": "kkt-server-keys"
+   },
+   {
+    "from": "kashkeshet",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
      "follows"
     ],
     "to": "kkt-server-listen"
@@ -2053,7 +2054,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-entropy"
+    "to": "kkt-hash"
    },
    {
     "from": "kkt-admission",
@@ -2062,16 +2063,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-hash"
-   },
-   {
-    "from": "kkt-admission-os",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-admission"
+    "to": "kkt-server-keys"
    },
    {
     "from": "kkt-agent-commands",
@@ -2175,15 +2167,6 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-api-sim",
     "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-admission"
-   },
-   {
-    "from": "kkt-api-sim",
-    "kind": "normal",
     "role": "implements",
     "statuses": [
      "decided"
@@ -2260,6 +2243,15 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
+    "to": "kkt-server-keys"
+   },
+   {
+    "from": "kkt-api-sim",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-shutdown"
    },
    {
@@ -2287,15 +2279,6 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-admission"
-   },
-   {
-    "from": "kkt-client-config",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
     "to": "kkt-client-command"
    },
    {
@@ -2306,6 +2289,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-machine"
+   },
+   {
+    "from": "kkt-client-config",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-server-keys"
    },
    {
     "from": "kkt-clock-system",
@@ -2373,7 +2365,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-admission"
+    "to": "kkt-probe"
    },
    {
     "from": "kkt-diagnostics",
@@ -2382,7 +2374,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-probe"
+    "to": "kkt-server-keys"
    },
    {
     "from": "kkt-entropy-os",
@@ -2684,15 +2676,6 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-admission-os"
-   },
-   {
-    "from": "kkt-keymode",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
     "to": "kkt-api-agent"
    },
    {
@@ -2802,6 +2785,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-rules"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-server-keys"
    },
    {
     "from": "kkt-keymode",
@@ -2959,15 +2951,6 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-admission"
-   },
-   {
-    "from": "kkt-operate",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
     "to": "kkt-api-agent"
    },
    {
@@ -3113,6 +3096,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-rules"
+   },
+   {
+    "from": "kkt-operate",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-server-keys"
    },
    {
     "from": "kkt-operate",
@@ -3320,6 +3312,33 @@ window.KKT_PROPOSED = {
     "to": "kkt-rules"
    },
    {
+    "from": "kkt-server-keys",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-entropy"
+   },
+   {
+    "from": "kkt-server-keys",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-hash"
+   },
+   {
+    "from": "kkt-server-keys",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-names"
+   },
+   {
     "from": "kkt-server-listen",
     "kind": "dev",
     "role": "wires",
@@ -3344,7 +3363,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-admission"
+    "to": "kkt-server-keys"
    },
    {
     "from": "kkt-service-launchd",
@@ -3381,15 +3400,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-service"
-   },
-   {
-    "from": "kkt-setup",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-admission"
    },
    {
     "from": "kkt-setup",
@@ -3417,6 +3427,15 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-machine"
+   },
+   {
+    "from": "kkt-setup",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-server-keys"
    },
    {
     "from": "kkt-terminal-os",
@@ -3513,15 +3532,6 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-admission-os"
-   },
-   {
-    "from": "kkt-web-preview",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
     "to": "kkt-api-sim"
    },
    {
@@ -3603,6 +3613,15 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
+    "to": "kkt-server-keys"
+   },
+   {
+    "from": "kkt-web-preview",
+    "kind": "normal",
+    "role": "uses",
+    "statuses": [
+     "decided"
+    ],
     "to": "kkt-server-listen"
    },
    {
@@ -3628,13 +3647,10 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "items_gone": [
+     "server_keys::KeyText",
      "server_keys::KeyTexts"
     ],
     "items_new": [
-     "AccessKey",
-     "SettingError",
-     "access_key_file",
-     "admin_name_path",
      "key_refusal"
     ],
     "kind": "normal",
@@ -4404,12 +4420,10 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "items_gone": [
+     "server_keys::KeyText",
      "server_keys::KeyTexts"
     ],
     "items_new": [
-     "AccessKey",
-     "SettingError",
-     "admin_name_path",
      "key_refusal"
     ],
     "kind": "normal",
@@ -4977,19 +4991,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::keys::make_default_key moves to kkt-admission-os: writes a missing default key; the caller gives the key factory, and it returns the path only when it made the file, so the program reports it (step 7.2)"
+      "text": "machine::keys::make_default_key moves to kkt-server-keys: writes a missing default key; the caller gives the key factory, and it returns the path only when it made the file, so the program reports it (step 7.2)"
      },
      {
       "status": "decided",
-      "text": "machine::keys::new_key_file moves to kkt-admission-os: the caller gives the key factory, called after the folder is made (step 7.2)"
+      "text": "machine::keys::new_key_file moves to kkt-server-keys: the caller gives the key factory, called after the folder is made (step 7.2)"
      },
      {
       "status": "decided",
-      "text": "machine::keys::write_key_file moves to kkt-admission-os"
+      "text": "machine::keys::write_key_file moves to kkt-server-keys"
      },
      {
       "status": "decided",
-      "text": "machine::keys::write_admin_name moves to kkt-admission-os: writes the name text the program has already bound to the key, or removes the old name file; the program keeps its own wording (step 7.2)"
+      "text": "machine::keys::write_admin_name moves to kkt-server-keys: writes the name text the program has already bound to the key, or removes the old name file; the program keeps its own wording (step 7.2)"
      },
      {
       "status": "decided",
@@ -5253,7 +5267,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::keys is no longer public: its items move to kkt-setup, kkt-admission and kkt-admission-os"
+      "text": "machine::keys is no longer public: its items move to kkt-setup, kkt-admission and kkt-server-keys"
      },
      {
       "status": "decided",
@@ -5329,11 +5343,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/doctor.rs: its machine work (its output, whether the key files are there) moves to kkt-terminal-os and kkt-admission-os; its decisions (each check and the fix it suggests) to kkt-setup. It keeps kkt doctor as a thin body."
+      "text": "src/commands/doctor.rs: its machine work (its output, whether the key files are there) moves to kkt-terminal-os and kkt-server-keys; its decisions (each check and the fix it suggests) to kkt-setup. It keeps kkt doctor as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/commands/key.rs: its machine work (its output, reading and writing key files, where a key goes) moves to kkt-terminal-os and kkt-admission-os; its decisions (the admin key's destination and the usage text) to kkt-setup. It keeps kkt key as thin bodies."
+      "text": "src/commands/key.rs: its machine work (its output, reading and writing key files, where a key goes) moves to kkt-terminal-os and kkt-server-keys; its decisions (the admin key's destination and the usage text) to kkt-setup. It keeps kkt key as thin bodies."
      },
      {
       "status": "decided",
@@ -5341,7 +5355,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup and kkt-container; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
+      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-server-keys, kkt-setup and kkt-container; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
      },
      {
       "status": "decided",
@@ -5357,7 +5371,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup, kkt-admission-os and kkt-container; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup, kkt-server-keys and kkt-container; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -5369,7 +5383,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/connection.rs: its machine work (reading key files) moves to kkt-admission-os; its decisions (which server and key a client uses, and the admin endpoint) to kkt-setup. The file goes."
+      "text": "src/machine/connection.rs: its machine work (reading key files) moves to kkt-server-keys; its decisions (which server and key a client uses, and the admin endpoint) to kkt-setup. The file goes."
      },
      {
       "status": "decided",
@@ -5377,7 +5391,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/keys.rs: its machine work (reading and writing key files) moves to kkt-admission-os; its decisions (the order keys are looked for, and the admin name file's line) to kkt-setup and kkt-admission. The file goes."
+      "text": "src/machine/keys.rs: its machine work (reading and writing key files) moves to kkt-server-keys; its decisions (the order keys are looked for, and the admin name file's line) to kkt-setup and kkt-admission. The file goes."
      },
      {
       "status": "decided",
@@ -5409,7 +5423,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program binds admin names to keys through kkt-admission"
+      "text": "the program binds admin names to keys through kkt-admission; the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -5417,7 +5431,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program reads and writes key files through kkt-admission-os"
+      "text": "the program reads and writes key files through kkt-server-keys"
      },
      {
       "status": "decided",
@@ -5449,7 +5463,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the admin name file's line"
+      "text": "the admin name file's line; the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -5470,6 +5484,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the keys' settings, checked by kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "the keys' settings, checked by kkt-admission; the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -5573,7 +5591,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7)"
+      "text": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7); the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -5605,7 +5623,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its commands' uses of kkt-admission move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
+      "text": "its commands' uses of kkt-admission move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10); the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -5786,6 +5804,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "SharedKey::generate no longer takes entropy: making a new key is kkt-server-keys' generate (step 14.5)"
+     },
+     {
+      "status": "decided",
       "text": "MIN_ACCESS_KEY_BYTES is no longer public: in its testing module, as testing::MIN_ACCESS_KEY_BYTES (step 3.1b)"
      },
      {
@@ -5830,6 +5852,66 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "AccessKey moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "SettingError moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "check_access_key moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "ACCESS_KEY_FILE_MODE moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "ACCESS_KEY_FILE_NAME moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "access_key_file moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "web_key_path moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "admin_key_path moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "admin_name_path moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::KeyText moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::bound_to moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::bound_in moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::admin_name_line moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::admin_name_written moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "testing::MIN_ACCESS_KEY_BYTES moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
       "text": "hashes through kkt-hash"
      },
      {
@@ -5851,47 +5933,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-clock in its tests: the session tests, which used a fixed clock, moved to kkt-web (step 6.1)"
-     }
-    ]
-   },
-   {
-    "crate": "kkt-admission-os",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kashkeshet"
      },
      {
       "status": "decided",
-      "text": "machine::keys::make_default_key comes here from kashkeshet as make_default_key"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::new_key_file comes here from kashkeshet as new_key_file"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::write_key_file comes here from kashkeshet as write_key_file"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::write_admin_name comes here from kashkeshet as write_admin_name"
-     },
-     {
-      "status": "decided",
-      "text": "new struct KeyFiles"
-     },
-     {
-      "status": "decided",
-      "text": "new struct ReadError"
-     },
-     {
-      "status": "decided",
-      "text": "key files are written with kkt-admission's file mode"
-     },
-     {
-      "status": "decided",
-      "text": "the key texts it reads, the default key's place and the admin name file's path (step 7.2)"
+      "text": "no longer uses kkt-entropy in its code: making new keys moves to kkt-server-keys, which takes the Entropy (step 14.5)"
      }
     ]
    },
@@ -7916,7 +7961,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/main.rs: its machine work (its banner and errors, reading key files) moves to kkt-terminal-os and kkt-admission-os. It keeps argument parsing, its wiring, and its own smaller serve surface (the config file only), mapped onto kkt-server's ServerSettings."
+      "text": "src/main.rs: its machine work (its banner and errors, reading key files) moves to kkt-terminal-os and kkt-server-keys. It keeps argument parsing, its wiring, and its own smaller serve surface (the config file only), mapped onto kkt-server's ServerSettings."
      },
      {
       "status": "decided",
@@ -7924,7 +7969,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "key mode reads its key files through kkt-admission-os"
+      "text": "key mode reads its key files through kkt-server-keys"
      },
      {
       "status": "decided",
@@ -7937,6 +7982,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the keys' settings, checked by kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "the keys' settings, checked by kkt-admission; the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -8864,7 +8913,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-admission (steps 10.2b and 10.2a)"
+      "text": "what its commands use of kkt-admission (steps 10.2b and 10.2a); the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -9691,6 +9740,119 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new_server_run, which read the ServerRun, goes to the programs that call start; it keeps Build for the version it serves (step 9.2)"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-server-keys",
+    "notes": [
+     {
+      "status": "decided",
+      "text": "new logic and effect crate, from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "machine::keys::make_default_key comes here from kashkeshet as make_default_key"
+     },
+     {
+      "status": "decided",
+      "text": "machine::keys::new_key_file comes here from kashkeshet as new_key_file"
+     },
+     {
+      "status": "decided",
+      "text": "machine::keys::write_key_file comes here from kashkeshet as write_key_file"
+     },
+     {
+      "status": "decided",
+      "text": "machine::keys::write_admin_name comes here from kashkeshet as write_admin_name"
+     },
+     {
+      "status": "decided",
+      "text": "new struct KeyFiles"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ReadError"
+     },
+     {
+      "status": "decided",
+      "text": "new fn generate"
+     },
+     {
+      "status": "decided",
+      "text": "AccessKey comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "SettingError comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "check_access_key comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "ACCESS_KEY_FILE_MODE comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "ACCESS_KEY_FILE_NAME comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "access_key_file comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "web_key_path comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "admin_key_path comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "admin_name_path comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::KeyText comes here from kkt-admission as KeyText"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::bound_to comes here from kkt-admission as bound_to"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::bound_in comes here from kkt-admission as bound_in"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::admin_name_line comes here from kkt-admission as admin_name_line"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::admin_name_written comes here from kkt-admission as admin_name_written"
+     },
+     {
+      "status": "decided",
+      "text": "testing::MIN_ACCESS_KEY_BYTES comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "generate takes entropy: new keys' randomness, as SharedKey::generate took it (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "generate draws new keys from the injected Entropy (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "the admin name file holds a hash of its key (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "the admin name tied to the admin key (step 14.5)"
      }
     ]
    },
@@ -11452,16 +11614,10 @@ window.KKT_PROPOSED = {
     "title": "kkt (package kashkeshet)"
    },
    "kkt-admission": {
-    "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also the checks on the server's keys, and which admin name a key carries (`server_keys::bound_to`, `bound_in`). The web page's sessions are kkt-web's; for the page it answers whether sign-in is needed, whether a key is good and whom it admits.",
+    "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token. Also the server's admission from its keys (`server_keys::check`, over the texts `KeyTexts` gives), as kkt-server-keys' rules say, and what to say when a key is refused. The web page's sessions are kkt-web's; for the page it answers whether sign-in is needed, whether a key is good and whom it admits. What a valid key is, the key files and the admin name tied to a key are kkt-server-keys' (step 14.5).",
     "kind": "logic",
     "layer": "access",
-    "must_not": "Know about agent tokens or channel access.",
-    "status": "decided"
-   },
-   "kkt-admission-os": {
-    "concern": "The server's key files on disk: reading the access, web and admin keys and the admin name file, and writing a key file only its owner can read, new or replaced when forced, with kkt-admission's file mode. `KeyFiles` is a plain type; the programs adapt it to kkt-admission's `KeyTexts`, and kkt calls it to make and write keys, with a key factory the caller gives, so it draws no randomness of its own; a failed read is its own `ReadError`, with the file's path.",
-    "kind": "effect",
-    "layer": "access",
+    "must_not": "Know about agent tokens or channel access; decide what a valid key is or where key files go.",
     "status": "decided"
    },
    "kkt-agent-client": {
@@ -11768,6 +11924,12 @@ window.KKT_PROPOSED = {
     "kind": "composition",
     "layer": "assembly",
     "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
+    "status": "decided"
+   },
+   "kkt-server-keys": {
+    "concern": "The server's keys (step 14.5): what a valid key is (`check_access_key`, `SettingError`) and making a new one (`generate`), which access key a server uses (`AccessKey`), a key file's text (`KeyText`), the key files' names, mode and places, and the admin name tied to the admin key (`bound_to`, `bound_in`, `admin_name_line`, `admin_name_written`). Behind real, the key files on disk, from kkt-admission-os: reading the access, web and admin keys and the admin name file, and writing a key file only its owner can read, new or replaced when forced. `KeyFiles` is a plain type; the programs adapt it to kkt-admission's `KeyTexts`, and kkt calls it to make and write keys, with a key factory the caller gives, so it draws no randomness of its own; a failed read is its own `ReadError`, with the file's path. kkt-admission depends on it, never the reverse, and keeps who a key lets in.",
+    "kind": "logic and effect",
+    "layer": "access",
     "status": "decided"
    },
    "kkt-server-listen": {
@@ -14093,7 +14255,7 @@ window.KKT_PROPOSED = {
     "holders": [],
     "implements": [
      {
-      "adapts": "kkt-admission-os::KeyFiles",
+      "adapts": "kkt-server-keys::KeyFiles",
       "crate": "kashkeshet",
       "kind": "normal",
       "status": "decided",
@@ -14387,19 +14549,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::keys::make_default_key moves to kkt-admission-os: writes a missing default key; the caller gives the key factory, and it returns the path only when it made the file, so the program reports it (step 7.2)"
+      "text": "machine::keys::make_default_key moves to kkt-server-keys: writes a missing default key; the caller gives the key factory, and it returns the path only when it made the file, so the program reports it (step 7.2)"
      },
      {
       "status": "decided",
-      "text": "machine::keys::new_key_file moves to kkt-admission-os: the caller gives the key factory, called after the folder is made (step 7.2)"
+      "text": "machine::keys::new_key_file moves to kkt-server-keys: the caller gives the key factory, called after the folder is made (step 7.2)"
      },
      {
       "status": "decided",
-      "text": "machine::keys::write_key_file moves to kkt-admission-os"
+      "text": "machine::keys::write_key_file moves to kkt-server-keys"
      },
      {
       "status": "decided",
-      "text": "machine::keys::write_admin_name moves to kkt-admission-os: writes the name text the program has already bound to the key, or removes the old name file; the program keeps its own wording (step 7.2)"
+      "text": "machine::keys::write_admin_name moves to kkt-server-keys: writes the name text the program has already bound to the key, or removes the old name file; the program keeps its own wording (step 7.2)"
      },
      {
       "status": "decided",
@@ -14663,7 +14825,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::keys is no longer public: its items move to kkt-setup, kkt-admission and kkt-admission-os"
+      "text": "machine::keys is no longer public: its items move to kkt-setup, kkt-admission and kkt-server-keys"
      },
      {
       "status": "decided",
@@ -14739,11 +14901,11 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/doctor.rs: its machine work (its output, whether the key files are there) moves to kkt-terminal-os and kkt-admission-os; its decisions (each check and the fix it suggests) to kkt-setup. It keeps kkt doctor as a thin body."
+      "text": "src/commands/doctor.rs: its machine work (its output, whether the key files are there) moves to kkt-terminal-os and kkt-server-keys; its decisions (each check and the fix it suggests) to kkt-setup. It keeps kkt doctor as a thin body."
      },
      {
       "status": "decided",
-      "text": "src/commands/key.rs: its machine work (its output, reading and writing key files, where a key goes) moves to kkt-terminal-os and kkt-admission-os; its decisions (the admin key's destination and the usage text) to kkt-setup. It keeps kkt key as thin bodies."
+      "text": "src/commands/key.rs: its machine work (its output, reading and writing key files, where a key goes) moves to kkt-terminal-os and kkt-server-keys; its decisions (the admin key's destination and the usage text) to kkt-setup. It keeps kkt key as thin bodies."
      },
      {
       "status": "decided",
@@ -14751,7 +14913,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup and kkt-container; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
+      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-server-keys, kkt-setup and kkt-container; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
      },
      {
       "status": "decided",
@@ -14767,7 +14929,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup, kkt-admission-os and kkt-container; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup, kkt-server-keys and kkt-container; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -14779,7 +14941,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/connection.rs: its machine work (reading key files) moves to kkt-admission-os; its decisions (which server and key a client uses, and the admin endpoint) to kkt-setup. The file goes."
+      "text": "src/machine/connection.rs: its machine work (reading key files) moves to kkt-server-keys; its decisions (which server and key a client uses, and the admin endpoint) to kkt-setup. The file goes."
      },
      {
       "status": "decided",
@@ -14787,7 +14949,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/keys.rs: its machine work (reading and writing key files) moves to kkt-admission-os; its decisions (the order keys are looked for, and the admin name file's line) to kkt-setup and kkt-admission. The file goes."
+      "text": "src/machine/keys.rs: its machine work (reading and writing key files) moves to kkt-server-keys; its decisions (the order keys are looked for, and the admin name file's line) to kkt-setup and kkt-admission. The file goes."
      },
      {
       "status": "decided",
@@ -14819,7 +14981,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program binds admin names to keys through kkt-admission"
+      "text": "the program binds admin names to keys through kkt-admission; the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -14827,7 +14989,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the program reads and writes key files through kkt-admission-os"
+      "text": "the program reads and writes key files through kkt-server-keys"
      },
      {
       "status": "decided",
@@ -14859,7 +15021,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the admin name file's line"
+      "text": "the admin name file's line; the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -14880,6 +15042,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the keys' settings, checked by kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "the keys' settings, checked by kkt-admission; the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -14983,7 +15149,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7)"
+      "text": "it words the admin name file's write with kkt-admission's admin_name_written; admin_name_line reads the binding itself (step 7.7); the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -15015,7 +15181,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its commands' uses of kkt-admission move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10)"
+      "text": "its commands' uses of kkt-admission move to the assemblies; it keeps what its serving code, adapters and command line name (phase 10); the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -15209,32 +15375,6 @@ window.KKT_PROPOSED = {
     ],
     "items": [
      {
-      "doc": "Unix permissions of a key file `kkt key create` writes: only the owner may read or write it.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "ACCESS_KEY_FILE_MODE",
-      "status": "decided"
-     },
-     {
-      "doc": "Where `kkt key create` writes a key, in the config directory.",
-      "kind": "const",
-      "moved_from": "kkt-config",
-      "path": "ACCESS_KEY_FILE_NAME",
-      "status": "decided"
-     },
-     {
-      "doc": "Which access key a server uses.",
-      "kind": "enum",
-      "moved_from": "kkt-settings",
-      "path": "AccessKey",
-      "status": "decided",
-      "variants": [
-       "None",
-       "File",
-       "Default"
-      ]
-     },
-     {
       "doc": "How a server admits callers to its admin endpoint, `/mcp-admin`: one of the modes that ask for a credential.",
       "kind": "enum",
       "methods": [
@@ -15339,13 +15479,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "doc": "Why kkt-admission's settings are refused: a key or the access key setting; the session lifetime is kkt-web's (step 6.1).",
-      "kind": "struct",
-      "path": "SettingError",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "One of the server's keys, shared by every caller that holds it.",
       "kind": "struct",
       "methods": [
@@ -15376,34 +15509,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "The access key file's default place, in kkt's config folder, which the caller gives (step 3.4).",
-      "kind": "fn",
-      "path": "access_key_file",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "The admin key lives beside the server's access key, unless that place is already used by the access key (which older versions allowed).",
-      "kind": "fn",
-      "moved_from": "kkt-settings",
-      "path": "admin_key_path",
-      "status": "decided"
-     },
-     {
-      "doc": "The admin agent's name, if the admin key has one, lives beside the admin key, in a file of its own: each key file has its own name file.",
-      "kind": "fn",
-      "moved_from": "kkt-settings",
-      "path": "admin_name_path",
-      "status": "decided"
-     },
-     {
-      "doc": "Checks an access key, as read from `--access-key-file` without surrounding whitespace.",
-      "kind": "fn",
-      "moved_from": "kkt-config",
-      "path": "check_access_key",
-      "status": "decided"
-     },
-     {
       "doc": "What to say when a key file's key is refused, naming the setting and the file that set it (step 3.5b).",
       "kind": "fn",
       "path": "key_refusal",
@@ -15430,15 +15535,6 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "doc": "A key file's text, and where it came from, such as the file's path.",
-      "fields": [
-       "text",
-       "source"
-      ],
-      "kind": "struct",
-      "path": "server_keys::KeyText"
-     },
-     {
       "doc": "The texts of the server's key files.",
       "kind": "trait",
       "methods": [
@@ -15461,34 +15557,6 @@ window.KKT_PROPOSED = {
       "path": "server_keys::ServerKeys"
      },
      {
-      "doc": "What to say, after `label`, about the name tied to the admin key `key` in the file at `path`, if anything: a Docker setup's host copy has no name beside it, as the name is kept in the container.",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "server_keys::admin_name_line",
-      "status": "decided"
-     },
-     {
-      "doc": "What to say after the admin name file is written or removed, worded as before (step 7.7).",
-      "kind": "fn",
-      "path": "server_keys::admin_name_written",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "The name in a name file if it is tied to this admin key, None if it is tied to another; a free function over kkt-names' AdminName (step 7.7).",
-      "kind": "fn",
-      "path": "server_keys::bound_in",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "The text of a name file that ties an admin name to the admin key alone: the name, then a line with the key's hash; a free function over kkt-names' AdminName (step 7.7).",
-      "kind": "fn",
-      "path": "server_keys::bound_to",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "Checks the server's keys, in this order: the access key's form; that the web key differs from the access key, then its form; that the admin key differs from both, then its form; then the admin name.",
       "kind": "fn",
       "path": "server_keys::check"
@@ -15498,21 +15566,6 @@ window.KKT_PROPOSED = {
       "kind": "fn",
       "path": "server_keys::key_refusal",
       "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Shortest access key, in bytes: a key this long, and otherwise valid, is one `check_access_key` accepts. (step 3.1b)",
-      "feature": "testing",
-      "kind": "const",
-      "path": "testing::MIN_ACCESS_KEY_BYTES",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "The operator web key always lives beside the server's access key.",
-      "kind": "fn",
-      "moved_from": "kkt-settings",
-      "path": "web_key_path",
       "status": "decided"
      }
     ],
@@ -15589,6 +15642,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "SharedKey::generate no longer takes entropy: making a new key is kkt-server-keys' generate (step 14.5)"
+     },
+     {
+      "status": "decided",
       "text": "MIN_ACCESS_KEY_BYTES is no longer public: in its testing module, as testing::MIN_ACCESS_KEY_BYTES (step 3.1b)"
      },
      {
@@ -15633,6 +15690,66 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "AccessKey moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "SettingError moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "check_access_key moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "ACCESS_KEY_FILE_MODE moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "ACCESS_KEY_FILE_NAME moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "access_key_file moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "web_key_path moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "admin_key_path moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "admin_name_path moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::KeyText moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::bound_to moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::bound_in moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::admin_name_line moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::admin_name_written moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "testing::MIN_ACCESS_KEY_BYTES moves to kkt-server-keys: the server's keys leave kkt-admission, which keeps who a key lets in (step 14.5)"
+     },
+     {
+      "status": "decided",
       "text": "hashes through kkt-hash"
      },
      {
@@ -15654,21 +15771,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "no longer uses kkt-clock in its tests: the session tests, which used a fixed clock, moved to kkt-web (step 6.1)"
+     },
+     {
+      "status": "decided",
+      "text": "no longer uses kkt-entropy in its code: making new keys moves to kkt-server-keys, which takes the Entropy (step 14.5)"
      }
     ],
     "released_program": false,
     "slots": [
-     {
-      "at": "SharedKey::generate",
-      "kind": "param",
-      "name": "entropy",
-      "traits": [
-       {
-        "crate": "kkt-entropy",
-        "trait": "Entropy"
-       }
-      ]
-     },
      {
       "at": "server_keys::check",
       "kind": "param",
@@ -15684,129 +15794,6 @@ window.KKT_PROPOSED = {
     "third_party": [
      "thiserror"
     ]
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [],
-    "items": [
-     {
-      "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text, a failed read as ReadError with its path; reading any one key or name file; whether one is there, as a file (is_file) or with a failed probe kept as an error (try_exists); making a key's folder; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts (step 7.2).",
-      "feature": "real",
-      "kind": "struct",
-      "methods": [
-       "access",
-       "admin",
-       "admin_names",
-       "create_dir_all",
-       "exists",
-       "is_file",
-       "keep_staged",
-       "new",
-       "read",
-       "read_optional",
-       "remove",
-       "try_exists",
-       "web"
-      ],
-      "path": "KeyFiles",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "A failed key-file read, retaining its path and underlying I/O error (step 7.2).",
-      "feature": "real",
-      "kind": "struct",
-      "path": "ReadError",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Writes a missing default key, drawing a key only after making its folder (step 7.2).",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "make_default_key",
-      "status": "decided"
-     },
-     {
-      "doc": "Creates a new private key file, making its folder before drawing the key (step 7.2).",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "new_key_file",
-      "status": "decided"
-     },
-     {
-      "doc": "Writes already-bound admin-name text beside the key, or removes the old name file (step 7.2).",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "write_admin_name",
-      "status": "decided"
-     },
-     {
-      "doc": "Writes `key` to `path`, readable and writable only by its owner.",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "write_key_file",
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_admission_os",
-    "name": "kkt-admission-os",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::make_default_key comes here from kashkeshet as make_default_key"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::new_key_file comes here from kashkeshet as new_key_file"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::write_key_file comes here from kashkeshet as write_key_file"
-     },
-     {
-      "status": "decided",
-      "text": "machine::keys::write_admin_name comes here from kashkeshet as write_admin_name"
-     },
-     {
-      "status": "decided",
-      "text": "new struct KeyFiles"
-     },
-     {
-      "status": "decided",
-      "text": "new struct ReadError"
-     },
-     {
-      "status": "decided",
-      "text": "key files are written with kkt-admission's file mode"
-     },
-     {
-      "status": "decided",
-      "text": "the key texts it reads, the default key's place and the admin name file's path (step 7.2)"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
    },
    {
     "bins": [],
@@ -22829,7 +22816,7 @@ window.KKT_PROPOSED = {
     "holders": [],
     "implements": [
      {
-      "adapts": "kkt-admission-os::KeyFiles",
+      "adapts": "kkt-server-keys::KeyFiles",
       "crate": "kkt-keymode",
       "kind": "normal",
       "status": "decided",
@@ -22852,7 +22839,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/main.rs: its machine work (its banner and errors, reading key files) moves to kkt-terminal-os and kkt-admission-os. It keeps argument parsing, its wiring, and its own smaller serve surface (the config file only), mapped onto kkt-server's ServerSettings."
+      "text": "src/main.rs: its machine work (its banner and errors, reading key files) moves to kkt-terminal-os and kkt-server-keys. It keeps argument parsing, its wiring, and its own smaller serve surface (the config file only), mapped onto kkt-server's ServerSettings."
      },
      {
       "status": "decided",
@@ -22860,7 +22847,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "key mode reads its key files through kkt-admission-os"
+      "text": "key mode reads its key files through kkt-server-keys"
      },
      {
       "status": "decided",
@@ -22873,6 +22860,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the keys' settings, checked by kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "the keys' settings, checked by kkt-admission; the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -25407,7 +25398,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "what its commands use of kkt-admission (steps 10.2b and 10.2a)"
+      "text": "what its commands use of kkt-admission (steps 10.2b and 10.2a); the key items are kkt-server-keys' (step 14.5)"
      },
      {
       "status": "decided",
@@ -28002,6 +27993,345 @@ window.KKT_PROPOSED = {
      "axum",
      "futures"
     ]
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "real": [],
+     "testing": []
+    },
+    "holders": [],
+    "implements": [],
+    "items": [
+     {
+      "doc": "Unix permissions of a key file `kkt key create` writes: only the owner may read or write it.",
+      "kind": "const",
+      "moved_from": "kkt-admission",
+      "path": "ACCESS_KEY_FILE_MODE",
+      "status": "decided"
+     },
+     {
+      "doc": "Where `kkt key create` writes a key, in the config directory.",
+      "kind": "const",
+      "moved_from": "kkt-admission",
+      "path": "ACCESS_KEY_FILE_NAME",
+      "status": "decided"
+     },
+     {
+      "doc": "Which access key a server uses.",
+      "kind": "enum",
+      "moved_from": "kkt-admission",
+      "path": "AccessKey",
+      "status": "decided",
+      "variants": [
+       "None",
+       "File",
+       "Default"
+      ]
+     },
+     {
+      "doc": "The server's key files: the access, web and admin keys and the admin name file, read as text, a failed read as ReadError with its path; reading any one key or name file; whether one is there, as a file (is_file) or with a failed probe kept as an error (try_exists); making a key's folder; and moving a staged key into place or removing it. The programs adapt it to kkt-admission's KeyTexts (step 7.2).",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "access",
+       "admin",
+       "admin_names",
+       "create_dir_all",
+       "exists",
+       "is_file",
+       "keep_staged",
+       "new",
+       "read",
+       "read_optional",
+       "remove",
+       "try_exists",
+       "web"
+      ],
+      "path": "KeyFiles",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "A key file's text, and where it came from, such as the file's path.",
+      "fields": [
+       "text",
+       "source"
+      ],
+      "kind": "struct",
+      "moved_from": "kkt-admission",
+      "path": "KeyText",
+      "status": "decided"
+     },
+     {
+      "doc": "A failed key-file read, retaining its path and underlying I/O error (step 7.2).",
+      "feature": "real",
+      "kind": "struct",
+      "path": "ReadError",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Why kkt-admission's settings are refused: a key or the access key setting; the session lifetime is kkt-web's (step 6.1).",
+      "kind": "struct",
+      "moved_from": "kkt-admission",
+      "path": "SettingError",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The access key file's default place, in kkt's config folder, which the caller gives (step 3.4).",
+      "kind": "fn",
+      "moved_from": "kkt-admission",
+      "path": "access_key_file",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The admin key lives beside the server's access key, unless that place is already used by the access key (which older versions allowed).",
+      "kind": "fn",
+      "moved_from": "kkt-admission",
+      "path": "admin_key_path",
+      "status": "decided"
+     },
+     {
+      "doc": "What to say, after `label`, about the name tied to the admin key `key` in the file at `path`, if anything: a Docker setup's host copy has no name beside it, as the name is kept in the container.",
+      "kind": "fn",
+      "moved_from": "kkt-admission",
+      "path": "admin_name_line",
+      "status": "decided"
+     },
+     {
+      "doc": "The admin agent's name, if the admin key has one, lives beside the admin key, in a file of its own: each key file has its own name file.",
+      "kind": "fn",
+      "moved_from": "kkt-admission",
+      "path": "admin_name_path",
+      "status": "decided"
+     },
+     {
+      "doc": "What to say after the admin name file is written or removed, worded as before (step 7.7).",
+      "kind": "fn",
+      "moved_from": "kkt-admission",
+      "path": "admin_name_written",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The name in a name file if it is tied to this admin key, None if it is tied to another; a free function over kkt-names' AdminName (step 7.7).",
+      "kind": "fn",
+      "moved_from": "kkt-admission",
+      "path": "bound_in",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The text of a name file that ties an admin name to the admin key alone: the name, then a line with the key's hash; a free function over kkt-names' AdminName (step 7.7).",
+      "kind": "fn",
+      "moved_from": "kkt-admission",
+      "path": "bound_to",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Checks an access key, as read from `--access-key-file` without surrounding whitespace.",
+      "kind": "fn",
+      "moved_from": "kkt-admission",
+      "path": "check_access_key",
+      "status": "decided"
+     },
+     {
+      "doc": "A new random key, such as `kkt key create` writes, drawn from the injected Entropy; it passes check_access_key. It was SharedKey::generate in kkt-admission (step 14.5).",
+      "kind": "fn",
+      "path": "generate",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Writes a missing default key, drawing a key only after making its folder (step 7.2).",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "make_default_key",
+      "status": "decided"
+     },
+     {
+      "doc": "Creates a new private key file, making its folder before drawing the key (step 7.2).",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "new_key_file",
+      "status": "decided"
+     },
+     {
+      "doc": "Shortest access key, in bytes: a key this long, and otherwise valid, is one `check_access_key` accepts. (step 3.1b)",
+      "feature": "testing",
+      "kind": "const",
+      "moved_from": "kkt-admission",
+      "path": "testing::MIN_ACCESS_KEY_BYTES",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The operator web key always lives beside the server's access key.",
+      "kind": "fn",
+      "moved_from": "kkt-admission",
+      "path": "web_key_path",
+      "status": "decided"
+     },
+     {
+      "doc": "Writes already-bound admin-name text beside the key, or removes the old name file (step 7.2).",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "write_admin_name",
+      "status": "decided"
+     },
+     {
+      "doc": "Writes `key` to `path`, readable and writable only by its owner.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "write_key_file",
+      "status": "decided"
+     }
+    ],
+    "kind": "logic and effect",
+    "lib": "kkt_server_keys",
+    "name": "kkt-server-keys",
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new logic and effect crate, from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "machine::keys::make_default_key comes here from kashkeshet as make_default_key"
+     },
+     {
+      "status": "decided",
+      "text": "machine::keys::new_key_file comes here from kashkeshet as new_key_file"
+     },
+     {
+      "status": "decided",
+      "text": "machine::keys::write_key_file comes here from kashkeshet as write_key_file"
+     },
+     {
+      "status": "decided",
+      "text": "machine::keys::write_admin_name comes here from kashkeshet as write_admin_name"
+     },
+     {
+      "status": "decided",
+      "text": "new struct KeyFiles"
+     },
+     {
+      "status": "decided",
+      "text": "new struct ReadError"
+     },
+     {
+      "status": "decided",
+      "text": "new fn generate"
+     },
+     {
+      "status": "decided",
+      "text": "AccessKey comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "SettingError comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "check_access_key comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "ACCESS_KEY_FILE_MODE comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "ACCESS_KEY_FILE_NAME comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "access_key_file comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "web_key_path comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "admin_key_path comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "admin_name_path comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::KeyText comes here from kkt-admission as KeyText"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::bound_to comes here from kkt-admission as bound_to"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::bound_in comes here from kkt-admission as bound_in"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::admin_name_line comes here from kkt-admission as admin_name_line"
+     },
+     {
+      "status": "decided",
+      "text": "server_keys::admin_name_written comes here from kkt-admission as admin_name_written"
+     },
+     {
+      "status": "decided",
+      "text": "testing::MIN_ACCESS_KEY_BYTES comes here from kkt-admission"
+     },
+     {
+      "status": "decided",
+      "text": "generate takes entropy: new keys' randomness, as SharedKey::generate took it (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "generate draws new keys from the injected Entropy (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "the admin name file holds a hash of its key (step 14.5)"
+     },
+     {
+      "status": "decided",
+      "text": "the admin name tied to the admin key (step 14.5)"
+     }
+    ],
+    "released_program": false,
+    "slots": [
+     {
+      "at": "generate",
+      "kind": "param",
+      "name": "entropy",
+      "note": "new keys' randomness, as SharedKey::generate took it (step 14.5)",
+      "proposed_slot": true,
+      "status": "decided",
+      "traits": [
+       {
+        "crate": "kkt-entropy",
+        "trait": "Entropy"
+       }
+      ]
+     }
+    ],
+    "third_party": []
    },
    {
     "bins": [],
@@ -32019,17 +32349,12 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "AccessKey",
      "AdminAdmission",
      "ServerKey",
-     "SettingError",
      "SharedKey",
-     "access_key_file",
-     "admin_name_path",
      "key_refusal",
      "server_keys",
      "server_keys::KeyRefusal",
-     "server_keys::KeyText",
      "server_keys::ServerKeys",
      "server_keys::check"
     ],
@@ -32040,22 +32365,17 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "adapter for kkt-admission-os::KeyFiles implements server_keys::KeyTexts"
+       "adapter for kkt-server-keys::KeyFiles implements server_keys::KeyTexts"
       ],
       "role": "implements"
      },
      {
       "detail": [
-       "AccessKey",
        "AdminAdmission",
        "ServerKey",
-       "SettingError",
-       "access_key_file",
-       "admin_name_path",
        "key_refusal",
        "server_keys",
        "server_keys::KeyRefusal",
-       "server_keys::KeyText",
        "server_keys::ServerKeys",
        "server_keys::check"
       ],
@@ -32076,41 +32396,6 @@ window.KKT_PROPOSED = {
      "Admission"
     ],
     "to": "kkt-admission"
-   },
-   {
-    "features": [],
-    "from": "kashkeshet",
-    "items": [
-     "KeyFiles",
-     "ReadError",
-     "make_default_key",
-     "new_key_file",
-     "write_admin_name",
-     "write_key_file"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "KeyFiles",
-       "ReadError",
-       "make_default_key",
-       "new_key_file",
-       "write_admin_name",
-       "write_key_file"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-admission-os"
    },
    {
     "features": [
@@ -33391,6 +33676,51 @@ window.KKT_PROPOSED = {
     "to": "kkt-server"
    },
    {
+    "features": [],
+    "from": "kashkeshet",
+    "items": [
+     "AccessKey",
+     "KeyFiles",
+     "KeyText",
+     "ReadError",
+     "SettingError",
+     "access_key_file",
+     "admin_name_path",
+     "make_default_key",
+     "new_key_file",
+     "write_admin_name",
+     "write_key_file"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "AccessKey",
+       "KeyFiles",
+       "KeyText",
+       "ReadError",
+       "SettingError",
+       "access_key_file",
+       "admin_name_path",
+       "make_default_key",
+       "new_key_file",
+       "write_admin_name",
+       "write_key_file"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-server-keys"
+   },
+   {
     "features": [
      "real"
     ],
@@ -33727,33 +34057,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-admission",
     "items": [
-     "Entropy"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Entropy"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [
-     "testing::SeqEntropy"
-    ],
-    "to": "kkt-entropy"
-   },
-   {
-    "features": [],
-    "from": "kkt-admission",
-    "items": [
      "sha256"
     ],
     "kind": "normal",
@@ -33804,12 +34107,10 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-admission-os",
+    "from": "kkt-admission",
     "items": [
-     "ACCESS_KEY_FILE_MODE",
-     "AccessKey",
-     "admin_name_path",
-     "server_keys::KeyText"
+     "SettingError",
+     "check_access_key"
     ],
     "kind": "normal",
     "optional": false,
@@ -33818,10 +34119,8 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "ACCESS_KEY_FILE_MODE",
-       "AccessKey",
-       "admin_name_path",
-       "server_keys::KeyText"
+       "SettingError",
+       "check_access_key"
       ],
       "role": "uses"
      }
@@ -33831,7 +34130,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-admission"
+    "to": "kkt-server-keys"
    },
    {
     "features": [],
@@ -34229,31 +34528,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-api-sim",
     "items": [
-     "check_access_key"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "check_access_key"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-admission"
-   },
-   {
-    "features": [],
-    "from": "kkt-api-sim",
-    "items": [
      "AgentInfo",
      "AgentView",
      "Api",
@@ -34588,6 +34862,31 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-api-sim",
     "items": [
+     "check_access_key"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "check_access_key"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-server-keys"
+   },
+   {
+    "features": [],
+    "from": "kkt-api-sim",
+    "items": [
      "Shutdown"
     ],
     "kind": "normal",
@@ -34796,31 +35095,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-client-config",
     "items": [
-     "check_access_key"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "check_access_key"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-admission"
-   },
-   {
-    "features": [],
-    "from": "kkt-client-config",
-    "items": [
      "ClientCommand"
     ],
     "kind": "normal",
@@ -34866,6 +35140,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-machine"
+   },
+   {
+    "features": [],
+    "from": "kkt-client-config",
+    "items": [
+     "check_access_key"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "check_access_key"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-server-keys"
    },
    {
     "features": [],
@@ -35349,33 +35648,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-search"
    },
    {
-    "features": [],
-    "from": "kkt-diagnostics",
-    "items": [
-     "ACCESS_KEY_FILE_MODE",
-     "check_access_key"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "ACCESS_KEY_FILE_MODE",
-       "check_access_key"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-admission"
-   },
-   {
     "features": [
      "testing"
     ],
@@ -35459,6 +35731,33 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-probe"
+   },
+   {
+    "features": [],
+    "from": "kkt-diagnostics",
+    "items": [
+     "ACCESS_KEY_FILE_MODE",
+     "check_access_key"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "ACCESS_KEY_FILE_MODE",
+       "check_access_key"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-server-keys"
    },
    {
     "features": [],
@@ -36774,14 +37073,10 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-keymode",
     "items": [
-     "AccessKey",
      "AdminAdmission",
-     "SettingError",
-     "admin_name_path",
      "key_refusal",
      "server_keys",
      "server_keys::KeyRefusal",
-     "server_keys::KeyText",
      "server_keys::ServerKeys",
      "server_keys::check"
     ],
@@ -36792,20 +37087,16 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "adapter for kkt-admission-os::KeyFiles implements server_keys::KeyTexts"
+       "adapter for kkt-server-keys::KeyFiles implements server_keys::KeyTexts"
       ],
       "role": "implements"
      },
      {
       "detail": [
-       "AccessKey",
        "AdminAdmission",
-       "SettingError",
-       "admin_name_path",
        "key_refusal",
        "server_keys",
        "server_keys::KeyRefusal",
-       "server_keys::KeyText",
        "server_keys::ServerKeys",
        "server_keys::check"
       ],
@@ -36818,31 +37109,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-admission"
-   },
-   {
-    "features": [],
-    "from": "kkt-keymode",
-    "items": [
-     "KeyFiles"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "KeyFiles"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-admission-os"
    },
    {
     "features": [],
@@ -37375,6 +37641,39 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-server"
+   },
+   {
+    "features": [],
+    "from": "kkt-keymode",
+    "items": [
+     "AccessKey",
+     "KeyFiles",
+     "KeyText",
+     "SettingError",
+     "admin_name_path"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "AccessKey",
+       "KeyFiles",
+       "KeyText",
+       "SettingError",
+       "admin_name_path"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-server-keys"
    },
    {
     "features": [
@@ -38165,35 +38464,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-operate",
     "items": [
-     "AccessKey",
-     "admin_key_path",
-     "server_keys"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "AccessKey",
-       "admin_key_path",
-       "server_keys"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-admission"
-   },
-   {
-    "features": [],
-    "from": "kkt-operate",
-    "items": [
      "LaneSource",
      "SwarmId"
     ],
@@ -38696,6 +38966,39 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-rules"
+   },
+   {
+    "features": [],
+    "from": "kkt-operate",
+    "items": [
+     "AccessKey",
+     "admin_key_path",
+     "admin_name_line",
+     "admin_name_written",
+     "bound_to"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "AccessKey",
+       "admin_key_path",
+       "admin_name_line",
+       "admin_name_written",
+       "bound_to"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-server-keys"
    },
    {
     "features": [],
@@ -40269,6 +40572,83 @@ window.KKT_PROPOSED = {
     "to": "kkt-web"
    },
    {
+    "features": [],
+    "from": "kkt-server-keys",
+    "items": [
+     "Entropy"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Entropy"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-entropy"
+   },
+   {
+    "features": [],
+    "from": "kkt-server-keys",
+    "items": [
+     "sha256"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "sha256"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-hash"
+   },
+   {
+    "features": [],
+    "from": "kkt-server-keys",
+    "items": [
+     "AdminName",
+     "MAX_ADMIN_NAME_CHARS"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "AdminName",
+       "MAX_ADMIN_NAME_CHARS"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-names"
+   },
+   {
     "features": [
      "testing"
     ],
@@ -40319,31 +40699,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-server"
-   },
-   {
-    "features": [],
-    "from": "kkt-service",
-    "items": [
-     "AccessKey"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "AccessKey"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-admission"
    },
    {
     "features": [
@@ -40424,6 +40779,31 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-scratch"
+   },
+   {
+    "features": [],
+    "from": "kkt-service",
+    "items": [
+     "AccessKey"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "AccessKey"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-server-keys"
    },
    {
     "features": [],
@@ -40563,39 +40943,6 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kkt-setup",
     "items": [
-     "ACCESS_KEY_FILE_NAME",
-     "admin_key_path",
-     "admin_name_path",
-     "check_access_key",
-     "web_key_path"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "ACCESS_KEY_FILE_NAME",
-       "admin_key_path",
-       "admin_name_path",
-       "check_access_key",
-       "web_key_path"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-admission"
-   },
-   {
-    "features": [],
-    "from": "kkt-setup",
-    "items": [
      "Client"
     ],
     "kind": "normal",
@@ -40724,6 +41071,39 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-names"
+   },
+   {
+    "features": [],
+    "from": "kkt-setup",
+    "items": [
+     "ACCESS_KEY_FILE_NAME",
+     "admin_key_path",
+     "admin_name_path",
+     "check_access_key",
+     "web_key_path"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "ACCESS_KEY_FILE_NAME",
+       "admin_key_path",
+       "admin_name_path",
+       "check_access_key",
+       "web_key_path"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-server-keys"
    },
    {
     "features": [],
@@ -41264,33 +41644,6 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [
-     "real"
-    ],
-    "from": "kkt-web-preview",
-    "items": [
-     "KeyFiles"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "KeyFiles"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-admission-os"
-   },
-   {
-    "features": [
      "testing"
     ],
     "from": "kkt-web-preview",
@@ -41543,6 +41896,33 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-server"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-web-preview",
+    "items": [
+     "KeyFiles"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "KeyFiles"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-server-keys"
    },
    {
     "features": [
