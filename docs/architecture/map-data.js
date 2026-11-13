@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "f462b59",
+ "commit": "62a2091",
  "crates": [
   {
    "bins": [
@@ -292,7 +292,7 @@ window.KKT_GRAPH = {
      "path": "machine::database::pending_upgrade"
     },
     {
-     "doc": "The program's prober: kkt-probe-reqwest's `HttpProber`, with the doctor's timeout, response cap, protocol version and check names from kkt-diagnostics.",
+     "doc": "The program's prober: kkt-probe's `HttpProber`, with the doctor's timeout, response cap, protocol version and check names from kkt-diagnostics.",
      "kind": "mod",
      "path": "machine::diagnostics"
     },
@@ -11343,23 +11343,33 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-probe",
-       "type": "testing::Memory"
+       "type": "HttpProber"
       },
       {
-       "crate": "kkt-probe-reqwest",
-       "type": "HttpProber"
+       "crate": "kkt-probe",
+       "type": "testing::Memory"
       }
      ],
      "trait": "Prober"
     }
    ],
-   "crate_doc": "Probing a kkt server and reading its key files, as a contract: `Prober`, with what it finds (`KeyFile`) and the checks it gives back (`Check`).",
+   "crate_doc": "Probing a kkt server and reading its key files: `Prober`, with what it finds (`KeyFile`) and the checks it gives back (`Check`), and its one implementation, `HttpProber` (behind `real`), which probes over HTTP with reqwest, whose types s...",
    "dev_only": false,
    "features": {
+    "real": [
+     "dep:reqwest",
+     "dep:serde_json"
+    ],
     "testing": []
    },
    "holders": [],
    "implements": [
+    {
+     "crate": "kkt-probe",
+     "trait": "Prober",
+     "trait_crate": "kkt-probe",
+     "type": "HttpProber"
+    },
     {
      "crate": "kkt-probe",
      "trait": "Prober",
@@ -11382,6 +11392,15 @@ window.KKT_GRAPH = {
       "problem"
      ],
      "path": "Check"
+    },
+    {
+     "doc": "Reads key files and probes servers over HTTP, as its settings say.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "HttpProber"
     },
     {
      "doc": "What a `Prober` found in a key file.",
@@ -11407,6 +11426,18 @@ window.KKT_GRAPH = {
      "path": "Probing"
     },
     {
+     "doc": "What the HTTP prober takes from the program; it chooses no defaults.",
+     "fields": [
+      "timeout",
+      "max_response_bytes",
+      "protocol_version",
+      "server_check",
+      "key_check"
+     ],
+     "kind": "struct",
+     "path": "Settings"
+    },
+    {
      "doc": "A prober in memory, for consumers' tests: key files and each address's checks are given up front, and nothing touches the machine or a network.",
      "feature": "testing",
      "kind": "mod",
@@ -11425,69 +11456,15 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_probe",
-   "machine_work": {},
-   "name": "kkt-probe",
-   "optional_third_party": {},
-   "path": "crates/kkt-probe",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "Probing a kkt server over HTTP, and reading its key files: `HttpProber` implements kkt-probe's `Prober` with reqwest, whose types stay inside this crate.",
-   "dev_only": false,
-   "features": {
-    "real": [
-     "dep:reqwest",
-     "dep:serde_json"
-    ]
-   },
-   "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-probe-reqwest",
-     "trait": "Prober",
-     "trait_crate": "kkt-probe",
-     "type": "HttpProber"
-    }
-   ],
-   "items": [
-    {
-     "doc": "Reads key files and probes servers over HTTP, as its settings say.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "HttpProber"
-    },
-    {
-     "doc": "Values supplied by the program; the prober chooses no defaults.",
-     "fields": [
-      "timeout",
-      "max_response_bytes",
-      "protocol_version",
-      "server_check",
-      "key_check"
-     ],
-     "kind": "struct",
-     "path": "Settings"
-    }
-   ],
-   "lib": "kkt_probe_reqwest",
    "machine_work": {
-    "src/probe.rs": [
+    "src/http.rs": [
      "fs::Metadata",
      "fs::metadata",
      "fs::read_to_string",
      "os::unix::fs::PermissionsExt"
     ]
    },
-   "name": "kkt-probe-reqwest",
+   "name": "kkt-probe",
    "optional_third_party": {
     "reqwest": [
      "real"
@@ -11496,7 +11473,7 @@ window.KKT_GRAPH = {
      "real"
     ]
    },
-   "path": "crates/kkt-probe-reqwest",
+   "path": "crates/kkt-probe",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -17601,7 +17578,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-probe-reqwest"
+   "to": "kkt-probe"
   },
   {
    "features": [],
@@ -23639,38 +23616,6 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-probe-reqwest",
-   "items": [
-    "Check",
-    "KeyFile",
-    "Prober",
-    "Probing"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "HttpProber implements Prober"
-     ],
-     "role": "implements"
-    },
-    {
-     "detail": [
-      "Check",
-      "KeyFile",
-      "Probing"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-probe"
-  },
-  {
-   "features": [],
    "from": "kkt-provenance",
    "items": [
     "sha256"
@@ -26874,14 +26819,8 @@ window.KKT_CONCERNS = {
    "must_not": "Choose native implementations, depend on an effect or another assembly, or parse command-line flags."
   },
   "kkt-probe": {
-   "concern": "The project's contract for probing a kkt server and reading its key files (`Prober`), with what it finds (`KeyFile`) and the checks it gives (`Check`); its testing Memory stand-in.",
-   "kind": "contract",
-   "layer": "operations",
-   "must_not": "Know an HTTP library or MCP's wire format; touch the machine."
-  },
-  "kkt-probe-reqwest": {
-   "concern": "Implements Prober directly: the server probe over HTTP with reqwest, MCP's initialize handshake read from its answer, and key files read from disk.",
-   "kind": "effect",
+   "concern": "Probing a kkt server and reading its key files: the `Prober` contract in the open, with what it finds (`KeyFile`), the checks it gives (`Check`), the prober's `Settings` and its testing Memory stand-in; and its one implementation behind real, `HttpProber`: the probe over HTTP with reqwest, MCP's initialize handshake read from its answer, and key files read from disk.",
+   "kind": "contract and effect",
    "layer": "operations",
    "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them."
   },
@@ -27755,7 +27694,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-diagnostics",
-     "impl": "kkt-probe-reqwest::HttpProber",
+     "impl": "kkt-probe::HttpProber",
      "note": "kkt doctor, kkt setup",
      "to": [
       {
@@ -27909,7 +27848,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-probe-reqwest::HttpProber",
+     "impl": "kkt-probe::HttpProber",
      "note": "The program builds HttpProber with the doctor's settings and injects it directly (12.5b).",
      "to": [
       {

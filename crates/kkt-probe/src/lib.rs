@@ -1,12 +1,15 @@
-//! Probing a kkt server and reading its key files, as a contract:
-//! [`Prober`], with what it finds ([`KeyFile`]) and the checks it gives back
-//! ([`Check`]). kkt-diagnostics turns them into `kkt doctor`'s and setup's
-//! checks; a wrapper named for the HTTP library implements it
-//! (kkt-probe-reqwest), and the program injects it.
+//! Probing a kkt server and reading its key files: [`Prober`], with what it
+//! finds ([`KeyFile`]) and the checks it gives back ([`Check`]), and its one
+//! implementation, `HttpProber` (behind `real`), which probes over HTTP with
+//! reqwest, whose types stay inside this crate. kkt-diagnostics turns the
+//! checks into `kkt doctor`'s and setup's, depending on this crate without
+//! `real`, so it sees the contract alone; the program turns `real` on and
+//! injects `HttpProber`, with the [`Settings`] it chooses.
 
 use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
+use std::time::Duration;
 
 /// What a [`Prober`] found in a key file.
 #[derive(Debug, Clone)]
@@ -65,3 +68,18 @@ impl Check {
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
+
+/// What the HTTP prober takes from the program; it chooses no defaults.
+#[derive(Clone, Copy)]
+pub struct Settings {
+    pub timeout: Duration,
+    pub max_response_bytes: usize,
+    pub protocol_version: &'static str,
+    pub server_check: &'static str,
+    pub key_check: &'static str,
+}
+
+#[cfg(feature = "real")]
+mod http;
+#[cfg(feature = "real")]
+pub use http::HttpProber;

@@ -479,7 +479,7 @@
       }
      ],
      "note": "kkt doctor, kkt setup",
-     "impl": "kkt-probe-reqwest::HttpProber"
+     "impl": "kkt-probe::HttpProber"
     },
     {
      "impl": "kkt-diagnostics::Inspector",
@@ -632,7 +632,7 @@
        "param": "prober"
       }
      ],
-     "impl": "kkt-probe-reqwest::HttpProber",
+     "impl": "kkt-probe::HttpProber",
      "note": "The program builds HttpProber with the doctor's settings and injects it directly (12.5b)."
     },
     {
