@@ -150,6 +150,18 @@ class ContractAndEffect(unittest.TestCase):
                       "`real` on: kkt-user",
                       self.mismatches(merged(), [edge("kkt-user", "kkt-tool", ["real"])], [user]))
 
+    def test_a_slot_on_a_type_behind_real_is_the_implementations(self):
+        # A map from before slots recorded their feature: the owner's decides.
+        slot = {"at": "AdminRemote::new", "name": "clock", "kind": "param",
+                "traits": [{"crate": "kkt-clock", "trait": "Clock"}]}
+        crate = merged(slots=[slot])
+        crate["items"] = [{"path": "AdminRemote", "feature": "real"}]
+        self.assertEqual(self.mismatches(crate), [])
+        crate["items"] = [{"path": "AdminRemote"}]
+        self.assertEqual(self.mismatches(crate),
+                         ["kkt-tool is marked contract and effect but its contract does more than compute on "
+                          "its own values: AdminRemote::new takes clock (Clock)"])
+
     def test_only_an_arrow_turning_real_on_reaches_the_effect(self):
         kind_of = {"kkt-tool": self.kinds.MERGED, "kkt-os": "effect", "kkt-api": "contract"}
         self.assertFalse(self.kinds.reaches_effect(edge("a", "kkt-tool"), kind_of))

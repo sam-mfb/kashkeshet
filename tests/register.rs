@@ -2,8 +2,7 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kkt_agent_client::Watched;
-use kkt_agent_client_rmcp::{Remote, Settings};
+use kkt_agent_client::{Remote, Settings, Watched};
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -229,7 +228,7 @@ async fn existing_files_are_untouched_and_do_not_register_an_avatar() {
     let home = home("register-existing");
     let url = format!("{}/mcp", server.base);
     std::fs::write(home.join("existing"), "keep this").expect("existing file");
-    let observer = kkt_agent_client_rmcp::Client::new(url.clone(), Some(KEY.into()))
+    let observer = kkt_agent_client::Client::new(url.clone(), Some(KEY.into()))
         .register(None, None)
         .await
         .unwrap_or_else(|_| panic!("observer registration"));

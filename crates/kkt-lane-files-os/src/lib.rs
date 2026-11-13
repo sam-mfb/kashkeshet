@@ -1,6 +1,6 @@
 //! The machine's files for lane folders, as plain [`OsDisk`] methods. The
 //! program adapts them to the lane-file logic's `Disk`. The folder's git
-//! commit is kkt-lane-commit-git's.
+//! commit is kkt-lane-commit's.
 
 #![cfg(feature = "real")]
 

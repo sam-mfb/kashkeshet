@@ -61,7 +61,7 @@ fn a_failure_kept_in_a_poisoned_slot_is_reported_once_with_the_poisoning_as_its_
 #[cfg(feature = "real")]
 mod real {
     use super::*;
-    use kkt_browser::Browser;
+    use crate::Browser;
 
     /// A login link's secret part, which no message may repeat.
     const MARKER: &str = "kkt-marker-7f3a";
