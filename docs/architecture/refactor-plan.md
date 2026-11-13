@@ -1828,7 +1828,7 @@ program turns `real` on, as it turned on the `-os` crate's.
 | 14.2 | kkt-setup and kkt-setup-os become kkt-setup: setup's files on this machine behind `real` | S | kkt-build-d | kkt-review-e |
 | 14.3 | kkt-shutdown and kkt-shutdown-os become kkt-shutdown: `StopSignals` behind `real`, with tokio optional | S | kkt-build-d | kkt-review-e |
 | 14.4 | Logs: kkt-logs-os splits in two. The file writer joins kkt-logs behind `real`; the tracing implementation of kkt-log's `Log`, with the subscriber's start, becomes kkt-log-tracing | M | kkt-build-e (#536) | kkt-review-e |
-| 14.5 | Admission: kkt-admission splits by domain. Who is let in stays; the server's keys become kkt-server-keys, with kkt-admission-os' file handling behind `real` | M | kkt-build-e | kkt-review-e |
+| 14.5 | Admission: kkt-admission splits by domain. Who is let in stays; the server's keys become kkt-server-keys, with kkt-admission-os' file handling behind `real` | M | kkt-build-e (#538) | kkt-review-e |
 
 sage-cardinal merges, one pull request at a time; each merges the tip of
 `refactor` in first. 14.0 comes first. Then kkt-build-d takes 14.1, 14.2
