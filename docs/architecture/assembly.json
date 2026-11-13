@@ -79,7 +79,7 @@
       "kkt-shutdown::Shutdown",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown::StopSignals"
      ]
     }
    ],
@@ -869,7 +869,7 @@
       "kkt-server::build",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown::StopSignals"
      ]
     }
    ],
@@ -1221,7 +1221,7 @@
      "items": [
       "kkt-server::page",
       "kkt-server-listen::listen",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown::StopSignals"
      ]
     }
    ],
