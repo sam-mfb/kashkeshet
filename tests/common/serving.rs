@@ -189,7 +189,7 @@ pub async fn try_start_quiet(
         }
     }
     Err(format!(
-        "kkt could not listen on any port it tried, each held by another process:\n{}",
+        "kkt could not listen on any port it tried, each in use:\n{}",
         taken.join("\n")
     ))
 }
@@ -198,8 +198,8 @@ pub async fn try_start_quiet(
 enum Quiet {
     /// The server answers.
     Started(Child),
-    /// The server said it could not listen, and another process holds the
-    /// port; with why, as for `Failed`.
+    /// The server said it could not listen, because the address was in use
+    /// or another process holds the port; with why, as for `Failed`.
     Taken(String),
     /// The server failed for another reason; with its exit status and what
     /// it printed.
@@ -263,14 +263,22 @@ async fn start_quiet_on(mut command: Command, bind: &str) -> Quiet {
     };
     let why = format!("{what}\nstandard output:\n{stdout}standard error:\n{stderr}");
     // The port counts as taken only if the server exited saying it could
-    // not listen there and another process does hold it. kkt serve says so
-    // in its log on standard output, or, when it logs to a file, also on
-    // standard error. Any other failure is reported, even on a port another
-    // process holds.
+    // not listen there, and either said the address was in use or another
+    // process does hold it now. kkt serve says so in its log on standard
+    // output, or, when it logs to a file, also on standard error. The
+    // server's own "in use" is enough: what held the port may have let it go
+    // before this check, a moment later. Any other failure is reported, even
+    // on a port another process holds. The ports tried are bounded, so a
+    // server that says "in use" on every one still fails the test.
     let said = format!("could not listen on {bind}:");
+    let in_use = format!("{said} Address already in use");
     let could_not_listen = stdout.contains(&said) || stderr.contains(&said);
-    if answered.is_ok() && could_not_listen && std::net::TcpListener::bind(bind).is_err() {
-        eprintln!("kkt could not listen on {bind}, which another process holds");
+    let said_in_use = stdout.contains(&in_use) || stderr.contains(&in_use);
+    if answered.is_ok()
+        && could_not_listen
+        && (said_in_use || std::net::TcpListener::bind(bind).is_err())
+    {
+        eprintln!("kkt could not listen on {bind}, which another process held");
         return Quiet::Taken(why);
     }
     Quiet::Failed(why)
