@@ -105,6 +105,23 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
         /Contract \(\d+\): .*Servers/.test(parts) && /Implementation, behind real \(\d+\): .*Mcp/.test(parts)
           && /turning real on: .*kashkeshet/.test(parts) && /the contract only: .*kkt-agent-commands/.test(parts), parts.slice(0, 200));
 
+      // A ticked merged crate shows its delivery line, clear of the
+      // highlighted arrows: kashkeshet sits just above kkt-agent-commands,
+      // and a line meeting the boxes where the arrows do lay hidden on them.
+      if (mode === "current") {
+        await p.click(`${node(merged)} .pick-hit`, { force: true });
+        const clear = await p.evaluate(() => {
+          const ends = (path) => [path.getPointAtLength(0), path.getPointAtLength(path.getTotalLength())];
+          const line = document.querySelector("path.delivery[data-from='kashkeshet'][data-to='kkt-agent-commands']");
+          if (!line) return { drawn: false };
+          const arrows = [...document.querySelectorAll("path.edge.focus")].flatMap(ends);
+          const near = ends(line).filter((q) => arrows.some((r) => Math.hypot(q.x - r.x, q.y - r.y) < 6));
+          return { drawn: true, near: near.length };
+        });
+        check(m("a ticked merged crate's delivery line is drawn clear of the arrows"), clear.drawn && clear.near === 0, clear);
+        await p.click(`${node(merged)} .pick-hit`, { force: true });
+      }
+
       // Clicking a box shows it in the panel and highlights nothing.
       await p.click(`${node("kkt-hosts")} > rect`);
       const panel = (await read()).panel;
