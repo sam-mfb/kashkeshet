@@ -24,7 +24,6 @@ members = [
     "crates/kkt-config-file",
     "crates/kkt-config-file-os",
     "crates/kkt-container",
-    "crates/kkt-container-docker",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
     "crates/kkt-entropy",
@@ -36,7 +35,6 @@ members = [
     "crates/kkt-identity",
     "crates/kkt-identity-keymode",
     "crates/kkt-lane-commit",
-    "crates/kkt-lane-commit-git",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-log",
@@ -96,7 +94,6 @@ default-members = [
     "crates/kkt-config-file",
     "crates/kkt-config-file-os",
     "crates/kkt-container",
-    "crates/kkt-container-docker",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
     "crates/kkt-entropy",
@@ -108,7 +105,6 @@ default-members = [
     "crates/kkt-identity",
     "crates/kkt-identity-keymode",
     "crates/kkt-lane-commit",
-    "crates/kkt-lane-commit-git",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-log",
@@ -232,8 +228,7 @@ kkt-clock = { path = "crates/kkt-clock" }
 kkt-clock-system = { path = "crates/kkt-clock-system", features = ["real"] }
 kkt-config-file = { path = "crates/kkt-config-file" }
 kkt-config-file-os = { path = "crates/kkt-config-file-os", features = ["real"] }
-kkt-container = { path = "crates/kkt-container" }
-kkt-container-docker = { path = "crates/kkt-container-docker", features = ["real"] }
+kkt-container = { path = "crates/kkt-container", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics" }
@@ -242,7 +237,7 @@ kkt-events = { path = "crates/kkt-events" }
 kkt-mcp-formatter = { path = "crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
-kkt-lane-commit-git = { path = "crates/kkt-lane-commit-git", features = ["real"] }
+kkt-lane-commit = { path = "crates/kkt-lane-commit", features = ["real"] }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs" }

@@ -25,7 +25,7 @@ pub struct NativeOperate<'a, D = ()> {
     login_link: crate::terminal::browser_login::TerminalLink,
     /// Docker and Compose, opening a sharing setup's login link with the
     /// system's own opener.
-    docker: kkt_container_docker::Docker,
+    docker: kkt_container::Docker,
 }
 
 impl<'a> NativeOperate<'a> {
@@ -38,7 +38,7 @@ impl<'a> NativeOperate<'a> {
             service: super::service::for_this_os(env),
             prober: super::diagnostics::prober(),
             login_link: crate::terminal::browser_login::TerminalLink::new(),
-            docker: kkt_container_docker::Docker::new(Box::new(kkt_browser::SystemBrowser::new())),
+            docker: kkt_container::Docker::new(Box::new(kkt_browser::SystemBrowser::new())),
         }
     }
 
@@ -76,7 +76,7 @@ impl<'a, D> NativeOperate<'a, D> {
             client_command: &kkt_client_command_claude::Claude,
             prober: &self.prober,
             lanes: &crate::commands::lanes::LaneDisk,
-            lane_commit: &kkt_lane_commit_git::Git,
+            lane_commit: &kkt_lane_commit::Git,
             lines: &crate::terminal::TerminalLines,
             config_file: &NativeConfigText,
             connection: &self.connection,
