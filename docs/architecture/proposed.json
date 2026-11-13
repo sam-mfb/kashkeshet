@@ -45,18 +45,6 @@
    ]
   },
   {
-   "name": "kkt-container-docker",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kkt-container",
-   "status": "decided",
-   "concern": "Docker implements Container directly; owns Docker and Compose knowledge, files, sidecar status and its private native runner, running behind real (12.2).",
-   "third_party": [
-    "serde_json",
-    "thiserror"
-   ]
-  },
-  {
    "name": "kkt-service-os",
    "layer": "operations",
    "kind": "effect",
@@ -114,22 +102,6 @@
    "from": "kkt-lane-files",
    "status": "decided",
    "concern": "The disk under a lane folder: `OsDisk`, a plain type that implements nothing; the program adapts it to kkt-lane-files's `Disk`. The folder's git commit went to kkt-lane-commit-git (step 12.5a)."
-  },
-  {
-   "name": "kkt-lane-commit",
-   "layer": "operations",
-   "kind": "contract",
-   "from": "kkt-lane-files",
-   "status": "decided",
-   "concern": "The project's contract for the commit a lane folder is at (LaneCommit), with its testing stand-in; no tool knowledge (step 12.5a)."
-  },
-  {
-   "name": "kkt-lane-commit-git",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kkt-lane-files",
-   "status": "decided",
-   "concern": "Implements LaneCommit directly with git: its commands, what their answers mean and the wording of a failure, tested against a private runner; running git is behind real (step 12.5a, option a)."
   },
   {
    "name": "kkt-web-preview",
@@ -222,17 +194,6 @@
     "real": []
    },
    "concern": "The server's key files on disk: reading the access, web and admin keys and the admin name file, and writing a key file only its owner can read, new or replaced when forced, with kkt-admission's file mode. `KeyFiles` is a plain type; the programs adapt it to kkt-admission's `KeyTexts`, and kkt calls it to make and write keys, with a key factory the caller gives, so it draws no randomness of its own; a failed read is its own `ReadError`, with the file's path."
-  },
-  {
-   "name": "kkt-setup-os",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kashkeshet",
-   "status": "decided",
-   "features": {
-    "real": []
-   },
-   "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path, and absolute and canonical paths; and one snapshot of `PATH`, in which it finds programs. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container-docker, key files through kkt-admission-os."
   },
   {
    "name": "kkt-terminal-os",
@@ -375,20 +336,31 @@
    "concern": "Implements ClientCommand for Claude Code: claude mcp remove and add-json, CLAUDE_CONFIG_DIR and the wording, over a private runner; running claude is behind real (step 12.5c)."
   },
   {
-   "name": "kkt-browser",
+   "name": "kkt-lane-commit",
    "layer": "operations",
-   "kind": "contract",
-   "from": "kkt-terminal-os",
+   "kind": "contract and effect",
+   "from": "kkt-lane-files",
    "status": "decided",
-   "concern": "The project's contract for opening a link in the person's browser: Browser, with the testing Recorder (step 12.5d)."
+   "concern": "The commit a lane folder is at: the LaneCommit contract in the open, with its testing stand-in, and its one implementation, Git, behind real, with git's commands, what their answers mean and the failures' wording, tested over a private runner (steps 12.5a and 13.4)."
   },
   {
-   "name": "kkt-browser-os",
+   "name": "kkt-setup-os",
    "layer": "operations",
    "kind": "effect",
+   "from": "kashkeshet",
+   "status": "decided",
+   "features": {
+    "real": []
+   },
+   "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path, and absolute and canonical paths; and one snapshot of `PATH`, in which it finds programs. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container, key files through kkt-admission-os."
+  },
+  {
+   "name": "kkt-browser",
+   "layer": "operations",
+   "kind": "contract and effect",
    "from": "kkt-terminal-os",
    "status": "decided",
-   "concern": "Implements Browser with the system's own opener: starting it, reaping it, keeping a failure to report once; starting it is behind real (step 12.5d)."
+   "concern": "Opening a link in the person's browser: the contract, Browser, with the testing Recorder (step 12.5d), and its one implementation, SystemBrowser, the system's own opener: starting it, reaping it, keeping a failure to report once; starting it is behind real (step 13.3, merging kkt-browser-os back)."
   }
  ],
  "moves": [
@@ -4063,14 +4035,6 @@
    "doc": "Container installations in memory, with a supplied sharing name, lane output and sharing keys."
   },
   {
-   "crate": "kkt-container-docker",
-   "path": "Docker",
-   "kind": "struct",
-   "feature": "real",
-   "status": "decided",
-   "doc": "Docker and Compose implement the container contract directly."
-  },
-  {
    "crate": "kkt-agent-files-os",
    "path": "CredentialFile",
    "kind": "struct",
@@ -4441,14 +4405,6 @@
    "doc": "Folders and the commits they are at, in memory (step 12.5a)."
   },
   {
-   "crate": "kkt-lane-commit-git",
-   "path": "Git",
-   "kind": "struct",
-   "feature": "real",
-   "status": "decided",
-   "doc": "The machine's git, asked where a lane folder is (step 12.5a)."
-  },
-  {
    "crate": "kkt-browser",
    "path": "Browser",
    "kind": "trait",
@@ -4468,17 +4424,6 @@
    "feature": "testing"
   },
   {
-   "crate": "kkt-browser-os",
-   "path": "SystemBrowser",
-   "kind": "struct",
-   "status": "decided",
-   "doc": "The system's own opener, which the program gives the Docker wrapper as kkt-browser's Browser. (step 12.5d)",
-   "feature": "real",
-   "methods": [
-    "new"
-   ]
-  },
-  {
    "crate": "kkt-probe",
    "path": "testing::Memory",
    "kind": "struct",
@@ -4490,6 +4435,33 @@
    "feature": "testing",
    "status": "decided",
    "doc": "Key files and servers, held in memory (step 12.5b)."
+  },
+  {
+   "crate": "kkt-container",
+   "path": "Docker",
+   "kind": "struct",
+   "feature": "real",
+   "status": "decided",
+   "doc": "Docker and Compose implement the container contract directly."
+  },
+  {
+   "crate": "kkt-lane-commit",
+   "path": "Git",
+   "kind": "struct",
+   "feature": "real",
+   "status": "decided",
+   "doc": "The machine's git, asked where a lane folder is; behind real (steps 12.5a and 13.4)."
+  },
+  {
+   "crate": "kkt-browser",
+   "path": "SystemBrowser",
+   "kind": "struct",
+   "status": "decided",
+   "doc": "The system's own opener, which the program gives the Docker wrapper as kkt-browser's Browser. (step 12.5d)",
+   "feature": "real",
+   "methods": [
+    "new"
+   ]
   }
  ],
  "declared": [],
@@ -8693,98 +8665,6 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-container-docker",
-   "kind": "normal",
-   "add": {
-    "wires": [
-     "Docker"
-    ]
-   },
-   "features": [
-    "real"
-   ],
-   "status": "decided",
-   "note": "Injects Docker into OperateParts.container (12.2)."
-  },
-  {
-   "from": "kkt-container-docker",
-   "to": "kkt-container",
-   "kind": "normal",
-   "add": {
-    "implements": [
-     "Container"
-    ],
-    "uses": [
-     "Folder",
-     "Inputs",
-     "State",
-     "Login",
-     "Existing",
-     "KeyCopy",
-     "LanesImport",
-     "Provisioned",
-     "ConfigReader",
-     "LoginLink",
-     "WEB_KEY_FILE_NAME",
-     "ADMIN_KEY_FILE_NAME",
-     "NO_ADMIN_KEY_EXIT"
-    ]
-   },
-   "status": "decided",
-   "note": "Directly implements the scope contract (12.2)."
-  },
-  {
-   "from": "kkt-container-docker",
-   "to": "kkt-clock",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Clock",
-     "Span"
-    ]
-   },
-   "status": "decided",
-   "note": "Existing Docker knowledge and supplied dependencies stay inside the wrapper (12.2)."
-  },
-  {
-   "from": "kkt-container-docker",
-   "to": "kkt-config-file",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "CONFIG_DIR",
-     "CONFIG_FILE_NAME"
-    ]
-   },
-   "status": "decided",
-   "note": "Existing Docker knowledge and supplied dependencies stay inside the wrapper (12.2)."
-  },
-  {
-   "from": "kkt-container-docker",
-   "to": "kkt-machine",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "XDG_CONFIG_HOME_DEFAULT"
-    ]
-   },
-   "status": "decided",
-   "note": "Existing Docker knowledge and supplied dependencies stay inside the wrapper (12.2)."
-  },
-  {
-   "from": "kkt-container-docker",
-   "to": "kkt-names",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "AdminName"
-    ]
-   },
-   "status": "decided",
-   "note": "Existing Docker knowledge and supplied dependencies stay inside the wrapper (12.2)."
-  },
-  {
-   "from": "kashkeshet",
    "to": "kkt-agent-files-os",
    "kind": "normal",
    "add": {
@@ -9078,33 +8958,6 @@
    "note": "waits on the clock it is given, as the contract says (12.3)."
   },
   {
-   "from": "kashkeshet",
-   "to": "kkt-lane-commit-git",
-   "kind": "normal",
-   "add": {
-    "wires": [
-     "Git"
-    ]
-   },
-   "features": [
-    "real"
-   ],
-   "status": "decided",
-   "note": "Builds Git and hands it directly to kkt-operate (12.5a)."
-  },
-  {
-   "from": "kkt-lane-commit-git",
-   "to": "kkt-lane-commit",
-   "kind": "normal",
-   "add": {
-    "implements": [
-     "LaneCommit"
-    ]
-   },
-   "status": "decided",
-   "note": "The named wrapper implements the scope contract directly (12.5a)."
-  },
-  {
    "from": "kkt-lane-files",
    "to": "kkt-lane-commit",
    "kind": "normal",
@@ -9127,42 +8980,6 @@
    },
    "status": "decided",
    "note": "OperateParts takes the lane folder's commit (12.5a)."
-  },
-  {
-   "from": "kkt-container-docker",
-   "to": "kkt-browser",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Browser"
-    ]
-   },
-   "note": "a sharing setup's login link opens in the Browser it is built with (step 12.5d)",
-   "status": "decided"
-  },
-  {
-   "from": "kkt-browser-os",
-   "to": "kkt-browser",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Browser"
-    ]
-   },
-   "note": "it implements the contract directly (step 12.5d)",
-   "status": "decided"
-  },
-  {
-   "from": "kashkeshet",
-   "to": "kkt-browser-os",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "SystemBrowser"
-    ]
-   },
-   "note": "the program gives the Docker wrapper the system's opener as it is (step 12.5d)",
-   "status": "decided"
   },
   {
    "from": "kkt-probe-reqwest",
@@ -9215,6 +9032,113 @@
    "remove": true,
    "status": "decided",
    "note": "the program builds kkt-probe-reqwest's HttpProber and names the probe contract nowhere (12.5b)."
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-container",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "Docker"
+    ]
+   },
+   "features": [
+    "real"
+   ],
+   "status": "decided",
+   "note": "Injects Docker into OperateParts.container (12.2)."
+  },
+  {
+   "from": "kkt-container",
+   "to": "kkt-clock",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Clock",
+     "Span"
+    ]
+   },
+   "status": "decided",
+   "note": "Existing Docker knowledge and supplied dependencies stay inside the wrapper (12.2)."
+  },
+  {
+   "from": "kkt-container",
+   "to": "kkt-config-file",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "CONFIG_DIR",
+     "CONFIG_FILE_NAME"
+    ]
+   },
+   "status": "decided",
+   "note": "Existing Docker knowledge and supplied dependencies stay inside the wrapper (12.2)."
+  },
+  {
+   "from": "kkt-container",
+   "to": "kkt-machine",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "XDG_CONFIG_HOME_DEFAULT"
+    ]
+   },
+   "status": "decided",
+   "note": "Existing Docker knowledge and supplied dependencies stay inside the wrapper (12.2)."
+  },
+  {
+   "from": "kkt-container",
+   "to": "kkt-names",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "AdminName"
+    ]
+   },
+   "status": "decided",
+   "note": "Existing Docker knowledge and supplied dependencies stay inside the wrapper (12.2)."
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-lane-commit",
+   "kind": "normal",
+   "add": {
+    "wires": [
+     "Git"
+    ]
+   },
+   "features": [
+    "real"
+   ],
+   "status": "decided",
+   "note": "Turns on kkt-lane-commit's real and hands its Git directly to kkt-operate (12.5a, 13.4)."
+  },
+  {
+   "from": "kkt-container",
+   "to": "kkt-browser",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "Browser"
+    ]
+   },
+   "note": "a sharing setup's login link opens in the Browser it is built with (step 12.5d)",
+   "status": "decided"
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-browser",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "SystemBrowser"
+    ]
+   },
+   "note": "the program gives the Docker wrapper the system's opener as it is (step 12.5d)",
+   "status": "decided",
+   "features": [
+    "real"
+   ]
   }
  ],
  "decisions": {
@@ -9355,7 +9279,7 @@
    "status": "decided",
    "result": "Retired: the scope contract Container replaces machine operations. Docker implements it directly; the program only injects it.",
    "new": [
-    "kkt-container-docker"
+    "kkt-container"
    ],
    "conflicts": [
     "C2"
@@ -9616,7 +9540,7 @@
   },
   {
    "id": "45",
-   "text": "From review of F1 (msg 2144): kkt-setup-os keeps only setup's files (the record, its note, the data folder), this program's path and PATH, rather than general file functions; the Docker folder's .env and the Tailscale auth key file are read through kkt-container's Host (kkt-container-docker), staged keys and whether key files are there through kkt-admission-os, and whether a database is there through kkt-db-sqlite. The rule for agent credential files (refuse another user's, tighten a readable one, and the advice) is kkt-setup's; kkt-agent-client reads the owner and mode and tightens. write_record's doc no longer repeats the wrong text from the code."
+   "text": "From review of F1 (msg 2144): kkt-setup-os keeps only setup's files (the record, its note, the data folder), this program's path and PATH, rather than general file functions; the Docker folder's .env and the Tailscale auth key file are read through kkt-container's Host (kkt-container), staged keys and whether key files are there through kkt-admission-os, and whether a database is there through kkt-db-sqlite. The rule for agent credential files (refuse another user's, tighten a readable one, and the advice) is kkt-setup's; kkt-agent-client reads the owner and mode and tightens. write_record's doc no longer repeats the wrong text from the code."
   },
   {
    "id": "46",
@@ -10696,8 +10620,8 @@
   },
   "kkt-container": {
    "status": "decided",
-   "concern": "Container operations, requests and results in project terms; config parsing and login-link contracts; a testing stand-in.",
-   "must_not": "Know Docker commands, Compose files or their formats; touch the machine."
+   "concern": "The container installation contract and stand-in, with Docker and Compose behind real.",
+   "must_not": "Let Docker details into the open contract; decide setup answers or remember the setup record."
   },
   "kkt-service": {
    "status": "decided",
@@ -10756,11 +10680,6 @@
   "kkt-web-preview": {
    "status": "decided",
    "concern": "The web preview program: it serves kkt-web's page over kkt-api-sim's simulated application, from flags (the address, the seed and the preview's settings). A dev-only program that turns kkt-api-sim's testing feature on, since dev tooling counts as test code."
-  },
-  "kkt-container-docker": {
-   "status": "decided",
-   "concern": "Docker and Compose implement Container directly, including their files, commands, output and sidecar status; native execution is behind real.",
-   "must_not": "Decide setup answers or remember the setup record."
   }
  },
  "feature_moves": [
@@ -10780,12 +10699,6 @@
    "from": "kkt-names",
    "to": "kkt-entropy",
    "feature": "testing",
-   "status": "decided"
-  },
-  {
-   "from": "kkt-container",
-   "to": "kkt-container-docker",
-   "feature": "real",
    "status": "decided"
   },
   {
@@ -11123,18 +11036,6 @@
       "note": "The program directly injects the named sharing implementation into the operator assembly."
      },
      {
-      "impl": "kkt-container-docker::Docker",
-      "crate": "kkt-operate",
-      "to": [
-       {
-        "at": "OperateParts",
-        "param": "container"
-       }
-      ],
-      "status": "decided",
-      "note": "Direct delivery to the receiving operator assembly (12.2)."
-     },
-     {
       "impl": "kkt-agent-files-os::StateFile",
       "crate": "kkt-watch",
       "to": [
@@ -11145,6 +11046,18 @@
       ],
       "status": "decided",
       "note": "kkt watch"
+     },
+     {
+      "impl": "kkt-container::Docker",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "container"
+       }
+      ],
+      "status": "decided",
+      "note": "Direct delivery to the receiving operator assembly (12.2)."
      }
     ]
    },
@@ -11640,7 +11553,7 @@
   "kkt-clock": "contract",
   "kkt-names": "logic",
   "kkt-service": "contract",
-  "kkt-container": "contract",
+  "kkt-container": "contract and effect",
   "kkt-remote-access": "contract and effect",
   "kkt-client-config": "logic",
   "kkt-diagnostics": "logic",
@@ -11878,18 +11791,6 @@
    }
   },
   {
-   "crate": "kkt-container",
-   "remove": [
-    "serde_json",
-    "thiserror"
-   ],
-   "add": [
-    "futures"
-   ],
-   "status": "decided",
-   "note": "Docker parsing and errors move into its wrapper; the contract uses local boxed futures (12.2)."
-  },
-  {
    "crate": "kkt-agent-files-os",
    "add": [
     "libc"
@@ -11915,6 +11816,14 @@
    },
    "status": "decided",
    "note": "rmcp, reqwest, serde_json and tokio are optional, behind real: a crate that depends on kkt-agent-client without real gets the contract alone (step 13.6)"
+  },
+  {
+   "crate": "kkt-container",
+   "add": [
+    "futures"
+   ],
+   "status": "decided",
+   "note": "The open contract uses local boxed futures; Docker parsing and errors stay in the merged crate behind real (13.1)."
   }
  ],
  "replace_items": [
@@ -12303,14 +12212,6 @@
    "note": "The contract owns its testing stand-in (12.1)."
   },
   {
-   "type": "kkt-container-docker::Docker",
-   "to": [
-    "kkt-container::Container"
-   ],
-   "status": "decided",
-   "note": "The tool wrapper implements the scope contract directly (12.2)."
-  },
-  {
    "type": "kkt-container::testing::Memory",
    "to": [
     "kkt-container::Container"
@@ -12349,14 +12250,6 @@
    ],
    "status": "decided",
    "note": "The contract's own answer for other systems (12.3)."
-  },
-  {
-   "type": "kkt-lane-commit-git::Git",
-   "to": [
-    "kkt-lane-commit::LaneCommit"
-   ],
-   "status": "decided",
-   "note": "A tool wrapper implements its scope contract directly (step 12.5a)."
   },
   {
    "type": "kkt-lane-commit::testing::Memory",
@@ -12413,6 +12306,30 @@
    ],
    "status": "decided",
    "note": "the crate's one implementation of its own contract, behind real (step 13.6)"
+  },
+  {
+   "type": "kkt-container::Docker",
+   "to": [
+    "kkt-container::Container"
+   ],
+   "status": "decided",
+   "note": "The tool wrapper implements the scope contract directly (12.2)."
+  },
+  {
+   "type": "kkt-lane-commit::Git",
+   "to": [
+    "kkt-lane-commit::LaneCommit"
+   ],
+   "status": "decided",
+   "note": "The crate's one implementation of its own contract, behind real (steps 12.5a and 13.4)."
+  },
+  {
+   "type": "kkt-browser::SystemBrowser",
+   "to": [
+    "kkt-browser::Browser"
+   ],
+   "status": "decided",
+   "note": "the crate's one implementation of its own contract, behind real (step 13.3)"
   }
  ],
  "trait_swaps": [
@@ -12501,7 +12418,7 @@
     "to": [
      "kkt-terminal-os",
      "kkt-db-sqlite",
-     "kkt-container-docker"
+     "kkt-container"
     ],
     "status": "decided",
     "decisions": [
@@ -12517,7 +12434,7 @@
      "kkt-terminal-os",
      "kkt-admission-os",
      "kkt-setup-os",
-     "kkt-container-docker"
+     "kkt-container"
     ],
     "status": "decided",
     "decisions": [
@@ -12565,7 +12482,7 @@
      "kkt-config-file-os",
      "kkt-setup-os",
      "kkt-admission-os",
-     "kkt-container-docker"
+     "kkt-container"
     ],
     "status": "decided",
     "decisions": [
@@ -12781,7 +12698,7 @@
    "note": "The scope contract supplies its own in-memory stand-in (12.5a)."
   },
   {
-   "crate": "kkt-browser-os",
+   "crate": "kkt-browser",
    "feature": "real",
    "status": "decided",
    "note": "starting the system's opener (step 12.5d)"
@@ -12797,6 +12714,12 @@
    "feature": "testing",
    "status": "decided",
    "note": "The scope contract supplies its own in-memory stand-in (12.5b)."
+  },
+  {
+   "crate": "kkt-lane-commit",
+   "feature": "real",
+   "status": "decided",
+   "note": "Git, its one implementation, which only the program turns on (13.4)."
   }
  ],
  "adapter_census": {

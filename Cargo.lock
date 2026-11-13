@@ -1047,7 +1047,7 @@ dependencies = [
  "kkt-api-agent",
  "kkt-backup",
  "kkt-backup-os",
- "kkt-browser-os",
+ "kkt-browser",
  "kkt-client-command-claude",
  "kkt-client-config",
  "kkt-client-config-os",
@@ -1056,7 +1056,6 @@ dependencies = [
  "kkt-config-file",
  "kkt-config-file-os",
  "kkt-container",
- "kkt-container-docker",
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
@@ -1065,7 +1064,7 @@ dependencies = [
  "kkt-hash",
  "kkt-hosts",
  "kkt-identity-keymode",
- "kkt-lane-commit-git",
+ "kkt-lane-commit",
  "kkt-lane-files",
  "kkt-lane-files-os",
  "kkt-logs",
@@ -1218,12 +1217,7 @@ dependencies = [
 [[package]]
 name = "kkt-browser"
 version = "0.10.0"
-
-[[package]]
-name = "kkt-browser-os"
-version = "0.10.0"
 dependencies = [
- "kkt-browser",
  "kkt-scratch",
 ]
 
@@ -1293,19 +1287,9 @@ name = "kkt-container"
 version = "0.10.0"
 dependencies = [
  "futures",
- "kkt-clock",
- "kkt-names",
-]
-
-[[package]]
-name = "kkt-container-docker"
-version = "0.10.0"
-dependencies = [
- "futures",
  "kkt-browser",
  "kkt-clock",
  "kkt-config-file",
- "kkt-container",
  "kkt-machine",
  "kkt-names",
  "kkt-scratch",
@@ -1471,13 +1455,6 @@ dependencies = [
 [[package]]
 name = "kkt-lane-commit"
 version = "0.10.0"
-
-[[package]]
-name = "kkt-lane-commit-git"
-version = "0.10.0"
-dependencies = [
- "kkt-lane-commit",
-]
 
 [[package]]
 name = "kkt-lane-files"

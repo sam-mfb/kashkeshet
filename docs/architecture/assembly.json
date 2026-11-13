@@ -557,7 +557,7 @@
        "param": "container"
       }
      ],
-     "impl": "kkt-container-docker::Docker",
+     "impl": "kkt-container::Docker",
      "note": "Direct injection of the named container implementation into the operator assembly."
     },
     {
@@ -646,7 +646,7 @@
      ]
     },
     {
-     "impl": "kkt-lane-commit-git::Git",
+     "impl": "kkt-lane-commit::Git",
      "crate": "kkt-operate",
      "to": [
       {
@@ -654,7 +654,7 @@
        "param": "lane_commit"
       }
      ],
-     "note": "The program injects git directly as the lane folder's commit (12.5a)."
+     "note": "The program turns on kkt-lane-commit's real and injects its Git directly as the lane folder's commit (12.5a, merged in 13.4)."
     },
     {
      "own": "ServeReads, answering the program's serving questions lazily",
@@ -793,8 +793,8 @@
      "note": "kkt connect: Claude Code's own command, injected as it is"
     },
     {
-     "impl": "kkt-browser-os::SystemBrowser",
-     "crate": "kkt-container-docker",
+     "impl": "kkt-browser::SystemBrowser",
+     "crate": "kkt-container",
      "to": [
       {
        "at": "Docker::new",

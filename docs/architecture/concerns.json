@@ -226,9 +226,9 @@
   },
   "kkt-container": {
    "layer": "operations",
-   "concern": "The container installation contract, its requests and results, config parsing, and the login link's terminal half (LoginLink), and an in-memory testing stand-in.",
-   "must_not": "Know Docker commands, Compose files or their formats; touch the machine.",
-   "kind": "contract"
+   "concern": "The container installation contract and stand-in, with Docker and Compose implementation behind real and private tool logic tested against a fake.",
+   "must_not": "Let Docker details into the open contract; decide setup answers or remember the setup record.",
+   "kind": "contract and effect"
   },
   "kkt-remote-access": {
    "layer": "operations",
@@ -298,15 +298,9 @@
   },
   "kkt-lane-commit": {
    "layer": "operations",
-   "concern": "The project's contract for the commit a lane folder is at (`LaneCommit`), and its testing Memory stand-in.",
-   "must_not": "Know a version-control tool, its commands or output; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-lane-commit-git": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Implements LaneCommit with git: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner; running git is behind real.",
-   "must_not": "Read or write the lane files."
+   "concern": "The commit a lane folder is at: the `LaneCommit` contract in the open, with its testing Memory stand-in, and its one implementation behind real, `Git`: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner.",
+   "must_not": "Read or write the lane files; let a consumer reach `Git` without real.",
+   "kind": "contract and effect"
   },
   "kkt-agent-client": {
    "layer": "clients",
@@ -396,15 +390,9 @@
   },
   "kkt-browser": {
    "layer": "operations",
-   "concern": "The project's contract for opening a link in the person's browser: Browser (start opening it now; say later, once, if that failed), with the testing Recorder.",
-   "must_not": "Know an opener program; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-browser-os": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Implements Browser with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real.",
-   "must_not": "Wait for the browser; repeat the link in a message."
+   "concern": "Opening a link in the person's browser. The contract: Browser (start opening it now; say later, once, if that failed), with the testing Recorder. Its one implementation, SystemBrowser, with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real (step 13.3).",
+   "must_not": "Name an opener program in the contract; wait for the browser; repeat the link in a message.",
+   "kind": "contract and effect"
   },
   "kkt-logs": {
    "layer": "foundations",
@@ -459,12 +447,6 @@
    "kind": "effect",
    "concern": "Trying whether the service's server could listen on its address (`try_bind`), which the program passes to kkt-service's bind check.",
    "must_not": "Decide what the answer means, or work a service manager."
-  },
-  "kkt-container-docker": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Docker and Compose implement Container directly; all Docker files, commands, output and sidecar status, tested over a private runner. A sharing setup's login link opens in the kkt-browser Browser it is built with.",
-   "must_not": "Decide setup answers or remember the setup record."
   }
  },
  "kinds": [
