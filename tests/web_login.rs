@@ -48,7 +48,8 @@ enum Start {
     /// In this process, with the web key and a clock the test moves.
     KeyedWithClock(Arc<TestClock>),
     /// In this process, with an access key but no web key: settings only
-    /// this process can have, since `kkt serve` makes a web key.
+    /// this process can have, since beside an access key `kkt serve` makes
+    /// a web key and kkt-keymode requires one.
     OpenWebPage,
 }
 

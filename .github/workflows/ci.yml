@@ -95,7 +95,7 @@ jobs:
             echo "End-to-end tests against $program"
             KKT_TEST_PROGRAM=$program TMPDIR="$PWD/target/no-tmp" cargo test --locked \
               --test e2e --test admission --test web_login --test admin --test watch \
-              --test latency
+              --test latency --test contract
           done
 
       - name: Doc tests

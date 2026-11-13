@@ -422,14 +422,54 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
     let resolved = options
         .resolve(dir.join("kkt.db"), None)
         .expect("the test's settings resolve");
-    assert_eq!(
-        (&resolved.rules, resolved.server.formatter, resolved.backups),
-        (given, config.formatter, config.backups),
-        "a test's settings must be ones a config file can set to run in a program"
+    assert!(
+        (&resolved.rules, resolved.server.formatter, resolved.backups)
+            == (given, config.formatter, config.backups),
+        "a test's settings must be ones a config file can set to run in a program; \
+         the config file cannot say these: {}",
+        settings_that_differ(
+            &[
+                resolved.rules.record_lines(),
+                resolved.server.formatter.record_lines(),
+                resolved.backups.record_lines(),
+            ],
+            &[
+                given.record_lines(),
+                config.formatter.record_lines(),
+                config.backups.record_lines(),
+            ],
+        )
     );
     let path = dir.join("kkt.toml");
     write(&path, &toml);
     path
+}
+
+/// The settings whose record lines differ between what a config file gave
+/// (`resolved`) and what the test asked for (`given`), each as
+/// `name: test's value (file gives other value)`. A setting no record line
+/// shows cannot be named, and is then reported as such.
+fn settings_that_differ(
+    resolved: &[Vec<(String, String)>],
+    given: &[Vec<(String, String)>],
+) -> String {
+    let (resolved, given) = (resolved.concat(), given.concat());
+    let differ: Vec<String> = given
+        .iter()
+        .filter_map(|(name, value)| {
+            let from_file = resolved.iter().find(|(other, _)| other == name);
+            match from_file {
+                Some((_, other)) if other == value => None,
+                Some((_, other)) => Some(format!("{name}: {value} (file gives {other})")),
+                None => Some(format!("{name}: {value} (file gives none)")),
+            }
+        })
+        .collect();
+    if differ.is_empty() {
+        "a setting the run record does not show".to_string()
+    } else {
+        differ.join(", ")
+    }
 }
 
 /// `text` as a TOML string.
