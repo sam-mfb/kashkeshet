@@ -58,9 +58,10 @@ fn admin_snapshot_path() -> PathBuf {
 async fn admin_tools_match_the_snapshot() {
     let admin_key = "admin-0123456789abcdef0123456789abcdef";
     let mut config = common::test_config();
+    // A program has an admin key only beside an access key.
+    config.access_key = Some("access-0123456789abcdef0123456789abcdef".into());
     config.admin_key = Some(admin_key.into());
-    // An admin key with no access key: settings only this process can have.
-    let server = common::start_in_process(config).await;
+    let server = common::start_with(config).await;
     let client = common::connect_admin_with_key(&server, admin_key).await;
     let mut tools = client.list_all_tools().await.expect("list tools");
     tools.sort_by(|a, b| a.name.cmp(&b.name));
@@ -89,7 +90,10 @@ async fn admin_tools_match_the_snapshot() {
 }
 
 /// The limits in tool descriptions come from the server's settings, not from
-/// fixed text, so a server started with other limits states its own.
+/// fixed text, so a server started with other limits states its own. It runs
+/// in this process whatever `KKT_TEST_PROGRAM` says: most of these limits
+/// have no config file setting, so no program can be given them.
+/// `a_programs_config_file_limits_reach_the_descriptions` covers a program.
 #[tokio::test]
 async fn descriptions_state_the_live_limits() {
     let mut config = common::test_config();
@@ -107,16 +111,10 @@ async fn descriptions_state_the_live_limits() {
         max_wait: Duration::from_secs(9),
         ..kkt_rules::Settings::DEFAULT
     };
-    let server = common::start_with(config).await;
+    let server = common::start_in_process(config).await;
     let client = common::connect_new(&server).await;
     let tools = client.list_all_tools().await.expect("list tools");
-    let param = |tool: &str, name: &str| -> String {
-        let tool = tools.iter().find(|t| t.name == tool).expect(tool);
-        tool.input_schema["properties"][name]["description"]
-            .as_str()
-            .expect(name)
-            .to_string()
-    };
+    let param = |tool: &str, name: &str| param_description(&tools, tool, name);
 
     assert_eq!(
         param("read", "limit"),
@@ -161,6 +159,52 @@ async fn descriptions_state_the_live_limits() {
         param("wait_for_messages", "timeout_s"),
         "Seconds to wait (default 5, up to 9). 0 checks without waiting."
     );
+}
+
+/// The limits a config file can set reach the tool descriptions, in
+/// whichever program `KKT_TEST_PROGRAM` names.
+#[tokio::test]
+async fn a_programs_config_file_limits_reach_the_descriptions() {
+    let mut config = common::test_config();
+    config.rules = kkt_rules::Settings {
+        default_limit: 7,
+        max_limit: 42,
+        max_memory_entry_chars: 4321,
+        max_memory_chars: 54321,
+        ..kkt_rules::Settings::DEFAULT
+    };
+    let server = common::start_with(config).await;
+    let client = common::connect_new(&server).await;
+    let tools = client.list_all_tools().await.expect("list tools");
+    let param = |tool: &str, name: &str| param_description(&tools, tool, name);
+
+    assert_eq!(
+        param("read", "limit"),
+        "How many to return (default 7, up to 42)."
+    );
+    assert_eq!(
+        param("remember", "text"),
+        "The entry's text, up to 4321 characters. It may not be empty; `forget` deletes an entry."
+    );
+    let remember = tools
+        .iter()
+        .find(|t| t.name == "remember")
+        .expect("remember");
+    let description = remember.description.as_deref().expect("description");
+    assert!(
+        description
+            .contains("at most 4321 characters, and all your entries together at most 54321"),
+        "{description}"
+    );
+}
+
+/// The description of `tool`'s parameter `name`.
+fn param_description(tools: &[rmcp::model::Tool], tool: &str, name: &str) -> String {
+    let tool = tools.iter().find(|t| t.name == tool).expect(tool);
+    tool.input_schema["properties"][name]["description"]
+        .as_str()
+        .expect(name)
+        .to_string()
 }
 
 /// The error codes are part of the contract: each one's text is fixed. A new
