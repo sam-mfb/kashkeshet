@@ -23,7 +23,7 @@ use kkt_log::{Level, Log};
 use kkt_logs::LogLevel;
 use kkt_logs_os::TracingLog;
 use kkt_shutdown::Shutdown;
-use kkt_shutdown_os::StopSignals;
+use kkt_shutdown::StopSignals;
 use kkt_web::{PageLimits, Sessions};
 use settings::{PREVIEW_BIND, PREVIEW_SEED};
 use std::net::SocketAddr;

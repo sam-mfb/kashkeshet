@@ -3,6 +3,15 @@
 //! Tokio-util's cancellation token does the work, but stays inside this
 //! module: no other part sees it. Parts that need a library's own token make
 //! one and cancel it when [`Shutdown::stopped`] finishes.
+//!
+//! Behind `real`, which only programs turn on, `StopSignals` stops it when
+//! the operating system asks the process to stop.
+
+#[cfg(feature = "real")]
+mod signals;
+
+#[cfg(feature = "real")]
+pub use signals::StopSignals;
 
 use tokio_util::sync::CancellationToken;
 

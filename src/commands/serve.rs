@@ -22,7 +22,7 @@ use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
 use kkt_setup as setup;
 use kkt_shutdown::Shutdown;
-use kkt_shutdown_os::StopSignals;
+use kkt_shutdown::StopSignals;
 use kkt_terminal_os::Terminal;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
