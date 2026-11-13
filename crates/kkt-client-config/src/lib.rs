@@ -210,7 +210,7 @@ pub(crate) fn helper(setup: &Setup<'_>) -> Result<Option<String>, String> {
 
 /// The requested plain header, or the JSON header map both helper clients use.
 pub fn header(key: &str, json: bool) -> Result<String, String> {
-    kkt_admission::check_access_key(key).map_err(|e| e.to_string())?;
+    kkt_server_keys::check_access_key(key).map_err(|e| e.to_string())?;
     if json {
         formats::header_json(key)
     } else {

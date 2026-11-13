@@ -12,7 +12,7 @@
 //! missing.
 
 use crate::Spec;
-use kkt_admission::{AccessKey, web_key_path};
+use kkt_server_keys::{AccessKey, web_key_path};
 use std::path::{Path, PathBuf};
 
 /// The settings the plan needs from one source, the command line or the

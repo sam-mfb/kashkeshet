@@ -8,14 +8,10 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-entropy = { path = "../kkt-entropy" }
 kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
+kkt-server-keys = { path = "../kkt-server-keys" }
 thiserror.workspace = true
-
-[features]
-# `testing::MIN_ACCESS_KEY_BYTES`, the shortest key, for other crates' tests.
-testing = []
 
 [dev-dependencies]
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }

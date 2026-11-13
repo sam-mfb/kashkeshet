@@ -7,10 +7,10 @@
 //! pass in what the file gives and the defaults that depend on the machine.
 //! Its items are public as [`crate::machine::settings`]'s.
 
-use kkt_admission::{AccessKey, admin_key_path, web_key_path};
 use kkt_hosts::{DEFAULT_ALLOW_ANY_BIND, DEFAULT_BIND};
 use kkt_logs::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, LogLevel};
 use kkt_server::ServerSettings;
+use kkt_server_keys::{AccessKey, admin_key_path, web_key_path};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 

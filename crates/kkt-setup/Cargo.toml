@@ -8,7 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-admission = { path = "../kkt-admission" }
+kkt-server-keys = { path = "../kkt-server-keys" }
 kkt-client-config = { path = "../kkt-client-config" }
 kkt-container = { path = "../kkt-container" }
 kkt-machine = { path = "../kkt-machine" }

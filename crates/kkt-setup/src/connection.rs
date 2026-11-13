@@ -1,7 +1,7 @@
 //! The ordered choice of a client's endpoint and key, from setup or serve settings.
 
 use crate::Record;
-use kkt_admission::AccessKey;
+use kkt_server_keys::AccessKey;
 use std::path::{Path, PathBuf};
 
 pub struct Connection {

@@ -16,7 +16,7 @@ pub fn admin_name_line(
 ) -> Result<Option<String>, String> {
     let docker_host_copy =
         path.file_name() == Some(std::ffi::OsStr::new(kkt_container::ADMIN_KEY_FILE_NAME));
-    kkt_admission::server_keys::admin_name_line(path, key, label, docker_host_copy, |names| {
+    kkt_server_keys::admin_name_line(path, key, label, docker_host_copy, |names| {
         files.read_optional(names).map_err(|e| {
             format!(
                 "invalid setting: the admin name could not be read from {}: {e}",
@@ -273,9 +273,9 @@ pub fn write_admin_name(
     key: &str,
     name: Option<&AdminName>,
 ) -> Result<String, String> {
-    let bound = name.map(|name| kkt_admission::server_keys::bound_to(name, key));
+    let bound = name.map(|name| kkt_server_keys::bound_to(name, key));
     let written = files.write_admin_name(path, bound.as_deref());
-    kkt_admission::server_keys::admin_name_written(path, name, written)
+    kkt_server_keys::admin_name_written(path, name, written)
 }
 
 /// Makes a new random key and writes it to `path`, creating its folder if

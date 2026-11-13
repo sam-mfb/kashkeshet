@@ -138,8 +138,8 @@
    ],
    "wiring": [
     {
-     "own": "ServerKeyFiles, adapting kkt-admission-os::KeyFiles",
-     "supplier": "kkt-admission-os::KeyFiles",
+     "own": "ServerKeyFiles, adapting kkt-server-keys::KeyFiles",
+     "supplier": "kkt-server-keys::KeyFiles",
      "crate": "kkt-admission",
      "to": [
       {
@@ -151,10 +151,10 @@
     },
     {
      "impl": "kkt-entropy-os::OsEntropy",
-     "crate": "kkt-admission",
+     "crate": "kkt-server-keys",
      "to": [
       {
-       "at": "SharedKey::generate",
+       "at": "generate",
        "param": "entropy"
       }
      ],
@@ -320,8 +320,8 @@
      "note": "kkt register, reclaim and watch"
     },
     {
-     "own": "KeyFiles, adapting kkt-admission-os::KeyFiles",
-     "supplier": "kkt-admission-os::KeyFiles",
+     "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
+     "supplier": "kkt-server-keys::KeyFiles",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -678,7 +678,7 @@
      ]
     },
     {
-     "own": "NativeKeyFiles, forwarding key files to kkt-admission-os and generation to kkt-entropy-os",
+     "own": "NativeKeyFiles, forwarding key files to kkt-server-keys and generation to kkt-entropy-os",
      "crate": "kkt-operate",
      "to": [
       {
@@ -875,8 +875,8 @@
    ],
    "wiring": [
     {
-     "own": "KeyFiles, adapting kkt-admission-os::KeyFiles",
-     "supplier": "kkt-admission-os::KeyFiles",
+     "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
+     "supplier": "kkt-server-keys::KeyFiles",
      "crate": "kkt-admission",
      "to": [
       {
@@ -1197,10 +1197,10 @@
     },
     {
      "title": "Gate",
-     "text": "PreviewGate, with the access key read through kkt-admission-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+     "text": "PreviewGate, with the access key read through kkt-server-keys, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
      "items": [
       "kkt-api-sim::PreviewGate",
-      "kkt-admission-os::KeyFiles",
+      "kkt-server-keys::KeyFiles",
       "kkt-web::Sessions",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy"

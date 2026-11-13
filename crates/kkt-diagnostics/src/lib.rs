@@ -157,7 +157,7 @@ fn key_checks(
     };
     checks.push(Check::ok("key file", path.display().to_string()));
     if let Some(mode) = file.mode {
-        if mode == kkt_admission::ACCESS_KEY_FILE_MODE {
+        if mode == kkt_server_keys::ACCESS_KEY_FILE_MODE {
             checks.push(Check::ok("key permissions", "0600"));
         } else {
             checks.push(Check::problem(
@@ -168,7 +168,7 @@ fn key_checks(
         }
     }
     match file.text {
-        Ok(text) => match kkt_admission::check_access_key(text.trim()) {
+        Ok(text) => match kkt_server_keys::check_access_key(text.trim()) {
             Ok(()) => Some(text.trim().to_string()),
             Err(e) => {
                 checks.push(Check::problem(

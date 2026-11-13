@@ -91,7 +91,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         if let Some(access) = &connection.key_file {
             self.parts.output.output(format_args!(
                 "The web key is in {}. Read it with `kkt key show --web`.\n",
-                kkt_admission::web_key_path(access).display()
+                kkt_server_keys::web_key_path(access).display()
             ));
         }
         Ok(setup::Installed {
@@ -257,7 +257,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 .map_err(|e| e.to_string()),
             setup::Mode::Service { .. } => {
                 let admin =
-                    kkt_admission::admin_key_path(access).ok_or_else(admin_key_collision)?;
+                    kkt_server_keys::admin_key_path(access).ok_or_else(admin_key_collision)?;
                 // A key file that cannot be inspected is not replaced:
                 // `new_key_file` refuses to write over one. Only a new key
                 // is given the name.

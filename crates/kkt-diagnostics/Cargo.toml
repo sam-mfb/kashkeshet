@@ -8,11 +8,11 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-admission = { path = "../kkt-admission" }
+kkt-server-keys = { path = "../kkt-server-keys" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-probe = { path = "../kkt-probe" }
 url.workspace = true
 
 [dev-dependencies]
-kkt-admission = { path = "../kkt-admission", features = ["testing"] }
+kkt-server-keys = { path = "../kkt-server-keys", features = ["testing"] }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }

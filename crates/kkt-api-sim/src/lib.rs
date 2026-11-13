@@ -288,10 +288,10 @@ impl PreviewGate {
     /// A gate that lets in viewers who sign in with the key in `text`,
     /// without surrounding whitespace. Fails, as the server does, if the key
     /// is not one the server's check accepts
-    /// ([`kkt_admission::check_access_key`]).
+    /// ([`kkt_server_keys::check_access_key`]).
     pub fn with_key(text: &str) -> Result<PreviewGate, SettingError> {
         let key = text.trim();
-        kkt_admission::check_access_key(key).map_err(|e| SettingError::new(e.name, e.rule))?;
+        kkt_server_keys::check_access_key(key).map_err(|e| SettingError::new(e.name, e.rule))?;
         Ok(PreviewGate {
             key: Some(key.to_string()),
         })

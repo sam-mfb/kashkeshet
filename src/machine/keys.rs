@@ -3,17 +3,17 @@
 //! default key made if it is missing. (The operator's key finders and
 //! writers are kkt-operate's.)
 use crate::machine::settings::Sources;
-use kkt_admission::server_keys::{self, KeyText, KeyTexts, ServerKeys};
-use kkt_admission::{AccessKey, ServerKey, SharedKey};
-use kkt_admission_os::{KeyFiles, ReadError};
+use kkt_admission::server_keys::{self, KeyTexts, ServerKeys};
+use kkt_admission::{ServerKey, SharedKey};
 use kkt_entropy_os::OsEntropy;
+use kkt_server_keys::{AccessKey, KeyFiles, KeyText, ReadError};
 use std::path::Path;
 
 /// Makes the default key file if it is the one in use and does not exist
 /// yet, and logs where it is (never the key).
 pub(crate) fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
     if let Some(path) =
-        kkt_admission_os::make_default_key(access_key, || SharedKey::generate(&OsEntropy))?
+        kkt_server_keys::make_default_key(access_key, || kkt_server_keys::generate(&OsEntropy))?
     {
         tracing::info!("created a new {kind} key at {}", path.display());
     }
@@ -35,7 +35,7 @@ pub(crate) fn read_server_keys(
     // A name file is read only beside an admin key, so with none the name
     // refusal cannot happen; the path is then empty.
     let names = admin
-        .map(kkt_admission::admin_name_path)
+        .map(kkt_server_keys::admin_name_path)
         .unwrap_or_default();
     server_keys::check(&mut files).map_err(|refusal| {
         let set_in = sources
@@ -155,7 +155,7 @@ mod tests {
         );
         assert_eq!(
             local_operator_key(&env, TEST_PLATFORM, None, None, KeyKind::Web),
-            Ok(Some(kkt_admission::web_key_path(&access)))
+            Ok(Some(kkt_server_keys::web_key_path(&access)))
         );
     }
 

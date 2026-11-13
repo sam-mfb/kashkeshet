@@ -342,16 +342,16 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
             let web = config
                 .web_key
                 .clone()
-                .unwrap_or_else(|| SharedKey::generate(&OsEntropy));
-            write(&kkt_admission::web_key_path(&access_path), &web);
+                .unwrap_or_else(|| kkt_server_keys::generate(&OsEntropy));
+            write(&kkt_server_keys::web_key_path(&access_path), &web);
             if let Some(admin) = &config.admin_key {
                 let admin_path =
-                    kkt_admission::admin_key_path(&access_path).expect("an admin key path");
+                    kkt_server_keys::admin_key_path(&access_path).expect("an admin key path");
                 write(&admin_path, admin);
                 if let Some(name) = config.admin_name() {
                     write(
-                        &kkt_admission::admin_name_path(&admin_path),
-                        &kkt_admission::server_keys::bound_to(&name, admin),
+                        &kkt_server_keys::admin_name_path(&admin_path),
+                        &kkt_server_keys::bound_to(&name, admin),
                     );
                 }
             }

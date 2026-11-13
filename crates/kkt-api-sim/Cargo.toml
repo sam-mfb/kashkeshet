@@ -13,7 +13,7 @@ publish = false
 dev-only = true
 
 [dependencies]
-kkt-admission = { path = "../kkt-admission" }
+kkt-server-keys = { path = "../kkt-server-keys" }
 kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-clock = { path = "../kkt-clock" }

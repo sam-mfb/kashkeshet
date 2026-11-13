@@ -4,11 +4,11 @@
 
 use super::connection::ConnectionReads;
 use super::settings::{self, DefaultDb, Report, ServeArgs, ServeOptions};
-use kkt_admission::{AccessKey, SharedKey};
 use kkt_machine::{Env, Platform};
 use kkt_operate::{
     BackupWriter, Config, Databases, KeyFiles, OperateParts, Output, ServeFacts, SetupFiles,
 };
+use kkt_server_keys::AccessKey;
 use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -281,39 +281,39 @@ impl SetupFiles for NativeSetupFiles {
 pub(crate) struct NativeKeyFiles;
 impl KeyFiles for NativeKeyFiles {
     fn read(&self, path: &Path) -> std::io::Result<String> {
-        kkt_admission_os::KeyFiles::read(path).map_err(|e| e.error)
+        kkt_server_keys::KeyFiles::read(path).map_err(|e| e.error)
     }
     fn read_optional(&self, path: &Path) -> std::io::Result<Option<String>> {
-        kkt_admission_os::KeyFiles::read_optional(path).map_err(|e| e.error)
+        kkt_server_keys::KeyFiles::read_optional(path).map_err(|e| e.error)
     }
     fn exists(&self, path: &Path) -> bool {
-        kkt_admission_os::KeyFiles::exists(path)
+        kkt_server_keys::KeyFiles::exists(path)
     }
     fn try_exists(&self, path: &Path) -> std::io::Result<bool> {
-        kkt_admission_os::KeyFiles::try_exists(path)
+        kkt_server_keys::KeyFiles::try_exists(path)
     }
     fn is_file(&self, path: &Path) -> bool {
-        kkt_admission_os::KeyFiles::is_file(path)
+        kkt_server_keys::KeyFiles::is_file(path)
     }
     fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
-        kkt_admission_os::KeyFiles::create_dir_all(dir)
+        kkt_server_keys::KeyFiles::create_dir_all(dir)
     }
     fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String> {
-        kkt_admission_os::KeyFiles::keep_staged(staged, path)
+        kkt_server_keys::KeyFiles::keep_staged(staged, path)
     }
     fn remove(&self, path: &Path) -> std::io::Result<()> {
-        kkt_admission_os::KeyFiles::remove(path)
+        kkt_server_keys::KeyFiles::remove(path)
     }
     fn new_key(&self, path: &Path, force: bool) -> Result<String, String> {
-        kkt_admission_os::new_key_file(path, force, || {
-            SharedKey::generate(&kkt_entropy_os::OsEntropy)
+        kkt_server_keys::new_key_file(path, force, || {
+            kkt_server_keys::generate(&kkt_entropy_os::OsEntropy)
         })
     }
     fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String> {
-        kkt_admission_os::write_key_file(path, key, force)
+        kkt_server_keys::write_key_file(path, key, force)
     }
     fn write_admin_name(&self, path: &Path, bound: Option<&str>) -> Result<(), String> {
-        kkt_admission_os::write_admin_name(path, bound).map_err(|e| e.to_string())
+        kkt_server_keys::write_admin_name(path, bound).map_err(|e| e.to_string())
     }
 }
 
