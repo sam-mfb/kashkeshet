@@ -22,8 +22,10 @@ gave kkt-db a fast test stand-in, so kkt-rules' tests no longer use an effect
 crate. Phase 12 split every third-party dependency into a contract crate in
 kkt's terms and a wrapper named for the tool, which the program injects
 with no adapter. Phase 13 (Sam, after phase 12) merged each such pair with one implementation
-into one crate, the implementation behind `real`. Sam's decisions come first, below; the scorecards
-are at the end.
+into one crate, the implementation behind `real`. Phase 14 (Sam,
+2026-11-13) does the same for logic: a logic crate and the effect crate
+that only carries out its plans become one crate, the effect behind `real`.
+Sam's decisions come first, below; the scorecards are at the end.
 
 ## Sam's decisions
 
@@ -1780,6 +1782,147 @@ the row says what and why.
 | The map: a merged crate's two parts | Split box, contract left, `real` strip right; each arrow meets the part it depends on; the panel lists both parts | 13.9 (#524) | Yes: the parts sit side by side, not one above the other, since every arrow into a merged crate comes from above and would cross the upper part. generate.py did not change: the page reads the kind, and each arrow's features and optional flag. Each stroke of an arrow with several roles meets its own part: an implementing stroke meets the contract (kkt-review-373, msg 3206) |
 | The map: the arrows' direction (Sam, msg 3155) | "uses" and "wires" arrows run from the crate used or built to its user; "implements" unchanged; the wording follows | 13.9 (#524) | No. One fix with it: the page test hid "the second kind", which 13.0's new kind displaced |
 
+### Phase 14: logic and its effect in one crate (Sam, 2026-11-13)
+
+**Sam's ruling** (msg 3275, from sage-cardinal). A logic crate and the
+effect crate that only carries out its plans need not be two crates. As in
+phase 13, kinds may share a crate where the effect sits behind `real`,
+which only programs turn on, so that the logic builds and tests without the
+effect. Crates follow domains, not the kind of code. Sam is revising
+`principles/` himself to say so; nobody else edits it, and until he does,
+his ruling stands in CLAUDE.md ("Logic and its effect") and in
+`refactor-merge.md`'s note for his edit.
+
+**Why.** Phase 2 split each effect into an `-os` crate beside the logic it
+carries out, so that no crate mixed logic with an effect. Pairs such as
+kkt-backup and kkt-backup-os change together, and the `-os` crate only
+does what its logic crate plans. Phase 13 showed the shape that keeps the
+split's benefit without the second crate: the effect behind `real`, which
+only programs turn on, so a crate that depends on the logic cannot reach
+the effect, and the logic builds and tests without it.
+
+**The target shape: a crate of kind "logic and effect".** One crate, named
+for the domain, holds:
+- the logic in the open, always compiled, with any stand-in behind
+  `testing`;
+- the effect behind `real`, in private modules that only `real` brings
+  (`#[cfg(feature = "real")] mod files;`), with the public items that use
+  them behind `real` too. A module the effect's own tests need may be
+  compiled under `cfg(any(feature = "real", test))`, as in phase 13. Put
+  the `cfg` directly above `mod`: generate.py finds a module behind `real`
+  only there, and with a doc comment or another attribute between them it
+  misses it, so kinds.py reports the module's machine work as outside
+  `real`;
+- the effect's third-party dependencies as optional ones that only `real`
+  turns on.
+
+A consumer depends on it without `real` and sees the logic alone. The
+program turns `real` on, as it turned on the `-os` crate's.
+
+**The five changes.**
+
+| Step | What | Size | Builds | Reviews |
+|---|---|---|---|---|
+| 14.0 | The plan, the new kind and its checks, CLAUDE.md, refactor-merge.md, and the proposal's end states for 14.1 to 14.4 | M | kkt-build-d | kkt-review-e |
+| 14.1 | kkt-backup and kkt-backup-os become kkt-backup: `write` and `prune` behind `real` | S | kkt-build-d | kkt-review-e |
+| 14.2 | kkt-setup and kkt-setup-os become kkt-setup: setup's files on this machine behind `real` | S | kkt-build-d | kkt-review-e |
+| 14.3 | kkt-shutdown and kkt-shutdown-os become kkt-shutdown: `StopSignals` behind `real`, with tokio optional | S | kkt-build-d | kkt-review-e |
+| 14.4 | Logs: kkt-logs-os splits in two. The file writer joins kkt-logs behind `real`; the tracing implementation of kkt-log's `Log`, with the subscriber's start, becomes kkt-log-tracing | M | kkt-build-e | kkt-review-e |
+| 14.5 | Admission: kkt-admission splits by domain. Who is let in stays; the server's keys become kkt-server-keys, with kkt-admission-os' file handling behind `real` | M | kkt-build-e | kkt-review-e |
+
+sage-cardinal merges, one pull request at a time; each merges the tip of
+`refactor` in first. 14.0 comes first. Then kkt-build-d takes 14.1, 14.2
+and 14.3, and kkt-build-e 14.4 then 14.5.
+
+**14.4, as kkt-build-e found it and sage-cardinal approved (msg 3277,
+3278).** `init_logging` opens the `RotatingFile` itself: it checks the
+`LogPolicy`, opens the file and words both refusals. That is its only tie
+to the file writer, and its only use of kkt-clock. So:
+- kkt-logs gains, behind `real`, `RotatingFile` (moved unchanged, with its
+  tests) and `open_log_file(path, policy, clock)`, which checks the policy
+  and opens the file, with the same two messages;
+- kkt-log-tracing holds `TracingLog`, `init_logging` and
+  `init_stderr_logging`, behind `real` with tracing and tracing-subscriber.
+  `init_logging` takes an optional writer in place of the file's path, its
+  policy and the clock: none is standard output as now, and a writer is
+  written to without colour, as the file is now;
+- the program calls `open_log_file`, then `init_logging`, in the same order
+  (check the policy, open the file, start the subscriber) and with the same
+  messages;
+- kkt-log-tracing depends on kkt-log, the contract it implements, and on
+  kkt-logs without `real`, only for `LogLevel`. It is kind "effect", the
+  named implementation of a shared contract, as kkt-db-sqlite is of kkt-db.
+
+**14.5, approved as kkt-build-e proposed it (msg 3277, 3278).** The new
+crate is kkt-server-keys: what a valid key is, making a new key
+(`SharedKey::generate` becomes `kkt_server_keys::generate`), which access
+key a server uses, the key files' names, paths and mode, the admin name
+tied to a key, and `KeyText`; behind `real`, all of kkt-admission-os.
+kkt-admission keeps the decisions: `Admission`, `Mode`, `Principal`,
+`WebAdmission` and the rest, and building the server's admission from its
+keys (`server_keys::check` and its records, at their present paths). It
+depends on kkt-server-keys, never the reverse. This is the security path:
+no check, message or file mode changes, and the pull request lists every
+moved public item with its old and new path. **Its proposal is charted in
+its own pull request**, not in 14.0, since its items were settled after
+14.0 began.
+
+**What changes in the rules and checks** (step 14.0).
+- **The kind "logic and effect"** (`concerns.json`, `kinds.py`, the map's
+  colours and README.md). `kinds.py` tells it from "mixed" by checking that
+  the crate has a `real` feature; that its I/O dependencies are optional
+  ones only `real` turns on; that its machine work is only in modules that
+  `real` brings; that it turns on no other crate's `real`; and that only
+  programs turn its own on.
+- **generate.py** records, for each crate, the files only `real` brings
+  (`real_files`): the modules declared under `cfg(feature = "real")`, or
+  under `any` with `test` or `all` with other conditions, and the modules
+  inside them. kinds.py reads it for the machine-work check.
+- **check-crates.sh, check 7:** a crate concerns.json marks "contract and
+  effect" or "logic and effect" has a `real` feature. Check 1 already
+  builds every crate alone without it, and check 2 keeps every crate but a
+  program off it.
+- **progress.py and propose.py:** an arrow to a logic-and-effect crate
+  reaches the effect only when it turns `real` on (`kinds.reaches_effect`),
+  and a program's machine work may go to one, as to an effect crate.
+- **CLAUDE.md:** the "Features" paragraph names the kind, and a new
+  paragraph, "Logic and its effect", gives the rule. The crate table changes
+  with each step, not here.
+- **The proposal:** the rule in its two rule lists; 14.1 to 14.4's end
+  states. Each `-os` crate's entry goes, its items are charted in the
+  logic crate behind `real`, the logic crate's kind becomes "logic and
+  effect", and the arrows and wiring name the merged crate. kkt-logs-os's
+  entry becomes kkt-log-tracing's.
+
+**The map.** A logic-and-effect crate is drawn as one box in its kind's
+colour. The split box that 13.9 drew for a merged contract is not extended
+to it in this phase.
+
+**Every step:** no change to what kkt does, prints or writes; tests move
+with the code they test; a consumer that used only the logic gains no
+access to the effect; the scorecard, the `--check` scripts, check-crates.sh,
+check-programs.py, clippy, fmt and the full tests pass, and the pull
+request says what was run. The reviewer also checks that each merged crate
+builds and tests alone without `real`.
+
+**The scorecard's target.** After 14.0, against the proposal with 14.1 to
+14.4 charted, on the code at aa5490f:
+- crates: 61 of 62 proposed crates exist; kkt-log-tracing missing; four
+  to remove (kkt-backup-os, kkt-logs-os, kkt-setup-os, kkt-shutdown-os);
+- items: 773 of 794 proposed items are in their proposed crate;
+- arrows: 240 of 246; 6 missing, 16 extra;
+- wiring: 97 of 102; 5 missing, 5 extra;
+- rules: 4 kind checks fail (kkt-backup, kkt-logs, kkt-setup and
+  kkt-shutdown are marked logic and effect and have no `real` feature yet);
+  no break of the proposal's rules.
+
+Each step brings its crate's counts to the proposal. 14.5 adds its own
+target when it charts kkt-server-keys.
+
+**Existing installs:** none expected. The merges move code between crates
+and change no file, flag, message or command that an install relies on.
+Every step's pull request says so, and how it checked.
+
 ## Order at a glance
 
 ```
@@ -1796,6 +1939,8 @@ lane A: 1.3 → 1.1 → 1.6 → 1.7    lane B: 1.2 → 1.4 → 1.5 → 1.9    an
 8.1 → 8.2
 9.1 (kkt-build-b and kkt-build-c in parallel) → 9.2 → 9.3
   → 10.2a → 10.2b, with 10.3 beside them → 10.4 (charts 9 and 10)
+14.0 → 14.1 → 14.2 → 14.3 (kkt-build-d), 14.4 → 14.5 (kkt-build-e),
+  one pull request at a time
 ```
 
 Three builders can work most of the time: one on phases 1 and 2, one on

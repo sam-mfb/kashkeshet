@@ -401,6 +401,54 @@ def test_module_files(package_dir, files):
     return found
 
 
+def behind_real(cfg):
+    """Whether a `#[cfg(...)]` condition holds only with the crate's `real`
+    feature: `feature = "real"`, alone, with `test` in an `any`, or as one
+    of an `all`'s conditions."""
+    cfg = re.sub(r"\s+", "", cfg)
+    real = 'feature="real"'
+    if cfg == real or cfg in (f"any({real},test)", f"any(test,{real})"):
+        return True
+    return cfg.startswith("all(") and real in cfg and "not(" not in cfg and "any(" not in cfg
+
+
+def real_module_files(package_dir, files):
+    """Files declared as modules only `real` brings (a merged crate's effect,
+    kinds.py), every file in such a module's folder included."""
+    found = set()
+    for path in files:
+        text = path.read_text()
+        for match in re.finditer(r"#\[cfg\(((?:[^()]|\([^()]*\))*)\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;", text):
+            if not behind_real(match.group(1)):
+                continue
+            name = match.group(2)
+            base = path.parent if path.name in ("lib.rs", "main.rs", "mod.rs") else path.parent / path.stem
+            if (base / f"{name}.rs").exists():
+                found.add(base / f"{name}.rs")
+            if (base / name).is_dir():
+                found.update((base / name).rglob("*.rs"))
+    # A module inside one behind `real` is behind it too.
+    while True:
+        more = real_module_files_within(found) - found
+        if not more:
+            return found
+        found |= more
+
+
+def real_module_files_within(found):
+    """The files that modules declared in `found` bring, whatever their cfg."""
+    within = set()
+    for path in found:
+        for match in re.finditer(r"(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;", path.read_text()):
+            name = match.group(1)
+            base = path.parent if path.name in ("lib.rs", "main.rs", "mod.rs") else path.parent / path.stem
+            if (base / f"{name}.rs").exists():
+                within.add(base / f"{name}.rs")
+            if (base / name).is_dir():
+                within.update((base / name).rglob("*.rs"))
+    return within
+
+
 def file_kind(package_dir, path, test_files):
     if path in test_files:
         return "dev"
@@ -656,6 +704,10 @@ def main():
                     machine_work[str(path.relative_to(package_dir))] = work
             texts[kind] += text
         crate_of_name[name]["machine_work"] = machine_work
+        # The files only `real` brings, where a merged crate's effect sits
+        # (kinds.py).
+        crate_of_name[name]["real_files"] = sorted(
+            str(f.relative_to(package_dir)) for f in real_module_files(package_dir, files) - test_files)
         normal_deps = {d["name"] for d in p["dependencies"] if d["kind"] is None}
         for dep in p["dependencies"]:
             if dep["name"] not in packages:

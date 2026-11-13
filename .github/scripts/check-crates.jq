@@ -1,6 +1,7 @@
-# Checks 2 to 6 of check-crates.sh, over `cargo metadata --no-deps` output,
+# Checks 2 to 7 of check-crates.sh, over `cargo metadata --no-deps` output,
 # with `$contracts`, the names of the crates concerns.json marks contract,
-# and `$real_exceptions`, the documented exceptions to check 2 for tests
+# `$merged`, the names of those it marks "contract and effect" or "logic and
+# effect", and `$real_exceptions`, the documented exceptions to check 2 for tests
 # (real-exceptions.json: package, dependency, reason).
 # Prints one line per problem, and nothing when the manifests follow the
 # rules. No package is named here except kkt-scratch, the subject of check 4.
@@ -121,6 +122,15 @@ def default_reach($features):
     # touches nothing (CLAUDE.md's C5). `$contracts` names them.
     if (.name as $n | any($contracts[]; . == $n)) and (.features | has("real"))
     then "\(.name): it is a contract crate and has a `real` feature; a contract may not touch the machine"
+    else empty end
+),
+(
+    # Check 7: a merged crate, "contract and effect" (phase 13) or "logic
+    # and effect" (phase 14), has a `real` feature: its effect is behind it,
+    # so a crate that depends on it without `real` gets the contract or the
+    # logic alone. `$merged` names them.
+    if (.name as $n | any($merged[]; . == $n)) and (.features | has("real") | not)
+    then "\(.name): it is a merged crate (contract or logic, and effect) with no `real` feature; its effect must be behind `real`"
     else empty end
 )
 )

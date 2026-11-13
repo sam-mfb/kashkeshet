@@ -81,6 +81,7 @@ Each box is outlined in its kind's colour, written by hand per crate:
 - **contract**: traits and plain values, with pure behaviour on its own value types (Time arithmetic, query checks, search matching), and no effect or wiring;
 - **contract and effect**: a contract in the open and its one implementation behind `real`, which only programs turn on (phase 13); a crate that depends on it without `real` depends on the contract alone;
 - **logic**: behaviour, with every effect injected (protocol translation counts, so kkt-mcp and kkt-web are logic);
+- **logic and effect**: logic in the open and the effect that only carries out its plans behind `real`, which only programs turn on (phase 14); a crate that depends on it without `real` depends on the logic alone;
 - **effect**: touches the operating system, disk, network, real time or real randomness directly; a named tool wrapper also owns its tool knowledge, tested through a private runner, with process execution behind `real`;
 - **composition**: wires others and decides nothing (kkt-server and the programs);
 - **test support**: for tests only;
@@ -95,8 +96,13 @@ marked contract and effect, it checks that its contract, outside `real`, only
 computes on its own values (a slot behind `real` is the implementation's), that
 it has a `real` feature, that its I/O dependencies are optional ones only `real`
 turns on, that a type outside `testing` implements its own contract, and that
-only programs turn its `real` on. A crate that fails these is mixed. In the proposed
-map the last two, like a mixed crate, are violations. It reports
+only programs turn its `real` on. For a crate marked logic and effect, it
+checks that it has a `real` feature, that its I/O dependencies are optional
+ones only `real` turns on, that its machine work is only in modules that
+`real` brings (generate.py records those files), that it turns on no other
+crate's `real`, and that only programs turn its own on. A crate that fails these is mixed. In the proposed
+map the two composition checks (a `real` feature of its own, and machine work in
+its own code), like a mixed crate, are violations. It reports
 a mismatch on the page and does not change the kind.
 
 Machine work is what `generate.py` finds in a crate's own code, outside its

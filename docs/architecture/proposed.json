@@ -10,7 +10,8 @@
   "If a contract is used by more than two crates, it lives in its own contract-only crate (traits, pure value types, and test doubles behind `testing`). Its real implementations live in separate implementation crates, which implement it directly (msg 2020); only programs depend on them. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
   "For dependencies other than the named third-party wrappers below, a contract used by two crates or fewer is declared by each consumer, and the program adapts the implementation to it; the shared assembly may write an adapter the programs share.",
   "Used by: crates other than the definer and the implementers that take the trait in a public slot or call through it, in normal dependencies. Test-only use is listed separately.",
-  "A third-party tool or library with one implementation is one crate named for the scope: its contract in the open, and the implementation, with the tool's knowledge and a private runner, behind real (phase 13, replacing phase 12's split). Several implementations, or a contract many crates share, keep a contract crate with named implementations, as kkt-service and kkt-db do. Either way the program injects the implementation, with no adapter. Language-shaping libraries retain the RUST rule 7 exemption."
+  "A third-party tool or library with one implementation is one crate named for the scope: its contract in the open, and the implementation, with the tool's knowledge and a private runner, behind real (phase 13, replacing phase 12's split). Several implementations, or a contract many crates share, keep a contract crate with named implementations, as kkt-service and kkt-db do. Either way the program injects the implementation, with no adapter. Language-shaping libraries retain the RUST rule 7 exemption.",
+  "A logic crate and the effect that only carries out its plans may be one crate, of kind logic and effect: the logic in the open, and the effect behind real, which only programs turn on, so the logic builds and tests without the effect. Crates follow domains, not the kind of code (phase 14)."
  ],
  "layers_added": [],
  "new_crates": [
@@ -111,25 +112,6 @@
    "concern": "Binding the server to its socket and serving it: `listen` and `Listening`, which only the programs use. kkt-server's `real` feature moves here. It serves kkt-server's built `App`, so it needs axum.",
    "third_party": [
     "axum",
-    "tokio"
-   ]
-  },
-  {
-   "name": "kkt-backup-os",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kkt-backup",
-   "status": "follows",
-   "concern": "Writing and pruning backup folders on disk: `write` and `prune`, which the program calls. kkt-backup's `real` feature moves here."
-  },
-  {
-   "name": "kkt-shutdown-os",
-   "layer": "foundations",
-   "kind": "effect",
-   "from": "kkt-shutdown",
-   "status": "follows",
-   "concern": "The operating system's stop signals: `StopSignals`, which the programs install and which stop kkt-shutdown's `Shutdown`. kkt-shutdown's `real` feature moves here.",
-   "third_party": [
     "tokio"
    ]
   },
@@ -263,12 +245,18 @@
    "concern": "Hashing: `sha256`, the SHA-256 digest of some bytes. The one crate that uses sha2; its users call it."
   },
   {
-   "name": "kkt-logs-os",
+   "name": "kkt-log-tracing",
    "layer": "foundations",
    "kind": "effect",
    "from": "kkt-logs",
    "status": "decided",
-   "concern": "The log's files and its start: `RotatingFile` writes the log file, and rolls it over and deletes old ones by kkt-logs' plans; `init_logging` and `init_stderr_logging` start tracing, on the terminal or in the file; `TracingLog` records kkt-log's events through tracing. kkt-logs' `real` feature moves here, with tracing-subscriber."
+   "features": {
+    "real": [
+     "dep:tracing",
+     "dep:tracing-subscriber"
+    ]
+   },
+   "concern": "kkt-log's Log over tracing: `TracingLog` records each event through tracing, and `init_logging` and `init_stderr_logging` start the subscriber, on the terminal or on a writer the program gives it, such as the log file kkt-logs opens. tracing and tracing-subscriber are behind real (step 14.4)."
   },
   {
    "name": "kkt-log",
@@ -323,17 +311,6 @@
    "from": "kkt-lane-files",
    "status": "decided",
    "concern": "The commit a lane folder is at: the LaneCommit contract in the open, with its testing stand-in, and its one implementation, Git, behind real, with git's commands, what their answers mean and the failures' wording, tested over a private runner (steps 12.5a and 13.4)."
-  },
-  {
-   "name": "kkt-setup-os",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kashkeshet",
-   "status": "decided",
-   "features": {
-    "real": []
-   },
-   "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path, and absolute and canonical paths; and one snapshot of `PATH`, in which it finds programs. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container, key files through kkt-admission-os."
   },
   {
    "name": "kkt-browser",
@@ -438,24 +415,6 @@
   {
    "item": "kkt-server::Listening",
    "to": "kkt-server-listen",
-   "status": "follows",
-   "note": "an effect, split out so no crate is mixed"
-  },
-  {
-   "item": "kkt-backup::write",
-   "to": "kkt-backup-os",
-   "status": "follows",
-   "note": "an effect, split out so no crate is mixed"
-  },
-  {
-   "item": "kkt-backup::prune",
-   "to": "kkt-backup-os",
-   "status": "follows",
-   "note": "an effect, split out so no crate is mixed"
-  },
-  {
-   "item": "kkt-shutdown::StopSignals",
-   "to": "kkt-shutdown-os",
    "status": "follows",
    "note": "an effect, split out so no crate is mixed"
   },
@@ -856,18 +815,18 @@
   },
   {
    "item": "kashkeshet::logging::init_logging",
-   "to": "kkt-logs-os",
+   "to": "kkt-log-tracing",
    "status": "decided",
    "as": "init_logging",
-   "note": "starting the log, to the terminal or the log file, with its filters; it keeps its name, not the proposal's start (step 4.1)",
+   "note": "starting the log, to the terminal or the log file, with its filters; it keeps its name, not the proposal's start (steps 4.1 and 14.4)",
    "feature": "real"
   },
   {
    "item": "kashkeshet::logging::init_stderr_logging",
-   "to": "kkt-logs-os",
+   "to": "kkt-log-tracing",
    "status": "decided",
    "as": "init_stderr_logging",
-   "note": "kkt's own log lines, to standard error; it keeps its name, not the proposal's start_stderr (step 4.1)",
+   "note": "kkt's own log lines, to standard error; it keeps its name, not the proposal's start_stderr (steps 4.1 and 14.4)",
    "feature": "real"
   },
   {
@@ -966,46 +925,51 @@
   },
   {
    "item": "kashkeshet::machine::record::read_setup",
-   "to": "kkt-setup-os",
+   "to": "kkt-setup",
    "status": "decided",
    "as": "read_record",
-   "feature": "real"
+   "feature": "real",
+   "note": "step 14.2"
   },
   {
    "item": "kashkeshet::machine::record::read_unfinished",
-   "to": "kkt-setup-os",
+   "to": "kkt-setup",
    "status": "decided",
    "as": "read_unfinished",
-   "feature": "real"
+   "feature": "real",
+   "note": "step 14.2"
   },
   {
    "item": "kashkeshet::machine::record::write_setup_record",
-   "to": "kkt-setup-os",
+   "to": "kkt-setup",
    "status": "decided",
    "as": "write_record",
-   "feature": "real"
+   "feature": "real",
+   "note": "step 14.2"
   },
   {
    "item": "kashkeshet::process::program_path",
-   "to": "kkt-setup-os",
+   "to": "kkt-setup",
    "status": "decided",
    "as": "program_path",
-   "feature": "real"
+   "feature": "real",
+   "note": "step 14.2"
   },
   {
    "item": "kashkeshet::process::kkt_path",
-   "to": "kkt-setup-os",
+   "to": "kkt-setup",
    "status": "decided",
    "as": "kkt_path",
-   "feature": "real"
+   "feature": "real",
+   "note": "step 14.2"
   },
   {
    "item": "kashkeshet::process::write_whole",
-   "to": "kkt-setup-os",
+   "to": "kkt-setup",
    "status": "decided",
    "as": "write_whole",
    "feature": "real",
-   "note": "how the record is written whole, private to kkt-setup-os"
+   "note": "how the record is written whole, private to kkt-setup (step 14.2)"
   },
   {
    "item": "kashkeshet::process::end_on_closed_output",
@@ -1079,12 +1043,6 @@
    "item": "kkt-settings::web_key_path",
    "to": "kkt-admission",
    "status": "decided"
-  },
-  {
-   "item": "kkt-logs::RotatingFile",
-   "to": "kkt-logs-os",
-   "status": "decided",
-   "note": "writing, renaming and deleting the files, as kkt-logs' rules say"
   },
   {
    "item": "kkt-rules::LaneSource",
@@ -1672,9 +1630,9 @@
    "note": "kkt-machine-os' env reads the environment"
   },
   {
-   "item": "kkt-setup-os::write_whole",
+   "item": "kkt-setup::write_whole",
    "status": "decided",
-   "note": "how kkt-setup-os writes the record whole, private to it"
+   "note": "how kkt-setup writes the record whole, private to it, behind real (step 14.2)"
   },
   {
    "item": "kkt-events::EVENT_BUFFER",
@@ -2440,11 +2398,11 @@
    ]
   },
   {
-   "crate": "kkt-setup-os",
+   "crate": "kkt-setup",
    "path": "on_path",
    "kind": "fn",
    "status": "decided",
-   "doc": "Whether a program is on PATH.",
+   "doc": "Whether a program is on PATH (step 14.2).",
    "feature": "real"
   },
   {
@@ -2626,20 +2584,20 @@
    "doc": "The SHA-256 digest of some bytes."
   },
   {
-   "crate": "kkt-setup-os",
+   "crate": "kkt-setup",
    "path": "remove_record",
    "kind": "fn",
    "status": "decided",
    "feature": "real",
-   "doc": "Removes the setup record, as uninstall does."
+   "doc": "Removes the setup record, as uninstall does (step 14.2)."
   },
   {
-   "crate": "kkt-setup-os",
+   "crate": "kkt-setup",
    "path": "make_data_folder",
    "kind": "fn",
    "status": "decided",
    "feature": "real",
-   "doc": "Makes kkt's data folder, where kkt-setup says it is, for the default database."
+   "doc": "Makes kkt's data folder, where kkt-setup says it is, for the default database (step 14.2)."
   },
   {
    "crate": "kkt-setup",
@@ -2684,12 +2642,12 @@
    ]
   },
   {
-   "crate": "kkt-logs-os",
+   "crate": "kkt-log-tracing",
    "path": "TracingLog",
    "kind": "struct",
    "status": "decided",
    "feature": "real",
-   "doc": "kkt-log's Log over tracing: each event goes to the log the program started."
+   "doc": "kkt-log's Log over tracing: each event goes to the log the program started (step 14.4)."
   },
   {
    "crate": "kkt-probe",
@@ -3343,43 +3301,43 @@
    "doc": "The admin endpoint, from a client endpoint ending in /mcp (step 7.3a)."
   },
   {
-   "crate": "kkt-setup-os",
+   "crate": "kkt-setup",
    "path": "absolute",
    "kind": "fn",
    "status": "decided",
-   "doc": "Resolves a relative path against this process's working directory (step 7.3a).",
+   "doc": "Resolves a relative path against this process's working directory (steps 7.3a and 14.2).",
    "feature": "real"
   },
   {
-   "crate": "kkt-setup-os",
+   "crate": "kkt-setup",
    "path": "canonicalize",
    "kind": "fn",
    "status": "decided",
-   "doc": "Follows links and resolves the actual file path (step 7.3a).",
+   "doc": "Follows links and resolves the actual file path (steps 7.3a and 14.2).",
    "feature": "real"
   },
   {
-   "crate": "kkt-setup-os",
+   "crate": "kkt-setup",
    "path": "path_dirs",
    "kind": "fn",
    "status": "decided",
-   "doc": "One snapshot of PATH, shared by all client checks in a setup invocation (step 7.3a).",
+   "doc": "One snapshot of PATH, shared by all client checks in a setup invocation (steps 7.3a and 14.2).",
    "feature": "real"
   },
   {
-   "crate": "kkt-setup-os",
+   "crate": "kkt-setup",
    "path": "write_unfinished",
    "kind": "fn",
    "status": "decided",
-   "doc": "Saves the unfinished note with the same write-then-rename operation (step 7.3a).",
+   "doc": "Saves the unfinished note with the same write-then-rename operation (steps 7.3a and 14.2).",
    "feature": "real"
   },
   {
-   "crate": "kkt-setup-os",
+   "crate": "kkt-setup",
    "path": "remove_unfinished",
    "kind": "fn",
    "status": "decided",
-   "doc": "Removes the unfinished note, accepting an already-missing file (step 7.3a).",
+   "doc": "Removes the unfinished note, accepting an already-missing file (steps 7.3a and 14.2).",
    "feature": "real"
   },
   {
@@ -4432,6 +4390,14 @@
    "methods": [
     "new"
    ]
+  },
+  {
+   "crate": "kkt-logs",
+   "path": "open_log_file",
+   "kind": "fn",
+   "status": "decided",
+   "feature": "real",
+   "doc": "Checks the log policy and opens the rolling log file, with the same two refusals as before (step 14.4)."
   }
  ],
  "declared": [],
@@ -4894,7 +4860,7 @@
   },
   {
    "from": "kkt-web-preview",
-   "to": "kkt-shutdown-os",
+   "to": "kkt-shutdown",
    "kind": "dev",
    "add": {
     "wires": [
@@ -4902,7 +4868,7 @@
     ]
    },
    "status": "decided",
-   "note": "the preview example"
+   "note": "the preview example (step 14.3)"
   },
   {
    "from": "kkt-web-preview",
@@ -4927,32 +4893,6 @@
    },
    "status": "follows",
    "note": "it binds and serves the App kkt-server builds"
-  },
-  {
-   "from": "kkt-backup-os",
-   "to": "kkt-backup",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Contents",
-     "name",
-     "DATABASE_FILE"
-    ]
-   },
-   "status": "follows",
-   "note": "it writes the folder kkt-backup describes"
-  },
-  {
-   "from": "kkt-shutdown-os",
-   "to": "kkt-shutdown",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Shutdown"
-    ]
-   },
-   "status": "follows",
-   "note": "a stop signal stops kkt-shutdown's Shutdown"
   },
   {
    "from": "kkt-db",
@@ -5461,7 +5401,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-setup-os",
+   "to": "kkt-setup",
    "kind": "normal",
    "add": {
     "uses": [
@@ -5476,7 +5416,7 @@
     ]
    },
    "status": "decided",
-   "note": "the setup record and its note, this program's path, PATH and the data folder"
+   "note": "the setup record and its note, this program's path, PATH and the data folder (step 14.2)"
   },
   {
    "from": "kashkeshet",
@@ -5494,7 +5434,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-logs-os",
+   "to": "kkt-log-tracing",
    "kind": "normal",
    "add": {
     "uses": [
@@ -5503,9 +5443,9 @@
     ]
    },
    "status": "decided",
-   "note": "starting the log; init_logging opens the RotatingFile itself (step 4.1)",
-   "drop": [
-    "RotatingFile"
+   "note": "starting the log, on the terminal or on the file kkt-logs opened (steps 4.1 and 14.4)",
+   "features": [
+    "real"
    ]
   },
   {
@@ -5625,19 +5565,6 @@
    },
    "status": "decided",
    "note": "key files are written with kkt-admission's file mode"
-  },
-  {
-   "from": "kkt-setup-os",
-   "to": "kkt-setup",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "record_path",
-     "unfinished_path"
-    ]
-   },
-   "status": "decided",
-   "note": "the record and its note are where kkt-setup says"
   },
   {
    "from": "kkt-identity",
@@ -6046,21 +5973,16 @@
    "note": "the rule for agent credential files"
   },
   {
-   "from": "kkt-logs-os",
+   "from": "kkt-log-tracing",
    "to": "kkt-logs",
    "kind": "normal",
    "add": {
     "uses": [
-     "LogPolicy",
-     "LogLevel",
-     "should_roll",
-     "rotation",
-     "prune_due",
-     "pruning"
+     "LogLevel"
     ]
    },
    "status": "decided",
-   "note": "it carries out kkt-logs' rollover and pruning plans on the files (step 4.1)"
+   "note": "the level its filters start at; the file's plans are carried out in kkt-logs (step 14.4)"
   },
   {
    "from": "kkt-logs",
@@ -6071,7 +5993,7 @@
    "note": "its file tests move to kkt-logs-os; the rules' tests need no files"
   },
   {
-   "from": "kkt-logs-os",
+   "from": "kkt-logs",
    "to": "kkt-scratch",
    "kind": "dev",
    "add": {
@@ -6080,10 +6002,10 @@
     ]
    },
    "status": "decided",
-   "note": "the file tests, moved from kkt-logs"
+   "note": "the file tests, which stay with RotatingFile (step 14.4)"
   },
   {
-   "from": "kkt-logs-os",
+   "from": "kkt-logs",
    "to": "kkt-clock",
    "kind": "dev",
    "add": {
@@ -6095,7 +6017,7 @@
    "features": [
     "testing"
    ],
-   "note": "the file tests, moved from kkt-logs"
+   "note": "the file tests, which stay with RotatingFile (step 14.4)"
   },
   {
    "from": "kkt-mcp",
@@ -6167,7 +6089,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-logs-os",
+   "to": "kkt-log-tracing",
    "kind": "normal",
    "add": {
     "wires": [
@@ -6175,11 +6097,14 @@
     ]
    },
    "status": "decided",
-   "note": "the Log it gives kkt-server's parts"
+   "note": "the Log it gives kkt-server's parts (step 14.4)",
+   "features": [
+    "real"
+   ]
   },
   {
    "from": "kkt-keymode",
-   "to": "kkt-logs-os",
+   "to": "kkt-log-tracing",
    "kind": "normal",
    "add": {
     "wires": [
@@ -6187,14 +6112,14 @@
     ]
    },
    "status": "decided",
-   "note": "the Log it gives kkt-server's parts",
+   "note": "the Log it gives kkt-server's parts (step 14.4)",
    "features": [
     "real"
    ]
   },
   {
    "from": "kkt-fake-product",
-   "to": "kkt-logs-os",
+   "to": "kkt-log-tracing",
    "kind": "normal",
    "add": {
     "wires": [
@@ -6202,7 +6127,7 @@
     ]
    },
    "status": "decided",
-   "note": "the Log it gives kkt-server's parts",
+   "note": "the Log it gives kkt-server's parts (step 14.4)",
    "features": [
     "real"
    ]
@@ -6404,19 +6329,6 @@
    },
    "status": "decided",
    "note": "builds the backup's Layout for kkt-backup-os to write (step 2.7)"
-  },
-  {
-   "from": "kkt-backup-os",
-   "to": "kkt-backup",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Layout",
-     "old_names"
-    ]
-   },
-   "status": "decided",
-   "note": "writes kkt-backup's Layout and asks it which old backups to remove (step 2.7)"
   },
   {
    "from": "kashkeshet",
@@ -6633,7 +6545,7 @@
    "note": "the pruning plan's age cutoff can be out of range (step 4.1)"
   },
   {
-   "from": "kkt-logs-os",
+   "from": "kkt-logs",
    "to": "kkt-clock",
    "kind": "normal",
    "add": {
@@ -6643,10 +6555,10 @@
     ]
    },
    "status": "decided",
-   "note": "the file's clock and the plans' times (step 4.1)"
+   "note": "the file's clock and the plans' times (steps 4.1 and 14.4)"
   },
   {
-   "from": "kkt-logs-os",
+   "from": "kkt-logs",
    "to": "kkt-clock",
    "kind": "dev",
    "add": {
@@ -6658,7 +6570,7 @@
    "features": [
     "testing"
    ],
-   "note": "the file tests' spans (step 4.1)"
+   "note": "the file tests' spans (steps 4.1 and 14.4)"
   },
   {
    "from": "kkt-mcp",
@@ -6685,7 +6597,7 @@
    "note": "its events' named fields (step 4.2)"
   },
   {
-   "from": "kkt-logs-os",
+   "from": "kkt-log-tracing",
    "to": "kkt-log",
    "kind": "normal",
    "add": {
@@ -6697,7 +6609,7 @@
     ]
    },
    "status": "decided",
-   "note": "TracingLog records each event, its level and its fields through tracing (step 4.2)"
+   "note": "TracingLog records each event, its level and its fields through tracing (steps 4.2 and 14.4)"
   },
   {
    "from": "kkt-mcp",
@@ -7060,14 +6972,6 @@
   },
   {
    "from": "kkt-web-preview",
-   "to": "kkt-shutdown-os",
-   "kind": "dev",
-   "remove": true,
-   "status": "decided",
-   "note": "it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
-  },
-  {
-   "from": "kkt-web-preview",
    "to": "kkt-web",
    "kind": "dev",
    "remove": true,
@@ -7121,7 +7025,7 @@
   },
   {
    "from": "kkt-web-preview",
-   "to": "kkt-shutdown-os",
+   "to": "kkt-shutdown",
    "kind": "normal",
    "add": {
     "wires": [
@@ -7132,7 +7036,7 @@
    "features": [
     "real"
    ],
-   "note": "the preview program (step 6.3): the stop signals"
+   "note": "the preview program (step 6.3): the stop signals (step 14.3)"
   },
   {
    "from": "kkt-web-preview",
@@ -7190,7 +7094,7 @@
   },
   {
    "from": "kkt-web-preview",
-   "to": "kkt-logs-os",
+   "to": "kkt-log-tracing",
    "kind": "normal",
    "add": {
     "uses": [
@@ -7204,7 +7108,7 @@
    "features": [
     "real"
    ],
-   "note": "the preview program (step 6.3): its log, on standard error"
+   "note": "the preview program (step 6.3): its log, on standard error (step 14.4)"
   },
   {
    "from": "kkt-web-preview",
@@ -7456,7 +7360,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-setup-os",
+   "to": "kkt-setup",
    "kind": "normal",
    "add": {
     "uses": [
@@ -7468,20 +7372,7 @@
     ]
    },
    "status": "decided",
-   "note": "PATH once per client check, paths and the unfinished note (step 7.3a)"
-  },
-  {
-   "from": "kkt-setup-os",
-   "to": "kkt-setup",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Record",
-     "Unfinished"
-    ]
-   },
-   "status": "decided",
-   "note": "it reads and writes kkt-setup's Record and Unfinished note (step 7.3a)"
+   "note": "PATH once per client check, paths and the unfinished note (steps 7.3a and 14.2)"
   },
   {
    "from": "kashkeshet",
@@ -9088,6 +8979,24 @@
    },
    "status": "decided",
    "note": "env and platform give kkt-machine's values (13.8)."
+  },
+  {
+   "from": "kashkeshet",
+   "to": "kkt-logs",
+   "kind": "normal",
+   "add": {
+    "uses": [
+     "open_log_file"
+    ]
+   },
+   "drop": [
+    "RotatingFile"
+   ],
+   "status": "decided",
+   "features": [
+    "real"
+   ],
+   "note": "opens the log file, then starts tracing on it through kkt-log-tracing (step 14.4)"
   }
  ],
  "decisions": {
@@ -9380,7 +9289,7 @@
   },
   {
    "id": "18",
-   "text": "Each crate has a kind, written by hand: contract, contract and effect, logic, effect, composition, configuration or test support, and in the current map mixed. Boxes are outlined in their kind's colour. The generator checks what it can and reports mismatches; in the proposed map a mixed crate is a violation (msg 1981)."
+   "text": "Each crate has a kind, written by hand: contract, contract and effect, logic, logic and effect, effect, composition, configuration or test support, and in the current map mixed. Boxes are outlined in their kind's colour. The generator checks what it can and reports mismatches; in the proposed map a mixed crate is a violation (msg 1981)."
   },
   {
    "id": "19",
@@ -9767,17 +9676,6 @@
    }
   },
   {
-   "by": "kkt-logs",
-   "to": "kkt-logs-os",
-   "status": "decided",
-   "note": "the file writing takes the clock along",
-   "uses": {
-    "kkt-clock": [
-     "Clock"
-    ]
-   }
-  },
-  {
    "by": "kkt-admission",
    "to": "kkt-web",
    "status": "decided",
@@ -9952,15 +9850,15 @@
    "doc": "The settings a server run was given, as lines of a setting's name and value, which kkt-server's ServerSettings::record_lines words: no other crate's settings type (steps 3.5c and 9.2)."
   },
   {
-   "item": "kkt-setup-os::write_record",
+   "item": "kkt-setup::write_record",
    "doc": "Writes the setup record whole, where kkt-setup says it is."
   },
   {
-   "item": "kkt-logs-os::init_logging",
-   "doc": "Starts the server's log: to the terminal, with colour when it is one, or to the rolling log file."
+   "item": "kkt-log-tracing::init_logging",
+   "doc": "Starts the server's log: to the terminal, with colour when it is one, or to the writer it is given, such as the log file kkt-logs opens."
   },
   {
-   "item": "kkt-logs-os::init_stderr_logging",
+   "item": "kkt-log-tracing::init_stderr_logging",
    "doc": "Starts a command's log: kkt's own lines only, to standard error."
   },
   {
@@ -10525,14 +10423,14 @@
    "feature": "real"
   },
   {
-   "crate": "kkt-logs-os",
-   "at": "init_logging",
+   "crate": "kkt-logs",
+   "at": "open_log_file",
    "name": "clock",
    "traits": [
     "kkt-clock::Clock"
    ],
    "status": "decided",
-   "note": "in the code; charted with the wiring after phase 13",
+   "note": "the file's clock, for its rollover and pruning plans (step 14.4)",
    "feature": "real"
   },
   {
@@ -10702,20 +10600,20 @@
    "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server, clock, saved place, output and its retry and wait timings are injected by the program."
   },
   "kkt-backup": {
-   "status": "follows",
-   "concern": "Backup folders: their names, what goes in them and their file modes, and which to prune; the disk work is in kkt-backup-os."
+   "status": "decided",
+   "concern": "Backup folders: their names, what goes in them and their file modes, and which to prune; and, behind real, writing a layout and removing the old folders it names (step 14.1)."
   },
   "kkt-shutdown": {
-   "status": "follows",
-   "concern": "The stop signal: `Shutdown`, whose clones share one signal. The operating system's signals are in kkt-shutdown-os."
+   "status": "decided",
+   "concern": "The stop signal: `Shutdown`, whose clones share one signal; and, behind real, `StopSignals`, the operating system's stop signals, which stop it (step 14.3)."
   },
   "kkt-logs": {
    "status": "decided",
-   "concern": "The log's rules and settings: `LogLevel` and `LogPolicy` with their checks and its own `SettingError`, and the plans for the files: when the file rolls over and which renames that takes (`should_roll`, `rotation`), and when to look for old rolled files and which to delete (`prune_due`, `pruning`). It touches no file: kkt-logs-os carries out the plans."
+   "concern": "The log's rules and settings: `LogLevel` and `LogPolicy` with their checks and its own `SettingError`, and the plans for the files: when the file rolls over and which renames that takes (`should_roll`, `rotation`), and when to look for old rolled files and which to delete (`prune_due`, `pruning`). Behind real, it carries them out: `RotatingFile` writes the log file, and `open_log_file` checks the policy and opens it (step 14.4). Starting tracing is kkt-log-tracing's."
   },
   "kkt-setup": {
    "status": "decided",
-   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server and key this machine's clients use (`kkt switch`; `connection`, over the reads its `ConnectionSource` asks for in their original order), how setup asks its questions (its `Prompter` over its own `Lines`), and what status, upgrade, uninstall, lanes, backup, key files and `kkt doctor` decide: the status lines, the backup folders, the record uninstall leaves, the per-server client key's name, the lane limit, the import report, and the doctor's checks and fixes as plain `DoctorCheck`s, which the program adapts to kkt-diagnostics' report. It reads no files and runs nothing: the program does, through the effect crates, and carries out what is decided here."
+   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server and key this machine's clients use (`kkt switch`; `connection`, over the reads its `ConnectionSource` asks for in their original order), how setup asks its questions (its `Prompter` over its own `Lines`), and what status, upgrade, uninstall, lanes, backup, key files and `kkt doctor` decide: the status lines, the backup folders, the record uninstall leaves, the per-server client key's name, the lane limit, the import report, and the doctor's checks and fixes as plain `DoctorCheck`s, which the program adapts to kkt-diagnostics' report. It reads no files and runs nothing: the program does, through the effect crates, and carries out what is decided here. Behind real, setup's files on this machine: the setup record and its unfinished note, written whole, kkt's data folder, this program's path, absolute and canonical paths, and one snapshot of `PATH` (step 14.2)."
   },
   "kkt-identity": {
    "status": "decided",
@@ -10774,24 +10672,6 @@
    "to": "kkt-server-listen",
    "feature": "real",
    "status": "follows"
-  },
-  {
-   "from": "kkt-backup",
-   "to": "kkt-backup-os",
-   "feature": "real",
-   "status": "follows"
-  },
-  {
-   "from": "kkt-shutdown",
-   "to": "kkt-shutdown-os",
-   "feature": "real",
-   "status": "follows"
-  },
-  {
-   "from": "kkt-logs",
-   "to": "kkt-logs-os",
-   "feature": "real",
-   "status": "decided"
   }
  ],
  "rejected": [
@@ -11039,7 +10919,7 @@
       "note": "kkt setup, kkt switch"
      },
      {
-      "impl": "kkt-logs-os::TracingLog",
+      "impl": "kkt-log-tracing::TracingLog",
       "crate": "kkt-server",
       "to": [
        {
@@ -11188,8 +11068,8 @@
       "status": "decided"
      },
      {
-      "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
-      "supplier": "kkt-setup-os::kkt_path",
+      "own": "ThisProgram, adapting kkt-setup::kkt_path",
+      "supplier": "kkt-setup::kkt_path",
       "crate": "kkt-agent-commands",
       "to": [
        {
@@ -11315,14 +11195,14 @@
      },
      {
       "impl": "kkt-clock-system::SystemClock",
-      "crate": "kkt-logs-os",
+      "crate": "kkt-logs",
       "to": [
        {
-        "at": "init_logging",
+        "at": "open_log_file",
         "param": "clock"
        }
       ],
-      "note": "kkt serve --log-file",
+      "note": "kkt serve --log-file: the file's clock (step 14.4)",
       "status": "decided"
      },
      {
@@ -11434,7 +11314,7 @@
       "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
      },
      {
-      "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
+      "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup's real",
       "crate": "kkt-operate",
       "to": [
        {
@@ -11470,7 +11350,7 @@
       "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
      },
      {
-      "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os with this program's database copy",
+      "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup's real with this program's database copy",
       "crate": "kkt-operate",
       "to": [
        {
@@ -11478,7 +11358,7 @@
         "param": "backups"
        }
       ],
-      "supplier": "kkt-backup-os::write",
+      "supplier": "kkt-backup::write",
       "status": "decided",
       "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
      },
@@ -11694,7 +11574,7 @@
       "note": "kkt-rules' default wording, in the Startup the program gives kkt-rules' start (step 5.6a)"
      },
      {
-      "impl": "kkt-logs-os::TracingLog",
+      "impl": "kkt-log-tracing::TracingLog",
       "crate": "kkt-server",
       "to": [
        {
@@ -11841,7 +11721,7 @@
       "note": "kkt-rules' default wording, in the Startup the program gives kkt-rules' start (step 5.6a)"
      },
      {
-      "impl": "kkt-logs-os::TracingLog",
+      "impl": "kkt-log-tracing::TracingLog",
       "crate": "kkt-server",
       "to": [
        {
@@ -11887,8 +11767,8 @@
        "kkt-api-sim::PreviewSettings",
        "kkt-web::PageLimits",
        "kkt-hosts::AllowedHosts",
-       "kkt-logs-os::init_stderr_logging",
-       "kkt-logs-os::TracingLog"
+       "kkt-log-tracing::init_stderr_logging",
+       "kkt-log-tracing::TracingLog"
       ]
      },
      {
@@ -11917,7 +11797,7 @@
       "items": [
        "kkt-server::page",
        "kkt-server-listen::listen",
-       "kkt-shutdown-os::StopSignals"
+       "kkt-shutdown::StopSignals"
       ]
      }
     ],
@@ -11992,7 +11872,7 @@
       "status": "decided"
      },
      {
-      "impl": "kkt-logs-os::TracingLog",
+      "impl": "kkt-log-tracing::TracingLog",
       "crate": "kkt-server",
       "to": [
        {
@@ -12219,11 +12099,12 @@
   "kkt-client-config": "logic",
   "kkt-diagnostics": "logic",
   "kkt-lane-files": "logic",
-  "kkt-backup": "logic",
-  "kkt-shutdown": "logic",
+  "kkt-backup": "logic and effect",
+  "kkt-shutdown": "logic and effect",
   "kkt-identity": "contract",
-  "kkt-logs": "logic",
-  "kkt-agent-client": "contract and effect"
+  "kkt-logs": "logic and effect",
+  "kkt-agent-client": "contract and effect",
+  "kkt-setup": "logic and effect"
  },
  "open_questions": [
   {
@@ -12358,13 +12239,21 @@
    "note": "the program does no machine work itself: libc goes to kkt-terminal-os and kkt-agent-client, tracing-subscriber to kkt-logs, and sha2, for the per-server key file name, to kkt-setup"
   },
   {
-   "crate": "kkt-logs-os",
+   "crate": "kkt-log-tracing",
    "add": [
     "tracing",
     "tracing-subscriber"
    ],
    "status": "decided",
-   "note": "starting the log"
+   "note": "starting the log, behind real (steps 4.1 and 14.4)",
+   "optional": {
+    "tracing": [
+     "real"
+    ],
+    "tracing-subscriber": [
+     "real"
+    ]
+   }
   },
   {
    "crate": "kkt-setup",
@@ -12485,6 +12374,16 @@
    ],
    "status": "decided",
    "note": "The open contract uses local boxed futures; Docker parsing and errors stay in the merged crate behind real (13.1)."
+  },
+  {
+   "crate": "kkt-shutdown",
+   "optional": {
+    "tokio": [
+     "real"
+    ]
+   },
+   "status": "decided",
+   "note": "tokio's signals are behind real: a crate that depends on kkt-shutdown without real gets Shutdown alone (step 14.3)"
   }
  ],
  "replace_items": [
@@ -12825,12 +12724,12 @@
    "note": "the preview implements what the page uses, the agent level's Api and Channels and the operator level, over simulated data; what the page never asks is refused"
   },
   {
-   "type": "kkt-logs-os::TracingLog",
+   "type": "kkt-log-tracing::TracingLog",
    "to": [
     "kkt-log::Log"
    ],
    "status": "decided",
-   "note": "a shared contract crate's contract, implemented directly"
+   "note": "a shared contract crate's contract, implemented directly by its named implementation (step 14.4)"
   },
   {
    "type": "kkt-log::testing::CapturedLog",
@@ -12991,9 +12890,10 @@
   "A contract used by more than two crates lives in a contract-only crate of its own (traits, plain value types with pure behaviour on them, and test doubles behind `testing`). Any crate may implement a shared contract crate's contract directly. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
   "For dependencies other than named third-party wrappers, a contract used by two crates or fewer is declared by each consumer. The program adapts the implementation; kkt-server may share those adapters between its programs.",
   "A crate may implement its own traits (FixedClock implements Clock, DryRun implements System).",
-  "Each crate is one kind, by what it does: contract, contract and effect, logic, effect, composition or test support. Only programs and compositions depend on effect crates, only programs turn on a contract-and-effect crate's real (check 2), and no crate mixes logic or a contract with an effect. Named tool wrappers are the explicit exception: effect crates also hold tool knowledge, tested through a private runner (phase 12, option a). A contract-and-effect crate is not mixed: its effect is its own contract's one implementation, behind real (phase 13).",
+  "Each crate is one kind, by what it does: contract, contract and effect, logic, logic and effect, effect, composition or test support. Only programs and compositions depend on effect crates, only programs turn on a contract-and-effect or logic-and-effect crate's real (check 2), and no crate mixes logic or a contract with an effect. Named tool wrappers are the explicit exception: effect crates also hold tool knowledge, tested through a private runner (phase 12, option a). A contract-and-effect crate is not mixed: its effect is its own contract's one implementation, behind real (phase 13). A logic-and-effect crate is not mixed either: its effect only carries out its own logic's plans, behind real, so the logic builds and tests without it (phase 14).",
   "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three.",
-  "A third-party tool or library with one implementation is one crate named for the scope: its contract in the open, and the implementation, with the tool's knowledge and a private runner, behind real (phase 13, replacing phase 12's split). Several implementations, or a contract many crates share, keep a contract crate with named implementations, as kkt-service and kkt-db do. Either way the program injects the implementation, with no adapter. Language-shaping libraries retain the RUST rule 7 exemption."
+  "A third-party tool or library with one implementation is one crate named for the scope: its contract in the open, and the implementation, with the tool's knowledge and a private runner, behind real (phase 13, replacing phase 12's split). Several implementations, or a contract many crates share, keep a contract crate with named implementations, as kkt-service and kkt-db do. Either way the program injects the implementation, with no adapter. Language-shaping libraries retain the RUST rule 7 exemption.",
+  "A logic crate and the effect that only carries out its plans may be one crate, of kind logic and effect: the logic in the open, and the effect behind real, which only programs turn on, so the logic builds and tests without the effect. Crates follow domains, not the kind of code (phase 14)."
  ],
  "remove_crates": [
   {
@@ -13013,7 +12913,8 @@
     "what": "errors on standard error, the closed-pipe default, starting the log, the environment",
     "to": [
      "kkt-terminal-os",
-     "kkt-logs-os",
+     "kkt-log-tracing",
+     "kkt-logs",
      "kkt-machine-os"
     ],
     "status": "decided",
@@ -13024,7 +12925,7 @@
     "what": "its output, this program's path",
     "to": [
      "kkt-terminal-os",
-     "kkt-setup-os"
+     "kkt-setup"
     ],
     "status": "decided",
     "keeps": "kkt connect as a thin body"
@@ -13078,7 +12979,7 @@
     "to": [
      "kkt-terminal-os",
      "kkt-admission-os",
-     "kkt-setup-os",
+     "kkt-setup",
      "kkt-container"
     ],
     "status": "decided",
@@ -13093,7 +12994,8 @@
     "what": "errors before the log starts, starting the log",
     "to": [
      "kkt-terminal-os",
-     "kkt-logs-os"
+     "kkt-log-tracing",
+     "kkt-logs"
     ],
     "status": "decided",
     "keeps": "kkt serve's wiring and its banner"
@@ -13104,7 +13006,7 @@
     "to": [
      "kkt-terminal-os",
      "kkt-service-os",
-     "kkt-setup-os"
+     "kkt-setup"
     ],
     "status": "decided",
     "keeps": "kkt service as a thin body",
@@ -13125,7 +13027,7 @@
     "to": [
      "kkt-terminal-os",
      "kkt-config-file-os",
-     "kkt-setup-os",
+     "kkt-setup",
      "kkt-admission-os",
      "kkt-container"
     ],
@@ -13149,7 +13051,7 @@
     "file": "src/logging.rs",
     "what": "starting the log, whether output is a terminal",
     "to": [
-     "kkt-logs-os"
+     "kkt-log-tracing"
     ],
     "status": "decided"
    },
@@ -13182,7 +13084,7 @@
     "file": "src/machine/record.rs",
     "what": "reading and writing the setup record, its warning",
     "to": [
-     "kkt-setup-os",
+     "kkt-setup",
      "kkt-terminal-os"
     ],
     "status": "decided",
@@ -13197,7 +13099,7 @@
     "what": "reading the config and instructions files, the database's folder",
     "to": [
      "kkt-config-file-os",
-     "kkt-setup-os"
+     "kkt-setup"
     ],
     "status": "decided",
     "decisions": [
@@ -13211,7 +13113,7 @@
     "what": "the environment, this program's path, writing a file whole, the closed-pipe default",
     "to": [
      "kkt-machine-os",
-     "kkt-setup-os",
+     "kkt-setup",
      "kkt-terminal-os"
     ],
     "status": "decided"
@@ -13365,6 +13267,12 @@
    "feature": "real",
    "status": "decided",
    "note": "Git, its one implementation, which only the program turns on (13.4)."
+  },
+  {
+   "crate": "kkt-setup",
+   "feature": "real",
+   "status": "decided",
+   "note": "setup's files on this machine, which kkt-setup-os held (step 14.2)"
   }
  ],
  "adapter_census": {
