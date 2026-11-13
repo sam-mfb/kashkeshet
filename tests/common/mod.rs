@@ -255,7 +255,7 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
         clock,
         entropy,
         Arc::new(KeyMode::new(admin_name)),
-        Arc::new(kkt_logs_os::TracingLog),
+        Arc::new(kkt_log_tracing::TracingLog),
         server_settings,
     );
     let server = app::build(parts, config, shutdown.child());

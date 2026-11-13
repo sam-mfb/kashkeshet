@@ -31,7 +31,7 @@ kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-log = { path = "../../crates/kkt-log" }
 kkt-logs = { path = "../../crates/kkt-logs" }
-kkt-logs-os = { path = "../../crates/kkt-logs-os", features = ["real"] }
+kkt-log-tracing = { path = "../../crates/kkt-log-tracing", features = ["real"] }
 kkt-server = { path = "../../crates/kkt-server" }
 kkt-server-listen = { path = "../../crates/kkt-server-listen", features = ["real"] }
 kkt-shutdown = { path = "../../crates/kkt-shutdown", features = ["real"] }

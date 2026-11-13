@@ -1,24 +1,30 @@
-//! The log's filesystem writer and tracing subscriber. Rollover and pruning
-//! decisions come from kkt-logs; the program supplies the wall clock.
+//! The log file on disk: appended to, rolled over and pruned as the
+//! policy's plans say. The program supplies the wall clock.
 
-#![cfg(any(test, feature = "real"))]
-
-mod record;
-mod startup;
-pub use record::TracingLog;
-pub use startup::{init_logging, init_stderr_logging};
-
+use crate::{LogPolicy, prune_due, pruning, rotation, should_roll};
 use kkt_clock::{Clock, Time};
-use kkt_logs::LogPolicy;
-use kkt_logs::{prune_due, pruning, rotation, should_roll};
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-/// Where unit tests put their scratch files: shared with the integration tests.
-#[cfg(test)]
-use kkt_scratch as scratch;
+/// Opens the log file at `path` for [`RotatingFile::open`], after checking
+/// `policy`. Each refusal names the setting, as the server words it.
+pub fn open_log_file(
+    path: &Path,
+    policy: LogPolicy,
+    clock: Arc<dyn Clock>,
+) -> Result<RotatingFile, String> {
+    policy
+        .check()
+        .map_err(|e| format!("invalid setting: {e}"))?;
+    RotatingFile::open(path, policy, clock).map_err(|e| {
+        format!(
+            "invalid setting: log_file could not be opened at {}: {e}",
+            path.display()
+        )
+    })
+}
 
 /// The log file at `path`, appended to, and rolled over by its policy.
 pub struct RotatingFile {
@@ -99,7 +105,7 @@ impl Write for RotatingFile {
     /// Writes `buf` to the file, rolling it over first if `buf` would take
     /// it past the policy's size. A file is never rolled while empty, so one
     /// write larger than the limit still lands whole. Otherwise, at most
-    /// periodically, as [`kkt_logs::prune_due`] decides, deletes rolled
+    /// periodically, as [`prune_due`] decides, deletes rolled
     /// files past their age.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if should_roll(self.policy, self.size, buf.len()) {

@@ -37,7 +37,7 @@ members = [
     "crates/kkt-lane-files-os",
     "crates/kkt-log",
     "crates/kkt-logs",
-    "crates/kkt-logs-os",
+    "crates/kkt-log-tracing",
     "crates/kkt-machine",
     "crates/kkt-machine-os",
     "crates/kkt-mcp",
@@ -101,7 +101,7 @@ default-members = [
     "crates/kkt-lane-files-os",
     "crates/kkt-log",
     "crates/kkt-logs",
-    "crates/kkt-logs-os",
+    "crates/kkt-log-tracing",
     "crates/kkt-machine",
     "crates/kkt-machine-os",
     "crates/kkt-mcp",
@@ -227,8 +227,8 @@ kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
 kkt-lane-commit = { path = "crates/kkt-lane-commit", features = ["real"] }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
-kkt-logs = { path = "crates/kkt-logs" }
-kkt-logs-os = { path = "crates/kkt-logs-os", features = ["real"] }
+kkt-logs = { path = "crates/kkt-logs", features = ["real"] }
+kkt-log-tracing = { path = "crates/kkt-log-tracing", features = ["real"] }
 kkt-entropy-os = { path = "crates/kkt-entropy-os", features = ["real"] }
 kkt-machine = { path = "crates/kkt-machine" }
 kkt-machine-os = { path = "crates/kkt-machine-os", features = ["real"] }

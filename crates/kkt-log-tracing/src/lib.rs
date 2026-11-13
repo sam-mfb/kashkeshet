@@ -1,12 +1,17 @@
-//! Starting the log: to stdout, stderr or a log file, with kkt's own lines
-//! and its libraries' at their own levels.
+//! kkt-log's [`Log`](kkt_log::Log) contract over `tracing`: [`TracingLog`]
+//! sends structured events to the tracing subscriber, and [`init_logging`]
+//! and [`init_stderr_logging`] start that subscriber, to stdout, stderr or a
+//! writer the program gives, such as kkt-logs' log file, with kkt's own
+//! lines and its libraries' at their own levels.
 
-use crate::RotatingFile;
-use kkt_clock::Clock;
-use kkt_logs::{LogLevel, LogPolicy};
-use std::io::IsTerminal;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+#![cfg(any(test, feature = "real"))]
+
+mod record;
+pub use record::TracingLog;
+
+use kkt_logs::LogLevel;
+use std::io::{IsTerminal, Write};
+use std::sync::Mutex;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter::Targets;
 use tracing_subscriber::layer::SubscriberExt;
@@ -15,14 +20,13 @@ use tracing_subscriber::util::SubscriberInitExt;
 /// The targets of kkt's own code: the library and the `kkt` binary.
 const LOG_OWN_TARGETS: &[&str] = &["kashkeshet", "kkt"];
 
-/// Sends the log to stdout, or to a log file kept within the policy given
-/// with it. kkt's own code logs at `own`, the libraries it uses at
-/// `dependencies`. The supplied clock determines when rolled files expire.
+/// Sends the log to stdout, or to `log_file`, such as the log file
+/// kkt-logs opens. kkt's own code logs at `own`, the libraries it uses at
+/// `dependencies`.
 pub fn init_logging(
-    log_file: Option<(&Path, LogPolicy)>,
+    log_file: Option<Box<dyn Write + Send>>,
     own: LogLevel,
     dependencies: LogLevel,
-    clock: Arc<dyn Clock>,
 ) -> Result<(), String> {
     let filter = log_filter(own, dependencies);
     let format = tracing_subscriber::fmt::layer().with_target(false);
@@ -33,21 +37,10 @@ pub fn init_logging(
             .with(format.with_ansi(std::io::stdout().is_terminal()))
             .with(filter)
             .try_init(),
-        Some((path, policy)) => {
-            policy
-                .check()
-                .map_err(|e| format!("invalid setting: {e}"))?;
-            let file = RotatingFile::open(path, policy, clock).map_err(|e| {
-                format!(
-                    "invalid setting: log_file could not be opened at {}: {e}",
-                    path.display()
-                )
-            })?;
-            tracing_subscriber::registry()
-                .with(format.with_ansi(false).with_writer(Mutex::new(file)))
-                .with(filter)
-                .try_init()
-        }
+        Some(file) => tracing_subscriber::registry()
+            .with(format.with_ansi(false).with_writer(Mutex::new(file)))
+            .with(filter)
+            .try_init(),
     };
     started.map_err(|e| format!("could not start logging: {e}"))
 }
