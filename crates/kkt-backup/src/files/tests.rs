@@ -1,5 +1,5 @@
 use super::prune;
-use kkt_backup::{Contents, DATABASE_FILE, layout, name};
+use crate::{Contents, DATABASE_FILE, layout, name};
 use kkt_clock::{Span, Time};
 use std::path::{Path, PathBuf};
 
@@ -27,8 +27,8 @@ fn at(seconds: u32) -> Time {
 }
 
 /// A fresh, empty directory for one test's files, removed when dropped.
-fn scratch_dir(test: &str) -> crate::scratch::Dir {
-    crate::scratch::Dir::new(&format!("kashkeshet-backup-{test}"))
+fn scratch_dir(test: &str) -> kkt_scratch::Dir {
+    kkt_scratch::Dir::new(&format!("kashkeshet-backup-{test}"))
 }
 
 /// A database "copy" that writes the source's text, as the store's would
