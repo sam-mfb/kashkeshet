@@ -36,12 +36,15 @@ The shared crates are reorganized so that every dependency is injected and each 
   Consumers without `real` keep the contract and its `testing::Memory`
   stand-in without Docker's dependencies. Files, commands and messages are
   unchanged; this changes the shared Rust API.
-- **Remote sharing contract.** `kkt-remote-access::RemoteAccess` replaces its
-  command-level `Host` and free functions. `kkt-remote-access-tailscale::Tailscale`
-  (behind `real`) implements it directly, replacing `kkt-remote-access-os` and
-  the program adapter. Callers inject that implementation into `OperateParts`;
-  the contract's `testing::Memory` supplies sharing without a real network.
-  Tailscale behaviour and messages are unchanged.
+- **Remote sharing contract and implementation.**
+  `kkt-remote-access::RemoteAccess` replaces its command-level `Host` and free
+  functions. `kkt-remote-access::Tailscale` (behind `real`) implements it in
+  the same crate; `kkt-remote-access-os` and the intermediate
+  `kkt-remote-access-tailscale` go. The program injects it directly, with no
+  adapter. The contract and `testing::Memory` need no parsing dependencies;
+  serde and serde_json are optional under `real`. Files, commands and messages
+  are unchanged; this changes the shared Rust implementation path.
+
 - **Agent client contract.** `kkt-agent-client` is now the contract for a
   client of kkt's server: `Servers`, `Avatars` and `Watched`, with `Address`
   and the records and `Failure` it already had, and `testing::Memory`.

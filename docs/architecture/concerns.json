@@ -232,15 +232,9 @@
   },
   "kkt-remote-access": {
    "layer": "operations",
-   "concern": "The project's contract for preparing, serving, checking and stopping private-network sharing of this machine's server; its Node record and testing Memory stand-in.",
-   "must_not": "Know a sharing tool, its commands or output format; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-remote-access-tailscale": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Implements RemoteAccess through the host's existing Tailscale login: arguments, parsing and messages tested against a private runner; the process runner is behind real.",
-   "must_not": "Change login, DNS preferences, unrelated sharing, kkt's config or its service."
+   "concern": "The remote-sharing contract and stand-in, with Tailscale behind real; tool logic is tested over a private runner.",
+   "must_not": "Let tool details into the open contract; change login, DNS preferences, unrelated sharing, config or the service.",
+   "kind": "contract and effect"
   },
   "kkt-client-config": {
    "layer": "operations",

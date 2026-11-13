@@ -50,7 +50,6 @@ members = [
     "crates/kkt-probe-reqwest",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
-    "crates/kkt-remote-access-tailscale",
     "crates/kkt-rules",
     "crates/kkt-scratch",
     "crates/kkt-search",
@@ -120,7 +119,6 @@ default-members = [
     "crates/kkt-probe-reqwest",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
-    "crates/kkt-remote-access-tailscale",
     "crates/kkt-rules",
     "crates/kkt-scratch",
     "crates/kkt-search",
@@ -249,7 +247,7 @@ kkt-mcp = { path = "crates/kkt-mcp" }
 kkt-names = { path = "crates/kkt-names" }
 kkt-operate = { path = "crates/kkt-operate" }
 kkt-provenance = { path = "crates/kkt-provenance" }
-kkt-remote-access-tailscale = { path = "crates/kkt-remote-access-tailscale", features = ["real"] }
+kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
 kkt-rules = { path = "crates/kkt-rules" }
 kkt-server = { path = "crates/kkt-server" }
 kkt-server-listen = { path = "crates/kkt-server-listen", features = ["real"] }

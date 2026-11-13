@@ -2,8 +2,6 @@
 //! Commands go through a private runner; this wrapper never changes login, DNS preferences,
 //! kkt's config, or its service. It owns only the HTTPS root proxy it installs.
 
-#![cfg(any(feature = "real", test))]
-
 use serde::Deserialize;
 use serde_json::Value;
 use serde_json::error::Category;
@@ -13,7 +11,7 @@ use std::net::SocketAddr;
 const TAILSCALE_HTTPS_PORT: u16 = 443;
 
 mod runner;
-use kkt_remote_access::Node;
+use crate::Node;
 use runner::{Output, Runner};
 
 /// Shares this machine's server through its existing Tailscale login.
@@ -21,7 +19,7 @@ use runner::{Output, Runner};
 pub struct Tailscale;
 
 #[cfg(feature = "real")]
-impl kkt_remote_access::RemoteAccess for Tailscale {
+impl crate::RemoteAccess for Tailscale {
     fn prepare(&self) -> Result<Node, String> {
         prepare(&runner::OsRunner)
     }
