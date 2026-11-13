@@ -34,7 +34,7 @@ pub fn agent_parts(
         credentials: Box::new(CredentialFiles),
         key_files: Box::new(KeyFiles),
         clients: Box::new(ClientHost),
-        client_command: Box::new(kkt_client_command_claude::Claude),
+        client_command: Box::new(kkt_client_command::Claude),
         program: Box::new(ThisProgram),
         report: Box::new(WatchOutput),
         output: Box::new(TerminalOutput),

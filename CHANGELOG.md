@@ -72,8 +72,8 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **Client command contract.** `kkt-client-command::ClientCommand` (remove
   kkt's server, add it as the client's own entry; `testing::Recorder`) is
   how kkt-client-config changes a client through its own command.
-  `kkt-client-command-claude::Claude` (behind `real`) implements it for
-  Claude Code. `kkt_client_config::Host` and kkt-client-config-os' `OsHost`
+  Its one implementation is in the same crate: `kkt_client_command::Claude`
+  (behind `real`, which only the program turns on), for Claude Code. `kkt_client_config::Host` and kkt-client-config-os' `OsHost`
   lose `claude`, and `configure` takes a `&dyn ClientCommand` after the
   host. The commands run and their messages are unchanged.
 - **Probe contract.** `kkt-probe::Prober`, with `KeyFile`, `Check`

@@ -1,15 +1,13 @@
-//! kkt-client-command for Claude Code: `claude mcp remove` and
+//! `ClientCommand` for Claude Code: `claude mcp remove` and
 //! `claude mcp add-json`, at user scope, under the name `kkt`, with
 //! `CLAUDE_CONFIG_DIR` set to the profile's folder or unset for the default.
 //! The command goes through a private runner, so the arguments and the
 //! wording are tested without running it; running it is behind `real`.
 
-#![cfg(any(feature = "real", test))]
-
 mod runner;
 
 #[cfg(feature = "real")]
-use kkt_client_command::ClientCommand;
+use crate::ClientCommand;
 use runner::{Ran, Runner};
 use std::io;
 use std::path::Path;
@@ -17,8 +15,8 @@ use std::path::Path;
 /// The name kkt's server has in Claude Code's settings.
 const SERVER_NAME: &str = "kkt";
 
-/// Claude Code's own command, which the program injects as
-/// kkt-client-command's `ClientCommand`.
+/// Claude Code's own command, which the program injects as the
+/// `ClientCommand`.
 #[cfg(feature = "real")]
 pub struct Claude;
 

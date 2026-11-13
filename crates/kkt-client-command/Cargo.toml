@@ -1,6 +1,6 @@
 [package]
 name = "kkt-client-command"
-description = "The contract for configuring an MCP client through that client's own command line"
+description = "Configuring an MCP client through that client's own command line, and Claude Code's"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,3 +10,6 @@ publish = false
 [features]
 # `testing`: `testing::Recorder`, which records each call and can fail them.
 testing = []
+# `Claude`: run the host's `claude` command; the arguments and wording stay
+# testable without it.
+real = []
