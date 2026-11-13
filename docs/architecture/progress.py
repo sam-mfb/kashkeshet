@@ -16,7 +16,13 @@ with the proposed map, and prints:
 - wiring: what each program, or kkt-server and kkt-agent-commands where
   they wire things themselves, injects into which slot, from the assembly
   data (assembly.json, and the proposal's flows): the proposed wirings
-  present and missing, and those the code has that the proposal does not;
+  present and missing, and those the code has that the proposal does not.
+  Both lists are written by hand, so this catches the proposal falling
+  behind assembly.json, not assembly.json falling behind the code:
+  generate.py checks only that the names assembly.json uses exist, and
+  many slots that take a trait (most of them pass-through parts) have no
+  wiring entry. 100% here does not mean every wiring in the code is
+  recorded;
 - rules: kinds.py's checks, with the proposed kinds, and the proposal's own
   rules (only programs and compositions depend on effect crates, in code and
   in tests, and only programs turn on a merged crate's `real`, which kinds.py
