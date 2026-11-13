@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "aa5490f",
+ "commit": "9836b76",
  "crates": [
   {
    "bins": [
@@ -7141,7 +7141,7 @@ window.KKT_GRAPH = {
        "type": "testing::CapturedLog"
       },
       {
-       "crate": "kkt-logs-os",
+       "crate": "kkt-log-tracing",
        "type": "TracingLog"
       }
      ],
@@ -7248,9 +7248,82 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
+   "crate_doc": "kkt-log's `Log` contract over `tracing`: `TracingLog` sends structured events to the tracing subscriber, and `init_logging` and `init_stderr_logging` start that subscriber, to stdout, stderr or a writer the program gives, such as kkt-log...",
+   "dev_only": false,
+   "features": {
+    "real": [
+     "dep:tracing",
+     "dep:tracing-subscriber"
+    ]
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-log-tracing",
+     "trait": "Log",
+     "trait_crate": "kkt-log",
+     "type": "TracingLog"
+    }
+   ],
+   "items": [
+    {
+     "doc": "Sends structured events to the active tracing subscriber, retaining the caller's target, level, message and named fields.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "TracingLog"
+    },
+    {
+     "doc": "Sends the log to stdout, or to `log_file`, such as the log file kkt-logs opens.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "init_logging"
+    },
+    {
+     "doc": "Sends the log to stderr: kkt's own lines at `own` (see `own_log_filter`).",
+     "feature": "real",
+     "kind": "fn",
+     "path": "init_stderr_logging"
+    }
+   ],
+   "lib": "kkt_log_tracing",
+   "machine_work": {
+    "src/lib.rs": [
+     "io::IsTerminal",
+     "io::stderr",
+     "io::stdout"
+    ],
+    "src/record.rs": [
+     "Path::metadata"
+    ]
+   },
+   "name": "kkt-log-tracing",
+   "optional_third_party": {
+    "tracing": [
+     "real"
+    ],
+    "tracing-subscriber": [
+     "real"
+    ]
+   },
+   "path": "crates/kkt-log-tracing",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "tracing",
+    "tracing-subscriber"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
    "crate_doc": "Log levels, their checks, and pure rollover and age-pruning rules.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "real": []
+   },
    "holders": [],
    "implements": [],
    "items": [
@@ -7303,6 +7376,15 @@ window.KKT_GRAPH = {
      "path": "Pruning"
     },
     {
+     "doc": "The log file at `path`, appended to, and rolled over by its policy.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "open"
+     ],
+     "path": "RotatingFile"
+    },
+    {
      "doc": "The filesystem steps for one rollover, in their existing order.",
      "fields": [
       "oldest",
@@ -7330,6 +7412,12 @@ window.KKT_GRAPH = {
      "path": "check_dependency_log_level"
     },
     {
+     "doc": "Opens the log file at `path` for `RotatingFile::open`, after checking `policy`.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "open_log_file"
+    },
+    {
      "doc": "Whether age pruning is due on this write.",
      "kind": "fn",
      "path": "prune_due"
@@ -7351,71 +7439,8 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_logs",
-   "machine_work": {},
-   "name": "kkt-logs",
-   "optional_third_party": {},
-   "path": "crates/kkt-logs",
-   "real_files": [],
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": [
-    "thiserror"
-   ]
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "The log's filesystem writer and tracing subscriber.",
-   "dev_only": false,
-   "features": {
-    "real": [
-     "dep:tracing",
-     "dep:tracing-subscriber"
-    ]
-   },
-   "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-logs-os",
-     "trait": "Log",
-     "trait_crate": "kkt-log",
-     "type": "TracingLog"
-    }
-   ],
-   "items": [
-    {
-     "doc": "The log file at `path`, appended to, and rolled over by its policy.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "open"
-     ],
-     "path": "RotatingFile"
-    },
-    {
-     "doc": "Sends structured events to the active tracing subscriber, retaining the caller's target, level, message and named fields.",
-     "feature": "real",
-     "kind": "struct",
-     "path": "TracingLog"
-    },
-    {
-     "doc": "Sends the log to stdout, or to a log file kept within the policy given with it.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "init_logging"
-    },
-    {
-     "doc": "Sends the log to stderr: kkt's own lines at `own` (see `own_log_filter`).",
-     "feature": "real",
-     "kind": "fn",
-     "path": "init_stderr_logging"
-    }
-   ],
-   "lib": "kkt_logs_os",
    "machine_work": {
-    "src/lib.rs": [
+    "src/file.rs": [
      "fs",
      "fs::File",
      "fs::OpenOptions",
@@ -7425,27 +7450,14 @@ window.KKT_GRAPH = {
      "fs::remove_file",
      "fs::rename",
      "Path::metadata"
-    ],
-    "src/record.rs": [
-     "Path::metadata"
-    ],
-    "src/startup.rs": [
-     "io::IsTerminal",
-     "io::stderr",
-     "io::stdout"
     ]
    },
-   "name": "kkt-logs-os",
-   "optional_third_party": {
-    "tracing": [
-     "real"
-    ],
-    "tracing-subscriber": [
-     "real"
-    ]
-   },
-   "path": "crates/kkt-logs-os",
-   "real_files": [],
+   "name": "kkt-logs",
+   "optional_third_party": {},
+   "path": "crates/kkt-logs",
+   "real_files": [
+    "src/file.rs"
+   ],
    "released_program": false,
    "slots": [
     {
@@ -7461,7 +7473,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "at": "init_logging",
+     "at": "open_log_file",
      "feature": "real",
      "kind": "param",
      "name": "clock",
@@ -7475,8 +7487,7 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
-    "tracing",
-    "tracing-subscriber"
+    "thiserror"
    ]
   },
   {
@@ -17283,37 +17294,6 @@ window.KKT_GRAPH = {
    "to": "kkt-lane-files-os"
   },
   {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "DEFAULT_DEPENDENCY_LOG_LEVEL",
-    "DEFAULT_LOG_LEVEL",
-    "LogLevel",
-    "LogPolicy",
-    "SettingError",
-    "check_dependency_log_level"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "DEFAULT_DEPENDENCY_LOG_LEVEL",
-      "DEFAULT_LOG_LEVEL",
-      "LogLevel",
-      "LogPolicy",
-      "SettingError",
-      "check_dependency_log_level"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-logs"
-  },
-  {
    "features": [
     "real"
    ],
@@ -17343,7 +17323,42 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-logs-os"
+   "to": "kkt-log-tracing"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "DEFAULT_DEPENDENCY_LOG_LEVEL",
+    "DEFAULT_LOG_LEVEL",
+    "LogLevel",
+    "LogPolicy",
+    "SettingError",
+    "check_dependency_log_level",
+    "open_log_file"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "DEFAULT_DEPENDENCY_LOG_LEVEL",
+      "DEFAULT_LOG_LEVEL",
+      "LogLevel",
+      "LogPolicy",
+      "SettingError",
+      "check_dependency_log_level",
+      "open_log_file"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-logs"
   },
   {
    "features": [],
@@ -20661,7 +20676,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-logs-os"
+   "to": "kkt-log-tracing"
   },
   {
    "features": [],
@@ -21593,6 +21608,29 @@ window.KKT_GRAPH = {
    "to": "kkt-identity-keymode"
   },
   {
+   "features": [
+    "real"
+   ],
+   "from": "kkt-keymode",
+   "items": [
+    "TracingLog"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "TracingLog"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-log-tracing"
+  },
+  {
    "features": [],
    "from": "kkt-keymode",
    "items": [
@@ -21618,29 +21656,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-logs"
-  },
-  {
-   "features": [
-    "real"
-   ],
-   "from": "kkt-keymode",
-   "items": [
-    "TracingLog"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "wires",
-   "roles": [
-    {
-     "detail": [
-      "TracingLog"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-logs-os"
   },
   {
    "features": [],
@@ -21959,60 +21974,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-logs",
-   "items": [
-    "OutOfRange",
-    "Span",
-    "Time"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "OutOfRange",
-      "Span",
-      "Time"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-logs-os",
-   "items": [
-    "Clock",
-    "OutOfRange",
-    "Time"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Clock",
-      "OutOfRange",
-      "Time"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Span",
-    "testing::FixedClock"
-   ],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-logs-os",
+   "from": "kkt-log-tracing",
    "items": [
     "Field",
     "Level",
@@ -22044,14 +22006,9 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-logs-os",
+   "from": "kkt-log-tracing",
    "items": [
-    "LogLevel",
-    "LogPolicy",
-    "prune_due",
-    "pruning",
-    "rotation",
-    "should_roll"
+    "LogLevel"
    ],
    "kind": "normal",
    "optional": false,
@@ -22059,12 +22016,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "LogLevel",
-      "LogPolicy",
-      "prune_due",
-      "pruning",
-      "rotation",
-      "should_roll"
+      "LogLevel"
      ],
      "role": "uses"
     }
@@ -22074,10 +22026,39 @@ window.KKT_GRAPH = {
    "to": "kkt-logs"
   },
   {
+   "features": [],
+   "from": "kkt-logs",
+   "items": [
+    "Clock",
+    "OutOfRange",
+    "Span",
+    "Time"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock",
+      "OutOfRange",
+      "Span",
+      "Time"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "testing::FixedClock"
+   ],
+   "to": "kkt-clock"
+  },
+  {
    "features": [
     "testing"
    ],
-   "from": "kkt-logs-os",
+   "from": "kkt-logs",
    "items": [
     "Span",
     "testing::FixedClock"
@@ -22105,7 +22086,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-logs-os",
+   "from": "kkt-logs",
    "items": [
     "Dir"
    ],
@@ -26365,27 +26346,6 @@ window.KKT_GRAPH = {
    "to": "kkt-log"
   },
   {
-   "features": [],
-   "from": "kkt-web-preview",
-   "items": [
-    "LogLevel"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "LogLevel"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-logs"
-  },
-  {
    "features": [
     "real"
    ],
@@ -26413,7 +26373,28 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-logs-os"
+   "to": "kkt-log-tracing"
+  },
+  {
+   "features": [],
+   "from": "kkt-web-preview",
+   "items": [
+    "LogLevel"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "LogLevel"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-logs"
   },
   {
    "features": [],
@@ -26756,17 +26737,17 @@ window.KKT_CONCERNS = {
    "layer": "foundations",
    "must_not": "Know a logging library or perform I/O."
   },
-  "kkt-logs": {
-   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans.",
-   "kind": "logic",
-   "layer": "foundations",
-   "must_not": "Touch the machine."
-  },
-  "kkt-logs-os": {
-   "concern": "Writing log files, starting the tracing subscriber, and TracingLog over the shared log contract.",
+  "kkt-log-tracing": {
+   "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given.",
    "kind": "effect",
    "layer": "foundations",
-   "must_not": "Choose rollover or pruning rules; read a real clock itself."
+   "must_not": "Open, roll over or prune log files; choose log levels' defaults."
+  },
+  "kkt-logs": {
+   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans; behind real, the log file on disk that carries them out.",
+   "kind": "logic and effect",
+   "layer": "foundations",
+   "must_not": "Read a real clock itself; start a logging library."
   },
   "kkt-machine": {
    "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
@@ -27741,19 +27722,19 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-logs-os",
+     "crate": "kkt-logs",
      "impl": "kkt-clock-system::SystemClock",
      "note": "kkt serve --log-file",
      "to": [
       {
-       "at": "init_logging",
+       "at": "open_log_file",
        "param": "clock"
       }
      ]
     },
     {
      "crate": "kkt-server",
-     "impl": "kkt-logs-os::TracingLog",
+     "impl": "kkt-log-tracing::TracingLog",
      "note": "The MCP endpoints and web page share the program's log.",
      "to": [
       {
@@ -28187,7 +28168,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-server",
-     "impl": "kkt-logs-os::TracingLog",
+     "impl": "kkt-log-tracing::TracingLog",
      "note": "The MCP endpoints and web page share the program's log.",
      "to": [
       {
@@ -28380,7 +28361,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-server",
-     "impl": "kkt-logs-os::TracingLog",
+     "impl": "kkt-log-tracing::TracingLog",
      "note": "The MCP endpoints and web page share the program's log.",
      "to": [
       {
@@ -28399,8 +28380,8 @@ window.KKT_ASSEMBLY = {
       "kkt-api-sim::PreviewSettings",
       "kkt-web::PageLimits",
       "kkt-hosts::AllowedHosts",
-      "kkt-logs-os::init_stderr_logging",
-      "kkt-logs-os::TracingLog"
+      "kkt-log-tracing::init_stderr_logging",
+      "kkt-log-tracing::TracingLog"
      ],
      "text": "Flags give the address, the seed, the feed's rate and the page size, checked by the program into kkt-api-sim's PreviewSettings and kkt-web's PageLimits; a non-loopback address names the hosts to answer to. Its log goes to standard error.",
      "title": "Settings"
@@ -28502,7 +28483,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-server",
-     "impl": "kkt-logs-os::TracingLog",
+     "impl": "kkt-log-tracing::TracingLog",
      "to": [
       {
        "at": "page",
