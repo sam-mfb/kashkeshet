@@ -843,7 +843,7 @@ async fn the_timeout_ends_it_with_no_library_lines() {
     // The MCP library can log errors of its own when the timeout drops a
     // call it has under way, depending on timing; they are not the
     // command's to print. (`watch_logs_only_kkts_own_lines` in
-    // kkt-logs-os/src/startup.rs checks the filter that keeps them out.)
+    // kkt-log-tracing/src/lib.rs checks the filter that keeps them out.)
     let server = start().await;
     let me = Agent::new(&server).await;
     let home = home("quiet-timeout");

@@ -1067,8 +1067,8 @@ dependencies = [
  "kkt-lane-commit",
  "kkt-lane-files",
  "kkt-lane-files-os",
+ "kkt-log-tracing",
  "kkt-logs",
- "kkt-logs-os",
  "kkt-machine",
  "kkt-machine-os",
  "kkt-mcp",
@@ -1362,7 +1362,7 @@ dependencies = [
  "kkt-hosts",
  "kkt-identity",
  "kkt-identity-keymode",
- "kkt-logs-os",
+ "kkt-log-tracing",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-names",
@@ -1429,8 +1429,8 @@ dependencies = [
  "kkt-events",
  "kkt-hosts",
  "kkt-identity-keymode",
+ "kkt-log-tracing",
  "kkt-logs",
- "kkt-logs-os",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-names",
@@ -1465,23 +1465,22 @@ name = "kkt-log"
 version = "0.10.0"
 
 [[package]]
+name = "kkt-log-tracing"
+version = "0.10.0"
+dependencies = [
+ "kkt-log",
+ "kkt-logs",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "kkt-logs"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "thiserror",
-]
-
-[[package]]
-name = "kkt-logs-os"
-version = "0.10.0"
-dependencies = [
- "kkt-clock",
- "kkt-log",
- "kkt-logs",
  "kkt-scratch",
- "tracing",
- "tracing-subscriber",
+ "thiserror",
 ]
 
 [[package]]
@@ -1801,8 +1800,8 @@ dependencies = [
  "kkt-entropy-os",
  "kkt-hosts",
  "kkt-log",
+ "kkt-log-tracing",
  "kkt-logs",
- "kkt-logs-os",
  "kkt-server",
  "kkt-server-listen",
  "kkt-shutdown",

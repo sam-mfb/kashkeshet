@@ -1,8 +1,17 @@
 //! Log levels, their checks, and pure rollover and age-pruning rules.
-//! The native writer applies these plans to the files on disk.
+//! Behind `real`, the log file on disk ([`RotatingFile`]), which applies
+//! these plans to the files.
 
+#[cfg(any(test, feature = "real"))]
+mod file;
 mod policy;
+#[cfg(feature = "real")]
+pub use file::{RotatingFile, open_log_file};
 pub use policy::{Pruning, Rotation, prune_due, pruning, rotation, should_roll};
+
+/// Where unit tests put their scratch files: shared with the integration tests.
+#[cfg(test)]
+use kkt_scratch as scratch;
 
 use std::time::Duration;
 

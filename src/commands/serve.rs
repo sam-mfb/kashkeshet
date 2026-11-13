@@ -15,8 +15,8 @@ use kkt_clock_system::SystemClock;
 use kkt_entropy_os::OsEntropy;
 use kkt_events::Events;
 use kkt_identity_keymode::KeyMode;
-use kkt_logs::{LogPolicy, check_dependency_log_level};
-use kkt_logs_os::init_logging;
+use kkt_log_tracing::init_logging;
+use kkt_logs::{LogPolicy, check_dependency_log_level, open_log_file};
 use kkt_machine::{Env, Platform};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
@@ -49,12 +49,14 @@ pub async fn run(
     let log_file = settings.log_file.clone();
     // No setting changes it: every log file is kept within the default.
     let log_policy = LogPolicy::DEFAULT;
-    init_logging(
-        log_file.as_deref().map(|path| (path, log_policy)),
-        settings.log_level,
-        settings.dependency_log_level,
-        Arc::new(SystemClock),
-    )?;
+    let writer = match log_file.as_deref() {
+        Some(path) => Some(
+            Box::new(open_log_file(path, log_policy, Arc::new(SystemClock))?)
+                as Box<dyn std::io::Write + Send>,
+        ),
+        None => None,
+    };
+    init_logging(writer, settings.log_level, settings.dependency_log_level)?;
     let served = serve(settings, &sources, log_policy).await;
     if let (Some(file), Err(e)) = (&log_file, &served) {
         // Someone at a terminal reads stderr, not the log file.
@@ -172,7 +174,7 @@ async fn serve(
         clock,
         entropy,
         Arc::new(KeyMode::new(admin_name)),
-        Arc::new(kkt_logs_os::TracingLog),
+        Arc::new(kkt_log_tracing::TracingLog),
         server_settings,
     );
     let server = app::build(parts, config, shutdown.clone());

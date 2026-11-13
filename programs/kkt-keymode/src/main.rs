@@ -194,7 +194,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         clock,
         entropy,
         Arc::new(KeyMode::new(admin_name)),
-        Arc::new(kkt_logs_os::TracingLog),
+        Arc::new(kkt_log_tracing::TracingLog),
         server_settings,
     );
     let server = app::build(parts, config, shutdown.clone());
