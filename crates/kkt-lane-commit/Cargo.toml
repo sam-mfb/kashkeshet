@@ -1,6 +1,6 @@
 [package]
 name = "kkt-lane-commit"
-description = "The contract for the commit a kkt lane folder is at"
+description = "The commit a kkt lane folder is at, and git's answer to it"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,3 +10,5 @@ publish = false
 [features]
 # `testing::Memory`, commits in memory for consumers' tests.
 testing = []
+# `Git`: run the machine's `git`. What its answers mean is tested without it.
+real = []
