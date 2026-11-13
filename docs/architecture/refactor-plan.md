@@ -1648,6 +1648,10 @@ see 13.0 above.)
     product's dashed test arrow) meets the implementation part.
   - The merged crate's own optional dependencies, which only `real` turns
     on, leave from the implementation part; its others from the contract.
+  - Each stroke of an arrow with several roles is placed by its role: an
+    "implements" stroke meets the contract (the program's arrow to
+    kkt-container implements `LoginLink` and `ConfigReader` and wires
+    `Docker`; kkt-review-373, msg 3206).
 - **The crate's own implementation:** a small hollow green triangle on the
   divider, pointing from the implementation at the contract. An
   implementation of a crate's own trait is not drawn as an arrow, so a

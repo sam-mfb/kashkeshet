@@ -40,8 +40,11 @@
   // the merged crate's own optional dependency; else the contract.
   const MERGED = "contract and effect";
   const isMerged = (name) => crateKind(name) === MERGED;
-  const partAt = (e, name) => {
+  // With `role`, the part one stroke meets: an "implements" stroke meets
+  // the contract it implements, whatever else the arrow does.
+  const partAt = (e, name, role) => {
     if (!isMerged(name)) return null;
+    if (name === e.to && role === "implements") return "contract";
     if (name === e.to) return (e.features || []).includes("real") ? "implementation" : "contract";
     return e.optional ? "implementation" : "contract";
   };
@@ -354,7 +357,7 @@
       const head = reversed(edgeRoles(e)) ? "marker-start" : "marker-end";
       roles.forEach((role, i) => {
         const path = svg("path", {
-          d: edgePath(a, b, (i - (roles.length - 1) / 2) * STROKE_GAP),
+          d: edgePath(endAt(e, e.from, role), endAt(e, e.to, role), (i - (roles.length - 1) / 2) * STROKE_GAP),
           class: `edge kind-${e.kind} role-${role}${e.proposed ? ` proposed-${e.proposed}` : ""}`,
           "data-edge": `${e.from}>${e.to}>${e.kind}`,
           ...(i === Math.floor((roles.length - 1) / 2) ? { [head]: `url(#head-${roles[0]})`, "data-head": drawnEnds(e)[1] } : {}),
@@ -471,10 +474,10 @@
 
   // Where an arrow meets a crate's box: the box's place, and the x of the
   // point it meets, the middle of the box or of the merged crate's part.
-  function endAt(e, name) {
+  function endAt(e, name, role) {
     const p = view.position.get(name);
     if (!p) return null;
-    const part = partAt(e, name);
+    const part = partAt(e, name, role);
     const mid = part === "implementation" ? BOX_W - IMPL_W / 2 : part === "contract" ? (BOX_W - IMPL_W) / 2 : BOX_W / 2;
     return { ...p, mid };
   }

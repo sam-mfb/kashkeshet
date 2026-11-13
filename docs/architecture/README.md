@@ -124,6 +124,8 @@ the second line, is the implementation implementing its own contract. A
 name too long for the contract part is squeezed to end before the divider. An arrow meets the part
 it depends on: one that turns `real` on (the program's, or the fake
 product's tests') meets the implementation; any other meets the contract.
+An arrow with several roles is placed stroke by stroke: an "implements"
+stroke always meets the contract, which is what it implements.
 The merged crate's own optional dependencies, which only `real` turns on,
 leave from the implementation. The page reads all of this from the data
 it already has: the crate's kind, each arrow's features and whether it is

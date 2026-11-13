@@ -82,6 +82,17 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       const implementationX = await endX("kashkeshet");
       check(m("a consumer's arrow meets the contract, the program's the implementation"),
         contractX < implementationX - 40, { contractX, implementationX });
+      // Each stroke meets the part its role depends on: the program's
+      // arrow to kkt-container implements its contract (the program's
+      // adapters) and wires its implementation.
+      const strokes = await p.$$eval("path.edge[data-edge='kashkeshet>kkt-container>normal']", (paths) => paths.map((path) => {
+        const box = path.ownerSVGElement.querySelector(".node[aria-label^='kkt-container:']");
+        const end = path.getPointAtLength(path.getTotalLength()).x - box.transform.baseVal[0].matrix.e;
+        return [[...path.classList].find((c) => c.startsWith("role-")), Math.round(end)];
+      }));
+      const at = (role) => (strokes.find(([r]) => r === role) || [])[1];
+      check(m("an implementing stroke meets the contract, a wiring one the implementation"),
+        at("role-implements") < 110 && at("role-wires") > 122, strokes);
       // A "uses" arrow's head is at the user: drawn from the used crate.
       const head = await p.$eval(`path.edge[data-edge='kkt-agent-commands>${merged}>normal'][data-head]`,
         (path) => [path.getAttribute("marker-start"), path.getAttribute("marker-end"), path.dataset.head]);
