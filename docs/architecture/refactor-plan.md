@@ -29,8 +29,9 @@ Sam's decisions come first, below; the scorecards are at the end.
 
 ## Sam's decisions
 
-Sam has ruled on every difference in the tables that follow, up to the
-phase 12 notes. Groups (a) to (d) are the
+Sam has ruled on every difference in the tables that follow. On
+2026-11-13 he accepted the last one, kkt-agent-files-os (12.4), and said
+he has no further differences to rule on. Groups (a) to (d) are the
 questions left after phases 0 to 8: every difference from the proposed map
 then awaiting him, and the open items of "What needs Sam". He decided them
 on 2026-11-12. Two lists follow: the differences his decisions overtook,
@@ -119,7 +120,7 @@ it was, or names something the proposal left unnamed.
 | Remove `refactor` from CI's branch lists | 1 | **Accepted by Sam, 2026-11-12.** In the pull request that merges `refactor` into `next` (`refactor-merge.md`) |
 | Log output | 5 | **Accepted by Sam, 2026-11-12.** The same events, targets, levels and fields reach the log |
 | How `refactor` merges into `next` | 6 | **Accepted by Sam, 2026-11-12.** One merge commit, no force-push, after a final review of the whole diff and a full CI run |
-| macOS in CI | 7 | **Accepted by Sam, 2026-11-12, and done sooner:** the macOS checks came back on `refactor` (#486), then went off again the same day, since GitHub's macOS runners are short (see "Temporary breaks") |
+| macOS in CI | 7 | **Accepted by Sam, 2026-11-12, and done sooner:** the macOS checks came back on `refactor` (#486), then went off again the same day, since GitHub's macOS runners are short (#501). Sam had them turned back on, on `refactor`, on 2026-11-13 (#541) |
 | The proposed map after the refactor | 8 | **Accepted by Sam, 2026-11-12.** The proposal is kept as a record, and "Current" is the code |
 
 **To show Sam again, now that phases 9 to 11 are done.** Sam's decisions of
@@ -172,7 +173,7 @@ The crates that already implemented a project contract directly before phase 12 
 One crate is new without being a wrapper: **kkt-agent-files-os**, the agent
 credential and watch-state files (12.4). They are the machine's own, but
 they had to leave kkt-agent-client, which became a contract and may hold
-no `real`.
+no `real`. **Accepted by Sam, 2026-11-13.**
 
 **Phase 12, for Sam: where it differs from the survey's table.**
 
@@ -319,7 +320,9 @@ this list; one that is not on it blocks.
 
 | Break | Introduced by | Removed by |
 |---|---|---|
-| The macOS Rust checks are off in CI: `macos-15` is out of `ci.yml`'s list of systems, so platform-specific code is reviewed by hand again | Sam, 2026-11-12: GitHub's macOS runners are short, and #497's job never got one (#501) | Adding `macos-15` back to the list, as its comment says, or a self-hosted macOS runner |
+
+The table is empty: the last row, macOS out of CI (#501), went when the
+macOS checks came back (#541).
 
 A step that must add a break says so in its pull request and adds a row here
 in the same pull request.
@@ -348,7 +351,7 @@ the last column says so.
 | kkt's `new_server_run` is in `machine::server_run`, public, not in `commands::serve` | 9.2, 9.3 | The integration tests' harness records a run as `kkt serve` does, with the program's own mapping, in place of a third copy of it (the 9.2 review) | accepted by Sam, 2026-11-13 | yes (10.4) |
 | kkt-operate's module for `kkt agent` is `agent`, not `agents` | 10.2a (#496) | It holds one command, `kkt agent`, as `lanes` and `key` hold theirs | accepted by Sam, 2026-11-13 | yes (10.4) |
 | kkt-agent-commands takes the admin endpoint's path in `AgentParts` (`admin_path`), and has no arrow to kkt-mcp | 10.3 (#497) | The arrow was for one constant, `MCP_ADMIN_PATH`, and brought kkt-mcp's build script into the assembly's build; kkt-setup's `admin_endpoint` already takes the path from its caller | accepted by Sam, 2026-11-13 | yes (10.3) |
-| The agent credential and watch-state files leave kkt-agent-client for a crate of their own, kkt-agent-files-os, and the program keeps adapting them to kkt-agent-commands' `Credentials` | 12.4 | kkt-agent-client becomes a contract, which may hold no `real`; the files are the machine's, not a third-party tool's, so they take an `-os` crate (Sam's answer 4), and kkt-setup's credential-file rule stays the program's to apply | to show Sam with phase 12 | yes (12.4) |
+| The agent credential and watch-state files leave kkt-agent-client for a crate of their own, kkt-agent-files-os, and the program keeps adapting them to kkt-agent-commands' `Credentials` | 12.4 | kkt-agent-client becomes a contract, which may hold no `real`; the files are the machine's, not a third-party tool's, so they take an `-os` crate (Sam's answer 4), and kkt-setup's credential-file rule stays the program's to apply | accepted by Sam, 2026-11-13 | yes (12.4) |
 | kkt-service-os reports with its own `Finished`, which the program translates to kkt-service's in `run` and `run_attached` | 2.2 (#427) | So kkt-service-os depends on neither kkt-service nor kkt-config; two adapter methods translate | accepted by Sam, 2026-11-12 | overtaken by 12.3: kkt-service-launchd and kkt-service-systemd implement kkt-service's `Service` directly; kkt-service-os keeps only `try_bind` |
 | kkt-remote-access-os returns its own output and I/O error, which the program maps to the remote-access host contract | 2.3 (#436) | The effect has no dependencies; the adapter preserves all output fields and launch-failure advice | accepted by Sam, 2026-11-12 | overtaken by 12.1: kkt-remote-access-tailscale implements `RemoteAccess` directly, and the adapter is gone |
 | kkt-client-config-os states its own 0600 private-file mode beside the file operations | 2.4 (#437) | The same fixed value moves with its writer early, so the effect depends on neither client-config nor config | accepted by Sam, 2026-11-12 | not a map change |
@@ -2029,9 +2032,9 @@ Each has the default we proceed on, so nothing waits.
    refactor, since GitHub had too little macOS runner capacity, and
    platform-specific code was reviewed by hand meanwhile. They came back
    on `refactor` (#486), then went off again the same day, since GitHub's
-   macOS runners are short; "Temporary breaks" lists it. The merge's pull
-   request removes `refactor` from CI's branch lists. Accepted by Sam,
-   2026-11-12.
+   macOS runners are short (#501). Sam had them turned back on, on
+   `refactor`, on 2026-11-13 (#541). The merge's pull request removes
+   `refactor` from CI's branch lists. Accepted by Sam, 2026-11-12.
 8. **The proposed map after the refactor.** Default: step 8.1 keeps the
    proposal as a record of what was planned, with the scorecard at the end,
    and the page's "Current" map shows the code. Accepted by Sam, 2026-11-12.
@@ -2048,8 +2051,9 @@ the proposal with phases 9 to 14 charted (`progress.py`, step 14.6):
 - rules: no kind check fails; no break of the proposal's rules.
 
 Nothing was left to chart: each step charted its own differences as it
-merged. The one temporary break left is still CI's, not the code's: macOS
-is out of CI (#501), until it comes back or a self-hosted runner takes it.
+merged. At the end of phase 14 the one temporary break left was CI's, not
+the code's: macOS was out of CI (#501). It came back after phase 14
+(#541), and the "Temporary breaks" table is now empty.
 
 ### At the end of phase 13
 
