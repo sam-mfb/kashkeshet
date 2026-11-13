@@ -24,7 +24,6 @@ members = [
     "crates/kkt-config-file",
     "crates/kkt-config-file-os",
     "crates/kkt-container",
-    "crates/kkt-container-docker",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
     "crates/kkt-entropy",
@@ -50,7 +49,6 @@ members = [
     "crates/kkt-probe",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
-    "crates/kkt-remote-access-tailscale",
     "crates/kkt-rules",
     "crates/kkt-scratch",
     "crates/kkt-search",
@@ -94,7 +92,6 @@ default-members = [
     "crates/kkt-config-file",
     "crates/kkt-config-file-os",
     "crates/kkt-container",
-    "crates/kkt-container-docker",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
     "crates/kkt-entropy",
@@ -120,7 +117,6 @@ default-members = [
     "crates/kkt-probe",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
-    "crates/kkt-remote-access-tailscale",
     "crates/kkt-rules",
     "crates/kkt-scratch",
     "crates/kkt-search",
@@ -228,8 +224,7 @@ kkt-clock = { path = "crates/kkt-clock" }
 kkt-clock-system = { path = "crates/kkt-clock-system", features = ["real"] }
 kkt-config-file = { path = "crates/kkt-config-file" }
 kkt-config-file-os = { path = "crates/kkt-config-file-os", features = ["real"] }
-kkt-container = { path = "crates/kkt-container" }
-kkt-container-docker = { path = "crates/kkt-container-docker", features = ["real"] }
+kkt-container = { path = "crates/kkt-container", features = ["real"] }
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
 kkt-diagnostics = { path = "crates/kkt-diagnostics" }
@@ -250,7 +245,7 @@ kkt-mcp = { path = "crates/kkt-mcp" }
 kkt-names = { path = "crates/kkt-names" }
 kkt-operate = { path = "crates/kkt-operate" }
 kkt-provenance = { path = "crates/kkt-provenance" }
-kkt-remote-access-tailscale = { path = "crates/kkt-remote-access-tailscale", features = ["real"] }
+kkt-remote-access = { path = "crates/kkt-remote-access", features = ["real"] }
 kkt-rules = { path = "crates/kkt-rules" }
 kkt-server = { path = "crates/kkt-server" }
 kkt-server-listen = { path = "crates/kkt-server-listen", features = ["real"] }
