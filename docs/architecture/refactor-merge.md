@@ -39,19 +39,28 @@ split every third-party dependency into a contract crate in kkt's terms and
 a wrapper named for the tool that implements it directly, which the program
 injects with no adapter: Tailscale, Docker, launchd and systemd, the MCP
 client, git, the doctor's HTTP probe, Claude Code's command and the
-browser opener.
+browser opener. Phase 13 merged each of those pairs that has one
+implementation back into one crate named for the scope, of a new kind,
+"contract and effect": the contract in the open, and the implementation
+behind `real`, which only programs turn on. That is container,
+remote-access, browser, lane-commit, probe, agent-client and
+client-command; kkt-service keeps its contract crate, with launchd and
+systemd as two implementations. kkt-machine's unused `Machine` trait went.
+The map draws a merged crate as a split box, and its grey and amber arrows
+now run from the crate that is used or built to the crate that uses or
+builds it.
 
-The workspace went from 33 packages to 72. The code now matches the
+The workspace went from 33 packages to SC_PACKAGES. The code now matches the
 proposed map, as amended during the refactor, with no difference left
 (`decisions.md`, "After the refactor").
 
 ## Final scorecard
 
-From `progress.py`, on the code at the end of the refactor (1007e1a):
+From `progress.py`, on the code at the end of the refactor (SC_COMMIT):
 
-- crates: 72 of 72 proposed crates exist; none missing; none to remove;
-- items: 794 of 794 proposed items are in their proposed crate;
-- arrows: 267 of 267 proposed arrows exist; none missing; none extra;
+- crates: SC_CRATES of SC_CRATES proposed crates exist; none missing; none to remove;
+- items: SC_ITEMS of SC_ITEMS proposed items are in their proposed crate;
+- arrows: SC_ARROWS of SC_ARROWS proposed arrows exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
 
 ## Effect on existing installs

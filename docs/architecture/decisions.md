@@ -382,6 +382,15 @@ separately. A merged crate is a new kind, "contract and effect", which
 kinds.py tells from "mixed": its effect is its own contract's one
 implementation, and only programs turn its `real` on.
 
+Phase 13 is done (steps 13.0 to 13.10). The plan's phase 13 section has a
+table of what each step did against the audit and the plan, with every
+difference and why. The final scorecard, on the code at SC_COMMIT:
+
+- crates: SC_CRATES of SC_CRATES proposed crates exist; none missing; none to remove;
+- items: SC_ITEMS of SC_ITEMS proposed items are in their proposed crate;
+- arrows: SC_ARROWS of SC_ARROWS proposed arrows exist; none missing; none extra;
+- rules: no kind check fails; no break of the proposal's rules.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.
