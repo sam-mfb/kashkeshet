@@ -66,7 +66,7 @@ impl ConnectionSource for ConnectionReads<'_> {
     }
 
     fn absolute(&self, path: &Path) -> Result<std::path::PathBuf, String> {
-        kkt_setup_os::absolute(path).map_err(|e| format!("could not resolve key path: {e}"))
+        kkt_setup::absolute(path).map_err(|e| format!("could not resolve key path: {e}"))
     }
 }
 

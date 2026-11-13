@@ -1,8 +1,7 @@
-//! Setup's record and unfinished note, data folder and program paths on this machine.
+//! Setup's record and unfinished note, data folder and program paths on
+//! this machine, behind `real`.
 
-#![cfg(feature = "real")]
-
-use kkt_setup::{Record, Unfinished};
+use crate::{Record, Unfinished};
 use std::path::{Path, PathBuf};
 
 fn read_optional(path: &Path) -> Result<Option<String>, String> {
@@ -15,7 +14,7 @@ fn read_optional(path: &Path) -> Result<Option<String>, String> {
 
 /// Reads the setup record from the selected config folder, if present.
 pub fn read_record(config_dir: &Path) -> Result<Option<Record>, String> {
-    let path = kkt_setup::record_path(config_dir);
+    let path = crate::record_path(config_dir);
     read_optional(&path)?
         .map(|text| Record::parse(&text, &path))
         .transpose()
@@ -23,7 +22,7 @@ pub fn read_record(config_dir: &Path) -> Result<Option<Record>, String> {
 
 /// Reads the unfinished note; the caller checks whether its install is present.
 pub fn read_unfinished(config_dir: &Path) -> Result<Option<Unfinished>, String> {
-    let path = kkt_setup::unfinished_path(config_dir);
+    let path = crate::unfinished_path(config_dir);
     read_optional(&path)?
         .map(|text| Unfinished::parse(&text, &path))
         .transpose()
@@ -31,20 +30,17 @@ pub fn read_unfinished(config_dir: &Path) -> Result<Option<Unfinished>, String> 
 
 /// Saves the setup record with the original write-then-rename operation.
 pub fn write_record(config_dir: &Path, record: &Record) -> Result<(), String> {
-    write_whole(&kkt_setup::record_path(config_dir), &record.render()?)
+    write_whole(&crate::record_path(config_dir), &record.render()?)
 }
 
 /// Saves the unfinished note with the same write-then-rename operation.
 pub fn write_unfinished(config_dir: &Path, unfinished: &Unfinished) -> Result<(), String> {
-    write_whole(
-        &kkt_setup::unfinished_path(config_dir),
-        &unfinished.render()?,
-    )
+    write_whole(&crate::unfinished_path(config_dir), &unfinished.render()?)
 }
 
 /// Removes the unfinished note, accepting an already-missing file.
 pub fn remove_unfinished(config_dir: &Path) -> Result<(), String> {
-    let path = kkt_setup::unfinished_path(config_dir);
+    let path = crate::unfinished_path(config_dir);
     match std::fs::remove_file(&path) {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
@@ -103,6 +99,6 @@ fn write_whole(path: &Path, text: &str) -> Result<(), String> {
 
 /// Removes the setup record; missing files retain the caller's original refusal.
 pub fn remove_record(config_dir: &Path) -> Result<(), String> {
-    let path = kkt_setup::record_path(config_dir);
+    let path = crate::record_path(config_dir);
     std::fs::remove_file(&path).map_err(|e| format!("could not remove {}: {e}", path.display()))
 }

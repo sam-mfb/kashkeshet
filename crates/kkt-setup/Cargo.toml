@@ -19,6 +19,9 @@ serde.workspace = true
 toml.workspace = true
 
 [features]
+# Setup's files on this machine: the record and its note, the data folder,
+# this program's path, absolute and canonical paths, and PATH.
+real = []
 # `testing::DEFAULT_SETUP_URL` and `DEFAULT_SETUP_KEY`, the defaults Enter
 # accepts for a client, for other crates' tests.
 testing = []
