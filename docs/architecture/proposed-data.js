@@ -487,7 +487,7 @@ window.KKT_PROPOSED = {
        "kkt-shutdown::Shutdown",
        "kkt-server-listen::listen",
        "kkt-server-listen::Listening",
-       "kkt-shutdown-os::StopSignals"
+       "kkt-shutdown::StopSignals"
       ],
       "text": "build assembles the server from the parts and config; listen binds it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
       "title": "Build and run"
@@ -674,7 +674,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-server",
-      "impl": "kkt-logs-os::TracingLog",
+      "impl": "kkt-log-tracing::TracingLog",
       "note": "where the server's events go",
       "status": "decided",
       "to": [
@@ -824,9 +824,9 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-agent-commands",
       "note": "kkt connect",
-      "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
+      "own": "ThisProgram, adapting kkt-setup::kkt_path",
       "status": "decided",
-      "supplier": "kkt-setup-os::kkt_path",
+      "supplier": "kkt-setup::kkt_path",
       "to": [
        {
         "at": "AgentParts",
@@ -948,13 +948,13 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "crate": "kkt-logs-os",
+      "crate": "kkt-logs",
       "impl": "kkt-clock-system::SystemClock",
-      "note": "kkt serve --log-file",
+      "note": "kkt serve --log-file: the file's clock (step 14.4)",
       "status": "decided",
       "to": [
        {
-        "at": "init_logging",
+        "at": "open_log_file",
         "param": "clock"
        }
       ]
@@ -1070,7 +1070,7 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-operate",
       "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)",
-      "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
+      "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup's real",
       "status": "decided",
       "to": [
        {
@@ -1106,9 +1106,9 @@ window.KKT_PROPOSED = {
      {
       "crate": "kkt-operate",
       "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)",
-      "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os with this program's database copy",
+      "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup's real with this program's database copy",
       "status": "decided",
-      "supplier": "kkt-backup-os::write",
+      "supplier": "kkt-backup::write",
       "to": [
        {
         "at": "OperateParts",
@@ -1385,7 +1385,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-server",
-      "impl": "kkt-logs-os::TracingLog",
+      "impl": "kkt-log-tracing::TracingLog",
       "note": "where the server's events go",
       "status": "decided",
       "to": [
@@ -1487,7 +1487,7 @@ window.KKT_PROPOSED = {
        "kkt-server::build",
        "kkt-server-listen::listen",
        "kkt-server-listen::Listening",
-       "kkt-shutdown-os::StopSignals"
+       "kkt-shutdown::StopSignals"
       ],
       "text": "build, listen, and serve_until a stop signal.",
       "title": "Build and run"
@@ -1573,7 +1573,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-server",
-      "impl": "kkt-logs-os::TracingLog",
+      "impl": "kkt-log-tracing::TracingLog",
       "note": "where the server's events go",
       "status": "decided",
       "to": [
@@ -1643,8 +1643,8 @@ window.KKT_PROPOSED = {
        "kkt-api-sim::PreviewSettings",
        "kkt-web::PageLimits",
        "kkt-hosts::AllowedHosts",
-       "kkt-logs-os::init_stderr_logging",
-       "kkt-logs-os::TracingLog"
+       "kkt-log-tracing::init_stderr_logging",
+       "kkt-log-tracing::TracingLog"
       ],
       "text": "Flags give the address, the seed, the feed's rate and the page size, checked by the program into kkt-api-sim's PreviewSettings and kkt-web's PageLimits; a non-loopback address names the hosts to answer to. Its log goes to standard error.",
       "title": "Settings"
@@ -1673,7 +1673,7 @@ window.KKT_PROPOSED = {
       "items": [
        "kkt-server::page",
        "kkt-server-listen::listen",
-       "kkt-shutdown-os::StopSignals"
+       "kkt-shutdown::StopSignals"
       ],
       "text": "kkt-server's page builds the page alone, and kkt-server-listen serves it until a stop signal.",
       "title": "Serve"
@@ -1752,7 +1752,7 @@ window.KKT_PROPOSED = {
      },
      {
       "crate": "kkt-server",
-      "impl": "kkt-logs-os::TracingLog",
+      "impl": "kkt-log-tracing::TracingLog",
       "status": "decided",
       "to": [
        {
@@ -1811,15 +1811,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-api-agent"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "follows"
-    ],
-    "to": "kkt-backup-os"
    },
    {
     "from": "kashkeshet",
@@ -1936,7 +1927,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-logs-os"
+    "to": "kkt-log-tracing"
    },
    {
     "from": "kashkeshet",
@@ -2027,24 +2018,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-service-systemd"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-setup-os"
-   },
-   {
-    "from": "kashkeshet",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "follows"
-    ],
-    "to": "kkt-shutdown-os"
    },
    {
     "from": "kashkeshet",
@@ -2308,16 +2281,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-web"
    },
    {
-    "from": "kkt-backup-os",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided",
-     "follows"
-    ],
-    "to": "kkt-backup"
-   },
-   {
     "from": "kkt-client-config",
     "kind": "normal",
     "role": "uses",
@@ -2527,7 +2490,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-logs-os"
+    "to": "kkt-log-tracing"
    },
    {
     "from": "kkt-fake-product",
@@ -2555,15 +2518,6 @@ window.KKT_PROPOSED = {
      "follows"
     ],
     "to": "kkt-server-listen"
-   },
-   {
-    "from": "kkt-fake-product",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "follows"
-    ],
-    "to": "kkt-shutdown-os"
    },
    {
     "from": "kkt-fake-product",
@@ -2816,20 +2770,20 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-keymode",
     "kind": "normal",
+    "role": "wires",
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-log-tracing"
+   },
+   {
+    "from": "kkt-keymode",
+    "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
     ],
     "to": "kkt-logs"
-   },
-   {
-    "from": "kkt-keymode",
-    "kind": "normal",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-logs-os"
    },
    {
     "from": "kkt-keymode",
@@ -2863,15 +2817,6 @@ window.KKT_PROPOSED = {
     "kind": "normal",
     "role": "uses",
     "statuses": [
-     "follows"
-    ],
-    "to": "kkt-shutdown-os"
-   },
-   {
-    "from": "kkt-keymode",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
      "decided"
     ],
     "to": "kkt-terminal-os"
@@ -2895,25 +2840,7 @@ window.KKT_PROPOSED = {
     "to": "kkt-lane-commit"
    },
    {
-    "from": "kkt-logs-os",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-clock"
-   },
-   {
-    "from": "kkt-logs-os",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-clock"
-   },
-   {
-    "from": "kkt-logs-os",
+    "from": "kkt-log-tracing",
     "kind": "normal",
     "role": "implements",
     "statuses": [
@@ -2922,22 +2849,13 @@ window.KKT_PROPOSED = {
     "to": "kkt-log"
    },
    {
-    "from": "kkt-logs-os",
+    "from": "kkt-log-tracing",
     "kind": "normal",
     "role": "uses",
     "statuses": [
      "decided"
     ],
     "to": "kkt-logs"
-   },
-   {
-    "from": "kkt-logs-os",
-    "kind": "dev",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-scratch"
    },
    {
     "from": "kkt-machine-os",
@@ -3501,24 +3419,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-machine"
    },
    {
-    "from": "kkt-setup-os",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-setup"
-   },
-   {
-    "from": "kkt-shutdown-os",
-    "kind": "normal",
-    "role": "uses",
-    "statuses": [
-     "follows"
-    ],
-    "to": "kkt-shutdown"
-   },
-   {
     "from": "kkt-terminal-os",
     "kind": "dev",
     "role": "uses",
@@ -3676,7 +3576,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-logs"
+    "to": "kkt-log-tracing"
    },
    {
     "from": "kkt-web-preview",
@@ -3685,7 +3585,7 @@ window.KKT_PROPOSED = {
     "statuses": [
      "decided"
     ],
-    "to": "kkt-logs-os"
+    "to": "kkt-logs"
    },
    {
     "from": "kkt-web-preview",
@@ -3713,15 +3613,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-shutdown"
-   },
-   {
-    "from": "kkt-web-preview",
-    "kind": "normal",
-    "role": "wires",
-    "statuses": [
-     "decided"
-    ],
-    "to": "kkt-shutdown-os"
    },
    {
     "from": "kkt-web-preview",
@@ -3785,10 +3676,7 @@ window.KKT_PROPOSED = {
    },
    {
     "from": "kashkeshet",
-    "items_gone": [
-     "prune",
-     "write"
-    ],
+    "items_gone": [],
     "items_new": [
      "Settings",
      "layout"
@@ -4000,7 +3888,8 @@ window.KKT_PROPOSED = {
      "LogLevel",
      "LogPolicy",
      "SettingError",
-     "check_dependency_log_level"
+     "check_dependency_log_level",
+     "open_log_file"
     ],
     "kind": "normal",
     "roles_after": [
@@ -4215,8 +4104,21 @@ window.KKT_PROPOSED = {
      "upgrade_plan"
     ],
     "items_new": [
+     "absolute",
+     "canonicalize",
      "default_db",
-     "upgrade_backup_folder"
+     "kkt_path",
+     "make_data_folder",
+     "on_path",
+     "path_dirs",
+     "program_path",
+     "read_record",
+     "read_unfinished",
+     "remove_record",
+     "remove_unfinished",
+     "upgrade_backup_folder",
+     "write_record",
+     "write_unfinished"
     ],
     "kind": "normal",
     "roles_after": [
@@ -4231,22 +4133,6 @@ window.KKT_PROPOSED = {
      "decided"
     ],
     "to": "kkt-setup"
-   },
-   {
-    "from": "kashkeshet",
-    "items_gone": [
-     "StopSignals"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-shutdown"
    },
    {
     "from": "kashkeshet",
@@ -4500,22 +4386,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-server"
    },
    {
-    "from": "kkt-fake-product",
-    "items_gone": [
-     "StopSignals"
-    ],
-    "items_new": [],
-    "kind": "normal",
-    "roles_after": [
-     "uses"
-    ],
-    "roles_before": [
-     "uses"
-    ],
-    "statuses": [],
-    "to": "kkt-shutdown"
-   },
-   {
     "from": "kkt-identity",
     "items_gone": [
      "ServerKey"
@@ -4653,26 +4523,28 @@ window.KKT_PROPOSED = {
     "to": "kkt-server"
    },
    {
-    "from": "kkt-keymode",
+    "from": "kkt-logs",
     "items_gone": [
-     "StopSignals"
+     "testing::FixedClock"
     ],
-    "items_new": [],
-    "kind": "normal",
+    "items_new": [
+     "Span"
+    ],
+    "kind": "dev",
     "roles_after": [
      "uses"
     ],
     "roles_before": [
-     "uses"
+     "wires"
     ],
-    "statuses": [],
-    "to": "kkt-shutdown"
+    "statuses": [
+     "decided"
+    ],
+    "to": "kkt-clock"
    },
    {
     "from": "kkt-logs",
-    "items_gone": [
-     "Clock"
-    ],
+    "items_gone": [],
     "items_new": [
      "OutOfRange"
     ],
@@ -5073,11 +4945,11 @@ window.KKT_PROPOSED = {
     "notes": [
      {
       "status": "decided",
-      "text": "logging::init_logging moves to kkt-logs-os: starting the log, to the terminal or the log file, with its filters; it keeps its name, not the proposal's start (step 4.1)"
+      "text": "logging::init_logging moves to kkt-log-tracing: starting the log, to the terminal or the log file, with its filters; it keeps its name, not the proposal's start (steps 4.1 and 14.4)"
      },
      {
       "status": "decided",
-      "text": "logging::init_stderr_logging moves to kkt-logs-os: kkt's own log lines, to standard error; it keeps its name, not the proposal's start_stderr (step 4.1)"
+      "text": "logging::init_stderr_logging moves to kkt-log-tracing: kkt's own log lines, to standard error; it keeps its name, not the proposal's start_stderr (steps 4.1 and 14.4)"
      },
      {
       "status": "decided",
@@ -5137,27 +5009,27 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::record::read_setup moves to kkt-setup-os"
+      "text": "machine::record::read_setup moves to kkt-setup: step 14.2"
      },
      {
       "status": "decided",
-      "text": "machine::record::read_unfinished moves to kkt-setup-os"
+      "text": "machine::record::read_unfinished moves to kkt-setup: step 14.2"
      },
      {
       "status": "decided",
-      "text": "machine::record::write_setup_record moves to kkt-setup-os"
+      "text": "machine::record::write_setup_record moves to kkt-setup: step 14.2"
      },
      {
       "status": "decided",
-      "text": "process::program_path moves to kkt-setup-os"
+      "text": "process::program_path moves to kkt-setup: step 14.2"
      },
      {
       "status": "decided",
-      "text": "process::kkt_path moves to kkt-setup-os"
+      "text": "process::kkt_path moves to kkt-setup: step 14.2"
      },
      {
       "status": "decided",
-      "text": "process::write_whole moves to kkt-setup-os: how the record is written whole, private to kkt-setup-os"
+      "text": "process::write_whole moves to kkt-setup: how the record is written whole, private to kkt-setup (step 14.2)"
      },
      {
       "status": "decided",
@@ -5445,7 +5317,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-logs-os and kkt-machine-os. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
+      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-log-tracing, kkt-logs and kkt-machine-os. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
      },
      {
       "status": "decided",
@@ -5453,7 +5325,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/connect.rs: its machine work (its output, this program's path) moves to kkt-terminal-os and kkt-setup-os. It keeps kkt connect as a thin body."
+      "text": "src/commands/connect.rs: its machine work (its output, this program's path) moves to kkt-terminal-os and kkt-setup. It keeps kkt connect as a thin body."
      },
      {
       "status": "decided",
@@ -5469,15 +5341,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
+      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup and kkt-container; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
      },
      {
       "status": "decided",
-      "text": "src/commands/serve.rs: its machine work (errors before the log starts, starting the log) moves to kkt-terminal-os and kkt-logs-os. It keeps kkt serve's wiring and its banner."
+      "text": "src/commands/serve.rs: its machine work (errors before the log starts, starting the log) moves to kkt-terminal-os, kkt-log-tracing and kkt-logs. It keeps kkt serve's wiring and its banner."
      },
      {
       "status": "decided",
-      "text": "src/commands/service.rs: its machine work (its output, trying the address, this program's path) moves to kkt-terminal-os, kkt-service-os and kkt-setup-os. It keeps kkt service as a thin body."
+      "text": "src/commands/service.rs: its machine work (its output, trying the address, this program's path) moves to kkt-terminal-os, kkt-service-os and kkt-setup. It keeps kkt service as a thin body."
      },
      {
       "status": "decided",
@@ -5485,7 +5357,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup, kkt-admission-os and kkt-container; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -5493,7 +5365,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/logging.rs: its machine work (starting the log, whether output is a terminal) moves to kkt-logs-os. The file goes."
+      "text": "src/logging.rs: its machine work (starting the log, whether output is a terminal) moves to kkt-log-tracing. The file goes."
      },
      {
       "status": "decided",
@@ -5509,15 +5381,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/record.rs: its machine work (reading and writing the setup record, its warning) moves to kkt-setup-os and kkt-terminal-os; its decisions (the record's rules and the error with no record) to kkt-setup. It keeps check_setup and read_unrecorded as thin bodies."
+      "text": "src/machine/record.rs: its machine work (reading and writing the setup record, its warning) moves to kkt-setup and kkt-terminal-os; its decisions (the record's rules and the error with no record) to kkt-setup. It keeps check_setup and read_unrecorded as thin bodies."
      },
      {
       "status": "decided",
-      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file-os and kkt-setup-os; its decisions (combining the flags' and the config file's settings over the defaults) to kkt-settings. It keeps load_serve_options and read_config, which turn the flags and the config file into ServeOptions; Sources; and check_settings, which turns the values into each crate's settings and calls each owner's check."
+      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file-os and kkt-setup; its decisions (combining the flags' and the config file's settings over the defaults) to kkt-settings. It keeps load_serve_options and read_config, which turn the flags and the config file into ServeOptions; Sources; and check_settings, which turns the values into each crate's settings and calls each owner's check."
      },
      {
       "status": "decided",
-      "text": "src/process.rs: its machine work (the environment, this program's path, writing a file whole, the closed-pipe default) moves to kkt-machine-os, kkt-setup-os and kkt-terminal-os. The file goes."
+      "text": "src/process.rs: its machine work (the environment, this program's path, writing a file whole, the closed-pipe default) moves to kkt-machine-os, kkt-setup and kkt-terminal-os. The file goes."
      },
      {
       "status": "decided",
@@ -5549,7 +5421,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the setup record and its note, this program's path, PATH and the data folder"
+      "text": "the setup record and its note, this program's path, PATH and the data folder (step 14.2)"
      },
      {
       "status": "decided",
@@ -5557,7 +5429,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "starting the log; init_logging opens the RotatingFile itself (step 4.1)"
+      "text": "starting the log, on the terminal or on the file kkt-logs opened (steps 4.1 and 14.4)"
      },
      {
       "status": "decided",
@@ -5617,7 +5489,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the Log it gives kkt-server's parts"
+      "text": "the Log it gives kkt-server's parts (step 14.4)"
      },
      {
       "status": "decided",
@@ -5673,7 +5545,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "PATH once per client check, paths and the unfinished note (step 7.3a)"
+      "text": "PATH once per client check, paths and the unfinished note (steps 7.3a and 14.2)"
      },
      {
       "status": "decided",
@@ -5838,6 +5710,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program gives the Docker wrapper the system's opener as it is (step 12.5d)"
+     },
+     {
+      "status": "decided",
+      "text": "opens the log file, then starts tracing on it through kkt-log-tracing (step 14.4)"
      }
     ]
    },
@@ -6898,14 +6774,6 @@ window.KKT_PROPOSED = {
     "crate": "kkt-backup",
     "notes": [
      {
-      "status": "follows",
-      "text": "write moves to kkt-backup-os: an effect, split out so no crate is mixed"
-     },
-     {
-      "status": "follows",
-      "text": "prune moves to kkt-backup-os: an effect, split out so no crate is mixed"
-     },
-     {
       "status": "decided",
       "text": "BACKUP_FOLDER_MODE comes here from kkt-config, private"
      },
@@ -6932,39 +6800,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Problem"
-     },
-     {
-      "status": "follows",
-      "text": "its real feature moves to kkt-backup-os"
-     }
-    ]
-   },
-   {
-    "crate": "kkt-backup-os",
-    "notes": [
-     {
-      "status": "follows",
-      "text": "new effect crate, from kkt-backup"
-     },
-     {
-      "status": "follows",
-      "text": "write comes here from kkt-backup"
-     },
-     {
-      "status": "follows",
-      "text": "prune comes here from kkt-backup"
-     },
-     {
-      "status": "follows",
-      "text": "takes the real feature from kkt-backup"
-     },
-     {
-      "status": "follows",
-      "text": "it writes the folder kkt-backup describes"
-     },
-     {
-      "status": "decided",
-      "text": "writes kkt-backup's Layout and asks it which old backups to remove (step 2.7)"
      }
     ]
    },
@@ -7920,7 +7755,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the Log it gives kkt-server's parts"
+      "text": "the Log it gives kkt-server's parts (step 14.4)"
      },
      {
       "status": "decided",
@@ -8109,7 +7944,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the Log it gives kkt-server's parts"
+      "text": "the Log it gives kkt-server's parts (step 14.4)"
      },
      {
       "status": "decided",
@@ -8298,12 +8133,45 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "crate": "kkt-logs",
+    "crate": "kkt-log-tracing",
     "notes": [
      {
       "status": "decided",
-      "text": "RotatingFile moves to kkt-logs-os: writing, renaming and deleting the files, as kkt-logs' rules say"
+      "text": "new effect crate, from kkt-logs"
      },
+     {
+      "status": "decided",
+      "text": "logging::init_logging comes here from kashkeshet as init_logging"
+     },
+     {
+      "status": "decided",
+      "text": "logging::init_stderr_logging comes here from kashkeshet as init_stderr_logging"
+     },
+     {
+      "status": "decided",
+      "text": "new struct TracingLog"
+     },
+     {
+      "status": "decided",
+      "text": "TracingLog implements kkt-log::Log: a shared contract crate's contract, implemented directly by its named implementation (step 14.4)"
+     },
+     {
+      "status": "decided",
+      "text": "starting the log, behind real (steps 4.1 and 14.4)"
+     },
+     {
+      "status": "decided",
+      "text": "the level its filters start at; the file's plans are carried out in kkt-logs (step 14.4)"
+     },
+     {
+      "status": "decided",
+      "text": "TracingLog records each event, its level and its fields through tracing (steps 4.2 and 14.4)"
+     }
+    ]
+   },
+   {
+    "crate": "kkt-logs",
+    "notes": [
      {
       "status": "decided",
       "text": "DEFAULT_DEPENDENCY_LOG_LEVEL comes here from kkt-config"
@@ -8362,11 +8230,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its real feature moves to kkt-logs-os"
+      "text": "new fn open_log_file"
+     },
+     {
+      "status": "decided",
+      "text": "open_log_file takes clock: the file's clock, for its rollover and pruning plans (step 14.4)"
      },
      {
       "status": "decided",
       "text": "no longer uses kkt-scratch in its tests: its file tests move to kkt-logs-os; the rules' tests need no files"
+     },
+     {
+      "status": "decided",
+      "text": "the file tests, which stay with RotatingFile (step 14.4)"
      },
      {
       "status": "decided",
@@ -8375,67 +8251,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the pruning plan's age cutoff can be out of range (step 4.1)"
-     }
-    ]
-   },
-   {
-    "crate": "kkt-logs-os",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-logs"
      },
      {
       "status": "decided",
-      "text": "logging::init_logging comes here from kashkeshet as init_logging"
+      "text": "the file's clock and the plans' times (steps 4.1 and 14.4)"
      },
      {
       "status": "decided",
-      "text": "logging::init_stderr_logging comes here from kashkeshet as init_stderr_logging"
-     },
-     {
-      "status": "decided",
-      "text": "RotatingFile comes here from kkt-logs"
-     },
-     {
-      "status": "decided",
-      "text": "new struct TracingLog"
-     },
-     {
-      "status": "decided",
-      "text": "TracingLog implements kkt-log::Log: a shared contract crate's contract, implemented directly"
-     },
-     {
-      "status": "decided",
-      "text": "init_logging takes clock: in the code; charted with the wiring after phase 13"
-     },
-     {
-      "status": "decided",
-      "text": "takes the real feature from kkt-logs"
-     },
-     {
-      "status": "decided",
-      "text": "starting the log"
-     },
-     {
-      "status": "decided",
-      "text": "it carries out kkt-logs' rollover and pruning plans on the files (step 4.1)"
-     },
-     {
-      "status": "decided",
-      "text": "the file tests, moved from kkt-logs"
-     },
-     {
-      "status": "decided",
-      "text": "the file's clock and the plans' times (step 4.1)"
-     },
-     {
-      "status": "decided",
-      "text": "the file tests' spans (step 4.1)"
-     },
-     {
-      "status": "decided",
-      "text": "TracingLog records each event, its level and its fields through tracing (step 4.2)"
+      "text": "the file tests' spans (steps 4.1 and 14.4)"
      }
     ]
    },
@@ -10169,6 +9992,30 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "machine::record::read_setup comes here from kashkeshet as read_record"
+     },
+     {
+      "status": "decided",
+      "text": "machine::record::read_unfinished comes here from kashkeshet as read_unfinished"
+     },
+     {
+      "status": "decided",
+      "text": "machine::record::write_setup_record comes here from kashkeshet as write_record"
+     },
+     {
+      "status": "decided",
+      "text": "process::program_path comes here from kashkeshet as program_path"
+     },
+     {
+      "status": "decided",
+      "text": "process::kkt_path comes here from kashkeshet as kkt_path"
+     },
+     {
+      "status": "decided",
+      "text": "process::write_whole comes here from kashkeshet as write_whole"
+     },
+     {
+      "status": "decided",
       "text": "terminal::ask::TerminalAsk comes here from kashkeshet as ask::Prompter"
      },
      {
@@ -10261,11 +10108,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "write_whole is no longer public: how kkt-setup writes the record whole, private to it, behind real (step 14.2)"
+     },
+     {
+      "status": "decided",
       "text": "DEFAULT_SETUP_KEY is no longer public: in its testing module, as testing::DEFAULT_SETUP_KEY (step 3.1c-1)"
      },
      {
       "status": "decided",
       "text": "DEFAULT_SETUP_URL is no longer public: in its testing module, as testing::DEFAULT_SETUP_URL (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "new fn on_path"
      },
      {
       "status": "decided",
@@ -10278,6 +10133,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn default_db"
+     },
+     {
+      "status": "decided",
+      "text": "new fn remove_record"
+     },
+     {
+      "status": "decided",
+      "text": "new fn make_data_folder"
      },
      {
       "status": "decided",
@@ -10338,6 +10201,26 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn connection::admin_endpoint"
+     },
+     {
+      "status": "decided",
+      "text": "new fn absolute"
+     },
+     {
+      "status": "decided",
+      "text": "new fn canonicalize"
+     },
+     {
+      "status": "decided",
+      "text": "new fn path_dirs"
+     },
+     {
+      "status": "decided",
+      "text": "new fn write_unfinished"
+     },
+     {
+      "status": "decided",
+      "text": "new fn remove_unfinished"
      },
      {
       "status": "decided",
@@ -10461,6 +10344,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "gains a real feature: setup's files on this machine, which kkt-setup-os held (step 14.2)"
+     },
+     {
+      "status": "decided",
       "text": "the per-server key file name, hashed through kkt-hash"
      },
      {
@@ -10474,113 +10361,11 @@ window.KKT_PROPOSED = {
     ]
    },
    {
-    "crate": "kkt-setup-os",
-    "notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "machine::record::read_setup comes here from kashkeshet as read_record"
-     },
-     {
-      "status": "decided",
-      "text": "machine::record::read_unfinished comes here from kashkeshet as read_unfinished"
-     },
-     {
-      "status": "decided",
-      "text": "machine::record::write_setup_record comes here from kashkeshet as write_record"
-     },
-     {
-      "status": "decided",
-      "text": "process::program_path comes here from kashkeshet as program_path"
-     },
-     {
-      "status": "decided",
-      "text": "process::kkt_path comes here from kashkeshet as kkt_path"
-     },
-     {
-      "status": "decided",
-      "text": "process::write_whole comes here from kashkeshet as write_whole"
-     },
-     {
-      "status": "decided",
-      "text": "write_whole is no longer public: how kkt-setup-os writes the record whole, private to it"
-     },
-     {
-      "status": "decided",
-      "text": "new fn on_path"
-     },
-     {
-      "status": "decided",
-      "text": "new fn remove_record"
-     },
-     {
-      "status": "decided",
-      "text": "new fn make_data_folder"
-     },
-     {
-      "status": "decided",
-      "text": "new fn absolute"
-     },
-     {
-      "status": "decided",
-      "text": "new fn canonicalize"
-     },
-     {
-      "status": "decided",
-      "text": "new fn path_dirs"
-     },
-     {
-      "status": "decided",
-      "text": "new fn write_unfinished"
-     },
-     {
-      "status": "decided",
-      "text": "new fn remove_unfinished"
-     },
-     {
-      "status": "decided",
-      "text": "the record and its note are where kkt-setup says"
-     },
-     {
-      "status": "decided",
-      "text": "it reads and writes kkt-setup's Record and Unfinished note (step 7.3a)"
-     }
-    ]
-   },
-   {
     "crate": "kkt-shutdown",
     "notes": [
      {
-      "status": "follows",
-      "text": "StopSignals moves to kkt-shutdown-os: an effect, split out so no crate is mixed"
-     },
-     {
-      "status": "follows",
-      "text": "its real feature moves to kkt-shutdown-os"
-     }
-    ]
-   },
-   {
-    "crate": "kkt-shutdown-os",
-    "notes": [
-     {
-      "status": "follows",
-      "text": "new effect crate, from kkt-shutdown"
-     },
-     {
-      "status": "follows",
-      "text": "StopSignals comes here from kkt-shutdown"
-     },
-     {
-      "status": "follows",
-      "text": "takes the real feature from kkt-shutdown"
-     },
-     {
-      "status": "follows",
-      "text": "a stop signal stops kkt-shutdown's Shutdown"
+      "status": "decided",
+      "text": "tokio's signals are behind real: a crate that depends on kkt-shutdown without real gets Shutdown alone (step 14.3)"
      }
     ]
    },
@@ -11088,6 +10873,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "the preview example (step 14.3)"
+     },
+     {
+      "status": "decided",
       "text": "the preview example"
      },
      {
@@ -11136,10 +10925,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-shutdown-os in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
-     },
-     {
-      "status": "decided",
       "text": "no longer uses kkt-web in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
      },
      {
@@ -11156,7 +10941,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the preview program (step 6.3): the stop signals"
+      "text": "the preview program (step 6.3): the stop signals (step 14.3)"
      },
      {
       "status": "decided",
@@ -11176,7 +10961,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the preview program (step 6.3): its log, on standard error"
+      "text": "the preview program (step 6.3): its log, on standard error (step 14.4)"
      },
      {
       "status": "decided",
@@ -11456,18 +11241,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-config"
    },
    {
-    "from": "kkt-logs",
-    "kind": "dev",
-    "role": "wires",
-    "to": "kkt-clock"
-   },
-   {
-    "from": "kkt-logs",
-    "kind": "dev",
-    "role": "uses",
-    "to": "kkt-scratch"
-   },
-   {
     "from": "kkt-mcp",
     "kind": "normal",
     "role": "uses",
@@ -11734,17 +11507,11 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-backup": {
-    "concern": "Backup folders: their names, what goes in them and their file modes, and which to prune; the disk work is in kkt-backup-os.",
-    "kind": "logic",
+    "concern": "Backup folders: their names, what goes in them and their file modes, and which to prune; and, behind real, writing a layout and removing the old folders it names (step 14.1).",
+    "kind": "logic and effect",
     "layer": "operations",
     "must_not": "Read the clock or copy the database itself: the caller passes both.",
-    "status": "follows"
-   },
-   "kkt-backup-os": {
-    "concern": "Writing and pruning backup folders on disk: `write` and `prune`, which the program calls. kkt-backup's `real` feature moves here.",
-    "kind": "effect",
-    "layer": "operations",
-    "status": "follows"
+    "status": "decided"
    },
    "kkt-browser": {
     "concern": "Opening a link in the person's browser: the contract, Browser, with the testing Recorder (step 12.5d), and its one implementation, SystemBrowser, the system's own opener: starting it, reaping it, keeping a failure to report once; starting it is behind real (step 13.3, merging kkt-browser-os back).",
@@ -11906,15 +11673,15 @@ window.KKT_PROPOSED = {
     "layer": "foundations",
     "status": "decided"
    },
-   "kkt-logs": {
-    "concern": "The log's rules and settings: `LogLevel` and `LogPolicy` with their checks and its own `SettingError`, and the plans for the files: when the file rolls over and which renames that takes (`should_roll`, `rotation`), and when to look for old rolled files and which to delete (`prune_due`, `pruning`). It touches no file: kkt-logs-os carries out the plans.",
-    "kind": "logic",
+   "kkt-log-tracing": {
+    "concern": "kkt-log's Log over tracing: `TracingLog` records each event through tracing, and `init_logging` and `init_stderr_logging` start the subscriber, on the terminal or on a writer the program gives it, such as the log file kkt-logs opens. tracing and tracing-subscriber are behind real (step 14.4).",
+    "kind": "effect",
     "layer": "foundations",
     "status": "decided"
    },
-   "kkt-logs-os": {
-    "concern": "The log's files and its start: `RotatingFile` writes the log file, and rolls it over and deletes old ones by kkt-logs' plans; `init_logging` and `init_stderr_logging` start tracing, on the terminal or in the file; `TracingLog` records kkt-log's events through tracing. kkt-logs' `real` feature moves here, with tracing-subscriber.",
-    "kind": "effect",
+   "kkt-logs": {
+    "concern": "The log's rules and settings: `LogLevel` and `LogPolicy` with their checks and its own `SettingError`, and the plans for the files: when the file rolls over and which renames that takes (`should_roll`, `rotation`), and when to look for old rolled files and which to delete (`prune_due`, `pruning`). Behind real, it carries them out: `RotatingFile` writes the log file, and `open_log_file` checks the policy and opens it (step 14.4). Starting tracing is kkt-log-tracing's.",
+    "kind": "logic and effect",
     "layer": "foundations",
     "status": "decided"
    },
@@ -12035,30 +11802,18 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-setup": {
-    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server and key this machine's clients use (`kkt switch`; `connection`, over the reads its `ConnectionSource` asks for in their original order), how setup asks its questions (its `Prompter` over its own `Lines`), and what status, upgrade, uninstall, lanes, backup, key files and `kkt doctor` decide: the status lines, the backup folders, the record uninstall leaves, the per-server client key's name, the lane limit, the import report, and the doctor's checks and fixes as plain `DoctorCheck`s, which the program adapts to kkt-diagnostics' report. It reads no files and runs nothing: the program does, through the effect crates, and carries out what is decided here.",
-    "kind": "logic",
+    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server and key this machine's clients use (`kkt switch`; `connection`, over the reads its `ConnectionSource` asks for in their original order), how setup asks its questions (its `Prompter` over its own `Lines`), and what status, upgrade, uninstall, lanes, backup, key files and `kkt doctor` decide: the status lines, the backup folders, the record uninstall leaves, the per-server client key's name, the lane limit, the import report, and the doctor's checks and fixes as plain `DoctorCheck`s, which the program adapts to kkt-diagnostics' report. It reads no files and runs nothing: the program does, through the effect crates, and carries out what is decided here. Behind real, setup's files on this machine: the setup record and its unfinished note, written whole, kkt's data folder, this program's path, absolute and canonical paths, and one snapshot of `PATH` (step 14.2).",
+    "kind": "logic and effect",
     "layer": "operations",
     "must_not": "Read files or run anything: the program does, and carries out what is decided here.",
     "status": "decided"
    },
-   "kkt-setup-os": {
-    "concern": "Setup's files on this machine: the setup record and its unfinished note, written whole, and kkt's data folder; this program's own path, and absolute and canonical paths; and one snapshot of `PATH`, in which it finds programs. Plain functions the program calls; the decisions are kkt-setup's. Other files go through the effect crate that owns their area: the Docker folder's through kkt-container, key files through kkt-admission-os.",
-    "kind": "effect",
-    "layer": "operations",
-    "status": "decided"
-   },
    "kkt-shutdown": {
-    "concern": "The stop signal: `Shutdown`, whose clones share one signal. The operating system's signals are in kkt-shutdown-os.",
-    "kind": "logic",
+    "concern": "The stop signal: `Shutdown`, whose clones share one signal; and, behind real, `StopSignals`, the operating system's stop signals, which stop it (step 14.3).",
+    "kind": "logic and effect",
     "layer": "foundations",
     "must_not": "Let a tokio-util type out of the crate.",
-    "status": "follows"
-   },
-   "kkt-shutdown-os": {
-    "concern": "The operating system's stop signals: `StopSignals`, which the programs install and which stop kkt-shutdown's `Shutdown`. kkt-shutdown's `real` feature moves here.",
-    "kind": "effect",
-    "layer": "foundations",
-    "status": "follows"
+    "status": "decided"
    },
    "kkt-terminal-os": {
     "concern": "The terminal: `Terminal` writes a command's output and errors, flushes a prompt, writes a watch message whole, says whether input is a terminal and, separately, whether output is, reads a line, and restores the default for a closed output pipe; `BrowserLink` shows a login link, opens it in the browser and waits for Enter. Plain types; the program adapts them to kkt-setup's `Lines`, kkt-watch's `Report` and kkt-container's `LoginLink`, and its commands write through `Terminal`.",
@@ -14600,11 +14355,11 @@ window.KKT_PROPOSED = {
     "proposed_notes": [
      {
       "status": "decided",
-      "text": "logging::init_logging moves to kkt-logs-os: starting the log, to the terminal or the log file, with its filters; it keeps its name, not the proposal's start (step 4.1)"
+      "text": "logging::init_logging moves to kkt-log-tracing: starting the log, to the terminal or the log file, with its filters; it keeps its name, not the proposal's start (steps 4.1 and 14.4)"
      },
      {
       "status": "decided",
-      "text": "logging::init_stderr_logging moves to kkt-logs-os: kkt's own log lines, to standard error; it keeps its name, not the proposal's start_stderr (step 4.1)"
+      "text": "logging::init_stderr_logging moves to kkt-log-tracing: kkt's own log lines, to standard error; it keeps its name, not the proposal's start_stderr (steps 4.1 and 14.4)"
      },
      {
       "status": "decided",
@@ -14664,27 +14419,27 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "machine::record::read_setup moves to kkt-setup-os"
+      "text": "machine::record::read_setup moves to kkt-setup: step 14.2"
      },
      {
       "status": "decided",
-      "text": "machine::record::read_unfinished moves to kkt-setup-os"
+      "text": "machine::record::read_unfinished moves to kkt-setup: step 14.2"
      },
      {
       "status": "decided",
-      "text": "machine::record::write_setup_record moves to kkt-setup-os"
+      "text": "machine::record::write_setup_record moves to kkt-setup: step 14.2"
      },
      {
       "status": "decided",
-      "text": "process::program_path moves to kkt-setup-os"
+      "text": "process::program_path moves to kkt-setup: step 14.2"
      },
      {
       "status": "decided",
-      "text": "process::kkt_path moves to kkt-setup-os"
+      "text": "process::kkt_path moves to kkt-setup: step 14.2"
      },
      {
       "status": "decided",
-      "text": "process::write_whole moves to kkt-setup-os: how the record is written whole, private to kkt-setup-os"
+      "text": "process::write_whole moves to kkt-setup: how the record is written whole, private to kkt-setup (step 14.2)"
      },
      {
       "status": "decided",
@@ -14972,7 +14727,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-logs-os and kkt-machine-os. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
+      "text": "src/bin/kkt/main.rs: its machine work (errors on standard error, the closed-pipe default, starting the log, the environment) moves to kkt-terminal-os, kkt-log-tracing, kkt-logs and kkt-machine-os. It keeps argument parsing, choosing each command's log and the dispatch to the commands."
      },
      {
       "status": "decided",
@@ -14980,7 +14735,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/connect.rs: its machine work (its output, this program's path) moves to kkt-terminal-os and kkt-setup-os. It keeps kkt connect as a thin body."
+      "text": "src/commands/connect.rs: its machine work (its output, this program's path) moves to kkt-terminal-os and kkt-setup. It keeps kkt connect as a thin body."
      },
      {
       "status": "decided",
@@ -14996,15 +14751,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup-os and kkt-container; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
+      "text": "src/commands/lifecycle.rs: its machine work (its output, the admin key, the Docker .env, the setup record) moves to kkt-terminal-os, kkt-admission-os, kkt-setup and kkt-container; its decisions (the status lines, the backup folders and the record uninstall leaves) to kkt-setup. It keeps status, upgrade, uninstall and backup as thin bodies."
      },
      {
       "status": "decided",
-      "text": "src/commands/serve.rs: its machine work (errors before the log starts, starting the log) moves to kkt-terminal-os and kkt-logs-os. It keeps kkt serve's wiring and its banner."
+      "text": "src/commands/serve.rs: its machine work (errors before the log starts, starting the log) moves to kkt-terminal-os, kkt-log-tracing and kkt-logs. It keeps kkt serve's wiring and its banner."
      },
      {
       "status": "decided",
-      "text": "src/commands/service.rs: its machine work (its output, trying the address, this program's path) moves to kkt-terminal-os, kkt-service-os and kkt-setup-os. It keeps kkt service as a thin body."
+      "text": "src/commands/service.rs: its machine work (its output, trying the address, this program's path) moves to kkt-terminal-os, kkt-service-os and kkt-setup. It keeps kkt service as a thin body."
      },
      {
       "status": "decided",
@@ -15012,7 +14767,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup-os, kkt-admission-os and kkt-container; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
+      "text": "src/commands/setup/steps.rs: its machine work (its output, the config file, the record, staged keys, the Tailscale auth key file, PATH) moves to kkt-terminal-os, kkt-config-file-os, kkt-setup, kkt-admission-os and kkt-container; its decisions (the per-server key file's name, the lane limit by purpose and a client's refusals) to kkt-setup. It keeps its adapters to kkt-setup's Steps, SwitchSteps and AdoptSteps."
      },
      {
       "status": "decided",
@@ -15020,7 +14775,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/logging.rs: its machine work (starting the log, whether output is a terminal) moves to kkt-logs-os. The file goes."
+      "text": "src/logging.rs: its machine work (starting the log, whether output is a terminal) moves to kkt-log-tracing. The file goes."
      },
      {
       "status": "decided",
@@ -15036,15 +14791,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "src/machine/record.rs: its machine work (reading and writing the setup record, its warning) moves to kkt-setup-os and kkt-terminal-os; its decisions (the record's rules and the error with no record) to kkt-setup. It keeps check_setup and read_unrecorded as thin bodies."
+      "text": "src/machine/record.rs: its machine work (reading and writing the setup record, its warning) moves to kkt-setup and kkt-terminal-os; its decisions (the record's rules and the error with no record) to kkt-setup. It keeps check_setup and read_unrecorded as thin bodies."
      },
      {
       "status": "decided",
-      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file-os and kkt-setup-os; its decisions (combining the flags' and the config file's settings over the defaults) to kkt-settings. It keeps load_serve_options and read_config, which turn the flags and the config file into ServeOptions; Sources; and check_settings, which turns the values into each crate's settings and calls each owner's check."
+      "text": "src/machine/settings.rs: its machine work (reading the config and instructions files, the database's folder) moves to kkt-config-file-os and kkt-setup; its decisions (combining the flags' and the config file's settings over the defaults) to kkt-settings. It keeps load_serve_options and read_config, which turn the flags and the config file into ServeOptions; Sources; and check_settings, which turns the values into each crate's settings and calls each owner's check."
      },
      {
       "status": "decided",
-      "text": "src/process.rs: its machine work (the environment, this program's path, writing a file whole, the closed-pipe default) moves to kkt-machine-os, kkt-setup-os and kkt-terminal-os. The file goes."
+      "text": "src/process.rs: its machine work (the environment, this program's path, writing a file whole, the closed-pipe default) moves to kkt-machine-os, kkt-setup and kkt-terminal-os. The file goes."
      },
      {
       "status": "decided",
@@ -15076,7 +14831,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the setup record and its note, this program's path, PATH and the data folder"
+      "text": "the setup record and its note, this program's path, PATH and the data folder (step 14.2)"
      },
      {
       "status": "decided",
@@ -15084,7 +14839,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "starting the log; init_logging opens the RotatingFile itself (step 4.1)"
+      "text": "starting the log, on the terminal or on the file kkt-logs opened (steps 4.1 and 14.4)"
      },
      {
       "status": "decided",
@@ -15144,7 +14899,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the Log it gives kkt-server's parts"
+      "text": "the Log it gives kkt-server's parts (step 14.4)"
      },
      {
       "status": "decided",
@@ -15200,7 +14955,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "PATH once per client check, paths and the unfinished note (step 7.3a)"
+      "text": "PATH once per client check, paths and the unfinished note (steps 7.3a and 14.2)"
      },
      {
       "status": "decided",
@@ -15365,6 +15120,10 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the program gives the Docker wrapper the system's opener as it is (step 12.5d)"
+     },
+     {
+      "status": "decided",
+      "text": "opens the log file, then starts tracing on it through kkt-log-tracing (step 14.4)"
      }
     ],
     "released_program": true,
@@ -19121,7 +18880,9 @@ window.KKT_PROPOSED = {
     "contracts": [],
     "crate_doc": "Backups: a folder holding a consistent copy of the database, the config file and both keys, named so that backups sort by time and say which kkt version wrote them; and pruning the backups the server keeps before it upgrades a database, ...",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": []
+    },
     "holders": [],
     "implements": [],
     "items": [
@@ -19203,9 +18964,21 @@ window.KKT_PROPOSED = {
       "path": "old_names",
       "proposed_item": true,
       "status": "decided"
+     },
+     {
+      "doc": "Removes all but the newest `keep` backups in `folder`, judged by their names, and returns the ones removed.",
+      "feature": "real",
+      "kind": "fn",
+      "path": "prune"
+     },
+     {
+      "doc": "Writes a backup of `contents` made at `at` by kkt `version` to a new folder in `folder`, creating `folder` if needed, and returns the new folder.",
+      "feature": "real",
+      "kind": "fn",
+      "path": "write"
      }
     ],
-    "kind": "logic",
+    "kind": "logic and effect",
     "lib": "kkt_backup",
     "machine_work": {
      "src/lib.rs": [
@@ -19229,14 +19002,6 @@ window.KKT_PROPOSED = {
     "path": "crates/kkt-backup",
     "proposed": "changed",
     "proposed_notes": [
-     {
-      "status": "follows",
-      "text": "write moves to kkt-backup-os: an effect, split out so no crate is mixed"
-     },
-     {
-      "status": "follows",
-      "text": "prune moves to kkt-backup-os: an effect, split out so no crate is mixed"
-     },
      {
       "status": "decided",
       "text": "BACKUP_FOLDER_MODE comes here from kkt-config, private"
@@ -19264,74 +19029,6 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new struct Problem"
-     },
-     {
-      "status": "follows",
-      "text": "its real feature moves to kkt-backup-os"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [],
-    "items": [
-     {
-      "doc": "Removes all but the newest `keep` backups in `folder`, judged by their names, and returns the ones removed.",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kkt-backup",
-      "path": "prune",
-      "status": "follows"
-     },
-     {
-      "doc": "Writes a backup of `contents` made at `at` by kkt `version` to a new folder in `folder`, creating `folder` if needed, and returns the new folder.",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kkt-backup",
-      "path": "write",
-      "status": "follows"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_backup_os",
-    "name": "kkt-backup-os",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "follows",
-      "text": "new effect crate, from kkt-backup"
-     },
-     {
-      "status": "follows",
-      "text": "write comes here from kkt-backup"
-     },
-     {
-      "status": "follows",
-      "text": "prune comes here from kkt-backup"
-     },
-     {
-      "status": "follows",
-      "text": "takes the real feature from kkt-backup"
-     },
-     {
-      "status": "follows",
-      "text": "it writes the folder kkt-backup describes"
-     },
-     {
-      "status": "decided",
-      "text": "writes kkt-backup's Layout and asks it which old backups to remove (step 2.7)"
      }
     ],
     "released_program": false,
@@ -22731,7 +22428,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the Log it gives kkt-server's parts"
+      "text": "the Log it gives kkt-server's parts (step 14.4)"
      },
      {
       "status": "decided",
@@ -23183,7 +22880,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the Log it gives kkt-server's parts"
+      "text": "the Log it gives kkt-server's parts (step 14.4)"
      },
      {
       "status": "decided",
@@ -23598,7 +23295,7 @@ window.KKT_PROPOSED = {
         "type": "testing::CapturedLog"
        },
        {
-        "crate": "kkt-logs-os",
+        "crate": "kkt-log-tracing",
         "type": "TracingLog"
        }
       ],
@@ -23735,9 +23432,113 @@ window.KKT_PROPOSED = {
     "bins": [],
     "builds": [],
     "contracts": [],
+    "crate_doc": "",
+    "dev_only": false,
+    "features": {
+     "real": [
+      "dep:tracing",
+      "dep:tracing-subscriber"
+     ]
+    },
+    "holders": [],
+    "implements": [
+     {
+      "crate": "kkt-log-tracing",
+      "status": "decided",
+      "trait": "Log",
+      "trait_crate": "kkt-log",
+      "type": "TracingLog"
+     }
+    ],
+    "items": [
+     {
+      "doc": "kkt-log's Log over tracing: each event goes to the log the program started (step 14.4).",
+      "feature": "real",
+      "kind": "struct",
+      "path": "TracingLog",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Starts the server's log: to the terminal, with colour when it is one, or to the writer it is given, such as the log file kkt-logs opens.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "init_logging",
+      "status": "decided"
+     },
+     {
+      "doc": "Starts a command's log: kkt's own lines only, to standard error.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "init_stderr_logging",
+      "status": "decided"
+     }
+    ],
+    "kind": "effect",
+    "lib": "kkt_log_tracing",
+    "name": "kkt-log-tracing",
+    "optional_third_party": {
+     "tracing": [
+      "real"
+     ],
+     "tracing-subscriber": [
+      "real"
+     ]
+    },
+    "path": "(proposed)",
+    "proposed": "new",
+    "proposed_notes": [
+     {
+      "status": "decided",
+      "text": "new effect crate, from kkt-logs"
+     },
+     {
+      "status": "decided",
+      "text": "logging::init_logging comes here from kashkeshet as init_logging"
+     },
+     {
+      "status": "decided",
+      "text": "logging::init_stderr_logging comes here from kashkeshet as init_stderr_logging"
+     },
+     {
+      "status": "decided",
+      "text": "new struct TracingLog"
+     },
+     {
+      "status": "decided",
+      "text": "TracingLog implements kkt-log::Log: a shared contract crate's contract, implemented directly by its named implementation (step 14.4)"
+     },
+     {
+      "status": "decided",
+      "text": "starting the log, behind real (steps 4.1 and 14.4)"
+     },
+     {
+      "status": "decided",
+      "text": "the level its filters start at; the file's plans are carried out in kkt-logs (step 14.4)"
+     },
+     {
+      "status": "decided",
+      "text": "TracingLog records each event, its level and its fields through tracing (steps 4.2 and 14.4)"
+     }
+    ],
+    "released_program": false,
+    "slots": [],
+    "third_party": [
+     "tracing",
+     "tracing-subscriber"
+    ]
+   },
+   {
+    "bins": [],
+    "builds": [],
+    "contracts": [],
     "crate_doc": "A log file the server writes itself, kept within a `LogPolicy`: rolled over by size, with a bounded number of rolled files, none kept longer than the policy's age.",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": []
+    },
     "holders": [],
     "implements": [],
     "items": [
@@ -23800,6 +23601,15 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
+      "doc": "The log file at `path`, appended to, and rolled over by its policy.",
+      "feature": "real",
+      "kind": "struct",
+      "methods": [
+       "open"
+      ],
+      "path": "RotatingFile"
+     },
+     {
       "doc": "The filesystem steps for one rollover, in their existing order (step 4.1).",
       "kind": "struct",
       "path": "Rotation",
@@ -23821,6 +23631,14 @@ window.KKT_PROPOSED = {
       "kind": "fn",
       "moved_from": "kkt-config",
       "path": "check_dependency_log_level",
+      "status": "decided"
+     },
+     {
+      "doc": "Checks the log policy and opens the rolling log file, with the same two refusals as before (step 14.4).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "open_log_file",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -23852,7 +23670,7 @@ window.KKT_PROPOSED = {
       "status": "decided"
      }
     ],
-    "kind": "logic",
+    "kind": "logic and effect",
     "lib": "kkt_logs",
     "machine_work": {
      "src/lib.rs": [
@@ -23870,10 +23688,6 @@ window.KKT_PROPOSED = {
     "path": "crates/kkt-logs",
     "proposed": "changed",
     "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "RotatingFile moves to kkt-logs-os: writing, renaming and deleting the files, as kkt-logs' rules say"
-     },
      {
       "status": "decided",
       "text": "DEFAULT_DEPENDENCY_LOG_LEVEL comes here from kkt-config"
@@ -23932,11 +23746,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "its real feature moves to kkt-logs-os"
+      "text": "new fn open_log_file"
+     },
+     {
+      "status": "decided",
+      "text": "open_log_file takes clock: the file's clock, for its rollover and pruning plans (step 14.4)"
      },
      {
       "status": "decided",
       "text": "no longer uses kkt-scratch in its tests: its file tests move to kkt-logs-os; the rules' tests need no files"
+     },
+     {
+      "status": "decided",
+      "text": "the file tests, which stay with RotatingFile (step 14.4)"
      },
      {
       "status": "decided",
@@ -23945,129 +23767,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "the pruning plan's age cutoff can be out of range (step 4.1)"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-logs-os",
-      "status": "decided",
-      "trait": "Log",
-      "trait_crate": "kkt-log",
-      "type": "TracingLog"
-     }
-    ],
-    "items": [
-     {
-      "doc": "The log file at `path`, appended to, and rolled over by its policy.",
-      "feature": "real",
-      "kind": "struct",
-      "methods": [
-       "open"
-      ],
-      "moved_from": "kkt-logs",
-      "path": "RotatingFile",
-      "status": "decided"
-     },
-     {
-      "doc": "kkt-log's Log over tracing: each event goes to the log the program started.",
-      "feature": "real",
-      "kind": "struct",
-      "path": "TracingLog",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Starts the server's log: to the terminal, with colour when it is one, or to the rolling log file.",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "init_logging",
-      "status": "decided"
-     },
-     {
-      "doc": "Starts a command's log: kkt's own lines only, to standard error.",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "init_stderr_logging",
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_logs_os",
-    "name": "kkt-logs-os",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kkt-logs"
      },
      {
       "status": "decided",
-      "text": "logging::init_logging comes here from kashkeshet as init_logging"
+      "text": "the file's clock and the plans' times (steps 4.1 and 14.4)"
      },
      {
       "status": "decided",
-      "text": "logging::init_stderr_logging comes here from kashkeshet as init_stderr_logging"
-     },
-     {
-      "status": "decided",
-      "text": "RotatingFile comes here from kkt-logs"
-     },
-     {
-      "status": "decided",
-      "text": "new struct TracingLog"
-     },
-     {
-      "status": "decided",
-      "text": "TracingLog implements kkt-log::Log: a shared contract crate's contract, implemented directly"
-     },
-     {
-      "status": "decided",
-      "text": "init_logging takes clock: in the code; charted with the wiring after phase 13"
-     },
-     {
-      "status": "decided",
-      "text": "takes the real feature from kkt-logs"
-     },
-     {
-      "status": "decided",
-      "text": "starting the log"
-     },
-     {
-      "status": "decided",
-      "text": "it carries out kkt-logs' rollover and pruning plans on the files (step 4.1)"
-     },
-     {
-      "status": "decided",
-      "text": "the file tests, moved from kkt-logs"
-     },
-     {
-      "status": "decided",
-      "text": "the file's clock and the plans' times (step 4.1)"
-     },
-     {
-      "status": "decided",
-      "text": "the file tests' spans (step 4.1)"
-     },
-     {
-      "status": "decided",
-      "text": "TracingLog records each event, its level and its fields through tracing (step 4.2)"
+      "text": "the file tests' spans (steps 4.1 and 14.4)"
      }
     ],
     "released_program": false,
@@ -24084,11 +23791,11 @@ window.KKT_PROPOSED = {
       ]
      },
      {
-      "at": "init_logging",
+      "at": "open_log_file",
       "feature": "real",
       "kind": "param",
       "name": "clock",
-      "note": "in the code; charted with the wiring after phase 13",
+      "note": "the file's clock, for its rollover and pruning plans (step 14.4)",
       "proposed_slot": true,
       "status": "decided",
       "traits": [
@@ -24099,10 +23806,7 @@ window.KKT_PROPOSED = {
       ]
      }
     ],
-    "third_party": [
-     "tracing",
-     "tracing-subscriber"
-    ]
+    "third_party": []
    },
    {
     "bins": [],
@@ -29015,7 +28719,9 @@ window.KKT_PROPOSED = {
     ],
     "crate_doc": "`kkt setup`: what this machine is set up as (a server run as a service, a server in Docker, or a client of a server elsewhere), the record that says so, and what follows from it: whether `kkt serve` may run here, and which server this ma...",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": []
+    },
     "holders": [],
     "implements": [
      {
@@ -29459,6 +29165,14 @@ window.KKT_PROPOSED = {
       "path": "UpgradePlan"
      },
      {
+      "doc": "Resolves a relative path against this process's working directory (steps 7.3a and 14.2).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "absolute",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "An access key may keep its old name, but cannot also be the admin key.",
       "kind": "fn",
       "path": "admin_key_collision"
@@ -29539,6 +29253,14 @@ window.KKT_PROPOSED = {
       "doc": "What `kkt backup` backs up, given the recorded `mode` (`None` with no record), the folder given (`into`) and whether `--db` or `--config` was given (`local_options`).",
       "kind": "fn",
       "path": "backup_of"
+     },
+     {
+      "doc": "Follows links and resolves the actual file path (steps 7.3a and 14.2).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "canonicalize",
+      "proposed_item": true,
+      "status": "decided"
      },
      {
       "doc": "One key per server, so another server's saved key is never replaced (step 7.3b).",
@@ -29798,6 +29520,14 @@ window.KKT_PROPOSED = {
       "path": "key_fix"
      },
      {
+      "doc": "This program's absolute path, for client configs that run it.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "kkt_path",
+      "status": "decided"
+     },
+     {
       "doc": "The report of a lane import, and the Docker limit when no install is present (step 7.3b).",
       "kind": "mod",
       "path": "lane_reports",
@@ -29831,9 +29561,57 @@ window.KKT_PROPOSED = {
       "path": "lanes_on"
      },
      {
+      "doc": "Makes kkt's data folder, where kkt-setup says it is, for the default database (step 14.2).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "make_data_folder",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Whether a program is on PATH (step 14.2).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "on_path",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
       "doc": "Where this machine's key of `kind` is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
       "kind": "fn",
       "path": "operator_key"
+     },
+     {
+      "doc": "One snapshot of PATH, shared by all client checks in a setup invocation (steps 7.3a and 14.2).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "path_dirs",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "This program's absolute path, with links followed: the one place it is found.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "program_path",
+      "status": "decided"
+     },
+     {
+      "doc": "This machine's setup record, if `kkt setup` wrote one.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "read_record",
+      "status": "decided"
+     },
+     {
+      "doc": "The server a `kkt setup` installed here but did not record, if it noted one and the install is still there: the managed Docker folder's settings file, or the installed service.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "read_unfinished",
+      "status": "decided"
      },
      {
       "doc": "Where the setup record is: `setup.toml` in kkt's config folder, which the caller gives (step 3.4).",
@@ -29850,6 +29628,22 @@ window.KKT_PROPOSED = {
       "kind": "fn",
       "moved_from": "kashkeshet",
       "path": "recorded_setup",
+      "status": "decided"
+     },
+     {
+      "doc": "Removes the setup record, as uninstall does (step 14.2).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "remove_record",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "Removes the unfinished note, accepting an already-missing file (steps 7.3a and 14.2).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "remove_unfinished",
+      "proposed_item": true,
       "status": "decided"
      },
      {
@@ -30015,9 +29809,25 @@ window.KKT_PROPOSED = {
       "path": "web_key_line",
       "proposed_item": true,
       "status": "decided"
+     },
+     {
+      "doc": "Writes the setup record whole, where kkt-setup says it is.",
+      "feature": "real",
+      "kind": "fn",
+      "moved_from": "kashkeshet",
+      "path": "write_record",
+      "status": "decided"
+     },
+     {
+      "doc": "Saves the unfinished note with the same write-then-rename operation (steps 7.3a and 14.2).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "write_unfinished",
+      "proposed_item": true,
+      "status": "decided"
      }
     ],
-    "kind": "logic",
+    "kind": "logic and effect",
     "lib": "kkt_setup",
     "machine_work": {},
     "name": "kkt-setup",
@@ -30059,6 +29869,30 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "machine::record::recorded_setup comes here from kashkeshet as recorded_setup"
+     },
+     {
+      "status": "decided",
+      "text": "machine::record::read_setup comes here from kashkeshet as read_record"
+     },
+     {
+      "status": "decided",
+      "text": "machine::record::read_unfinished comes here from kashkeshet as read_unfinished"
+     },
+     {
+      "status": "decided",
+      "text": "machine::record::write_setup_record comes here from kashkeshet as write_record"
+     },
+     {
+      "status": "decided",
+      "text": "process::program_path comes here from kashkeshet as program_path"
+     },
+     {
+      "status": "decided",
+      "text": "process::kkt_path comes here from kashkeshet as kkt_path"
+     },
+     {
+      "status": "decided",
+      "text": "process::write_whole comes here from kashkeshet as write_whole"
      },
      {
       "status": "decided",
@@ -30154,11 +29988,19 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "write_whole is no longer public: how kkt-setup writes the record whole, private to it, behind real (step 14.2)"
+     },
+     {
+      "status": "decided",
       "text": "DEFAULT_SETUP_KEY is no longer public: in its testing module, as testing::DEFAULT_SETUP_KEY (step 3.1c-1)"
      },
      {
       "status": "decided",
       "text": "DEFAULT_SETUP_URL is no longer public: in its testing module, as testing::DEFAULT_SETUP_URL (step 3.1c-1)"
+     },
+     {
+      "status": "decided",
+      "text": "new fn on_path"
      },
      {
       "status": "decided",
@@ -30171,6 +30013,14 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn default_db"
+     },
+     {
+      "status": "decided",
+      "text": "new fn remove_record"
+     },
+     {
+      "status": "decided",
+      "text": "new fn make_data_folder"
      },
      {
       "status": "decided",
@@ -30231,6 +30081,26 @@ window.KKT_PROPOSED = {
      {
       "status": "decided",
       "text": "new fn connection::admin_endpoint"
+     },
+     {
+      "status": "decided",
+      "text": "new fn absolute"
+     },
+     {
+      "status": "decided",
+      "text": "new fn canonicalize"
+     },
+     {
+      "status": "decided",
+      "text": "new fn path_dirs"
+     },
+     {
+      "status": "decided",
+      "text": "new fn write_unfinished"
+     },
+     {
+      "status": "decided",
+      "text": "new fn remove_unfinished"
      },
      {
       "status": "decided",
@@ -30354,6 +30224,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "gains a real feature: setup's files on this machine, which kkt-setup-os held (step 14.2)"
+     },
+     {
+      "status": "decided",
       "text": "the per-server key file name, hashed through kkt-hash"
      },
      {
@@ -30464,209 +30338,13 @@ window.KKT_PROPOSED = {
     "bins": [],
     "builds": [],
     "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": []
-    },
-    "holders": [],
-    "implements": [],
-    "items": [
-     {
-      "doc": "Resolves a relative path against this process's working directory (step 7.3a).",
-      "feature": "real",
-      "kind": "fn",
-      "path": "absolute",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Follows links and resolves the actual file path (step 7.3a).",
-      "feature": "real",
-      "kind": "fn",
-      "path": "canonicalize",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "This program's absolute path, for client configs that run it.",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "kkt_path",
-      "status": "decided"
-     },
-     {
-      "doc": "Makes kkt's data folder, where kkt-setup says it is, for the default database.",
-      "feature": "real",
-      "kind": "fn",
-      "path": "make_data_folder",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Whether a program is on PATH.",
-      "feature": "real",
-      "kind": "fn",
-      "path": "on_path",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "One snapshot of PATH, shared by all client checks in a setup invocation (step 7.3a).",
-      "feature": "real",
-      "kind": "fn",
-      "path": "path_dirs",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "This program's absolute path, with links followed: the one place it is found.",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "program_path",
-      "status": "decided"
-     },
-     {
-      "doc": "This machine's setup record, if `kkt setup` wrote one.",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "read_record",
-      "status": "decided"
-     },
-     {
-      "doc": "The server a `kkt setup` installed here but did not record, if it noted one and the install is still there: the managed Docker folder's settings file, or the installed service.",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "read_unfinished",
-      "status": "decided"
-     },
-     {
-      "doc": "Removes the setup record, as uninstall does.",
-      "feature": "real",
-      "kind": "fn",
-      "path": "remove_record",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Removes the unfinished note, accepting an already-missing file (step 7.3a).",
-      "feature": "real",
-      "kind": "fn",
-      "path": "remove_unfinished",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "Writes the setup record whole, where kkt-setup says it is.",
-      "feature": "real",
-      "kind": "fn",
-      "moved_from": "kashkeshet",
-      "path": "write_record",
-      "status": "decided"
-     },
-     {
-      "doc": "Saves the unfinished note with the same write-then-rename operation (step 7.3a).",
-      "feature": "real",
-      "kind": "fn",
-      "path": "write_unfinished",
-      "proposed_item": true,
-      "status": "decided"
-     }
-    ],
-    "kind": "effect",
-    "lib": "kkt_setup_os",
-    "name": "kkt-setup-os",
-    "path": "(proposed)",
-    "proposed": "new",
-    "proposed_notes": [
-     {
-      "status": "decided",
-      "text": "new effect crate, from kashkeshet"
-     },
-     {
-      "status": "decided",
-      "text": "machine::record::read_setup comes here from kashkeshet as read_record"
-     },
-     {
-      "status": "decided",
-      "text": "machine::record::read_unfinished comes here from kashkeshet as read_unfinished"
-     },
-     {
-      "status": "decided",
-      "text": "machine::record::write_setup_record comes here from kashkeshet as write_record"
-     },
-     {
-      "status": "decided",
-      "text": "process::program_path comes here from kashkeshet as program_path"
-     },
-     {
-      "status": "decided",
-      "text": "process::kkt_path comes here from kashkeshet as kkt_path"
-     },
-     {
-      "status": "decided",
-      "text": "process::write_whole comes here from kashkeshet as write_whole"
-     },
-     {
-      "status": "decided",
-      "text": "write_whole is no longer public: how kkt-setup-os writes the record whole, private to it"
-     },
-     {
-      "status": "decided",
-      "text": "new fn on_path"
-     },
-     {
-      "status": "decided",
-      "text": "new fn remove_record"
-     },
-     {
-      "status": "decided",
-      "text": "new fn make_data_folder"
-     },
-     {
-      "status": "decided",
-      "text": "new fn absolute"
-     },
-     {
-      "status": "decided",
-      "text": "new fn canonicalize"
-     },
-     {
-      "status": "decided",
-      "text": "new fn path_dirs"
-     },
-     {
-      "status": "decided",
-      "text": "new fn write_unfinished"
-     },
-     {
-      "status": "decided",
-      "text": "new fn remove_unfinished"
-     },
-     {
-      "status": "decided",
-      "text": "the record and its note are where kkt-setup says"
-     },
-     {
-      "status": "decided",
-      "text": "it reads and writes kkt-setup's Record and Unfinished note (step 7.3a)"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": []
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
     "crate_doc": "A signal that the server is stopping.",
     "dev_only": false,
-    "features": {},
+    "features": {
+     "real": [
+      "dep:tokio"
+     ]
+    },
     "holders": [],
     "implements": [],
     "items": [
@@ -30681,44 +30359,7 @@ window.KKT_PROPOSED = {
        "stopped"
       ],
       "path": "Shutdown"
-     }
-    ],
-    "kind": "logic",
-    "lib": "kkt_shutdown",
-    "machine_work": {},
-    "name": "kkt-shutdown",
-    "path": "crates/kkt-shutdown",
-    "proposed": "changed",
-    "proposed_notes": [
-     {
-      "status": "follows",
-      "text": "StopSignals moves to kkt-shutdown-os: an effect, split out so no crate is mixed"
      },
-     {
-      "status": "follows",
-      "text": "its real feature moves to kkt-shutdown-os"
-     }
-    ],
-    "released_program": false,
-    "slots": [],
-    "third_party": [
-     "tokio-util"
-    ]
-   },
-   {
-    "bins": [],
-    "builds": [],
-    "contracts": [],
-    "crate_doc": "",
-    "dev_only": false,
-    "features": {
-     "real": [
-      "dep:tokio"
-     ]
-    },
-    "holders": [],
-    "implements": [],
-    "items": [
      {
       "doc": "OS stop signals, installed before the server announces it is ready.",
       "feature": "real",
@@ -30727,38 +30368,31 @@ window.KKT_PROPOSED = {
        "listen",
        "stop_on_signal"
       ],
-      "moved_from": "kkt-shutdown",
-      "path": "StopSignals",
-      "status": "follows"
+      "path": "StopSignals"
      }
     ],
-    "kind": "effect",
-    "lib": "kkt_shutdown_os",
-    "name": "kkt-shutdown-os",
-    "path": "(proposed)",
-    "proposed": "new",
+    "kind": "logic and effect",
+    "lib": "kkt_shutdown",
+    "machine_work": {},
+    "name": "kkt-shutdown",
+    "optional_third_party": {
+     "tokio": [
+      "real"
+     ]
+    },
+    "path": "crates/kkt-shutdown",
+    "proposed": "changed",
     "proposed_notes": [
      {
-      "status": "follows",
-      "text": "new effect crate, from kkt-shutdown"
-     },
-     {
-      "status": "follows",
-      "text": "StopSignals comes here from kkt-shutdown"
-     },
-     {
-      "status": "follows",
-      "text": "takes the real feature from kkt-shutdown"
-     },
-     {
-      "status": "follows",
-      "text": "a stop signal stops kkt-shutdown's Shutdown"
+      "status": "decided",
+      "text": "tokio's signals are behind real: a crate that depends on kkt-shutdown without real gets Shutdown alone (step 14.3)"
      }
     ],
     "released_program": false,
     "slots": [],
     "third_party": [
-     "tokio"
+     "tokio",
+     "tokio-util"
     ]
    },
    {
@@ -32268,6 +31902,10 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
+      "text": "the preview example (step 14.3)"
+     },
+     {
+      "status": "decided",
       "text": "the preview example"
      },
      {
@@ -32316,10 +31954,6 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "no longer uses kkt-shutdown-os in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
-     },
-     {
-      "status": "decided",
       "text": "no longer uses kkt-web in its tests: it is a program only, with no example or library: its arrows are the binary's own (step 6.3)"
      },
      {
@@ -32336,7 +31970,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the preview program (step 6.3): the stop signals"
+      "text": "the preview program (step 6.3): the stop signals (step 14.3)"
      },
      {
       "status": "decided",
@@ -32356,7 +31990,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the preview program (step 6.3): its log, on standard error"
+      "text": "the preview program (step 6.3): its log, on standard error (step 14.4)"
      },
      {
       "status": "decided",
@@ -32645,12 +32279,16 @@ window.KKT_PROPOSED = {
     "to": "kkt-api-agent"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kashkeshet",
     "items": [
      "Contents",
      "Settings",
-     "layout"
+     "layout",
+     "prune",
+     "write"
     ],
     "kind": "normal",
     "optional": false,
@@ -32661,7 +32299,9 @@ window.KKT_PROPOSED = {
       "detail": [
        "Contents",
        "Settings",
-       "layout"
+       "layout",
+       "prune",
+       "write"
       ],
       "role": "uses"
      }
@@ -32672,35 +32312,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-backup"
-   },
-   {
-    "features": [
-     "real"
-    ],
-    "from": "kashkeshet",
-    "items": [
-     "prune",
-     "write"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "prune",
-       "write"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "follows"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-backup-os"
    },
    {
     "features": [
@@ -33327,41 +32938,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-lane-files-os"
    },
    {
-    "features": [],
-    "from": "kashkeshet",
-    "items": [
-     "DEFAULT_DEPENDENCY_LOG_LEVEL",
-     "DEFAULT_LOG_LEVEL",
-     "LogLevel",
-     "LogPolicy",
-     "SettingError",
-     "check_dependency_log_level"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "DEFAULT_DEPENDENCY_LOG_LEVEL",
-       "DEFAULT_LOG_LEVEL",
-       "LogLevel",
-       "LogPolicy",
-       "SettingError",
-       "check_dependency_log_level"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-logs"
-   },
-   {
     "features": [
      "real"
     ],
@@ -33395,7 +32971,46 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-logs-os"
+    "to": "kkt-log-tracing"
+   },
+   {
+    "features": [
+     "real"
+    ],
+    "from": "kashkeshet",
+    "items": [
+     "DEFAULT_DEPENDENCY_LOG_LEVEL",
+     "DEFAULT_LOG_LEVEL",
+     "LogLevel",
+     "LogPolicy",
+     "SettingError",
+     "check_dependency_log_level",
+     "open_log_file"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "changed",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "DEFAULT_DEPENDENCY_LOG_LEVEL",
+       "DEFAULT_LOG_LEVEL",
+       "LogLevel",
+       "LogPolicy",
+       "SettingError",
+       "check_dependency_log_level",
+       "open_log_file"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-logs"
    },
    {
     "features": [],
@@ -33910,8 +33525,21 @@ window.KKT_PROPOSED = {
     "items": [
      "Answers",
      "KeyKind",
+     "absolute",
+     "canonicalize",
      "default_db",
-     "upgrade_backup_folder"
+     "kkt_path",
+     "make_data_folder",
+     "on_path",
+     "path_dirs",
+     "program_path",
+     "read_record",
+     "read_unfinished",
+     "remove_record",
+     "remove_unfinished",
+     "upgrade_backup_folder",
+     "write_record",
+     "write_unfinished"
     ],
     "kind": "normal",
     "optional": false,
@@ -33931,8 +33559,21 @@ window.KKT_PROPOSED = {
       "detail": [
        "Answers",
        "KeyKind",
+       "absolute",
+       "canonicalize",
        "default_db",
-       "upgrade_backup_folder"
+       "kkt_path",
+       "make_data_folder",
+       "on_path",
+       "path_dirs",
+       "program_path",
+       "read_record",
+       "read_unfinished",
+       "remove_record",
+       "remove_unfinished",
+       "upgrade_backup_folder",
+       "write_record",
+       "write_unfinished"
       ],
       "role": "uses"
      }
@@ -33945,68 +33586,22 @@ window.KKT_PROPOSED = {
     "to": "kkt-setup"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kashkeshet",
     "items": [
-     "absolute",
-     "canonicalize",
-     "kkt_path",
-     "make_data_folder",
-     "on_path",
-     "path_dirs",
-     "program_path",
-     "read_record",
-     "read_unfinished",
-     "remove_record",
-     "remove_unfinished",
-     "write_record",
-     "write_unfinished"
+     "Shutdown",
+     "StopSignals"
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "new",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "absolute",
-       "canonicalize",
-       "kkt_path",
-       "make_data_folder",
-       "on_path",
-       "path_dirs",
-       "program_path",
-       "read_record",
-       "read_unfinished",
-       "remove_record",
-       "remove_unfinished",
-       "write_record",
-       "write_unfinished"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-setup-os"
-   },
-   {
-    "features": [],
-    "from": "kashkeshet",
-    "items": [
-     "Shutdown"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Shutdown"
+       "Shutdown",
+       "StopSignals"
       ],
       "role": "uses"
      }
@@ -34014,33 +33609,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-shutdown"
-   },
-   {
-    "features": [
-     "real"
-    ],
-    "from": "kashkeshet",
-    "items": [
-     "StopSignals"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "StopSignals"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "follows"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-shutdown-os"
    },
    {
     "features": [],
@@ -35223,40 +34791,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-scratch"
-   },
-   {
-    "features": [],
-    "from": "kkt-backup-os",
-    "items": [
-     "Contents",
-     "DATABASE_FILE",
-     "Layout",
-     "name",
-     "old_names"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Contents",
-       "DATABASE_FILE",
-       "Layout",
-       "name",
-       "old_names"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided",
-     "follows"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-backup"
    },
    {
     "features": [],
@@ -36448,7 +35982,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-logs-os"
+    "to": "kkt-log-tracing"
    },
    {
     "features": [],
@@ -36626,19 +36160,22 @@ window.KKT_PROPOSED = {
     "to": "kkt-server-listen"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kkt-fake-product",
     "items": [
-     "Shutdown"
+     "Shutdown",
+     "StopSignals"
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Shutdown"
+       "Shutdown",
+       "StopSignals"
       ],
       "role": "uses"
      }
@@ -36646,33 +36183,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-shutdown"
-   },
-   {
-    "features": [
-     "real"
-    ],
-    "from": "kkt-fake-product",
-    "items": [
-     "StopSignals"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "StopSignals"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "follows"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-shutdown-os"
    },
    {
     "features": [],
@@ -37656,6 +37166,33 @@ window.KKT_PROPOSED = {
     "to": "kkt-identity-keymode"
    },
    {
+    "features": [
+     "real"
+    ],
+    "from": "kkt-keymode",
+    "items": [
+     "TracingLog"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "wires",
+    "roles": [
+     {
+      "detail": [
+       "TracingLog"
+      ],
+      "role": "wires"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-log-tracing"
+   },
+   {
     "features": [],
     "from": "kkt-keymode",
     "items": [
@@ -37683,33 +37220,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-logs"
-   },
-   {
-    "features": [
-     "real"
-    ],
-    "from": "kkt-keymode",
-    "items": [
-     "TracingLog"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
-     {
-      "detail": [
-       "TracingLog"
-      ],
-      "role": "wires"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-logs-os"
    },
    {
     "features": [],
@@ -37894,19 +37404,22 @@ window.KKT_PROPOSED = {
     "to": "kkt-server-listen"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kkt-keymode",
     "items": [
-     "Shutdown"
+     "Shutdown",
+     "StopSignals"
     ],
     "kind": "normal",
     "optional": false,
-    "proposed": "changed",
     "role": "uses",
     "roles": [
      {
       "detail": [
-       "Shutdown"
+       "Shutdown",
+       "StopSignals"
       ],
       "role": "uses"
      }
@@ -37914,33 +37427,6 @@ window.KKT_PROPOSED = {
     "target": null,
     "test_items": [],
     "to": "kkt-shutdown"
-   },
-   {
-    "features": [
-     "real"
-    ],
-    "from": "kkt-keymode",
-    "items": [
-     "StopSignals"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "StopSignals"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "follows"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-shutdown-os"
    },
    {
     "features": [],
@@ -38019,96 +37505,7 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-logs",
-    "items": [
-     "OutOfRange",
-     "Span",
-     "Time"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "changed",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "OutOfRange",
-       "Span",
-       "Time"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [
-     "testing::FixedClock"
-    ],
-    "to": "kkt-clock"
-   },
-   {
-    "features": [
-     "testing"
-    ],
-    "from": "kkt-logs-os",
-    "items": [
-     "Span",
-     "testing::FixedClock"
-    ],
-    "kind": "dev",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Span",
-       "testing::FixedClock"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-clock"
-   },
-   {
-    "features": [],
-    "from": "kkt-logs-os",
-    "items": [
-     "Clock",
-     "OutOfRange",
-     "Time"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Clock",
-       "OutOfRange",
-       "Time"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-clock"
-   },
-   {
-    "features": [],
-    "from": "kkt-logs-os",
+    "from": "kkt-log-tracing",
     "items": [
      "Field",
      "Level",
@@ -38144,14 +37541,9 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-logs-os",
+    "from": "kkt-log-tracing",
     "items": [
-     "LogLevel",
-     "LogPolicy",
-     "prune_due",
-     "pruning",
-     "rotation",
-     "should_roll"
+     "LogLevel"
     ],
     "kind": "normal",
     "optional": false,
@@ -38160,12 +37552,7 @@ window.KKT_PROPOSED = {
     "roles": [
      {
       "detail": [
-       "LogLevel",
-       "LogPolicy",
-       "prune_due",
-       "pruning",
-       "rotation",
-       "should_roll"
+       "LogLevel"
       ],
       "role": "uses"
      }
@@ -38178,14 +37565,73 @@ window.KKT_PROPOSED = {
     "to": "kkt-logs"
    },
    {
+    "features": [
+     "testing"
+    ],
+    "from": "kkt-logs",
+    "items": [
+     "Span"
+    ],
+    "kind": "dev",
+    "optional": false,
+    "proposed": "changed",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Span"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-clock"
+   },
+   {
     "features": [],
-    "from": "kkt-logs-os",
+    "from": "kkt-logs",
+    "items": [
+     "Clock",
+     "OutOfRange",
+     "Span",
+     "Time"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "changed",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "Clock",
+       "OutOfRange",
+       "Span",
+       "Time"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [
+     "testing::FixedClock"
+    ],
+    "to": "kkt-clock"
+   },
+   {
+    "features": [],
+    "from": "kkt-logs",
     "items": [
      "Dir"
     ],
     "kind": "dev",
     "optional": false,
-    "proposed": "new",
     "role": "uses",
     "roles": [
      {
@@ -41281,62 +40727,6 @@ window.KKT_PROPOSED = {
    },
    {
     "features": [],
-    "from": "kkt-setup-os",
-    "items": [
-     "Record",
-     "Unfinished",
-     "record_path",
-     "unfinished_path"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Record",
-       "Unfinished",
-       "record_path",
-       "unfinished_path"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-setup"
-   },
-   {
-    "features": [],
-    "from": "kkt-shutdown-os",
-    "items": [
-     "Shutdown"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "Shutdown"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "follows"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-shutdown"
-   },
-   {
-    "features": [],
     "from": "kkt-terminal-os",
     "items": [
      "Dir"
@@ -42071,31 +41461,6 @@ window.KKT_PROPOSED = {
     "to": "kkt-log"
    },
    {
-    "features": [],
-    "from": "kkt-web-preview",
-    "items": [
-     "LogLevel"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "uses",
-    "roles": [
-     {
-      "detail": [
-       "LogLevel"
-      ],
-      "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-logs"
-   },
-   {
     "features": [
      "real"
     ],
@@ -42127,7 +41492,32 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-logs-os"
+    "to": "kkt-log-tracing"
+   },
+   {
+    "features": [],
+    "from": "kkt-web-preview",
+    "items": [
+     "LogLevel"
+    ],
+    "kind": "normal",
+    "optional": false,
+    "proposed": "new",
+    "role": "uses",
+    "roles": [
+     {
+      "detail": [
+       "LogLevel"
+      ],
+      "role": "uses"
+     }
+    ],
+    "statuses": [
+     "decided"
+    ],
+    "target": null,
+    "test_items": [],
+    "to": "kkt-logs"
    },
    {
     "features": [],
@@ -42182,10 +41572,13 @@ window.KKT_PROPOSED = {
     "to": "kkt-server-listen"
    },
    {
-    "features": [],
+    "features": [
+     "real"
+    ],
     "from": "kkt-web-preview",
     "items": [
-     "Shutdown"
+     "Shutdown",
+     "StopSignals"
     ],
     "kind": "normal",
     "optional": false,
@@ -42197,28 +41590,7 @@ window.KKT_PROPOSED = {
        "Shutdown"
       ],
       "role": "uses"
-     }
-    ],
-    "statuses": [
-     "decided"
-    ],
-    "target": null,
-    "test_items": [],
-    "to": "kkt-shutdown"
-   },
-   {
-    "features": [
-     "real"
-    ],
-    "from": "kkt-web-preview",
-    "items": [
-     "StopSignals"
-    ],
-    "kind": "normal",
-    "optional": false,
-    "proposed": "new",
-    "role": "wires",
-    "roles": [
+     },
      {
       "detail": [
        "StopSignals"
@@ -42231,7 +41603,7 @@ window.KKT_PROPOSED = {
     ],
     "target": null,
     "test_items": [],
-    "to": "kkt-shutdown-os"
+    "to": "kkt-shutdown"
    },
    {
     "features": [],
@@ -42266,6 +41638,8 @@ window.KKT_PROPOSED = {
    }
   ],
   "kind_mismatches": [
+   "kkt-backup is marked logic and effect but it does machine work outside `real`, in src/lib.rs",
+   "kkt-logs is marked logic and effect but it does machine work outside `real`, in src/lib.rs",
    "kkt-service-launchd is marked effect but has no `real` feature and no I/O dependency",
    "kkt-service-systemd is marked effect but has no `real` feature and no I/O dependency",
    "kkt-probe is marked contract and effect but it has I/O dependencies outside `real`: reqwest",
@@ -42284,9 +41658,10 @@ window.KKT_PROPOSED = {
   "A contract used by more than two crates lives in a contract-only crate of its own (traits, plain value types with pure behaviour on them, and test doubles behind `testing`). Any crate may implement a shared contract crate's contract directly. Model: kkt-db (contract) and kkt-db-sqlite (implementation).",
   "For dependencies other than named third-party wrappers, a contract used by two crates or fewer is declared by each consumer. The program adapts the implementation; kkt-server may share those adapters between its programs.",
   "A crate may implement its own traits (FixedClock implements Clock, DryRun implements System).",
-  "Each crate is one kind, by what it does: contract, contract and effect, logic, effect, composition or test support. Only programs and compositions depend on effect crates, only programs turn on a contract-and-effect crate's real (check 2), and no crate mixes logic or a contract with an effect. Named tool wrappers are the explicit exception: effect crates also hold tool knowledge, tested through a private runner (phase 12, option a). A contract-and-effect crate is not mixed: its effect is its own contract's one implementation, behind real (phase 13).",
+  "Each crate is one kind, by what it does: contract, contract and effect, logic, logic and effect, effect, composition or test support. Only programs and compositions depend on effect crates, only programs turn on a contract-and-effect or logic-and-effect crate's real (check 2), and no crate mixes logic or a contract with an effect. Named tool wrappers are the explicit exception: effect crates also hold tool knowledge, tested through a private runner (phase 12, option a). A contract-and-effect crate is not mixed: its effect is its own contract's one implementation, behind real (phase 13). A logic-and-effect crate is not mixed either: its effect only carries out its own logic's plans, behind real, so the logic builds and tests without it (phase 14).",
   "The application's operations are three contract crates, one per level of authority: kkt-api-agent (what any registered agent may do, and the shared records), kkt-api-operator (what the human who runs the server may do) and kkt-api-admin (what the administrator does). kkt-rules implements all three.",
-  "A third-party tool or library with one implementation is one crate named for the scope: its contract in the open, and the implementation, with the tool's knowledge and a private runner, behind real (phase 13, replacing phase 12's split). Several implementations, or a contract many crates share, keep a contract crate with named implementations, as kkt-service and kkt-db do. Either way the program injects the implementation, with no adapter. Language-shaping libraries retain the RUST rule 7 exemption."
+  "A third-party tool or library with one implementation is one crate named for the scope: its contract in the open, and the implementation, with the tool's knowledge and a private runner, behind real (phase 13, replacing phase 12's split). Several implementations, or a contract many crates share, keep a contract crate with named implementations, as kkt-service and kkt-db do. Either way the program injects the implementation, with no adapter. Language-shaping libraries retain the RUST rule 7 exemption.",
+  "A logic crate and the effect that only carries out its plans may be one crate, of kind logic and effect: the logic in the open, and the effect behind real, which only programs turn on, so the logic builds and tests without the effect. Crates follow domains, not the kind of code (phase 14)."
  ],
  "table": [
   {

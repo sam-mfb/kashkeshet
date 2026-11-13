@@ -174,6 +174,101 @@ class ContractAndEffect(unittest.TestCase):
         self.assertTrue(self.kinds.is_contract("contract"))
         self.assertFalse(self.kinds.is_contract("effect"))
 
+def logic_effect(features=("real",), third_party=(), optional=None, machine_work=None, real_files=()):
+    """A crate marked logic and effect, as the map records it."""
+    return {"name": "kkt-plan", "bins": [], "features": {f: [] for f in features}, "slots": [],
+            "third_party": list(third_party), "optional_third_party": optional or {},
+            "machine_work": machine_work or {}, "real_files": list(real_files), "implements": []}
+
+
+class LogicAndEffect(unittest.TestCase):
+    """Logic in the open, and the effect that carries out its plans behind `real` (phase 14)."""
+    kinds = check.kinds
+
+    def mismatches(self, crate, edges=(), others=()):
+        crates = [crate, *others]
+        kind_of = {c["name"]: c.get("kind", self.kinds.LOGIC_EFFECT) for c in crates}
+        found, _ = self.kinds.check(crates, list(edges), kind_of, mixed_allowed=False)
+        return found
+
+    def program(self):
+        return {"name": "kkt", "bins": ["kkt"], "kind": "composition", "features": {}, "slots": [],
+                "third_party": [], "machine_work": {}, "implements": []}
+
+    def test_a_well_formed_crate_passes(self):
+        crate = logic_effect(third_party=["libc"], optional={"libc": ["real"]},
+                             machine_work={"src/files.rs": ["fs::write"]}, real_files=["src/files.rs"])
+        self.assertEqual(self.mismatches(crate, [edge("kkt", "kkt-plan", ["real"])], [self.program()]), [])
+
+    def test_it_needs_a_real_feature(self):
+        self.assertEqual(self.mismatches(logic_effect(features=())),
+                         ["kkt-plan is marked logic and effect but it has no `real` feature"])
+
+    def test_machine_work_outside_real_fails(self):
+        crate = logic_effect(machine_work={"src/lib.rs": ["fs::read"], "src/files.rs": ["fs::write"]},
+                             real_files=["src/files.rs"])
+        self.assertEqual(self.mismatches(crate),
+                         ["kkt-plan is marked logic and effect but it does machine work outside `real`, in src/lib.rs"])
+
+    def test_an_io_dependency_outside_real_fails(self):
+        crate = logic_effect(third_party=["libc", "rand"], optional={"libc": ["real"], "rand": ["real", "testing"]})
+        self.assertEqual(self.mismatches(crate),
+                         ["kkt-plan is marked logic and effect but it has I/O dependencies outside `real`: rand"])
+
+    def test_turning_on_another_crates_real_fails(self):
+        other = {"name": "kkt-os", "bins": [], "kind": "effect", "features": {"real": []}, "slots": [],
+                 "third_party": [], "machine_work": {}, "implements": []}
+        self.assertIn("kkt-plan is marked logic and effect but it turns on another crate's `real`: kkt-os",
+                      self.mismatches(logic_effect(), [edge("kkt-plan", "kkt-os", ["real"])], [other]))
+
+    def test_a_library_turning_its_real_on_fails(self):
+        user = {"name": "kkt-user", "bins": [], "kind": "logic", "features": {}, "slots": [], "third_party": [],
+                "machine_work": {}, "implements": []}
+        self.assertIn("kkt-plan is marked logic and effect but crates other than programs turn its `real` on: kkt-user",
+                      self.mismatches(logic_effect(), [edge("kkt-user", "kkt-plan", ["real"])], [user]))
+
+    def test_only_an_arrow_turning_real_on_reaches_the_effect(self):
+        kind_of = {"kkt-plan": self.kinds.LOGIC_EFFECT}
+        self.assertFalse(self.kinds.reaches_effect(edge("a", "kkt-plan"), kind_of))
+        self.assertTrue(self.kinds.reaches_effect(edge("a", "kkt-plan", ["real"]), kind_of))
+
+    def test_its_logic_is_no_contract(self):
+        self.assertFalse(self.kinds.is_contract(self.kinds.LOGIC_EFFECT))
+
+
+generate_spec = importlib.util.spec_from_file_location("generate", Path(__file__).resolve().parent / "generate.py")
+generate = importlib.util.module_from_spec(generate_spec)
+generate_spec.loader.exec_module(generate)
+
+
+class FilesBehindReal(unittest.TestCase):
+    """generate.py records which files only `real` brings (phase 14)."""
+
+    def test_the_conditions_that_hold_only_with_real(self):
+        for cfg in ['feature = "real"', 'any(feature = "real", test)', 'any(test, feature = "real")',
+                    'all(unix, feature = "real")']:
+            self.assertTrue(generate.behind_real(cfg), cfg)
+        for cfg in ['test', 'feature = "testing"', 'any(test, feature = "real", feature = "testing")',
+                    'not(feature = "real")', 'all(unix, not(feature = "real"))', 'unix']:
+            self.assertFalse(generate.behind_real(cfg), cfg)
+
+    def test_modules_behind_real_and_what_they_declare(self):
+        root = Path(__file__).resolve().parents[2] / "target" / "tmp" / "architecture-tests" / "real-files"
+        files = {
+            "src/lib.rs": '#[cfg(feature = "real")]\npub mod files;\n#[cfg(any(feature = "real", test))]\nmod plan;\nmod open;\n',
+            "src/files.rs": "mod inner;\n",
+            "src/files/inner.rs": "",
+            "src/plan.rs": "",
+            "src/open.rs": "",
+        }
+        for name, text in files.items():
+            (root / name).parent.mkdir(parents=True, exist_ok=True)
+            (root / name).write_text(text)
+        found = generate.real_module_files(root, [root / n for n in files])
+        self.assertEqual(sorted(str(f.relative_to(root)) for f in found),
+                         ["src/files.rs", "src/files/inner.rs", "src/plan.rs"])
+
+
 class ProposedMachineWork(unittest.TestCase):
     """The frozen program work must still have a real destination after a merge."""
 

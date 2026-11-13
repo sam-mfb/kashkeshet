@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "56b12b4",
+ "commit": "aa5490f",
  "crates": [
   {
    "bins": [
@@ -551,6 +551,7 @@ window.KKT_GRAPH = {
    "name": "kashkeshet",
    "optional_third_party": {},
    "path": ".",
+   "real_files": [],
    "released_program": true,
    "slots": [
     {
@@ -946,6 +947,7 @@ window.KKT_GRAPH = {
    "name": "kkt-admission",
    "optional_third_party": {},
    "path": "crates/kkt-admission",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -1064,6 +1066,7 @@ window.KKT_GRAPH = {
    "name": "kkt-admission-os",
    "optional_third_party": {},
    "path": "crates/kkt-admission-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -1420,6 +1423,11 @@ window.KKT_GRAPH = {
     ]
    },
    "path": "crates/kkt-agent-client",
+   "real_files": [
+    "src/mcp.rs",
+    "src/mcp/http.rs",
+    "src/mcp/watching.rs"
+   ],
    "released_program": false,
    "slots": [
     {
@@ -1691,6 +1699,7 @@ window.KKT_GRAPH = {
    "name": "kkt-agent-commands",
    "optional_third_party": {},
    "path": "crates/kkt-agent-commands",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -2173,6 +2182,7 @@ window.KKT_GRAPH = {
     ]
    },
    "path": "crates/kkt-agent-files-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -2268,6 +2278,7 @@ window.KKT_GRAPH = {
    "name": "kkt-api-admin",
    "optional_third_party": {},
    "path": "crates/kkt-api-admin",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3030,6 +3041,7 @@ window.KKT_GRAPH = {
    "name": "kkt-api-agent",
    "optional_third_party": {},
    "path": "crates/kkt-api-agent",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3433,6 +3445,7 @@ window.KKT_GRAPH = {
    "name": "kkt-api-operator",
    "optional_third_party": {},
    "path": "crates/kkt-api-operator",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3623,6 +3636,7 @@ window.KKT_GRAPH = {
    "name": "kkt-api-sim",
    "optional_third_party": {},
    "path": "crates/kkt-api-sim",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -3752,6 +3766,7 @@ window.KKT_GRAPH = {
    "name": "kkt-backup",
    "optional_third_party": {},
    "path": "crates/kkt-backup",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3807,6 +3822,7 @@ window.KKT_GRAPH = {
    "name": "kkt-backup-os",
    "optional_third_party": {},
    "path": "crates/kkt-backup-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3899,6 +3915,9 @@ window.KKT_GRAPH = {
    "name": "kkt-browser",
    "optional_third_party": {},
    "path": "crates/kkt-browser",
+   "real_files": [
+    "src/system.rs"
+   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3995,6 +4014,10 @@ window.KKT_GRAPH = {
    "name": "kkt-client-command",
    "optional_third_party": {},
    "path": "crates/kkt-client-command",
+   "real_files": [
+    "src/claude.rs",
+    "src/claude/runner.rs"
+   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4105,6 +4128,7 @@ window.KKT_GRAPH = {
    "name": "kkt-client-config",
    "optional_third_party": {},
    "path": "crates/kkt-client-config",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -4246,6 +4270,7 @@ window.KKT_GRAPH = {
    "name": "kkt-client-config-os",
    "optional_third_party": {},
    "path": "crates/kkt-client-config-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4376,6 +4401,7 @@ window.KKT_GRAPH = {
    "name": "kkt-clock",
    "optional_third_party": {},
    "path": "crates/kkt-clock",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4422,6 +4448,7 @@ window.KKT_GRAPH = {
    "name": "kkt-clock-system",
    "optional_third_party": {},
    "path": "crates/kkt-clock-system",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4513,6 +4540,7 @@ window.KKT_GRAPH = {
    "name": "kkt-config-file",
    "optional_third_party": {},
    "path": "crates/kkt-config-file",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4595,6 +4623,7 @@ window.KKT_GRAPH = {
    "name": "kkt-config-file-os",
    "optional_third_party": {},
    "path": "crates/kkt-config-file-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4891,6 +4920,17 @@ window.KKT_GRAPH = {
     ]
    },
    "path": "crates/kkt-container",
+   "real_files": [
+    "src/docker.rs",
+    "src/docker/compose.rs",
+    "src/docker/files.rs",
+    "src/docker/lanes.rs",
+    "src/docker/lifecycle.rs",
+    "src/docker/name_pack.rs",
+    "src/docker/provision.rs",
+    "src/docker/runner.rs",
+    "src/docker/tailscale.rs"
+   ],
    "released_program": false,
    "slots": [
     {
@@ -5635,6 +5675,7 @@ window.KKT_GRAPH = {
    "name": "kkt-db",
    "optional_third_party": {},
    "path": "crates/kkt-db",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -5756,6 +5797,7 @@ window.KKT_GRAPH = {
    "name": "kkt-db-sqlite",
    "optional_third_party": {},
    "path": "crates/kkt-db-sqlite",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -5955,6 +5997,7 @@ window.KKT_GRAPH = {
    "name": "kkt-diagnostics",
    "optional_third_party": {},
    "path": "crates/kkt-diagnostics",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -6181,6 +6224,7 @@ window.KKT_GRAPH = {
    "name": "kkt-entropy",
    "optional_third_party": {},
    "path": "crates/kkt-entropy",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6223,6 +6267,7 @@ window.KKT_GRAPH = {
     ]
    },
    "path": "crates/kkt-entropy-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6404,6 +6449,7 @@ window.KKT_GRAPH = {
    "name": "kkt-events",
    "optional_third_party": {},
    "path": "crates/kkt-events",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6495,6 +6541,7 @@ window.KKT_GRAPH = {
    "name": "kkt-fake-product",
    "optional_third_party": {},
    "path": "programs/kkt-fake-product",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -6564,6 +6611,7 @@ window.KKT_GRAPH = {
    "name": "kkt-hash",
    "optional_third_party": {},
    "path": "crates/kkt-hash",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6631,6 +6679,7 @@ window.KKT_GRAPH = {
    "name": "kkt-hosts",
    "optional_third_party": {},
    "path": "crates/kkt-hosts",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6720,6 +6769,7 @@ window.KKT_GRAPH = {
    "name": "kkt-identity",
    "optional_third_party": {},
    "path": "crates/kkt-identity",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6757,6 +6807,7 @@ window.KKT_GRAPH = {
    "name": "kkt-identity-keymode",
    "optional_third_party": {},
    "path": "crates/kkt-identity-keymode",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6786,6 +6837,7 @@ window.KKT_GRAPH = {
    "name": "kkt-keymode",
    "optional_third_party": {},
    "path": "programs/kkt-keymode",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6873,6 +6925,9 @@ window.KKT_GRAPH = {
    "name": "kkt-lane-commit",
    "optional_third_party": {},
    "path": "crates/kkt-lane-commit",
+   "real_files": [
+    "src/git.rs"
+   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6989,6 +7044,7 @@ window.KKT_GRAPH = {
    "name": "kkt-lane-files",
    "optional_third_party": {},
    "path": "crates/kkt-lane-files",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -7068,6 +7124,7 @@ window.KKT_GRAPH = {
    "name": "kkt-lane-files-os",
    "optional_third_party": {},
    "path": "crates/kkt-lane-files-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7181,6 +7238,7 @@ window.KKT_GRAPH = {
    "name": "kkt-log",
    "optional_third_party": {},
    "path": "crates/kkt-log",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7297,6 +7355,7 @@ window.KKT_GRAPH = {
    "name": "kkt-logs",
    "optional_third_party": {},
    "path": "crates/kkt-logs",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7386,6 +7445,7 @@ window.KKT_GRAPH = {
     ]
    },
    "path": "crates/kkt-logs-os",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -7466,6 +7526,7 @@ window.KKT_GRAPH = {
    "name": "kkt-machine",
    "optional_third_party": {},
    "path": "crates/kkt-machine",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7505,6 +7566,7 @@ window.KKT_GRAPH = {
    "name": "kkt-machine-os",
    "optional_third_party": {},
    "path": "crates/kkt-machine-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7587,6 +7649,7 @@ window.KKT_GRAPH = {
    "name": "kkt-mcp",
    "optional_third_party": {},
    "path": "crates/kkt-mcp",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -7805,6 +7868,7 @@ window.KKT_GRAPH = {
    "name": "kkt-mcp-formatter",
    "optional_third_party": {},
    "path": "crates/kkt-mcp-formatter",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -7952,6 +8016,7 @@ window.KKT_GRAPH = {
    "name": "kkt-names",
    "optional_third_party": {},
    "path": "crates/kkt-names",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -8670,6 +8735,7 @@ window.KKT_GRAPH = {
    "name": "kkt-operate",
    "optional_third_party": {},
    "path": "crates/kkt-operate",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -11402,6 +11468,9 @@ window.KKT_GRAPH = {
     ]
    },
    "path": "crates/kkt-probe",
+   "real_files": [
+    "src/http.rs"
+   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11458,6 +11527,7 @@ window.KKT_GRAPH = {
    "name": "kkt-provenance",
    "optional_third_party": {},
    "path": "crates/kkt-provenance",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11564,6 +11634,10 @@ window.KKT_GRAPH = {
     ]
    },
    "path": "crates/kkt-remote-access",
+   "real_files": [
+    "src/tailscale.rs",
+    "src/tailscale/runner.rs"
+   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -12181,6 +12255,7 @@ window.KKT_GRAPH = {
    "name": "kkt-rules",
    "optional_third_party": {},
    "path": "crates/kkt-rules",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -12624,6 +12699,7 @@ window.KKT_GRAPH = {
    "name": "kkt-scratch",
    "optional_third_party": {},
    "path": "crates/kkt-scratch",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -12675,6 +12751,7 @@ window.KKT_GRAPH = {
    "name": "kkt-search",
    "optional_third_party": {},
    "path": "crates/kkt-search",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -12826,6 +12903,7 @@ window.KKT_GRAPH = {
    "name": "kkt-server",
    "optional_third_party": {},
    "path": "crates/kkt-server",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -13085,6 +13163,7 @@ window.KKT_GRAPH = {
    "name": "kkt-server-listen",
    "optional_third_party": {},
    "path": "crates/kkt-server-listen",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -13313,6 +13392,7 @@ window.KKT_GRAPH = {
    "name": "kkt-service",
    "optional_third_party": {},
    "path": "crates/kkt-service",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -13375,6 +13455,7 @@ window.KKT_GRAPH = {
    "name": "kkt-service-launchd",
    "optional_third_party": {},
    "path": "crates/kkt-service-launchd",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -13408,6 +13489,7 @@ window.KKT_GRAPH = {
    "name": "kkt-service-os",
    "optional_third_party": {},
    "path": "crates/kkt-service-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -13458,6 +13540,7 @@ window.KKT_GRAPH = {
    "name": "kkt-service-systemd",
    "optional_third_party": {},
    "path": "crates/kkt-service-systemd",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -14466,6 +14549,7 @@ window.KKT_GRAPH = {
    "name": "kkt-setup",
    "optional_third_party": {},
    "path": "crates/kkt-setup",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -14674,6 +14758,7 @@ window.KKT_GRAPH = {
    "name": "kkt-setup-os",
    "optional_third_party": {},
    "path": "crates/kkt-setup-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -14707,6 +14792,7 @@ window.KKT_GRAPH = {
    "name": "kkt-shutdown",
    "optional_third_party": {},
    "path": "crates/kkt-shutdown",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -14742,6 +14828,7 @@ window.KKT_GRAPH = {
    "name": "kkt-shutdown-os",
    "optional_third_party": {},
    "path": "crates/kkt-shutdown-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -14816,6 +14903,7 @@ window.KKT_GRAPH = {
     ]
    },
    "path": "crates/kkt-terminal-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -14920,6 +15008,7 @@ window.KKT_GRAPH = {
    "name": "kkt-watch",
    "optional_third_party": {},
    "path": "crates/kkt-watch",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -15444,6 +15533,7 @@ window.KKT_GRAPH = {
    "name": "kkt-web",
    "optional_third_party": {},
    "path": "crates/kkt-web",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -16402,6 +16492,7 @@ window.KKT_GRAPH = {
    "name": "kkt-web-preview",
    "optional_third_party": {},
    "path": "programs/kkt-web-preview",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -26848,6 +26939,11 @@ window.KKT_CONCERNS = {
    "about": "Behaviour, with every effect injected. Protocol translation counts as logic.",
    "id": "logic",
    "title": "logic"
+  },
+  {
+   "about": "Logic in the open and the effect that only carries out its plans behind real, which only programs turn on, so the logic builds and tests without the effect (phase 14). A crate that depends on it without real depends on the logic alone.",
+   "id": "logic and effect",
+   "title": "logic and effect"
   },
   {
    "about": "Touches the operating system, disk, network, real time or real randomness directly.",

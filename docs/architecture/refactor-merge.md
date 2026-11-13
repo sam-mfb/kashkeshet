@@ -50,6 +50,15 @@ The map draws a merged crate as a split box, and its grey and amber arrows
 now run from the crate that is used or built to the crate that uses or
 builds it.
 
+Phase 14 (Sam, 2026-11-13) does the same for logic: a logic crate and the
+effect crate that only carries out its plans become one crate named for
+the domain, of a new kind, "logic and effect", with the effect behind
+`real`. kkt-backup, kkt-setup and kkt-shutdown take back their `-os`
+crates. kkt-logs takes back the log file's writing, and starting tracing,
+the named implementation of kkt-log's contract, becomes kkt-log-tracing.
+kkt-admission splits by domain: who is let in stays, and the server's keys,
+with their files behind `real`, become kkt-server-keys.
+
 The workspace went from 33 packages to 65. The code now matches the
 proposed map, as amended during the refactor, with no difference left
 (`decisions.md`, "After the refactor").
@@ -203,6 +212,18 @@ is one crate named for the scope, the implementation behind `real`. Notes
    and RUST.md, should say which shape applies when. This would revise
    Sam's ruling of 2026-11-12, which always splits a third-party
    dependency into a contract crate and a named wrapper.
+
+### A note on logic and its effect, for Sam's edit (phase 14)
+
+Principle 4 makes each module one kind. Phase 13 let a contract share a
+crate with its one implementation. Sam extends that to logic (2026-11-13):
+a logic crate and the effect crate that only carries out its plans may be
+one crate, with the effect behind a feature only programs turn on, so the
+logic builds and tests without the effect. Modules follow domains (1.2.3),
+not the kind of code. Split by kind alone, kkt had pairs such as kkt-backup
+and kkt-backup-os, which always change together (1.1.1's tight coupling).
+Principle 4, 1.2.3 and RUST.md should say when kinds may share a module.
+Sam is making this edit himself.
 
 ### Candidates to revisit (not decided)
 
