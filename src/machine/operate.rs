@@ -352,6 +352,6 @@ impl kkt_operate::ConfigText for NativeConfigText {
 pub(crate) struct NativeBackups;
 impl BackupWriter for NativeBackups {
     fn write(&self, folder: &Path, layout: &kkt_backup::Layout<'_>) -> Result<PathBuf, String> {
-        kkt_backup_os::write(folder, layout, super::database::copy)
+        kkt_backup::write(folder, layout, super::database::copy)
     }
 }

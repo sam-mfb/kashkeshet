@@ -1,8 +1,14 @@
 //! Backup layouts, names, file modes and pruning choices, with no file I/O.
-//! The caller supplies the time and source paths, then performs the layout.
+//! The caller supplies the time and source paths. Behind `real`, `write`
+//! carries out a layout on disk and `prune` removes the old folders
+//! `old_names` chooses; only programs turn `real` on.
 
+#[cfg(any(feature = "real", test))]
+mod files;
 mod settings;
 
+#[cfg(feature = "real")]
+pub use files::{prune, write};
 pub use settings::{Problem, Settings};
 
 use kkt_clock::Time;
