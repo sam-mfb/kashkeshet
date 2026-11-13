@@ -92,10 +92,11 @@ reviewed by hand until they return. Watch their first runs. The code the refacto
   this build is macOS or follows XDG. It replaces `Platform::CURRENT` in
   kkt-settings' `paths.rs`, which is gone. Every path built from `Platform`
   (the config folder, the data folder, the default database) rests on it.
-- `crates/kkt-browser-os/src/lib.rs`: the program that opens the Tailscale
+- `crates/kkt-browser/src/system.rs`: the program that opens the Tailscale
   login link (`open` on macOS, `xdg-open` elsewhere), moved from the
   program's `src/terminal/browser_login.rs` to kkt-terminal-os, then to its
-  own wrapper (12.5d), with its tests.
+  own wrapper (12.5d), then into kkt-browser behind `real` (13.3), with its
+  tests.
 - `src/machine/service.rs`: `for_this_os` chooses launchd on macOS and
   systemd on Linux, and injects kkt-service-launchd's `Launchd` or
   kkt-service-systemd's `Systemd` (12.3). The choice is unchanged, but the

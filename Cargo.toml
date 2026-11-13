@@ -6,7 +6,6 @@ members = [
     "crates/kkt-admission",
     "crates/kkt-admission-os",
     "crates/kkt-agent-client",
-    "crates/kkt-agent-client-rmcp",
     "crates/kkt-agent-commands",
     "crates/kkt-agent-files-os",
     "crates/kkt-api-admin",
@@ -16,7 +15,6 @@ members = [
     "crates/kkt-backup",
     "crates/kkt-backup-os",
     "crates/kkt-browser",
-    "crates/kkt-browser-os",
     "crates/kkt-client-command",
     "crates/kkt-client-command-claude",
     "crates/kkt-client-config",
@@ -38,7 +36,6 @@ members = [
     "crates/kkt-identity",
     "crates/kkt-identity-keymode",
     "crates/kkt-lane-commit",
-    "crates/kkt-lane-commit-git",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-log",
@@ -79,7 +76,6 @@ default-members = [
     "crates/kkt-admission",
     "crates/kkt-admission-os",
     "crates/kkt-agent-client",
-    "crates/kkt-agent-client-rmcp",
     "crates/kkt-agent-commands",
     "crates/kkt-agent-files-os",
     "crates/kkt-api-admin",
@@ -89,7 +85,6 @@ default-members = [
     "crates/kkt-backup",
     "crates/kkt-backup-os",
     "crates/kkt-browser",
-    "crates/kkt-browser-os",
     "crates/kkt-client-command",
     "crates/kkt-client-command-claude",
     "crates/kkt-client-config",
@@ -111,7 +106,6 @@ default-members = [
     "crates/kkt-identity",
     "crates/kkt-identity-keymode",
     "crates/kkt-lane-commit",
-    "crates/kkt-lane-commit-git",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
     "crates/kkt-log",
@@ -183,7 +177,7 @@ thiserror = "2.0.21"
 # dev-dependency. Other libraries turn it on too, so some kkt crates have
 # tokio's timers anyway: built alone, kkt-mcp, kkt-server and kkt-web (through
 # axum, reqwest, rmcp, hyper-util, tower and tokio-stream), and with `real`,
-# kkt-agent-client-rmcp and kkt-probe (through reqwest, rmcp, hyper-util,
+# kkt-agent-client and kkt-probe (through reqwest, rmcp, hyper-util,
 # tower and tokio-stream). The compiler does not stop them from calling a
 # timer; clippy's disallowed-methods list (clippy.toml) does.
 tokio = { version = "1.54.1", features = ["fs", "io-std", "io-util", "macros", "net", "parking_lot", "process", "rt", "rt-multi-thread", "signal", "sync"] }
@@ -220,13 +214,13 @@ clap.workspace = true
 futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
 kkt-admission-os = { path = "crates/kkt-admission-os", features = ["real"] }
-kkt-agent-client-rmcp = { path = "crates/kkt-agent-client-rmcp", features = ["real"] }
+kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
 kkt-agent-commands = { path = "crates/kkt-agent-commands" }
 kkt-agent-files-os = { path = "crates/kkt-agent-files-os", features = ["real"] }
 kkt-api-agent = { path = "crates/kkt-api-agent" }
 kkt-backup = { path = "crates/kkt-backup" }
 kkt-backup-os = { path = "crates/kkt-backup-os", features = ["real"] }
-kkt-browser-os = { path = "crates/kkt-browser-os", features = ["real"] }
+kkt-browser = { path = "crates/kkt-browser", features = ["real"] }
 kkt-client-command-claude = { path = "crates/kkt-client-command-claude", features = ["real"] }
 kkt-client-config = { path = "crates/kkt-client-config" }
 kkt-client-config-os = { path = "crates/kkt-client-config-os", features = ["real"] }
@@ -244,7 +238,7 @@ kkt-events = { path = "crates/kkt-events" }
 kkt-mcp-formatter = { path = "crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
-kkt-lane-commit-git = { path = "crates/kkt-lane-commit-git", features = ["real"] }
+kkt-lane-commit = { path = "crates/kkt-lane-commit", features = ["real"] }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
 kkt-logs = { path = "crates/kkt-logs" }
@@ -280,8 +274,6 @@ tracing.workspace = true
 # defaults setup's questions accept; every other `kkt-*` crate comes
 # with `real` through [dependencies].
 [dev-dependencies]
-# The client contract, whose `Watched` the register tests read through.
-kkt-agent-client = { path = "crates/kkt-agent-client" }
 kkt-hash = { path = "crates/kkt-hash" }
 kkt-api-admin = { path = "crates/kkt-api-admin" }
 kkt-scratch = { path = "crates/kkt-scratch" }

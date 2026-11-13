@@ -1,15 +1,12 @@
-//! kkt-browser with the system's own opener: `open` on macOS, `xdg-open`
+//! The browser with the system's own opener: `open` on macOS, `xdg-open`
 //! elsewhere. It starts the opener with the link and does not wait for it;
 //! a thread waits for it and reaps it, and a failure is kept to report once.
 //! Which opener, and how a failure is worded, are plain functions tested
 //! without `real`; starting the opener is behind `real`.
 
-#![cfg(any(feature = "real", test))]
-
 use std::sync::{Mutex, PoisonError};
 
-/// The system's opener, which the program injects as kkt-browser's
-/// `Browser`.
+/// The system's opener, which the program injects as the `Browser`.
 #[cfg(feature = "real")]
 pub struct SystemBrowser {
     opener: String,
@@ -34,7 +31,7 @@ impl SystemBrowser {
 }
 
 #[cfg(feature = "real")]
-impl kkt_browser::Browser for SystemBrowser {
+impl crate::Browser for SystemBrowser {
     /// Starts the system opener without waiting for it to finish.
     fn open(&self, url: &str) -> std::io::Result<()> {
         use std::process::Stdio;

@@ -119,18 +119,10 @@
   {
    "name": "kkt-lane-commit",
    "layer": "operations",
-   "kind": "contract",
+   "kind": "contract and effect",
    "from": "kkt-lane-files",
    "status": "decided",
-   "concern": "The project's contract for the commit a lane folder is at (LaneCommit), with its testing stand-in; no tool knowledge (step 12.5a)."
-  },
-  {
-   "name": "kkt-lane-commit-git",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kkt-lane-files",
-   "status": "decided",
-   "concern": "Implements LaneCommit directly with git: its commands, what their answers mean and the wording of a failure, tested against a private runner; running git is behind real (step 12.5a, option a)."
+   "concern": "The commit a lane folder is at: the LaneCommit contract in the open, with its testing stand-in, and its one implementation, Git, behind real, with git's commands, what their answers mean and the failures' wording, tested over a private runner (steps 12.5a and 13.4)."
   },
   {
    "name": "kkt-web-preview",
@@ -349,21 +341,6 @@
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: the connection question kkt-setup declares, where the admin key is, the server's client, the credential files and the terminal. It depends on no `-os` crate, not on kkt-agent-client, and on no other assembly."
   },
   {
-   "name": "kkt-agent-client-rmcp",
-   "layer": "clients",
-   "kind": "effect",
-   "from": "kkt-agent-client",
-   "status": "decided",
-   "concern": "Implements kkt-agent-client's contract directly over MCP, through rmcp and reqwest: Mcp, Client, Remote and AdminRemote, with Settings; plain Http requests for a program's test client. Everything that reaches the server is behind real (step 12.4).",
-   "third_party": [
-    "futures",
-    "reqwest",
-    "rmcp",
-    "serde_json",
-    "tokio"
-   ]
-  },
-  {
    "name": "kkt-agent-files-os",
    "layer": "clients",
    "kind": "effect",
@@ -393,18 +370,10 @@
   {
    "name": "kkt-browser",
    "layer": "operations",
-   "kind": "contract",
+   "kind": "contract and effect",
    "from": "kkt-terminal-os",
    "status": "decided",
-   "concern": "The project's contract for opening a link in the person's browser: Browser, with the testing Recorder (step 12.5d)."
-  },
-  {
-   "name": "kkt-browser-os",
-   "layer": "operations",
-   "kind": "effect",
-   "from": "kkt-terminal-os",
-   "status": "decided",
-   "concern": "Implements Browser with the system's own opener: starting it, reaping it, keeping a failure to report once; starting it is behind real (step 12.5d)."
+   "concern": "Opening a link in the person's browser: the contract, Browser, with the testing Recorder (step 12.5d), and its one implementation, SystemBrowser, the system's own opener: starting it, reaping it, keeping a failure to report once; starting it is behind real (step 13.3, merging kkt-browser-os back)."
   }
  ],
  "moves": [
@@ -1427,24 +1396,6 @@
    "status": "decided",
    "as": "connect::run",
    "note": "phase 10, step 10.3"
-  },
-  {
-   "item": "kkt-agent-client::Client",
-   "to": "kkt-agent-client-rmcp",
-   "status": "decided",
-   "note": "the MCP client implements kkt-agent-client's contract (step 12.4)"
-  },
-  {
-   "item": "kkt-agent-client::Remote",
-   "to": "kkt-agent-client-rmcp",
-   "status": "decided",
-   "note": "the MCP client implements kkt-agent-client's contract (step 12.4)"
-  },
-  {
-   "item": "kkt-agent-client::AdminRemote",
-   "to": "kkt-agent-client-rmcp",
-   "status": "decided",
-   "note": "the MCP client implements kkt-agent-client's contract (step 12.4)"
   },
   {
    "item": "kkt-diagnostics::Check",
@@ -4157,7 +4108,7 @@
    ]
   },
   {
-   "crate": "kkt-agent-client-rmcp",
+   "crate": "kkt-agent-client",
    "path": "Http",
    "kind": "struct",
    "status": "decided",
@@ -4178,7 +4129,7 @@
    "doc": "Applies the caller's CredentialCheck to an opened credential file: takes group and other access off it as the PrivateMode says, and returns the warning (step 7.4)."
   },
   {
-   "crate": "kkt-agent-client-rmcp",
+   "crate": "kkt-agent-client",
    "path": "Settings",
    "kind": "struct",
    "status": "decided",
@@ -4217,7 +4168,7 @@
    "feature": "real"
   },
   {
-   "crate": "kkt-agent-client-rmcp",
+   "crate": "kkt-agent-client",
    "path": "HttpReply",
    "kind": "struct",
    "status": "decided",
@@ -4305,7 +4256,7 @@
    "feature": "testing"
   },
   {
-   "crate": "kkt-agent-client-rmcp",
+   "crate": "kkt-agent-client",
    "path": "Mcp",
    "kind": "struct",
    "status": "decided",
@@ -4475,12 +4426,12 @@
    "doc": "Folders and the commits they are at, in memory (step 12.5a)."
   },
   {
-   "crate": "kkt-lane-commit-git",
+   "crate": "kkt-lane-commit",
    "path": "Git",
    "kind": "struct",
    "feature": "real",
    "status": "decided",
-   "doc": "The machine's git, asked where a lane folder is (step 12.5a)."
+   "doc": "The machine's git, asked where a lane folder is; behind real (steps 12.5a and 13.4)."
   },
   {
    "crate": "kkt-browser",
@@ -4502,7 +4453,7 @@
    "feature": "testing"
   },
   {
-   "crate": "kkt-browser-os",
+   "crate": "kkt-browser",
    "path": "SystemBrowser",
    "kind": "struct",
    "status": "decided",
@@ -8850,7 +8801,7 @@
   },
   {
    "from": "kkt-fake-product",
-   "to": "kkt-agent-client-rmcp",
+   "to": "kkt-agent-client",
    "kind": "dev",
    "add": {
     "uses": [
@@ -8862,7 +8813,7 @@
    "features": [
     "real"
    ],
-   "note": "its tests drive the running product over HTTP with kkt-agent-client-rmcp's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
+   "note": "its tests drive the running product over HTTP with kkt-agent-client's client, which only real builds: a documented exception to \"tests SHOULD NOT turn on real\", listed in .github/scripts/real-exceptions.json (#480)"
   },
   {
    "from": "kashkeshet",
@@ -8878,7 +8829,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-agent-client-rmcp",
+   "to": "kkt-agent-client",
    "kind": "normal",
    "add": {
     "uses": [
@@ -8931,7 +8882,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-agent-client-rmcp",
+   "to": "kkt-agent-client",
    "kind": "normal",
    "add": {
     "uses": [
@@ -8939,61 +8890,6 @@
     ]
    },
    "note": "the program injects the MCP client as it is (step 12.4)",
-   "status": "decided"
-  },
-  {
-   "from": "kashkeshet",
-   "to": "kkt-agent-client",
-   "kind": "normal",
-   "remove": true,
-   "note": "the program names the contract only in its tests (step 12.4)",
-   "status": "decided"
-  },
-  {
-   "from": "kashkeshet",
-   "to": "kkt-agent-client",
-   "kind": "dev",
-   "add": {
-    "uses": [
-     "Watched"
-    ]
-   },
-   "note": "the register tests read through Watched (step 12.4)",
-   "status": "decided"
-  },
-  {
-   "from": "kkt-agent-client-rmcp",
-   "to": "kkt-agent-client",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Servers",
-     "Avatars",
-     "Watched",
-     "Address",
-     "Failure",
-     "Registered",
-     "Reclaimed",
-     "Channel",
-     "Message",
-     "NewerLane",
-     "Waited"
-    ]
-   },
-   "note": "it implements the contract directly (step 12.4)",
-   "status": "decided"
-  },
-  {
-   "from": "kkt-agent-client-rmcp",
-   "to": "kkt-clock",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Clock",
-     "Span"
-    ]
-   },
-   "note": "the admin watch's polling (step 12.4)",
    "status": "decided"
   },
   {
@@ -9183,7 +9079,7 @@
   },
   {
    "from": "kashkeshet",
-   "to": "kkt-lane-commit-git",
+   "to": "kkt-lane-commit",
    "kind": "normal",
    "add": {
     "wires": [
@@ -9194,19 +9090,7 @@
     "real"
    ],
    "status": "decided",
-   "note": "Builds Git and hands it directly to kkt-operate (12.5a)."
-  },
-  {
-   "from": "kkt-lane-commit-git",
-   "to": "kkt-lane-commit",
-   "kind": "normal",
-   "add": {
-    "implements": [
-     "LaneCommit"
-    ]
-   },
-   "status": "decided",
-   "note": "The named wrapper implements the scope contract directly (12.5a)."
+   "note": "Turns on kkt-lane-commit's real and hands its Git directly to kkt-operate (12.5a, 13.4)."
   },
   {
    "from": "kkt-lane-files",
@@ -9245,20 +9129,8 @@
    "status": "decided"
   },
   {
-   "from": "kkt-browser-os",
-   "to": "kkt-browser",
-   "kind": "normal",
-   "add": {
-    "uses": [
-     "Browser"
-    ]
-   },
-   "note": "it implements the contract directly (step 12.5d)",
-   "status": "decided"
-  },
-  {
    "from": "kashkeshet",
-   "to": "kkt-browser-os",
+   "to": "kkt-browser",
    "kind": "normal",
    "add": {
     "uses": [
@@ -9266,7 +9138,10 @@
     ]
    },
    "note": "the program gives the Docker wrapper the system's opener as it is (step 12.5d)",
-   "status": "decided"
+   "status": "decided",
+   "features": [
+    "real"
+   ]
   },
   {
    "from": "kkt-diagnostics",
@@ -10747,7 +10622,7 @@
   },
   "kkt-agent-client": {
    "status": "decided",
-   "concern": "The shared MCP client for agent commands: avatar credentials and their files on disk (read with their owner and mode, which the caller's `CredentialCheck` judges as named `CredentialFileFacts`, and made private as its `PrivateMode` says, with warnings through the caller's callbacks; in kkt the check is kkt-setup's rule), watch's state file and its lock, reaching the server as an agent or admin through plain methods with its own types, and plain HTTP for probes. It knows nothing of kkt-watch; the program adapts it."
+   "concern": "A client of kkt's server. The contract, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records, Failure and Settings; the testing Memory stand-in. Its one implementation, over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), and plain Http requests for a program's test client, are behind real, which only programs turn on (step 13.6, merging kkt-agent-client-rmcp back)."
   },
   "kkt-mcp": {
    "status": "decided",
@@ -11732,7 +11607,7 @@
   "kkt-shutdown": "logic",
   "kkt-identity": "contract",
   "kkt-logs": "logic",
-  "kkt-agent-client": "contract"
+  "kkt-agent-client": "contract and effect"
  },
  "open_questions": [
   {
@@ -12294,14 +12169,22 @@
   },
   {
    "crate": "kkt-agent-client",
-   "remove": [
-    "reqwest",
-    "rmcp",
-    "serde_json",
-    "tokio"
-   ],
+   "optional": {
+    "reqwest": [
+     "real"
+    ],
+    "rmcp": [
+     "real"
+    ],
+    "serde_json": [
+     "real"
+    ],
+    "tokio": [
+     "real"
+    ]
+   },
    "status": "decided",
-   "note": "the contract names no transport: rmcp, reqwest and the JSON go to kkt-agent-client-rmcp (step 12.4)"
+   "note": "rmcp, reqwest, serde_json and tokio are optional, behind real: a crate that depends on kkt-agent-client without real gets the contract alone (step 13.6)"
   }
  ],
  "replace_items": [
@@ -12738,12 +12621,12 @@
    "note": "The contract's own answer for other systems (12.3)."
   },
   {
-   "type": "kkt-lane-commit-git::Git",
+   "type": "kkt-lane-commit::Git",
    "to": [
     "kkt-lane-commit::LaneCommit"
    ],
    "status": "decided",
-   "note": "A tool wrapper implements its scope contract directly (step 12.5a)."
+   "note": "The crate's one implementation of its own contract, behind real (steps 12.5a and 13.4)."
   },
   {
    "type": "kkt-lane-commit::testing::Memory",
@@ -12768,6 +12651,46 @@
    ],
    "status": "decided",
    "note": "The contract owns its testing stand-in (12.5b)."
+  },
+  {
+   "type": "kkt-agent-client::Mcp",
+   "to": [
+    "kkt-agent-client::Servers"
+   ],
+   "status": "decided",
+   "note": "the crate's one implementation of its own contract, behind real (step 13.6)"
+  },
+  {
+   "type": "kkt-agent-client::Client",
+   "to": [
+    "kkt-agent-client::Avatars"
+   ],
+   "status": "decided",
+   "note": "the crate's one implementation of its own contract, behind real (step 13.6)"
+  },
+  {
+   "type": "kkt-agent-client::Remote",
+   "to": [
+    "kkt-agent-client::Watched"
+   ],
+   "status": "decided",
+   "note": "the crate's one implementation of its own contract, behind real (step 13.6)"
+  },
+  {
+   "type": "kkt-agent-client::AdminRemote",
+   "to": [
+    "kkt-agent-client::Watched"
+   ],
+   "status": "decided",
+   "note": "the crate's one implementation of its own contract, behind real (step 13.6)"
+  },
+  {
+   "type": "kkt-browser::SystemBrowser",
+   "to": [
+    "kkt-browser::Browser"
+   ],
+   "status": "decided",
+   "note": "the crate's one implementation of its own contract, behind real (step 13.3)"
   }
  ],
  "trait_swaps": [
@@ -13106,12 +13029,6 @@
    "note": "The contract supplies its own in-memory implementation (12.2)."
   },
   {
-   "crate": "kkt-agent-client-rmcp",
-   "feature": "real",
-   "status": "decided",
-   "note": "what reaches the server or the machine (step 12.4)"
-  },
-  {
    "crate": "kkt-agent-files-os",
    "feature": "real",
    "status": "decided",
@@ -13142,7 +13059,7 @@
    "note": "The scope contract supplies its own in-memory stand-in (12.5a)."
   },
   {
-   "crate": "kkt-browser-os",
+   "crate": "kkt-browser",
    "feature": "real",
    "status": "decided",
    "note": "starting the system's opener (step 12.5d)"
@@ -13158,6 +13075,12 @@
    "feature": "testing",
    "status": "decided",
    "note": "The scope contract supplies its own in-memory stand-in (12.5b)."
+  },
+  {
+   "crate": "kkt-lane-commit",
+   "feature": "real",
+   "status": "decided",
+   "note": "Git, its one implementation, which only the program turns on (13.4)."
   }
  ]
 }

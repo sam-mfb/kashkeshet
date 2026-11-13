@@ -1,7 +1,8 @@
 //! Opening a link in the person's browser, in kkt's terms: start opening it
 //! now, and say later, once, if that failed. Starting does not wait for the
-//! browser, so a caller can keep working meanwhile. kkt-browser-os
-//! implements it with the system's own opener.
+//! browser, so a caller can keep working meanwhile. Its one implementation,
+//! `SystemBrowser`, with the system's own opener, is behind `real`, which
+//! only programs turn on.
 
 use std::io;
 
@@ -17,3 +18,8 @@ pub trait Browser {
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
+
+#[cfg(any(feature = "real", test))]
+mod system;
+#[cfg(feature = "real")]
+pub use system::SystemBrowser;

@@ -298,32 +298,20 @@
   },
   "kkt-lane-commit": {
    "layer": "operations",
-   "concern": "The project's contract for the commit a lane folder is at (`LaneCommit`), and its testing Memory stand-in.",
-   "must_not": "Know a version-control tool, its commands or output; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-lane-commit-git": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Implements LaneCommit with git: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner; running git is behind real.",
-   "must_not": "Read or write the lane files."
+   "concern": "The commit a lane folder is at: the `LaneCommit` contract in the open, with its testing Memory stand-in, and its one implementation behind real, `Git`: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner.",
+   "must_not": "Read or write the lane files; let a consumer reach `Git` without real.",
+   "kind": "contract and effect"
   },
   "kkt-agent-client": {
    "layer": "clients",
-   "concern": "The project's contract for a client of kkt's server, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records and Failure; the testing Memory stand-in.",
-   "must_not": "Know a transport, a protocol library or its errors; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-agent-client-rmcp": {
-   "layer": "clients",
-   "kind": "effect",
-   "concern": "Implements kkt-agent-client directly over MCP through rmcp and reqwest: Mcp, Client, Remote and AdminRemote, with Settings; plain Http requests for a program's test client. Everything that reaches the server is behind real.",
-   "must_not": "Let an rmcp or reqwest type out of the crate."
+   "concern": "A client of kkt's server. The contract, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records, Failure and Settings; the testing Memory stand-in. Its one implementation, over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), and plain Http requests for a program's test client, are behind real (step 13.6).",
+   "must_not": "Name a transport, a protocol library or its errors in the contract; let an rmcp or reqwest type out of the crate.",
+   "kind": "contract and effect"
   },
   "kkt-agent-commands": {
    "layer": "assembly",
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
-   "must_not": "Depend on an `-os` crate, on a contract's implementation (such as kkt-agent-client-rmcp) or on another assembly; touch the machine except through `AgentParts`.",
+   "must_not": "Depend on an `-os` crate, on a contract's implementation, turn on another crate's `real`, or depend on another assembly; touch the machine except through `AgentParts`.",
    "kind": "composition"
   },
   "kkt-agent-files-os": {
@@ -402,15 +390,9 @@
   },
   "kkt-browser": {
    "layer": "operations",
-   "concern": "The project's contract for opening a link in the person's browser: Browser (start opening it now; say later, once, if that failed), with the testing Recorder.",
-   "must_not": "Know an opener program; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-browser-os": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Implements Browser with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real.",
-   "must_not": "Wait for the browser; repeat the link in a message."
+   "concern": "Opening a link in the person's browser. The contract: Browser (start opening it now; say later, once, if that failed), with the testing Recorder. Its one implementation, SystemBrowser, with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real (step 13.3).",
+   "must_not": "Name an opener program in the contract; wait for the browser; repeat the link in a message.",
+   "kind": "contract and effect"
   },
   "kkt-logs": {
    "layer": "foundations",

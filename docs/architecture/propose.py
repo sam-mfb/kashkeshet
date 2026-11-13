@@ -627,6 +627,12 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
         if set(tp.get("remove", [])) - have:
             problems.append(f"third_party_edits: {tp['crate']} has no {', '.join(sorted(set(tp['remove']) - have))}")
         crates[tp["crate"]]["third_party"] = sorted((have - set(tp.get("remove", []))) | set(tp.get("add", [])))
+        # Which of them are optional, and the features that turn them on: a
+        # merged crate's I/O dependencies are behind real (kinds.py).
+        for dep, features in tp.get("optional", {}).items():
+            if dep not in crates[tp["crate"]]["third_party"]:
+                problems.append(f"third_party_edits: {tp['crate']} has no {dep} to make optional")
+            crates[tp["crate"]].setdefault("optional_third_party", {})[dep] = features
         note(tp["crate"], tp["note"], tp["status"])
 
     # Where each program's own machine work goes: every file whose code

@@ -43,8 +43,9 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **Agent client contract.** `kkt-agent-client` is now the contract for a
   client of kkt's server: `Servers`, `Avatars` and `Watched`, with `Address`
   and the records and `Failure` it already had, and `testing::Memory`.
-  `kkt-agent-client-rmcp` (`Mcp`, `Client`, `Remote`, `AdminRemote`,
-  `Settings`, `Http`, `HttpReply`; behind `real`) implements it directly.
+  Its one implementation, over MCP (`Mcp`, `Client`, `Remote`,
+  `AdminRemote`, `Http`, `HttpReply`; behind `real`), is in the same crate,
+  with `Settings`.
   The credential and watch-state files move to `kkt-agent-files-os`.
   kkt-watch's `Server`, `Channel`, `Message`, `Waited`, `NewerLane` and
   `Failure`, and kkt-agent-commands' `Servers`, `Avatars`, `Address`,
@@ -80,15 +81,16 @@ The shared crates are reorganized so that every dependency is injected and each 
   checks and their messages are unchanged.
 - **Lane folder commit contract.** `kkt-lane-commit::LaneCommit` asks the
   commit a lane folder is at, in kkt's terms, with `testing::Memory` for
-  tests. `kkt-lane-commit-git::Git` (behind `real`) implements it directly,
-  with git's meaning, which moves out of kkt-lane-files (its `git` module and
+  tests, and its one implementation in the same crate: `kkt_lane_commit::Git`
+  (behind `real`, which only the program turns on), with git's meaning,
+  which moves out of kkt-lane-files (its `git` module and
   `Git`, `Ran` and `commit` go). `kkt_lane_files::Disk` loses `git_commit`,
   `read_folder` takes the `LaneCommit` beside the `Disk`, and
   `kkt-lane-files-os` loses `git` and `GitOutput`. `OperateParts` gains
   `lane_commit`. Messages and the commits recorded are unchanged.
 - **Browser contract.** `kkt-browser::Browser` (start opening a link; say
   later, once, if that failed; `testing::Recorder`) is how a sharing
-  setup's login link opens. `kkt-browser-os::SystemBrowser` (behind `real`)
+  setup's login link opens. `kkt-browser::SystemBrowser` (behind `real`)
   implements it with `open` or `xdg-open`, moved from kkt-terminal-os.
   `kkt_container::LoginLink` and kkt-terminal-os' `BrowserLink` keep only
   `show` and `open_requested`; `kkt_container_docker::Docker` is now built
