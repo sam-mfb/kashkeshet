@@ -148,6 +148,74 @@ async fn a_server_whose_port_is_taken_is_started_on_another() {
     other.child.kill().await.expect("stop the other kkt");
 }
 
+/// A stand-in for a server that exits saying its address was in use, as kkt
+/// serve says it, whatever the port; `start_quiet` passes `--bind <address>`
+/// first, which the script reads as `$1`.
+fn says_in_use() -> Command {
+    let mut command = Command::new("sh");
+    command.args([
+        "-c",
+        r#"echo "error: could not listen on $1: Address already in use (os error 98)" >&2; exit 1"#,
+    ]);
+    command
+}
+
+/// A server that says its address was in use is started again on the next
+/// port, even when whatever held the port has let it go by the time it is
+/// checked.
+#[tokio::test]
+async fn a_server_that_says_its_port_is_in_use_is_started_on_another() {
+    let dir = scratch::Dir::new("kashkeshet-kkt-in-use");
+    let mut tries = 0;
+    let make = |_: &str| {
+        tries += 1;
+        if tries == 1 {
+            return says_in_use();
+        }
+        let mut command = Command::new(KKT);
+        command
+            .arg("serve")
+            .arg("--db")
+            .arg(dir.join("kkt.db"))
+            .arg("--no-access-key")
+            .own_home(&dir);
+        command
+    };
+    // Both ports are free: the first one's "in use" is all there is to go on.
+    let (first, second) = (serving::free_port(), serving::free_port());
+
+    let (mut child, bind) = serving::try_start_quiet(make, [first, second])
+        .await
+        .expect("kkt should start on the second port");
+    assert_eq!(bind, format!("127.0.0.1:{second}"));
+
+    child.kill().await.expect("stop kkt");
+}
+
+/// A server that says its address is in use on every port tried still fails
+/// the test, with what it said, so a server that cannot listen anywhere is
+/// not hidden by the retries.
+#[tokio::test]
+async fn a_server_in_use_on_every_port_says_why() {
+    let ports = [serving::free_port(), serving::free_port()];
+
+    let Err(failure) = serving::try_start_quiet(|_| says_in_use(), ports).await else {
+        panic!("the stand-in should not have started");
+    };
+    assert!(
+        failure.contains("could not listen on any port it tried"),
+        "{failure}"
+    );
+    for port in ports {
+        assert!(
+            failure.contains(&format!(
+                "could not listen on 127.0.0.1:{port}: Address already in use"
+            )),
+            "{failure}"
+        );
+    }
+}
+
 /// When every port tried is held by another process, the failure keeps each
 /// server's exit status and what it printed, not just the ports.
 #[tokio::test]

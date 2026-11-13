@@ -1155,8 +1155,24 @@ async fn setup_waits_for_a_server_it_set_up_that_answers_late() {
     // As with a new Tailscale node, whose HTTPS certificate comes on first
     // use: the server only answers a few seconds after setup's check starts.
     let (server_home, key) = server_key("late-server").await;
-    let bind = free_bind();
-    let port = bind.trim_start_matches("127.0.0.1:").to_string();
+    // The test holds the port setup is told until the server starts, so no
+    // other program, such as a neighbouring test's server, can take it in
+    // the meantime. Each connection is accepted and dropped at once, which
+    // setup counts as a server that does not answer yet.
+    let holder = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("hold a port");
+    let port = holder
+        .local_addr()
+        .expect("held address")
+        .port()
+        .to_string();
+    let holding = tokio::spawn(async move {
+        loop {
+            let (connection, _) = holder.accept().await.expect("accept");
+            drop(connection);
+        }
+    });
     let key_text = std::fs::read_to_string(&key)
         .expect("key")
         .trim()
@@ -1186,8 +1202,17 @@ async fn setup_waits_for_a_server_it_set_up_that_answers_late() {
         .spawn()
         .expect("start setup");
     tokio::time::sleep(Duration::from_secs(3)).await;
-    // Setup was told the port before the server started, so the server
-    // cannot move to another if something took it meanwhile.
+    // Let the port go, and wait until it has gone, then start the server on
+    // it at once. Setup was told the port before the server started, so the
+    // server cannot move to another.
+    holding.abort();
+    assert!(
+        holding
+            .await
+            .expect_err("the holder runs until stopped")
+            .is_cancelled(),
+        "the holder stopped by itself"
+    );
     let (mut server, _) = serving::try_start_quiet(
         |_| serve_with_key_command(&server_home, &key),
         [port.parse::<u16>().expect("port")],
@@ -2483,7 +2508,11 @@ fn installed_service_file(home: &Path) -> PathBuf {
 #[tokio::test]
 async fn a_service_installed_with_other_settings_is_not_adopted() {
     // The default config file says one address; the service was installed
-    // with another config file, which says another.
+    // with another config file, which says another. `install` checks that
+    // its server could listen on its address, so that one is port 0, which
+    // the system gives freely: a fixed port fails the test whenever another
+    // program on the machine, such as a second test run, holds it. The
+    // default config file's address is never listened on.
     let home = temp_home("adopt-service-custom");
     std::fs::write(
         home.join(".config/kkt/config.toml"),
@@ -2491,7 +2520,7 @@ async fn a_service_installed_with_other_settings_is_not_adopted() {
     )
     .expect("config");
     let custom = home.join("custom.toml");
-    std::fs::write(&custom, "bind = \"127.0.0.1:17421\"\n").expect("custom config");
+    std::fs::write(&custom, "bind = \"127.0.0.1:0\"\n").expect("custom config");
     let scratch = empty_home("adopt-service-custom-scratch");
     let bin = service_manager(&scratch);
     let log = scratch.join("docker.log");
