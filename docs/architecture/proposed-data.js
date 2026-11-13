@@ -5527,7 +5527,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "builds the backup's Layout for kkt-backup-os to write (step 2.7)"
+      "text": "builds the backup's Layout for kkt-backup's write, behind real (steps 2.7 and 14.1)"
      },
      {
       "status": "decided",
@@ -15085,7 +15085,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "builds the backup's Layout for kkt-backup-os to write (step 2.7)"
+      "text": "builds the backup's Layout for kkt-backup's write, behind real (steps 2.7 and 14.1)"
      },
      {
       "status": "decided",

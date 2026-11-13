@@ -11,5 +11,10 @@ publish = false
 thiserror.workspace = true
 kkt-clock = { path = "../kkt-clock" }
 
+[features]
+# `write` and `prune`: writing a backup layout and removing old backups on disk.
+real = []
+
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-scratch = { path = "../kkt-scratch" }
