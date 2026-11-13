@@ -132,11 +132,13 @@ needs Sam", item 6).
 
 ## Sam's decisions
 
-`refactor-plan.md` begins with "Sam's decisions": every difference from the
-proposal and every open question, each with Sam's ruling. He ruled on the
-last of them, the seven new differences from phases 9 to 11, on 2026-11-13.
-Each difference was made on purpose, with its reason, and none affects an
-install.
+`refactor-plan.md` begins with "Sam's decisions": the differences from the
+proposal and the open questions from phases 0 to 11, each with Sam's
+ruling. He ruled on the last of them, the seven new differences from phases
+9 to 11, on 2026-11-13. The phase 12 notes after them are not rulings, and
+one row of the plan's differences table (12.4, kkt-agent-files-os) is still
+marked "to show Sam with phase 12". Each difference was made on purpose,
+with its reason, and none affects an install.
 
 ## For the principles template
 

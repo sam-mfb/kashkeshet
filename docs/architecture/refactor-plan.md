@@ -41,7 +41,7 @@ line says so.
 
 **(a) Changes to a rule, or to which crate may depend on which.**
 
-| Difference | Step | Recommended |
+| Difference | Step | Sam |
 |---|---|---|
 | The shared crates' public surface changes for kkt-pro, which builds on them by git ("What needs Sam" 2) | all | **Accepted by Sam, 2026-11-12.** The CHANGELOG entry says what a dependant must change, and the outside-crate CI job still builds |
 | check-crates rule 3 lets a dev-only program turn on another package's `testing` (the web preview, kkt-api-sim) ("What needs Sam" 4; the 6.3 row on kkt-web-preview) | 6.3 | **Accepted by Sam, 2026-11-12.** A dev-only package can never be in a release, and check-release-packages.sh enforces that |
@@ -53,7 +53,7 @@ line says so.
 **(b) Differences that leave a rule broken.** The scorecard counts the
 first two.
 
-| Difference | Step | Recommended |
+| Difference | Step | Sam |
 |---|---|---|
 | kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's | 5.3b | **Not accepted by Sam, 2026-11-12, and no exception: done in 11.1 and 11.2.** kkt-db's `testing` has a fast stand-in on SQLite in memory with its own translation (`FastPlace`, 11.1), and kkt-rules' tests and `testing::database` run on it (11.2, 6 s); the program's `tests/store_on_sqlite.rs` runs the store's whole surface on kkt-db-sqlite (11.2), and 11.3 adds a chosen subset of the rules' scenarios there |
 | The arrow kkt-server → kkt-api-admin is missing: `Parts` holds the concrete `Rules` | 5.6a | **Decided by Sam, 2026-11-12: `Parts` takes the contract** (9.2): an `Arc<dyn AdminApi>`, which the program fills with what `kkt_rules::start` returns; kkt-server's normal dependency on kkt-rules goes. (The recommendation was to accept, and drop the arrow from the proposal.) |
