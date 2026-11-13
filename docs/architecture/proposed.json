@@ -10501,6 +10501,102 @@
    ],
    "status": "decided",
    "note": "injected by the program: git, directly (step 12.5a)"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "at": "AgentParts",
+   "name": "client_command",
+   "traits": [
+    "kkt-client-command::ClientCommand"
+   ],
+   "status": "decided",
+   "note": "in the code; charted with the wiring after phase 13",
+   "kind": "field"
+  },
+  {
+   "crate": "kkt-container",
+   "at": "Docker::new",
+   "name": "browser",
+   "traits": [
+    "kkt-browser::Browser"
+   ],
+   "status": "decided",
+   "note": "in the code; charted with the wiring after phase 13",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-logs-os",
+   "at": "init_logging",
+   "name": "clock",
+   "traits": [
+    "kkt-clock::Clock"
+   ],
+   "status": "decided",
+   "note": "in the code; charted with the wiring after phase 13",
+   "feature": "real"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "OperateParts",
+   "name": "client_command",
+   "traits": [
+    "kkt-client-command::ClientCommand"
+   ],
+   "status": "decided",
+   "note": "in the code; charted with the wiring after phase 13",
+   "kind": "field"
+  },
+  {
+   "crate": "kkt-operate",
+   "at": "ServiceInputs",
+   "name": "check",
+   "traits": [
+    "kkt-operate::CheckService"
+   ],
+   "status": "decided",
+   "note": "in the code; charted with the wiring after phase 13",
+   "kind": "field"
+  },
+  {
+   "crate": "kkt-rules",
+   "at": "Startup",
+   "name": "db",
+   "traits": [],
+   "status": "decided",
+   "note": "in the code; charted with the wiring after phase 13",
+   "kind": "field",
+   "holds": [
+    {
+     "crate": "kkt-rules",
+     "traits": [
+      {
+       "crate": "kkt-db",
+       "trait": "Backend"
+      }
+     ],
+     "type": "Db"
+    }
+   ]
+  },
+  {
+   "crate": "kkt-setup",
+   "at": "connection::admin_connection",
+   "name": "source",
+   "traits": [
+    "kkt-setup::connection::ConnectionSource"
+   ],
+   "status": "decided",
+   "note": "in the code; charted with the wiring after phase 13"
+  },
+  {
+   "crate": "kkt-setup",
+   "at": "connection::client_connection",
+   "name": "source",
+   "traits": [
+    "kkt-setup::connection::ConnectionSource"
+   ],
+   "status": "decided",
+   "note": "in the code; charted with the wiring after phase 13"
   }
  ],
  "renames": [
@@ -10857,6 +10953,36 @@
      {
       "impl": "kkt-diagnostics::OsProber",
       "crate": "kkt-diagnostics"
+     },
+     {
+      "impl": "kkt-agent-client::Remote",
+      "crate": "kkt-watch",
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-agent-client::AdminRemote",
+      "crate": "kkt-watch",
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-clock::SystemClock",
+      "crate": "kkt-watch",
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-client-config::OsHost",
+      "crate": "kkt-client-config",
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-lane-files::OsDisk",
+      "crate": "kkt-lane-files",
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
      }
     ],
     "wiring_add": [
@@ -10897,42 +11023,6 @@
       "note": "kkt-rules' default wording, in the Startup the program gives kkt-rules' start (step 5.6a)"
      },
      {
-      "impl": "kkt-admission-os::KeyFiles",
-      "crate": "kkt-admission",
-      "to": [
-       {
-        "at": "server_keys::check",
-        "param": "texts"
-       }
-      ],
-      "status": "decided",
-      "note": "kkt serve"
-     },
-     {
-      "impl": "kkt-terminal-os::Terminal",
-      "crate": "kkt-watch",
-      "to": [
-       {
-        "at": "run",
-        "param": "report"
-       }
-      ],
-      "status": "decided",
-      "note": "kkt watch"
-     },
-     {
-      "impl": "kkt-terminal-os::Terminal",
-      "crate": "kkt-setup",
-      "to": [
-       {
-        "at": "ask::Prompter::new",
-        "param": "lines"
-       }
-      ],
-      "status": "decided",
-      "note": "kkt setup, kkt switch"
-     },
-     {
       "impl": "kkt-setup::ask::Prompter",
       "crate": "kkt-setup",
       "to": [
@@ -10947,18 +11037,6 @@
       ],
       "status": "decided",
       "note": "kkt setup, kkt switch"
-     },
-     {
-      "impl": "kkt-clock-system::SystemClock",
-      "crate": "kkt-logs-os",
-      "to": [
-       {
-        "at": "RotatingFile::open",
-        "param": "clock"
-       }
-      ],
-      "status": "decided",
-      "note": "kkt serve --log-file"
      },
      {
       "impl": "kkt-logs-os::TracingLog",
@@ -10985,18 +11063,6 @@
       "note": "The program directly injects the named sharing implementation into the operator assembly."
      },
      {
-      "impl": "kkt-agent-files-os::StateFile",
-      "crate": "kkt-watch",
-      "to": [
-       {
-        "at": "run",
-        "param": "place"
-       }
-      ],
-      "status": "decided",
-      "note": "kkt watch"
-     },
-     {
       "impl": "kkt-container::Docker",
       "crate": "kkt-operate",
       "to": [
@@ -11007,6 +11073,525 @@
       ],
       "status": "decided",
       "note": "Direct delivery to the receiving operator assembly (12.2)."
+     },
+     {
+      "own": "ServerKeyFiles, adapting kkt-admission-os::KeyFiles",
+      "supplier": "kkt-admission-os::KeyFiles",
+      "crate": "kkt-admission",
+      "to": [
+       {
+        "at": "server_keys::check",
+        "param": "texts"
+       }
+      ],
+      "note": "kkt serve",
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-rules::Db",
+      "crate": "kkt-rules",
+      "to": [
+       {
+        "at": "Startup",
+        "param": "db"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-clock-system::SystemClock",
+      "crate": "kkt-rules",
+      "to": [
+       {
+        "at": "Startup",
+        "param": "clock"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-entropy-os::OsEntropy",
+      "crate": "kkt-rules",
+      "to": [
+       {
+        "at": "Startup",
+        "param": "entropy"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "own": "AdminKeyHere, asking kkt-operate's key finder (keys::selected_key_path) over the operator's parts on this machine",
+      "supplier": "kkt-operate::keys::selected_key_path",
+      "crate": "kkt-agent-commands",
+      "to": [
+       {
+        "at": "AgentParts",
+        "param": "admin_key"
+       }
+      ],
+      "note": "kkt watch --admin",
+      "status": "decided"
+     },
+     {
+      "crate": "kkt-agent-commands",
+      "to": [
+       {
+        "at": "AgentParts",
+        "param": "servers"
+       }
+      ],
+      "note": "kkt register, reclaim and watch: injected as it is, with no adapter",
+      "impl": "kkt-agent-client::Mcp",
+      "status": "decided"
+     },
+     {
+      "own": "CredentialFiles, applying kkt-setup's credential-file rule to kkt-agent-files-os' credential and state files",
+      "supplier": "kkt-agent-files-os::CredentialFile",
+      "crate": "kkt-agent-commands",
+      "to": [
+       {
+        "at": "AgentParts",
+        "param": "credentials"
+       }
+      ],
+      "note": "kkt register, reclaim and watch",
+      "status": "decided"
+     },
+     {
+      "own": "KeyFiles, adapting kkt-admission-os::KeyFiles",
+      "supplier": "kkt-admission-os::KeyFiles",
+      "crate": "kkt-agent-commands",
+      "to": [
+       {
+        "at": "AgentParts",
+        "param": "key_files"
+       }
+      ],
+      "note": "kkt register, reclaim and watch",
+      "status": "decided"
+     },
+     {
+      "own": "ClientHost, adapting kkt-client-config-os's OsHost",
+      "supplier": "kkt-client-config-os's OsHost",
+      "crate": "kkt-agent-commands",
+      "to": [
+       {
+        "at": "AgentParts",
+        "param": "clients"
+       }
+      ],
+      "note": "kkt connect",
+      "status": "decided"
+     },
+     {
+      "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
+      "supplier": "kkt-setup-os::kkt_path",
+      "crate": "kkt-agent-commands",
+      "to": [
+       {
+        "at": "AgentParts",
+        "param": "program"
+       }
+      ],
+      "note": "kkt connect",
+      "status": "decided"
+     },
+     {
+      "own": "WatchOutput, adapting kkt-terminal-os::Terminal",
+      "supplier": "kkt-terminal-os::Terminal",
+      "crate": "kkt-agent-commands",
+      "to": [
+       {
+        "at": "AgentParts",
+        "param": "report"
+       }
+      ],
+      "note": "kkt watch",
+      "status": "decided"
+     },
+     {
+      "own": "TerminalOutput, adapting kkt-terminal-os::Terminal",
+      "supplier": "kkt-terminal-os::Terminal",
+      "crate": "kkt-agent-commands",
+      "to": [
+       {
+        "at": "AgentParts",
+        "param": "output"
+       }
+      ],
+      "note": "kkt register, reclaim and connect",
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-clock-system::SystemClock",
+      "crate": "kkt-agent-commands",
+      "to": [
+       {
+        "at": "AgentParts",
+        "param": "clock"
+       }
+      ],
+      "note": "kkt watch",
+      "status": "decided"
+     },
+     {
+      "own": "TerminalLines, adapting kkt-terminal-os::Terminal",
+      "supplier": "kkt-terminal-os::Terminal",
+      "crate": "kkt-setup",
+      "to": [
+       {
+        "at": "ask::Prompter::new",
+        "param": "lines"
+       }
+      ],
+      "note": "kkt setup, kkt switch",
+      "status": "decided"
+     },
+     {
+      "crate": "kkt-client-config",
+      "to": [
+       {
+        "at": "configure",
+        "param": "host"
+       },
+       {
+        "at": "Client::file",
+        "param": "host"
+       },
+       {
+        "at": "Client::installed",
+        "param": "host"
+       },
+       {
+        "at": "Client::connected",
+        "param": "host"
+       },
+       {
+        "at": "allow_kkt",
+        "param": "host"
+       },
+       {
+        "at": "codex_password_store_hint",
+        "param": "host"
+       }
+      ],
+      "note": "kkt setup, kkt doctor",
+      "own": "ClientHost, adapting kkt-client-config-os's OsHost",
+      "supplier": "kkt-client-config-os's OsHost",
+      "status": "decided"
+     },
+     {
+      "crate": "kkt-diagnostics",
+      "to": [
+       {
+        "at": "Inspector::new",
+        "param": "prober"
+       }
+      ],
+      "note": "kkt doctor, kkt setup",
+      "impl": "kkt-probe::HttpProber",
+      "status": "decided"
+     },
+     {
+      "crate": "kkt-lane-files",
+      "to": [
+       {
+        "at": "read_folder",
+        "param": "disk"
+       },
+       {
+        "at": "write_folder",
+        "param": "disk"
+       }
+      ],
+      "note": "kkt lanes import and export, kkt setup --lanes",
+      "own": "LaneDisk, adapting kkt-lane-files-os's OsDisk",
+      "supplier": "kkt-lane-files-os's OsDisk",
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-clock-system::SystemClock",
+      "crate": "kkt-logs-os",
+      "to": [
+       {
+        "at": "init_logging",
+        "param": "clock"
+       }
+      ],
+      "note": "kkt serve --log-file",
+      "status": "decided"
+     },
+     {
+      "own": "ContainerConfigs",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "container_configs"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-service-launchd::Launchd",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "service"
+       }
+      ],
+      "note": "On macOS: the program picks the service manager by platform and injects it directly (12.3).",
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-service-systemd::Systemd",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "service"
+       }
+      ],
+      "note": "On Linux (12.3).",
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-service::Unsupported",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "service"
+       }
+      ],
+      "note": "On any other system (12.3).",
+      "status": "decided"
+     },
+     {
+      "own": "ClientHost",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "clients"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "prober"
+       }
+      ],
+      "impl": "kkt-probe::HttpProber",
+      "note": "The program builds HttpProber with the doctor's settings and injects it directly (12.5b).",
+      "status": "decided"
+     },
+     {
+      "own": "LaneDisk",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "lanes"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-lane-commit::Git",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "lane_commit"
+       }
+      ],
+      "note": "The program turns on kkt-lane-commit's real and injects its Git directly as the lane folder's commit (12.5a, merged in 13.4).",
+      "status": "decided"
+     },
+     {
+      "own": "ServeReads, answering the program's serving questions lazily",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "serve"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "setup_files"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "own": "NativeKeyFiles, forwarding key files to kkt-admission-os and generation to kkt-entropy-os",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "key_files"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "own": "NativeDatabases, opening this program's database",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "database"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os with this program's database copy",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "backups"
+       }
+      ],
+      "supplier": "kkt-backup-os::write",
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "own": "NativeOutput, adapting kkt-terminal-os",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "output"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-clock-system::SystemClock",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "clock"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "own": "ServiceCheck, keeping the program's loaded serve options and source context until the service plan is checked",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "ServiceInputs",
+        "param": "check"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "own": "TerminalLink, adapting the terminal's half of the login link",
+      "supplier": "kkt-terminal-os::BrowserLink",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "login_link"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "own": "TerminalLines, adapting the terminal",
+      "supplier": "kkt-terminal-os::Terminal",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "lines"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "own": "NativeConfigText, forwarding config text reads and writes",
+      "supplier": "kkt-config-file-os::read",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "config_file"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-client-command::Claude",
+      "crate": "kkt-operate",
+      "to": [
+       {
+        "at": "OperateParts",
+        "param": "client_command"
+       }
+      ],
+      "note": "kkt setup: Claude Code's own command, injected as it is",
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-client-command::Claude",
+      "crate": "kkt-agent-commands",
+      "to": [
+       {
+        "at": "AgentParts",
+        "param": "client_command"
+       }
+      ],
+      "note": "kkt connect: Claude Code's own command, injected as it is",
+      "status": "decided"
+     },
+     {
+      "impl": "kkt-browser::SystemBrowser",
+      "crate": "kkt-container",
+      "to": [
+       {
+        "at": "Docker::new",
+        "param": "browser"
+       }
+      ],
+      "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener, given to the Docker wrapper as it is",
+      "status": "decided"
      }
     ]
    },
@@ -11109,18 +11694,6 @@
       "note": "kkt-rules' default wording, in the Startup the program gives kkt-rules' start (step 5.6a)"
      },
      {
-      "impl": "kkt-admission-os::KeyFiles",
-      "crate": "kkt-admission",
-      "to": [
-       {
-        "at": "server_keys::check",
-        "param": "texts"
-       }
-      ],
-      "status": "decided",
-      "note": "its key files"
-     },
-     {
       "impl": "kkt-logs-os::TracingLog",
       "crate": "kkt-server",
       "to": [
@@ -11131,6 +11704,55 @@
       ],
       "status": "decided",
       "note": "where the server's events go"
+     },
+     {
+      "own": "KeyFiles, adapting kkt-admission-os::KeyFiles",
+      "supplier": "kkt-admission-os::KeyFiles",
+      "crate": "kkt-admission",
+      "to": [
+       {
+        "at": "server_keys::check",
+        "param": "texts"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-rules::Db",
+      "crate": "kkt-rules",
+      "to": [
+       {
+        "at": "Startup",
+        "param": "db"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-clock-system::SystemClock",
+      "crate": "kkt-rules",
+      "to": [
+       {
+        "at": "Startup",
+        "param": "clock"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
+     },
+     {
+      "impl": "kkt-entropy-os::OsEntropy",
+      "crate": "kkt-rules",
+      "to": [
+       {
+        "at": "Startup",
+        "param": "entropy"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
      }
     ]
    },
@@ -11229,6 +11851,26 @@
       ],
       "status": "decided",
       "note": "where the server's events go"
+     },
+     {
+      "own": "the database, clock and entropy Product::start was given",
+      "crate": "kkt-rules",
+      "to": [
+       {
+        "at": "Startup",
+        "param": "db"
+       },
+       {
+        "at": "Startup",
+        "param": "clock"
+       },
+       {
+        "at": "Startup",
+        "param": "entropy"
+       }
+      ],
+      "status": "decided",
+      "note": "charted from the code after phase 13 (the proposal's wiring had not followed phases 10 to 13)"
      }
     ]
    }
@@ -11300,8 +11942,8 @@
         "param": "entropy"
        }
       ],
-      "status": "decided",
-      "note": "the simulated world, repeatable from the seed"
+      "note": "the simulated world, repeatable from the seed",
+      "status": "decided"
      },
      {
       "impl": "kkt-clock-system::SystemClock",
@@ -11323,8 +11965,8 @@
         "param": "entropy"
        }
       ],
-      "status": "decided",
-      "note": "the sessions' IDs"
+      "note": "the sessions' IDs",
+      "status": "decided"
      },
      {
       "impl": "kkt-api-sim::PreviewGate",
@@ -11346,8 +11988,8 @@
         "param": "api"
        }
       ],
-      "status": "decided",
-      "note": "the simulated application, as kkt-api-operator's OperatorApi"
+      "note": "the simulated application, as kkt-api-operator's OperatorApi",
+      "status": "decided"
      },
      {
       "impl": "kkt-logs-os::TracingLog",
@@ -11367,7 +12009,6 @@
    "kkt-server": {
     "wiring": [
      {
-      "impl": "kkt-rules::Rules",
       "crate": "kkt-web",
       "to": [
        {
@@ -11375,8 +12016,9 @@
         "param": "api"
        }
       ],
-      "status": "decided",
-      "note": "the Rules start built, which the program gave Parts"
+      "own": "the AdminApi the program gave Parts",
+      "supplier": "the program's AdminApi",
+      "status": "decided"
      },
      {
       "impl": "kkt-server::AdmissionGate",
@@ -11390,7 +12032,6 @@
       "status": "decided"
      },
      {
-      "impl": "kkt-rules::Rules",
       "crate": "kkt-mcp",
       "to": [
        {
@@ -11402,8 +12043,9 @@
         "param": "rules"
        }
       ],
-      "status": "decided",
-      "note": "the Rules start built, which the program gave Parts"
+      "own": "the AdminApi the program gave Parts",
+      "supplier": "the program's AdminApi",
+      "status": "decided"
      },
      {
       "impl": "kkt-mcp-formatter::Formatter",
@@ -11437,19 +12079,6 @@
       "status": "decided"
      },
      {
-      "own": "the identity the program gave Parts",
-      "supplier": "the program's identity",
-      "crate": "kkt-server",
-      "to": [
-       {
-        "at": "AdmissionGate::new",
-        "param": "identify"
-       }
-      ],
-      "status": "decided",
-      "note": "the same Identify the endpoints ask, for the web gate"
-     },
-     {
       "own": "the clock and entropy the program gave Parts",
       "supplier": "the program's clock and entropy",
       "crate": "kkt-web",
@@ -11463,8 +12092,7 @@
         "param": "entropy"
        }
       ],
-      "status": "decided",
-      "note": "the page's sessions, which kkt-server builds when it mounts the page"
+      "status": "decided"
      },
      {
       "own": "the log the program gave Parts",
@@ -11490,6 +12118,90 @@
        {
         "at": "router",
         "param": "log"
+       }
+      ],
+      "status": "decided"
+     }
+    ]
+   },
+   "kkt-agent-commands": {
+    "wiring": [
+     {
+      "own": "the Watched the program's Servers made",
+      "supplier": "the program's Servers",
+      "crate": "kkt-watch",
+      "to": [
+       {
+        "at": "run",
+        "param": "server"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "own": "the clock the program gave AgentParts",
+      "supplier": "the program's clock",
+      "crate": "kkt-watch",
+      "to": [
+       {
+        "at": "run",
+        "param": "clock"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "own": "the credentials the program gave AgentParts",
+      "supplier": "the program's credentials",
+      "crate": "kkt-watch",
+      "to": [
+       {
+        "at": "run",
+        "param": "place"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "own": "the report the program gave AgentParts",
+      "supplier": "the program's report",
+      "crate": "kkt-watch",
+      "to": [
+       {
+        "at": "run",
+        "param": "report"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "own": "the client configs' host the program gave AgentParts",
+      "supplier": "the program's client configs' host",
+      "crate": "kkt-client-config",
+      "to": [
+       {
+        "at": "configure",
+        "param": "host"
+       },
+       {
+        "at": "Client::file",
+        "param": "host"
+       }
+      ],
+      "status": "decided"
+     },
+     {
+      "own": "the connection question the program gave AgentParts",
+      "supplier": "the program's connection question",
+      "crate": "kkt-setup",
+      "to": [
+       {
+        "at": "connection::client_connection",
+        "param": "source"
+       },
+       {
+        "at": "connection::admin_connection",
+        "param": "source"
        }
       ],
       "status": "decided"

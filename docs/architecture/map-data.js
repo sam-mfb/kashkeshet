@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "53fcec4",
+ "commit": "56b12b4",
  "crates": [
   {
    "bins": [
@@ -28289,6 +28289,127 @@ window.KKT_ASSEMBLY = {
      "to": [
       {
        "at": "Parts::new",
+       "param": "log"
+      }
+     ]
+    }
+   ]
+  },
+  "kkt-web-preview": {
+   "inferred": false,
+   "steps": [
+    {
+     "items": [
+      "kkt-api-sim::PreviewSettings",
+      "kkt-web::PageLimits",
+      "kkt-hosts::AllowedHosts",
+      "kkt-logs-os::init_stderr_logging",
+      "kkt-logs-os::TracingLog"
+     ],
+     "text": "Flags give the address, the seed, the feed's rate and the page size, checked by the program into kkt-api-sim's PreviewSettings and kkt-web's PageLimits; a non-loopback address names the hosts to answer to. Its log goes to standard error.",
+     "title": "Settings"
+    },
+    {
+     "items": [
+      "kkt-api-sim::PreviewGate",
+      "kkt-admission-os::KeyFiles",
+      "kkt-web::Sessions",
+      "kkt-clock-system::SystemClock",
+      "kkt-entropy-os::OsEntropy"
+     ],
+     "text": "PreviewGate, with the access key read through kkt-admission-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+     "title": "Gate"
+    },
+    {
+     "items": [
+      "kkt-api-sim::Preview",
+      "kkt-entropy::SeededEntropy",
+      "kkt-shutdown::Shutdown"
+     ],
+     "text": "kkt-api-sim's Preview simulates a swarm from SeededEntropy and the seed, and is an OperatorApi; its feed runs until the stop.",
+     "title": "World"
+    },
+    {
+     "items": [
+      "kkt-server::page",
+      "kkt-server-listen::listen",
+      "kkt-shutdown-os::StopSignals"
+     ],
+     "text": "kkt-server's page builds the page alone, and kkt-server-listen serves it until a stop signal.",
+     "title": "Serve"
+    }
+   ],
+   "title": "the web preview",
+   "wiring": [
+    {
+     "crate": "kkt-api-sim",
+     "impl": "kkt-clock-system::SystemClock",
+     "to": [
+      {
+       "at": "Preview::new",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-api-sim",
+     "impl": "kkt-entropy::SeededEntropy",
+     "note": "the simulated world, repeatable from the seed",
+     "to": [
+      {
+       "at": "Preview::new",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-web",
+     "impl": "kkt-clock-system::SystemClock",
+     "to": [
+      {
+       "at": "Sessions::new",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-web",
+     "impl": "kkt-entropy-os::OsEntropy",
+     "note": "the sessions' IDs",
+     "to": [
+      {
+       "at": "Sessions::new",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-server",
+     "impl": "kkt-api-sim::PreviewGate",
+     "to": [
+      {
+       "at": "page",
+       "param": "gate"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-server",
+     "impl": "kkt-api-sim::Preview",
+     "note": "the simulated application, as kkt-api-operator's OperatorApi",
+     "to": [
+      {
+       "at": "page",
+       "param": "api"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-server",
+     "impl": "kkt-logs-os::TracingLog",
+     "to": [
+      {
+       "at": "page",
        "param": "log"
       }
      ]

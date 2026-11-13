@@ -589,9 +589,17 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             tc, tp = split(t)
             if items_of.get(tc, {}).get(tp, {}).get("kind") != "trait":
                 problems.append(f"new_slots: {t} is not a trait in the proposed map")
-        crates[new["crate"]]["slots"].append({
-            "at": new["at"], "name": new["name"], "kind": "param", "status": new["status"], "note": new["note"],
-            "traits": [{"crate": split(t)[0], "trait": split(t)[1]} for t in new["traits"]], "proposed_slot": True})
+        # A field, a slot behind a feature, or one that takes a holder (a
+        # type holding an implementation, such as Startup's db, a Db) says
+        # so; a slot is a parameter otherwise.
+        slot = {"at": new["at"], "name": new["name"], "kind": new.get("kind", "param"), "status": new["status"],
+                "note": new["note"], "traits": [{"crate": split(t)[0], "trait": split(t)[1]} for t in new["traits"]],
+                "proposed_slot": True}
+        if new.get("feature"):
+            slot["feature"] = new["feature"]
+        if new.get("holds"):
+            slot["holds"] = new["holds"]
+        crates[new["crate"]]["slots"].append(slot)
         note(new["crate"], f"{new['at']} takes {new['name']}: {new['note']}", new["status"])
 
     # A feature an existing crate gains (kkt-identity's testing, for its
