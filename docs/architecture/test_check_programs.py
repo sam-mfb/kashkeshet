@@ -1,4 +1,4 @@
-"""check-programs.py: machine work in a composition crate fails unless the plan's temporary breaks list it."""
+"""check-programs.py: machine work in a composition crate fails unless the plan's temporary breaks list it; progress.py compares wiring."""
 
 import importlib.util
 import json
@@ -204,6 +204,42 @@ class ProposedMachineWork(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "sends its machine work to kkt-container, which is not an effect crate"):
             self.proposal_with_container_kind("contract")
 
+
+
+progress_spec = importlib.util.spec_from_file_location("progress", Path(__file__).resolve().parent / "progress.py")
+progress = importlib.util.module_from_spec(progress_spec)
+progress_spec.loader.exec_module(progress)
+
+
+class Wiring(unittest.TestCase):
+    """The scorecard compares what each program injects where, in the code
+    and in the proposal."""
+
+    MCP = {"impl": "kkt-agent-client::Mcp", "crate": "kkt-agent-commands", "to": [{"at": "AgentParts", "param": "servers"}]}
+    OWN = {"own": "ClientHost, adapting kkt-client-config-os's OsHost", "crate": "kkt-operate",
+           "to": [{"at": "OperateParts", "param": "clients"}]}
+
+    def test_the_same_wiring_matches(self):
+        both = {"programs": {"kkt": {"wiring": [self.MCP, self.OWN]}}}
+        self.assertEqual(progress.wiring(both, both), {"present": 2, "total": 2, "missing": [], "extra": []})
+
+    def test_a_program_type_is_named_by_its_first_words(self):
+        reworded = dict(self.OWN, own="ClientHost, worded otherwise")
+        got = progress.wiring({"programs": {"kkt": {"wiring": [self.OWN]}}}, {"programs": {"kkt": {"wiring": [reworded]}}})
+        self.assertEqual((got["present"], got["missing"], got["extra"]), (1, [], []))
+
+    def test_a_wiring_the_proposal_lacks_is_extra_and_one_the_code_lacks_is_missing(self):
+        stale = {"impl": "kkt-agent-client::Remote", "crate": "kkt-watch", "to": [{"at": "run", "param": "server"}]}
+        got = progress.wiring({"programs": {"kkt": {"wiring": [self.MCP]}}}, {"programs": {"kkt": {"wiring": [stale]}}})
+        self.assertEqual(got["present"], 0)
+        self.assertEqual(got["missing"], ["kkt: kkt-agent-client::Remote into kkt-watch (run.server)"])
+        self.assertEqual(got["extra"], ["kkt: kkt-agent-client::Mcp into kkt-agent-commands (AgentParts.servers)"])
+
+    def test_injectors_count_and_slots_tell_wirings_apart(self):
+        other_slot = dict(self.MCP, to=[{"at": "AgentParts", "param": "clients"}])
+        got = progress.wiring({"injectors": {"kkt-server": {"wiring": [self.MCP]}}},
+                              {"injectors": {"kkt-server": {"wiring": [other_slot]}}})
+        self.assertEqual((got["present"], len(got["missing"]), len(got["extra"])), (0, 1, 1))
 
 if __name__ == "__main__":
     unittest.main()

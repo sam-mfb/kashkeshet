@@ -1864,6 +1864,10 @@ the proposal with phases 9 to 13 charted (`progress.py`, step 13.10):
 - crates: 65 of 65 proposed crates exist; none missing; none to remove;
 - items: 793 of 793 proposed items are in their proposed crate;
 - arrows: 256 of 256 proposed arrows exist; none missing; none extra;
+- wiring: 102 of 102 proposed wirings exist; none missing; none extra
+  (counted since the proposal's wiring was charted after 13.10; until then
+  the proposal had 42 of the 95 in the code's record, and 21 that record
+  lacked, 7 of them the web preview's, which the record now has);
 - rules: no kind check fails; no break of the proposal's rules.
 
 Nothing was left to chart: each step charted its own differences as it

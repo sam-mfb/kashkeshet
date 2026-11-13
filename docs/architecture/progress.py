@@ -13,6 +13,10 @@ with the proposed map, and prints:
   of all of them, matched by crate and path;
 - arrows: the proposed normal arrows present and missing, and the normal
   arrows in the code that the proposal does not have;
+- wiring: what each program, or kkt-server and kkt-agent-commands where
+  they wire things themselves, injects into which slot, from the assembly
+  data (assembly.json, and the proposal's flows): the proposed wirings
+  present and missing, and those the code has that the proposal does not;
 - rules: kinds.py's checks, with the proposed kinds, and the proposal's own
   rules (only programs and compositions depend on effect crates, in code and
   in tests, and only programs turn on a merged crate's `real`, which kinds.py
@@ -56,7 +60,32 @@ def build():
     return BUILT
 
 
-def score(current, current_concerns, proposed, proposed_concerns):
+def wiring_key(injector, w):
+    """One wiring, as the scorecard compares it: who injects, what (an
+    implementation, or the injector's own type, named by the words before
+    its first comma), into which crate, and which slots."""
+    what = w.get("impl") or w["own"].split(",")[0]
+    return (injector, what, w["crate"], tuple(sorted((t["at"], t["param"]) for t in w.get("to", []))))
+
+
+def wiring(current, proposed):
+    """The wirings of two assemblies, compared: those of `proposed` found in
+    `current`, and the missing and extra ones, as text."""
+    def of(assembly):
+        return {wiring_key(name, w)
+                for section in ("programs", "injectors")
+                for name, flow in (assembly.get(section) or {}).items()
+                for w in flow.get("wiring", [])}
+
+    def text(k):
+        injector, what, crate, slots = k
+        return f"{injector}: {what} into {crate} ({', '.join(f'{a}.{p}' for a, p in slots)})"
+    now, then = of(current), of(proposed)
+    return {"present": len(now & then), "total": len(then),
+            "missing": sorted(text(k) for k in then - now), "extra": sorted(text(k) for k in now - then)}
+
+
+def score(current, current_concerns, proposed, proposed_concerns, current_assembly=None, proposed_assembly=None):
     crates = {c["name"]: c for c in current["crates"]}
     goal = {c["name"]: c for c in proposed["crates"]}
     result = {}
@@ -96,6 +125,8 @@ def score(current, current_concerns, proposed, proposed_concerns):
             if not kinds.is_contract(kind_of.get(r["trait_crate"])):
                 breaks.append(f"{c['name']}'s {r['type'] or 'own type'} implements {r['trait_crate']}::{r['trait']}")
     result["rules"] = {"kinds": sorted(mismatches + mixed), "proposal": sorted(set(breaks))}
+    if current_assembly is not None and proposed_assembly is not None:
+        result["wiring"] = wiring(current_assembly, proposed_assembly)
     return result
 
 
@@ -110,6 +141,10 @@ def show(result, listing):
         f"{len(a['extra'])} extra",
         f"rules: {len(r['kinds'])} kind checks fail; {len(r['proposal'])} breaks of the proposal's rules",
     ]
+    w = result.get("wiring")
+    if w:
+        lines.insert(3, f"wiring: {w['present']} of {w['total']} proposed wirings exist; {len(w['missing'])} missing; "
+                        f"{len(w['extra'])} extra")
     if listing:
         def section(title, entries):
             lines.append(f"\n{title} ({len(entries)}):")
@@ -119,6 +154,9 @@ def show(result, listing):
         section("items not yet in their proposed crate", i["missing"])
         section("arrows missing", a["missing"])
         section("arrows extra", a["extra"])
+        if w:
+            section("wirings missing", w["missing"])
+            section("wirings extra", w["extra"])
         section("kind checks failing", r["kinds"])
         section("breaks of the proposal's rules", r["proposal"])
     print("\n".join(lines))
@@ -127,9 +165,10 @@ def show(result, listing):
 def main():
     args = sys.argv[1:]
     built = Path(args[args.index("--map") + 1]) if "--map" in args else build()
-    current = load(built, ["KKT_GRAPH", "KKT_CONCERNS"])
+    current = load(built, ["KKT_GRAPH", "KKT_CONCERNS", "KKT_ASSEMBLY"])
     proposed = load(HERE / "proposed-data.js", ["KKT_PROPOSED"])["KKT_PROPOSED"]
-    result = score(current["KKT_GRAPH"], current["KKT_CONCERNS"], proposed["graph"], proposed["concerns"])
+    result = score(current["KKT_GRAPH"], current["KKT_CONCERNS"], proposed["graph"], proposed["concerns"],
+                   current["KKT_ASSEMBLY"], proposed["assembly"])
     show(result, "--list" in args)
 
 

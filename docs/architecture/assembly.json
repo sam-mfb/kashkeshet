@@ -1179,6 +1179,127 @@
      "note": "The MCP endpoints and web page share the program's log."
     }
    ]
+  },
+  "kkt-web-preview": {
+   "title": "the web preview",
+   "inferred": false,
+   "steps": [
+    {
+     "title": "Settings",
+     "text": "Flags give the address, the seed, the feed's rate and the page size, checked by the program into kkt-api-sim's PreviewSettings and kkt-web's PageLimits; a non-loopback address names the hosts to answer to. Its log goes to standard error.",
+     "items": [
+      "kkt-api-sim::PreviewSettings",
+      "kkt-web::PageLimits",
+      "kkt-hosts::AllowedHosts",
+      "kkt-logs-os::init_stderr_logging",
+      "kkt-logs-os::TracingLog"
+     ]
+    },
+    {
+     "title": "Gate",
+     "text": "PreviewGate, with the access key read through kkt-admission-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+     "items": [
+      "kkt-api-sim::PreviewGate",
+      "kkt-admission-os::KeyFiles",
+      "kkt-web::Sessions",
+      "kkt-clock-system::SystemClock",
+      "kkt-entropy-os::OsEntropy"
+     ]
+    },
+    {
+     "title": "World",
+     "text": "kkt-api-sim's Preview simulates a swarm from SeededEntropy and the seed, and is an OperatorApi; its feed runs until the stop.",
+     "items": [
+      "kkt-api-sim::Preview",
+      "kkt-entropy::SeededEntropy",
+      "kkt-shutdown::Shutdown"
+     ]
+    },
+    {
+     "title": "Serve",
+     "text": "kkt-server's page builds the page alone, and kkt-server-listen serves it until a stop signal.",
+     "items": [
+      "kkt-server::page",
+      "kkt-server-listen::listen",
+      "kkt-shutdown-os::StopSignals"
+     ]
+    }
+   ],
+   "wiring": [
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-api-sim",
+     "to": [
+      {
+       "at": "Preview::new",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy::SeededEntropy",
+     "crate": "kkt-api-sim",
+     "to": [
+      {
+       "at": "Preview::new",
+       "param": "entropy"
+      }
+     ],
+     "note": "the simulated world, repeatable from the seed"
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-web",
+     "to": [
+      {
+       "at": "Sessions::new",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-web",
+     "to": [
+      {
+       "at": "Sessions::new",
+       "param": "entropy"
+      }
+     ],
+     "note": "the sessions' IDs"
+    },
+    {
+     "impl": "kkt-api-sim::PreviewGate",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "page",
+       "param": "gate"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-api-sim::Preview",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "page",
+       "param": "api"
+      }
+     ],
+     "note": "the simulated application, as kkt-api-operator's OperatorApi"
+    },
+    {
+     "impl": "kkt-logs-os::TracingLog",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "page",
+       "param": "log"
+      }
+     ]
+    }
+   ]
   }
  },
  "injectors": {
