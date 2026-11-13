@@ -22,23 +22,26 @@ gave kkt-db a fast test stand-in, so kkt-rules' tests no longer use an effect
 crate. Phase 12 split every third-party dependency into a contract crate in
 kkt's terms and a wrapper named for the tool, which the program injects
 with no adapter. Phase 13 (Sam, after phase 12) merged each such pair with one implementation
-into one crate, the implementation behind `real`. What is left for Sam comes first, below; the scorecards
+into one crate, the implementation behind `real`. Sam's decisions come first, below; the scorecards
 are at the end.
 
-## Awaiting Sam
+## Sam's decisions
 
-Every row below is decided by Sam, or is on one of the two lists at the end
-of this section: the differences to show him again now that phases 9 to 11
-are done, and the new ones those phases made. They were the questions
-left after phases 0 to 8: every difference from the proposed map then
-awaiting Sam, and the open items of "What needs Sam". They are grouped by
-how much they change. Each line gives the step and the answer, with the
-recommendation from kkt-mt-step1, the plan's author, where Sam has not
-ruled. Where a difference is a compromise, the line says so.
+Sam has ruled on every difference in the tables that follow, up to the
+phase 12 notes. Groups (a) to (d) are the
+questions left after phases 0 to 8: every difference from the proposed map
+then awaiting him, and the open items of "What needs Sam". He decided them
+on 2026-11-12. Two lists follow: the differences his decisions overtook,
+with how each ended once phases 9 to 11 were done, and the seven new
+differences those phases made, which he accepted on 2026-11-13. The groups
+are by how much they change. Each line gives the step and Sam's answer, and
+where his ruling differed from the recommendation of kkt-mt-step1, the
+plan's author, that recommendation. Where a difference is a compromise, the
+line says so.
 
 **(a) Changes to a rule, or to which crate may depend on which.**
 
-| Difference | Step | Recommended |
+| Difference | Step | Sam |
 |---|---|---|
 | The shared crates' public surface changes for kkt-pro, which builds on them by git ("What needs Sam" 2) | all | **Accepted by Sam, 2026-11-12.** The CHANGELOG entry says what a dependant must change, and the outside-crate CI job still builds |
 | check-crates rule 3 lets a dev-only program turn on another package's `testing` (the web preview, kkt-api-sim) ("What needs Sam" 4; the 6.3 row on kkt-web-preview) | 6.3 | **Accepted by Sam, 2026-11-12.** A dev-only package can never be in a release, and check-release-packages.sh enforces that |
@@ -50,7 +53,7 @@ ruled. Where a difference is a compromise, the line says so.
 **(b) Differences that leave a rule broken.** The scorecard counts the
 first two.
 
-| Difference | Step | Recommended |
+| Difference | Step | Sam |
 |---|---|---|
 | kkt-rules' tests use kkt-db-sqlite's in-memory database, an effect crate's | 5.3b | **Not accepted by Sam, 2026-11-12, and no exception: done in 11.1 and 11.2.** kkt-db's `testing` has a fast stand-in on SQLite in memory with its own translation (`FastPlace`, 11.1), and kkt-rules' tests and `testing::database` run on it (11.2, 6 s); the program's `tests/store_on_sqlite.rs` runs the store's whole surface on kkt-db-sqlite (11.2), and 11.3 adds a chosen subset of the rules' scenarios there |
 | The arrow kkt-server → kkt-api-admin is missing: `Parts` holds the concrete `Rules` | 5.6a | **Decided by Sam, 2026-11-12: `Parts` takes the contract** (9.2): an `Arc<dyn AdminApi>`, which the program fills with what `kkt_rules::start` returns; kkt-server's normal dependency on kkt-rules goes. (The recommendation was to accept, and drop the arrow from the proposal.) |
@@ -131,18 +134,19 @@ merged; the last column says how it ended.
 | `local_web_key` and `local_operator_key` stay in the program | 7.3b | 10.2a (#496): they are kkt-operate's (`keys`), still outside kkt-setup, and ask the local server's facts through `ServeFacts` |
 | `kkt_rules::testing` gives the program's tests the store's `Reader`, `Writer`, records and filters, with `read` and `write`; `testing::database` gives other tests a bare `Db` | 5.6b | 11.4 (#492): `testing` names no store type. The program's tests use purpose-named functions (`every_store_read`, `rules_on`, `swarms_stay_apart_in`, `scenarios::run_all`); `testing::database` stays |
 
-**New differences for Sam from phases 9 to 11.** Each has a row in the
-differences table below, and is charted into the proposal.
+**New differences from phases 9 to 11.** Accepted by Sam, 2026-11-13,
+all seven as recommended. Each has a row in the differences table below,
+and is charted into the proposal.
 
-| Difference | Step | Recommended |
+| Difference | Step | Sam |
 |---|---|---|
-| `ServerSettings::check` returns an opaque `CheckedSettings`, which `Parts::new` takes, so a server cannot be built from settings never checked | 9.2 (#494) | Accept: asked for in 9.2's review |
-| kkt's `new_server_run` is public, in `machine::server_run`, so the integration tests' harness records a run as `kkt serve` does | 9.2, 9.3 | Accept: one mapping, not a copy in the tests |
-| `ServiceDefaults`: only operator parts built with the service-file parser can ask whether an installed service runs the defaults | 10.2a (#496) | Accept: the compiler refuses the question where no parser was given, in place of a refusal at run time |
-| `ServeFacts::service_settings` gives the service plan's inputs and a deferred `CheckService`, which keeps the program's whole check until the plan is made | 10.2b (#498) | Accept: the check runs in the same order as before, and the assembly sees nothing of the program's settings |
-| kkt-container's `tailscale_auth_key` and `docker_env` take a possibly unsized `Host` | 10.2b (#499) | Accept: every earlier caller still compiles |
-| kkt-operate's module for `kkt agent` is `agent`, not `agents` | 10.2a (#496) | Accept: a name only |
-| kkt-agent-commands takes the admin endpoint's path in `AgentParts`, with no arrow to kkt-mcp | 10.3 (#497) | Accept: one arrow fewer, and kkt-mcp's build script stays out of the assembly's build |
+| `ServerSettings::check` returns an opaque `CheckedSettings`, which `Parts::new` takes, so a server cannot be built from settings never checked | 9.2 (#494) | **Accepted by Sam, 2026-11-13**: asked for in 9.2's review |
+| kkt's `new_server_run` is public, in `machine::server_run`, so the integration tests' harness records a run as `kkt serve` does | 9.2, 9.3 | **Accepted by Sam, 2026-11-13**: one mapping, not a copy in the tests |
+| `ServiceDefaults`: only operator parts built with the service-file parser can ask whether an installed service runs the defaults | 10.2a (#496) | **Accepted by Sam, 2026-11-13**: the compiler refuses the question where no parser was given, in place of a refusal at run time |
+| `ServeFacts::service_settings` gives the service plan's inputs and a deferred `CheckService`, which keeps the program's whole check until the plan is made | 10.2b (#498) | **Accepted by Sam, 2026-11-13**: the check runs in the same order as before, and the assembly sees nothing of the program's settings |
+| kkt-container's `tailscale_auth_key` and `docker_env` take a possibly unsized `Host` | 10.2b (#499) | **Accepted by Sam, 2026-11-13**: every earlier caller still compiles |
+| kkt-operate's module for `kkt agent` is `agent`, not `agents` | 10.2a (#496) | **Accepted by Sam, 2026-11-13**: a name only |
+| kkt-agent-commands takes the admin endpoint's path in `AgentParts`, with no arrow to kkt-mcp | 10.3 (#497) | **Accepted by Sam, 2026-11-13**: one arrow fewer, and kkt-mcp's build script stays out of the assembly's build |
 
 **Phase 12, for Sam: the crates it made.** Each third-party dependency is
 now a contract crate in kkt's terms and a wrapper that implements it, and
@@ -334,14 +338,14 @@ the last column says so.
 |---|---|---|---|---|
 | kkt-lane-files declares a narrow git contract, and the program adapts kkt-lane-files-os' git runner to it, beside `Disk` | 2.6 (#413) | Git's meaning (expected absences, the dirty suffix, error wording) is logic and stays in kkt-lane-files; only running the command is an effect | accepted by Sam, 2026-11-12 | overtaken by 12.5a: git's meaning is kkt-lane-commit-git's, behind kkt-lane-commit's contract |
 | One program adapter, an enum over kkt-agent-client's `Remote` and `AdminRemote`, meets kkt-watch's `Server`, in place of two | 1.9 (#420) | Fewer methods (5 in place of 5 + 5), the same arrows | accepted by Sam, 2026-11-12 | overtaken by 12.4: the adapter is gone, and kkt-agent-client-rmcp's `Remote` and `AdminRemote` implement kkt-agent-client's `Watched` directly |
-| kkt-container's `tailscale_auth_key` and `docker_env` accept a possibly unsized `Host` | 10.2b (setup) | Setup now passes the plan's injected host trait object to the existing file readers; the widening accepts all previous callers and changes no reads or output | awaiting Sam | no arrow or slot change |
-| `ServeFacts::service_settings` returns service-plan inputs and a deferred `CheckService`, which retains opaque program options and their source context | 10.2b (service) | The assembly owns planning and its ordered check/install sequence; the program alone knows and validates its whole serving surface. No serving option type or assembly dependency crosses the boundary | awaiting Sam | yes (10.4) |
+| kkt-container's `tailscale_auth_key` and `docker_env` accept a possibly unsized `Host` | 10.2b (setup) | Setup now passes the plan's injected host trait object to the existing file readers; the widening accepts all previous callers and changes no reads or output | accepted by Sam, 2026-11-13 | no arrow or slot change |
+| `ServeFacts::service_settings` returns service-plan inputs and a deferred `CheckService`, which retains opaque program options and their source context | 10.2b (service) | The assembly owns planning and its ordered check/install sequence; the program alone knows and validates its whole serving surface. No serving option type or assembly dependency crosses the boundary | accepted by Sam, 2026-11-13 | yes (10.4) |
 | A third-party tool has a project-scope contract plus a named wrapper implementing it directly, regardless of consumer count; the program only injects it. The effect wrapper owns tool knowledge and a private runner, with running behind `real` | 12.1 | The scope is the abstraction consumers use; keeping one tool's knowledge and execution together avoids a shared process concern. The remote-access pilot replaces `Host::run` and the program adapter with `RemoteAccess` and `Tailscale` | decided by Sam, 2026-11-12 (msgs 3041, 3050) | yes |
-| `ServiceDefaults::matches_defaults(args)` answers the installed/default settings comparison; only service-capable `OperateParts` can ask it | 10.2a | Both serving surfaces stay in the program. A service-capable adapter requires `ServeArgs` at construction; record/config-only parts have no such capability. Installed arguments are resolved before defaults; the assembly retains the service-file check and refusal wrapping | required by the 10.2a review; awaiting Sam for the narrowed question | yes (10.4) |
-| `ServerSettings::check` returns opaque `CheckedSettings` containing the immutable settings and their host policy; `Parts::new` consumes that one value | 9.2 | The constructor cannot skip validation or combine settings with a different host policy; the program reads the checked values for its record. The integration harness uses the program's own run-record mapping | requested in the 9.2 review; awaiting Sam for the constructor detail | yes (10.4) |
-| kkt's `new_server_run` is in `machine::server_run`, public, not in `commands::serve` | 9.2, 9.3 | The integration tests' harness records a run as `kkt serve` does, with the program's own mapping, in place of a third copy of it (the 9.2 review) | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.4) |
-| kkt-operate's module for `kkt agent` is `agent`, not `agents` | 10.2a (#496) | It holds one command, `kkt agent`, as `lanes` and `key` hold theirs | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.4) |
-| kkt-agent-commands takes the admin endpoint's path in `AgentParts` (`admin_path`), and has no arrow to kkt-mcp | 10.3 (#497) | The arrow was for one constant, `MCP_ADMIN_PATH`, and brought kkt-mcp's build script into the assembly's build; kkt-setup's `admin_endpoint` already takes the path from its caller | on the list of new differences for Sam (in "Awaiting Sam") | yes (10.3) |
+| `ServiceDefaults::matches_defaults(args)` answers the installed/default settings comparison; only service-capable `OperateParts` can ask it | 10.2a | Both serving surfaces stay in the program. A service-capable adapter requires `ServeArgs` at construction; record/config-only parts have no such capability. Installed arguments are resolved before defaults; the assembly retains the service-file check and refusal wrapping | required by the 10.2a review; accepted by Sam, 2026-11-13 | yes (10.4) |
+| `ServerSettings::check` returns opaque `CheckedSettings` containing the immutable settings and their host policy; `Parts::new` consumes that one value | 9.2 | The constructor cannot skip validation or combine settings with a different host policy; the program reads the checked values for its record. The integration harness uses the program's own run-record mapping | requested in the 9.2 review; accepted by Sam, 2026-11-13 | yes (10.4) |
+| kkt's `new_server_run` is in `machine::server_run`, public, not in `commands::serve` | 9.2, 9.3 | The integration tests' harness records a run as `kkt serve` does, with the program's own mapping, in place of a third copy of it (the 9.2 review) | accepted by Sam, 2026-11-13 | yes (10.4) |
+| kkt-operate's module for `kkt agent` is `agent`, not `agents` | 10.2a (#496) | It holds one command, `kkt agent`, as `lanes` and `key` hold theirs | accepted by Sam, 2026-11-13 | yes (10.4) |
+| kkt-agent-commands takes the admin endpoint's path in `AgentParts` (`admin_path`), and has no arrow to kkt-mcp | 10.3 (#497) | The arrow was for one constant, `MCP_ADMIN_PATH`, and brought kkt-mcp's build script into the assembly's build; kkt-setup's `admin_endpoint` already takes the path from its caller | accepted by Sam, 2026-11-13 | yes (10.3) |
 | The agent credential and watch-state files leave kkt-agent-client for a crate of their own, kkt-agent-files-os, and the program keeps adapting them to kkt-agent-commands' `Credentials` | 12.4 | kkt-agent-client becomes a contract, which may hold no `real`; the files are the machine's, not a third-party tool's, so they take an `-os` crate (Sam's answer 4), and kkt-setup's credential-file rule stays the program's to apply | to show Sam with phase 12 | yes (12.4) |
 | kkt-service-os reports with its own `Finished`, which the program translates to kkt-service's in `run` and `run_attached` | 2.2 (#427) | So kkt-service-os depends on neither kkt-service nor kkt-config; two adapter methods translate | accepted by Sam, 2026-11-12 | overtaken by 12.3: kkt-service-launchd and kkt-service-systemd implement kkt-service's `Service` directly; kkt-service-os keeps only `try_bind` |
 | kkt-remote-access-os returns its own output and I/O error, which the program maps to the remote-access host contract | 2.3 (#436) | The effect has no dependencies; the adapter preserves all output fields and launch-failure advice | accepted by Sam, 2026-11-12 | overtaken by 12.1: kkt-remote-access-tailscale implements `RemoteAccess` directly, and the adapter is gone |
@@ -1383,7 +1387,7 @@ nothing (ARCHITECTURE.md 1.2.2, 2.3.2, 3.1.2.1, 3.2.3.1, the `vpn` and
 **Why the code had the other shape.** The proposal's third rule: a contract
 used by two crates or fewer is declared by each consumer, and the program
 adapts the implementation to it (msgs 2019, 2020). Sam also accepted effect
-crates that depend on nothing (2.1 to 2.4 in "Awaiting Sam", group c).
+crates that depend on nothing (2.1 to 2.4 in "Sam's decisions", group c).
 Sam's ruling replaces that rule for third-party dependencies; 12.1 changes
 its text.
 
