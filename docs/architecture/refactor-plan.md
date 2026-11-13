@@ -13,7 +13,7 @@ The plan has five parts: the rules every step follows; how progress is
 measured; how parallel work avoids collisions; the steps; and what needs
 Sam, each with the default we proceed on.
 
-The refactor's phases 0 to 12 are done. After phase 8, Sam decided four
+The refactor's phases 0 to 13 are done. After phase 8, Sam decided four
 more (2026-11-12). Phase 9 removed kkt-settings: each owner checks and words
 its own settings, and kkt-server takes them checked. Phase 10 moved the
 program's tools out of its library into two assemblies, kkt-operate and
@@ -21,7 +21,8 @@ kkt-agent-commands, while the program keeps composing the server. Phase 11
 gave kkt-db a fast test stand-in, so kkt-rules' tests no longer use an effect
 crate. Phase 12 split every third-party dependency into a contract crate in
 kkt's terms and a wrapper named for the tool, which the program injects
-with no adapter. What is left for Sam comes first, below; the scorecards
+with no adapter. Phase 13 (Sam, after phase 12) merged each such pair with one implementation
+into one crate, the implementation behind `real`. What is left for Sam comes first, below; the scorecards
 are at the end.
 
 ## Awaiting Sam
@@ -1730,17 +1731,17 @@ kkt-review-b, and its plan and map work by kkt-review-373.
 
 | Step | What | Size | Builds | Reviews |
 |---|---|---|---|---|
-| 13.0 | The rule text, the new kind, generate.py's slot features and optional dependencies, kinds.py, progress.py, check-crates' comment, CLAUDE.md, the proposal's rule | M | kkt-mt-step1 | kkt-review-373 |
+| 13.0 | The rule text, the new kind, generate.py's slot features and optional dependencies, kinds.py, progress.py, check-crates' comment, CLAUDE.md, the proposal's rule | M | kkt-mt-step1 (#518) | kkt-review-373 |
 | 13.1 | kkt-container merges with kkt-container-docker | M | kkt-build-c (#521) | kkt-review-373 |
 | 13.2 | kkt-remote-access merges with kkt-remote-access-tailscale | S | kkt-build-c (#523) | kkt-review-373 |
-| 13.3 | kkt-browser merges with kkt-browser-os | S | kkt-mt-step1 | kkt-review-b |
-| 13.4 | kkt-lane-commit merges with kkt-lane-commit-git | S | kkt-build-b | kkt-review-b |
-| 13.5 | kkt-probe merges with kkt-probe-reqwest | S | kkt-build-b | kkt-review-b |
-| 13.6 | kkt-agent-client merges with kkt-agent-client-rmcp | M | kkt-mt-step1 | kkt-review-b |
-| 13.7 | kkt-client-command merges with kkt-client-command-claude (Sam's answer 1) | S | kkt-mt-step1 | kkt-review-b |
-| 13.8 | kkt-machine's `Machine` trait and `FixedMachine` go; kkt-machine-os gives `env()` and `platform()` as plain functions (Sam's answer 3) | S | kkt-mt-step1 | kkt-review-b |
-| 13.9 | The map: split boxes and the arrows' direction (map.js, map.css, index.html, README.md, page-test.js) | M | kkt-mt-step1 | kkt-review-373 |
-| 13.10 | Chart what differs, and the scorecard | S | kkt-mt-step1 | kkt-review-373 |
+| 13.3 | kkt-browser merges with kkt-browser-os | S | kkt-mt-step1 (#522) | kkt-review-b |
+| 13.4 | kkt-lane-commit merges with kkt-lane-commit-git | S | kkt-build-b (#520) | kkt-review-b |
+| 13.5 | kkt-probe merges with kkt-probe-reqwest | S | kkt-build-b (#525) | kkt-review-b |
+| 13.6 | kkt-agent-client merges with kkt-agent-client-rmcp | M | kkt-mt-step1 (#519) | kkt-review-b |
+| 13.7 | kkt-client-command merges with kkt-client-command-claude (Sam's answer 1) | S | kkt-build-b (#526; moved from kkt-mt-step1, msg 3169) | kkt-review-b |
+| 13.8 | kkt-machine's `Machine` trait and `FixedMachine` go; kkt-machine-os gives `env()` and `platform()` as plain functions (Sam's answer 3) | S | kkt-build-b (#527; moved from kkt-mt-step1, msg 3169) | kkt-review-b |
+| 13.9 | The map: split boxes and the arrows' direction (map.js, map.css, index.html, README.md, page-test.js) | M | kkt-mt-step1 (#524) | kkt-review-373 |
+| 13.10 | Chart what differs, and the scorecard | S | kkt-mt-step1 (this pull request) | kkt-review-373 |
 
 13.0 comes first. 13.1 to 13.8 can then run side by side: each touches its
 own crates, and the shared files (Cargo.toml, CLAUDE.md, the proposal) merge
@@ -1753,6 +1754,27 @@ kind:** kkt-machine stays a contract, and kkt-machine-os an effect.
 
 **Existing installs:** none expected. The merges move code between crates
 and change no file, flag, message or command that an install relies on.
+Every step's pull request said so, and how it checked.
+
+**What phase 13 did, against the audit and this plan** (for Sam, step
+13.10). Every merge the audit recommended is done, with kkt-client-command
+added by Sam's answer 1. Where a step did something the plan did not say,
+the row says what and why.
+
+| Audit or plan | Done | Step | Differs from the plan |
+|---|---|---|---|
+| The rule, the new kind and its checks | CLAUDE.md's rule in the draft's words; kind "contract and effect", which kinds.py tells from "mixed" | 13.0 (#518) | No. Review added: map-data.js regenerated in the step, and the proposal's rule says "only programs (check 2)" |
+| kkt-container + kkt-container-docker (audit: merge) | Merged; Docker behind `real`; kkt-browser, kkt-config-file, kkt-machine, serde_json and thiserror optional | 13.1 (#521) | One addition: propose.py's `program_work` accepts a merged crate as where the program's machine work went, as it accepted an effect crate |
+| kkt-remote-access + kkt-remote-access-tailscale (audit: merge) | Merged; Tailscale behind `real`; serde and serde_json optional | 13.2 (#523) | No |
+| kkt-browser + kkt-browser-os (audit: merge) | Merged; `SystemBrowser` behind `real`; no optional dependency | 13.3 (#522) | Order only: done before 13.1, since kkt-container depends on kkt-browser without `real` either way |
+| kkt-lane-commit + kkt-lane-commit-git (audit: merge) | Merged; `Git` behind `real`; no optional dependency | 13.4 (#520) | No |
+| kkt-probe + kkt-probe-reqwest (audit: merge) | Merged; `HttpProber` behind `real`; reqwest and serde_json optional | 13.5 (#525) | No |
+| kkt-agent-client + kkt-agent-client-rmcp (audit: merge) | Merged; `Mcp`, `Client`, `Remote`, `AdminRemote`, `Http` and `HttpReply` behind `real`; rmcp, reqwest, serde_json and tokio optional | 13.6 (#519) | Two additions to the tools, so the proposed map can show a merged crate, whose base map predates 13.0's data: a `third_party_edits` entry may name optional dependencies, and kinds.py takes a slot's feature from its owner type when the map has none |
+| kkt-client-command (audit: unclear, leans keep; Sam: merge) | Merged with kkt-client-command-claude; `Claude` behind `real` | 13.7 (#526) | No |
+| kkt-machine's `Machine` trait (audit: keep the data, the trait is not needed; Sam: it goes) | `Machine` and `FixedMachine` gone; `Env` and `Platform` stay | 13.8 (#527) | No |
+| kkt-service (audit: keep) | Kept: launchd and systemd are two implementations | none | No |
+| The map: a merged crate's two parts | Split box, contract left, `real` strip right; each arrow meets the part it depends on; the panel lists both parts | 13.9 (#524) | Yes: the parts sit side by side, not one above the other, since every arrow into a merged crate comes from above and would cross the upper part. generate.py did not change: the page reads the kind, and each arrow's features and optional flag. Each stroke of an arrow with several roles meets its own part: an implementing stroke meets the contract (kkt-review-373, msg 3206) |
+| The map: the arrows' direction (Sam, msg 3155) | "uses" and "wires" arrows run from the crate used or built to its user; "implements" unchanged; the wording follows | 13.9 (#524) | No. One fix with it: the page test hid "the second kind", which 13.0's new kind displaced |
 
 ## Order at a glance
 
@@ -1835,6 +1857,20 @@ Each has the default we proceed on, so nothing waits.
    and the page's "Current" map shows the code. Accepted by Sam, 2026-11-12.
 
 ## Final scorecard
+
+On the code at the end of phase 13, at 46911a8 (#527 merged), against
+the proposal with phases 9 to 13 charted (`progress.py`, step 13.10):
+
+- crates: 65 of 65 proposed crates exist; none missing; none to remove;
+- items: 793 of 793 proposed items are in their proposed crate;
+- arrows: 256 of 256 proposed arrows exist; none missing; none extra;
+- rules: no kind check fails; no break of the proposal's rules.
+
+Nothing was left to chart: each step charted its own differences as it
+merged. The one temporary break left is still CI's, not the code's: macOS
+is out of CI (#501), until it comes back or a self-hosted runner takes it.
+
+### At the end of phase 12
 
 On the code at the end of phase 12, at 1007e1a (#514 merged), against the
 proposal with phases 9 to 12 charted (`progress.py`, step 12.6):

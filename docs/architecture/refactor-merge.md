@@ -39,19 +39,28 @@ split every third-party dependency into a contract crate in kkt's terms and
 a wrapper named for the tool that implements it directly, which the program
 injects with no adapter: Tailscale, Docker, launchd and systemd, the MCP
 client, git, the doctor's HTTP probe, Claude Code's command and the
-browser opener.
+browser opener. Phase 13 merged each of those pairs that has one
+implementation back into one crate named for the scope, of a new kind,
+"contract and effect": the contract in the open, and the implementation
+behind `real`, which only programs turn on. That is container,
+remote-access, browser, lane-commit, probe, agent-client and
+client-command; kkt-service keeps its contract crate, with launchd and
+systemd as two implementations. kkt-machine's unused `Machine` trait went.
+The map draws a merged crate as a split box, and its grey and amber arrows
+now run from the crate that is used or built to the crate that uses or
+builds it.
 
-The workspace went from 33 packages to 72. The code now matches the
+The workspace went from 33 packages to 65. The code now matches the
 proposed map, as amended during the refactor, with no difference left
 (`decisions.md`, "After the refactor").
 
 ## Final scorecard
 
-From `progress.py`, on the code at the end of the refactor (1007e1a):
+From `progress.py`, on the code at the end of the refactor (46911a8):
 
-- crates: 72 of 72 proposed crates exist; none missing; none to remove;
-- items: 794 of 794 proposed items are in their proposed crate;
-- arrows: 267 of 267 proposed arrows exist; none missing; none extra;
+- crates: 65 of 65 proposed crates exist; none missing; none to remove;
+- items: 793 of 793 proposed items are in their proposed crate;
+- arrows: 256 of 256 proposed arrows exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
 
 ## Effect on existing installs
@@ -88,7 +97,8 @@ The macOS checks were off for most of the refactor. #486 turned them back
 on for a while, and #501 turned them off again, so its macOS code is
 reviewed by hand until they return. Watch their first runs. The code the refactor touched that decides by platform:
 
-- `crates/kkt-machine-os/src/lib.rs`: `OsMachine::platform` says whether
+- `crates/kkt-machine-os/src/lib.rs`: `platform()` (`OsMachine::platform`
+  until 13.8) says whether
   this build is macOS or follows XDG. It replaces `Platform::CURRENT` in
   kkt-settings' `paths.rs`, which is gone. Every path built from `Platform`
   (the config folder, the data folder, the default database) rests on it.
@@ -106,7 +116,7 @@ reviewed by hand until they return. Watch their first runs. The code the refacto
 
 Code under `cfg(unix)` also moved, and runs on both systems: file modes
 (kkt-admission-os, kkt-backup-os, kkt-client-config-os,
-kkt-container-docker, kkt-config-file-os), the stop signals
+kkt-container (behind `real`), kkt-config-file-os), the stop signals
 (kkt-shutdown-os), the agent credential files' owner and mode checks
 (kkt-agent-files-os), and the closed output pipe (kkt-terminal-os).
 
@@ -144,6 +154,9 @@ Sam edits the template himself; this pull request does not change
 From Sam's ruling of 2026-11-12: a third-party dependency is always split
 into a contract crate named for the scope and a wrapper crate named for the
 tool, which implements the contract directly. The program only injects it.
+Phase 13 revised it the same day (note 6): a tool with one implementation
+is one crate named for the scope, the implementation behind `real`. Notes
+1 to 5 stand for a tool with several implementations, as kkt-service has.
 
 1. **3.1.2.1** should say that the wrapping module implements the project's
    contract directly, and that a parent only injects it: no adapter between
@@ -160,8 +173,9 @@ tool, which implements the contract directly. The program only injects it.
    for the tool.
 5. **A wrapper crate is an effect crate that also holds the logic for
    driving its tool** (Sam's answer to the survey's question 3, msg 3050):
-   kkt-container-docker holds both Docker's knowledge and the code that
-   runs `docker`. That sits against principle 4 (a module is one kind) and
+   kkt-container-docker held both Docker's knowledge and the code that
+   runs `docker` (since 13.1, kkt-container's implementation behind
+   `real`, which holds both still). That sits against principle 4 (a module is one kind) and
    4.5.2 (complex adapter logic as its own logic module). Sam thinks this
    may be worth addressing in the principles. His reason for the shape: the
    scope's contract is the abstraction other developers use, and only
