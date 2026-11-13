@@ -530,17 +530,17 @@
     },
     {
      "impl": "kkt-clock-system::SystemClock",
-     "crate": "kkt-logs-os",
+     "crate": "kkt-logs",
      "to": [
       {
-       "at": "init_logging",
+       "at": "open_log_file",
        "param": "clock"
       }
      ],
      "note": "kkt serve --log-file"
     },
     {
-     "impl": "kkt-logs-os::TracingLog",
+     "impl": "kkt-log-tracing::TracingLog",
      "crate": "kkt-server",
      "to": [
       {
@@ -988,7 +988,7 @@
      ]
     },
     {
-     "impl": "kkt-logs-os::TracingLog",
+     "impl": "kkt-log-tracing::TracingLog",
      "crate": "kkt-server",
      "to": [
       {
@@ -1168,7 +1168,7 @@
      ]
     },
     {
-     "impl": "kkt-logs-os::TracingLog",
+     "impl": "kkt-log-tracing::TracingLog",
      "crate": "kkt-server",
      "to": [
       {
@@ -1191,8 +1191,8 @@
       "kkt-api-sim::PreviewSettings",
       "kkt-web::PageLimits",
       "kkt-hosts::AllowedHosts",
-      "kkt-logs-os::init_stderr_logging",
-      "kkt-logs-os::TracingLog"
+      "kkt-log-tracing::init_stderr_logging",
+      "kkt-log-tracing::TracingLog"
      ]
     },
     {
@@ -1290,7 +1290,7 @@
      "note": "the simulated application, as kkt-api-operator's OperatorApi"
     },
     {
-     "impl": "kkt-logs-os::TracingLog",
+     "impl": "kkt-log-tracing::TracingLog",
      "crate": "kkt-server",
      "to": [
       {

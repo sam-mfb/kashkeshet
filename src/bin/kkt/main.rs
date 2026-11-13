@@ -13,9 +13,8 @@ use kashkeshet::machine::operate::NativeOperate;
 use kashkeshet::machine::settings::ServeArgs;
 use kashkeshet::machine::settings::ServeOptions;
 use kkt_agent_commands::{self as agent_commands, connect, watch::WatchTask};
-use kkt_clock_system::SystemClock;
+use kkt_log_tracing::{init_logging, init_stderr_logging};
 use kkt_logs::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
-use kkt_logs_os::{init_logging, init_stderr_logging};
 use kkt_machine::{Env, Platform};
 use kkt_operate::agent::AgentAction;
 use kkt_operate::keys::KeyKind;
@@ -26,7 +25,6 @@ use kkt_setup as setup;
 use kkt_terminal_os::Terminal;
 use kkt_terminal_os::end_on_closed_output;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
@@ -46,12 +44,7 @@ async fn main() -> std::process::ExitCode {
         Ok(Task::Watch(_) | Task::Register { .. } | Task::Reclaim { .. }) => {
             init_stderr_logging(DEFAULT_LOG_LEVEL)
         }
-        _ => init_logging(
-            None,
-            DEFAULT_LOG_LEVEL,
-            DEFAULT_DEPENDENCY_LOG_LEVEL,
-            Arc::new(SystemClock),
-        ),
+        _ => init_logging(None, DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL),
     };
     let result = match (logging, task) {
         (Err(e), _) => Err(e),
@@ -63,13 +56,7 @@ async fn main() -> std::process::ExitCode {
         Err(e) => {
             // An error from before logging started still needs saying.
             if tracing::dispatcher::has_been_set()
-                || init_logging(
-                    None,
-                    DEFAULT_LOG_LEVEL,
-                    DEFAULT_DEPENDENCY_LOG_LEVEL,
-                    Arc::new(SystemClock),
-                )
-                .is_ok()
+                || init_logging(None, DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL).is_ok()
             {
                 tracing::error!("{e}");
             } else {

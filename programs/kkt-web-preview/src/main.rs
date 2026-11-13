@@ -20,8 +20,8 @@ use kkt_entropy::SeededEntropy;
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
 use kkt_log::{Level, Log};
+use kkt_log_tracing::TracingLog;
 use kkt_logs::LogLevel;
-use kkt_logs_os::TracingLog;
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use kkt_web::{PageLimits, Sessions};
@@ -68,7 +68,7 @@ async fn main() -> ExitCode {
     let log = TracingLog;
     // With no log there is nowhere to say why, so the exit code says the
     // preview did not run.
-    if kkt_logs_os::init_stderr_logging(LogLevel::Info).is_err() {
+    if kkt_log_tracing::init_stderr_logging(LogLevel::Info).is_err() {
         return ExitCode::FAILURE;
     }
     match run(Args::parse(), &log).await {

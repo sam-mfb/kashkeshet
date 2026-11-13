@@ -248,7 +248,7 @@ impl Product {
             clock,
             entropy,
             Arc::new(FakeIdentify),
-            Arc::new(kkt_logs_os::TracingLog),
+            Arc::new(kkt_log_tracing::TracingLog),
             server_settings,
         );
         let config = AppConfig {

@@ -378,15 +378,15 @@
   },
   "kkt-logs": {
    "layer": "foundations",
-   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans.",
-   "kind": "logic",
-   "must_not": "Touch the machine."
+   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans; behind real, the log file on disk that carries them out.",
+   "kind": "logic and effect",
+   "must_not": "Read a real clock itself; start a logging library."
   },
-  "kkt-logs-os": {
+  "kkt-log-tracing": {
    "layer": "foundations",
    "kind": "effect",
-   "concern": "Writing log files, starting the tracing subscriber, and TracingLog over the shared log contract.",
-   "must_not": "Choose rollover or pruning rules; read a real clock itself."
+   "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given.",
+   "must_not": "Open, roll over or prune log files; choose log levels' defaults."
   },
   "kkt-provenance": {
    "layer": "foundations",

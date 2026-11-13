@@ -135,3 +135,38 @@ fn a_write_larger_than_the_limit_lands_whole() {
     assert_eq!(read(&path).len(), 150);
     assert!(!log.rolled(1).exists());
 }
+
+#[test]
+fn a_log_file_is_opened_only_with_a_policy_that_bounds_it() {
+    let (_dir, clock, path) = setup("open-policy");
+    let refused = open_log_file(&path, POLICY, clock).err().expect("refused");
+    assert_eq!(
+        refused,
+        "invalid setting: log_max_bytes must be at least 65536"
+    );
+    assert!(!path.exists());
+}
+
+#[test]
+fn a_log_file_that_cannot_be_opened_is_refused_naming_its_path() {
+    let (dir, clock, _) = setup("open-blocked");
+    let blocker = dir.join("not-a-folder");
+    std::fs::write(&blocker, "").expect("write");
+    let path = blocker.join("kkt.log");
+    let refused = open_log_file(&path, LogPolicy::DEFAULT, clock)
+        .err()
+        .expect("refused");
+    let start = format!(
+        "invalid setting: log_file could not be opened at {}: ",
+        path.display()
+    );
+    assert!(refused.starts_with(&start), "{refused}");
+}
+
+#[test]
+fn a_log_file_with_a_good_policy_is_opened() {
+    let (_dir, clock, path) = setup("open-good");
+    let mut log = open_log_file(&path, LogPolicy::DEFAULT, clock).expect("open");
+    log.write_all(&line(0)).expect("write");
+    assert_eq!(read(&path).len(), 40);
+}
