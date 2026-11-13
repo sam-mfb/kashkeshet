@@ -189,7 +189,7 @@ pub async fn try_start_quiet(
         }
     }
     Err(format!(
-        "kkt could not listen on any port it tried, each held by another process:\n{}",
+        "kkt could not listen on any port it tried, each in use:\n{}",
         taken.join("\n")
     ))
 }
