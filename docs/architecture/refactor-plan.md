@@ -1739,7 +1739,7 @@ kkt-review-b, and its plan and map work by kkt-review-373.
 | 13.5 | kkt-probe merges with kkt-probe-reqwest | S | kkt-build-b (#525) | kkt-review-b |
 | 13.6 | kkt-agent-client merges with kkt-agent-client-rmcp | M | kkt-mt-step1 (#519) | kkt-review-b |
 | 13.7 | kkt-client-command merges with kkt-client-command-claude (Sam's answer 1) | S | kkt-build-b (#526; moved from kkt-mt-step1, msg 3169) | kkt-review-b |
-| 13.8 | kkt-machine's `Machine` trait and `FixedMachine` go; kkt-machine-os gives `env()` and `platform()` as plain functions (Sam's answer 3) | S | kkt-build-b (PR138; moved from kkt-mt-step1, msg 3169) | kkt-review-b |
+| 13.8 | kkt-machine's `Machine` trait and `FixedMachine` go; kkt-machine-os gives `env()` and `platform()` as plain functions (Sam's answer 3) | S | kkt-build-b (#527; moved from kkt-mt-step1, msg 3169) | kkt-review-b |
 | 13.9 | The map: split boxes and the arrows' direction (map.js, map.css, index.html, README.md, page-test.js) | M | kkt-mt-step1 (#524) | kkt-review-373 |
 | 13.10 | Chart what differs, and the scorecard | S | kkt-mt-step1 (this pull request) | kkt-review-373 |
 
@@ -1771,7 +1771,7 @@ the row says what and why.
 | kkt-probe + kkt-probe-reqwest (audit: merge) | Merged; `HttpProber` behind `real`; reqwest and serde_json optional | 13.5 (#525) | No |
 | kkt-agent-client + kkt-agent-client-rmcp (audit: merge) | Merged; `Mcp`, `Client`, `Remote`, `AdminRemote`, `Http` and `HttpReply` behind `real`; rmcp, reqwest, serde_json and tokio optional | 13.6 (#519) | Two additions to the tools, so the proposed map can show a merged crate, whose base map predates 13.0's data: a `third_party_edits` entry may name optional dependencies, and kinds.py takes a slot's feature from its owner type when the map has none |
 | kkt-client-command (audit: unclear, leans keep; Sam: merge) | Merged with kkt-client-command-claude; `Claude` behind `real` | 13.7 (#526) | No |
-| kkt-machine's `Machine` trait (audit: keep the data, the trait is not needed; Sam: it goes) | `Machine` and `FixedMachine` gone; `Env` and `Platform` stay | 13.8 (PR138) | No |
+| kkt-machine's `Machine` trait (audit: keep the data, the trait is not needed; Sam: it goes) | `Machine` and `FixedMachine` gone; `Env` and `Platform` stay | 13.8 (#527) | No |
 | kkt-service (audit: keep) | Kept: launchd and systemd are two implementations | none | No |
 | The map: a merged crate's two parts | Split box, contract left, `real` strip right; each arrow meets the part it depends on; the panel lists both parts | 13.9 (#524) | Yes: the parts sit side by side, not one above the other, since every arrow into a merged crate comes from above and would cross the upper part. generate.py did not change: the page reads the kind, and each arrow's features and optional flag. Each stroke of an arrow with several roles meets its own part: an implementing stroke meets the contract (kkt-review-373, msg 3206) |
 | The map: the arrows' direction (Sam, msg 3155) | "uses" and "wires" arrows run from the crate used or built to its user; "implements" unchanged; the wording follows | 13.9 (#524) | No. One fix with it: the page test hid "the second kind", which 13.0's new kind displaced |
@@ -1858,13 +1858,17 @@ Each has the default we proceed on, so nothing waits.
 
 ## Final scorecard
 
-On the code at the end of phase 13, at SC_COMMIT (SC_MERGED merged), against
+On the code at the end of phase 13, at 46911a8 (#527 merged), against
 the proposal with phases 9 to 13 charted (`progress.py`, step 13.10):
 
-- crates: SC_CRATES of SC_CRATES proposed crates exist; none missing; none to remove;
-- items: SC_ITEMS of SC_ITEMS proposed items are in their proposed crate;
-- arrows: SC_ARROWS of SC_ARROWS proposed arrows exist; none missing; none extra;
+- crates: 65 of 65 proposed crates exist; none missing; none to remove;
+- items: 793 of 793 proposed items are in their proposed crate;
+- arrows: 256 of 256 proposed arrows exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
+
+Nothing was left to chart: each step charted its own differences as it
+merged. The one temporary break left is still CI's, not the code's: macOS
+is out of CI (#501), until it comes back or a self-hosted runner takes it.
 
 ### At the end of phase 12
 
