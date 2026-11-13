@@ -657,7 +657,7 @@ def build(graph, concerns, assembly, spec, problems, extra=None):
             problems.append(f"program_work: {program} does no machine work in {', '.join(extra_files)}")
         for f, e in sorted(listed.items()):
             for t in e["to"]:
-                if kinds.get(t) != "effect":
+                if kinds.get(t) not in ("effect", "contract and effect"):
                     problems.append(f"program_work: {program}'s {f} sends its machine work to {t}, which is not an effect crate")
                 placed_work.setdefault(program, set()).add(t)
             for d in e.get("decisions", []):

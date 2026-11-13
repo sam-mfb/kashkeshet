@@ -1056,7 +1056,6 @@ dependencies = [
  "kkt-config-file",
  "kkt-config-file-os",
  "kkt-container",
- "kkt-container-docker",
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
@@ -1288,19 +1287,9 @@ name = "kkt-container"
 version = "0.10.0"
 dependencies = [
  "futures",
- "kkt-clock",
- "kkt-names",
-]
-
-[[package]]
-name = "kkt-container-docker"
-version = "0.10.0"
-dependencies = [
- "futures",
  "kkt-browser",
  "kkt-clock",
  "kkt-config-file",
- "kkt-container",
  "kkt-machine",
  "kkt-names",
  "kkt-scratch",

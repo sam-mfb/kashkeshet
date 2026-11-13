@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "fdd1c02",
+ "commit": "f4c9cce",
  "crates": [
   {
    "bins": [
@@ -4640,11 +4640,11 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-container",
-       "type": "testing::Memory"
+       "type": "Docker"
       },
       {
-       "crate": "kkt-container-docker",
-       "type": "Docker"
+       "crate": "kkt-container",
+       "type": "testing::Memory"
       }
      ],
      "trait": "Container"
@@ -4662,10 +4662,33 @@ window.KKT_GRAPH = {
    "crate_doc": "The operations and records of a kkt container installation.",
    "dev_only": false,
    "features": {
+    "real": [
+     "dep:kkt-browser",
+     "dep:kkt-config-file",
+     "dep:kkt-machine",
+     "dep:serde_json",
+     "dep:thiserror"
+    ],
     "testing": []
    },
-   "holders": [],
+   "holders": [
+    {
+     "holds": [
+      {
+       "crate": "kkt-browser",
+       "trait": "Browser"
+      }
+     ],
+     "type": "Docker"
+    }
+   ],
    "implements": [
+    {
+     "crate": "kkt-container",
+     "trait": "Container",
+     "trait_crate": "kkt-container",
+     "type": "Docker"
+    },
     {
      "crate": "kkt-container",
      "trait": "Container",
@@ -4718,6 +4741,15 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "ContainerConfig"
+    },
+    {
+     "doc": "Docker and Compose implement the container contract directly.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "Docker"
     },
     {
      "doc": "An installation discovered in the managed folder.",
@@ -4849,59 +4881,8 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_container",
-   "machine_work": {},
-   "name": "kkt-container",
-   "optional_third_party": {},
-   "path": "crates/kkt-container",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": [
-    "futures"
-   ]
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "Docker implementation of kkt-container: the Compose files that come with this program, the folder kkt manages for them, and the commands that set it up, start it, back it up, import and export its lanes, upgrade it and remove it.",
-   "dev_only": false,
-   "features": {
-    "real": []
-   },
-   "holders": [
-    {
-     "holds": [
-      {
-       "crate": "kkt-browser",
-       "trait": "Browser"
-      }
-     ],
-     "type": "Docker"
-    }
-   ],
-   "implements": [
-    {
-     "crate": "kkt-container-docker",
-     "trait": "Container",
-     "trait_crate": "kkt-container",
-     "type": "Docker"
-    }
-   ],
-   "items": [
-    {
-     "doc": "Docker and Compose implement the container contract directly.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "Docker"
-    }
-   ],
-   "lib": "kkt_container_docker",
    "machine_work": {
-    "src/runner.rs": [
+    "src/docker/runner.rs": [
      "env::current_dir",
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
@@ -4923,9 +4904,16 @@ window.KKT_GRAPH = {
      "Path::is_file"
     ]
    },
-   "name": "kkt-container-docker",
-   "optional_third_party": {},
-   "path": "crates/kkt-container-docker",
+   "name": "kkt-container",
+   "optional_third_party": {
+    "serde_json": [
+     "real"
+    ],
+    "thiserror": [
+     "real"
+    ]
+   },
+   "path": "crates/kkt-container",
    "released_program": false,
    "slots": [
     {
@@ -17031,11 +17019,14 @@ window.KKT_GRAPH = {
    "to": "kkt-config-file-os"
   },
   {
-   "features": [],
+   "features": [
+    "real"
+   ],
    "from": "kashkeshet",
    "items": [
     "ConfigReader",
     "ContainerConfig",
+    "Docker",
     "LoginLink"
    ],
    "kind": "normal",
@@ -17051,29 +17042,6 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "ContainerConfig"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-container"
-  },
-  {
-   "features": [
-    "real"
-   ],
-   "from": "kashkeshet",
-   "items": [
-    "Docker"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "wires",
-   "roles": [
-    {
-     "detail": [
       "Docker"
      ],
      "role": "wires"
@@ -17081,7 +17049,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-container-docker"
+   "to": "kkt-container"
   },
   {
    "features": [],
@@ -19771,54 +19739,10 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-container",
    "items": [
-    "Clock"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Clock"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Time"
-   ],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-container",
-   "items": [
-    "AdminName"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AdminName"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-container-docker",
-   "items": [
     "Browser"
    ],
    "kind": "normal",
-   "optional": false,
+   "optional": true,
    "role": "uses",
    "roles": [
     {
@@ -19834,7 +19758,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
    "items": [
     "Clock",
     "Span"
@@ -19860,14 +19784,14 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
    "items": [
     "CONFIG_DIR",
     "CONFIG_FILE_NAME",
     "config_file"
    ],
    "kind": "normal",
-   "optional": false,
+   "optional": true,
    "role": "uses",
    "roles": [
     {
@@ -19887,69 +19811,13 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container-docker",
-   "items": [
-    "ADMIN_KEY_FILE_NAME",
-    "ConfigReader",
-    "Container",
-    "ContainerConfig",
-    "Existing",
-    "Folder",
-    "Inputs",
-    "KeyCopy",
-    "LanesImport",
-    "Login",
-    "LoginLink",
-    "NO_ADMIN_KEY_EXIT",
-    "Provisioned",
-    "Sharing",
-    "State",
-    "WEB_KEY_FILE_NAME"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "Docker implements Container"
-     ],
-     "role": "implements"
-    },
-    {
-     "detail": [
-      "ADMIN_KEY_FILE_NAME",
-      "ConfigReader",
-      "ContainerConfig",
-      "Existing",
-      "Folder",
-      "Inputs",
-      "KeyCopy",
-      "LanesImport",
-      "Login",
-      "LoginLink",
-      "NO_ADMIN_KEY_EXIT",
-      "Provisioned",
-      "Sharing",
-      "State",
-      "WEB_KEY_FILE_NAME"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-container"
-  },
-  {
-   "features": [],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
    "items": [
     "Env",
     "XDG_CONFIG_HOME_DEFAULT"
    ],
    "kind": "normal",
-   "optional": false,
+   "optional": true,
    "role": "uses",
    "roles": [
     {
@@ -19966,7 +19834,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
    "items": [
     "AdminName"
    ],
@@ -19988,10 +19856,31 @@ window.KKT_GRAPH = {
    "to": "kkt-names"
   },
   {
+   "features": [],
+   "from": "kkt-container",
+   "items": [
+    "Browser"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Browser"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-browser"
+  },
+  {
    "features": [
     "testing"
    ],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
    "items": [
     "Span",
     "Time",
@@ -20021,7 +19910,45 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container-docker",
+   "from": "kkt-container",
+   "items": [
+    "parse_file"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "parse_file"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-config-file"
+  },
+  {
+   "features": [],
+   "from": "kkt-container",
+   "items": [],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-machine"
+  },
+  {
+   "features": [],
+   "from": "kkt-container",
    "items": [
     "Dir"
    ],
@@ -26843,16 +26770,10 @@ window.KKT_CONCERNS = {
    "must_not": "Know the files' format."
   },
   "kkt-container": {
-   "concern": "The container installation contract, its requests and results, config parsing, and the login link's terminal half (LoginLink), and an in-memory testing stand-in.",
-   "kind": "contract",
+   "concern": "The container installation contract and stand-in, with Docker and Compose implementation behind real and private tool logic tested against a fake.",
+   "kind": "contract and effect",
    "layer": "operations",
-   "must_not": "Know Docker commands, Compose files or their formats; touch the machine."
-  },
-  "kkt-container-docker": {
-   "concern": "Docker and Compose implement Container directly; all Docker files, commands, output and sidecar status, tested over a private runner. A sharing setup's login link opens in the kkt-browser Browser it is built with.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Decide setup answers or remember the setup record."
+   "must_not": "Let Docker details into the open contract; decide setup answers or remember the setup record."
   },
   "kkt-db": {
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
@@ -27960,7 +27881,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-container-docker::Docker",
+     "impl": "kkt-container::Docker",
      "note": "Direct injection of the named container implementation into the operator assembly.",
      "to": [
       {
@@ -28202,7 +28123,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-container-docker",
+     "crate": "kkt-container",
      "impl": "kkt-browser::SystemBrowser",
      "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener, given to the Docker wrapper as it is",
      "to": [

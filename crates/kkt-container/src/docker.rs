@@ -11,8 +11,6 @@
 //! `Inputs.allow_hosts` is written to `.env` as `KKT_ALLOW_HOSTS`;
 //! `Inputs.sharing` starts the Tailscale sidecar and waits for its login.
 
-#![cfg(any(feature = "real", test))]
-
 mod compose;
 mod files;
 mod lanes;
@@ -29,28 +27,28 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 #[cfg(feature = "real")]
-use futures::future::LocalBoxFuture;
-#[cfg(feature = "real")]
-use kkt_clock::Clock;
-#[cfg(feature = "real")]
-use kkt_container::Container;
-use kkt_container::{
+use crate::Container;
+use crate::{
     ADMIN_KEY_FILE_NAME as DOCKER_ADMIN_KEY_FILE_NAME, NO_ADMIN_KEY_EXIT,
     WEB_KEY_FILE_NAME as DOCKER_WEB_KEY_FILE_NAME,
 };
-use kkt_container::{
+use crate::{
     ConfigReader, Existing, Folder, Inputs, KeyCopy, LanesImport, Login, LoginLink, Provisioned,
     State,
 };
+#[cfg(feature = "real")]
+use futures::future::LocalBoxFuture;
+#[cfg(feature = "real")]
+use kkt_clock::Clock;
 #[cfg(feature = "real")]
 use kkt_names::AdminName;
 #[cfg(feature = "real")]
 mod runner;
 #[cfg(test)]
+use crate::{ContainerConfig, Sharing as Tailscale};
+#[cfg(test)]
 use files::env_text;
 use files::{ENV_FILE, docker_env, tailscale_auth_key, version_in_env};
-#[cfg(test)]
-use kkt_container::{ContainerConfig, Sharing as Tailscale};
 use lanes::{export_lanes, import_lanes, lane_limit};
 use lifecycle::{backup, compare_web_key, down, existing, status, up, upgrade};
 #[cfg(feature = "real")]

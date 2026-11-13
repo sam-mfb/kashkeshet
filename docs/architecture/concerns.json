@@ -226,9 +226,9 @@
   },
   "kkt-container": {
    "layer": "operations",
-   "concern": "The container installation contract, its requests and results, config parsing, and the login link's terminal half (LoginLink), and an in-memory testing stand-in.",
-   "must_not": "Know Docker commands, Compose files or their formats; touch the machine.",
-   "kind": "contract"
+   "concern": "The container installation contract and stand-in, with Docker and Compose implementation behind real and private tool logic tested against a fake.",
+   "must_not": "Let Docker details into the open contract; decide setup answers or remember the setup record.",
+   "kind": "contract and effect"
   },
   "kkt-remote-access": {
    "layer": "operations",
@@ -453,12 +453,6 @@
    "kind": "effect",
    "concern": "Trying whether the service's server could listen on its address (`try_bind`), which the program passes to kkt-service's bind check.",
    "must_not": "Decide what the answer means, or work a service manager."
-  },
-  "kkt-container-docker": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Docker and Compose implement Container directly; all Docker files, commands, output and sidecar status, tested over a private runner. A sharing setup's login link opens in the kkt-browser Browser it is built with.",
-   "must_not": "Decide setup answers or remember the setup record."
   }
  },
  "kinds": [
