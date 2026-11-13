@@ -334,7 +334,8 @@ window.KKT_PROPOSED = {
     "steps": [
      {
       "items": [
-       "kkt-machine-os::OsMachine",
+       "kkt-machine-os::env",
+       "kkt-machine-os::platform",
        "kkt-config-file::config_file",
        "kkt-config-file-os::read",
        "kkt-config-file::parse_file",
@@ -1465,7 +1466,7 @@ window.KKT_PROPOSED = {
    {
     "from": "kashkeshet",
     "kind": "normal",
-    "role": "wires",
+    "role": "uses",
     "statuses": [
      "decided"
     ],
@@ -2457,7 +2458,7 @@ window.KKT_PROPOSED = {
    {
     "from": "kkt-machine-os",
     "kind": "normal",
-    "role": "implements",
+    "role": "uses",
     "statuses": [
      "decided"
     ],
@@ -4920,7 +4921,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "process::process_env is no longer public: kkt-machine-os' OsMachine reads the environment"
+      "text": "process::process_env is no longer public: kkt-machine-os' env reads the environment"
      },
      {
       "status": "decided",
@@ -5104,7 +5105,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the machine's facts"
+      "text": "the machine's facts, read once at startup (13.8)"
      },
      {
       "status": "decided",
@@ -7967,19 +7968,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new trait Machine"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::FixedMachine"
-     },
-     {
-      "status": "decided",
       "text": "new const XDG_CONFIG_HOME_DEFAULT"
-     },
-     {
-      "status": "decided",
-      "text": "testing::FixedMachine implements kkt-machine::Machine: its own stand-in"
      }
     ]
    },
@@ -7992,11 +7981,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new struct OsMachine"
+      "text": "new fn env"
      },
      {
       "status": "decided",
-      "text": "OsMachine implements kkt-machine::Machine: a shared contract crate's contract, implemented directly"
+      "text": "new fn platform"
+     },
+     {
+      "status": "decided",
+      "text": "env and platform give kkt-machine's values (13.8)."
      }
     ]
    },
@@ -11416,7 +11409,7 @@ window.KKT_PROPOSED = {
     "status": "decided"
    },
    "kkt-machine-os": {
-    "concern": "The machine's facts as this process sees them: `OsMachine` reads the environment and the platform, and implements kkt-machine's `Machine` directly, a shared contract. The program wires it in.",
+    "concern": "The machine's facts as this process sees them: env reads the environment and platform gives the platform this program was built for, as kkt-machine's Env and Platform (step 13.8: the Machine trait went).",
     "kind": "effect",
     "layer": "foundations",
     "status": "decided"
@@ -14423,7 +14416,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "process::process_env is no longer public: kkt-machine-os' OsMachine reads the environment"
+      "text": "process::process_env is no longer public: kkt-machine-os' env reads the environment"
      },
      {
       "status": "decided",
@@ -14607,7 +14600,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "the machine's facts"
+      "text": "the machine's facts, read once at startup (13.8)"
      },
      {
       "status": "decided",
@@ -23541,36 +23534,14 @@ window.KKT_PROPOSED = {
    {
     "bins": [],
     "builds": [],
-    "contracts": [
-     {
-      "implementors": [
-       {
-        "crate": "kkt-machine",
-        "type": "testing::FixedMachine"
-       },
-       {
-        "crate": "kkt-machine-os",
-        "type": "OsMachine"
-       }
-      ],
-      "trait": "Machine"
-     }
-    ],
+    "contracts": [],
     "crate_doc": "",
     "dev_only": false,
     "features": {
      "testing": []
     },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-machine",
-      "status": "decided",
-      "trait": "Machine",
-      "trait_crate": "kkt-machine",
-      "type": "testing::FixedMachine"
-     }
-    ],
+    "implements": [],
     "items": [
      {
       "doc": "The environment values that decide default paths, kkt's own and the clients' it configures; config_home and the absolute XDG folders are read from them here (step 3.4).",
@@ -23592,17 +23563,6 @@ window.KKT_PROPOSED = {
       "status": "decided"
      },
      {
-      "doc": "Gives the machine's facts: its Env and its Platform.",
-      "kind": "trait",
-      "methods": [
-       "env",
-       "platform"
-      ],
-      "path": "Machine",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
       "doc": "The platform, which decides where per-user data goes.",
       "kind": "enum",
       "moved_from": "kkt-settings",
@@ -23617,14 +23577,6 @@ window.KKT_PROPOSED = {
       "doc": "`$XDG_CONFIG_HOME` when it is not set, under the home directory. (step 3.4)",
       "kind": "const",
       "path": "XDG_CONFIG_HOME_DEFAULT",
-      "proposed_item": true,
-      "status": "decided"
-     },
-     {
-      "doc": "A stand-in Machine for tests: the Env and Platform it is given.",
-      "feature": "testing",
-      "kind": "struct",
-      "path": "testing::FixedMachine",
       "proposed_item": true,
       "status": "decided"
      }
@@ -23657,19 +23609,7 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new trait Machine"
-     },
-     {
-      "status": "decided",
-      "text": "new struct testing::FixedMachine"
-     },
-     {
-      "status": "decided",
       "text": "new const XDG_CONFIG_HOME_DEFAULT"
-     },
-     {
-      "status": "decided",
-      "text": "testing::FixedMachine implements kkt-machine::Machine: its own stand-in"
      }
     ],
     "released_program": false,
@@ -23686,21 +23626,21 @@ window.KKT_PROPOSED = {
      "real": []
     },
     "holders": [],
-    "implements": [
-     {
-      "crate": "kkt-machine-os",
-      "status": "decided",
-      "trait": "Machine",
-      "trait_crate": "kkt-machine",
-      "type": "OsMachine"
-     }
-    ],
+    "implements": [],
     "items": [
      {
-      "doc": "The machine as this process sees it: HOME and the folders the environment names, and the platform it runs on.",
+      "doc": "The environment as this process sees it: HOME and the folders the environment names (step 13.8).",
       "feature": "real",
-      "kind": "struct",
-      "path": "OsMachine",
+      "kind": "fn",
+      "path": "env",
+      "proposed_item": true,
+      "status": "decided"
+     },
+     {
+      "doc": "The platform this program was built for (step 13.8).",
+      "feature": "real",
+      "kind": "fn",
+      "path": "platform",
       "proposed_item": true,
       "status": "decided"
      }
@@ -23717,11 +23657,15 @@ window.KKT_PROPOSED = {
      },
      {
       "status": "decided",
-      "text": "new struct OsMachine"
+      "text": "new fn env"
      },
      {
       "status": "decided",
-      "text": "OsMachine implements kkt-machine::Machine: a shared contract crate's contract, implemented directly"
+      "text": "new fn platform"
+     },
+     {
+      "status": "decided",
+      "text": "env and platform give kkt-machine's values (13.8)."
      }
     ],
     "released_program": false,
@@ -32788,7 +32732,6 @@ window.KKT_PROPOSED = {
     "from": "kashkeshet",
     "items": [
      "Env",
-     "Machine",
      "Platform"
     ],
     "kind": "normal",
@@ -32799,7 +32742,6 @@ window.KKT_PROPOSED = {
      {
       "detail": [
        "Env",
-       "Machine",
        "Platform"
       ],
       "role": "uses"
@@ -32816,18 +32758,20 @@ window.KKT_PROPOSED = {
     "features": [],
     "from": "kashkeshet",
     "items": [
-     "OsMachine"
+     "env",
+     "platform"
     ],
     "kind": "normal",
     "optional": false,
     "proposed": "new",
-    "role": "wires",
+    "role": "uses",
     "roles": [
      {
       "detail": [
-       "OsMachine"
+       "env",
+       "platform"
       ],
-      "role": "wires"
+      "role": "uses"
      }
     ],
     "statuses": [
@@ -37591,17 +37535,21 @@ window.KKT_PROPOSED = {
    {
     "features": [],
     "from": "kkt-machine-os",
-    "items": [],
+    "items": [
+     "Env",
+     "Platform"
+    ],
     "kind": "normal",
     "optional": false,
     "proposed": "new",
-    "role": "implements",
+    "role": "uses",
     "roles": [
      {
       "detail": [
-       "OsMachine implements Machine"
+       "Env",
+       "Platform"
       ],
-      "role": "implements"
+      "role": "uses"
      }
     ],
     "statuses": [

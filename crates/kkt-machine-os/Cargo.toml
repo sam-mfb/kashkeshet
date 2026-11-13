@@ -11,5 +11,5 @@ publish = false
 kkt-machine = { path = "../kkt-machine" }
 
 [features]
-# `OsMachine`: it reads the process's environment.
+# `env` and `platform`: they read the process's environment.
 real = []
