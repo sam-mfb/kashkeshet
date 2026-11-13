@@ -344,8 +344,8 @@
      "note": "kkt connect"
     },
     {
-     "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
-     "supplier": "kkt-setup-os::kkt_path",
+     "own": "ThisProgram, adapting kkt-setup::kkt_path",
+     "supplier": "kkt-setup::kkt_path",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -668,7 +668,7 @@
      ]
     },
     {
-     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
+     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup's files, behind real",
      "crate": "kkt-operate",
      "to": [
       {

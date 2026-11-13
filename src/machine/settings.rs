@@ -71,7 +71,7 @@ pub(crate) fn database(
         DefaultDb::Made(without_home) => {
             let db = found.ok_or_else(|| without_home.to_string())?;
             if let Some(dir) = db.parent() {
-                kkt_setup_os::make_data_folder(dir)?;
+                kkt_setup::make_data_folder(dir)?;
             }
             Ok(db)
         }
