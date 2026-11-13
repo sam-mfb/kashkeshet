@@ -11,7 +11,11 @@ import re
 # "contract and effect" is a merged crate (phase 13): a contract in the open
 # and its one implementation behind `real`, which only programs turn on.
 MERGED = "contract and effect"
-KINDS = ["contract", MERGED, "logic", "effect", "composition", "test support", "mixed"]
+# "logic and effect" (phase 14): logic in the open and the effect that only
+# carries out its plans behind `real`, which only programs turn on, so the
+# logic builds and tests without the effect.
+LOGIC_EFFECT = "logic and effect"
+KINDS = ["contract", MERGED, "logic", LOGIC_EFFECT, "effect", "composition", "test support", "mixed"]
 
 # Third-party crates that reach the machine: a crate that uses one does
 # I/O of its own.
@@ -69,10 +73,10 @@ def is_contract(kind):
 
 def reaches_effect(edge, kind_of):
     """Whether an arrow depends on an effect: on an effect crate, or on a
-    merged crate's implementation, by turning its `real` on. Depending on a
-    merged crate without `real` is depending on its contract alone."""
+    merged crate's effect, by turning its `real` on. Depending on a merged
+    crate without `real` is depending on its contract or logic alone."""
     kind = kind_of.get(edge["to"])
-    return kind == "effect" or (kind == MERGED and "real" in edge.get("features", []))
+    return kind == "effect" or (kind in (MERGED, LOGIC_EFFECT) and "real" in edge.get("features", []))
 
 
 def slot_feature(crate, slot):
@@ -141,12 +145,40 @@ def merged_mismatches(crate, edges, crates_by_name):
     if not any(i["trait_crate"] == name and i.get("type") and not i["type"].startswith("testing::")
                for i in crate.get("implements", [])):
         found.append("nothing in it implements its own contract")
+    found += others_turn_on_real(name, edges, crates_by_name)
+    return [f"{name} is marked {MERGED} but {f}" for f in found]
+
+
+def others_turn_on_real(name, edges, crates_by_name):
+    """A merged crate's `real` is for programs only: the crates other than
+    programs that turn it on, as a finding."""
     on = sorted(e["from"] for e in edges
                 if e["to"] == name and e["kind"] == "normal" and "real" in e.get("features", [])
                 and not crates_by_name.get(e["from"], {}).get("bins"))
-    if on:
-        found.append(f"crates other than programs turn its `real` on: {', '.join(on)}")
-    return [f"{name} is marked {MERGED} but {f}" for f in found]
+    return [f"crates other than programs turn its `real` on: {', '.join(on)}"] if on else []
+
+
+def logic_effect_mismatches(crate, edges, crates_by_name):
+    """Where a crate marked "logic and effect" is not one. Its logic, outside
+    `real`, is logic: no machine work in its own code, no I/O dependency,
+    and no other crate's `real`. Its effect is behind its own `real`, in
+    modules only that feature brings, and only programs turn that on."""
+    name, found = crate["name"], []
+    if "real" not in crate["features"]:
+        found.append("it has no `real` feature")
+    io = io_outside_real(crate)
+    if io:
+        found.append(f"it has I/O dependencies outside `real`: {', '.join(io)}")
+    behind = set(crate.get("real_files", []))
+    work = sorted(f for f in crate.get("machine_work", {}) if f not in behind)
+    if work:
+        found.append(f"it does machine work outside `real`, in {', '.join(work)}")
+    others = sorted(e["to"] for e in edges
+                    if e["from"] == name and e["kind"] == "normal" and "real" in e.get("features", []))
+    if others:
+        found.append(f"it turns on another crate's `real`: {', '.join(others)}")
+    found += others_turn_on_real(name, edges, crates_by_name)
+    return [f"{name} is marked {LOGIC_EFFECT} but {f}" for f in found]
 
 
 def check(crates, edges, kind_of, mixed_allowed):
@@ -164,6 +196,8 @@ def check(crates, edges, kind_of, mixed_allowed):
                 mismatches.append(f"{c['name']} is marked contract but has an effect: a `real` feature or an I/O dependency")
         if kind == MERGED:
             mismatches += merged_mismatches(c, edges, {x["name"]: x for x in crates})
+        if kind == LOGIC_EFFECT:
+            mismatches += logic_effect_mismatches(c, edges, {x["name"]: x for x in crates})
         if kind == "logic" and turns_on_real(c, edges):
             mismatches.append(f"{c['name']} is marked logic but turns on `real`")
         # Named tool wrappers remain effects even though they also own their

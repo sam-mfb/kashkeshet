@@ -45,8 +45,15 @@
 #    contract and its one implementation behind `real`; this check does not
 #    apply to it. Check 2 keeps every crate but a program off its `real`,
 #    and kinds.py checks the rest.
+# 7. A merged crate has a `real` feature: kind "contract and effect" (phase
+#    13), a contract and its one implementation, or "logic and effect"
+#    (phase 14), logic and the effect that carries out its plans. Its effect
+#    is behind `real`, so a crate that depends on it without `real` gets the
+#    contract or the logic alone; check 1 builds it alone without `real`,
+#    check 2 keeps every crate but a program off its `real`, and kinds.py
+#    checks the rest.
 #
-# Checks 2 to 6 are in check-crates.jq, tested by test_check_crates.py,
+# Checks 2 to 7 are in check-crates.jq, tested by test_check_crates.py,
 # except check 6's search of a contract crate's sources for items behind
 # `real`, which is below.
 set -euo pipefail
@@ -57,7 +64,10 @@ metadata=$(cargo metadata --locked --no-deps --format-version 1)
 root=$(dirname "$(cargo locate-project --workspace --message-format plain)")
 contracts=$(jq -c '[.crates | to_entries[] | select(.value.kind == "contract") | .key]' \
     "$root/docs/architecture/concerns.json")
-problems=$(jq -r --argjson contracts "$contracts" \
+merged=$(jq -c '[.crates | to_entries[]
+    | select(.value.kind == "contract and effect" or .value.kind == "logic and effect") | .key]' \
+    "$root/docs/architecture/concerns.json")
+problems=$(jq -r --argjson contracts "$contracts" --argjson merged "$merged" \
     --argjson real_exceptions "$(cat "$scripts/real-exceptions.json")" \
     -f "$scripts/check-crates.jq" <<< "$metadata")
 # Check 6, the sources: no item behind `real` in a contract crate.

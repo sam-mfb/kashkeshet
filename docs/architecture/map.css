@@ -107,19 +107,19 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 :root {
   --k-contract: #2563eb; --k-logic: #7c3aed; --k-effect: #dc2626; --k-composition: #27272a;
   --k-configuration: #0891b2; --k-test-support: #65731b; --k-mixed: #db2777;
-  --k-contract-and-effect: #0f766e;
+  --k-contract-and-effect: #0f766e; --k-logic-and-effect: #9333ea;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --k-contract: #7ea2ff; --k-logic: #b794f6; --k-effect: #f87171; --k-composition: #e4e4e7;
     --k-configuration: #22d3ee; --k-test-support: #bfcf5a; --k-mixed: #f472b6;
-    --k-contract-and-effect: #5eead4;
+    --k-contract-and-effect: #5eead4; --k-logic-and-effect: #d8b4fe;
   }
 }
 :root[data-theme="dark"] {
   --k-contract: #7ea2ff; --k-logic: #b794f6; --k-effect: #f87171; --k-composition: #e4e4e7;
   --k-configuration: #22d3ee; --k-test-support: #bfcf5a; --k-mixed: #f472b6;
-    --k-contract-and-effect: #5eead4;
+    --k-contract-and-effect: #5eead4; --k-logic-and-effect: #d8b4fe;
 }
 .node > rect { stroke: var(--kind, var(--box-line)); stroke-width: 1.6; }
 .node.checked > rect { stroke-width: 2.6; }
@@ -131,6 +131,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .kind-test-support { --kind: var(--k-test-support); }
 .kind-mixed { --kind: var(--k-mixed); }
 .kind-contract-and-effect { --kind: var(--k-contract-and-effect); }
+.kind-logic-and-effect { --kind: var(--k-logic-and-effect); }
 .kind-key { display: inline-block; width: 14px; height: 10px; border: 2px solid var(--kind); border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
 .badge.kind-badge { background: none; border: 1.5px solid var(--kind); }
 

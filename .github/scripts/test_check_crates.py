@@ -28,9 +28,10 @@ def exception(package, dependency):
     return {"package": package, "dependency": dependency, "reason": "a test reason"}
 
 
-def problems(*packages, contracts=(), real_exceptions=()):
+def problems(*packages, contracts=(), merged=(), real_exceptions=()):
     result = subprocess.run(
         ["jq", "-r", "--argjson", "contracts", json.dumps(list(contracts)),
+         "--argjson", "merged", json.dumps(list(merged)),
          "--argjson", "real_exceptions", json.dumps(list(real_exceptions)), "-f", str(RULES)],
         input=json.dumps({"packages": list(packages)}),
         check=True, capture_output=True, text=True,
@@ -257,6 +258,14 @@ class CheckCrates(unittest.TestCase):
             package("kkt-c", features={"real": []}),
             contracts=["kkt-a", "kkt-b"],
         ), ["kkt-a: it is a contract crate and has a `real` feature; a contract may not touch the machine"])
+
+    def test_a_merged_crate_has_a_real_feature(self):
+        self.assertEqual(problems(
+            package("kkt-a", features={"real": [], "testing": []}),
+            package("kkt-b", features={"testing": []}),
+            package("kkt-c", features={}),
+            merged=["kkt-a", "kkt-b"],
+        ), ["kkt-b: it is a merged crate (contract or logic, and effect) with no `real` feature; its effect must be behind `real`"])
 
 
 if __name__ == "__main__":

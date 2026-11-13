@@ -395,6 +395,20 @@ difference and why. The final scorecard, on the code at 46911a8:
   lacked, 7 of them the web preview's, which the record now has);
 - rules: no kind check fails; no break of the proposal's rules.
 
+Then Sam ordered phase 14 (2026-11-13, msg 3275). A logic crate and the
+effect crate that only carries out its plans need not be two crates: as in
+phase 13, kinds may share a crate where the effect sits behind `real`,
+which only programs turn on, so that the logic builds and tests without
+the effect. Crates follow domains, not the kind of code. He is revising
+`principles/` himself to say so. Such a crate is a new kind, "logic and
+effect", which kinds.py tells from "mixed": its effect is only in modules
+that `real` brings, and only programs turn that `real` on. Four pairs
+merge: backup, setup and shutdown, each into the logic crate, and the log
+files into kkt-logs, while starting tracing, the named implementation of
+kkt-log's contract, becomes kkt-log-tracing. kkt-admission splits in two:
+who is let in stays, and the server's keys, with their files behind
+`real`, become kkt-server-keys.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.
