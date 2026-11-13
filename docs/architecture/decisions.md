@@ -353,8 +353,9 @@ The final scorecard, on the code at the end of phase 12 (1007e1a):
 - arrows: 267 of 267 proposed arrows exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
 
-The plan's "Temporary breaks" table has one row, and it is CI's: macOS is
-out of CI again for want of GitHub runners (#501).
+At the end of phase 12 the plan's "Temporary breaks" table had one row,
+and it was CI's: macOS was out of CI for want of GitHub runners (#501).
+The macOS checks came back on 2026-11-13 (#541), and the table is empty.
 
 Tests SHOULD NOT turn on `real` (Sam, 2026-11-12). A test that must is a
 documented exception, listed with its reason in

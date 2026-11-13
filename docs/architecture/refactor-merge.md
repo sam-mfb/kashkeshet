@@ -101,10 +101,9 @@ dependant must change.
 - Remove `refactor` from `.github/workflows/ci.yml`'s branch lists, under
   both `pull_request` and `push`.
 
-The macOS checks are out of the Rust checks' matrix again since #501, for
-want of GitHub runners, with a comment saying how to put them back. The
-merge's pull request need not touch them; they come back by their own pull
-request, or on a self-hosted runner.
+The macOS checks are in the Rust checks' matrix again (#541, Sam,
+2026-11-13), after #501 had taken them out for want of GitHub runners. The
+merge's pull request need not touch them.
 
 The jobs the refactor added stay: the crate outside the workspace that
 builds against the shared crates by git (`outside-crate`), and the check
@@ -113,8 +112,9 @@ that the programs do no machine work (`programs-do-no-machine-work`).
 ## What to watch on macOS
 
 The macOS checks were off for most of the refactor. #486 turned them back
-on for a while, and #501 turned them off again, so its macOS code is
-reviewed by hand until they return. Watch their first runs. The code the refactor touched that decides by platform:
+on for a while, #501 turned them off again, and #541 turned them on for
+good, after phases 10 to 14 had landed without them. If a macOS run fails,
+look first at the code the refactor touched that decides by platform:
 
 - `crates/kkt-machine-os/src/lib.rs`: `platform()` (`OsMachine::platform`
   until 13.8) says whether
@@ -150,10 +150,10 @@ needs Sam", item 6).
 
 `refactor-plan.md` begins with "Sam's decisions": the differences from the
 proposal and the open questions from phases 0 to 11, each with Sam's
-ruling. He ruled on the last of them, the seven new differences from phases
-9 to 11, on 2026-11-13. The phase 12 notes after them are not rulings, and
-one row of the plan's differences table (12.4, kkt-agent-files-os) is still
-marked "to show Sam with phase 12". Each difference was made on purpose,
+ruling. He ruled on the seven new differences from phases 9 to 11 on
+2026-11-13. The same day he accepted the last row of the plan's
+differences table still open, kkt-agent-files-os (12.4), and said he has
+no further differences to rule on. Each difference was made on purpose,
 with its reason, and none affects an install.
 
 ## For the principles template
