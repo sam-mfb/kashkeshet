@@ -479,7 +479,7 @@
       }
      ],
      "note": "kkt doctor, kkt setup",
-     "impl": "kkt-probe-reqwest::HttpProber"
+     "impl": "kkt-probe::HttpProber"
     },
     {
      "impl": "kkt-diagnostics::Inspector",
@@ -557,7 +557,7 @@
        "param": "container"
       }
      ],
-     "impl": "kkt-container-docker::Docker",
+     "impl": "kkt-container::Docker",
      "note": "Direct injection of the named container implementation into the operator assembly."
     },
     {
@@ -611,7 +611,7 @@
        "param": "remote"
       }
      ],
-     "impl": "kkt-remote-access-tailscale::Tailscale",
+     "impl": "kkt-remote-access::Tailscale",
      "note": "The program injects the sharing implementation directly into the operator assembly."
     },
     {
@@ -632,7 +632,7 @@
        "param": "prober"
       }
      ],
-     "impl": "kkt-probe-reqwest::HttpProber",
+     "impl": "kkt-probe::HttpProber",
      "note": "The program builds HttpProber with the doctor's settings and injects it directly (12.5b)."
     },
     {
@@ -794,7 +794,7 @@
     },
     {
      "impl": "kkt-browser::SystemBrowser",
-     "crate": "kkt-container-docker",
+     "crate": "kkt-container",
      "to": [
       {
        "at": "Docker::new",

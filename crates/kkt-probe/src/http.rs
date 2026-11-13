@@ -1,8 +1,7 @@
 //! [`HttpProber`]: reading key files and probing a server over HTTP.
 //! reqwest's types stay in this file.
 
-use super::Settings;
-use kkt_probe::{Check, KeyFile, Prober, Probing};
+use crate::{Check, KeyFile, Prober, Probing, Settings};
 use reqwest::{Client, Response, Url, redirect::Policy};
 use serde_json::{Value, json};
 use std::path::Path;

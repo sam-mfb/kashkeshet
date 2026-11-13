@@ -226,21 +226,15 @@
   },
   "kkt-container": {
    "layer": "operations",
-   "concern": "The container installation contract, its requests and results, config parsing, and the login link's terminal half (LoginLink), and an in-memory testing stand-in.",
-   "must_not": "Know Docker commands, Compose files or their formats; touch the machine.",
-   "kind": "contract"
+   "concern": "The container installation contract and stand-in, with Docker and Compose implementation behind real and private tool logic tested against a fake.",
+   "must_not": "Let Docker details into the open contract; decide setup answers or remember the setup record.",
+   "kind": "contract and effect"
   },
   "kkt-remote-access": {
    "layer": "operations",
-   "concern": "The project's contract for preparing, serving, checking and stopping private-network sharing of this machine's server; its Node record and testing Memory stand-in.",
-   "must_not": "Know a sharing tool, its commands or output format; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-remote-access-tailscale": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Implements RemoteAccess through the host's existing Tailscale login: arguments, parsing and messages tested against a private runner; the process runner is behind real.",
-   "must_not": "Change login, DNS preferences, unrelated sharing, kkt's config or its service."
+   "concern": "The remote-sharing contract and stand-in, with Tailscale behind real; tool logic is tested over a private runner.",
+   "must_not": "Let tool details into the open contract; change login, DNS preferences, unrelated sharing, config or the service.",
+   "kind": "contract and effect"
   },
   "kkt-client-config": {
    "layer": "operations",
@@ -268,15 +262,9 @@
   },
   "kkt-probe": {
    "layer": "operations",
-   "concern": "The project's contract for probing a kkt server and reading its key files (`Prober`), with what it finds (`KeyFile`) and the checks it gives (`Check`); its testing Memory stand-in.",
-   "must_not": "Know an HTTP library or MCP's wire format; touch the machine.",
-   "kind": "contract"
-  },
-  "kkt-probe-reqwest": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Implements Prober directly: the server probe over HTTP with reqwest, MCP's initialize handshake read from its answer, and key files read from disk.",
-   "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them."
+   "concern": "Probing a kkt server and reading its key files: the `Prober` contract in the open, with what it finds (`KeyFile`), the checks it gives (`Check`), the prober's `Settings` and its testing Memory stand-in; and its one implementation behind real, `HttpProber`: the probe over HTTP with reqwest, MCP's initialize handshake read from its answer, and key files read from disk.",
+   "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them.",
+   "kind": "contract and effect"
   },
   "kkt-backup": {
    "layer": "operations",
@@ -447,12 +435,6 @@
    "kind": "effect",
    "concern": "Trying whether the service's server could listen on its address (`try_bind`), which the program passes to kkt-service's bind check.",
    "must_not": "Decide what the answer means, or work a service manager."
-  },
-  "kkt-container-docker": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Docker and Compose implement Container directly; all Docker files, commands, output and sidecar status, tested over a private runner. A sharing setup's login link opens in the kkt-browser Browser it is built with.",
-   "must_not": "Decide setup answers or remember the setup record."
   }
  },
  "kinds": [

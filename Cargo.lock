@@ -1056,7 +1056,6 @@ dependencies = [
  "kkt-config-file",
  "kkt-config-file-os",
  "kkt-container",
- "kkt-container-docker",
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
@@ -1076,9 +1075,9 @@ dependencies = [
  "kkt-mcp-formatter",
  "kkt-names",
  "kkt-operate",
- "kkt-probe-reqwest",
+ "kkt-probe",
  "kkt-provenance",
- "kkt-remote-access-tailscale",
+ "kkt-remote-access",
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
@@ -1281,19 +1280,9 @@ name = "kkt-container"
 version = "0.10.0"
 dependencies = [
  "futures",
- "kkt-clock",
- "kkt-names",
-]
-
-[[package]]
-name = "kkt-container-docker"
-version = "0.10.0"
-dependencies = [
- "futures",
  "kkt-browser",
  "kkt-clock",
  "kkt-config-file",
- "kkt-container",
  "kkt-machine",
  "kkt-names",
  "kkt-scratch",
@@ -1589,12 +1578,7 @@ dependencies = [
 [[package]]
 name = "kkt-probe"
 version = "0.10.0"
-
-[[package]]
-name = "kkt-probe-reqwest"
-version = "0.10.0"
 dependencies = [
- "kkt-probe",
  "reqwest",
  "serde_json",
 ]
@@ -1609,12 +1593,7 @@ dependencies = [
 [[package]]
 name = "kkt-remote-access"
 version = "0.10.0"
-
-[[package]]
-name = "kkt-remote-access-tailscale"
-version = "0.10.0"
 dependencies = [
- "kkt-remote-access",
  "serde",
  "serde_json",
 ]
