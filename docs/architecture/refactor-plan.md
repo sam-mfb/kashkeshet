@@ -1808,7 +1808,11 @@ for the domain, holds:
 - the effect behind `real`, in private modules that only `real` brings
   (`#[cfg(feature = "real")] mod files;`), with the public items that use
   them behind `real` too. A module the effect's own tests need may be
-  compiled under `cfg(any(feature = "real", test))`, as in phase 13;
+  compiled under `cfg(any(feature = "real", test))`, as in phase 13. Put
+  the `cfg` directly above `mod`: generate.py finds a module behind `real`
+  only there, and with a doc comment or another attribute between them it
+  misses it, so kinds.py reports the module's machine work as outside
+  `real`;
 - the effect's third-party dependencies as optional ones that only `real`
   turns on.
 

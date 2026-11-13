@@ -101,7 +101,8 @@ checks that it has a `real` feature, that its I/O dependencies are optional
 ones only `real` turns on, that its machine work is only in modules that
 `real` brings (generate.py records those files), that it turns on no other
 crate's `real`, and that only programs turn its own on. A crate that fails these is mixed. In the proposed
-map the last two, like a mixed crate, are violations. It reports
+map the two composition checks (a `real` feature of its own, and machine work in
+its own code), like a mixed crate, are violations. It reports
 a mismatch on the page and does not change the kind.
 
 Machine work is what `generate.py` finds in a crate's own code, outside its
