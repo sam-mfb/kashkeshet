@@ -59,7 +59,10 @@ stay outside it. Only programs (binaries and examples) turn on `real`, and
 a contract crate never has one. A merged crate (concerns.json's kind
 "contract and effect") holds a contract in the open and its one
 implementation behind `real`: a crate that depends on it without `real`
-depends on the contract alone. Tests SHOULD NOT turn on `real`; a test
+depends on the contract alone. So does a crate of kind "logic and effect"
+(phase 14): its logic in the open, and the effect that only carries out
+its plans behind `real`, in modules only `real` brings; a crate that
+depends on it without `real` depends on the logic alone. Tests SHOULD NOT turn on `real`; a test
 that must is a documented exception, listed with its reason in
 `.github/scripts/real-exceptions.json` (today, the fake product's tests,
 which drive it over HTTP with kkt-agent-client). Stand-ins and other test
@@ -280,6 +283,15 @@ implementation, with no forwarding adapter. Language-shaping libraries
 retain RUST.md rule 7's exemption. This is Sam's explicit exception to
 one-kind-per-crate. Phase 12 split each tool into a contract crate and a
 wrapper; the plan's phase 13 merges the pairs with one implementation.
+
+**Logic and its effect (Sam, 2026-11-13, phase 14).** A logic crate and
+the effect crate that only carries out its plans need not be two crates.
+As with a merged contract (phase 13), they may share one crate, named for
+the domain, with the effect behind `real`, which only programs turn on, so
+the logic builds and tests without the effect. Crates follow domains, not
+the kind of code. Sam is revising `principles/` to say so; until he does,
+this paragraph is the rule. The plan's phase 14 lists the crates it
+merges.
 
 **Dependencies between crates.** Add one only for a real reason. A crate
 that depends on another for something minor, such as one small helper, is
