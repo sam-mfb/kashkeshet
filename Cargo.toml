@@ -58,7 +58,6 @@ members = [
     "crates/kkt-service-systemd",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
-    "crates/kkt-shutdown-os",
     "crates/kkt-terminal-os",
     "crates/kkt-watch",
     "crates/kkt-web",
@@ -123,7 +122,6 @@ default-members = [
     "crates/kkt-service-systemd",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
-    "crates/kkt-shutdown-os",
     "crates/kkt-terminal-os",
     "crates/kkt-watch",
     "crates/kkt-web",
@@ -247,8 +245,7 @@ kkt-service-launchd = { path = "crates/kkt-service-launchd", features = ["real"]
 kkt-service-os = { path = "crates/kkt-service-os", features = ["real"] }
 kkt-service-systemd = { path = "crates/kkt-service-systemd", features = ["real"] }
 kkt-setup = { path = "crates/kkt-setup", features = ["real"] }
-kkt-shutdown = { path = "crates/kkt-shutdown" }
-kkt-shutdown-os = { path = "crates/kkt-shutdown-os", features = ["real"] }
+kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
 kkt-terminal-os = { path = "crates/kkt-terminal-os", features = ["real"] }
 kkt-watch = { path = "crates/kkt-watch" }
 kkt-web = { path = "crates/kkt-web" }

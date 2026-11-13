@@ -34,8 +34,7 @@ kkt-logs = { path = "../../crates/kkt-logs" }
 kkt-log-tracing = { path = "../../crates/kkt-log-tracing", features = ["real"] }
 kkt-server = { path = "../../crates/kkt-server" }
 kkt-server-listen = { path = "../../crates/kkt-server-listen", features = ["real"] }
-kkt-shutdown = { path = "../../crates/kkt-shutdown" }
-kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }
+kkt-shutdown = { path = "../../crates/kkt-shutdown", features = ["real"] }
 kkt-web = { path = "../../crates/kkt-web" }
 clap.workspace = true
 tokio.workspace = true

@@ -1,10 +1,8 @@
-//! The operating system's stop signals. Installed before the server is
-//! ready, they stop the shared `kkt_shutdown::Shutdown` value on receipt.
-//! Tokio's signal types stay inside this crate.
+//! The operating system's stop signals, behind `real`. Installed before the
+//! server is ready, they stop the shared [`Shutdown`] value on receipt.
+//! Tokio's signal types stay inside this module.
 
-#![cfg(feature = "real")]
-
-use kkt_shutdown::Shutdown;
+use crate::Shutdown;
 
 /// OS stop signals, installed before the server announces it is ready.
 /// Tokio's signal types stay inside this part.

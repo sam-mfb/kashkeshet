@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "1bad609",
+ "commit": "4a75712",
  "crates": [
   {
    "bins": [
@@ -14748,7 +14748,11 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "A signal that the server is stopping.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "real": [
+     "dep:tokio"
+    ]
+   },
    "holders": [],
    "implements": [],
    "items": [
@@ -14763,33 +14767,7 @@ window.KKT_GRAPH = {
       "stopped"
      ],
      "path": "Shutdown"
-    }
-   ],
-   "lib": "kkt_shutdown",
-   "machine_work": {},
-   "name": "kkt-shutdown",
-   "optional_third_party": {},
-   "path": "crates/kkt-shutdown",
-   "real_files": [],
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": [
-    "tokio-util"
-   ]
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "The operating system's stop signals.",
-   "dev_only": false,
-   "features": {
-    "real": []
-   },
-   "holders": [],
-   "implements": [],
-   "items": [
+    },
     {
      "doc": "OS stop signals, installed before the server announces it is ready.",
      "feature": "real",
@@ -14801,17 +14779,24 @@ window.KKT_GRAPH = {
      "path": "StopSignals"
     }
    ],
-   "lib": "kkt_shutdown_os",
+   "lib": "kkt_shutdown",
    "machine_work": {},
-   "name": "kkt-shutdown-os",
-   "optional_third_party": {},
-   "path": "crates/kkt-shutdown-os",
-   "real_files": [],
+   "name": "kkt-shutdown",
+   "optional_third_party": {
+    "tokio": [
+     "real"
+    ]
+   },
+   "path": "crates/kkt-shutdown",
+   "real_files": [
+    "src/signals.rs"
+   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
    "third_party": [
-    "tokio"
+    "tokio",
+    "tokio-util"
    ]
   },
   {
@@ -17915,32 +17900,12 @@ window.KKT_GRAPH = {
    "to": "kkt-setup"
   },
   {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "Shutdown"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Shutdown"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-shutdown"
-  },
-  {
    "features": [
     "real"
    ],
    "from": "kashkeshet",
    "items": [
+    "Shutdown",
     "StopSignals"
    ],
    "kind": "normal",
@@ -17949,6 +17914,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -17956,7 +17922,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown-os"
+   "to": "kkt-shutdown"
   },
   {
    "features": [
@@ -20699,32 +20665,12 @@ window.KKT_GRAPH = {
    "to": "kkt-server-listen"
   },
   {
-   "features": [],
-   "from": "kkt-fake-product",
-   "items": [
-    "Shutdown"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Shutdown"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-shutdown"
-  },
-  {
    "features": [
     "real"
    ],
    "from": "kkt-fake-product",
    "items": [
+    "Shutdown",
     "StopSignals"
    ],
    "kind": "normal",
@@ -20733,6 +20679,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -20740,7 +20687,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown-os"
+   "to": "kkt-shutdown"
   },
   {
    "features": [
@@ -21701,32 +21648,12 @@ window.KKT_GRAPH = {
    "to": "kkt-server-listen"
   },
   {
-   "features": [],
-   "from": "kkt-keymode",
-   "items": [
-    "Shutdown"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Shutdown"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-shutdown"
-  },
-  {
    "features": [
     "real"
    ],
    "from": "kkt-keymode",
    "items": [
+    "Shutdown",
     "StopSignals"
    ],
    "kind": "normal",
@@ -21735,6 +21662,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -21742,7 +21670,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown-os"
+   "to": "kkt-shutdown"
   },
   {
    "features": [
@@ -25585,27 +25513,6 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-shutdown-os",
-   "items": [
-    "Shutdown"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Shutdown"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-shutdown"
-  },
-  {
-   "features": [],
    "from": "kkt-watch",
    "items": [
     "Channel",
@@ -26366,32 +26273,12 @@ window.KKT_GRAPH = {
    "to": "kkt-server-listen"
   },
   {
-   "features": [],
-   "from": "kkt-web-preview",
-   "items": [
-    "Shutdown"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Shutdown"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-shutdown"
-  },
-  {
    "features": [
     "real"
    ],
    "from": "kkt-web-preview",
    "items": [
+    "Shutdown",
     "StopSignals"
    ],
    "kind": "normal",
@@ -26400,6 +26287,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -26407,7 +26295,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown-os"
+   "to": "kkt-shutdown"
   },
   {
    "features": [],
@@ -26782,16 +26670,10 @@ window.KKT_CONCERNS = {
    "must_not": "Read files or run anything outside real: the program carries out, or passes in, what is decided here; let a consumer reach setup's files without real."
   },
   "kkt-shutdown": {
-   "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server.",
-   "kind": "logic",
+   "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server; behind real, `StopSignals`, the operating system's stop signals, which stop it.",
+   "kind": "logic and effect",
    "layer": "foundations",
-   "must_not": "Let a tokio-util type out of the crate."
-  },
-  "kkt-shutdown-os": {
-   "concern": "The operating system's stop signals, stopping the shared Shutdown value.",
-   "kind": "effect",
-   "layer": "foundations",
-   "must_not": "Let a tokio signal type out of the crate."
+   "must_not": "Let a tokio-util or tokio signal type out of the crate; let a consumer reach `StopSignals` without real."
   },
   "kkt-terminal-os": {
    "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the terminal's half of the login link: showing it, and the Enter key.",
@@ -27235,7 +27117,7 @@ window.KKT_ASSEMBLY = {
       "kkt-shutdown::Shutdown",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown::StopSignals"
      ],
      "text": "build assembles the server from the parts and config; listen binds it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
      "title": "Build and run"
@@ -28151,7 +28033,7 @@ window.KKT_ASSEMBLY = {
       "kkt-server::build",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown::StopSignals"
      ],
      "text": "build, listen, and serve_until a stop signal.",
      "title": "Build and run"
@@ -28323,7 +28205,7 @@ window.KKT_ASSEMBLY = {
      "items": [
       "kkt-server::page",
       "kkt-server-listen::listen",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown::StopSignals"
      ],
      "text": "kkt-server's page builds the page alone, and kkt-server-listen serves it until a stop signal.",
      "title": "Serve"

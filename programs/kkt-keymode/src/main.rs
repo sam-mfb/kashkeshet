@@ -32,7 +32,7 @@ use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
 use kkt_server_keys::AccessKey;
 use kkt_server_keys::KeyText;
 use kkt_shutdown::Shutdown;
-use kkt_shutdown_os::StopSignals;
+use kkt_shutdown::StopSignals;
 use kkt_terminal_os::Terminal;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
