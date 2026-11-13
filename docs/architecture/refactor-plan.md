@@ -1827,8 +1827,8 @@ program turns `real` on, as it turned on the `-os` crate's.
 | 14.1 | kkt-backup and kkt-backup-os become kkt-backup: `write` and `prune` behind `real` | S | kkt-build-d (#535) | kkt-review-e |
 | 14.2 | kkt-setup and kkt-setup-os become kkt-setup: setup's files on this machine behind `real` | S | kkt-build-d (#537) | kkt-review-e |
 | 14.3 | kkt-shutdown and kkt-shutdown-os become kkt-shutdown: `StopSignals` behind `real`, with tokio optional | S | kkt-build-d (#539) | kkt-review-e |
-| 14.4 | Logs: kkt-logs-os splits in two. The file writer joins kkt-logs behind `real`; the tracing implementation of kkt-log's `Log`, with the subscriber's start, becomes kkt-log-tracing | M | kkt-build-e | kkt-review-e |
-| 14.5 | Admission: kkt-admission splits by domain. Who is let in stays; the server's keys become kkt-server-keys, with kkt-admission-os' file handling behind `real` | M | kkt-build-e | kkt-review-e |
+| 14.4 | Logs: kkt-logs-os splits in two. The file writer joins kkt-logs behind `real`; the tracing implementation of kkt-log's `Log`, with the subscriber's start, becomes kkt-log-tracing | M | kkt-build-e (#536) | kkt-review-e |
+| 14.5 | Admission: kkt-admission splits by domain. Who is let in stays; the server's keys become kkt-server-keys, with kkt-admission-os' file handling behind `real` | M | kkt-build-e (#538) | kkt-review-e |
 
 sage-cardinal merges, one pull request at a time; each merges the tip of
 `refactor` in first. 14.0 comes first. Then kkt-build-d takes 14.1, 14.2
@@ -1866,6 +1866,22 @@ no check, message or file mode changes, and the pull request lists every
 moved public item with its old and new path. **Its proposal is charted in
 its own pull request**, not in 14.0, since its items were settled after
 14.0 began.
+
+**14.5's chart.** kkt-admission-os' proposed entry becomes kkt-server-keys,
+of kind "logic and effect", from kkt-admission. The key items move there as
+`late_moves`, after every earlier phase has put them in kkt-admission, so
+the history of how they got there stays as it was. `propose.py`'s
+`late_moves` take an optional `as`, as `moves` do, since
+`server_keys::KeyText` and the admin-name functions lose their module path.
+The arrow edits that named the moved items name them in kkt-server-keys;
+kkt-admission-os' own arrows to kkt-admission become internal and go.
+`SharedKey::generate`'s slot goes, and the system's randomness is wired
+into `generate`. Against it, on the code at 2368d5d (14.4 merged), before
+14.5: crates 61 of 62 (kkt-server-keys missing, kkt-admission-os among 3 to
+remove); items 759 of 795; arrows 235 of 248, 13 missing and 18 extra;
+wiring 101 of 102. After 14.5: crates 62 of 62, 2 to remove; items 781 of
+795; arrows 248 of 248, 7 extra; wiring 102 of 102. What is left is 14.2's
+and 14.3's.
 
 **What changes in the rules and checks** (step 14.0).
 - **The kind "logic and effect"** (`concerns.json`, `kinds.py`, the map's

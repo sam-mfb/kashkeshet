@@ -51,7 +51,7 @@ fn key(setup: &Setup<'_>, from: KeyFrom<'_>) -> Result<Option<String>, String> {
         .read(path)
         .map_err(|e| format!("could not read {}: {e}", path.display()))?;
     let key = text.trim();
-    kkt_admission::check_access_key(key).map_err(|e| e.to_string())?;
+    kkt_server_keys::check_access_key(key).map_err(|e| e.to_string())?;
     Ok(Some(key.to_string()))
 }
 

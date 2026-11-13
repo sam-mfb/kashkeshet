@@ -110,7 +110,7 @@ mod tests {
         );
         assert_eq!(plan.spec.dirs, [db.parent().expect("folder").to_path_buf()]);
         assert_eq!(plan.new_key, Some(key.clone()));
-        assert_eq!(plan.new_web_key, Some(kkt_admission::web_key_path(&key)));
+        assert_eq!(plan.new_web_key, Some(kkt_server_keys::web_key_path(&key)));
     }
 
     #[test]

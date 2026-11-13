@@ -532,7 +532,7 @@ mod tests {
         ) -> Result<kkt_setup::connection::ServeConnection<()>, String> {
             self.refused("connection.serve")
         }
-        fn make_default_key(&self, _: &kkt_admission::AccessKey) -> Result<(), String> {
+        fn make_default_key(&self, _: &kkt_server_keys::AccessKey) -> Result<(), String> {
             self.refused("connection.make_default_key")
         }
         fn check_key(&self, _: &Path, _: &()) -> Result<(), String> {

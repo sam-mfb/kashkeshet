@@ -16,9 +16,8 @@
 mod record;
 use record::{RecordedSettings, new_server_run};
 
-use kkt_admission::AccessKey;
 use kkt_admission::AdminAdmission;
-use kkt_admission::server_keys::{self, KeyRefusal, KeyText, KeyTexts, ServerKeys};
+use kkt_admission::server_keys::{self, KeyRefusal, KeyTexts, ServerKeys};
 use kkt_api_agent::SwarmId;
 use kkt_clock_system::SystemClock;
 use kkt_config_file_os as config_file_os;
@@ -30,6 +29,8 @@ use kkt_logs::{LogLevel, LogPolicy};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
+use kkt_server_keys::AccessKey;
+use kkt_server_keys::KeyText;
 use kkt_shutdown::Shutdown;
 use kkt_shutdown::StopSignals;
 use kkt_terminal_os::Terminal;
@@ -126,7 +127,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         web_admission,
         admin_key,
         admin_name,
-    } = server_keys::check(&mut KeyFiles(kkt_admission_os::KeyFiles::new(
+    } = server_keys::check(&mut KeyFiles(kkt_server_keys::KeyFiles::new(
         key_path(&access_key),
         key_path(&web_key),
         admin_key.as_deref(),
@@ -288,11 +289,14 @@ fn settings(args: &Args) -> Result<Settings, String> {
     let (web_key, admin_key) = match &access_key {
         AccessKey::None => (AccessKey::None, None),
         AccessKey::File(path) | AccessKey::Default(path) => {
-            let web = kkt_admission::web_key_path(path);
+            let web = kkt_server_keys::web_key_path(path);
             if &web == path {
                 return Err(invalid("access_key_file", "must not name the web key file"));
             }
-            (AccessKey::Default(web), kkt_admission::admin_key_path(path))
+            (
+                AccessKey::Default(web),
+                kkt_server_keys::admin_key_path(path),
+            )
         }
     };
     let defaults = kkt_rules::Settings::DEFAULT;
@@ -392,7 +396,7 @@ fn key_path(key: &AccessKey) -> Option<&Path> {
 }
 
 /// Adapts native key texts, preserving this program's refusal wording.
-struct KeyFiles<'a>(kkt_admission_os::KeyFiles<'a>);
+struct KeyFiles<'a>(kkt_server_keys::KeyFiles<'a>);
 impl KeyTexts for KeyFiles<'_> {
     type Error = String;
     fn access(&mut self) -> Result<Option<KeyText>, String> {

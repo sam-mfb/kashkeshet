@@ -100,7 +100,7 @@ The shared crates are reorganized so that every dependency is injected and each 
   `kkt_container::LoginLink` and kkt-terminal-os' `BrowserLink` keep only
   `show` and `open_requested`; `kkt_container::Docker` is now built
   with `Docker::new(browser)`. Messages are unchanged.
-- **Effects in `-os` crates.** What touches the machine moves out of each crate's `real` feature into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-admission-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os` and `kkt-lane-files-os`. A logic crate has a `real` feature only where its effect has rejoined it, as the next entry says.
+- **Effects in `-os` crates.** What touches the machine moves out of each crate's `real` feature into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os` and `kkt-lane-files-os`. A logic crate has a `real` feature only where its effect has rejoined it, as the next entry says.
 - **Logic and its effect in one crate.** Where an `-os` crate only carried out its logic crate's plans, the two are one crate again, the effect behind `real`, which only programs turn on: a crate that depends on it without `real` gets the logic alone. `kkt-backup-os` is merged into `kkt-backup`: `kkt_backup::write` and `kkt_backup::prune` (behind `real`) replace `kkt_backup_os::write` and `prune`, unchanged. `kkt-setup-os` is merged into `kkt-setup`: its functions (`read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`) are `kkt_setup::` items behind `real`, unchanged. `kkt-shutdown-os` is merged into `kkt-shutdown`: `kkt_shutdown::StopSignals` (behind `real`, which turns on tokio) replaces `kkt_shutdown_os::StopSignals`, unchanged. Messages and file modes are unchanged.
 - **Logs.** `kkt-logs-os` is gone. Its file writer, `RotatingFile`, is now
   kkt-logs' (behind `real`), with `open_log_file(path, policy, clock)`,
@@ -109,6 +109,33 @@ The shared crates are reorganized so that every dependency is injected and each 
   `kkt-log-tracing`'s (behind `real`). `init_logging` takes the writer to
   log to (`None` for stdout) in place of a path, a policy and a clock.
   Messages are unchanged.
+- **Server keys.** `kkt-admission` held two concerns; the server's keys
+  are now `kkt-server-keys`, and `kkt-admission-os` is merged into it
+  (behind `real`). kkt-admission depends on kkt-server-keys, never the
+  reverse, and keeps who is let in: `Admission`, `AdminAdmission`, `Mode`,
+  `Open`, `SharedKey`, `AnyBearer`, `BearerToken`, `Credentials`,
+  `Decision`, `Principal`, `ServerKey`, `Refusal`, `WebAdmission`,
+  `WebSession`, `key_refusal`, and `server_keys::{check, KeyTexts,
+  ServerKeys, KeyRefusal}`, at the same paths. Moved, with their old paths:
+  - `kkt_admission::{AccessKey, SettingError, check_access_key,
+    ACCESS_KEY_FILE_MODE, ACCESS_KEY_FILE_NAME, WEB_KEY_FILE_NAME,
+    ADMIN_KEY_FILE_NAME, ADMIN_NAME_FILE_SUFFIX, access_key_file,
+    web_key_path, admin_key_path, admin_name_path}` are now
+    `kkt_server_keys::` items of the same names;
+  - `kkt_admission::server_keys::{KeyText, bound_to, bound_in,
+    admin_name_line, admin_name_written}` are now `kkt_server_keys::`
+    items of the same names;
+  - `kkt_admission::SharedKey::generate(entropy)` is now
+    `kkt_server_keys::generate(entropy)`;
+  - `kkt_admission::testing::MIN_ACCESS_KEY_BYTES` is now
+    `kkt_server_keys::testing::MIN_ACCESS_KEY_BYTES`, and kkt-admission
+    has no `testing` feature;
+  - `kkt_admission_os::{KeyFiles, ReadError, make_default_key,
+    new_key_file, write_key_file, write_admin_name}` are now
+    `kkt_server_keys::` items of the same names, behind `real`.
+
+  Key checks, refusals, file names, file modes and how keys are written,
+  read and hashed are unchanged.
 - **Starting the server.** `kkt_rules::start(run, startup)` records the run and returns `Rules`; `Startup` holds the database, swarm, event bus, clock, entropy, rules settings and wording. Each program maps its `ServerRun` into `kkt_rules::NewServerRun`; `kkt_server::new_server_run` is gone. `Parts::new(api, clock, entropy, identify, log, checked)` takes an `Arc<dyn AdminApi>` and the opaque `CheckedSettings` returned by `ServerSettings::check`. kkt-server no longer has a normal dependency on kkt-rules. `AppConfig` holds only admissions and instructions; `ServerSettings` holds formatter, web, MCP, origins and hosts, and orders the owners' checks and run-record lines with the program's plain values. `kkt_settings::RecordedSettings` is gone; call `ServerSettings::record_lines` with program lines instead.
 - **Storage.** kkt-db's `Database` is gone: a store calls `BackendExt`'s read and write on any `Backend`, `kkt_rules::Db::new` takes an `Arc<dyn Backend>`, which `SqlitePlace::open` and `create` return. `Legacy` is kkt-db's.
 - **The surfaces.** kkt-mcp's `endpoint` takes an `Arc<dyn Api>`, and `mcp_admin::endpoint` an `Arc<dyn AdminApi>`, in place of `Rules`. `Identify::avatar` takes `&dyn Api`. kkt-web's `router` takes an `Arc<dyn OperatorApi>`, a `Gate` and the page's `Sessions<T>`; `Source`, `Sources` and `RulesSource` are gone. `Gate` has `admits`, which is given the request's session (absent, ended, or live with what the gate said at sign-in), and `sign_in`, which turns a key into `SignIn<T>`. The web sessions moved from kkt-admission into kkt-web, which keeps their lifetime in its `Settings`.

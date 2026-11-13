@@ -1,0 +1,24 @@
+[package]
+name = "kkt-server-keys"
+description = "kkt's server keys: what a key must be, its files and the admin name tied to it"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-entropy = { path = "../kkt-entropy" }
+kkt-hash = { path = "../kkt-hash" }
+kkt-names = { path = "../kkt-names" }
+thiserror.workspace = true
+
+[features]
+# `testing::MIN_ACCESS_KEY_BYTES`, the shortest key, for other crates' tests.
+testing = []
+# The key files on disk: `KeyFiles`, `ReadError`, `make_default_key`,
+# `new_key_file`, `write_admin_name` and `write_key_file`.
+real = []
+
+[dev-dependencies]
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }

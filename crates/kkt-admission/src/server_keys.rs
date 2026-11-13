@@ -1,20 +1,12 @@
-//! The server's keys: that its access, web and admin keys are well formed
-//! and differ from one another, and the admin name tied to its admin key.
-//! It reads no files: the program supplies their texts through
-//! [`KeyTexts`], and names the setting in each refusal.
+//! The server's admission from its keys: that its access, web and admin
+//! keys are well formed and differ from one another, and the admin name
+//! tied to its admin key, as kkt-server-keys' rules say, turned into who
+//! each key lets in. It reads no files: the program supplies their texts
+//! through [`KeyTexts`], and names the setting in each refusal.
 
-mod admin_name;
-pub use admin_name::{admin_name_line, admin_name_written, bound_in, bound_to};
-
-use crate::keys::SettingError;
 use crate::{Admission, ServerKey, SharedKey};
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
-
-/// A key file's text, and where it came from, such as the file's path.
-pub struct KeyText {
-    pub text: String,
-    pub source: String,
-}
+use kkt_server_keys::{KeyText, SettingError, bound_in};
 
 /// The texts of the server's key files. [`check`] asks for them in the
 /// order of these methods and stops at the first refusal, so a text is
@@ -157,7 +149,7 @@ fn is_one_of(text: &str, others: &[&Admission]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::check_access_key;
+    use kkt_server_keys::check_access_key;
 
     const ACCESS: &str = "0123456789abcdef0123456789abcdef";
     const WEB: &str = "fedcba9876543210fedcba9876543210";
@@ -324,7 +316,7 @@ mod tests {
         let name = AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("a name");
         let mut texts = Scripted {
             admin: Some("abcdefabcdefabcdefabcdefabcdefab\n"),
-            names: Some(super::bound_to(&name, ADMIN)),
+            names: Some(kkt_server_keys::bound_to(&name, ADMIN)),
             ..all_keys()
         };
         let keys = check(&mut texts).expect("accepted");
@@ -335,7 +327,7 @@ mod tests {
     fn a_name_file_for_another_admin_key_names_nothing() {
         let name = AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("a name");
         let mut texts = Scripted {
-            names: Some(super::bound_to(&name, WEB)),
+            names: Some(kkt_server_keys::bound_to(&name, WEB)),
             ..all_keys()
         };
         let keys = check(&mut texts).expect("accepted");

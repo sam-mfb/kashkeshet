@@ -4,7 +4,7 @@
 members = [
     ".",
     "crates/kkt-admission",
-    "crates/kkt-admission-os",
+    "crates/kkt-server-keys",
     "crates/kkt-agent-client",
     "crates/kkt-agent-commands",
     "crates/kkt-agent-files-os",
@@ -68,7 +68,7 @@ members = [
 default-members = [
     ".",
     "crates/kkt-admission",
-    "crates/kkt-admission-os",
+    "crates/kkt-server-keys",
     "crates/kkt-agent-client",
     "crates/kkt-agent-commands",
     "crates/kkt-agent-files-os",
@@ -201,7 +201,7 @@ path = "src/bin/kkt/main.rs"
 clap.workspace = true
 futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
-kkt-admission-os = { path = "crates/kkt-admission-os", features = ["real"] }
+kkt-server-keys = { path = "crates/kkt-server-keys", features = ["real"] }
 kkt-agent-client = { path = "crates/kkt-agent-client", features = ["real"] }
 kkt-agent-commands = { path = "crates/kkt-agent-commands" }
 kkt-agent-files-os = { path = "crates/kkt-agent-files-os", features = ["real"] }

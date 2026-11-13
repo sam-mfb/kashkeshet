@@ -1,8 +1,42 @@
-//! The server's keys as text and as files: what a key must be, how long a
-//! new one is, and the names, mode and default place of the files that hold
-//! them.
+//! The server's keys: what a key must be, how a new one is made, which
+//! access key a server uses, the names, mode and default place of the files
+//! that hold them, and the admin agent's name tied to the admin key. Who a
+//! key lets in is kkt-admission's.
+//!
+//! Behind `real`, the key files on disk: reading their texts, private key
+//! writes, admin-name writes and staged-key moves.
 
+mod admin_name;
+#[cfg(feature = "real")]
+mod files;
+#[cfg(feature = "testing")]
+pub mod testing;
+
+pub use admin_name::{admin_name_line, admin_name_written, bound_in, bound_to};
+#[cfg(feature = "real")]
+pub use files::{
+    KeyFiles, ReadError, make_default_key, new_key_file, write_admin_name, write_key_file,
+};
+
+use kkt_entropy::Entropy;
 use std::path::{Path, PathBuf};
+
+/// Characters new access keys are drawn from: lowercase ASCII letters and
+/// digits, as kkt-names drew them before. Keep it so, so new keys look like
+/// the ones existing installs hold.
+const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+
+/// A key file's text, and where it came from, such as the file's path.
+pub struct KeyText {
+    pub text: String,
+    pub source: String,
+}
+
+/// A new random key, such as `kkt key create` writes. It passes
+/// [`check_access_key`].
+pub fn generate(entropy: &dyn Entropy) -> String {
+    entropy.random_chars(RANDOM_CHARS, NEW_ACCESS_KEY_CHARS)
+}
 
 /// A key setting the server refuses to start with: the setting's name and
 /// why.
@@ -34,10 +68,10 @@ pub enum AccessKey {
 }
 
 /// Shortest access key, in bytes. 32 random hex digits carry 128 bits.
-pub(crate) const MIN_ACCESS_KEY_BYTES: usize = 32;
+const MIN_ACCESS_KEY_BYTES: usize = 32;
 /// Characters in a key made by `kkt key create`, from the 36-character
 /// alphabet: about 258 bits.
-pub(crate) const NEW_ACCESS_KEY_CHARS: usize = 50;
+const NEW_ACCESS_KEY_CHARS: usize = 50;
 const _: () = assert!(NEW_ACCESS_KEY_CHARS >= MIN_ACCESS_KEY_BYTES);
 /// Unix permissions of a key file `kkt key create` writes: only the owner
 /// may read or write it.
@@ -153,5 +187,22 @@ mod tests {
             let err = check_access_key(bad).expect_err(bad);
             assert_eq!(err.name, "access_key_file");
         }
+    }
+
+    #[test]
+    fn generated_keys_are_accepted_and_differ() {
+        use kkt_entropy::testing::SeqEntropy;
+        let entropy = SeqEntropy::new(3);
+        let first = generate(&entropy);
+        let second = generate(&entropy);
+        assert_eq!(first.len(), NEW_ACCESS_KEY_CHARS);
+        assert_ne!(first, second);
+        assert_eq!(check_access_key(&first), Ok(()));
+    }
+
+    #[test]
+    fn new_keys_are_drawn_from_lowercase_letters_and_digits() {
+        let expected: Vec<u8> = (b'a'..=b'z').chain(b'0'..=b'9').collect();
+        assert_eq!(RANDOM_CHARS, expected.as_slice());
     }
 }

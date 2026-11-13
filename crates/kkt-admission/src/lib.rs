@@ -13,24 +13,11 @@
 //! credentials [`Admission`] accepts and gets a session, which the page
 //! keeps; later requests are let in by the session alone.
 
-/// Characters new access keys are drawn from: lowercase ASCII letters and
-/// digits, as kkt-names drew them before. Keep it so, so new keys look like
-/// the ones existing installs hold.
-const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
-
 mod any_bearer;
-mod keys;
 pub mod server_keys;
 mod shared_key;
-#[cfg(feature = "testing")]
-pub mod testing;
 
 pub use any_bearer::{AnyBearer, BearerToken};
-pub use keys::{
-    ACCESS_KEY_FILE_MODE, ACCESS_KEY_FILE_NAME, ADMIN_KEY_FILE_NAME, ADMIN_NAME_FILE_SUFFIX,
-    AccessKey, SettingError, WEB_KEY_FILE_NAME, access_key_file, admin_key_path, admin_name_path,
-    check_access_key, web_key_path,
-};
 pub use server_keys::key_refusal;
 pub use shared_key::SharedKey;
 

@@ -187,10 +187,10 @@ fn both_compose_setups_keep_both_default_keys_in_the_data_volume() {
         xdg_config_home: None,
         xdg_data_home: None,
     };
-    let access = kkt_admission::access_key_file(
+    let access = kkt_server_keys::access_key_file(
         &kkt_config_file::config_dir(env.config_home().as_deref()).expect("default config folder"),
     );
-    let web = kkt_admission::web_key_path(&access);
+    let web = kkt_server_keys::web_key_path(&access);
     assert_eq!(web, std::path::Path::new("/data/.config/kkt/web-key"));
     assert_ne!(access, web);
     for file in ["compose.yaml", "compose.tailscale.yaml"] {

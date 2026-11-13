@@ -1039,7 +1039,6 @@ dependencies = [
  "clap",
  "futures",
  "kkt-admission",
- "kkt-admission-os",
  "kkt-agent-client",
  "kkt-agent-commands",
  "kkt-agent-files-os",
@@ -1080,6 +1079,7 @@ dependencies = [
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
+ "kkt-server-keys",
  "kkt-server-listen",
  "kkt-service",
  "kkt-service-launchd",
@@ -1106,14 +1106,8 @@ dependencies = [
  "kkt-entropy",
  "kkt-hash",
  "kkt-names",
+ "kkt-server-keys",
  "thiserror",
-]
-
-[[package]]
-name = "kkt-admission-os"
-version = "0.10.0"
-dependencies = [
- "kkt-admission",
 ]
 
 [[package]]
@@ -1133,13 +1127,13 @@ name = "kkt-agent-commands"
 version = "0.10.0"
 dependencies = [
  "futures",
- "kkt-admission",
  "kkt-agent-client",
  "kkt-client-command",
  "kkt-client-config",
  "kkt-clock",
  "kkt-machine",
  "kkt-names",
+ "kkt-server-keys",
  "kkt-setup",
  "kkt-watch",
 ]
@@ -1182,13 +1176,13 @@ name = "kkt-api-sim"
 version = "0.10.0"
 dependencies = [
  "futures",
- "kkt-admission",
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",
  "kkt-names",
+ "kkt-server-keys",
  "kkt-shutdown",
  "kkt-web",
  "tokio",
@@ -1218,9 +1212,9 @@ version = "0.10.0"
 name = "kkt-client-config"
 version = "0.10.0"
 dependencies = [
- "kkt-admission",
  "kkt-client-command",
  "kkt-machine",
+ "kkt-server-keys",
  "serde",
  "serde_json",
  "toml_edit",
@@ -1305,9 +1299,9 @@ dependencies = [
 name = "kkt-diagnostics"
 version = "0.10.0"
 dependencies = [
- "kkt-admission",
  "kkt-clock",
  "kkt-probe",
+ "kkt-server-keys",
  "url",
 ]
 
@@ -1405,7 +1399,6 @@ name = "kkt-keymode"
 version = "0.10.0"
 dependencies = [
  "kkt-admission",
- "kkt-admission-os",
  "kkt-api-agent",
  "kkt-backup",
  "kkt-clock",
@@ -1425,6 +1418,7 @@ dependencies = [
  "kkt-provenance",
  "kkt-rules",
  "kkt-server",
+ "kkt-server-keys",
  "kkt-server-listen",
  "kkt-shutdown",
  "kkt-terminal-os",
@@ -1538,7 +1532,6 @@ name = "kkt-operate"
 version = "0.10.0"
 dependencies = [
  "futures",
- "kkt-admission",
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-backup",
@@ -1556,6 +1549,7 @@ dependencies = [
  "kkt-provenance",
  "kkt-remote-access",
  "kkt-rules",
+ "kkt-server-keys",
  "kkt-service",
  "kkt-setup",
  "tokio",
@@ -1645,6 +1639,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-server-keys"
+version = "0.10.0"
+dependencies = [
+ "kkt-entropy",
+ "kkt-hash",
+ "kkt-names",
+ "thiserror",
+]
+
+[[package]]
 name = "kkt-server-listen"
 version = "0.10.0"
 dependencies = [
@@ -1670,8 +1674,8 @@ dependencies = [
 name = "kkt-service"
 version = "0.10.0"
 dependencies = [
- "kkt-admission",
  "kkt-clock",
+ "kkt-server-keys",
  "thiserror",
 ]
 
@@ -1700,12 +1704,12 @@ dependencies = [
 name = "kkt-setup"
 version = "0.10.0"
 dependencies = [
- "kkt-admission",
  "kkt-client-config",
  "kkt-container",
  "kkt-hash",
  "kkt-machine",
  "kkt-names",
+ "kkt-server-keys",
  "semver",
  "serde",
  "toml",
@@ -1765,7 +1769,6 @@ name = "kkt-web-preview"
 version = "0.10.0"
 dependencies = [
  "clap",
- "kkt-admission-os",
  "kkt-api-sim",
  "kkt-clock-system",
  "kkt-entropy",
@@ -1775,6 +1778,7 @@ dependencies = [
  "kkt-log-tracing",
  "kkt-logs",
  "kkt-server",
+ "kkt-server-keys",
  "kkt-server-listen",
  "kkt-shutdown",
  "kkt-web",

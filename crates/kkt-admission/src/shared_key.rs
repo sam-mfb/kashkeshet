@@ -1,9 +1,7 @@
 //! One key shared by every caller, kept only as a hash.
 
-use crate::keys::SettingError;
-use crate::keys::{NEW_ACCESS_KEY_CHARS, check_access_key};
 use crate::{Credentials, Decision, Mode, Principal, Refusal, ServerKey};
-use kkt_entropy::Entropy;
+use kkt_server_keys::{SettingError, check_access_key};
 
 /// One of the server's keys, shared by every caller that holds it. It keeps
 /// which key it is, a SHA-256 of the key (not the key), and where the key
@@ -31,12 +29,6 @@ impl SharedKey {
             digest: kkt_hash::sha256(text.as_bytes()),
             source: source.into(),
         })
-    }
-
-    /// A new random key, such as `kkt key create` writes. It passes
-    /// `check_access_key`.
-    pub fn generate(entropy: &dyn Entropy) -> String {
-        entropy.random_chars(crate::RANDOM_CHARS, NEW_ACCESS_KEY_CHARS)
     }
 
     /// Where the key came from.
@@ -101,22 +93,12 @@ mod tests {
     }
 
     #[test]
-    fn generated_keys_are_accepted_and_differ() {
+    fn a_generated_key_is_a_shared_key_that_matches_it() {
         use kkt_entropy::testing::SeqEntropy;
-        let entropy = SeqEntropy::new(3);
-        let first = SharedKey::generate(&entropy);
-        let second = SharedKey::generate(&entropy);
-        assert_eq!(first.len(), NEW_ACCESS_KEY_CHARS);
-        assert_ne!(first, second);
+        let first = kkt_server_keys::generate(&SeqEntropy::new(3));
         let key =
             SharedKey::new(ServerKey::Access, &first, "file").expect("a generated key is valid");
         assert!(key.matches(first.as_bytes()));
-    }
-
-    #[test]
-    fn new_keys_are_drawn_from_lowercase_letters_and_digits() {
-        let expected: Vec<u8> = (b'a'..=b'z').chain(b'0'..=b'9').collect();
-        assert_eq!(crate::RANDOM_CHARS, expected.as_slice());
     }
 
     #[test]

@@ -72,7 +72,7 @@ fn at_once<F: Future>(future: F) -> F::Output {
 }
 
 fn valid_key() -> String {
-    "k".repeat(kkt_admission::testing::MIN_ACCESS_KEY_BYTES)
+    "k".repeat(kkt_server_keys::testing::MIN_ACCESS_KEY_BYTES)
 }
 
 fn key(mode: Option<u32>, text: Result<String, String>) -> KeyFile {
