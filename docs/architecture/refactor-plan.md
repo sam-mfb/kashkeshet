@@ -1727,7 +1727,7 @@ kkt-review-b, and its plan and map work by kkt-review-373.
 | Step | What | Size | Builds | Reviews |
 |---|---|---|---|---|
 | 13.0 | The rule text, the new kind, generate.py's slot features and optional dependencies, kinds.py, progress.py, check-crates' comment, CLAUDE.md, the proposal's rule | M | kkt-mt-step1 | kkt-review-373 |
-| 13.1 | kkt-container merges with kkt-container-docker | M | kkt-build-c | kkt-review-373 |
+| 13.1 | kkt-container merges with kkt-container-docker | M | kkt-build-c (this pull request) | kkt-review-373 |
 | 13.2 | kkt-remote-access merges with kkt-remote-access-tailscale | S | kkt-build-c | kkt-review-373 |
 | 13.3 | kkt-browser merges with kkt-browser-os | S | kkt-mt-step1 | kkt-review-b |
 | 13.4 | kkt-lane-commit merges with kkt-lane-commit-git | S | kkt-build-b | kkt-review-b |
@@ -1958,3 +1958,15 @@ Docker decisions, timings, Compose assets, commands, messages and sidecar status
 move into that wrapper, with a private `Runner` and the old fake and native tests.
 The program's adapter and `kkt-container-os` go. The program wires `Docker` into
 `kkt-operate::OperateParts.container`. No check condition or rule text changes.
+
+### 13.1: container contract and Docker implementation together
+
+The contract and its `testing` stand-in remain outside `real`. The old Docker
+wrapper moves into private modules of kkt-container, with Docker re-exported
+only behind `real`; its private logic and fake still compile in unit tests
+without `real`. The program builds the same Docker directly from kkt-container.
+
+Implementation-only dependencies (the browser contract, config-file, machine,
+serde_json and thiserror) are optional and enabled by `real`, with dev-dependencies
+for the private logic tests. No consumer turns on `real`, no forwarding adapter
+is added, and no command, file, message or test assertion changes.

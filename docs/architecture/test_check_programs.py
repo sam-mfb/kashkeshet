@@ -1,7 +1,9 @@
 """check-programs.py: machine work in a composition crate fails unless the plan's temporary breaks list it."""
 
 import importlib.util
+import json
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location(
@@ -171,6 +173,37 @@ class ContractAndEffect(unittest.TestCase):
         self.assertTrue(self.kinds.is_contract(self.kinds.MERGED))
         self.assertTrue(self.kinds.is_contract("contract"))
         self.assertFalse(self.kinds.is_contract("effect"))
+
+class ProposedMachineWork(unittest.TestCase):
+    """The frozen program work must still have a real destination after a merge."""
+
+    @classmethod
+    def setUpClass(cls):
+        module_spec = importlib.util.spec_from_file_location(
+            "propose", Path(__file__).resolve().parent / "propose.py")
+        cls.propose = importlib.util.module_from_spec(module_spec)
+        module_spec.loader.exec_module(cls.propose)
+
+    def proposal_with_container_kind(self, kind):
+        path = self.propose.HERE / "proposed.json"
+        original_read = Path.read_text
+        data = json.loads(original_read(path))
+        data["kind_edits"]["kkt-container"] = kind
+
+        def read(candidate, *args, **kwargs):
+            return json.dumps(data) if candidate == path else original_read(candidate, *args, **kwargs)
+
+        with patch.object(Path, "read_text", read):
+            return self.propose.main()
+
+    def test_merged_container_accepts_its_historical_machine_work(self):
+        page = self.proposal_with_container_kind("contract and effect")
+        self.assertFalse(page["violations"])
+
+    def test_pure_contract_still_refuses_machine_work(self):
+        with self.assertRaisesRegex(SystemExit, "sends its machine work to kkt-container, which is not an effect crate"):
+            self.proposal_with_container_kind("contract")
+
 
 if __name__ == "__main__":
     unittest.main()
