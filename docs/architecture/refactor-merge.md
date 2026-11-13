@@ -128,7 +128,7 @@ reviewed by hand until they return. Watch their first runs. The code the refacto
   kkt-service-launchd's `Settings`.
 
 Code under `cfg(unix)` also moved, and runs on both systems: file modes
-(kkt-admission-os, kkt-backup-os, kkt-client-config-os,
+(kkt-admission-os, kkt-backup (behind `real`), kkt-client-config-os,
 kkt-container (behind `real`), kkt-config-file-os), the stop signals
 (kkt-shutdown-os), the agent credential files' owner and mode checks
 (kkt-agent-files-os), and the closed output pipe (kkt-terminal-os).

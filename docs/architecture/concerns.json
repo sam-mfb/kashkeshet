@@ -268,15 +268,9 @@
   },
   "kkt-backup": {
    "layer": "operations",
-   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
-   "must_not": "Read the clock or copy the database itself: the caller passes both.",
-   "kind": "logic"
-  },
-  "kkt-backup-os": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Writing immutable backup layouts and removing old folders selected by the backup logic.",
-   "must_not": "Choose backup names, contents, modes or retention."
+   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`); behind real, writing a layout and removing the old folders it chooses (`write`, `prune`).",
+   "must_not": "Read the clock or copy the database itself: the caller passes both; let a consumer reach `write` or `prune` without real.",
+   "kind": "logic and effect"
   },
   "kkt-lane-files": {
    "layer": "operations",

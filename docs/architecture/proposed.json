@@ -6328,7 +6328,7 @@
     ]
    },
    "status": "decided",
-   "note": "builds the backup's Layout for kkt-backup-os to write (step 2.7)"
+   "note": "builds the backup's Layout for kkt-backup's write, behind real (steps 2.7 and 14.1)"
   },
   {
    "from": "kashkeshet",
