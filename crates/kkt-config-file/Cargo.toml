@@ -9,5 +9,4 @@ publish = false
 
 [dependencies]
 thiserror.workspace = true
-toml.workspace = true
-toml_edit.workspace = true
+kkt-toml = { path = "../kkt-toml" }

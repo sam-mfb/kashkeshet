@@ -227,11 +227,10 @@ pub fn codex_password_store_hint(env: &Env, host: &dyn Host) -> Result<bool, Str
     };
     let document = formats::parse_toml(&text)
         .map_err(|e| format!("invalid Codex TOML in {}: {e}", path.display()))?;
-    Ok(document
-        .get("mcp_servers")
-        .and_then(|servers| servers.get("kkt"))
-        .is_some_and(|kkt| kkt.as_table_like().is_some())
-        && !document.contains_key("mcp_oauth_credentials_store"))
+    Ok(
+        document.find(&["mcp_servers", "kkt"]) == Some(kkt_toml::Found::Table)
+            && document.find(&["mcp_oauth_credentials_store"]).is_none(),
+    )
 }
 
 /// Print a plan or apply one change. A plan never contains the key, even for

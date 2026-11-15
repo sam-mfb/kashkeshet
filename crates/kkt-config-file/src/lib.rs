@@ -128,10 +128,10 @@ pub fn parse_file<L>(
     home: Option<&Path>,
     level: impl Fn(&'static str, &str) -> Result<L, String>,
 ) -> Result<Config<L>, ConfigError> {
-    let table: toml::Table = text.parse().map_err(|e: toml::de::Error| {
+    let table = kkt_toml::parse(text).map_err(|e| {
         ConfigError::new(
             "config",
-            format!("is not valid TOML: {}", e.message().trim()),
+            format!("is not valid TOML: {}", e.reason().trim()),
         )
     })?;
     let mut config = Config::NONE;
@@ -192,25 +192,23 @@ pub fn parse_file<L>(
 /// rest of the file, comments included, as it was. Unchanged if the host is
 /// already there. Empty `text` makes a file with only that line.
 pub fn with_allowed_host(text: &str, host: &str) -> Result<String, ConfigError> {
-    let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e: toml_edit::TomlError| {
+    let mut doc = kkt_toml::Document::parse(text).map_err(|e| {
         ConfigError::new(
             "config",
-            format!("is not valid TOML: {}", e.message().trim()),
+            format!("is not valid TOML: {}", e.reason().trim()),
         )
     })?;
-    let hosts = doc
-        .entry("allow_hosts")
-        .or_insert_with(|| toml_edit::value(toml_edit::Array::new()))
-        .as_array_mut()
-        .ok_or_else(|| ConfigError::new("allow_hosts", "in the config file must be a list"))?;
-    if !hosts.iter().any(|h| h.as_str() == Some(host)) {
-        hosts.push(host);
+    let mut hosts = doc
+        .list_mut("allow_hosts")
+        .map_err(|_| ConfigError::new("allow_hosts", "in the config file must be a list"))?;
+    if !hosts.contains_text(host) {
+        hosts.push_text(host);
     }
-    Ok(doc.to_string())
+    Ok(doc.text())
 }
 
 /// One value from the file.
-struct Value(toml::Value);
+struct Value(kkt_toml::Value);
 
 impl Value {
     fn wrong(&self, name: &'static str, expected: &str) -> ConfigError {
@@ -221,7 +219,7 @@ impl Value {
     }
 
     fn string(&self, name: &'static str, expected: &str) -> Result<&str, ConfigError> {
-        self.0.as_str().ok_or_else(|| self.wrong(name, expected))
+        self.0.as_text().ok_or_else(|| self.wrong(name, expected))
     }
 
     fn path(
@@ -261,7 +259,7 @@ impl Value {
 
     fn boolean(&self, name: &'static str) -> Result<bool, ConfigError> {
         self.0
-            .as_bool()
+            .as_boolean()
             .ok_or_else(|| self.wrong(name, "true or false"))
     }
 
@@ -283,14 +281,11 @@ impl Value {
 
     fn strings(&self, name: &'static str) -> Result<Vec<String>, ConfigError> {
         let expected = "a list of strings, such as [\"a\", \"b\"]";
-        let items = self
-            .0
-            .as_array()
-            .ok_or_else(|| self.wrong(name, expected))?;
+        let items = self.0.as_list().ok_or_else(|| self.wrong(name, expected))?;
         items
             .iter()
             .map(|item| {
-                item.as_str()
+                item.as_text()
                     .map(str::to_string)
                     .ok_or_else(|| self.wrong(name, expected))
             })

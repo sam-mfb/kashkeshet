@@ -13,7 +13,7 @@ kkt-server-keys = { path = "../kkt-server-keys" }
 kkt-machine = { path = "../kkt-machine" }
 serde.workspace = true
 serde_json.workspace = true
-toml_edit.workspace = true
+kkt-toml = { path = "../kkt-toml" }
 
 [dev-dependencies]
 # Its calls are recorded as the contract's stand-in records them.

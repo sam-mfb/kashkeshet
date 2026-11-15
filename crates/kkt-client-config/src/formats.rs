@@ -1,9 +1,9 @@
 //! Vendor formats stay inside the client configuration part.
 
 use super::{Client, Host, Setup, helper};
+use kkt_toml::{Document, EditError, IfMissing};
 use serde_json::{Map, Value, json};
 use std::path::Path;
-use toml_edit::{DocumentMut, Item, Table, value};
 
 pub(super) fn header_json(key: &str) -> Result<String, String> {
     serde_json::to_string(&json!({"Authorization": format!("Bearer {key}")}))
@@ -168,42 +168,32 @@ fn json_document(
 
 /// Parse Codex TOML. The error is the parser's reason and where it found the
 /// problem, like `parse_json`'s. It never quotes the file, which may hold a key.
-pub(super) fn parse_toml(text: &str) -> Result<DocumentMut, String> {
-    text.parse::<DocumentMut>().map_err(|e| {
+pub(super) fn parse_toml(text: &str) -> Result<Document, String> {
+    Document::parse(text).map_err(|e| {
         let reason = e
-            .message()
+            .reason()
             .lines()
             .map(str::trim)
             .filter(|line| !line.is_empty())
             .collect::<Vec<_>>()
             .join("; ");
         // Without a place in the text, the reason stands alone.
-        let Some(before) = e.span().and_then(|span| text.get(..span.start)) else {
-            return reason;
-        };
-        let line = before.matches('\n').count() + 1;
-        let column = before
-            .rsplit('\n')
-            .next()
-            .map_or(0, |start| start.chars().count())
-            + 1;
-        format!("{reason} at line {line}, column {column}")
+        match e.place() {
+            Some(place) => format!("{reason} at line {}, column {}", place.line, place.column),
+            None => reason,
+        }
     })
 }
 
 fn toml_document(setup: &Setup<'_>, text: Option<&str>) -> Result<String, String> {
     let mut document = parse_toml(text.unwrap_or(""))
         .map_err(|e| format!("invalid Codex TOML; the file was not changed: {e}"))?;
-    let servers = document
-        .entry("mcp_servers")
-        .or_insert(Item::Table(Table::new()))
-        .as_table_like_mut()
-        .ok_or("mcp_servers must be a TOML table")?;
-    let entry = servers
-        .entry("kkt")
-        .or_insert(Item::Table(Table::new()))
-        .as_table_like_mut()
-        .ok_or("mcp_servers.kkt must be a TOML table")?;
+    let mut entry = document
+        .table_mut(&["mcp_servers", "kkt"], IfMissing::Add)
+        .map_err(|e| match e {
+            EditError::NotATable { path } if path.len() == 1 => "mcp_servers must be a TOML table",
+            _ => "mcp_servers.kkt must be a TOML table",
+        })?;
     for name in [
         "command",
         "args",
@@ -214,25 +204,22 @@ fn toml_document(setup: &Setup<'_>, text: Option<&str>) -> Result<String, String
         entry.remove(name);
     }
     for name in ["http_headers", "env_http_headers"] {
-        if let Some(headers) = entry.get_mut(name) {
-            let headers = headers
-                .as_table_like_mut()
-                .ok_or("Codex HTTP headers must be a table")?;
-            let names: Vec<_> = headers
-                .iter()
-                .filter(|(name, _)| name.eq_ignore_ascii_case("authorization"))
-                .map(|(name, _)| name.to_string())
-                .collect();
-            for name in names {
+        let mut headers = match entry.table_mut(&[name], IfMissing::Refuse) {
+            Ok(headers) => headers,
+            Err(EditError::Missing { .. }) => continue,
+            Err(_) => return Err("Codex HTTP headers must be a table".into()),
+        };
+        for name in headers.keys() {
+            if name.eq_ignore_ascii_case("authorization") {
                 headers.remove(&name);
             }
         }
     }
-    entry.insert("url", value(setup.url));
+    entry.set_text("url", setup.url);
     if let Some(command) = helper(setup)? {
-        entry.insert("http_headers_helper", value(command));
+        entry.set_text("http_headers_helper", &command);
     }
-    Ok(document.to_string())
+    Ok(document.text())
 }
 
 /// The change `--write` would make. For Claude Code, `claude_config_dir` is
@@ -297,10 +284,7 @@ pub(super) fn merge(
 pub(super) fn has_kkt_entry(client: Client, text: &str) -> Result<bool, String> {
     if client == Client::Codex {
         let document = parse_toml(text).map_err(|e| format!("invalid Codex TOML: {e}"))?;
-        return Ok(document
-            .get("mcp_servers")
-            .and_then(|servers| servers.get("kkt"))
-            .is_some());
+        return Ok(document.find(&["mcp_servers", "kkt"]).is_some());
     }
     let group = if client == Client::OpenCode {
         "mcp"
@@ -345,10 +329,9 @@ mod tests {
 
     /// The parser's own reason, as kkt passes it on.
     fn parser_reason() -> String {
-        MALFORMED_TOML
-            .parse::<DocumentMut>()
+        Document::parse(MALFORMED_TOML)
             .expect_err("malformed")
-            .message()
+            .reason()
             .lines()
             .map(str::trim)
             .filter(|line| !line.is_empty())
