@@ -7,8 +7,6 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-[dependencies]
-kkt-lane-commit = { path = "../kkt-lane-commit" }
-
-[dev-dependencies]
-kkt-lane-commit = { path = "../kkt-lane-commit", features = ["testing"] }
+[features]
+# `testing::Memory`, a stand-in `LaneCommit` with commits in memory.
+testing = []

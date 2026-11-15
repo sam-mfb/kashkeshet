@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "cd17ef2",
+ "commit": "507e6a0",
  "crates": [
   {
    "bins": [
@@ -126,6 +126,12 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
+     "trait": "LaneCommit",
+     "trait_crate": "kkt-lane-files",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
      "trait": "BackupWriter",
      "trait_crate": "kkt-operate",
      "type": null
@@ -230,7 +236,7 @@ window.KKT_GRAPH = {
      "path": "machine"
     },
     {
-     "doc": "kkt-agent-commands' parts, as kkt answers them: the MCP client (kkt-agent-client, injected as it is), the key files, this program's path and the terminal, with the local server's facts from the setup and the serve settings.",
+     "doc": "kkt-agent-commands' parts, as kkt answers them: the MCP client (kkt-agent-client-mcp, injected as it is), the key files, this program's path and the terminal, with the local server's facts from the setup and the serve settings.",
      "kind": "mod",
      "path": "machine::agent_parts"
     },
@@ -870,11 +876,11 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-agent-client",
-       "type": "Client"
+       "type": "testing::Memory"
       },
       {
-       "crate": "kkt-agent-client",
-       "type": "testing::Memory"
+       "crate": "kkt-agent-client-mcp",
+       "type": "Client"
       }
      ],
      "trait": "Avatars"
@@ -883,11 +889,11 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-agent-client",
-       "type": "Mcp"
+       "type": "testing::Memory"
       },
       {
-       "crate": "kkt-agent-client",
-       "type": "testing::Memory"
+       "crate": "kkt-agent-client-mcp",
+       "type": "Mcp"
       }
      ],
      "trait": "Servers"
@@ -899,11 +905,11 @@ window.KKT_GRAPH = {
        "type": null
       },
       {
-       "crate": "kkt-agent-client",
+       "crate": "kkt-agent-client-mcp",
        "type": "AdminRemote"
       },
       {
-       "crate": "kkt-agent-client",
+       "crate": "kkt-agent-client-mcp",
        "type": "Remote"
       }
      ],
@@ -913,43 +919,15 @@ window.KKT_GRAPH = {
    "crate_doc": "A client of kkt's server, as kkt's commands use it: registering and reclaiming avatars, and watching for an agent's new messages or, with the admin key, for every channel's.",
    "dev_only": false,
    "features": {
-    "real": [
-     "dep:reqwest",
-     "dep:rmcp",
-     "dep:serde_json",
-     "dep:tokio"
-    ],
     "testing": []
    },
-   "holders": [
-    {
-     "holds": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ],
-     "type": "AdminRemote"
-    }
-   ],
+   "holders": [],
    "implements": [
     {
      "crate": "kkt-agent-client",
      "trait": "Avatars",
      "trait_crate": "kkt-agent-client",
-     "type": "Client"
-    },
-    {
-     "crate": "kkt-agent-client",
-     "trait": "Avatars",
-     "trait_crate": "kkt-agent-client",
      "type": "testing::Memory"
-    },
-    {
-     "crate": "kkt-agent-client",
-     "trait": "Servers",
-     "trait_crate": "kkt-agent-client",
-     "type": "Mcp"
     },
     {
      "crate": "kkt-agent-client",
@@ -962,18 +940,6 @@ window.KKT_GRAPH = {
      "trait": "Watched",
      "trait_crate": "kkt-agent-client",
      "type": null
-    },
-    {
-     "crate": "kkt-agent-client",
-     "trait": "Watched",
-     "trait_crate": "kkt-agent-client",
-     "type": "AdminRemote"
-    },
-    {
-     "crate": "kkt-agent-client",
-     "trait": "Watched",
-     "trait_crate": "kkt-agent-client",
-     "type": "Remote"
     }
    ],
    "items": [
@@ -986,15 +952,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Address"
-    },
-    {
-     "doc": "Message and channel reads over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "AdminRemote"
     },
     {
      "doc": "What a client asks of a server for an avatar.",
@@ -1016,19 +973,6 @@ window.KKT_GRAPH = {
      "path": "Channel"
     },
     {
-     "doc": "The server at `url`, reached with the access key `key` (if it needs one), with no agent credentials held in the transport.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "describe_key",
-      "new",
-      "reclaim",
-      "register",
-      "set_description"
-     ],
-     "path": "Client"
-    },
-    {
      "doc": "Why a call to the server failed.",
      "kind": "enum",
      "path": "Failure",
@@ -1037,36 +981,6 @@ window.KKT_GRAPH = {
       "Refused",
       "KeyRefused"
      ]
-    },
-    {
-     "doc": "GET and POST requests with redirects disabled and TCP_NODELAY enabled.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "get",
-      "new",
-      "post"
-     ],
-     "path": "Http"
-    },
-    {
-     "doc": "A response whose HTTP library and streaming body stay private.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "bytes_stream",
-      "header",
-      "header_text",
-      "status",
-      "text"
-     ],
-     "path": "HttpReply"
-    },
-    {
-     "doc": "kkt's servers over MCP: what the program injects as kkt-agent-client's `Servers`.",
-     "feature": "real",
-     "kind": "struct",
-     "path": "Mcp"
     },
     {
      "doc": "A new message, as `kkt watch` shows it.",
@@ -1110,16 +1024,6 @@ window.KKT_GRAPH = {
      "path": "Registered"
     },
     {
-     "doc": "",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "from_client",
-      "new"
-     ],
-     "path": "Remote"
-    },
-    {
      "doc": "Clients of a server.",
      "kind": "trait",
      "methods": [
@@ -1128,15 +1032,6 @@ window.KKT_GRAPH = {
       "avatars"
      ],
      "path": "Servers"
-    },
-    {
-     "doc": "How much the watch asks for at a time, and how often it asks the admin endpoint.",
-     "fields": [
-      "watch_batch",
-      "watch_admin_poll"
-     ],
-     "kind": "struct",
-     "path": "Settings"
     },
     {
      "doc": "What a wait gave: new messages, and the agent's lane if it has a newer version.",
@@ -1198,6 +1093,143 @@ window.KKT_GRAPH = {
    "lib": "kkt_agent_client",
    "machine_work": {},
    "name": "kkt-agent-client",
+   "optional_third_party": {},
+   "path": "crates/kkt-agent-client",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "futures"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "kkt-agent-client over MCP, through rmcp and reqwest: `Mcp` implements its `Servers`, and `Client`, `Remote` and `AdminRemote` its `Avatars` and `Watched`.",
+   "dev_only": false,
+   "features": {
+    "real": [
+     "dep:reqwest",
+     "dep:rmcp",
+     "dep:serde_json",
+     "dep:tokio"
+    ]
+   },
+   "holders": [
+    {
+     "holds": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      }
+     ],
+     "type": "AdminRemote"
+    }
+   ],
+   "implements": [
+    {
+     "crate": "kkt-agent-client-mcp",
+     "trait": "Avatars",
+     "trait_crate": "kkt-agent-client",
+     "type": "Client"
+    },
+    {
+     "crate": "kkt-agent-client-mcp",
+     "trait": "Servers",
+     "trait_crate": "kkt-agent-client",
+     "type": "Mcp"
+    },
+    {
+     "crate": "kkt-agent-client-mcp",
+     "trait": "Watched",
+     "trait_crate": "kkt-agent-client",
+     "type": "AdminRemote"
+    },
+    {
+     "crate": "kkt-agent-client-mcp",
+     "trait": "Watched",
+     "trait_crate": "kkt-agent-client",
+     "type": "Remote"
+    }
+   ],
+   "items": [
+    {
+     "doc": "Message and channel reads over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "AdminRemote"
+    },
+    {
+     "doc": "The server at `url`, reached with the access key `key` (if it needs one), with no agent credentials held in the transport.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "describe_key",
+      "new",
+      "reclaim",
+      "register",
+      "set_description"
+     ],
+     "path": "Client"
+    },
+    {
+     "doc": "GET and POST requests with redirects disabled and TCP_NODELAY enabled.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "get",
+      "new",
+      "post"
+     ],
+     "path": "Http"
+    },
+    {
+     "doc": "A response whose HTTP library and streaming body stay private.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "bytes_stream",
+      "header",
+      "header_text",
+      "status",
+      "text"
+     ],
+     "path": "HttpReply"
+    },
+    {
+     "doc": "kkt's servers over MCP: what the program injects as kkt-agent-client's `Servers`.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Mcp"
+    },
+    {
+     "doc": "",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "from_client",
+      "new"
+     ],
+     "path": "Remote"
+    },
+    {
+     "doc": "How much the watch asks for at a time, and how often it asks the admin endpoint.",
+     "fields": [
+      "watch_batch",
+      "watch_admin_poll"
+     ],
+     "kind": "struct",
+     "path": "Settings"
+    }
+   ],
+   "lib": "kkt_agent_client_mcp",
+   "machine_work": {},
+   "name": "kkt-agent-client-mcp",
    "optional_third_party": {
     "reqwest": [
      "real"
@@ -1212,11 +1244,11 @@ window.KKT_GRAPH = {
      "real"
     ]
    },
-   "path": "crates/kkt-agent-client",
+   "path": "crates/kkt-agent-client-mcp",
    "real_files": [
-    "src/mcp.rs",
-    "src/mcp/http.rs",
-    "src/mcp/watching.rs"
+    "src/client.rs",
+    "src/client/http.rs",
+    "src/client/watching.rs"
    ],
    "released_program": false,
    "slots": [
@@ -4431,11 +4463,11 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-container",
-       "type": "Docker"
+       "type": "testing::Memory"
       },
       {
-       "crate": "kkt-container",
-       "type": "testing::Memory"
+       "crate": "kkt-container-docker",
+       "type": "Docker"
       }
      ],
      "trait": "Container"
@@ -4450,36 +4482,13 @@ window.KKT_GRAPH = {
      "trait": "LoginLink"
     }
    ],
-   "crate_doc": "The operations and records of a kkt container installation.",
+   "crate_doc": "The operations and records of a kkt container installation, as a contract: `Container`, what it is given (`ConfigReader`, `LoginLink`) and its records, with a stand-in behind `testing`.",
    "dev_only": false,
    "features": {
-    "real": [
-     "dep:kkt-browser",
-     "dep:kkt-config-file",
-     "dep:kkt-machine",
-     "dep:serde_json",
-     "dep:thiserror"
-    ],
     "testing": []
    },
-   "holders": [
-    {
-     "holds": [
-      {
-       "crate": "kkt-browser",
-       "trait": "Browser"
-      }
-     ],
-     "type": "Docker"
-    }
-   ],
+   "holders": [],
    "implements": [
-    {
-     "crate": "kkt-container",
-     "trait": "Container",
-     "trait_crate": "kkt-container",
-     "type": "Docker"
-    },
     {
      "crate": "kkt-container",
      "trait": "Container",
@@ -4532,15 +4541,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "ContainerConfig"
-    },
-    {
-     "doc": "Docker and Compose implement the container contract directly.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "Docker"
     },
     {
      "doc": "An installation discovered in the managed folder.",
@@ -4672,8 +4672,66 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_container",
+   "machine_work": {},
+   "name": "kkt-container",
+   "optional_third_party": {},
+   "path": "crates/kkt-container",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "futures"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "kkt-container over Docker and Compose: `Docker` implements its `Container`.",
+   "dev_only": false,
+   "features": {
+    "real": [
+     "dep:kkt-browser",
+     "dep:kkt-config-file",
+     "dep:kkt-machine",
+     "dep:serde_json",
+     "dep:thiserror"
+    ]
+   },
+   "holders": [
+    {
+     "holds": [
+      {
+       "crate": "kkt-browser",
+       "trait": "Browser"
+      }
+     ],
+     "type": "Docker"
+    }
+   ],
+   "implements": [
+    {
+     "crate": "kkt-container-docker",
+     "trait": "Container",
+     "trait_crate": "kkt-container",
+     "type": "Docker"
+    }
+   ],
+   "items": [
+    {
+     "doc": "Docker and Compose implement the container contract directly.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "Docker"
+    }
+   ],
+   "lib": "kkt_container_docker",
    "machine_work": {
-    "src/docker/runner.rs": [
+    "src/runner.rs": [
      "env::current_dir",
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
@@ -4695,7 +4753,7 @@ window.KKT_GRAPH = {
      "Path::is_file"
     ]
    },
-   "name": "kkt-container",
+   "name": "kkt-container-docker",
    "optional_third_party": {
     "serde_json": [
      "real"
@@ -4704,17 +4762,9 @@ window.KKT_GRAPH = {
      "real"
     ]
    },
-   "path": "crates/kkt-container",
+   "path": "crates/kkt-container-docker",
    "real_files": [
-    "src/docker.rs",
-    "src/docker/compose.rs",
-    "src/docker/files.rs",
-    "src/docker/lanes.rs",
-    "src/docker/lifecycle.rs",
-    "src/docker/name_pack.rs",
-    "src/docker/provision.rs",
-    "src/docker/runner.rs",
-    "src/docker/tailscale.rs"
+    "src/runner.rs"
    ],
    "released_program": false,
    "slots": [
@@ -6633,72 +6683,23 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [
-    {
-     "implementors": [
-      {
-       "crate": "kkt-lane-commit",
-       "type": "Git"
-      },
-      {
-       "crate": "kkt-lane-commit",
-       "type": "testing::Memory"
-      }
-     ],
-     "trait": "LaneCommit"
-    }
-   ],
-   "crate_doc": "The commit a lane folder is at: `LaneCommit`, which `kkt lanes import` asks so the lane versions it saves record where they came from, and its one implementation, `Git` (behind `real`), which only the program turns on and injects.",
+   "contracts": [],
+   "crate_doc": "The commit a lane folder is at, as the machine's git says: `Git` (behind `real`), which `kkt lanes import` asks so the lane versions it saves record where they came from.",
    "dev_only": false,
    "features": {
-    "real": [],
-    "testing": []
+    "real": []
    },
    "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-lane-commit",
-     "trait": "LaneCommit",
-     "trait_crate": "kkt-lane-commit",
-     "type": "Git"
-    },
-    {
-     "crate": "kkt-lane-commit",
-     "trait": "LaneCommit",
-     "trait_crate": "kkt-lane-commit",
-     "type": "testing::Memory"
-    }
-   ],
+   "implements": [],
    "items": [
     {
      "doc": "The machine's git, asked where a lane folder is.",
      "feature": "real",
      "kind": "struct",
-     "path": "Git"
-    },
-    {
-     "doc": "The commit a lane folder is at.",
-     "kind": "trait",
      "methods": [
       "commit"
      ],
-     "path": "LaneCommit"
-    },
-    {
-     "doc": "Commits in memory, for consumers' tests: each folder given one is at it, and any other folder is at none.",
-     "feature": "testing",
-     "kind": "mod",
-     "path": "testing"
-    },
-    {
-     "doc": "Folders and the commits they are at.",
-     "feature": "testing",
-     "kind": "struct",
-     "methods": [
-      "at",
-      "new"
-     ],
-     "path": "testing::Memory"
+     "path": "Git"
     }
    ],
    "lib": "kkt_lane_commit",
@@ -6730,13 +6731,35 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "Disk"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      },
+      {
+       "crate": "kkt-lane-files",
+       "type": "testing::Memory"
+      }
+     ],
+     "trait": "LaneCommit"
     }
    ],
    "crate_doc": "Lanes as files on disk: a folder with one Markdown file per lane, `<lane>.md` (see `format`), which `kkt lanes export` writes and `kkt lanes import` reads, and the folder's git commit, which an import records.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "testing": []
+   },
    "holders": [],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-lane-files",
+     "trait": "LaneCommit",
+     "trait_crate": "kkt-lane-files",
+     "type": "testing::Memory"
+    }
+   ],
    "items": [
     {
      "doc": "What this part needs from the machine.",
@@ -6754,6 +6777,14 @@ window.KKT_GRAPH = {
      "doc": "The file name extension of a lane file.",
      "kind": "const",
      "path": "EXTENSION"
+    },
+    {
+     "doc": "The commit a lane folder is at.",
+     "kind": "trait",
+     "methods": [
+      "commit"
+     ],
+     "path": "LaneCommit"
     },
     {
      "doc": "A lane as a file holds it.",
@@ -6819,6 +6850,22 @@ window.KKT_GRAPH = {
      "path": "render"
     },
     {
+     "doc": "Commits in memory, a stand-in `LaneCommit` for tests: each folder given one is at it, and any other folder is at none.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "Folders and the commits they are at.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "at",
+      "new"
+     ],
+     "path": "testing::Memory"
+    },
+    {
      "doc": "Writes each lane to `folder` as `<lane>.md`, creating the folder if it is missing and replacing a file of the same name.",
      "kind": "fn",
      "path": "write_folder"
@@ -6838,7 +6885,7 @@ window.KKT_GRAPH = {
      "name": "commits",
      "traits": [
       {
-       "crate": "kkt-lane-commit",
+       "crate": "kkt-lane-files",
        "trait": "LaneCommit"
       }
      ]
@@ -7979,7 +8026,7 @@ window.KKT_GRAPH = {
        "trait": "Disk"
       },
       {
-       "crate": "kkt-lane-commit",
+       "crate": "kkt-lane-files",
        "trait": "LaneCommit"
       },
       {
@@ -8637,7 +8684,7 @@ window.KKT_GRAPH = {
      "name": "lane_commit",
      "traits": [
       {
-       "crate": "kkt-lane-commit",
+       "crate": "kkt-lane-files",
        "trait": "LaneCommit"
       }
      ]
@@ -8795,7 +8842,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -8890,7 +8937,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -8989,7 +9036,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -9088,7 +9135,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -9187,7 +9234,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -9297,7 +9344,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -9392,7 +9439,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -9498,7 +9545,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -9597,7 +9644,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -9718,7 +9765,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -9813,7 +9860,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -9908,7 +9955,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -10003,7 +10050,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -10098,7 +10145,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -10193,7 +10240,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -10292,7 +10339,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -10391,7 +10438,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -10567,7 +10614,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -10666,7 +10713,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -10776,7 +10823,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -10871,7 +10918,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -10966,7 +11013,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -11065,7 +11112,7 @@ window.KKT_GRAPH = {
          "trait": "Disk"
         },
         {
-         "crate": "kkt-lane-commit",
+         "crate": "kkt-lane-files",
          "trait": "LaneCommit"
         },
         {
@@ -11335,33 +11382,23 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-remote-access",
-       "type": "Tailscale"
+       "type": "testing::Memory"
       },
       {
-       "crate": "kkt-remote-access",
-       "type": "testing::Memory"
+       "crate": "kkt-remote-access-tailscale",
+       "type": "Tailscale"
       }
      ],
      "trait": "RemoteAccess"
     }
    ],
-   "crate_doc": "Sharing this machine's server securely with clients on its private network.",
+   "crate_doc": "Sharing this machine's server securely with clients on its private network, as a contract: `RemoteAccess`, `Node`, and a stand-in behind `testing`.",
    "dev_only": false,
    "features": {
-    "real": [
-     "dep:serde",
-     "dep:serde_json"
-    ],
     "testing": []
    },
    "holders": [],
    "implements": [
-    {
-     "crate": "kkt-remote-access",
-     "trait": "RemoteAccess",
-     "trait_crate": "kkt-remote-access",
-     "type": "Tailscale"
-    },
     {
      "crate": "kkt-remote-access",
      "trait": "RemoteAccess",
@@ -11390,12 +11427,6 @@ window.KKT_GRAPH = {
      "path": "RemoteAccess"
     },
     {
-     "doc": "Shares this machine's server through its existing Tailscale login.",
-     "feature": "real",
-     "kind": "struct",
-     "path": "Tailscale"
-    },
-    {
      "doc": "Remote sharing in memory for consumers' tests, without network or processes.",
      "feature": "testing",
      "kind": "mod",
@@ -11412,13 +11443,53 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_remote_access",
+   "machine_work": {},
+   "name": "kkt-remote-access",
+   "optional_third_party": {},
+   "path": "crates/kkt-remote-access",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login: `Tailscale` implements kkt-remote-access's `RemoteAccess`.",
+   "dev_only": false,
+   "features": {
+    "real": [
+     "dep:serde",
+     "dep:serde_json"
+    ]
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-remote-access-tailscale",
+     "trait": "RemoteAccess",
+     "trait_crate": "kkt-remote-access",
+     "type": "Tailscale"
+    }
+   ],
+   "items": [
+    {
+     "doc": "Shares this machine's server through its existing Tailscale login.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Tailscale"
+    }
+   ],
+   "lib": "kkt_remote_access_tailscale",
    "machine_work": {
-    "src/tailscale/runner.rs": [
+    "src/runner.rs": [
      "process::Command::new",
      "process::Stdio::null"
     ]
    },
-   "name": "kkt-remote-access",
+   "name": "kkt-remote-access-tailscale",
    "optional_third_party": {
     "serde": [
      "real"
@@ -11427,11 +11498,8 @@ window.KKT_GRAPH = {
      "real"
     ]
    },
-   "path": "crates/kkt-remote-access",
-   "real_files": [
-    "src/tailscale.rs",
-    "src/tailscale/runner.rs"
-   ],
+   "path": "crates/kkt-remote-access-tailscale",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -14771,11 +14839,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "A signal that the server is stopping.",
    "dev_only": false,
-   "features": {
-    "real": [
-     "dep:tokio"
-    ]
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
@@ -14790,7 +14854,33 @@ window.KKT_GRAPH = {
       "stopped"
      ],
      "path": "Shutdown"
-    },
+    }
+   ],
+   "lib": "kkt_shutdown",
+   "machine_work": {},
+   "name": "kkt-shutdown",
+   "optional_third_party": {},
+   "path": "crates/kkt-shutdown",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "tokio-util"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "The operating system's stop signals.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
     {
      "doc": "OS stop signals, installed before the server announces it is ready.",
      "feature": "real",
@@ -14802,24 +14892,17 @@ window.KKT_GRAPH = {
      "path": "StopSignals"
     }
    ],
-   "lib": "kkt_shutdown",
+   "lib": "kkt_shutdown_os",
    "machine_work": {},
-   "name": "kkt-shutdown",
-   "optional_third_party": {
-    "tokio": [
-     "real"
-    ]
-   },
-   "path": "crates/kkt-shutdown",
-   "real_files": [
-    "src/signals.rs"
-   ],
+   "name": "kkt-shutdown-os",
+   "optional_third_party": {},
+   "path": "crates/kkt-shutdown-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
    "third_party": [
-    "tokio",
-    "tokio-util"
+    "tokio"
    ]
   },
   {
@@ -16689,6 +16772,25 @@ window.KKT_GRAPH = {
    "to": "kkt-admission"
   },
   {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Watched"
+   ],
+   "to": "kkt-agent-client"
+  },
+  {
    "features": [
     "real"
    ],
@@ -16711,10 +16813,9 @@ window.KKT_GRAPH = {
    "test_items": [
     "Client",
     "Remote",
-    "Settings",
-    "Watched"
+    "Settings"
    ],
-   "to": "kkt-agent-client"
+   "to": "kkt-agent-client-mcp"
   },
   {
    "features": [],
@@ -17096,14 +17197,11 @@ window.KKT_GRAPH = {
    "to": "kkt-config-file-os"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "ConfigReader",
     "ContainerConfig",
-    "Docker",
     "LoginLink"
    ],
    "kind": "normal",
@@ -17119,6 +17217,29 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "ContainerConfig"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-container"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "Docker"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
       "Docker"
      ],
      "role": "wires"
@@ -17126,7 +17247,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-container"
+   "to": "kkt-container-docker"
   },
   {
    "features": [],
@@ -17319,13 +17440,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
     {
      "detail": [
       "Git"
      ],
-     "role": "wires"
+     "role": "uses"
     }
    ],
    "target": null,
@@ -17336,7 +17457,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Disk"
+    "Disk",
+    "LaneCommit"
    ],
    "kind": "normal",
    "optional": false,
@@ -17344,7 +17466,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "a type of its own implements Disk"
+      "a type of its own implements Disk",
+      "a type of its own implements LaneCommit"
      ],
      "role": "implements"
     }
@@ -17743,7 +17866,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-remote-access"
+   "to": "kkt-remote-access-tailscale"
   },
   {
    "features": [],
@@ -18097,12 +18220,32 @@ window.KKT_GRAPH = {
    "to": "kkt-setup"
   },
   {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "Shutdown"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Shutdown"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-shutdown"
+  },
+  {
    "features": [
     "real"
    ],
    "from": "kashkeshet",
    "items": [
-    "Shutdown",
     "StopSignals"
    ],
    "kind": "normal",
@@ -18111,7 +18254,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -18119,7 +18261,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown"
+   "to": "kkt-shutdown-os"
   },
   {
    "features": [
@@ -18501,6 +18643,76 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-agent-client",
    "items": [
+    "Clock"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Time"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-client-mcp",
+   "items": [
+    "Address",
+    "Avatars",
+    "Channel",
+    "Failure",
+    "Message",
+    "NewerLane",
+    "Reclaimed",
+    "Registered",
+    "Servers",
+    "Waited",
+    "Watched"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Client implements Avatars",
+      "Mcp implements Servers",
+      "AdminRemote implements Watched",
+      "Remote implements Watched"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Address",
+      "Channel",
+      "Failure",
+      "Message",
+      "NewerLane",
+      "Reclaimed",
+      "Registered",
+      "Waited"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-agent-client"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-client-mcp",
+   "items": [
     "Clock",
     "Span"
    ],
@@ -18517,9 +18729,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [
-    "Time"
-   ],
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -19805,6 +20015,73 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-container",
    "items": [
+    "Clock"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Time"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-container",
+   "items": [
+    "AdminName"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AdminName"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-names"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-container",
+   "items": [
+    "Time"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Time"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-container-docker",
+   "items": [
     "Browser"
    ],
    "kind": "normal",
@@ -19824,7 +20101,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
    "items": [
     "Clock",
     "Span"
@@ -19850,7 +20127,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
    "items": [
     "CONFIG_DIR",
     "CONFIG_FILE_NAME",
@@ -19877,7 +20154,63 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
+   "items": [
+    "ADMIN_KEY_FILE_NAME",
+    "ConfigReader",
+    "Container",
+    "ContainerConfig",
+    "Existing",
+    "Folder",
+    "Inputs",
+    "KeyCopy",
+    "LanesImport",
+    "Login",
+    "LoginLink",
+    "NO_ADMIN_KEY_EXIT",
+    "Provisioned",
+    "Sharing",
+    "State",
+    "WEB_KEY_FILE_NAME"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Docker implements Container"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "ADMIN_KEY_FILE_NAME",
+      "ConfigReader",
+      "ContainerConfig",
+      "Existing",
+      "Folder",
+      "Inputs",
+      "KeyCopy",
+      "LanesImport",
+      "Login",
+      "LoginLink",
+      "NO_ADMIN_KEY_EXIT",
+      "Provisioned",
+      "Sharing",
+      "State",
+      "WEB_KEY_FILE_NAME"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-container"
+  },
+  {
+   "features": [],
+   "from": "kkt-container-docker",
    "items": [
     "Env",
     "XDG_CONFIG_HOME_DEFAULT"
@@ -19900,7 +20233,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
    "items": [
     "AdminName"
    ],
@@ -19923,7 +20256,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
    "items": [
     "Browser"
    ],
@@ -19946,7 +20279,7 @@ window.KKT_GRAPH = {
    "features": [
     "testing"
    ],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
    "items": [
     "Span",
     "Time",
@@ -19976,7 +20309,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
    "items": [
     "parse_file"
    ],
@@ -19997,7 +20330,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
    "items": [],
    "kind": "dev",
    "optional": false,
@@ -20014,7 +20347,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-container",
+   "from": "kkt-container-docker",
    "items": [
     "Dir"
    ],
@@ -20926,12 +21259,32 @@ window.KKT_GRAPH = {
    "to": "kkt-server-listen"
   },
   {
+   "features": [],
+   "from": "kkt-fake-product",
+   "items": [
+    "Shutdown"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Shutdown"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-shutdown"
+  },
+  {
    "features": [
     "real"
    ],
    "from": "kkt-fake-product",
    "items": [
-    "Shutdown",
     "StopSignals"
    ],
    "kind": "normal",
@@ -20940,7 +21293,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -20948,7 +21300,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown"
+   "to": "kkt-shutdown-os"
   },
   {
    "features": [
@@ -21017,7 +21369,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-agent-client"
+   "to": "kkt-agent-client-mcp"
   },
   {
    "features": [
@@ -21909,12 +22261,32 @@ window.KKT_GRAPH = {
    "to": "kkt-server-listen"
   },
   {
+   "features": [],
+   "from": "kkt-keymode",
+   "items": [
+    "Shutdown"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Shutdown"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-shutdown"
+  },
+  {
    "features": [
     "real"
    ],
    "from": "kkt-keymode",
    "items": [
-    "Shutdown",
     "StopSignals"
    ],
    "kind": "normal",
@@ -21923,7 +22295,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -21931,7 +22302,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown"
+   "to": "kkt-shutdown-os"
   },
   {
    "features": [
@@ -21976,52 +22347,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-web"
-  },
-  {
-   "features": [],
-   "from": "kkt-lane-files",
-   "items": [
-    "LaneCommit"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "LaneCommit"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "testing::Memory"
-   ],
-   "to": "kkt-lane-commit"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-lane-files",
-   "items": [
-    "testing::Memory"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "wires",
-   "roles": [
-    {
-     "detail": [
-      "testing::Memory"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-lane-commit"
   },
   {
    "features": [],
@@ -23132,28 +23457,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operate",
    "items": [
-    "LaneCommit"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "LaneCommit"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-lane-commit"
-  },
-  {
-   "features": [],
-   "from": "kkt-operate",
-   "items": [
     "Disk",
+    "LaneCommit",
     "LaneFile",
     "Read",
     "Skipped",
@@ -23168,6 +23473,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Disk",
+      "LaneCommit",
       "LaneFile",
       "Read",
       "Skipped",
@@ -23661,6 +23967,34 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-hash"
+  },
+  {
+   "features": [],
+   "from": "kkt-remote-access-tailscale",
+   "items": [
+    "Node",
+    "RemoteAccess"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Tailscale implements RemoteAccess"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Node"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-remote-access"
   },
   {
    "features": [],
@@ -25801,6 +26135,27 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-shutdown-os",
+   "items": [
+    "Shutdown"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Shutdown"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-shutdown"
+  },
+  {
+   "features": [],
    "from": "kkt-watch",
    "items": [
     "Channel",
@@ -26561,12 +26916,32 @@ window.KKT_GRAPH = {
    "to": "kkt-server-listen"
   },
   {
+   "features": [],
+   "from": "kkt-web-preview",
+   "items": [
+    "Shutdown"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Shutdown"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-shutdown"
+  },
+  {
    "features": [
     "real"
    ],
    "from": "kkt-web-preview",
    "items": [
-    "Shutdown",
     "StopSignals"
    ],
    "kind": "normal",
@@ -26575,7 +26950,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -26583,7 +26957,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown"
+   "to": "kkt-shutdown-os"
   },
   {
    "features": [],
@@ -26637,10 +27011,16 @@ window.KKT_CONCERNS = {
    "must_not": "Know about agent tokens or channel access; decide what a valid key is or where key files go."
   },
   "kkt-agent-client": {
-   "concern": "A client of kkt's server. The contract, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records, Failure and Settings; the testing Memory stand-in. Its one implementation, over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), and plain Http requests for a program's test client, are behind real (step 13.6).",
-   "kind": "contract and effect",
+   "concern": "A client of kkt's server, as a contract in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records and Failure; the testing Memory stand-in.",
+   "kind": "contract",
    "layer": "clients",
-   "must_not": "Name a transport, a protocol library or its errors in the contract; let an rmcp or reqwest type out of the crate."
+   "must_not": "Name a transport, a protocol library or its errors."
+  },
+  "kkt-agent-client-mcp": {
+   "concern": "Implements kkt-agent-client over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), with plain Http requests for a program's test client, behind real; what the watch asks for at a time (Settings), as plain values.",
+   "kind": "effect",
+   "layer": "clients",
+   "must_not": "Let an rmcp or reqwest type out of the crate."
   },
   "kkt-agent-commands": {
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
@@ -26736,10 +27116,16 @@ window.KKT_CONCERNS = {
    "must_not": "Know the files' format."
   },
   "kkt-container": {
-   "concern": "The container installation contract and stand-in, with Docker and Compose implementation behind real and private tool logic tested against a fake.",
-   "kind": "contract and effect",
+   "concern": "The container installation contract (Container, ConfigReader, LoginLink and their records) and its stand-in.",
+   "kind": "contract",
    "layer": "operations",
-   "must_not": "Let Docker details into the open contract; decide setup answers or remember the setup record."
+   "must_not": "Let Docker details into the contract; decide setup answers or remember the setup record."
+  },
+  "kkt-container-docker": {
+   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands, behind real; what they do is tested over a private runner and a fake host.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Decide setup answers or remember the setup record."
   },
   "kkt-db": {
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
@@ -26810,13 +27196,13 @@ window.KKT_CONCERNS = {
    "must_not": "Be released, or share code with the `kkt` program."
   },
   "kkt-lane-commit": {
-   "concern": "The commit a lane folder is at: the `LaneCommit` contract in the open, with its testing Memory stand-in, and its one implementation behind real, `Git`: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner.",
-   "kind": "contract and effect",
+   "concern": "The commit a lane folder is at, as the machine's git says: `Git` (behind real), with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
+   "kind": "effect",
    "layer": "operations",
-   "must_not": "Read or write the lane files; let a consumer reach `Git` without real."
+   "must_not": "Read or write the lane files."
   },
   "kkt-lane-files": {
-   "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from kkt-lane-commit's `LaneCommit`.",
+   "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from the `LaneCommit` it declares.",
    "kind": "logic",
    "layer": "operations",
    "must_not": "Touch the machine except through `Disk`; know a version-control tool."
@@ -26893,10 +27279,16 @@ window.KKT_CONCERNS = {
    "must_not": "Store the run record: kkt-rules' `start` does."
   },
   "kkt-remote-access": {
-   "concern": "The remote-sharing contract and stand-in, with Tailscale behind real; tool logic is tested over a private runner.",
-   "kind": "contract and effect",
+   "concern": "The remote-sharing contract (RemoteAccess, Node) and its stand-in.",
+   "kind": "contract",
    "layer": "operations",
-   "must_not": "Let tool details into the open contract; change login, DNS preferences, unrelated sharing, config or the service."
+   "must_not": "Let tool details into the contract."
+  },
+  "kkt-remote-access-tailscale": {
+   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner, and the real command is behind real.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Change login, DNS preferences, unrelated sharing, config or the service."
   },
   "kkt-rules": {
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm; and starting them for a server run (`start`), which records the run first.",
@@ -26965,10 +27357,16 @@ window.KKT_CONCERNS = {
    "must_not": "Read files or run anything outside real: the program carries out, or passes in, what is decided here; let a consumer reach setup's files without real."
   },
   "kkt-shutdown": {
-   "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server; behind real, `StopSignals`, the operating system's stop signals, which stop it.",
-   "kind": "logic and effect",
+   "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value.",
+   "kind": "logic",
    "layer": "foundations",
-   "must_not": "Let a tokio-util or tokio signal type out of the crate; let a consumer reach `StopSignals` without real."
+   "must_not": "Let a tokio-util type out of the crate."
+  },
+  "kkt-shutdown-os": {
+   "concern": "The operating system's stop signals (Ctrl-C, SIGTERM), stopping the shared `Shutdown` (`StopSignals`).",
+   "kind": "effect",
+   "layer": "foundations",
+   "must_not": "Let a tokio signal type out of the crate."
   },
   "kkt-terminal-os": {
    "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the terminal's half of the login link: showing it, and the Enter key.",
@@ -27437,7 +27835,7 @@ window.KKT_ASSEMBLY = {
       "kashkeshet::machine::agent_parts::agent_parts",
       "kkt-agent-commands::AgentParts",
       "kashkeshet::machine::connection::ConnectionReads",
-      "kkt-agent-client::Mcp",
+      "kkt-agent-client-mcp::Mcp",
       "kkt-agent-client::Servers",
       "kkt-agent-client::Watched",
       "kkt-agent-commands::register",
@@ -27447,7 +27845,7 @@ window.KKT_ASSEMBLY = {
       "kkt-clock-system::SystemClock",
       "kkt-terminal-os::Terminal"
      ],
-     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client's Mcp, injected as it is as its Servers, kkt-agent-files-os' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files-os' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
      "title": "The agents' commands"
     },
     {
@@ -27559,7 +27957,7 @@ window.KKT_ASSEMBLY = {
       "kkt-shutdown::Shutdown",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ],
      "text": "build assembles the server from the parts and config; listen binds it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
      "title": "Build and run"
@@ -27678,7 +28076,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-agent-commands",
-     "impl": "kkt-agent-client::Mcp",
+     "impl": "kkt-agent-client-mcp::Mcp",
      "note": "kkt register, reclaim and watch: injected as it is, with no adapter",
      "to": [
       {
@@ -27800,7 +28198,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-container::Docker",
+     "impl": "kkt-container-docker::Docker",
      "note": "Direct injection of the named container implementation into the operator assembly.",
      "to": [
       {
@@ -27856,7 +28254,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-remote-access::Tailscale",
+     "impl": "kkt-remote-access-tailscale::Tailscale",
      "note": "The program injects the sharing implementation directly into the operator assembly.",
      "to": [
       {
@@ -27902,8 +28300,10 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-lane-commit::Git",
-     "note": "The program turns on kkt-lane-commit's real and injects its Git directly as the lane folder's commit (12.5a, merged in 13.4).",
+     "note": "The lane folder's commit, from the machine's git (phase 16).",
+     "own": "LaneGit, adapting kkt-lane-commit's Git to kkt-lane-files' LaneCommit",
+     "supplier": "kkt-lane-commit",
+     "supplier_item": "Git",
      "to": [
       {
        "at": "OperateParts",
@@ -28067,7 +28467,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-container",
+     "crate": "kkt-container-docker",
      "impl": "kkt-browser::SystemBrowser",
      "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener, given to the Docker wrapper as it is",
      "to": [
@@ -28278,7 +28678,7 @@ window.KKT_ASSEMBLY = {
       "kkt-server::build",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ],
      "text": "build, listen, and serve_until a stop signal.",
      "title": "Build and run"
@@ -28421,7 +28821,7 @@ window.KKT_ASSEMBLY = {
      "items": [
       "kkt-server::page",
       "kkt-server-listen::listen",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ],
      "text": "kkt-server's page builds the page alone, and kkt-server-listen serves it until a stop signal.",
      "title": "Serve"

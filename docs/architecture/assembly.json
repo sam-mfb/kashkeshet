@@ -79,19 +79,19 @@
       "kkt-shutdown::Shutdown",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ]
     }
    ],
    "also": [
     {
      "title": "The agents' commands",
-     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client's Mcp, injected as it is as its Servers, kkt-agent-files-os' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files-os' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
      "items": [
       "kashkeshet::machine::agent_parts::agent_parts",
       "kkt-agent-commands::AgentParts",
       "kashkeshet::machine::connection::ConnectionReads",
-      "kkt-agent-client::Mcp",
+      "kkt-agent-client-mcp::Mcp",
       "kkt-agent-client::Servers",
       "kkt-agent-client::Watched",
       "kkt-agent-commands::register",
@@ -255,7 +255,7 @@
       }
      ],
      "note": "kkt register, reclaim and watch: injected as it is, with no adapter",
-     "impl": "kkt-agent-client::Mcp"
+     "impl": "kkt-agent-client-mcp::Mcp"
     },
     {
      "own": "CredentialFiles, applying kkt-setup's credential-file rule to kkt-agent-files-os' credential and state files",
@@ -376,7 +376,7 @@
        "param": "container"
       }
      ],
-     "impl": "kkt-container::Docker",
+     "impl": "kkt-container-docker::Docker",
      "note": "Direct injection of the named container implementation into the operator assembly."
     },
     {
@@ -432,7 +432,7 @@
        "param": "remote"
       }
      ],
-     "impl": "kkt-remote-access::Tailscale",
+     "impl": "kkt-remote-access-tailscale::Tailscale",
      "note": "The program injects the sharing implementation directly into the operator assembly."
     },
     {
@@ -471,7 +471,9 @@
      "supplier_item": "OsDisk"
     },
     {
-     "impl": "kkt-lane-commit::Git",
+     "own": "LaneGit, adapting kkt-lane-commit's Git to kkt-lane-files' LaneCommit",
+     "supplier": "kkt-lane-commit",
+     "supplier_item": "Git",
      "crate": "kkt-operate",
      "to": [
       {
@@ -479,7 +481,7 @@
        "param": "lane_commit"
       }
      ],
-     "note": "The program turns on kkt-lane-commit's real and injects its Git directly as the lane folder's commit (12.5a, merged in 13.4)."
+     "note": "The lane folder's commit, from the machine's git (phase 16)."
     },
     {
      "own": "ServeReads, answering the program's serving questions lazily",
@@ -638,7 +640,7 @@
     },
     {
      "impl": "kkt-browser::SystemBrowser",
-     "crate": "kkt-container",
+     "crate": "kkt-container-docker",
      "to": [
       {
        "at": "Docker::new",
@@ -712,7 +714,7 @@
       "kkt-server::build",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ]
     }
    ],
@@ -995,7 +997,7 @@
      "items": [
       "kkt-server::page",
       "kkt-server-listen::listen",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ]
     }
    ],

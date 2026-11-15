@@ -140,8 +140,8 @@ look first at the code the refactor touched that decides by platform:
 
 Code under `cfg(unix)` also moved, and runs on both systems: file modes
 (kkt-server-keys (behind `real`), kkt-backup-os,
-kkt-client-config-os, kkt-container (behind `real`), kkt-config-file-os),
-the stop signals (kkt-shutdown, behind `real`), the agent credential
+kkt-client-config-os, kkt-container-docker, kkt-config-file-os),
+the stop signals (kkt-shutdown-os), the agent credential
 files' owner and mode checks (kkt-agent-files-os), and the closed output
 pipe (kkt-terminal-os).
 
