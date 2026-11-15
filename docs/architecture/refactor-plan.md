@@ -2032,7 +2032,7 @@ Step 1. Four crates move to the adapter model, one pull request each:
 |---|---|
 | kkt-client-command | kkt-client-config |
 | kkt-lane-commit | kkt-lane-files |
-| kkt-browser | kkt-container |
+| kkt-browser | kkt-container-docker (after 16.2 splits kkt-container) |
 | kkt-probe | kkt-diagnostics |
 
 For each, the consumer declares the contract it needs and takes over the
