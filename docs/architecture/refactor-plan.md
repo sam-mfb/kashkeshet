@@ -2042,7 +2042,9 @@ consumer no longer depends on the effect crate. Crates that only pass the
 dependency along (kkt-operate, kkt-agent-commands) name the consumer's
 contract. For kkt-probe, the records the checks are worded in (`Check`,
 `KeyFile`) belong with kkt-diagnostics; its builder posts the design in
-#kkt-dev before building it.
+#kkt-dev before building it. kkt-browser comes last of the four, after
+16.2 splits kkt-container: only the Docker code uses `Browser`, so its
+consumer is kkt-container-docker, which declares the browser contract.
 
 Step 2. Three crates split into a contract crate and a named
 implementation, one pull request each:
@@ -2058,7 +2060,7 @@ stand-in. The implementation crate implements the contract directly, and
 the program injects it, as kkt-service and its two implementations do.
 
 Step 3. Five crates split into logic and an `-os` effect crate holding
-what is behind `real` today, as the nine existing `-os` crates do:
+what is behind `real` today, as the eight existing `-os` crates do:
 kkt-backup, kkt-logs, kkt-setup, kkt-shutdown and kkt-server-keys.
 
 Step 4, last, after steps 1 to 3 have merged, by one builder:
@@ -2074,7 +2076,7 @@ Step 4, last, after steps 1 to 3 have merged, by one builder:
 | Step | What | Builds | Reviews |
 |---|---|---|---|
 | 16.0 | This section | kkt-build-i | kkt-review-h |
-| 16.1 | kkt-client-command, kkt-lane-commit, kkt-browser, kkt-probe to the adapter model (after #546) | kkt-build-h | kkt-review-h |
+| 16.1 | kkt-client-command, kkt-lane-commit, kkt-probe, then kkt-browser (after 16.2's kkt-container split), to the adapter model (after #546) | kkt-build-h | kkt-review-h |
 | 16.2 | kkt-container, kkt-remote-access, kkt-agent-client split (after 16.0) | kkt-build-i | kkt-review-h |
 | 16.3 | kkt-backup, kkt-logs, kkt-setup, kkt-shutdown, kkt-server-keys split (after 16.1, or 16.2 if it finishes first; the builders say in #kkt-dev who takes which) | kkt-build-h or kkt-build-i | kkt-review-h |
 | 16.4 | No `real` feature; the new effect rule; the merged kinds gone (after 16.1 to 16.3) | named by sage-cardinal | kkt-review-h |
@@ -2098,7 +2100,8 @@ lane A: 1.3 → 1.1 → 1.6 → 1.7    lane B: 1.2 → 1.4 → 1.5 → 1.9    an
 14.0 → 14.1 → 14.2 → 14.3 (kkt-build-d), 14.4 → 14.5 (kkt-build-e),
   one pull request at a time → 14.6
 15.B → 15.C
-16.0 → 16.1 (after 15.C) and 16.2 side by side → 16.3 → 16.4
+16.0 → 16.1 (after 15.C) and 16.2 side by side, kkt-browser after
+  kkt-container's split → 16.3 → 16.4
 ```
 
 Three builders can work most of the time: one on phases 1 and 2, one on

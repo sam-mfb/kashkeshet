@@ -62,7 +62,10 @@ implementation behind `real`: a crate that depends on it without `real`
 depends on the contract alone. So does a crate of kind "logic and effect"
 (phase 14): its logic in the open, and the effect that only carries out
 its plans behind `real`, in modules only `real` brings; a crate that
-depends on it without `real` depends on the logic alone. Tests SHOULD NOT turn on `real`; a test
+depends on it without `real` depends on the logic alone. Phase 16 (Sam,
+2026-11-15) reverses both kinds: each of its steps supersedes these
+sentences for the crates it changes, and step 16.4 rewrites this
+paragraph. Tests SHOULD NOT turn on `real`; a test
 that must is a documented exception, listed with its reason in
 `.github/scripts/real-exceptions.json` (today, the fake product's tests,
 which drive it over HTTP with kkt-agent-client). Stand-ins and other test
