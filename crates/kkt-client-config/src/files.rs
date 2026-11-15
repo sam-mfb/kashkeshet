@@ -164,7 +164,7 @@ pub(super) fn replace(
 /// fails, the config is put back as it was.
 pub(super) fn apply_claude(
     host: &dyn Host,
-    command: &dyn kkt_client_command::ClientCommand,
+    command: &dyn crate::ClientCommand,
     client_config: &Path,
     original: Option<&str>,
     updated: &str,

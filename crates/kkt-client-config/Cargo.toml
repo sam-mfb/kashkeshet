@@ -8,13 +8,13 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-client-command = { path = "../kkt-client-command" }
 kkt-server-keys = { path = "../kkt-server-keys" }
 kkt-machine = { path = "../kkt-machine" }
 serde.workspace = true
 serde_json.workspace = true
 kkt-toml = { path = "../kkt-toml" }
 
-[dev-dependencies]
-# Its calls are recorded as the contract's stand-in records them.
-kkt-client-command = { path = "../kkt-client-command", features = ["testing"] }
+[features]
+# `testing::Recorder`, a stand-in `ClientCommand` that records each call and
+# can fail them, for the tests of the crates that pass one on.
+testing = []
