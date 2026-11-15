@@ -1,10 +1,9 @@
 """What sort of crate each crate is, and the checks a map's kinds must pass.
 
-The kinds are written by hand in concerns.json (for the current map) and
-proposed.json (for the proposal); this module only checks them against
-what the map shows, and reports a crate whose kind does not fit rather than
-changing it. It also checks the rules that rest on the kinds
-(`rule_breaks`). generate.py, propose.py and progress.py use it.
+The kinds are written by hand in concerns.json; this module only checks
+them against what the map shows, and reports a crate whose kind does not
+fit rather than changing it. It also checks the rules that rest on the
+kinds (`rule_breaks`). generate.py and check-programs.py use it.
 """
 
 import re
@@ -83,8 +82,7 @@ def reaches_effect(edge, kind_of):
 def slot_feature(crate, slot):
     """The feature a slot is behind: the one the map records for it, or
     else its owner's. A slot on `Type::new` or a field of `Type` is behind
-    whatever `Type` is behind (a map built before slots recorded their
-    feature, such as the proposal's base)."""
+    whatever `Type` is behind."""
     if slot.get("feature"):
         return slot["feature"]
     features = {i["path"]: i.get("feature") for i in crate.get("items", [])}
@@ -229,8 +227,8 @@ def rule_breaks(crates, edges, kind_of):
     and compositions depend on an effect (an effect crate, or a merged
     crate's `real`), in code or in tests; and a crate implements another
     crate's trait only if that crate is a contract or a merged one, or the
-    implementer is a program, a composition or test support. Sorted text,
-    one line per break."""
+    implementer is a program, a composition or test support; and no crate is
+    mixed. Sorted text, one line per break."""
     allowed = {c["name"] for c in crates if c["bins"]} | {n for n, k in kind_of.items() if k == "composition"}
     breaks = [f"{e['from']} depends on the effect crate {e['to']}" + (" in its tests" if e["kind"] == "dev" else "")
               for e in edges
@@ -241,4 +239,6 @@ def rule_breaks(crates, edges, kind_of):
                 continue
             if not is_contract(kind_of.get(r["trait_crate"])):
                 breaks.append(f"{c['name']}'s {r['type'] or 'own type'} implements {r['trait_crate']}::{r['trait']}")
+        if kind_of.get(c["name"]) == "mixed":
+            breaks.append(f"{c['name']} is mixed: a contract or logic together with a real effect")
     return sorted(set(breaks))

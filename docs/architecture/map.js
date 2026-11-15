@@ -1202,7 +1202,7 @@
   }
 
   // Where the code breaks the rules that rest on the kinds (kinds.py's
-  // rule_breaks, which progress.py runs too).
+  // rule_breaks).
   function ruleChecks(breaks) {
     const list = breaks || [];
     return [

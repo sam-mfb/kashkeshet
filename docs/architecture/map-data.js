@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "b488e0e",
+ "commit": "daae4aa",
  "crates": [
   {
    "bins": [
@@ -27010,7 +27010,7 @@ window.KKT_CONCERNS = {
    "title": "test support"
   },
   {
-   "about": "A contract or logic together with a real effect. The current map only: in the proposed map, a mixed crate is a violation.",
+   "about": "A contract or logic together with a real effect. A mixed crate breaks a rule: the rule checks report it.",
    "id": "mixed",
    "title": "mixed"
   }

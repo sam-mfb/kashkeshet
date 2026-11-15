@@ -13,9 +13,7 @@ with its one implementation, and logic with the effect that carries out
 its plans. In both, the effect is behind `real`, which only programs turn
 on. It changed how the code is divided, not what kkt does. The plan is
 `docs/architecture/refactor-plan.md`, the decisions behind it are in
-`decisions.md`. The page in `docs/architecture/` shows the code only; the
-plan stays as files, which the scorecard (`progress.py`) compares the code
-with.
+`decisions.md`. The page in `docs/architecture/` shows the code only.
 
 It ran in phases, each step one pull request into `refactor` with the full
 checks passing. Phase 1 laid foundations: hashing, the clock, randomness,
@@ -82,6 +80,12 @@ phase 14's last code step merged):
   the proposal had 42 of the 95 in the code's record, and 21 that record
   lacked, 7 of them the web preview's, which the record now has);
 - rules: no kind check fails; no break of the proposal's rules.
+
+With every count at its end, the proposal's files and the scorecard
+(`proposed.json`, `proposed-data.js`, `proposal-base-data.js`,
+`config-split.json`, `propose.py`, `progress.py`) were removed (Sam,
+2026-11-15). The checks on the code stay: the kind and rule checks on the
+map, `check-programs.py`, and the map's currency check.
 
 ## Effect on existing installs
 

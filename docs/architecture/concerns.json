@@ -464,7 +464,7 @@
   {
    "id": "mixed",
    "title": "mixed",
-   "about": "A contract or logic together with a real effect. The current map only: in the proposed map, a mixed crate is a violation."
+   "about": "A contract or logic together with a real effect. A mixed crate breaks a rule: the rule checks report it."
   }
  ]
 }
