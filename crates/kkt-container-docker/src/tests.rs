@@ -168,7 +168,7 @@ impl LoginLink for FakeLogin {
     }
 }
 
-impl kkt_browser::Browser for FakeLogin {
+impl crate::Browser for FakeLogin {
     fn open(&self, url: &str) -> io::Result<()> {
         self.opened.borrow_mut().push(url.to_string());
         if self.open_fails.get() {

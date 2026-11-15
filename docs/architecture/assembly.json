@@ -641,7 +641,9 @@
      "supplier_item": "Claude"
     },
     {
-     "impl": "kkt-browser::SystemBrowser",
+     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container-docker's Browser",
+     "supplier": "kkt-browser",
+     "supplier_item": "SystemBrowser",
      "crate": "kkt-container-docker",
      "to": [
       {
@@ -649,7 +651,7 @@
        "param": "browser"
       }
      ],
-     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener, given to the Docker wrapper as it is"
+     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener (phase 16)"
     }
    ],
    "inferred": false
