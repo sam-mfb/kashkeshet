@@ -62,7 +62,10 @@ implementation behind `real`: a crate that depends on it without `real`
 depends on the contract alone. So does a crate of kind "logic and effect"
 (phase 14): its logic in the open, and the effect that only carries out
 its plans behind `real`, in modules only `real` brings; a crate that
-depends on it without `real` depends on the logic alone. Tests SHOULD NOT turn on `real`; a test
+depends on it without `real` depends on the logic alone. Phase 16 (Sam,
+2026-11-15) reverses both kinds: each of its steps supersedes these
+sentences for the crates it changes, and step 16.4 rewrites this
+paragraph. Tests SHOULD NOT turn on `real`; a test
 that must is a documented exception, listed with its reason in
 `.github/scripts/real-exceptions.json` (today, the fake product's tests,
 which drive it over HTTP with kkt-agent-client). Stand-ins and other test
@@ -119,9 +122,9 @@ has none.
 | `kkt-service-systemd` | Implements `Service` directly as a systemd user unit on Linux: the unit file, `systemctl`'s and `journalctl`'s commands and answers, with a private system for its own tests | Decide what the service runs | `real`: `Systemd`, the real files and commands |
 | `kkt-service-os` | Trying whether the service's server could listen on its address (`try_bind`) | Decide what the answer means | `real`: `try_bind` |
 | `kkt-remote-access` | The `RemoteAccess` contract and `Node`, its testing stand-in, and Tailscale implementation with private runner and fake | Let tool details into the open contract; change login, DNS preferences, unrelated sharing, config or the service | `testing`: `Memory`; `real`: `Tailscale`, with optional parsing dependencies |
-| `kkt-client-config` | Client MCP configs and their file formats; when a client's settings are changed through its own command (Claude Code), asking kkt-client-command's `ClientCommand` and restoring the file if it fails | Touch the machine except through `Host` and `ClientCommand` | none |
+| `kkt-client-config` | Client MCP configs and their file formats; when a client's settings are changed through its own command (Claude Code), asking the `ClientCommand` it declares (the program adapts kkt-client-command's `Claude` to it) and restoring the file if it fails | Touch the machine except through `Host` and `ClientCommand` | `testing`: `Recorder`, a stand-in `ClientCommand` |
 | `kkt-client-config-os` | The machine's client-config files, as plain `OsHost` methods | Decide a client config's content | `real`: `OsHost` |
-| `kkt-client-command` | Configuring a client through its own command line: the `ClientCommand` contract in the open (remove kkt's server, add it as the client's own entry), and its one implementation, `Claude`, behind `real`: `claude mcp remove` and `add-json` at user scope, `CLAUDE_CONFIG_DIR`, and their wording, tested over a private runner | Echo the command's output, which may hold credentials | `testing`: `Recorder`. `real`: `Claude`, running the host's `claude` |
+| `kkt-client-command` | Claude Code's own command line: `Claude`, behind `real`, with its own methods (remove kkt's server, add it as Claude Code's own entry): `claude mcp remove` and `add-json` at user scope, `CLAUDE_CONFIG_DIR`, and their wording, tested over a private runner. It declares no contract; the program adapts it to kkt-client-config's `ClientCommand` | Echo the command's output, which may hold credentials | `real`: `Claude`, running the host's `claude` |
 | `kkt-diagnostics` | `kkt doctor`'s checks and their plan; setup's wait for a new server | Change anything; touch the machine except through kkt-probe's `Prober` | none |
 | `kkt-probe` | Probing a kkt server and reading its key files: the `Prober` contract in the open, with `KeyFile`, `Check` and the prober's `Settings`, and its one implementation, `HttpProber`, behind `real`: the HTTP probe and MCP handshake with reqwest, and key files read from disk | Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them | `testing`: `Memory`, key files and answers in memory. `real`: `HttpProber` (turns on `reqwest` and `serde_json`) |
 | `kkt-backup` | Backup names, contents, modes and pruning choices, as immutable layouts; retention `Settings`, its default and bounds (`Problem`, `Settings::problems`), and its run-record line (`Settings::record_lines`); behind `real`, writing a layout (`write`) and removing the old folders it chooses (`prune`) | Read the clock or copy the database itself: the caller passes both | `real`: `write` and `prune` |
@@ -281,6 +284,8 @@ implementation, with no forwarding adapter. Language-shaping libraries
 retain RUST.md rule 7's exemption. This is Sam's explicit exception to
 one-kind-per-crate. Phase 12 split each tool into a contract crate and a
 wrapper; the plan's phase 13 merges the pairs with one implementation.
+Phase 16 (Sam, 2026-11-15) reverses this: each of its steps supersedes
+this paragraph for the crates it changes, and step 16.4 removes it.
 
 **Logic and its effect (Sam, 2026-11-13, phase 14).** A logic crate and
 the effect crate that only carries out its plans need not be two crates.
@@ -289,7 +294,9 @@ the domain, with the effect behind `real`, which only programs turn on, so
 the logic builds and tests without the effect. Crates follow domains, not
 the kind of code. Sam is revising `principles/` to say so; until he does,
 this paragraph is the rule. The plan's phase 14 lists the crates it
-merges.
+merges. Phase 16 (Sam, 2026-11-15) reverses this: each of its steps
+supersedes this paragraph for the crates it changes, and step 16.4
+removes it.
 
 **Dependencies between crates.** Add one only for a real reason. A crate
 that depends on another for something minor, such as one small helper, is

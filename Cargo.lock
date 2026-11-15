@@ -1128,7 +1128,6 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-agent-client",
- "kkt-client-command",
  "kkt-client-config",
  "kkt-clock",
  "kkt-machine",
@@ -1212,7 +1211,6 @@ version = "0.10.0"
 name = "kkt-client-config"
 version = "0.10.0"
 dependencies = [
- "kkt-client-command",
  "kkt-machine",
  "kkt-server-keys",
  "kkt-toml",
@@ -1532,7 +1530,6 @@ dependencies = [
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-backup",
- "kkt-client-command",
  "kkt-client-config",
  "kkt-clock",
  "kkt-config-file",

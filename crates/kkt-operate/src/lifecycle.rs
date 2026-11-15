@@ -483,7 +483,7 @@ mod tests {
             0
         }
     }
-    impl kkt_client_command::ClientCommand for Untouched {
+    impl kkt_client_config::ClientCommand for Untouched {
         fn remove_server(&self, _: Option<&Path>) -> Result<(), String> {
             self.refused("client_command.remove_server")
         }

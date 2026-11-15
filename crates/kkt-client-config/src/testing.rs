@@ -1,7 +1,7 @@
 //! A stand-in client command, for tests of the crates that ask one: it
 //! records each call, and fails every call when told to.
 
-use super::ClientCommand;
+use crate::ClientCommand;
 use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 
