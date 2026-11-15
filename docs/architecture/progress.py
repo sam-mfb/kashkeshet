@@ -119,18 +119,8 @@ def score(current, current_concerns, proposed, proposed_concerns, current_assemb
     kind_of = {n: (proposed_concerns["crates"].get(n) or current_concerns["crates"].get(n) or {}).get("kind")
                for n in crates}
     mismatches, mixed = kinds.check(list(crates.values()), current["edges"], kind_of, mixed_allowed=False)
-    allowed = {n for n, c in crates.items() if c["bins"]} | {n for n, k in kind_of.items() if k == "composition"}
-    # A merged crate is an effect only to an arrow that turns its `real` on.
-    breaks = [f"{e['from']} depends on the effect crate {e['to']}" + (" in its tests" if e["kind"] == "dev" else "")
-              for e in current["edges"]
-              if kinds.reaches_effect(e, kind_of) and e["kind"] in ("normal", "dev") and e["from"] not in allowed]
-    for c in crates.values():
-        for r in c["implements"]:
-            if r["trait_crate"] == c["name"] or c["name"] in allowed or kind_of.get(c["name"]) == "test support":
-                continue
-            if not kinds.is_contract(kind_of.get(r["trait_crate"])):
-                breaks.append(f"{c['name']}'s {r['type'] or 'own type'} implements {r['trait_crate']}::{r['trait']}")
-    result["rules"] = {"kinds": sorted(mismatches + mixed), "proposal": sorted(set(breaks))}
+    result["rules"] = {"kinds": sorted(mismatches + mixed),
+                       "proposal": kinds.rule_breaks(list(crates.values()), current["edges"], kind_of)}
     if current_assembly is not None and proposed_assembly is not None:
         result["wiring"] = wiring(current_assembly, proposed_assembly)
     return result

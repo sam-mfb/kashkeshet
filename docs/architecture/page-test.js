@@ -1,8 +1,7 @@
 // A headless check of the map page: ticked crates and the panel's crate are
-// kept by name through every filter and a switch of map, and Reset view
-// clears them; no box moves when a filter changes; and only full-strength
-// arrows answer the pointer. It needs Playwright with Chromium; CI does not
-// run it. From the repository's root:
+// kept by name through every filter, and Reset view clears them; no box
+// moves when a filter changes; and only full-strength arrows answer the
+// pointer. It needs Playwright with Chromium; CI does not run it. From the repository's root:
 //
 //   npm install --prefix target/tmp/page-test playwright           (once)
 //   target/tmp/page-test/node_modules/.bin/playwright install chromium  (once)
@@ -54,199 +53,178 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       check(label, got.ticked === ticked && got.tickedClass === ticked && got.panel === panel, got);
     };
 
-    for (const mode of ["current", "proposed"]) {
-      if (mode === "proposed") await p.click('input[value="proposed"]');
-      const m = (label) => `${mode}: ${label}`;
-      const home = await places();
-      check(m("nothing ticked, every arrow faint"), (await p.$$eval("path.edge:not(.faint)", (x) => x.length)) === 0);
+    // The page shows the code only: no switch of map, and it loads no
+    // proposal.
+    check("no switch of map, no proposal loaded",
+      (await p.$$eval('input[name="mode"]', (x) => x.length)) === 0 &&
+      (await p.evaluate(() => window.KKT_PROPOSED === undefined)));
+    // The overview reports the rule checks, computed on the code, after
+    // the kind checks.
+    const overview = await p.$eval("#panel", (panel) => panel.textContent);
+    check("the overview has kind checks, then rule checks",
+      /Kind checks \(\d+ to look at\)[\s\S]*Rule checks \(\d+ broken\)/.test(overview), overview.slice(0, 300));
 
-      // A merged crate's box is split, and an arrow that turns its `real`
-      // on meets the implementation part, right of one that does not.
-      const merged = "kkt-agent-client";
-      check(m("a merged crate's box has its implementation part"),
-        (await p.$$eval(`${node(merged)} .impl-part`, (x) => x.length)) === 1);
-      // Every merged crate's name ends before the divider, and the green
-      // mark on the divider sits below it.
-      const overruns = await p.$$eval(".node .impl-divider", (dividers) => dividers.map((d) => {
-        const name = d.parentNode.querySelector("text.name").getBBox();
-        const mark = d.parentNode.querySelector(".self-implements").getBBox();
-        return [d.parentNode.getAttribute("aria-label").split(":")[0], name.x + name.width, d.getBBox().x, name.y + name.height, mark.y];
-      }).filter(([, end, divider, bottom, markTop]) => end > divider || markTop < bottom));
-      check(m("each merged crate's name clears the divider and its mark"), overruns.length === 0, overruns);
-      const endX = (from) => p.$eval(`path.edge[data-edge='${from}>${merged}>normal'][data-head]`, (path) => {
-        const box = path.ownerSVGElement.querySelector(`.node[aria-label^='${path.dataset.edge.split(">")[1]}:']`);
-        const at = path.getPointAtLength(path.getTotalLength());
-        return at.x - box.transform.baseVal[0].matrix.e;
-      });
-      const contractX = await endX("kkt-agent-commands");
-      const implementationX = await endX("kashkeshet");
-      check(m("a consumer's arrow meets the contract, the program's the implementation"),
-        contractX < implementationX - 40, { contractX, implementationX });
-      // Each stroke meets the part its role depends on: the program's
-      // arrow to kkt-container implements its contract (the program's
-      // adapters) and wires its implementation.
-      const strokes = await p.$$eval("path.edge[data-edge='kashkeshet>kkt-container>normal']", (paths) => paths.map((path) => {
-        const box = path.ownerSVGElement.querySelector(".node[aria-label^='kkt-container:']");
-        const end = path.getPointAtLength(path.getTotalLength()).x - box.transform.baseVal[0].matrix.e;
-        return [[...path.classList].find((c) => c.startsWith("role-")), Math.round(end)];
-      }));
-      const at = (role) => (strokes.find(([r]) => r === role) || [])[1];
-      check(m("an implementing stroke meets the contract, a wiring one the implementation"),
-        at("role-implements") < 110 && at("role-wires") > 122, strokes);
-      // A "uses" arrow's head is at the user: drawn from the used crate.
-      const head = await p.$eval(`path.edge[data-edge='kkt-agent-commands>${merged}>normal'][data-head]`,
-        (path) => [path.getAttribute("marker-start"), path.getAttribute("marker-end"), path.dataset.head]);
-      check(m("a uses arrow points at the crate that uses"),
-        head[0] === "url(#head-uses)" && head[1] === null && head[2] === "kkt-agent-commands", head);
-      // Its panel lists the two parts, and which crates include each.
-      await p.click(`${node(merged)} > rect`);
-      const parts = await p.$eval("#panel", (panel) => panel.innerText);
-      check(m("a merged crate's panel lists its two parts"),
-        /Contract \(\d+\): .*Servers/.test(parts) && /Implementation, behind real \(\d+\): .*Mcp/.test(parts)
-          && /turning real on: .*kashkeshet/.test(parts) && /the contract only: .*kkt-agent-commands/.test(parts), parts.slice(0, 200));
+    const home = await places();
+    check("nothing ticked, every arrow faint", (await p.$$eval("path.edge:not(.faint)", (x) => x.length)) === 0);
 
-      // A ticked merged crate shows its delivery line, clear of the
-      // highlighted arrows: kashkeshet sits just above kkt-agent-commands,
-      // and a line meeting the boxes where the arrows do lay hidden on them.
-      if (mode === "current") {
-        await p.click(`${node(merged)} .pick-hit`, { force: true });
-        const clear = await p.evaluate(() => {
-          const ends = (path) => [path.getPointAtLength(0), path.getPointAtLength(path.getTotalLength())];
-          const line = document.querySelector("path.delivery[data-from='kashkeshet'][data-to='kkt-agent-commands']");
-          if (!line) return { drawn: false };
-          const arrows = [...document.querySelectorAll("path.edge.focus")].flatMap(ends);
-          const near = ends(line).filter((q) => arrows.some((r) => Math.hypot(q.x - r.x, q.y - r.y) < 6));
-          return { drawn: true, near: near.length };
-        });
-        check(m("a ticked merged crate's delivery line is drawn clear of the arrows"), clear.drawn && clear.near === 0, clear);
-        await p.click(`${node(merged)} .pick-hit`, { force: true });
-      }
-
-      // Clicking a box shows it in the panel and highlights nothing.
-      await p.click(`${node("kkt-hosts")} > rect`);
-      const panel = (await read()).panel;
-      check(m("click shows the panel, no highlight"),
-        panel === "kkt-hosts" && (await p.$$eval("path.edge.focus", (x) => x.length)) === 0);
-
-      // Ticking highlights and leaves the panel alone.
-      await p.click(`${node("kkt-setup")} .pick-hit`, { force: true });
-      await p.click(`${node("kkt-server")} .pick-hit`, { force: true });
-      const both = "kkt-server,kkt-setup";
-      await same(m("tick two"), both, panel);
-      check(m("ticked crates light up"), (await p.$$eval("path.edge.focus", (x) => x.length)) > 0);
-      await unmoved(m("ticks and a click"), home);
-
-      // Only full-strength arrows answer the pointer: a faded arrow's hover
-      // area takes none, and hovering a highlighted arrow shows its tooltip.
-      const pointer = await p.evaluate(() => {
-        const hits = [...document.querySelectorAll("path.edge-hit")];
-        const events = (h) => getComputedStyle(h).pointerEvents;
-        return { faint: hits.filter((h) => h.classList.contains("faint")).map(events),
-                 full: hits.filter((h) => !h.classList.contains("faint")).map(events) };
-      });
-      check(m("faded arrows take no pointer"), pointer.faint.length > 0 && pointer.faint.every((e) => e === "none"), pointer.faint.slice(0, 3));
-      check(m("highlighted arrows take the pointer"), pointer.full.length > 0 && pointer.full.every((e) => e !== "none"), pointer.full.slice(0, 3));
-      const spot = (sel) => p.evaluate((s) => {
-        const svgEl = document.getElementById("graph");
-        for (const h of document.querySelectorAll(s)) {
-          const len = h.getTotalLength();
-          for (const f of [0.5, 0.4, 0.6, 0.3, 0.7]) {
-            const pt = svgEl.createSVGPoint();
-            const q = h.getPointAtLength(len * f);
-            pt.x = q.x; pt.y = q.y;
-            const sc = pt.matrixTransform(svgEl.getScreenCTM());
-            const top = document.elementFromPoint(sc.x, sc.y);
-            if (top && (top === svgEl || top.classList.contains("band") || top === h)) return { x: sc.x, y: sc.y, top: top.getAttribute("class") };
-          }
-        }
-        return null;
-      }, sel);
-      await p.mouse.move(5, 5);
-      const full = await spot("path.edge-hit:not(.faint)");
-      if (full) await p.mouse.move(full.x, full.y);
-      check(m("hovering a highlighted arrow shows its tooltip"), Boolean(full) && await p.isVisible("#tip"), full);
-      await p.mouse.move(5, 5);
-      const faint = await spot("path.edge-hit.faint");
-      if (faint) await p.mouse.move(faint.x, faint.y);
-      check(m("hovering a faded arrow shows nothing"), Boolean(faint) && !(await p.isVisible("#tip")), faint);
-      await p.mouse.move(5, 5);
-
-      // Every filter, then undone.
-      await p.click("#crates-button");
-      // The logic kind, by name: which kinds are listed, and in what order,
-      // follows the crates the map has.
-      const logic = "#kind-filters input[data-key='kind:logic']";
-      await p.click(logic);
-      await same(m("a kind hidden"), "kkt-server", panel);
-      await unmoved(m("a kind hidden"), home);
-      await p.click(logic);
-      await same(m("the kind back"), both, panel);
-      await unmoved(m("the kind back"), home);
-      await p.click("#show-dev-crates");
-      await unmoved(m("dev-only off"), home);
-      await p.click("#show-dev-crates");
-      await p.keyboard.press("Escape");
-      await same(m("dev-only off and on"), both, panel);
-      await unmoved(m("dev-only off and on"), home);
-      await p.click("#arrows-button");
-      await p.click('#role-filters input[data-key="role:uses"]');
-      await same(m("a role off"), both, panel);
-      await unmoved(m("a role off"), home);
-      await p.click('#role-filters input[data-key="role:uses"]');
-      await p.click("#show-dev");
-      await same(m("test arrows on"), both, panel);
-      await unmoved(m("test arrows on"), home);
-      await p.click("#show-dev");
-      await p.keyboard.press("Escape");
-      await p.click(".band-toggle >> nth=1");
-      await same(m("a layer hidden"), both, panel);
-      await unmoved(m("a layer hidden"), home);
-      await p.click(".band-toggle >> nth=1");
-      await p.click(`${node("kashkeshet")} .eye-hit`, { force: true });
-      await same(m("a program hidden"), both, panel);
-      await unmoved(m("a program hidden"), home);
-      await p.click(`${node("kashkeshet")} .eye-hit`, { force: true });
-      await p.click("#crates-button");
-      await p.click("#crates-none");
-      await p.click("#crates-all");
-      await p.keyboard.press("Escape");
-      await same(m("crates none, then all"), both, panel);
-      await unmoved(m("crates none, then all"), home);
-      await p.click("#layers-hide");
-      await p.click("#layers-show");
-      await same(m("layers hidden, then shown"), both, panel);
-      await unmoved(m("layers hidden, then shown"), home);
-
-      await p.click("#reset-view");
-      const reset = await read();
-      check(m("reset clears ticks and panel"), reset.ticked === "" && reset.panel !== panel, reset);
-    }
-
-    // A crate ticked in one map and missing from the other stays ticked, is
-    // listed without a link there, and its panel cannot be opened. Since the
-    // refactor, both maps may have the same crates; the check then says so.
-    const only = await p.evaluate(() => {
-      const names = (g) => new Set(g.crates.map((c) => c.name));
-      const cur = names(window.KKT_GRAPH), pro = names(window.KKT_PROPOSED.graph);
-      const a = [...cur].find((n) => !pro.has(n));
-      if (a) return { name: a, from: "current", to: "proposed" };
-      const b = [...pro].find((n) => !cur.has(n));
-      return b ? { name: b, from: "proposed", to: "current" } : null;
+    // A merged crate's box is split, and an arrow that turns its `real`
+    // on meets the implementation part, right of one that does not.
+    const merged = "kkt-agent-client";
+    check("a merged crate's box has its implementation part",
+      (await p.$$eval(`${node(merged)} .impl-part`, (x) => x.length)) === 1);
+    // Every merged crate's name ends before the divider, and the green
+    // mark on the divider sits below it.
+    const overruns = await p.$$eval(".node .impl-divider", (dividers) => dividers.map((d) => {
+      const name = d.parentNode.querySelector("text.name").getBBox();
+      const mark = d.parentNode.querySelector(".self-implements").getBBox();
+      return [d.parentNode.getAttribute("aria-label").split(":")[0], name.x + name.width, d.getBBox().x, name.y + name.height, mark.y];
+    }).filter(([, end, divider, bottom, markTop]) => end > divider || markTop < bottom));
+    check("each merged crate's name clears the divider and its mark", overruns.length === 0, overruns);
+    const endX = (from) => p.$eval(`path.edge[data-edge='${from}>${merged}>normal'][data-head]`, (path) => {
+      const box = path.ownerSVGElement.querySelector(`.node[aria-label^='${path.dataset.edge.split(">")[1]}:']`);
+      const at = path.getPointAtLength(path.getTotalLength());
+      return at.x - box.transform.baseVal[0].matrix.e;
     });
-    if (only) {
-      await p.click(`input[value="${only.from}"]`);
-      await p.click(`${node(only.name)} .pick-hit`, { force: true });
-      await p.click(`input[value="${only.to}"]`);
-      const other = await read();
-      check(`a crate only the ${only.from} map has, in the ${only.to} map`,
-        other.list.includes(`${only.name} (not in this map)`) &&
-        (await p.$$eval(".selection-list button.crate-link", (x) => x.length)) === 0, other);
-      await p.click(`input[value="${only.from}"]`);
-      check(`back in the ${only.from} map, it is still ticked`, (await read()).ticked === only.name);
-    } else {
-      console.log(`${width}/${scheme} a crate only one map has: skipped, both maps have the same crates`);
-    }
+    const contractX = await endX("kkt-agent-commands");
+    const implementationX = await endX("kashkeshet");
+    check("a consumer's arrow meets the contract, the program's the implementation",
+      contractX < implementationX - 40, { contractX, implementationX });
+    // Each stroke meets the part its role depends on: the program's
+    // arrow to kkt-container implements its contract (the program's
+    // adapters) and wires its implementation.
+    const strokes = await p.$$eval("path.edge[data-edge='kashkeshet>kkt-container>normal']", (paths) => paths.map((path) => {
+      const box = path.ownerSVGElement.querySelector(".node[aria-label^='kkt-container:']");
+      const end = path.getPointAtLength(path.getTotalLength()).x - box.transform.baseVal[0].matrix.e;
+      return [[...path.classList].find((c) => c.startsWith("role-")), Math.round(end)];
+    }));
+    const at = (role) => (strokes.find(([r]) => r === role) || [])[1];
+    check("an implementing stroke meets the contract, a wiring one the implementation",
+      at("role-implements") < 110 && at("role-wires") > 122, strokes);
+    // A "uses" arrow's head is at the user: drawn from the used crate.
+    const head = await p.$eval(`path.edge[data-edge='kkt-agent-commands>${merged}>normal'][data-head]`,
+      (path) => [path.getAttribute("marker-start"), path.getAttribute("marker-end"), path.dataset.head]);
+    check("a uses arrow points at the crate that uses",
+      head[0] === "url(#head-uses)" && head[1] === null && head[2] === "kkt-agent-commands", head);
+    // Its panel lists the two parts, and which crates include each.
+    await p.click(`${node(merged)} > rect`);
+    const parts = await p.$eval("#panel", (panel) => panel.innerText);
+    check("a merged crate's panel lists its two parts",
+      /Contract \(\d+\): .*Servers/.test(parts) && /Implementation, behind real \(\d+\): .*Mcp/.test(parts)
+        && /turning real on: .*kashkeshet/.test(parts) && /the contract only: .*kkt-agent-commands/.test(parts), parts.slice(0, 200));
+
+    // A ticked merged crate shows its delivery line, clear of the
+    // highlighted arrows: kashkeshet sits just above kkt-agent-commands,
+    // and a line meeting the boxes where the arrows do lay hidden on them.
+    await p.click(`${node(merged)} .pick-hit`, { force: true });
+    const clear = await p.evaluate(() => {
+      const ends = (path) => [path.getPointAtLength(0), path.getPointAtLength(path.getTotalLength())];
+      const line = document.querySelector("path.delivery[data-from='kashkeshet'][data-to='kkt-agent-commands']");
+      if (!line) return { drawn: false };
+      const arrows = [...document.querySelectorAll("path.edge.focus")].flatMap(ends);
+      const near = ends(line).filter((q) => arrows.some((r) => Math.hypot(q.x - r.x, q.y - r.y) < 6));
+      return { drawn: true, near: near.length };
+    });
+    check("a ticked merged crate's delivery line is drawn clear of the arrows", clear.drawn && clear.near === 0, clear);
+    await p.click(`${node(merged)} .pick-hit`, { force: true });
+
+    // Clicking a box shows it in the panel and highlights nothing.
+    await p.click(`${node("kkt-hosts")} > rect`);
+    const panel = (await read()).panel;
+    check("click shows the panel, no highlight",
+      panel === "kkt-hosts" && (await p.$$eval("path.edge.focus", (x) => x.length)) === 0);
+
+    // Ticking highlights and leaves the panel alone.
+    await p.click(`${node("kkt-watch")} .pick-hit`, { force: true });
+    await p.click(`${node("kkt-server")} .pick-hit`, { force: true });
+    const both = "kkt-server,kkt-watch";
+    await same("tick two", both, panel);
+    check("ticked crates light up", (await p.$$eval("path.edge.focus", (x) => x.length)) > 0);
+    await unmoved("ticks and a click", home);
+
+    // Only full-strength arrows answer the pointer: a faded arrow's hover
+    // area takes none, and hovering a highlighted arrow shows its tooltip.
+    const pointer = await p.evaluate(() => {
+      const hits = [...document.querySelectorAll("path.edge-hit")];
+      const events = (h) => getComputedStyle(h).pointerEvents;
+      return { faint: hits.filter((h) => h.classList.contains("faint")).map(events),
+               full: hits.filter((h) => !h.classList.contains("faint")).map(events) };
+    });
+    check("faded arrows take no pointer", pointer.faint.length > 0 && pointer.faint.every((e) => e === "none"), pointer.faint.slice(0, 3));
+    check("highlighted arrows take the pointer", pointer.full.length > 0 && pointer.full.every((e) => e !== "none"), pointer.full.slice(0, 3));
+    const spot = (sel) => p.evaluate((s) => {
+      const svgEl = document.getElementById("graph");
+      for (const h of document.querySelectorAll(s)) {
+        const len = h.getTotalLength();
+        for (const f of [0.5, 0.4, 0.6, 0.3, 0.7]) {
+          const pt = svgEl.createSVGPoint();
+          const q = h.getPointAtLength(len * f);
+          pt.x = q.x; pt.y = q.y;
+          const sc = pt.matrixTransform(svgEl.getScreenCTM());
+          const top = document.elementFromPoint(sc.x, sc.y);
+          if (top && (top === svgEl || top.classList.contains("band") || top === h)) return { x: sc.x, y: sc.y, top: top.getAttribute("class") };
+        }
+      }
+      return null;
+    }, sel);
+    await p.mouse.move(5, 5);
+    const full = await spot("path.edge-hit:not(.faint)");
+    if (full) await p.mouse.move(full.x, full.y);
+    check("hovering a highlighted arrow shows its tooltip", Boolean(full) && await p.isVisible("#tip"), full);
+    await p.mouse.move(5, 5);
+    const faint = await spot("path.edge-hit.faint");
+    if (faint) await p.mouse.move(faint.x, faint.y);
+    check("hovering a faded arrow shows nothing", Boolean(faint) && !(await p.isVisible("#tip")), faint);
+    await p.mouse.move(5, 5);
+
+    // Every filter, then undone.
+    await p.click("#crates-button");
+    // The logic kind, by name: which kinds are listed, and in what order,
+    // follows the crates the map has.
+    const logic = "#kind-filters input[data-key='kind:logic']";
+    await p.click(logic);
+    await same("a kind hidden", "kkt-server", panel);
+    await unmoved("a kind hidden", home);
+    await p.click(logic);
+    await same("the kind back", both, panel);
+    await unmoved("the kind back", home);
+    await p.click("#show-dev-crates");
+    await unmoved("dev-only off", home);
+    await p.click("#show-dev-crates");
+    await p.keyboard.press("Escape");
+    await same("dev-only off and on", both, panel);
+    await unmoved("dev-only off and on", home);
+    await p.click("#arrows-button");
+    await p.click('#role-filters input[data-key="role:uses"]');
+    await same("a role off", both, panel);
+    await unmoved("a role off", home);
+    await p.click('#role-filters input[data-key="role:uses"]');
+    await p.click("#show-dev");
+    await same("test arrows on", both, panel);
+    await unmoved("test arrows on", home);
+    await p.click("#show-dev");
+    await p.keyboard.press("Escape");
+    await p.click(".band-toggle >> nth=1");
+    await same("a layer hidden", both, panel);
+    await unmoved("a layer hidden", home);
+    await p.click(".band-toggle >> nth=1");
+    await p.click(`${node("kashkeshet")} .eye-hit`, { force: true });
+    await same("a program hidden", both, panel);
+    await unmoved("a program hidden", home);
+    await p.click(`${node("kashkeshet")} .eye-hit`, { force: true });
+    await p.click("#crates-button");
+    await p.click("#crates-none");
+    await p.click("#crates-all");
+    await p.keyboard.press("Escape");
+    await same("crates none, then all", both, panel);
+    await unmoved("crates none, then all", home);
+    await p.click("#layers-hide");
+    await p.click("#layers-show");
+    await same("layers hidden, then shown", both, panel);
+    await unmoved("layers hidden, then shown", home);
+
     await p.click("#reset-view");
+    const reset = await read();
+    check("reset clears ticks and panel", reset.ticked === "" && reset.panel !== panel, reset);
     await context.close();
   }
   console.log(`errors: ${errors.length ? errors.join("; ") : "none"}; failures: ${failures}`);

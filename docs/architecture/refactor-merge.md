@@ -13,8 +13,9 @@ with its one implementation, and logic with the effect that carries out
 its plans. In both, the effect is behind `real`, which only programs turn
 on. It changed how the code is divided, not what kkt does. The plan is
 `docs/architecture/refactor-plan.md`, the decisions behind it are in
-`decisions.md`, and the page in `docs/architecture/` shows both the code
-("Current") and the plan ("Proposed").
+`decisions.md`. The page in `docs/architecture/` shows the code only; the
+plan stays as files, which the scorecard (`progress.py`) compares the code
+with.
 
 It ran in phases, each step one pull request into `refactor` with the full
 checks passing. Phase 1 laid foundations: hashing, the clock, randomness,

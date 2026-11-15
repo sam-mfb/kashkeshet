@@ -4,12 +4,10 @@
 "use strict";
 
 (function () {
-  // The map shown: the current one (generate.py), or the proposed one
-  // (propose.py), switched by the toggle in the header.
-  const proposed = window.KKT_PROPOSED;
-  let graph = window.KKT_GRAPH;
-  let concerns = window.KKT_CONCERNS;
-  let assembly = window.KKT_ASSEMBLY;
+  // The map is the code as it is: generate.py writes all three.
+  const graph = window.KKT_GRAPH;
+  const concerns = window.KKT_CONCERNS;
+  const assembly = window.KKT_ASSEMBLY;
   // The roles an arrow can play, worded in the direction the arrow is
   // drawn (Sam, msg 3155): a "uses" or "wires" arrow runs from the crate
   // that is used or built to the crate that uses or builds it, the way a
@@ -67,9 +65,8 @@
   const PAD_X = 16;
   const PAD_Y = 14;
 
-  let crates = new Map(graph.crates.map((c) => [c.name, c]));
+  const crates = new Map(graph.crates.map((c) => [c.name, c]));
   const state = {
-    mode: "current",
     selected: null,
     // The crates whose checkbox is ticked, by name: they light up their
     // arrows, neighbours and delivery lines. `selected` is the crate the
@@ -148,13 +145,13 @@
   const TITLE_H = 24;
   const LINE_H = BOX_H + 30;
 
-  // Every box's place is worked out once per map, from all its crates,
-  // dev-only ones included, and never again: a filter only stops drawing a
-  // crate, leaving its slot empty, so no box moves.
-  const layouts = {};
+  // Every box's place is worked out once, from all the crates, dev-only
+  // ones included, and never again: a filter only stops drawing a crate,
+  // leaving its slot empty, so no box moves.
+  let placed = null;
   function layout() {
-    if (!layouts[state.mode]) layouts[state.mode] = computeLayout();
-    return layouts[state.mode];
+    if (!placed) placed = computeLayout();
+    return placed;
   }
 
   function computeLayout() {
@@ -361,7 +358,7 @@
       roles.forEach((role, i) => {
         const path = svg("path", {
           d: edgePath(endAt(e, e.from, role), endAt(e, e.to, role), (i - (roles.length - 1) / 2) * STROKE_GAP),
-          class: `edge kind-${e.kind} role-${role}${e.proposed ? ` proposed-${e.proposed}` : ""}`,
+          class: `edge kind-${e.kind} role-${role}`,
           "data-edge": `${e.from}>${e.to}>${e.kind}`,
           ...(i === Math.floor((roles.length - 1) / 2) ? { [head]: `url(#head-${roles[0]})`, "data-head": drawnEnds(e)[1] } : {}),
         });
@@ -388,7 +385,7 @@
       if (!drawnCrate(name)) continue;
       const c = crates.get(name);
       const g = svg("g", {
-        class: "node" + (c.dev_only ? " dev-only" : "") + (c.proposed ? ` proposed-${c.proposed}` : "") +
+        class: "node" + (c.dev_only ? " dev-only" : "") +
           (layerShown(name) ? "" : " layer-off") + (programShown(name) ? "" : " program-off") +
           ` kind-${kindSlug(concernOf(name).kind)}`,
         transform: `translate(${p.x},${p.y})`,
@@ -403,14 +400,8 @@
       const sub = svg("text", { x: 9, y: 32, class: "sub" });
       sub.textContent = subtitle(c);
       g.append(label, sub);
-      const program = c.bins.length > 0;
-      if (c.proposed) {
-        const tag = svg("text", { x: BOX_W - (program ? 13 : 7), y: 32, class: "ptag" });
-        tag.textContent = c.proposed;
-        g.append(tag);
-      }
       g.append(pickBox(name));
-      if (program) g.append(programEye(name));
+      if (c.bins.length > 0) g.append(programEye(name));
       g.addEventListener("click", () => select(name));
       g.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(name); }
@@ -891,12 +882,9 @@
     if (!state.checked.size) return null;
     return el("div", { class: "selection-list" },
       el("strong", {}, `Highlighted (${state.checked.size}): `),
-      // A crate ticked in the other map stays ticked, but this map has no
-      // panel for it.
-      [...state.checked].map((n, i) => [i ? ", " : "", crates.has(n)
-        ? el("button", { class: "crate-link", type: "button", "aria-current": n === state.selected ? "true" : "false",
-          onclick: () => { state.selected = n; paint(); renderPanel(); } }, n)
-        : el("span", { class: "muted" }, `${n} (not in this map)`)]),
+      [...state.checked].map((n, i) => [i ? ", " : "",
+        el("button", { class: "crate-link", type: "button", "aria-current": n === state.selected ? "true" : "false",
+          onclick: () => { state.selected = n; paint(); renderPanel(); } }, n)]),
       " ", el("button", { class: "clear-selection", type: "button", onclick: () => { state.checked = new Set(); paint(); renderPanel(); } }, "Clear"));
   }
 
@@ -917,7 +905,6 @@
       c.lib && c.bins.length ? el("span", { class: "badge" }, "and a library") : null,
       c.dev_only ? el("span", { class: "badge" }, "dev-only, never released") : null,
       info.kind ? el("span", { class: `badge kind-badge kind-${kindSlug(info.kind)}`, title: kindAbout(info.kind) }, `kind: ${info.kind}`) : null,
-      c.proposed ? el("span", { class: "badge proposed-badge" }, c.proposed === "new" ? "proposed: new crate" : "proposed: changed") : null,
       ...Object.entries(c.features).map(([f, turnsOn]) =>
         el("span", { class: "badge feature", title: turnsOn.length ? `turns on ${turnsOn.join(", ")}` : "" }, `feature ${f}`)),
     );
@@ -929,11 +916,7 @@
       selectionList(),
       el("div", { class: "muted mono" }, c.path),
       badges,
-      el("p", {}, prose(info.concern), " ", source(c.proposed === "new" ? "proposal" : "concerns")),
-      c.proposed_notes && c.proposed_notes.length
-        ? el("div", { class: "proposed-notes" }, el("strong", {}, "In the proposal: "),
-          el("ul", {}, c.proposed_notes.map((n) => el("li", {}, statusChip(n.status), " ", prose(n.text)))))
-        : null,
+      el("p", {}, prose(info.concern), " ", source("concerns")),
       info.must_not ? el("p", { class: "must" }, el("strong", {}, "Must not: "), prose(info.must_not)) : null,
       c.crate_doc ? el("p", { class: "muted" }, "From its docs: ", prose(c.crate_doc)) : null,
       assembly.programs[c.name]
@@ -970,12 +953,12 @@
 
   // A tag saying where a section's content comes from.
   const SOURCES = {
-    proposal: [false, "proposed (proposed.json)"],
     rustdoc: [true, "generated from rustdoc"],
     code: [true, "generated from cargo metadata and the code"],
     assembly: [false, "hand-written (assembly.json)"],
     concerns: [false, "hand-written (concerns.json)"],
     inferred: [true, "inferred here from the generated data, by matching names"],
+    checks: [true, "computed by kinds.py from the code, with concerns.json's kinds"],
   };
   function source(which) {
     const [generated, label] = SOURCES[which];
@@ -986,18 +969,6 @@
     class: "chip chip-link mono", type: "button", title: `${crate}`, onclick: () => { select(crate); renderPanel(path); },
   }, crate === state.selected ? path : `${crate}::${path}`);
 
-  // In the proposed map, what the rule decides for a trait.
-  function decisionFor(c, path) {
-    if (state.mode !== "proposed") return null;
-    const item = c.items.find((i) => i.path === path) || {};
-    const from = item.moved_from || item.declared_from || c.name;
-    const row = proposed.table.find((r) => r.path === path && r.crate === from);
-    if (!row) return null;
-    return el("div", { class: "decision" },
-      el("span", { class: "badge proposed-badge" }, `${row.consumers.length} consumer${row.consumers.length === 1 ? "" : "s"}: ${row.rule}`), " ",
-      prose(row.result));
-  }
-
   // The crate's contracts: the traits it defines and who implements each,
   // the traits of other crates it implements, and its slots.
   function contractSections(c) {
@@ -1006,7 +977,6 @@
     out.push(c.contracts.length
       ? el("ul", { class: "flows" }, c.contracts.map((t) => el("li", {},
         el("code", {}, t.trait),
-        decisionFor(c, t.trait),
         el("div", { class: "chips" }, t.implementors.length
           ? t.implementors.map((i) => i.type ? itemRef(i.crate, i.type)
             : el("span", { class: "chip" }, `${i.crate}: a type of its own`))
@@ -1032,8 +1002,7 @@
         el("code", {}, sl.name), ": ",
         sl.traits.map((t) => itemRef(t.crate, t.trait)),
         (sl.holds || []).map((h) => el("span", {}, itemRef(h.crate, h.type),
-          el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))),
-        sl.note ? el("div", { class: "muted" }, sl.note, " ", sl.status ? statusChip(sl.status) : source("proposal")) : null)))
+          el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))))))
       : el("p", { class: "empty" }, "None: nothing it takes is a contract to fill."));
     return out;
   }
@@ -1095,16 +1064,12 @@
           el("span", { class: "kind" }, item.kind),
           el("code", {}, item.path),
           item.feature ? featureBadge(item.feature) : null,
-          item.status ? statusChip(item.status) : null,
-          item.moved_from ? el("span", { class: "muted" }, `from ${item.moved_from}`) : null,
-          item.declared_from ? el("span", { class: "muted" }, `declared here, was ${item.declared_from}'s`) : null,
           item.from ? el("span", { class: "muted" }, `re-exported from ${item.from}`) : null),
         item.doc ? el("div", { class: "item-doc" }, prose(item.doc)) : null,
         contracts.map((r) => {
           const names = traitMethods(r.trait_crate, r.trait);
           return el("div", { class: "item-contract" }, "implements ", el("code", {}, `${r.trait_crate}::${r.trait}`),
-            names.length ? el("span", { class: "mono" }, `: ${names.join(", ")}`) : null,
-            r.status ? [" ", statusChip(r.status)] : null);
+            names.length ? el("span", { class: "mono" }, `: ${names.join(", ")}`) : null);
         }),
         extra.map(([label, names, feature]) => el("details", { class: "item-more" },
           el("summary", {}, `${names.length} ${label}`, feature ? " " : null,
@@ -1114,131 +1079,9 @@
     }));
   }
 
-  // ---- The proposal ----
-
-  const shownProposal = () => proposed;
-
-  // The page states what is or is proposed; statuses and decisions are in
-  // decisions.md, so nothing is tagged with them here.
-  function statusChip() {
-    return null;
-  }
-
-  function proposedOverview() {
-    const shown = shownProposal();
-    const ch = shown.changes;
-    const newCrates = graph.crates.filter((c) => c.proposed === "new").length;
-    return [
-      el("h2", {}, "The proposed map"),
-      el("p", {}, "The workspace as the refactor planned it, with the plan's last amendments, kept as a record; the current map is the code. A crate that is new or changes carries a small tag in its box, and new or changed arrows are drawn thicker, so the map shows how the proposal differs from the code it was made from (at 27f1d11); outlines show each crate's kind. ", source("proposal")),
-      el("h3", {}, "The rules it follows"),
-      el("ol", {}, proposed.rule.map((r) => el("li", {}, prose(r)))),
-      el("p", {}, `${newCrates} new crates, ${ch.added.length} arrows added, ${ch.removed.length} removed and ${ch.changed.length} changed.`),
-      el("div", { class: "actions" },
-        el("button", { class: "action", type: "button", onclick: showTable }, `Every trait (${proposed.table.length})`),
-        el("button", { class: "action", type: "button", onclick: showChanges }, "How it differs from the code at 27f1d11"),
-        el("button", { class: "action", type: "button", onclick: showCensus }, `Adapters (${proposed.adapters.after_totals.methods} methods)`),
-        el("button", { class: "action", type: "button", onclick: showConfigTable }, `kkt-config, item by item (${proposed.config_split.table.length})`)),
-      shown.violations.length
-        ? el("p", { class: "must" }, `The rules are broken in ${shown.violations.length} places: `, shown.violations.join("; "))
-        : el("p", { class: "muted" }, "Checked: no crate but a program or a composition depends on an effect crate or implements a contract that another crate declares for itself, and no crate mixes logic or a contract with an effect."),
-      kindChecks(graph.kind_mismatches),
-      el("h3", {}, "Where this comes from"),
-      el("p", { class: "muted" }, "The consumer counts, the proposed arrows and the differences from the code at 27f1d11 are derived (propose.py) from the map generated then (proposal-base-data.js). How the rules apply is written by hand in proposed.json, and the kkt-config breakdown in config-split.json."),
-    ];
-  }
-
-  function openDialog(title, ...body) {
-    const dialog = $("assembly");
-    dialog.classList.toggle("wide", title.startsWith("Every trait") || title.startsWith("kkt-config") || title.startsWith("Adapters"));
-    dialog.replaceChildren(...[
-      el("div", { class: "dialog-head" }, el("h2", {}, title),
-        el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
-      ...body,
-    ].flat(3).filter(Boolean));
-    if (!dialog.open) dialog.showModal();
-    dialog.scrollTop = 0;
-  }
-
+  // A link to a crate, from the panel or a dialog, which it closes.
   const crateLink = (name) => el("button", { class: "crate-link", type: "button",
     onclick: () => { $("assembly").close(); select(name); } }, name);
-
-  function showTable() {
-    openDialog("Every trait, by the rule",
-      el("p", { class: "muted" }, "Consumers: crates other than the definer and the implementers that call the trait's methods in their code (not their tests). Derived from the public slots and the names their code uses, less the crates that only wire an implementation in, which are read from the code by hand. Where each trait lives in the proposal is written by hand (proposed.json)."),
-      el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
-        el("thead", {}, el("tr", {}, ["Trait", "Consumers", "Test-only", "Implementations", "Rule", "In the proposal"].map((h) => el("th", {}, h)))),
-        el("tbody", {}, proposed.table.map((r) => el("tr", {},
-          el("td", {}, el("code", {}, r.trait), r.feature ? [" ", featureBadge(r.feature)] : null),
-          el("td", {}, el("strong", {}, String(r.consumers.length)), " ", r.consumers.join(", "),
-            /declared by its consumers/.test(r.rule) ? el("div", { class: "muted" }, `and its declarer, ${r.crate}, which calls it`) : null,
-            (r.wires_only || []).length ? el("div", { class: "muted" }, `only wire it in: ${r.wires_only.join(", ")}`) : null),
-          el("td", {}, r.test_only.join(", ")),
-          el("td", {}, r.implementations.map((i) => `${i.crate}: ${i.type || "a type of its own"}`).join("; ")),
-          el("td", {}, r.rule),
-          el("td", {}, prose(r.result), (r.new || []).length ? el("div", { class: "muted" }, `new: ${r.new.join(", ")}`) : null)))))),
-      el("h3", {}, "Not traits"),
-      el("ul", {}, proposed.not_traits.map((n) => el("li", {}, el("code", {}, n.items), ": ", prose(n.note)))));
-  }
-
-  // A changed arrow's two crates, in the direction the map draws it: its
-  // first role (`role`), or the roles it ends with, says which way.
-  function arrowEnds(a) {
-    const roles = a.roles_after || [a.role || "uses"];
-    const [tail, head] = reversed(roles) ? [a.to, a.from] : [a.from, a.to];
-    return [crateLink(tail), " → ", crateLink(head)];
-  }
-  const roleWords = (roles) => roles.map((r) => ROLE_SHORT[r] || r).join(", ");
-
-  function showChanges() {
-    const ch = shownProposal().changes;
-    const tags = (a) => (a.statuses || []).map((s) => [" ", statusChip(s)]);
-    const arrow = (a) => el("li", {}, ...arrowEnds(a), " ", el("span", { class: "muted", title: `Cargo's ${DEP_CARGO[a.kind]}` }, `${DEP_WORDS[a.kind] || a.kind}, ${roleWords(a.role ? [a.role] : [])}`), tags(a));
-    openDialog("How it differs from the code at 27f1d11",
-      el("p", { class: "muted" }, "Compared with the current map, derived by comparing the two."),
-      (ch.gone || []).length ? [el("h3", {}, `Crates gone (${ch.gone.length})`), el("p", {}, ch.gone.join(", "), el("span", { class: "muted" }, ": see the notes of the crate each merged into."))] : null,
-      el("h3", {}, `Crates (${ch.crates.length})`),
-      el("ul", { class: "flows" }, ch.crates.map((c) => el("li", {}, crateLink(c.crate),
-        el("ul", {}, c.notes.map((n) => el("li", {}, statusChip(n.status), " ", prose(n.text))))))),
-      el("h3", {}, `Arrows added (${ch.added.length})`), el("ul", { class: "flows" }, ch.added.map(arrow)),
-      el("h3", {}, `Arrows removed (${ch.removed.length})`), el("ul", { class: "flows" }, ch.removed.map(arrow)),
-      el("h3", {}, `Arrows changed (${ch.changed.length})`),
-      el("ul", { class: "flows" }, ch.changed.map((a) => el("li", {}, ...arrowEnds(a), " ",
-        el("span", { class: "muted", title: `Cargo's ${DEP_CARGO[a.kind]}` }, `${DEP_WORDS[a.kind] || a.kind}: ${roleWords(a.roles_before)}, now ${roleWords(a.roles_after)}`), tags(a),
-        a.items_gone.length ? el("div", { class: "muted" }, `no longer: ${a.items_gone.join(", ")}`) : null,
-        a.items_new.length ? el("div", { class: "muted" }, `new: ${a.items_new.join(", ")}`) : null))));
-  }
-
-  function showCensus() {
-    const c = proposed.adapters;
-    const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-    const t = c.after_totals;
-    openDialog("Adapters",
-      el("p", { class: "muted" }, prose(c.about), " ", source("proposal")),
-      el("p", {}, `${plural(t.adapters, "adapter")}, ${plural(t.methods, "method")}: ${t.forward} forwarding, ${t.translate} translating. Written out ${t.written} times across the programs.`),
-      el("div", { class: "table-wrap" }, el("table", { class: "rule-table census" },
-        el("thead", {}, el("tr", {}, ["Adapter", "Meets", "Written in", "Methods", "F", "T", "Copies", "What the methods do"].map((h) => el("th", {}, h)))),
-        el("tbody", {}, c.after.map((r) => el("tr", {},
-          el("td", {}, el("code", {}, r.adapter)), el("td", {}, r.to), el("td", {}, r.where),
-          el("td", {}, String(r.methods)), el("td", {}, String(r.forward)), el("td", {}, String(r.translate)),
-          el("td", {}, String(r.copies)), el("td", {}, prose(r.why))))))));
-  }
-
-  function showConfigTable() {
-    const i7 = proposed.config_split;
-    openDialog("kkt-config, item by item",
-      el("p", {}, prose(i7.about)),
-      el("p", {}, el("strong", {}, "Limits: "), prose(i7.limits.note), "."),
-      el("ul", {}, i7.limits.parts.map((p) => el("li", {}, el("code", {}, `${p.crate}::${p.path}`), ": ", prose(p.doc)))),
-      el("p", { class: "muted" }, "Where each item of kkt-config, as it was at 27f1d11, lives in the proposed map. Used by: derived from the current map; the rest is written by hand (config-split.json)."),
-      el("div", { class: "table-wrap" }, el("table", { class: "rule-table" },
-        el("thead", {}, el("tr", {}, ["Item", "Kind", "Used by", "Test-only", "Goes to", "Constant or injected", "Why"].map((h) => el("th", {}, h)))),
-        el("tbody", {}, i7.table.map((r) => el("tr", {},
-          el("td", {}, el("code", {}, r.item)), el("td", {}, r.kind), el("td", {}, r.used_by.join(", ")),
-          el("td", {}, r.test_only.join(", ")),
-          el("td", {}, r.to === "kkt-config" ? "stays in kkt-config" : r.to === "split" ? "split (see above)" : r.to),
-          el("td", {}, r.how), el("td", {}, prose(r.note))))))));
-  }
 
   // ---- A program's assembly ----
 
@@ -1301,7 +1144,6 @@
   function showAssembly(program) {
     const flow = assembly.programs[program];
     const dialog = $("assembly");
-    dialog.classList.remove("wide");
     const ref = (text) => {
       const [crate, ...rest] = text.split("::");
       return itemRefAt(crate, rest.join("::"), dialog);
@@ -1309,27 +1151,17 @@
     const stepList = (steps) => el("ol", { class: "steps" }, steps.map((step) => el("li", {},
       el("strong", {}, step.title), el("p", {}, prose(step.text)),
       el("div", { class: "chips" }, step.items.map(ref)),
-      step.fills ? el("div", { class: "fills" }, "fills ", el("code", {}, step.fills)) : null,
-      step.proposed_step ? el("div", { class: "muted" }, "proposed") : null)));
+      step.fills ? el("div", { class: "fills" }, "fills ", el("code", {}, step.fills)) : null)));
     const pairs = pairings(program);
     dialog.replaceChildren(...[
       el("div", { class: "dialog-head" },
         el("h2", {}, `How ${flow.title} is assembled`),
         el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
       el("p", { class: "muted" }, "The flow and what the program passes to which slot are written by hand, from the code; every item and slot they name is checked to exist when the map is generated. Where pairs are shown below them, folded, they are inferred by matching names."),
-      el("h3", {}, "The flow ", source(state.mode === "proposed" ? "proposal" : "assembly")),
-      state.mode === "proposed" ? el("p", { class: "muted" }, "Steps marked proposed are rewritten for the proposal; the others describe the assembly at 27f1d11, with each item in its proposed crate. Each implementation reaches its slot through an adapter listed below: the program's own, or one shared from a composition crate.") : null,
+      el("h3", {}, "The flow ", source("assembly")),
       stepList(flow.steps),
       flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
-      (flow.adapters || []).length
-        ? [el("h3", {}, `Adapters the rule needs (${flow.adapters.length}) `, source("proposal")),
-          el("ul", { class: "flows" }, flow.adapters.map((a) => el("li", {}, ref(a.adapts), " adapted to ",
-            (Array.isArray(a.to) ? a.to : [a.to]).flatMap((t, i) => (i ? [" and ", ref(t)] : [ref(t)])),
-            " ", el("span", { class: a.large ? "badge large" : "badge" }, `${a.methods} method${a.methods === 1 ? "" : "s"}${a.large ? ", large" : ""}`),
-            a.in ? el("span", { class: "muted" }, `  shared, in ${a.in}`) : null,
-            a.note ? el("span", { class: "muted" }, `  (${a.note})`) : null, " ", statusChip(a.status))))]
-        : null,
-      el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source(state.mode === "proposed" ? "proposal" : "assembly")),
+      el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
       el("p", { class: "muted" }, "Read from the program's code by hand: every implementation the program passes to a slot of the shared crates, for the server and each of its commands. When the map is generated, every implementation and slot named here is checked to exist."),
       el("ul", { class: "flows" }, (flow.wiring || []).map((w) => el("li", {},
         w.impl ? ref(w.impl) : el("span", { class: "chip" }, `${program}: ${w.own}`),
@@ -1337,7 +1169,7 @@
         el("span", { class: "chips inline" }, w.to.map((t) => el("span", {},
           itemRefAt(w.crate, t.at, dialog), " ", el("code", {}, t.param)))),
         w.through_adapter ? el("div", { class: "muted" }, "through the program's adapter to ", w.through_adapter.join(" and ")) : null,
-        w.note ? el("div", { class: "muted" }, w.note, " ", statusChip(w.status)) : (w.status ? statusChip(w.status) : null)))),
+        w.note ? el("div", { class: "muted" }, w.note) : null))),
       flow.inferred === false ? null : el("details", { class: "inferred" },
         el("summary", {}, `Pairs inferred by matching names (${pairs.length}) `, source("inferred")),
         el("p", { class: "muted" }, "Each pair is a guess from names: the program builds the implementation (or has its own), names the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there; the list above is what the code passes."),
@@ -1361,7 +1193,7 @@
   function kindChecks(mismatches) {
     const list = mismatches || [];
     return [
-      el("h3", {}, `Kind checks (${list.length} to look at) `, source(state.mode === "proposed" ? "proposal" : "concerns")),
+      el("h3", {}, `Kind checks (${list.length} to look at) `, source("checks")),
       list.length
         ? el("ul", {}, list.map((m) => el("li", {}, prose(m))))
         : el("p", { class: "muted" }, "Every kind fits what the map shows."),
@@ -1369,8 +1201,20 @@
     ];
   }
 
+  // Where the code breaks the rules that rest on the kinds (kinds.py's
+  // rule_breaks, which progress.py runs too).
+  function ruleChecks(breaks) {
+    const list = breaks || [];
+    return [
+      el("h3", {}, `Rule checks (${list.length} broken) `, source("checks")),
+      el("p", { class: "muted" }, "Only programs and compositions depend on an effect crate, or turn on another crate's real, in code or in tests; and a crate implements another crate's trait only if that crate is a contract, unless it is a program, a composition or test support."),
+      list.length
+        ? el("ul", {}, list.map((b) => el("li", {}, prose(b))))
+        : el("p", { class: "muted" }, "No rule is broken."),
+    ];
+  }
+
   function overview() {
-    if (state.mode === "proposed") return proposedOverview();
     const counts = new Map();
     for (const c of graph.crates) {
       const layer = concernOf(c.name).layer;
@@ -1384,12 +1228,13 @@
       el("ul", { class: "overview" }, concerns.layers.map((layer) =>
         el("li", {}, el("strong", {}, `${layer.title} (${counts.get(layer.id) || 0}). `), prose(layer.about)))),
       kindChecks(graph.kind_mismatches),
+      ruleChecks(graph.rule_breaks),
       el("h3", {}, "Where this comes from"),
       el("p", { class: "muted" },
         "Crates and arrows: ", el("code", {}, "cargo metadata"), ". Public items: rustdoc's JSON of each library, with each feature on in turn. ",
         "What flows along an arrow: the paths each crate's code names in the other, matched to its public items. ",
         "Contracts, slots and arrow roles: rustdoc's JSON (trait impls, including private types' impls, named only as \"a type of its own\"; public signatures). ",
-        "Concerns, layers, kinds and the programs' assembly flows: written by hand; kinds.py checks each kind against the map. Each section on the page says which. Regenerate with ",
+        "Concerns, layers, kinds and the programs' assembly flows: written by hand; kinds.py checks each kind against the map, and the rules that rest on the kinds against the code. Each section on the page says which. Regenerate with ",
         el("code", {}, "python3 docs/architecture/generate.py"), "."),
     ];
   }
@@ -1460,34 +1305,7 @@
 
   // ---- Controls ----
 
-  function setMeta() {
-    $("meta").textContent = state.mode === "proposed"
-      ? `Proposed: the map at commit ${graph.commit}, reorganized by one dependency-injection rule. A chart for planning, not the code.`
-      : `Generated from the code at commit ${graph.commit}.`;
-  }
-  setMeta();
-
-  // Switches between the current map and the proposed one.
-  function setMode(mode) {
-    state.mode = mode;
-    const p = mode === "proposed" ? proposed : null;
-    graph = p ? p.graph : window.KKT_GRAPH;
-    concerns = p ? p.concerns : window.KKT_CONCERNS;
-    assembly = p ? p.assembly : window.KKT_ASSEMBLY;
-    crates = new Map(graph.crates.map((c) => [c.name, c]));
-    // A crate the other map does not have is not drawn there, but stays
-    // ticked or shown for when it comes back.
-    if (state.selected && !crates.has(state.selected)) state.selected = null;
-    document.body.classList.toggle("mode-proposed", mode === "proposed");
-    setMeta();
-    draw();
-    renderPanel();
-    renderResults();
-  }
-  for (const input of document.querySelectorAll('input[name="mode"]')) {
-    input.addEventListener("change", (ev) => { if (ev.target.checked) setMode(ev.target.value); });
-  }
-  if (!proposed) for (const input of document.querySelectorAll('input[name="mode"]')) input.disabled = true;
+  $("meta").textContent = `Generated from the code at commit ${graph.commit}.`;
 
   $("search").addEventListener("input", (ev) => {
     state.query = ev.target.value.trim().toLowerCase();

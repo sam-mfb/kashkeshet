@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "2f26c66",
+ "commit": "a20d345",
  "crates": [
   {
    "bins": [
@@ -26327,7 +26327,8 @@ window.KKT_GRAPH = {
    "to": "kkt-web"
   }
  ],
- "kind_mismatches": []
+ "kind_mismatches": [],
+ "rule_breaks": []
 };
 window.KKT_CONCERNS = {
  "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry, with a layer that exists and a kind it knows, and that no entry names a package that is gone. layers: the rows of the map, top to bottom: where in the system a crate sits. Each crate: its layer; its kind, what sort of crate it is, checked by kinds.py; its concern in plain words; and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
