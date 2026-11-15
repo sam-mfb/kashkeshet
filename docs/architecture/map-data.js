@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "0046c47",
+ "commit": "d062e0f",
  "crates": [
   {
    "bins": [
@@ -117,6 +117,12 @@ window.KKT_GRAPH = {
      "trait": "LoginLink",
      "trait_crate": "kkt-container",
      "type": "terminal::browser_login::TerminalLink"
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Prober",
+     "trait_crate": "kkt-diagnostics",
+     "type": "machine::diagnostics::Probe"
     },
     {
      "crate": "kashkeshet",
@@ -309,9 +315,14 @@ window.KKT_GRAPH = {
      "path": "machine::database::pending_upgrade"
     },
     {
-     "doc": "The program's prober: kkt-probe's `HttpProber`, with the doctor's timeout, response cap, protocol version and check names from kkt-diagnostics.",
+     "doc": "The program's prober: kkt-probe's `HttpProber`, with the doctor's timeout, response cap, protocol version and check names from kkt-diagnostics, adapted to kkt-diagnostics' `Prober` (`Probe`).",
      "kind": "mod",
      "path": "machine::diagnostics"
+    },
+    {
+     "doc": "kkt-probe's `HttpProber`, adapted to kkt-diagnostics' `Prober`: each record it gives becomes kkt-diagnostics' record of the same fields.",
+     "kind": "struct",
+     "path": "machine::diagnostics::Probe"
     },
     {
      "doc": "The prober `kkt doctor` and `kkt setup` use.",
@@ -5624,23 +5635,61 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": "machine::diagnostics::Probe"
+      },
+      {
+       "crate": "kkt-diagnostics",
+       "type": "testing::Memory"
+      }
+     ],
+     "trait": "Prober"
+    }
+   ],
    "crate_doc": "Read-only connection diagnostics.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "testing": []
+   },
    "holders": [
     {
      "holds": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ],
      "type": "Inspector"
     }
    ],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-diagnostics",
+     "trait": "Prober",
+     "trait_crate": "kkt-diagnostics",
+     "type": "testing::Memory"
+    }
+   ],
    "items": [
+    {
+     "doc": "One check and its outcome: its name, whether it passed, what was found, and for a problem, how to fix it.",
+     "fields": [
+      "name",
+      "ok",
+      "detail",
+      "fix"
+     ],
+     "kind": "struct",
+     "methods": [
+      "ok",
+      "problem"
+     ],
+     "path": "Check"
+    },
     {
      "doc": "The most bytes of an MCP response a probe reads.",
      "kind": "const",
@@ -5670,6 +5719,15 @@ window.KKT_GRAPH = {
      "path": "KEY_CHECK"
     },
     {
+     "doc": "What a `Prober` found in a key file.",
+     "fields": [
+      "mode",
+      "text"
+     ],
+     "kind": "struct",
+     "path": "KeyFile"
+    },
+    {
      "doc": "An operator key file doctor checks on this machine, and the fix for a problem with it, which depends on how the server is run.",
      "fields": [
       "path",
@@ -5694,6 +5752,20 @@ window.KKT_GRAPH = {
       "checks"
      ],
      "path": "Plan"
+    },
+    {
+     "doc": "What the checks do to the machine.",
+     "kind": "trait",
+     "methods": [
+      "key_file",
+      "probe"
+     ],
+     "path": "Prober"
+    },
+    {
+     "doc": "The server checks a `Prober` makes, once they are done.",
+     "kind": "type",
+     "path": "Probing"
     },
     {
      "doc": "The name of the check that the server answered at all.",
@@ -5797,6 +5869,23 @@ window.KKT_GRAPH = {
      "path": "shell_word"
     },
     {
+     "doc": "A prober in memory, a stand-in `Prober` for tests: key files and each address's checks are given up front, and nothing touches the machine or a network.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "Key files and servers, held in memory.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "key",
+      "new",
+      "server"
+     ],
+     "path": "testing::Memory"
+    },
+    {
      "doc": "Whether `checks` found the server not answering at all, as opposed to answering with a problem.",
      "kind": "fn",
      "path": "unreachable"
@@ -5821,7 +5910,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -5833,7 +5922,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-diagnostics",
        "traits": [
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         }
        ],
@@ -5851,7 +5940,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-diagnostics",
        "traits": [
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         }
        ],
@@ -5868,7 +5957,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -5879,7 +5968,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -5890,7 +5979,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -5901,7 +5990,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -5924,7 +6013,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-diagnostics",
        "traits": [
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         }
        ],
@@ -7998,7 +8087,7 @@ window.KKT_GRAPH = {
        "trait": "ClientCommand"
       },
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       },
       {
@@ -8719,7 +8808,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -8814,7 +8903,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -8909,7 +8998,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9008,7 +9097,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9107,7 +9196,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9206,7 +9295,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9316,7 +9405,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9411,7 +9500,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9517,7 +9606,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9616,7 +9705,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9737,7 +9826,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9832,7 +9921,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9927,7 +10016,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10022,7 +10111,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10117,7 +10206,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10212,7 +10301,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10311,7 +10400,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10410,7 +10499,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10586,7 +10675,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10685,7 +10774,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10795,7 +10884,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10890,7 +10979,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10985,7 +11074,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -11084,7 +11173,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -11153,48 +11242,29 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [
-    {
-     "implementors": [
-      {
-       "crate": "kkt-probe",
-       "type": "HttpProber"
-      },
-      {
-       "crate": "kkt-probe",
-       "type": "testing::Memory"
-      }
-     ],
-     "trait": "Prober"
-    }
-   ],
-   "crate_doc": "Probing a kkt server and reading its key files: `Prober`, with what it finds (`KeyFile`) and the checks it gives back (`Check`), and its one implementation, `HttpProber` (behind `real`), which probes over HTTP with reqwest, whose types s...",
+   "contracts": [],
+   "crate_doc": "Probing a kkt server over HTTP and reading its key files, with reqwest, whose types stay inside this crate: `HttpProber` (behind `real`), with the `Settings` the program chooses.",
    "dev_only": false,
    "features": {
     "real": [
      "dep:reqwest",
      "dep:serde_json"
-    ],
-    "testing": []
+    ]
    },
    "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-probe",
-     "trait": "Prober",
-     "trait_crate": "kkt-probe",
-     "type": "HttpProber"
-    },
-    {
-     "crate": "kkt-probe",
-     "trait": "Prober",
-     "trait_crate": "kkt-probe",
-     "type": "testing::Memory"
-    }
-   ],
+   "implements": [],
    "items": [
     {
-     "doc": "One check and its outcome: its name, whether it passed, what was found, and for a problem, how to fix it.",
+     "doc": "What `HttpProber` found in a key file.",
+     "fields": [
+      "mode",
+      "text"
+     ],
+     "kind": "struct",
+     "path": "FileRead"
+    },
+    {
+     "doc": "One thing a probe found: the check's name, whether it passed, what was found, and for a problem, how to fix it.",
      "fields": [
       "name",
       "ok",
@@ -11202,43 +11272,18 @@ window.KKT_GRAPH = {
       "fix"
      ],
      "kind": "struct",
-     "methods": [
-      "ok",
-      "problem"
-     ],
-     "path": "Check"
+     "path": "Finding"
     },
     {
      "doc": "Reads key files and probes servers over HTTP, as its settings say.",
      "feature": "real",
      "kind": "struct",
      "methods": [
-      "new"
-     ],
-     "path": "HttpProber"
-    },
-    {
-     "doc": "What a `Prober` found in a key file.",
-     "fields": [
-      "mode",
-      "text"
-     ],
-     "kind": "struct",
-     "path": "KeyFile"
-    },
-    {
-     "doc": "What the checks do to the machine.",
-     "kind": "trait",
-     "methods": [
       "key_file",
+      "new",
       "probe"
      ],
-     "path": "Prober"
-    },
-    {
-     "doc": "The server checks a `Prober` makes, once they are done.",
-     "kind": "type",
-     "path": "Probing"
+     "path": "HttpProber"
     },
     {
      "doc": "What the HTTP prober takes from the program; it chooses no defaults.",
@@ -11251,23 +11296,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Settings"
-    },
-    {
-     "doc": "A prober in memory, for consumers' tests: key files and each address's checks are given up front, and nothing touches the machine or a network.",
-     "feature": "testing",
-     "kind": "mod",
-     "path": "testing"
-    },
-    {
-     "doc": "Key files and servers, held in memory.",
-     "feature": "testing",
-     "kind": "struct",
-     "methods": [
-      "key",
-      "new",
-      "server"
-     ],
-     "path": "testing::Memory"
     }
    ],
    "lib": "kkt_probe",
@@ -17250,9 +17278,13 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Check",
     "DOCTOR_MAX_RESPONSE_BYTES",
     "DOCTOR_PROTOCOL_VERSION",
     "KEY_CHECK",
+    "KeyFile",
+    "Prober",
+    "Probing",
     "SERVER_CHECK",
     "Settings",
     "endpoint",
@@ -17260,13 +17292,22 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "implements",
    "roles": [
     {
      "detail": [
+      "machine::diagnostics::Probe implements Prober"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Check",
       "DOCTOR_MAX_RESPONSE_BYTES",
       "DOCTOR_PROTOCOL_VERSION",
       "KEY_CHECK",
+      "KeyFile",
+      "Probing",
       "SERVER_CHECK",
       "Settings",
       "endpoint",
@@ -17748,18 +17789,23 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
+    "FileRead",
+    "Finding",
     "HttpProber",
     "Settings"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
     {
      "detail": [
-      "HttpProber"
+      "FileRead",
+      "Finding",
+      "HttpProber",
+      "Settings"
      ],
-     "role": "wires"
+     "role": "uses"
     }
    ],
    "target": null,
@@ -20513,33 +20559,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-diagnostics",
    "items": [
-    "Check",
-    "KeyFile",
-    "Prober"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Check",
-      "KeyFile",
-      "Prober"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Probing"
-   ],
-   "to": "kkt-probe"
-  },
-  {
-   "features": [],
-   "from": "kkt-diagnostics",
-   "items": [
     "ACCESS_KEY_FILE_MODE",
     "check_access_key"
    ],
@@ -23245,9 +23264,11 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operate",
    "items": [
+    "Check",
     "Inspector",
     "KeyToCheck",
     "Plan",
+    "Prober",
     "ServerLines",
     "Settings",
     "SetupServer",
@@ -23266,7 +23287,9 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Check",
       "Plan",
+      "Prober",
       "ServerLines",
       "SetupServer",
       "ThisMachine",
@@ -23288,7 +23311,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "KeyFile",
+    "Probing"
+   ],
    "to": "kkt-diagnostics"
   },
   {
@@ -23369,32 +23395,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-operate",
-   "items": [
-    "Check",
-    "Prober"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Check",
-      "Prober"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "KeyFile",
-    "Probing"
-   ],
-   "to": "kkt-probe"
   },
   {
    "features": [],
@@ -26932,10 +26932,10 @@ window.KKT_CONCERNS = {
    "must_not": "Know a product's tables, or let a rusqlite type out of the crate."
   },
   "kkt-diagnostics": {
-   "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server.",
+   "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server; the `Prober` it declares for the machine, with what it finds (`KeyFile`), the checks (`Check`) and its testing Memory stand-in.",
    "kind": "logic",
    "layer": "operations",
-   "must_not": "Change anything, or touch the machine except through kkt-probe's `Prober`."
+   "must_not": "Change anything, or touch the machine except through its `Prober`."
   },
   "kkt-entropy": {
    "concern": "The randomness contract `Entropy`, with `random_chars` as a provided method that takes the alphabet to draw from, and its test doubles behind `testing`.",
@@ -27059,8 +27059,8 @@ window.KKT_CONCERNS = {
    "must_not": "Choose native implementations, depend on an effect or another assembly, or parse command-line flags."
   },
   "kkt-probe": {
-   "concern": "Probing a kkt server and reading its key files: the `Prober` contract in the open, with what it finds (`KeyFile`), the checks it gives (`Check`), the prober's `Settings` and its testing Memory stand-in; and its one implementation behind real, `HttpProber`: the probe over HTTP with reqwest, MCP's initialize handshake read from its answer, and key files read from disk.",
-   "kind": "contract and effect",
+   "concern": "Probing a kkt server over HTTP and reading its key files: `HttpProber` (behind real), with its own methods and the prober's `Settings`: the probe with reqwest, MCP's initialize handshake read from its answer, key files read from disk, and what it finds worded as its own records (`Finding`, `FileRead`). It declares no contract: the program adapts `HttpProber` to kkt-diagnostics' Prober (phase 16).",
+   "kind": "effect",
    "layer": "operations",
    "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them."
   },
@@ -28063,8 +28063,10 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-probe::HttpProber",
-     "note": "The program builds HttpProber with the doctor's settings and injects it directly (12.5b).",
+     "note": "The program builds HttpProber with the doctor's settings and adapts it (phase 16).",
+     "own": "Probe, adapting kkt-probe's HttpProber to kkt-diagnostics' Prober",
+     "supplier": "kkt-probe",
+     "supplier_item": "HttpProber",
      "to": [
       {
        "at": "OperateParts",

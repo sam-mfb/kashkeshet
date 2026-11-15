@@ -1,6 +1,6 @@
 [package]
 name = "kkt-probe"
-description = "Probing a kkt server and reading its key files, and the HTTP prober that does it"
+description = "Probing a kkt server over HTTP and reading its key files"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,7 +12,5 @@ reqwest = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 
 [features]
-# `testing::Memory`, key files and probe answers in memory for consumers' tests.
-testing = []
 # `HttpProber`: key files and HTTP probes; reqwest's types stay inside.
 real = ["dep:reqwest", "dep:serde_json"]

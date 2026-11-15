@@ -1,7 +1,7 @@
 //! [`HttpProber`]: reading key files and probing a server over HTTP.
 //! reqwest's types stay in this file.
 
-use crate::{Check, KeyFile, Prober, Probing, Settings};
+use crate::{FileRead, Finding, Settings};
 use reqwest::{Client, Response, Url, redirect::Policy};
 use serde_json::{Value, json};
 use std::path::Path;
@@ -17,17 +17,22 @@ impl HttpProber {
     }
 }
 
-impl Prober for HttpProber {
-    fn key_file(&self, path: &Path) -> Result<KeyFile, String> {
+impl HttpProber {
+    /// What the key file at `path` holds. `Err` says why the file could not
+    /// be looked at.
+    pub fn key_file(&self, path: &Path) -> Result<FileRead, String> {
         let metadata = std::fs::metadata(path).map_err(|e| e.to_string())?;
-        Ok(KeyFile {
+        Ok(FileRead {
             mode: mode(&metadata),
             text: std::fs::read_to_string(path).map_err(|e| e.to_string()),
         })
     }
 
-    fn probe<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a> {
-        Box::pin(probe(url, key, self.settings))
+    /// What a probe of the server at `url` finds, using `key` (`None` for
+    /// none): whether it answers, accepts its host name, accepts the key and
+    /// serves MCP, and its build. `Err` when the probe cannot be made at all.
+    pub async fn probe(&self, url: &str, key: Option<&str>) -> Result<Vec<Finding>, String> {
+        probe(url, key, self.settings).await
     }
 }
 
@@ -85,11 +90,11 @@ fn http_client(settings: Settings) -> Result<Client, String> {
 
 /// Adds whether the server answers at `url` and accepts its host name to
 /// `checks`. Returns whether both did.
-async fn reach(client: &Client, url: &Url, checks: &mut Vec<Check>, settings: Settings) -> bool {
+async fn reach(client: &Client, url: &Url, checks: &mut Vec<Finding>, settings: Settings) -> bool {
     let response = match client.get(url.clone()).send().await {
         Ok(response) => response,
         Err(e) => {
-            checks.push(Check::problem(
+            checks.push(Finding::problem(
                 settings.server_check,
                 e.to_string(),
                 "run `kkt service start` or `kkt serve`, and check --url and the bind setting",
@@ -97,12 +102,12 @@ async fn reach(client: &Client, url: &Url, checks: &mut Vec<Check>, settings: Se
             return false;
         }
     };
-    checks.push(Check::ok(
+    checks.push(Finding::ok(
         settings.server_check,
         format!("reachable at {url}"),
     ));
     if response.status().as_u16() == 403 {
-        checks.push(Check::problem(
+        checks.push(Finding::problem(
             "Host",
             "the server refused this host name",
             format!(
@@ -112,12 +117,12 @@ async fn reach(client: &Client, url: &Url, checks: &mut Vec<Check>, settings: Se
         ));
         return false;
     }
-    checks.push(Check::ok("Host", "accepted"));
+    checks.push(Finding::ok("Host", "accepted"));
     true
 }
 
 /// The server checks for `url`, using `key`.
-async fn probe(url: &str, key: Option<&str>, settings: Settings) -> Result<Vec<Check>, String> {
+async fn probe(url: &str, key: Option<&str>, settings: Settings) -> Result<Vec<Finding>, String> {
     let mut checks = Vec::new();
     let client = http_client(settings)?;
     let url = Url::parse(url).map_err(|_| "invalid diagnostic URL")?;
@@ -139,7 +144,7 @@ async fn probe(url: &str, key: Option<&str>, settings: Settings) -> Result<Vec<C
     let response = match post.send().await {
         Ok(response) => response,
         Err(e) => {
-            checks.push(Check::problem(
+            checks.push(Finding::problem(
                 "MCP",
                 e.to_string(),
                 "check the MCP URL and server logs",
@@ -148,11 +153,11 @@ async fn probe(url: &str, key: Option<&str>, settings: Settings) -> Result<Vec<C
         }
     };
     if response.status().as_u16() == 401 {
-        checks.push(Check::problem(settings.key_check, "server returned 401", "pass --key-file with the key used by the running server, or restart it after changing keys"));
+        checks.push(Finding::problem(settings.key_check, "server returned 401", "pass --key-file with the key used by the running server, or restart it after changing keys"));
         return Ok(checks);
     }
     if response.status().as_u16() != 200 {
-        checks.push(Check::problem(
+        checks.push(Finding::problem(
             "MCP",
             format!("server returned {}", response.status()),
             "check that --url points at the server's /mcp endpoint",
@@ -171,12 +176,12 @@ async fn probe(url: &str, key: Option<&str>, settings: Settings) -> Result<Vec<C
         }
         match delete.send().await {
             Ok(response) if response.status().is_success() => (),
-            Ok(response) => checks.push(Check::problem(
+            Ok(response) => checks.push(Finding::problem(
                 "probe cleanup",
                 format!("server returned {}", response.status()),
                 "check the server logs",
             )),
-            Err(e) => checks.push(Check::problem(
+            Err(e) => checks.push(Finding::problem(
                 "probe cleanup",
                 e.to_string(),
                 "check the server logs",
@@ -186,20 +191,23 @@ async fn probe(url: &str, key: Option<&str>, settings: Settings) -> Result<Vec<C
     match initialized {
         Ok(value) => match value.get("result").and_then(|r| r.get("serverInfo")) {
             Some(info) => {
-                checks.push(Check::ok(settings.key_check, "MCP initialize returned 200"));
+                checks.push(Finding::ok(
+                    settings.key_check,
+                    "MCP initialize returned 200",
+                ));
                 let version = info
                     .get("version")
                     .and_then(Value::as_str)
                     .unwrap_or("not reported");
-                checks.push(Check::ok("server build", format!("version {version}; commit is not exposed by MCP (see the web page's server runs)")));
+                checks.push(Finding::ok("server build", format!("version {version}; commit is not exposed by MCP (see the web page's server runs)")));
             }
-            None => checks.push(Check::problem(
+            None => checks.push(Finding::problem(
                 "MCP",
                 "initialize did not return serverInfo",
                 "check --url and the server's MCP implementation",
             )),
         },
-        Err(error) => checks.push(Check::problem(
+        Err(error) => checks.push(Finding::problem(
             "MCP",
             error,
             "check --url and the server logs",
