@@ -1,7 +1,7 @@
 //! kkt-log's [`Log`](kkt_log::Log) contract over `tracing`: [`TracingLog`]
 //! sends structured events to the tracing subscriber, and [`init_logging`]
 //! and [`init_stderr_logging`] start that subscriber, to stdout, stderr or a
-//! writer the program gives, such as kkt-logs' log file, with kkt's own
+//! writer the program gives, such as kkt-logs-os' log file, with kkt's own
 //! lines and its libraries' at their own levels.
 
 #![cfg(any(test, feature = "real"))]
@@ -21,7 +21,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 const LOG_OWN_TARGETS: &[&str] = &["kashkeshet", "kkt"];
 
 /// Sends the log to stdout, or to `log_file`, such as the log file
-/// kkt-logs opens. kkt's own code logs at `own`, the libraries it uses at
+/// kkt-logs-os opens. kkt's own code logs at `own`, the libraries it uses at
 /// `dependencies`.
 pub fn init_logging(
     log_file: Option<Box<dyn Write + Send>>,

@@ -348,7 +348,7 @@
     },
     {
      "impl": "kkt-clock-system::SystemClock",
-     "crate": "kkt-logs",
+     "crate": "kkt-logs-os",
      "to": [
       {
        "at": "open_log_file",

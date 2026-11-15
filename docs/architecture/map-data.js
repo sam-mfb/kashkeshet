@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "5305d0e",
+ "commit": "4aee85d",
  "crates": [
   {
    "bins": [
@@ -7147,7 +7147,7 @@ window.KKT_GRAPH = {
      "path": "TracingLog"
     },
     {
-     "doc": "Sends the log to stdout, or to `log_file`, such as the log file kkt-logs opens.",
+     "doc": "Sends the log to stdout, or to `log_file`, such as the log file kkt-logs-os opens.",
      "feature": "real",
      "kind": "fn",
      "path": "init_logging"
@@ -7195,9 +7195,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Log levels, their checks, and pure rollover and age-pruning rules.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
@@ -7250,15 +7248,6 @@ window.KKT_GRAPH = {
      "path": "Pruning"
     },
     {
-     "doc": "The log file at `path`, appended to, and rolled over by its policy.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "open"
-     ],
-     "path": "RotatingFile"
-    },
-    {
      "doc": "The filesystem steps for one rollover, in their existing order.",
      "fields": [
       "oldest",
@@ -7286,12 +7275,6 @@ window.KKT_GRAPH = {
      "path": "check_dependency_log_level"
     },
     {
-     "doc": "Opens the log file at `path` for `RotatingFile::open`, after checking `policy`.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "open_log_file"
-    },
-    {
      "doc": "Whether age pruning is due on this write.",
      "kind": "fn",
      "path": "prune_due"
@@ -7313,8 +7296,49 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_logs",
+   "machine_work": {},
+   "name": "kkt-logs",
+   "optional_third_party": {},
+   "path": "crates/kkt-logs",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "thiserror"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "The log file on disk: appended to, rolled over and pruned as kkt-logs' policy plans say (`RotatingFile`, opened by `open_log_file` after the policy's check).",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "The log file at `path`, appended to, and rolled over by its policy.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "open"
+     ],
+     "path": "RotatingFile"
+    },
+    {
+     "doc": "Opens the log file at `path` for `RotatingFile::open`, after checking `policy`.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "open_log_file"
+    }
+   ],
+   "lib": "kkt_logs_os",
    "machine_work": {
-    "src/file.rs": [
+    "src/lib.rs": [
      "fs",
      "fs::File",
      "fs::OpenOptions",
@@ -7326,12 +7350,10 @@ window.KKT_GRAPH = {
      "Path::metadata"
     ]
    },
-   "name": "kkt-logs",
+   "name": "kkt-logs-os",
    "optional_third_party": {},
-   "path": "crates/kkt-logs",
-   "real_files": [
-    "src/file.rs"
-   ],
+   "path": "crates/kkt-logs-os",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -7360,9 +7382,7 @@ window.KKT_GRAPH = {
     }
    ],
    "testing_third_party": [],
-   "third_party": [
-    "thiserror"
-   ]
+   "third_party": []
   },
   {
    "bins": [],
@@ -17499,9 +17519,7 @@ window.KKT_GRAPH = {
    "to": "kkt-log-tracing"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "DEFAULT_DEPENDENCY_LOG_LEVEL",
@@ -17509,8 +17527,7 @@ window.KKT_GRAPH = {
     "LogLevel",
     "LogPolicy",
     "SettingError",
-    "check_dependency_log_level",
-    "open_log_file"
+    "check_dependency_log_level"
    ],
    "kind": "normal",
    "optional": false,
@@ -17523,8 +17540,7 @@ window.KKT_GRAPH = {
       "LogLevel",
       "LogPolicy",
       "SettingError",
-      "check_dependency_log_level",
-      "open_log_file"
+      "check_dependency_log_level"
      ],
      "role": "uses"
     }
@@ -17532,6 +17548,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-logs"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "open_log_file"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "open_log_file"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-logs-os"
   },
   {
    "features": [],
@@ -22200,7 +22239,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-logs",
    "items": [
-    "Clock",
     "OutOfRange",
     "Span",
     "Time"
@@ -22211,7 +22249,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Clock",
       "OutOfRange",
       "Span",
       "Time"
@@ -22220,9 +22257,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [
-    "testing::FixedClock"
-   ],
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -22230,6 +22265,82 @@ window.KKT_GRAPH = {
     "testing"
    ],
    "from": "kkt-logs",
+   "items": [],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-logs-os",
+   "items": [
+    "Clock",
+    "OutOfRange",
+    "Time"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock",
+      "OutOfRange",
+      "Time"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Span",
+    "testing::FixedClock"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-logs-os",
+   "items": [
+    "LogPolicy",
+    "prune_due",
+    "pruning",
+    "rotation",
+    "should_roll"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "LogPolicy",
+      "prune_due",
+      "pruning",
+      "rotation",
+      "should_roll"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-logs"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-logs-os",
    "items": [
     "Span",
     "testing::FixedClock"
@@ -22257,7 +22368,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-logs",
+   "from": "kkt-logs-os",
    "items": [
     "Dir"
    ],
@@ -26956,10 +27067,16 @@ window.KKT_CONCERNS = {
    "must_not": "Open, roll over or prune log files; choose log levels' defaults."
   },
   "kkt-logs": {
-   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans; behind real, the log file on disk that carries them out.",
-   "kind": "logic and effect",
+   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans; kkt-logs-os carries them out on the log file.",
+   "kind": "logic",
    "layer": "foundations",
    "must_not": "Read a real clock itself; start a logging library."
+  },
+  "kkt-logs-os": {
+   "concern": "The log file on disk, appended to, rolled over and pruned as kkt-logs' plans say: RotatingFile, opened by open_log_file after the policy's check, with the clock the program gives (phase 16, the reverse of 14.4's merge).",
+   "kind": "effect",
+   "layer": "foundations",
+   "must_not": "Decide the policy or its plans; read a real clock itself; start a logging library."
   },
   "kkt-machine": {
    "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
@@ -27899,7 +28016,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-logs",
+     "crate": "kkt-logs-os",
      "impl": "kkt-clock-system::SystemClock",
      "note": "kkt serve --log-file",
      "to": [
