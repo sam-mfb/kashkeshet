@@ -30,11 +30,11 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **New contract crates.** `kkt-api-agent` (`Api` and its areas, and the records every level shares, including `SwarmId`, `Actor`, `Operator`, `Audit`, `RuleError` and `Code`, which were kkt-rules'), `kkt-api-operator` (`OperatorApi`, with `Views`, `Changes`, `Lanes` and `Server`) and `kkt-api-admin` (`AdminApi`), all implemented by `kkt_rules::Rules`; `kkt-entropy` (`Entropy` and its stand-ins, from kkt-names); `kkt-log` (`Log`, the structured log that kkt-mcp, kkt-web and kkt-server now take in place of `tracing`); and `kkt-machine` (`Env` and `Platform`, as plain values; kkt-machine-os' `env()` and `platform()` read them for this process). `kkt-clock` keeps `Clock` and the time types, and `SystemClock` moves to `kkt-clock-system`.
 - **New logic crates.** `kkt-hash` (`sha256`), `kkt-search` (search's words, terms and excerpts, from kkt-db), `kkt-identity-keymode` (`KeyMode`, from kkt-identity, which keeps `Identify`) and `kkt-config-file` (the config file's format, from kkt-settings). `kkt-api-sim` is new test support: the simulated application, for tests and the page preview, behind `testing`.
 - **Container contract and implementation.** `kkt-container::Container`
-  replaces its command-level `Host` and free functions. `kkt-container::Docker`
-  (behind `real`) implements it in the same crate, with no program adapter;
-  `kkt-container-os` and the intermediate `kkt-container-docker` go.
-  Consumers without `real` keep the contract and its `testing::Memory`
-  stand-in without Docker's dependencies. Files, commands and messages are
+  replaces its command-level `Host` and free functions.
+  `kkt_container_docker::Docker` (behind `real`) implements it, in a crate
+  of its own, with no program adapter; `kkt-container-os` goes.
+  `kkt-container` holds the contract and its `testing::Memory` stand-in
+  alone, without Docker's dependencies. Files, commands and messages are
   unchanged; this changes the shared Rust API.
 - **Remote sharing contract and implementation.**
   `kkt-remote-access::RemoteAccess` replaces its command-level `Host` and free
@@ -98,7 +98,7 @@ The shared crates are reorganized so that every dependency is injected and each 
   setup's login link opens. `kkt-browser::SystemBrowser` (behind `real`)
   implements it with `open` or `xdg-open`, moved from kkt-terminal-os.
   `kkt_container::LoginLink` and kkt-terminal-os' `BrowserLink` keep only
-  `show` and `open_requested`; `kkt_container::Docker` is now built
+  `show` and `open_requested`; `kkt_container_docker::Docker` is now built
   with `Docker::new(browser)`. Messages are unchanged.
 - **Effects in `-os` crates.** What touches the machine moves out of each crate's `real` feature into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os` and `kkt-lane-files-os`. A logic crate has a `real` feature only where its effect has rejoined it, as the next entry says.
 - **Logic and its effect in one crate.** Where an `-os` crate only carried out its logic crate's plans, the two are one crate again, the effect behind `real`, which only programs turn on: a crate that depends on it without `real` gets the logic alone. `kkt-backup-os` is merged into `kkt-backup`: `kkt_backup::write` and `kkt_backup::prune` (behind `real`) replace `kkt_backup_os::write` and `prune`, unchanged. `kkt-setup-os` is merged into `kkt-setup`: its functions (`read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`) are `kkt_setup::` items behind `real`, unchanged. `kkt-shutdown-os` is merged into `kkt-shutdown`: `kkt_shutdown::StopSignals` (behind `real`, which turns on tokio) replaces `kkt_shutdown_os::StopSignals`, unchanged. Messages and file modes are unchanged.
