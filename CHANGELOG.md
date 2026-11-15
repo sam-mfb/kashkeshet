@@ -49,8 +49,8 @@ The shared crates are reorganized so that every dependency is injected and each 
   client of kkt's server: `Servers`, `Avatars` and `Watched`, with `Address`
   and the records and `Failure` it already had, and `testing::Memory`.
   Its one implementation, over MCP (`Mcp`, `Client`, `Remote`,
-  `AdminRemote`, `Http`, `HttpReply`; behind `real`), is in the same crate,
-  with `Settings`.
+  `AdminRemote`, `Http`, `HttpReply`; behind `real`), is in
+  `kkt-agent-client-mcp`, with `Settings`.
   The credential and watch-state files move to `kkt-agent-files-os`.
   kkt-watch's `Server`, `Channel`, `Message`, `Waited`, `NewerLane` and
   `Failure`, and kkt-agent-commands' `Servers`, `Avatars`, `Address`,

@@ -286,9 +286,15 @@
   },
   "kkt-agent-client": {
    "layer": "clients",
-   "concern": "A client of kkt's server. The contract, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records, Failure and Settings; the testing Memory stand-in. Its one implementation, over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), and plain Http requests for a program's test client, are behind real (step 13.6).",
-   "must_not": "Name a transport, a protocol library or its errors in the contract; let an rmcp or reqwest type out of the crate.",
-   "kind": "contract and effect"
+   "concern": "A client of kkt's server, as a contract in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records and Failure; the testing Memory stand-in.",
+   "must_not": "Name a transport, a protocol library or its errors.",
+   "kind": "contract"
+  },
+  "kkt-agent-client-mcp": {
+   "layer": "clients",
+   "concern": "Implements kkt-agent-client over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), with plain Http requests for a program's test client, behind real; what the watch asks for at a time (Settings), as plain values.",
+   "must_not": "Let an rmcp or reqwest type out of the crate.",
+   "kind": "effect"
   },
   "kkt-agent-commands": {
    "layer": "assembly",
