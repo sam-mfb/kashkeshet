@@ -220,9 +220,15 @@
   },
   "kkt-container": {
    "layer": "operations",
-   "concern": "The container installation contract and stand-in, with Docker and Compose implementation behind real and private tool logic tested against a fake.",
-   "must_not": "Let Docker details into the open contract; decide setup answers or remember the setup record.",
-   "kind": "contract and effect"
+   "concern": "The container installation contract (Container, ConfigReader, LoginLink and their records) and its stand-in.",
+   "must_not": "Let Docker details into the contract; decide setup answers or remember the setup record.",
+   "kind": "contract"
+  },
+  "kkt-container-docker": {
+   "layer": "operations",
+   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands, behind real; what they do is tested over a private runner and a fake host.",
+   "must_not": "Decide setup answers or remember the setup record.",
+   "kind": "effect"
   },
   "kkt-remote-access": {
    "layer": "operations",

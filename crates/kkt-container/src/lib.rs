@@ -1,13 +1,9 @@
-//! The operations and records of a kkt container installation. Implementations
-//! own their container tool, managed files and output; callers supply requests.
-//! The Docker implementation is available with `real`; its private tool logic
-//! is also compiled for unit tests against a fake runner.
+//! The operations and records of a kkt container installation, as a
+//! contract: `Container`, what it is given (`ConfigReader`, `LoginLink`) and
+//! its records, with a stand-in behind `testing`. Implementations own their
+//! container tool, managed files and output; callers supply requests.
 
 mod config;
-#[cfg(any(feature = "real", test))]
-mod docker;
-#[cfg(feature = "real")]
-pub use docker::Docker;
 mod login;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;

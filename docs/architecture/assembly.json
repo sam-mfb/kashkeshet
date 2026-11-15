@@ -376,7 +376,7 @@
        "param": "container"
       }
      ],
-     "impl": "kkt-container::Docker",
+     "impl": "kkt-container-docker::Docker",
      "note": "Direct injection of the named container implementation into the operator assembly."
     },
     {
@@ -638,7 +638,7 @@
     },
     {
      "impl": "kkt-browser::SystemBrowser",
-     "crate": "kkt-container",
+     "crate": "kkt-container-docker",
      "to": [
       {
        "at": "Docker::new",
