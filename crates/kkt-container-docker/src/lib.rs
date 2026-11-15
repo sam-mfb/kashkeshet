@@ -2,8 +2,7 @@
 //! `Container`. It holds the Compose files that come with this program, the
 //! folder kkt manages for them, and the commands that set it up, start it,
 //! back it up, import and export its lanes, upgrade it and remove it. All of
-//! it goes through the private runner, so it is tested against a fake host;
-//! the real host is behind `real`.
+//! it goes through the private runner, so it is tested against a fake host.
 //!
 //! This crate only runs Docker. It does not decide what a person wants (the
 //! setup answers) or remember what was set up (the setup record); the caller

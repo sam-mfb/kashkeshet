@@ -2,7 +2,7 @@
 //! `claude mcp add-json`, at user scope, under the name `kkt`, with
 //! `CLAUDE_CONFIG_DIR` set to the profile's folder or unset for the default.
 //! The command goes through a private runner, so the arguments and the
-//! wording are tested without running it; running it is behind `real`.
+//! wording are tested without running it.
 
 mod runner;
 

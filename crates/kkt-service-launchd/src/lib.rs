@@ -2,7 +2,7 @@
 //! kkt-service's `Service` over the user's `gui/<uid>` domain, writing the
 //! plist and running `launchctl`, `tail` and `id`. Everything it decides is
 //! worked through a private system, so its tests use a fake and never start a
-//! real service; the real system is behind `real`.
+//! real service.
 
 mod agent;
 mod system;

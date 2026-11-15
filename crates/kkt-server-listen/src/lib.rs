@@ -1,6 +1,6 @@
 //! Running the assembled server: binding its address, then answering on it
-//! until told to stop. It touches the network, so only the `real` feature
-//! (and this crate's tests) build it. axum's server and tokio's listener stay
+//! until told to stop. It touches the network, so only programs depend on
+//! it. axum's server and tokio's listener stay
 //! in here; the contract is in std types only.
 //!
 //! Running takes two steps, [`listen`] and [`Listening::serve_until`], so a

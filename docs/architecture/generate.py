@@ -447,6 +447,16 @@ def testing_module_files(package_dir, files):
         found |= more
 
 
+def machine_work_in(text):
+    """The machine work a file's own code does, its tests already split off
+    (kinds.py): std's and tokio's, the print macros, and `Path` probes."""
+    work = sorted(p for p in uses_in(text, "std") if kinds.is_std_io(p))
+    work += sorted(f"tokio::{p}" for p in uses_in(text, "tokio") if kinds.is_tokio_io(p))
+    work += sorted(f"{m}!" for m in set(re.findall(r"\b(\w+)!", text)) if m in kinds.PRINT_MACROS)
+    work += kinds.path_probes(text)
+    return work
+
+
 def file_kind(package_dir, path, test_files):
     if path in test_files:
         return "dev"
@@ -683,11 +693,7 @@ def main():
             if kind == "normal":
                 text, tests = split_test_modules(text)
                 texts["dev"] += tests
-                # The machine work the file's own code does (kinds.py).
-                work = sorted(p for p in uses_in(text, "std") if kinds.is_std_io(p))
-                work += sorted(f"tokio::{p}" for p in uses_in(text, "tokio") if kinds.is_tokio_io(p))
-                work += sorted(f"{m}!" for m in set(re.findall(r"\b(\w+)!", text)) if m in kinds.PRINT_MACROS)
-                work += kinds.path_probes(text)
+                work = machine_work_in(text)
                 if work and path not in stand_ins:
                     machine_work[str(path.relative_to(package_dir))] = work
             texts[kind] += text

@@ -1,6 +1,6 @@
 //! Randomness from the operating system: [`OsEntropy`], kkt-entropy's
 //! [`Entropy`](kkt_entropy::Entropy) from the operating system's
-//! cryptographic generator. Behind `real`.
+//! cryptographic generator.
 
 use kkt_entropy::Entropy;
 

@@ -10,8 +10,5 @@ publish = false
 [dependencies]
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
-tokio.workspace = true
-
-[dev-dependencies]
-# The moved wall-clock tests also run without `real`.
+# `SystemClock` sleeps on tokio's timers.
 tokio = { workspace = true, features = ["time"] }

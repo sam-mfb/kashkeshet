@@ -1,7 +1,7 @@
 //! Sharing a service-mode server over the host's existing Tailscale login:
 //! `Tailscale` implements kkt-remote-access's `RemoteAccess`. Commands go
 //! through a private runner, so what their answers mean is tested against a
-//! fake and never reaches a tailnet; the real command is behind `real`. It
+//! fake and never reaches a tailnet. It
 //! never changes login, DNS preferences, kkt's config, or its service. It
 //! owns only the HTTPS root proxy it installs.
 

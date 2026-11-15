@@ -1,5 +1,5 @@
 //! The files and commands this wrapper works the service manager through,
-//! private to it: the real system behind `real` (and in its own tests), a
+//! private to it: the real system, a
 //! dry run that writes changes down, and the ways a command's failure is
 //! said. Tests replace the system with a fake and never start a service.
 
@@ -160,7 +160,7 @@ pub(crate) struct DryRun<'a> {
 }
 
 impl<'a> DryRun<'a> {
-    /// A dry run that answers questions from `real`.
+    /// A dry run that answers questions from the real system it is given.
     pub(crate) fn new(real: &'a dyn System) -> DryRun<'a> {
         DryRun {
             real,
