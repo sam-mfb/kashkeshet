@@ -176,8 +176,7 @@ fn client_config_overrides_select_file_client_previews_writes_and_backups() {
             assert!(!text(&written).contains(KEY));
             let contents = std::fs::read_to_string(&file).expect("custom config");
             let doc: serde_json::Value = if client == "codex" {
-                serde_json::to_value(toml::from_str::<toml::Value>(&contents).expect("TOML"))
-                    .expect("JSON")
+                serde_json::to_value(kkt_toml::parse(&contents).expect("TOML")).expect("JSON")
             } else {
                 serde_json::from_str(&contents).expect("JSON")
             };
@@ -331,7 +330,7 @@ fn connecting_creates_the_default_key_but_preview_does_not_write_client_config()
     assert!(written.status.success(), "{}", text(&written));
     let config_file = home.0.join(".codex/config.toml");
     let config = std::fs::read_to_string(&config_file).expect("config");
-    let parsed: toml::Value = toml::from_str(&config).expect("TOML");
+    let parsed = serde_json::to_value(kkt_toml::parse(&config).expect("TOML")).expect("JSON");
     let helper = parsed["mcp_servers"]["kkt"]["http_headers_helper"]
         .as_str()
         .expect("helper");
@@ -422,10 +421,13 @@ fn key_header_reads_paths_with_quotes_and_outputs_only_requested_format() {
     );
     let written = home.run(&["connect", "codex", "--key-file", path, "--write"]);
     assert!(written.status.success(), "{}", text(&written));
-    let config: toml::Value = toml::from_str(
-        &std::fs::read_to_string(home.0.join(".codex/config.toml")).expect("config"),
+    let config = serde_json::to_value(
+        kkt_toml::parse(
+            &std::fs::read_to_string(home.0.join(".codex/config.toml")).expect("config"),
+        )
+        .expect("TOML"),
     )
-    .expect("TOML");
+    .expect("JSON");
     let helper = config["mcp_servers"]["kkt"]["http_headers_helper"]
         .as_str()
         .expect("helper");
