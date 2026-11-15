@@ -1,7 +1,4 @@
-//! The contract over MCP, through rmcp and reqwest, behind `real`: a client
-//! of kkt's server that registers and reclaims avatars and watches for
-//! messages. It connects on first use and again after a call fails to reach
-//! the server. Also plain HTTP requests for a program's test client (`Http`).
+//! The client itself, over rmcp and reqwest.
 
 mod http;
 pub use http::{Http, HttpReply};
@@ -9,8 +6,9 @@ pub use http::{Http, HttpReply};
 mod watching;
 pub use watching::{AdminRemote, Remote};
 
-use crate::{Address, Avatars, Failure, Reclaimed, Registered, Servers, Settings, Watched};
+use crate::Settings;
 use futures::future::BoxFuture;
+use kkt_agent_client::{Address, Avatars, Failure, Reclaimed, Registered, Servers, Watched};
 use kkt_clock::Clock;
 use rmcp::model::CallToolRequestParams;
 use rmcp::service::{ClientInitializeError, RoleClient, RunningService};

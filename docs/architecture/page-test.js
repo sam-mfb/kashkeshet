@@ -127,6 +127,19 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("a ticked merged crate's delivery line is drawn clear of the arrows", clear.drawn && clear.near === 0, clear);
     await p.click(`${node(merged)} .pick-hit`, { force: true });
 
+    // Injections follow the rule (msg 3343): the program injects nothing of
+    // kkt-diagnostics' own into it; kkt-operate passes on the prober it was
+    // given; and the program's own work is labelled as such.
+    await p.click(`${node("kkt-diagnostics")} .pick-hit`, { force: true });
+    const lines = await p.$$eval("path.delivery", (paths) => paths.map((x) => `${x.dataset.from}>${x.dataset.to}`));
+    check("no injection of a crate's own type, and the assembly passes on what it was given",
+      !lines.includes("kashkeshet>kkt-diagnostics") && lines.includes("kkt-operate>kkt-diagnostics"), lines);
+    await p.click(`${node("kkt-diagnostics")} .pick-hit`, { force: true });
+    await p.click(`${node("kkt-operate")} .pick-hit`, { force: true });
+    const labels = await p.$$eval("text.delivery-label", (xs) => xs.map((x) => x.textContent));
+    check("the program's own work is named as such", labels.some((l) => l.includes("its own work")), labels);
+    await p.click(`${node("kkt-operate")} .pick-hit`, { force: true });
+
     // Clicking a box shows it in the panel and highlights nothing.
     await p.click(`${node("kkt-hosts")} > rect`);
     const panel = (await read()).panel;

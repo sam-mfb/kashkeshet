@@ -38,19 +38,19 @@ The shared crates are reorganized so that every dependency is injected and each 
   unchanged; this changes the shared Rust API.
 - **Remote sharing contract and implementation.**
   `kkt-remote-access::RemoteAccess` replaces its command-level `Host` and free
-  functions. `kkt-remote-access::Tailscale` (behind `real`) implements it in
-  the same crate; `kkt-remote-access-os` and the intermediate
-  `kkt-remote-access-tailscale` go. The program injects it directly, with no
-  adapter. The contract and `testing::Memory` need no parsing dependencies;
-  serde and serde_json are optional under `real`. Files, commands and messages
-  are unchanged; this changes the shared Rust implementation path.
+  functions. `kkt_remote_access_tailscale::Tailscale` (behind `real`)
+  implements it, in a crate of its own; `kkt-remote-access-os` goes. The
+  program injects it directly, with no adapter. `kkt-remote-access` holds the
+  contract and `testing::Memory` alone, with no third-party dependency.
+  Files, commands and messages are unchanged; this changes the shared Rust
+  implementation path.
 
 - **Agent client contract.** `kkt-agent-client` is now the contract for a
   client of kkt's server: `Servers`, `Avatars` and `Watched`, with `Address`
   and the records and `Failure` it already had, and `testing::Memory`.
   Its one implementation, over MCP (`Mcp`, `Client`, `Remote`,
-  `AdminRemote`, `Http`, `HttpReply`; behind `real`), is in the same crate,
-  with `Settings`.
+  `AdminRemote`, `Http`, `HttpReply`; behind `real`), is in
+  `kkt-agent-client-mcp`, with `Settings`.
   The credential and watch-state files move to `kkt-agent-files-os`.
   kkt-watch's `Server`, `Channel`, `Message`, `Waited`, `NewerLane` and
   `Failure`, and kkt-agent-commands' `Servers`, `Avatars`, `Address`,
