@@ -1,10 +1,10 @@
 //! kkt-agent-commands' parts, as kkt answers them: the MCP client
-//! (kkt-agent-client, injected as it is), the key files, this program's
+//! (kkt-agent-client-mcp, injected as it is), the key files, this program's
 //! path and the terminal, with the local server's facts from the setup and
 //! the serve settings.
 
 use crate::commands::watch::WatchOutput;
-use crate::machine::client_config::ClientHost;
+use crate::machine::client_config::{ClaudeCommand, ClientHost};
 use crate::machine::connection::ConnectionReads;
 use crate::machine::credentials::CredentialFiles;
 use crate::machine::operate::NativeOperate;
@@ -30,11 +30,11 @@ pub fn agent_parts(
             serve_args,
         }),
         admin_path: kkt_mcp::MCP_ADMIN_PATH,
-        servers: Box::new(kkt_agent_client::Mcp),
+        servers: Box::new(kkt_agent_client_mcp::Mcp),
         credentials: Box::new(CredentialFiles),
         key_files: Box::new(KeyFiles),
         clients: Box::new(ClientHost),
-        client_command: Box::new(kkt_client_command::Claude),
+        client_command: Box::new(ClaudeCommand),
         program: Box::new(ThisProgram),
         report: Box::new(WatchOutput),
         output: Box::new(TerminalOutput),

@@ -280,5 +280,52 @@ class FilesBehindReal(unittest.TestCase):
                          ["src/files.rs", "src/files/inner.rs", "src/plan.rs"])
 
 
+
+class AssemblyWiring(unittest.TestCase):
+    """generate.py's check of assembly.json's wiring: names that exist, and
+    no value of the receiving crate's own type recorded as an injection."""
+
+    ITEMS = {"kkt-rules": {"Db": {}, "Startup": {}}, "kkt-db-sqlite": {"SqlitePlace": {}},
+             "kkt-terminal-os": {"Terminal": {}}, "kkt": {}}
+    SLOTS = {"kkt-rules": [{"at": "Db::new", "name": "database"}, {"at": "Startup", "name": "db"}],
+             "kkt-setup": [{"at": "ask::Prompter::new", "name": "lines"}]}
+    PACKAGES = {"kkt", "kkt-rules", "kkt-db-sqlite", "kkt-terminal-os", "kkt-setup"}
+
+    def check(self, wiring):
+        assembly = {"programs": {"kkt": {"steps": [], "wiring": wiring}}}
+        with self.assertRaises(SystemExit) as stop:
+            generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, self.SLOTS)
+        return str(stop.exception)
+
+    def passes(self, wiring):
+        assembly = {"programs": {"kkt": {"steps": [], "wiring": wiring}}}
+        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, self.SLOTS)
+
+    def test_another_crates_implementation_and_an_adapter_pass(self):
+        self.passes([
+            {"impl": "kkt-db-sqlite::SqlitePlace", "crate": "kkt-rules", "to": [{"at": "Db::new", "param": "database"}]},
+            {"own": "TerminalLines", "supplier": "kkt-terminal-os", "supplier_item": "Terminal",
+             "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]},
+            {"own": "ServeReads", "supplier": "kkt", "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]},
+            {"passes_on": "the lines it was given", "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]},
+        ])
+
+    def test_the_receiving_crates_own_type_is_refused(self):
+        self.assertIn("kkt-rules::Db is kkt-rules's own type, not an injection into it",
+                      self.check([{"impl": "kkt-rules::Db", "crate": "kkt-rules", "to": [{"at": "Startup", "param": "db"}]}]))
+
+    def test_an_adapter_needs_a_supplier_package_and_its_item(self):
+        lines = [{"at": "ask::Prompter::new", "param": "lines"}]
+        self.assertIn("names no supplier package (kkt-terminal-os's Terminal)",
+                      self.check([{"own": "TerminalLines", "supplier": "kkt-terminal-os's Terminal", "crate": "kkt-setup", "to": lines}]))
+        self.assertIn("no public item Screen in the supplier kkt-terminal-os",
+                      self.check([{"own": "TerminalLines", "supplier": "kkt-terminal-os", "supplier_item": "Screen",
+                                   "crate": "kkt-setup", "to": lines}]))
+
+    def test_an_entry_is_exactly_one_kind_of_injection(self):
+        self.assertIn("needs one of impl, own or passes_on",
+                      self.check([{"crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]}]))
+
+
 if __name__ == "__main__":
     unittest.main()

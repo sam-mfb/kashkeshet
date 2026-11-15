@@ -38,19 +38,19 @@ The shared crates are reorganized so that every dependency is injected and each 
   unchanged; this changes the shared Rust API.
 - **Remote sharing contract and implementation.**
   `kkt-remote-access::RemoteAccess` replaces its command-level `Host` and free
-  functions. `kkt-remote-access::Tailscale` (behind `real`) implements it in
-  the same crate; `kkt-remote-access-os` and the intermediate
-  `kkt-remote-access-tailscale` go. The program injects it directly, with no
-  adapter. The contract and `testing::Memory` need no parsing dependencies;
-  serde and serde_json are optional under `real`. Files, commands and messages
-  are unchanged; this changes the shared Rust implementation path.
+  functions. `kkt_remote_access_tailscale::Tailscale` (behind `real`)
+  implements it, in a crate of its own; `kkt-remote-access-os` goes. The
+  program injects it directly, with no adapter. `kkt-remote-access` holds the
+  contract and `testing::Memory` alone, with no third-party dependency.
+  Files, commands and messages are unchanged; this changes the shared Rust
+  implementation path.
 
 - **Agent client contract.** `kkt-agent-client` is now the contract for a
   client of kkt's server: `Servers`, `Avatars` and `Watched`, with `Address`
   and the records and `Failure` it already had, and `testing::Memory`.
   Its one implementation, over MCP (`Mcp`, `Client`, `Remote`,
-  `AdminRemote`, `Http`, `HttpReply`; behind `real`), is in the same crate,
-  with `Settings`.
+  `AdminRemote`, `Http`, `HttpReply`; behind `real`), is in
+  `kkt-agent-client-mcp`, with `Settings`.
   The credential and watch-state files move to `kkt-agent-files-os`.
   kkt-watch's `Server`, `Channel`, `Message`, `Waited`, `NewerLane` and
   `Failure`, and kkt-agent-commands' `Servers`, `Avatars`, `Address`,
@@ -143,6 +143,7 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **The page preview** is now a program of its own: `cargo run -p kkt-web-preview`, in place of kkt-web's example.
 - **The output format.** `kkt_mcp_formatter::Format` no longer derives serde's `Deserialize` or schemars' `JsonSchema`, and kkt-mcp-formatter no longer depends on either. kkt-mcp, which wraps the MCP library, reads the tools' `format` parameter with a type of its own and turns it into `Format`. The tools' parameters and descriptions are unchanged.
 - **TOML.** A new logic crate, `kkt-toml`, is the only one that uses the `toml` and `toml_edit` libraries. It parses TOML text into its own tree of values (`parse`, `Table`, `Value`), reads and writes typed records (`read`, `write`), and edits a document while keeping its comments (`Document`), with errors of its own (`ParseError`, `Place`, `WriteError`, `EditError`). kkt-config-file, kkt-client-config, kkt-setup and kkt-mcp's build script use it, and no longer depend on `toml` or `toml_edit`. Their public items, and every message they give, are unchanged.
+- **A client's own command.** `ClientCommand` is now kkt-client-config's (`kkt_client_config::ClientCommand`), with its stand-in `kkt_client_config::testing::Recorder` and `Call` behind kkt-client-config's new `testing` feature. kkt-client-command declares no contract: `kkt_client_command::Claude` (behind `real`) has `remove_server` and `add_server` as its own methods, and a program adapts it to `ClientCommand`. kkt-client-command has no `testing` feature. The commands run and every message are unchanged.
 
 ### What affects existing setups
 - **JSON client configs keep their key order.** The next `kkt connect`, `kkt switch` or `kkt setup` that changes an OpenCode, Antigravity or Muse Code config leaves its keys in their order instead of sorting them. A file an older kkt already sorted stays sorted. The settings in it are the same either way.
