@@ -1,12 +1,6 @@
-//! Sharing this machine's server securely with clients on its private network.
+//! Sharing this machine's server securely with clients on its private network,
+//! as a contract: `RemoteAccess`, `Node`, and a stand-in behind `testing`.
 //! Implementations keep the network's login and unrelated sharing unchanged.
-//! The contract is available without `real`; `Tailscale` implements it behind
-//! that feature, with private tool logic also compiled for unit tests.
-
-#[cfg(any(feature = "real", test))]
-mod tailscale;
-#[cfg(feature = "real")]
-pub use tailscale::Tailscale;
 
 use std::net::SocketAddr;
 

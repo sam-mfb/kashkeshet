@@ -1,6 +1,11 @@
-//! Sharing a service-mode server over the host's existing Tailscale login.
-//! Commands go through a private runner; this wrapper never changes login, DNS preferences,
-//! kkt's config, or its service. It owns only the HTTPS root proxy it installs.
+//! Sharing a service-mode server over the host's existing Tailscale login:
+//! `Tailscale` implements kkt-remote-access's `RemoteAccess`. Commands go
+//! through a private runner, so what their answers mean is tested against a
+//! fake and never reaches a tailnet; the real command is behind `real`. It
+//! never changes login, DNS preferences, kkt's config, or its service. It
+//! owns only the HTTPS root proxy it installs.
+
+#![cfg(any(feature = "real", test))]
 
 use serde::Deserialize;
 use serde_json::Value;
@@ -11,7 +16,7 @@ use std::net::SocketAddr;
 const TAILSCALE_HTTPS_PORT: u16 = 443;
 
 mod runner;
-use crate::Node;
+use kkt_remote_access::Node;
 use runner::{Output, Runner};
 
 /// Shares this machine's server through its existing Tailscale login.
@@ -19,7 +24,7 @@ use runner::{Output, Runner};
 pub struct Tailscale;
 
 #[cfg(feature = "real")]
-impl crate::RemoteAccess for Tailscale {
+impl kkt_remote_access::RemoteAccess for Tailscale {
     fn prepare(&self) -> Result<Node, String> {
         prepare(&runner::OsRunner)
     }
