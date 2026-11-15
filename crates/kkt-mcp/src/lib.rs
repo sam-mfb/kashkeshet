@@ -3,6 +3,7 @@
 //! the rules in that swarm, and formats the result. No tool touches the
 //! database directly.
 
+mod format_choice;
 #[cfg(test)]
 mod identify_tests;
 pub mod mcp_admin;
@@ -13,6 +14,7 @@ mod tool_text;
 pub use mcp_admin::MCP_ADMIN_PATH;
 pub use mcp_transport::Settings;
 
+use crate::format_choice::{FormatChoice, chosen};
 use crate::mcp_transport::Transport;
 use axum::Router;
 use kkt_admission::Principal;
@@ -221,14 +223,14 @@ struct ReclaimParams {
     handle: String,
     recovery_code: String,
     lane: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct RegisterParams {
     handle: Option<String>,
     lane: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
     /// The parameter `handle` replaced. It is not in the schema; it is read
     /// only so that a call still sending it is refused, with a message
     /// saying to use `handle`, instead of registering a server-chosen
@@ -250,14 +252,14 @@ fn present<'de, D: serde::Deserializer<'de>>(field: D) -> Result<Option<Value>, 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct TokenOnly {
     token: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct SetDescriptionParams {
     token: Option<String>,
     text: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -265,7 +267,7 @@ struct RememberParams {
     token: Option<String>,
     name: String,
     text: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -273,7 +275,7 @@ struct RecallParams {
     token: Option<String>,
     name: String,
     offset: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -281,14 +283,14 @@ struct ListMemoriesParams {
     token: Option<String>,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ForgetParams {
     token: Option<String>,
     name: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -298,7 +300,7 @@ struct ListAgentsParams {
     lane: Option<String>,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 /// `list_lanes` takes no token: an agent may look before registering.
@@ -306,14 +308,14 @@ struct ListAgentsParams {
 struct ListLanesParams {
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct TakeLaneParams {
     token: Option<String>,
     lane: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -325,14 +327,14 @@ struct ListChannelsParams {
     after_id: Option<i64>,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ChannelParams {
     token: Option<String>,
     channel_id: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -341,7 +343,7 @@ struct ListMembersParams {
     channel_id: String,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -351,7 +353,7 @@ struct CreateChannelParams {
     open: bool,
     purpose: Option<String>,
     members: Option<Vec<String>>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -359,7 +361,7 @@ struct AddToChannelParams {
     token: Option<String>,
     channel_id: String,
     agents: Vec<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -367,7 +369,7 @@ struct ChannelAgentParams {
     token: Option<String>,
     channel_id: String,
     agent: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -375,7 +377,7 @@ struct SetPurposeParams {
     token: Option<String>,
     channel_id: String,
     purpose: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -383,7 +385,7 @@ struct SetNoteParams {
     token: Option<String>,
     channel_id: String,
     text: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -391,7 +393,7 @@ struct GetNoteParams {
     token: Option<String>,
     channel_id: String,
     offset: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -399,7 +401,7 @@ struct SendParams {
     token: Option<String>,
     channel_id: String,
     body: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -411,14 +413,14 @@ struct ReadParams {
     from_agent: Option<String>,
     limit: Option<u32>,
     max_body_chars: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct GetMessageParams {
     token: Option<String>,
     message_id: i64,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -433,14 +435,14 @@ struct SearchParams {
     since: Option<String>,
     until: Option<String>,
     limit: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ActivityParams {
     token: Option<String>,
     after_id: i64,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -451,7 +453,7 @@ struct WaitParams {
     timeout_s: Option<u32>,
     limit: Option<u32>,
     max_body_chars: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 /// The tools, described by `agent-tools.toml` with every limit filled in from
@@ -473,7 +475,7 @@ impl ChatServer {
         Parameters(p): Parameters<RegisterParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         if p.name.is_some() {
             let refused = RuleError::invalid(
                 "`register` no longer takes `name`: pass the handle you want as `handle`, \
@@ -498,7 +500,7 @@ impl ChatServer {
         Parameters(p): Parameters<ReclaimParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let rules = self.newcomer(&context).await?;
             rules
@@ -521,7 +523,7 @@ impl ChatServer {
         Parameters(p): Parameters<TokenOnly>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let announcement = rules.current_server_announcement().await?;
@@ -538,7 +540,7 @@ impl ChatServer {
 
     #[tool]
     async fn list_lanes(&self, Parameters(p): Parameters<ListLanesParams>) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = self
             .api
             .takeable_lanes_page(self.limit(p.limit), p.cursor)
@@ -553,7 +555,7 @@ impl ChatServer {
         Parameters(p): Parameters<TakeLaneParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let taking = rules.take_lane(&me, p.lane).await?;
@@ -569,7 +571,7 @@ impl ChatServer {
         Parameters(p): Parameters<TokenOnly>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             rules.unregister(&me).await?;
@@ -585,7 +587,7 @@ impl ChatServer {
         Parameters(p): Parameters<SetDescriptionParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let agent = rules.set_description(&me, p.text).await?;
@@ -603,7 +605,7 @@ impl ChatServer {
         Parameters(p): Parameters<RememberParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let saved = rules.remember(&me, p.name, p.text).await?;
@@ -619,7 +621,7 @@ impl ChatServer {
         Parameters(p): Parameters<RecallParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let entry = rules.recall(&me, p.name).await?;
@@ -640,7 +642,7 @@ impl ChatServer {
         Parameters(p): Parameters<ListMemoriesParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let list = rules
@@ -658,7 +660,7 @@ impl ChatServer {
         Parameters(p): Parameters<ForgetParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             rules.forget(&me, p.name).await?;
@@ -676,7 +678,7 @@ impl ChatServer {
         Parameters(p): Parameters<ListAgentsParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let limit = self.limit(p.limit);
@@ -697,7 +699,7 @@ impl ChatServer {
         Parameters(p): Parameters<ListChannelsParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let q = ChannelQuery {
@@ -723,7 +725,7 @@ impl ChatServer {
         Parameters(p): Parameters<ListMembersParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let limit = self.limit(p.limit);
@@ -742,7 +744,7 @@ impl ChatServer {
         Parameters(p): Parameters<CreateChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let new = NewChannel {
@@ -764,7 +766,7 @@ impl ChatServer {
         Parameters(p): Parameters<ChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let channel = rules.join_channel(&me, p.channel_id).await?;
@@ -780,7 +782,7 @@ impl ChatServer {
         Parameters(p): Parameters<ChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             rules.leave_channel(&me, p.channel_id).await?;
@@ -796,7 +798,7 @@ impl ChatServer {
         Parameters(p): Parameters<AddToChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let members = rules.add_to_channel(&me, p.channel_id, p.agents).await?;
@@ -812,7 +814,7 @@ impl ChatServer {
         Parameters(p): Parameters<ChannelAgentParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let members = rules
@@ -830,7 +832,7 @@ impl ChatServer {
         Parameters(p): Parameters<ChannelAgentParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let channel = rules.transfer_owner(&me, p.channel_id, p.agent).await?;
@@ -846,7 +848,7 @@ impl ChatServer {
         Parameters(p): Parameters<ChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             rules.hide_channel(&me, p.channel_id).await?;
@@ -862,7 +864,7 @@ impl ChatServer {
         Parameters(p): Parameters<SetPurposeParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let channel = rules
@@ -880,7 +882,7 @@ impl ChatServer {
         Parameters(p): Parameters<SetNoteParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             rules.set_note(&me, p.channel_id, p.text).await?;
@@ -896,7 +898,7 @@ impl ChatServer {
         Parameters(p): Parameters<GetNoteParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let note = rules.get_note(&me, p.channel_id).await?;
@@ -919,7 +921,7 @@ impl ChatServer {
         Parameters(p): Parameters<SendParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let message = rules.send(&me, p.channel_id, p.body).await?;
@@ -935,7 +937,7 @@ impl ChatServer {
         Parameters(p): Parameters<ReadParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let position = mcp_tools::position(p.after_id, p.before_id)?;
@@ -960,7 +962,7 @@ impl ChatServer {
         Parameters(p): Parameters<GetMessageParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let message = rules.get_message(&me, p.message_id).await?;
@@ -976,7 +978,7 @@ impl ChatServer {
         Parameters(p): Parameters<SearchParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let q = SearchQuery {
@@ -1003,7 +1005,7 @@ impl ChatServer {
         Parameters(p): Parameters<ActivityParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let rows = rules.activity(&me, p.after_id).await?;
@@ -1019,7 +1021,7 @@ impl ChatServer {
         Parameters(p): Parameters<WaitParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let out = async {
             let (rules, me) = self.me(&context, &p.token).await?;
             let q = WaitQuery {
