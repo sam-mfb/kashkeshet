@@ -1046,6 +1046,7 @@ dependencies = [
  "kkt-api-admin",
  "kkt-api-agent",
  "kkt-backup",
+ "kkt-backup-os",
  "kkt-browser",
  "kkt-client-command",
  "kkt-client-config",
@@ -1090,7 +1091,9 @@ dependencies = [
  "kkt-service-os",
  "kkt-service-systemd",
  "kkt-setup",
+ "kkt-setup-os",
  "kkt-shutdown",
+ "kkt-shutdown-os",
  "kkt-terminal-os",
  "kkt-toml",
  "kkt-watch",
@@ -1205,8 +1208,16 @@ name = "kkt-backup"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-scratch",
  "thiserror",
+]
+
+[[package]]
+name = "kkt-backup-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-backup",
+ "kkt-clock",
+ "kkt-scratch",
 ]
 
 [[package]]
@@ -1372,6 +1383,7 @@ dependencies = [
  "kkt-server",
  "kkt-server-listen",
  "kkt-shutdown",
+ "kkt-shutdown-os",
  "kkt-terminal-os",
  "kkt-web",
  "reqwest",
@@ -1441,6 +1453,7 @@ dependencies = [
  "kkt-server-keys-os",
  "kkt-server-listen",
  "kkt-shutdown",
+ "kkt-shutdown-os",
  "kkt-terminal-os",
  "kkt-web",
  "tokio",
@@ -1748,11 +1761,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-setup-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-setup",
+]
+
+[[package]]
 name = "kkt-shutdown"
 version = "0.10.0"
 dependencies = [
  "tokio",
  "tokio-util",
+]
+
+[[package]]
+name = "kkt-shutdown-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-shutdown",
+ "tokio",
 ]
 
 [[package]]
@@ -1825,6 +1853,7 @@ dependencies = [
  "kkt-server-keys-os",
  "kkt-server-listen",
  "kkt-shutdown",
+ "kkt-shutdown-os",
  "kkt-web",
  "tokio",
 ]
