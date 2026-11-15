@@ -1,7 +1,7 @@
 # Refactor plan
 
 This plan turns the code on `next` into the proposed crate map. The map's
-proposal (`proposed.json`, shown on the page) and `decisions.md` say what the
+proposal (`proposed.json`, which the scorecard compares the code with) and `decisions.md` say what the
 code should become. `principles/` and `CLAUDE.md` bind every step. The plan
 says in what order to get there, in steps small enough to review.
 
@@ -2038,6 +2038,11 @@ Each has the default we proceed on, so nothing waits.
 8. **The proposed map after the refactor.** Default: step 8.1 keeps the
    proposal as a record of what was planned, with the scorecard at the end,
    and the page's "Current" map shows the code. Accepted by Sam, 2026-11-12.
+   On 2026-11-15 Sam took the proposal off the page: the map is an
+   observation tool, not a planning tool, so it shows only the code, with
+   the rule checks computed on it beside the kind checks. The proposal's
+   files and the checks that rest on them (`propose.py --check`,
+   `progress.py`) stay.
 
 ## Final scorecard
 
