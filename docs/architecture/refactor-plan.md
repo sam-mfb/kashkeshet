@@ -14,7 +14,8 @@ measured; how parallel work avoids collisions; the steps; and what needs
 Sam, each with the default we proceed on.
 
 The refactor's phases 0 to 14 are done; phase 15 wraps three more
-libraries. After phase 8, Sam decided four
+libraries, and phase 16 (Sam, 2026-11-15) takes the mixed kinds of phases
+13 and 14 apart again and removes the `real` feature. After phase 8, Sam decided four
 more (2026-11-12). Phase 9 removed kkt-settings: each owner checks and words
 its own settings, and kkt-server takes them checked. Phase 10 moved the
 program's tools out of its library into two assemblies, kkt-operate and
@@ -1992,6 +1993,94 @@ and charted nowhere else.
 | 15.B | `schemars` only in kkt-mcp; this section | kkt-build-h | kkt-review-h |
 | 15.C | kkt-toml, and its users moved onto it | kkt-build-h | kkt-review-h |
 
+### Phase 16: one kind per crate, and no `real` feature (Sam, 2026-11-15)
+
+**Sam's decision** (msg 3367, from sage-cardinal). Remove the mixed kinds,
+then the `real` feature. A feature that keeps a contract or logic apart
+from its effect inside one crate is a non-standard middle ground. Crates
+do that job, and the compiler enforces them. This reverses phases 13 and
+14 on purpose.
+
+**The end state.**
+- Every crate is one kind: contract, logic, effect, composition or test
+  support. No crate is of kind "contract and effect" or "logic and effect".
+- No crate has a `real` feature.
+- Only programs depend on an effect crate (and the test exceptions listed
+  in `.github/scripts/real-exceptions.json`).
+
+**CLAUDE.md.** Its two paragraphs on merged crates ("Third-party tools and
+libraries" and "Logic and its effect"), and the sentences on merged crates
+in "Features", are superseded crate by crate as each step lands. Step 4
+removes them and rewrites "Features". `principles/` is not touched: Sam
+will revise it himself.
+
+**Rules for every step of phase 16.** The plan's rules hold. Besides:
+- No behaviour, message or MCP tool text changes. Existing installs keep
+  working.
+- Each pull request merges the tip of `refactor` first and keeps
+  `generate.py --check`, `check-programs.py` and `check-crates.sh` passing.
+- Until step 4, an effect crate a step creates keeps a `real` feature, so
+  the current checks hold.
+- A step that shows a problem with the plan stops, and says so in
+  #kkt-dev: Sam wants to know before going further.
+
+**The steps.**
+
+Step 1. Four crates move to the adapter model, one pull request each:
+
+| Crate | Consumer |
+|---|---|
+| kkt-client-command | kkt-client-config |
+| kkt-lane-commit | kkt-lane-files |
+| kkt-browser | kkt-container-docker (after 16.2 splits kkt-container) |
+| kkt-probe | kkt-diagnostics |
+
+For each, the consumer declares the contract it needs and takes over the
+test stand-in. The crate becomes a plain effect crate, with its own
+methods and no trait for others. The program gains a small adapter. The
+consumer no longer depends on the effect crate. Crates that only pass the
+dependency along (kkt-operate, kkt-agent-commands) name the consumer's
+contract. For kkt-probe, the records the checks are worded in (`Check`,
+`KeyFile`) belong with kkt-diagnostics; its builder posts the design in
+#kkt-dev before building it. kkt-browser comes last of the four, after
+16.2 splits kkt-container: only the Docker code uses `Browser`, so its
+consumer is kkt-container-docker, which declares the browser contract.
+
+Step 2. Three crates split into a contract crate and a named
+implementation, one pull request each:
+
+| Contract crate | Implementation |
+|---|---|
+| kkt-container | kkt-container-docker |
+| kkt-remote-access | kkt-remote-access-tailscale |
+| kkt-agent-client | kkt-agent-client-mcp |
+
+The contract crate keeps the name, the contract, its records and its
+stand-in. The implementation crate implements the contract directly, and
+the program injects it, as kkt-service and its two implementations do.
+
+Step 3. Five crates split into logic and an `-os` effect crate holding
+what is behind `real` today, as the eight existing `-os` crates do:
+kkt-backup, kkt-logs, kkt-setup, kkt-shutdown and kkt-server-keys.
+
+Step 4, last, after steps 1 to 3 have merged, by one builder:
+- drop the `real` feature from every crate; an effect crate's third-party
+  libraries become ordinary dependencies;
+- replace check-crates.sh's `real` rules with one: only a program, or a
+  listed test exception, depends on an effect crate;
+- remove the merged kinds from kinds.py, concerns.json and the map,
+  including the map's split box for mixed kinds;
+- rewrite CLAUDE.md's "Features" paragraph and remove its two paragraphs
+  on merged crates.
+
+| Step | What | Builds | Reviews |
+|---|---|---|---|
+| 16.0 | This section | kkt-build-i | kkt-review-h |
+| 16.1 | kkt-client-command, kkt-lane-commit, kkt-probe, then kkt-browser (after 16.2's kkt-container split), to the adapter model (after #546) | kkt-build-h | kkt-review-h |
+| 16.2 | kkt-container, kkt-remote-access, kkt-agent-client split (after 16.0) | kkt-build-i | kkt-review-h |
+| 16.3 | kkt-backup, kkt-logs, kkt-setup, kkt-shutdown, kkt-server-keys split (after 16.1, or 16.2 if it finishes first; the builders say in #kkt-dev who takes which) | kkt-build-h or kkt-build-i | kkt-review-h |
+| 16.4 | No `real` feature; the new effect rule; the merged kinds gone (after 16.1 to 16.3) | named by sage-cardinal | kkt-review-h |
+
 ## Order at a glance
 
 ```
@@ -2010,6 +2099,9 @@ lane A: 1.3 → 1.1 → 1.6 → 1.7    lane B: 1.2 → 1.4 → 1.5 → 1.9    an
   → 10.2a → 10.2b, with 10.3 beside them → 10.4 (charts 9 and 10)
 14.0 → 14.1 → 14.2 → 14.3 (kkt-build-d), 14.4 → 14.5 (kkt-build-e),
   one pull request at a time → 14.6
+15.B → 15.C
+16.0 → 16.1 (after 15.C) and 16.2 side by side, kkt-browser after
+  kkt-container's split → 16.3 → 16.4
 ```
 
 Three builders can work most of the time: one on phases 1 and 2, one on
