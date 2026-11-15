@@ -297,7 +297,7 @@
      "supplier_item": "OsHost"
     },
     {
-     "own": "ThisProgram, adapting kkt-setup::kkt_path",
+     "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -306,7 +306,7 @@
       }
      ],
      "note": "kkt connect",
-     "supplier": "kkt-setup",
+     "supplier": "kkt-setup-os",
      "supplier_item": "kkt_path"
     },
     {
@@ -494,7 +494,7 @@
      "note": "the program's own work, not another crate's implementation"
     },
     {
-     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup's files, behind real",
+     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
      "crate": "kkt-operate",
      "to": [
       {
@@ -502,7 +502,7 @@
        "param": "setup_files"
       }
      ],
-     "supplier": "kkt-setup"
+     "supplier": "kkt-setup-os"
     },
     {
      "own": "NativeKeyFiles, forwarding key files to kkt-server-keys and generation to kkt-entropy-os",

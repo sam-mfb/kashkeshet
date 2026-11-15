@@ -1086,6 +1086,7 @@ dependencies = [
  "kkt-service-os",
  "kkt-service-systemd",
  "kkt-setup",
+ "kkt-setup-os",
  "kkt-shutdown",
  "kkt-terminal-os",
  "kkt-toml",
@@ -1707,6 +1708,13 @@ dependencies = [
  "kkt-toml",
  "semver",
  "serde",
+]
+
+[[package]]
+name = "kkt-setup-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-setup",
 ]
 
 [[package]]
