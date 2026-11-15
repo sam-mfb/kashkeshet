@@ -79,7 +79,7 @@
       "kkt-shutdown::Shutdown",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ]
     }
    ],
@@ -533,7 +533,7 @@
      "supplier_item": "SqlitePlace"
     },
     {
-     "own": "NativeBackups, writing kkt-backup's layouts through its write, behind real, with this program's database copy",
+     "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os' write, with this program's database copy",
      "crate": "kkt-operate",
      "to": [
       {
@@ -541,7 +541,7 @@
        "param": "backups"
       }
      ],
-     "supplier": "kkt-backup",
+     "supplier": "kkt-backup-os",
      "supplier_item": "write"
     },
     {
@@ -716,7 +716,7 @@
       "kkt-server::build",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ]
     }
    ],
@@ -999,7 +999,7 @@
      "items": [
       "kkt-server::page",
       "kkt-server-listen::listen",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ]
     }
    ],

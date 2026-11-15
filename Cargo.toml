@@ -14,6 +14,7 @@ members = [
     "crates/kkt-api-operator",
     "crates/kkt-api-sim",
     "crates/kkt-backup",
+    "crates/kkt-backup-os",
     "crates/kkt-browser",
     "crates/kkt-client-command",
     "crates/kkt-client-config",
@@ -62,6 +63,7 @@ members = [
     "crates/kkt-service-systemd",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
+    "crates/kkt-shutdown-os",
     "crates/kkt-terminal-os",
     "crates/kkt-watch",
     "crates/kkt-web",
@@ -82,6 +84,7 @@ default-members = [
     "crates/kkt-api-operator",
     "crates/kkt-api-sim",
     "crates/kkt-backup",
+    "crates/kkt-backup-os",
     "crates/kkt-browser",
     "crates/kkt-client-command",
     "crates/kkt-client-config",
@@ -130,6 +133,7 @@ default-members = [
     "crates/kkt-service-systemd",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
+    "crates/kkt-shutdown-os",
     "crates/kkt-terminal-os",
     "crates/kkt-watch",
     "crates/kkt-web",
@@ -215,7 +219,8 @@ kkt-agent-client-mcp = { path = "crates/kkt-agent-client-mcp", features = ["real
 kkt-agent-commands = { path = "crates/kkt-agent-commands" }
 kkt-agent-files-os = { path = "crates/kkt-agent-files-os", features = ["real"] }
 kkt-api-agent = { path = "crates/kkt-api-agent" }
-kkt-backup = { path = "crates/kkt-backup", features = ["real"] }
+kkt-backup = { path = "crates/kkt-backup" }
+kkt-backup-os = { path = "crates/kkt-backup-os", features = ["real"] }
 kkt-browser = { path = "crates/kkt-browser", features = ["real"] }
 kkt-client-command = { path = "crates/kkt-client-command", features = ["real"] }
 kkt-client-config = { path = "crates/kkt-client-config" }
@@ -255,7 +260,8 @@ kkt-service-launchd = { path = "crates/kkt-service-launchd", features = ["real"]
 kkt-service-os = { path = "crates/kkt-service-os", features = ["real"] }
 kkt-service-systemd = { path = "crates/kkt-service-systemd", features = ["real"] }
 kkt-setup = { path = "crates/kkt-setup", features = ["real"] }
-kkt-shutdown = { path = "crates/kkt-shutdown", features = ["real"] }
+kkt-shutdown = { path = "crates/kkt-shutdown" }
+kkt-shutdown-os = { path = "crates/kkt-shutdown-os", features = ["real"] }
 kkt-terminal-os = { path = "crates/kkt-terminal-os", features = ["real"] }
 kkt-watch = { path = "crates/kkt-watch" }
 kkt-web = { path = "crates/kkt-web" }

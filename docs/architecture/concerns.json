@@ -274,9 +274,15 @@
   },
   "kkt-backup": {
    "layer": "operations",
-   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`); behind real, writing a layout and removing the old folders it chooses (`write`, `prune`).",
-   "must_not": "Read the clock or copy the database itself: the caller passes both; let a consumer reach `write` or `prune` without real.",
-   "kind": "logic and effect"
+   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
+   "must_not": "Read the clock or copy the database itself: the caller passes both.",
+   "kind": "logic"
+  },
+  "kkt-backup-os": {
+   "layer": "operations",
+   "concern": "Writing immutable backup layouts and removing old folders selected by the backup logic (`write`, `prune`).",
+   "must_not": "Choose backup names, contents, modes or retention.",
+   "kind": "effect"
   },
   "kkt-lane-files": {
    "layer": "operations",
@@ -366,9 +372,15 @@
   },
   "kkt-shutdown": {
    "layer": "foundations",
-   "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server; behind real, `StopSignals`, the operating system's stop signals, which stop it.",
-   "must_not": "Let a tokio-util or tokio signal type out of the crate; let a consumer reach `StopSignals` without real.",
-   "kind": "logic and effect"
+   "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value.",
+   "must_not": "Let a tokio-util type out of the crate.",
+   "kind": "logic"
+  },
+  "kkt-shutdown-os": {
+   "layer": "foundations",
+   "concern": "The operating system's stop signals (Ctrl-C, SIGTERM), stopping the shared `Shutdown` (`StopSignals`).",
+   "must_not": "Let a tokio signal type out of the crate.",
+   "kind": "effect"
   },
   "kkt-log": {
    "layer": "foundations",
