@@ -71,7 +71,7 @@ impl<'a, D> NativeOperate<'a, D> {
             login_link: &self.login_link,
             service: self.service.as_ref(),
             try_bind: &kkt_service_os::try_bind,
-            remote: &kkt_remote_access::Tailscale,
+            remote: &kkt_remote_access_tailscale::Tailscale,
             clients: &super::client_config::ClientHost,
             client_command: &super::client_config::ClaudeCommand,
             prober: &self.prober,

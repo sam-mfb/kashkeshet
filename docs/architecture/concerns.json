@@ -226,9 +226,15 @@
   },
   "kkt-remote-access": {
    "layer": "operations",
-   "concern": "The remote-sharing contract and stand-in, with Tailscale behind real; tool logic is tested over a private runner.",
-   "must_not": "Let tool details into the open contract; change login, DNS preferences, unrelated sharing, config or the service.",
-   "kind": "contract and effect"
+   "concern": "The remote-sharing contract (RemoteAccess, Node) and its stand-in.",
+   "must_not": "Let tool details into the contract.",
+   "kind": "contract"
+  },
+  "kkt-remote-access-tailscale": {
+   "layer": "operations",
+   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner, and the real command is behind real.",
+   "must_not": "Change login, DNS preferences, unrelated sharing, config or the service.",
+   "kind": "effect"
   },
   "kkt-client-config": {
    "layer": "operations",

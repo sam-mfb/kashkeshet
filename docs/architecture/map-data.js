@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a3236e5",
+ "commit": "3899eb4",
  "crates": [
   {
    "bins": [
@@ -11315,33 +11315,23 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kkt-remote-access",
-       "type": "Tailscale"
+       "type": "testing::Memory"
       },
       {
-       "crate": "kkt-remote-access",
-       "type": "testing::Memory"
+       "crate": "kkt-remote-access-tailscale",
+       "type": "Tailscale"
       }
      ],
      "trait": "RemoteAccess"
     }
    ],
-   "crate_doc": "Sharing this machine's server securely with clients on its private network.",
+   "crate_doc": "Sharing this machine's server securely with clients on its private network, as a contract: `RemoteAccess`, `Node`, and a stand-in behind `testing`.",
    "dev_only": false,
    "features": {
-    "real": [
-     "dep:serde",
-     "dep:serde_json"
-    ],
     "testing": []
    },
    "holders": [],
    "implements": [
-    {
-     "crate": "kkt-remote-access",
-     "trait": "RemoteAccess",
-     "trait_crate": "kkt-remote-access",
-     "type": "Tailscale"
-    },
     {
      "crate": "kkt-remote-access",
      "trait": "RemoteAccess",
@@ -11370,12 +11360,6 @@ window.KKT_GRAPH = {
      "path": "RemoteAccess"
     },
     {
-     "doc": "Shares this machine's server through its existing Tailscale login.",
-     "feature": "real",
-     "kind": "struct",
-     "path": "Tailscale"
-    },
-    {
      "doc": "Remote sharing in memory for consumers' tests, without network or processes.",
      "feature": "testing",
      "kind": "mod",
@@ -11392,13 +11376,53 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_remote_access",
+   "machine_work": {},
+   "name": "kkt-remote-access",
+   "optional_third_party": {},
+   "path": "crates/kkt-remote-access",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login: `Tailscale` implements kkt-remote-access's `RemoteAccess`.",
+   "dev_only": false,
+   "features": {
+    "real": [
+     "dep:serde",
+     "dep:serde_json"
+    ]
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-remote-access-tailscale",
+     "trait": "RemoteAccess",
+     "trait_crate": "kkt-remote-access",
+     "type": "Tailscale"
+    }
+   ],
+   "items": [
+    {
+     "doc": "Shares this machine's server through its existing Tailscale login.",
+     "feature": "real",
+     "kind": "struct",
+     "path": "Tailscale"
+    }
+   ],
+   "lib": "kkt_remote_access_tailscale",
    "machine_work": {
-    "src/tailscale/runner.rs": [
+    "src/runner.rs": [
      "process::Command::new",
      "process::Stdio::null"
     ]
    },
-   "name": "kkt-remote-access",
+   "name": "kkt-remote-access-tailscale",
    "optional_third_party": {
     "serde": [
      "real"
@@ -11407,11 +11431,8 @@ window.KKT_GRAPH = {
      "real"
     ]
    },
-   "path": "crates/kkt-remote-access",
-   "real_files": [
-    "src/tailscale.rs",
-    "src/tailscale/runner.rs"
-   ],
+   "path": "crates/kkt-remote-access-tailscale",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -17704,7 +17725,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-remote-access"
+   "to": "kkt-remote-access-tailscale"
   },
   {
    "features": [],
@@ -23574,6 +23595,34 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-remote-access-tailscale",
+   "items": [
+    "Node",
+    "RemoteAccess"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Tailscale implements RemoteAccess"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Node"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-remote-access"
+  },
+  {
+   "features": [],
    "from": "kkt-rules",
    "items": [
     "Admin",
@@ -26797,10 +26846,16 @@ window.KKT_CONCERNS = {
    "must_not": "Store the run record: kkt-rules' `start` does."
   },
   "kkt-remote-access": {
-   "concern": "The remote-sharing contract and stand-in, with Tailscale behind real; tool logic is tested over a private runner.",
-   "kind": "contract and effect",
+   "concern": "The remote-sharing contract (RemoteAccess, Node) and its stand-in.",
+   "kind": "contract",
    "layer": "operations",
-   "must_not": "Let tool details into the open contract; change login, DNS preferences, unrelated sharing, config or the service."
+   "must_not": "Let tool details into the contract."
+  },
+  "kkt-remote-access-tailscale": {
+   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner, and the real command is behind real.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Change login, DNS preferences, unrelated sharing, config or the service."
   },
   "kkt-rules": {
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm; and starting them for a server run (`start`), which records the run first.",
@@ -27760,7 +27815,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-remote-access::Tailscale",
+     "impl": "kkt-remote-access-tailscale::Tailscale",
      "note": "The program injects the sharing implementation directly into the operator assembly.",
      "to": [
       {
