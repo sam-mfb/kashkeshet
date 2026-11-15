@@ -1,7 +1,9 @@
 //! The lane folder on this machine's disk and git, which kkt-operate's lane
-//! commands take (`LaneDisk`), and tests of those commands over this
+//! commands take (`LaneDisk`, `LaneGit`), and tests of those commands over this
 //! program's real parts.
+mod commit;
 mod disk;
+pub(crate) use commit::LaneGit;
 pub(crate) use disk::LaneDisk;
 #[cfg(test)]
 use kkt_machine::{Env, Platform};

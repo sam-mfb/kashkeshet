@@ -25,7 +25,7 @@ pub struct NativeOperate<'a, D = ()> {
     login_link: crate::terminal::browser_login::TerminalLink,
     /// Docker and Compose, opening a sharing setup's login link with the
     /// system's own opener.
-    docker: kkt_container::Docker,
+    docker: kkt_container_docker::Docker,
 }
 
 impl<'a> NativeOperate<'a> {
@@ -38,7 +38,7 @@ impl<'a> NativeOperate<'a> {
             service: super::service::for_this_os(env),
             prober: super::diagnostics::prober(),
             login_link: crate::terminal::browser_login::TerminalLink::new(),
-            docker: kkt_container::Docker::new(Box::new(kkt_browser::SystemBrowser::new())),
+            docker: kkt_container_docker::Docker::new(Box::new(kkt_browser::SystemBrowser::new())),
         }
     }
 
@@ -71,12 +71,12 @@ impl<'a, D> NativeOperate<'a, D> {
             login_link: &self.login_link,
             service: self.service.as_ref(),
             try_bind: &kkt_service_os::try_bind,
-            remote: &kkt_remote_access::Tailscale,
+            remote: &kkt_remote_access_tailscale::Tailscale,
             clients: &super::client_config::ClientHost,
             client_command: &super::client_config::ClaudeCommand,
             prober: &self.prober,
             lanes: &crate::commands::lanes::LaneDisk,
-            lane_commit: &kkt_lane_commit::Git,
+            lane_commit: &crate::commands::lanes::LaneGit,
             lines: &crate::terminal::TerminalLines,
             config_file: &NativeConfigText,
             connection: &self.connection,
@@ -352,6 +352,6 @@ impl kkt_operate::ConfigText for NativeConfigText {
 pub(crate) struct NativeBackups;
 impl BackupWriter for NativeBackups {
     fn write(&self, folder: &Path, layout: &kkt_backup::Layout<'_>) -> Result<PathBuf, String> {
-        kkt_backup::write(folder, layout, super::database::copy)
+        kkt_backup_os::write(folder, layout, super::database::copy)
     }
 }

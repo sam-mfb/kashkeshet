@@ -1,6 +1,6 @@
 [package]
 name = "kkt-container"
-description = "The container installation contract and its Docker implementation"
+description = "The container installation contract, with a stand-in for tests"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,24 +9,12 @@ publish = false
 
 [features]
 testing = []
-real = ["dep:kkt-browser", "dep:kkt-config-file", "dep:kkt-machine", "dep:serde_json", "dep:thiserror"]
 
 [dependencies]
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
 kkt-names = { path = "../kkt-names" }
-kkt-browser = { path = "../kkt-browser", optional = true }
-kkt-config-file = { path = "../kkt-config-file", optional = true }
-kkt-machine = { path = "../kkt-machine", optional = true }
-serde_json = { workspace = true, optional = true }
-thiserror = { workspace = true, optional = true }
 
 [dev-dependencies]
-kkt-browser = { path = "../kkt-browser" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-config-file = { path = "../kkt-config-file" }
-kkt-machine = { path = "../kkt-machine" }
-kkt-scratch = { path = "../kkt-scratch" }
-serde_json.workspace = true
-thiserror.workspace = true
 tokio.workspace = true

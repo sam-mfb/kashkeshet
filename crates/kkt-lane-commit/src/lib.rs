@@ -1,8 +1,7 @@
-//! The commit a lane folder is at: [`LaneCommit`], which `kkt lanes import`
-//! asks so the lane versions it saves record where they came from, and its
-//! one implementation, `Git` (behind `real`), which only the program turns
-//! on and injects. Consumers depend on this crate without `real`, so they
-//! see the contract alone.
+//! The commit a lane folder is at, as the machine's git says: `Git`
+//! (behind `real`), which `kkt lanes import` asks so the lane versions it
+//! saves record where they came from. It declares no contract: the program
+//! adapts `Git` to the one kkt-lane-files declares.
 //!
 //! `Git` runs `git -C <folder>` in the C locale and reads its answers. Only
 //! an expected absence is "no commit": the folder is in no git repository,
@@ -10,31 +9,25 @@
 //! installed. Any other failure is an error carrying git's own message.
 //! What the answers mean is tested over a private runner, without `real`.
 
+#[cfg(feature = "real")]
 use std::io;
+#[cfg(feature = "real")]
 use std::path::Path;
 
 #[cfg(any(feature = "real", test))]
 mod git;
-
-/// The commit a lane folder is at.
-pub trait LaneCommit {
-    /// The commit checked out where `folder` is, with `-dirty` added when
-    /// files in `folder` differ from it; `None` when `folder` is not in a
-    /// checkout (or one with no commit yet), the tool ignores it, or the tool
-    /// is not installed. Any other failure is an error saying what failed.
-    fn commit(&self, folder: &Path) -> io::Result<Option<String>>;
-}
 
 /// The machine's git, asked where a lane folder is.
 #[cfg(feature = "real")]
 pub struct Git;
 
 #[cfg(feature = "real")]
-impl LaneCommit for Git {
-    fn commit(&self, folder: &Path) -> io::Result<Option<String>> {
+impl Git {
+    /// The commit checked out where `folder` is, with `-dirty` added when
+    /// files in `folder` differ from it; `None` when `folder` is not in a
+    /// checkout (or one with no commit yet), git ignores it, or git is not
+    /// installed. Any other failure is an error carrying git's own message.
+    pub fn commit(&self, folder: &Path) -> io::Result<Option<String>> {
         git::commit(&git::OsGit, folder)
     }
 }
-
-#[cfg(any(test, feature = "testing"))]
-pub mod testing;

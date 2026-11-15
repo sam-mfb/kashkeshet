@@ -30,27 +30,27 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **New contract crates.** `kkt-api-agent` (`Api` and its areas, and the records every level shares, including `SwarmId`, `Actor`, `Operator`, `Audit`, `RuleError` and `Code`, which were kkt-rules'), `kkt-api-operator` (`OperatorApi`, with `Views`, `Changes`, `Lanes` and `Server`) and `kkt-api-admin` (`AdminApi`), all implemented by `kkt_rules::Rules`; `kkt-entropy` (`Entropy` and its stand-ins, from kkt-names); `kkt-log` (`Log`, the structured log that kkt-mcp, kkt-web and kkt-server now take in place of `tracing`); and `kkt-machine` (`Env` and `Platform`, as plain values; kkt-machine-os' `env()` and `platform()` read them for this process). `kkt-clock` keeps `Clock` and the time types, and `SystemClock` moves to `kkt-clock-system`.
 - **New logic crates.** `kkt-hash` (`sha256`), `kkt-search` (search's words, terms and excerpts, from kkt-db), `kkt-identity-keymode` (`KeyMode`, from kkt-identity, which keeps `Identify`) and `kkt-config-file` (the config file's format, from kkt-settings). `kkt-api-sim` is new test support: the simulated application, for tests and the page preview, behind `testing`.
 - **Container contract and implementation.** `kkt-container::Container`
-  replaces its command-level `Host` and free functions. `kkt-container::Docker`
-  (behind `real`) implements it in the same crate, with no program adapter;
-  `kkt-container-os` and the intermediate `kkt-container-docker` go.
-  Consumers without `real` keep the contract and its `testing::Memory`
-  stand-in without Docker's dependencies. Files, commands and messages are
+  replaces its command-level `Host` and free functions.
+  `kkt_container_docker::Docker` (behind `real`) implements it, in a crate
+  of its own, with no program adapter; `kkt-container-os` goes.
+  `kkt-container` holds the contract and its `testing::Memory` stand-in
+  alone, without Docker's dependencies. Files, commands and messages are
   unchanged; this changes the shared Rust API.
 - **Remote sharing contract and implementation.**
   `kkt-remote-access::RemoteAccess` replaces its command-level `Host` and free
-  functions. `kkt-remote-access::Tailscale` (behind `real`) implements it in
-  the same crate; `kkt-remote-access-os` and the intermediate
-  `kkt-remote-access-tailscale` go. The program injects it directly, with no
-  adapter. The contract and `testing::Memory` need no parsing dependencies;
-  serde and serde_json are optional under `real`. Files, commands and messages
-  are unchanged; this changes the shared Rust implementation path.
+  functions. `kkt_remote_access_tailscale::Tailscale` (behind `real`)
+  implements it, in a crate of its own; `kkt-remote-access-os` goes. The
+  program injects it directly, with no adapter. `kkt-remote-access` holds the
+  contract and `testing::Memory` alone, with no third-party dependency.
+  Files, commands and messages are unchanged; this changes the shared Rust
+  implementation path.
 
 - **Agent client contract.** `kkt-agent-client` is now the contract for a
   client of kkt's server: `Servers`, `Avatars` and `Watched`, with `Address`
   and the records and `Failure` it already had, and `testing::Memory`.
   Its one implementation, over MCP (`Mcp`, `Client`, `Remote`,
-  `AdminRemote`, `Http`, `HttpReply`; behind `real`), is in the same crate,
-  with `Settings`.
+  `AdminRemote`, `Http`, `HttpReply`; behind `real`), is in
+  `kkt-agent-client-mcp`, with `Settings`.
   The credential and watch-state files move to `kkt-agent-files-os`.
   kkt-watch's `Server`, `Channel`, `Message`, `Waited`, `NewerLane` and
   `Failure`, and kkt-agent-commands' `Servers`, `Avatars`, `Address`,
@@ -98,10 +98,10 @@ The shared crates are reorganized so that every dependency is injected and each 
   setup's login link opens. `kkt-browser::SystemBrowser` (behind `real`)
   implements it with `open` or `xdg-open`, moved from kkt-terminal-os.
   `kkt_container::LoginLink` and kkt-terminal-os' `BrowserLink` keep only
-  `show` and `open_requested`; `kkt_container::Docker` is now built
+  `show` and `open_requested`; `kkt_container_docker::Docker` is now built
   with `Docker::new(browser)`. Messages are unchanged.
-- **Effects in `-os` crates.** What touches the machine moves out of each crate's `real` feature into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os` and `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`). A logic crate has a `real` feature only where its effect has rejoined it, as the next entry says.
-- **Logic and its effect in one crate.** Where an `-os` crate only carried out its logic crate's plans, the two are one crate again, the effect behind `real`, which only programs turn on: a crate that depends on it without `real` gets the logic alone. `kkt-backup-os` is merged into `kkt-backup`: `kkt_backup::write` and `kkt_backup::prune` (behind `real`) replace `kkt_backup_os::write` and `prune`, unchanged. `kkt-shutdown-os` is merged into `kkt-shutdown`: `kkt_shutdown::StopSignals` (behind `real`, which turns on tokio) replaces `kkt_shutdown_os::StopSignals`, unchanged. Messages and file modes are unchanged.
+- **Effects in `-os` crates.** What touches the machine moves out of each crate's `real` feature into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os`, `kkt-shutdown-os` (`StopSignals`, from kkt-shutdown, which keeps `Shutdown`), `kkt-backup-os` (`write` and `prune`; kkt-backup keeps the layouts) and `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`). A logic crate has a `real` feature only where its effect has rejoined it, as the next entry says.
+- **Logic and its effect in one crate.** Where an `-os` crate only carried out its logic crate's plans, the two are one crate again, the effect behind `real`, which only programs turn on: a crate that depends on it without `real` gets the logic alone. Messages and file modes are unchanged.
 - **Logs.** `kkt-logs-os` is gone. Its file writer, `RotatingFile`, is now
   kkt-logs' (behind `real`), with `open_log_file(path, policy, clock)`,
   which checks the policy and opens the file, as `init_logging` did. Its
@@ -144,6 +144,7 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **The output format.** `kkt_mcp_formatter::Format` no longer derives serde's `Deserialize` or schemars' `JsonSchema`, and kkt-mcp-formatter no longer depends on either. kkt-mcp, which wraps the MCP library, reads the tools' `format` parameter with a type of its own and turns it into `Format`. The tools' parameters and descriptions are unchanged.
 - **TOML.** A new logic crate, `kkt-toml`, is the only one that uses the `toml` and `toml_edit` libraries. It parses TOML text into its own tree of values (`parse`, `Table`, `Value`), reads and writes typed records (`read`, `write`), and edits a document while keeping its comments (`Document`), with errors of its own (`ParseError`, `Place`, `WriteError`, `EditError`). kkt-config-file, kkt-client-config, kkt-setup and kkt-mcp's build script use it, and no longer depend on `toml` or `toml_edit`. Their public items, and every message they give, are unchanged.
 - **A client's own command.** `ClientCommand` is now kkt-client-config's (`kkt_client_config::ClientCommand`), with its stand-in `kkt_client_config::testing::Recorder` and `Call` behind kkt-client-config's new `testing` feature. kkt-client-command declares no contract: `kkt_client_command::Claude` (behind `real`) has `remove_server` and `add_server` as its own methods, and a program adapts it to `ClientCommand`. kkt-client-command has no `testing` feature. The commands run and every message are unchanged.
+- **A lane folder's commit.** `LaneCommit` is now kkt-lane-files' (`kkt_lane_files::LaneCommit`), with its stand-in `kkt_lane_files::testing::Memory` behind kkt-lane-files' new `testing` feature. kkt-lane-commit declares no contract and has no `testing` feature: `kkt_lane_commit::Git` (behind `real`) has `commit` as its own method, and a program adapts it to `LaneCommit`. The commands run and every message are unchanged.
 
 ### What affects existing setups
 - **JSON client configs keep their key order.** The next `kkt connect`, `kkt switch` or `kkt setup` that changes an OpenCode, Antigravity or Muse Code config leaves its keys in their order instead of sorting them. A file an older kkt already sorted stays sorted. The settings in it are the same either way.
