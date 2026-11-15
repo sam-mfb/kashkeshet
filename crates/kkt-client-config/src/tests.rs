@@ -100,10 +100,8 @@ fn a_malformed_codex_config_names_the_parsers_reason() {
     let cause = error
         .strip_prefix(&format!("invalid Codex TOML in {}: ", path.display()))
         .unwrap_or_else(|| panic!("{error}"));
-    let reason = text
-        .parse::<toml_edit::DocumentMut>()
-        .expect_err("malformed");
-    let first = reason.message().lines().next().expect("reason").trim();
+    let reason = kkt_toml::Document::parse(&text).expect_err("malformed");
+    let first = reason.reason().lines().next().expect("reason").trim();
     assert!(!first.is_empty());
     assert!(cause.starts_with(first), "{error}");
     assert!(cause.contains(" at line 2, column "), "{error}");

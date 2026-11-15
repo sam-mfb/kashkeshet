@@ -124,14 +124,14 @@ fn codex_merge_preserves_comments_other_servers_and_options_and_is_idempotent() 
     clients::configure(Client::Codex, &setup, true, &ClientHost, &Claude).expect("write");
     let first = std::fs::read_to_string(&file).expect("config");
     assert!(first.contains("# keep my comment"));
-    let parsed: toml::Value = toml::from_str(&first).expect("TOML");
+    let parsed = serde_json::to_value(kkt_toml::parse(&first).expect("TOML")).expect("JSON");
     assert_eq!(parsed["model"].as_str(), Some("custom"));
     assert_eq!(
         parsed["mcp_servers"]["other"]["command"].as_str(),
         Some("other")
     );
     assert_eq!(
-        parsed["mcp_servers"]["kkt"]["tool_timeout_sec"].as_integer(),
+        parsed["mcp_servers"]["kkt"]["tool_timeout_sec"].as_i64(),
         Some(91)
     );
     assert!(
@@ -479,7 +479,8 @@ fn codex_accepts_inline_server_tables_without_losing_existing_entries() {
     };
     clients::configure(Client::Codex, &setup, true, &ClientHost, &Claude).expect("inline write");
     let contents = std::fs::read_to_string(file).expect("config");
-    let parsed: toml::Value = toml::from_str(&contents).expect("valid TOML");
+    let parsed =
+        serde_json::to_value(kkt_toml::parse(&contents).expect("valid TOML")).expect("JSON");
     assert_eq!(
         parsed["mcp_servers"]["other"]["url"].as_str(),
         Some("https://other/mcp")

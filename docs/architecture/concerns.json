@@ -417,6 +417,12 @@
    "kind": "effect",
    "concern": "Trying whether the service's server could listen on its address (`try_bind`), which the program passes to kkt-service's bind check.",
    "must_not": "Decide what the answer means, or work a service manager."
+  },
+  "kkt-toml": {
+   "layer": "foundations",
+   "concern": "TOML text, in kkt's terms: parsing it into a tree of values (`parse`, `Table`, `Value`), reading a typed record from it and writing one back (`read`, `write`), and editing a document with its comments and layout kept (`Document`, `TableMut`, `ListMut`, `Found`, `IfMissing`, `EditError`). Its errors are its own and say where in the text the problem is (`ParseError`, `Place`, `WriteError`). The one crate that uses toml and toml_edit (phase 15); its users depend on it directly.",
+   "must_not": "Let a toml or toml_edit type into its public items; know whose file it reads.",
+   "kind": "logic"
   }
  },
  "kinds": [

@@ -11,9 +11,9 @@ use super::formats::{object, parse_json, parse_toml};
 use super::order;
 use super::{Client, Host, files};
 use kkt_machine::Env;
+use kkt_toml::{EditError, Found, IfMissing};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
-use toml_edit::value;
 
 /// Claude Code's settings folder when `$CLAUDE_CONFIG_DIR` is not set,
 /// under the home directory.
@@ -314,28 +314,27 @@ fn codex_config(text: Option<&str>) -> Result<Change, String> {
     let text = text.ok_or_else(missing)?;
     let mut document = parse_toml(text)
         .map_err(|e| format!("invalid Codex TOML; the file was not changed: {e}"))?;
-    // Looked up through tables: indexing an item adds the key if missing.
-    let entry = document
-        .as_table_mut()
-        .get_mut("mcp_servers")
-        .and_then(|servers| servers.as_table_like_mut())
-        .and_then(|servers| servers.get_mut(SERVER))
-        .ok_or_else(missing)?
-        .as_table_like_mut()
-        .ok_or("mcp_servers.kkt must be a TOML table")?;
+    let mut entry = document
+        .table_mut(&["mcp_servers", SERVER], IfMissing::Refuse)
+        .map_err(|e| match e {
+            EditError::NotATable { path } if path.len() == 2 => {
+                "mcp_servers.kkt must be a TOML table".to_string()
+            }
+            _ => missing(),
+        })?;
     let (name, approve) = CODEX_APPROVAL;
-    if let Some(mode) = entry.get(name) {
+    if let Some(mode) = entry.find(name) {
         let mut kept = Vec::new();
-        if mode.as_str() != Some(approve) {
-            let mode = mode.as_value().map(|v| v.to_string());
+        if mode != Found::Text(approve.to_string()) {
+            let mode = entry.written(name);
             let mode = mode.as_deref().map(str::trim).unwrap_or("a table");
             kept.push(format!("{name} = {mode}"));
         }
         return Ok(Change { text: None, kept });
     }
-    entry.insert(name, value(approve));
+    entry.set_text(name, approve);
     Ok(Change {
-        text: Some(document.to_string()),
+        text: Some(document.text()),
         kept: Vec::new(),
     })
 }
@@ -510,6 +509,59 @@ mod tests {
             let error = codex_config(text).expect_err("no kkt server");
             assert!(error.contains("connect it first"), "{error}");
         }
+    }
+
+    /// What Codex's approval setting reports and refuses, word for word,
+    /// as before kkt-toml: a kept mode as the file writes it (a comment
+    /// after it included), a section as "a table", and each refusal at its
+    /// level.
+    #[test]
+    fn codex_reports_a_kept_mode_and_refuses_each_level_as_before() {
+        let kept = |text: &str| codex_config(Some(text)).map(|change| change.kept);
+        let entry = "[mcp_servers.kkt]\nurl = \"http://a/mcp\"\n";
+        assert_eq!(
+            kept(&format!(
+                "{entry}default_tools_approval_mode = \"prompt\" # mine\n"
+            )),
+            Ok(vec![
+                "default_tools_approval_mode = \"prompt\" # mine".to_string()
+            ])
+        );
+        assert_eq!(
+            kept(&format!("{entry}default_tools_approval_mode = [1, 2]\n")),
+            Ok(vec!["default_tools_approval_mode = [1, 2]".to_string()])
+        );
+        assert_eq!(
+            kept(&format!(
+                "{entry}default_tools_approval_mode = {{ a = 1 }}\n"
+            )),
+            Ok(vec!["default_tools_approval_mode = { a = 1 }".to_string()])
+        );
+        assert_eq!(
+            kept(&format!(
+                "{entry}[mcp_servers.kkt.default_tools_approval_mode]\n"
+            )),
+            Ok(vec!["default_tools_approval_mode = a table".to_string()])
+        );
+        assert_eq!(
+            kept(&format!(
+                "{entry}default_tools_approval_mode = \"approve\" # yes\n"
+            )),
+            Ok(vec![])
+        );
+        let missing = "Codex has no kkt server here; connect it first".to_string();
+        assert_eq!(kept("mcp_servers = 1\n"), Err(missing.clone()));
+        assert_eq!(kept("[mcp_servers]\nother = 1\n"), Err(missing));
+        assert_eq!(
+            kept("[mcp_servers]\nkkt = 1\n"),
+            Err("mcp_servers.kkt must be a TOML table".to_string())
+        );
+        assert_eq!(
+            codex_config(Some("mcp_servers = { kkt = { url = \"u\" } }\n"))
+                .expect("inline tables")
+                .text,
+            Some("mcp_servers = { kkt = { url = \"u\" , default_tools_approval_mode = \"approve\" } }\n".to_string())
+        );
     }
 
     #[test]

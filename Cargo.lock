@@ -1088,6 +1088,7 @@ dependencies = [
  "kkt-setup",
  "kkt-shutdown",
  "kkt-terminal-os",
+ "kkt-toml",
  "kkt-watch",
  "kkt-web",
  "reqwest",
@@ -1095,7 +1096,6 @@ dependencies = [
  "rusqlite",
  "serde_json",
  "tokio",
- "toml",
  "tracing",
 ]
 
@@ -1215,9 +1215,9 @@ dependencies = [
  "kkt-client-command",
  "kkt-machine",
  "kkt-server-keys",
+ "kkt-toml",
  "serde",
  "serde_json",
- "toml_edit",
 ]
 
 [[package]]
@@ -1246,9 +1246,8 @@ dependencies = [
 name = "kkt-config-file"
 version = "0.10.0"
 dependencies = [
+ "kkt-toml",
  "thiserror",
- "toml",
- "toml_edit",
 ]
 
 [[package]]
@@ -1494,13 +1493,13 @@ dependencies = [
  "kkt-names",
  "kkt-rules",
  "kkt-shutdown",
+ "kkt-toml",
  "rmcp",
  "schemars",
  "serde",
  "serde_json",
  "tokio",
  "tokio-util",
- "toml",
  "tower",
 ]
 
@@ -1708,9 +1707,9 @@ dependencies = [
  "kkt-machine",
  "kkt-names",
  "kkt-server-keys",
+ "kkt-toml",
  "semver",
  "serde",
- "toml",
 ]
 
 [[package]]
@@ -1726,6 +1725,17 @@ name = "kkt-terminal-os"
 version = "0.10.0"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "kkt-toml"
+version = "0.10.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "toml",
+ "toml_edit",
 ]
 
 [[package]]
