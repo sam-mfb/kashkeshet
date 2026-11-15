@@ -1,5 +1,5 @@
 use super::prune;
-use crate::{Contents, DATABASE_FILE, layout, name};
+use kkt_backup::{Contents, DATABASE_FILE, layout, name};
 use kkt_clock::{Span, Time};
 use std::path::{Path, PathBuf};
 

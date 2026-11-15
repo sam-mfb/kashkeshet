@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "4aee85d",
+ "commit": "29460b6",
  "crates": [
   {
    "bins": [
@@ -551,13 +551,13 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "kkt_setup::kkt_path",
+     "from": "kkt_setup_os::kkt_path",
      "kind": "fn",
      "path": "process::kkt_path"
     },
     {
      "doc": "",
-     "from": "kkt_setup::program_path",
+     "from": "kkt_setup_os::program_path",
      "kind": "fn",
      "path": "process::program_path"
     },
@@ -3515,9 +3515,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Backup layouts, names, file modes and pruning choices, with no file I/O.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
@@ -3600,7 +3598,33 @@ window.KKT_GRAPH = {
      "doc": "Finished backup names to remove, oldest first.",
      "kind": "fn",
      "path": "old_names"
-    },
+    }
+   ],
+   "lib": "kkt_backup",
+   "machine_work": {},
+   "name": "kkt-backup",
+   "optional_third_party": {},
+   "path": "crates/kkt-backup",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "thiserror"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Writes backup layouts and removes old backup folders selected by the backup logic.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
     {
      "doc": "Lists the folder, asks the backup logic which names are old, and removes only those.",
      "feature": "real",
@@ -3614,9 +3638,9 @@ window.KKT_GRAPH = {
      "path": "write"
     }
    ],
-   "lib": "kkt_backup",
+   "lib": "kkt_backup_os",
    "machine_work": {
-    "src/files.rs": [
+    "src/lib.rs": [
      "fs",
      "fs::DirBuilder",
      "fs::DirBuilder::new",
@@ -3634,18 +3658,14 @@ window.KKT_GRAPH = {
      "Path::exists"
     ]
    },
-   "name": "kkt-backup",
+   "name": "kkt-backup-os",
    "optional_third_party": {},
-   "path": "crates/kkt-backup",
-   "real_files": [
-    "src/files.rs"
-   ],
+   "path": "crates/kkt-backup-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": [
-    "thiserror"
-   ]
+   "third_party": []
   },
   {
    "bins": [],
@@ -13708,7 +13728,6 @@ window.KKT_GRAPH = {
    "crate_doc": "`kkt setup`: what this machine is set up as (a server run as a service, a server in Docker, or a client of a server elsewhere), the record that says so, and what follows from it: whether `kkt serve` may run here, and which server this ma...",
    "dev_only": false,
    "features": {
-    "real": [],
     "testing": []
    },
    "holders": [
@@ -14164,12 +14183,6 @@ window.KKT_GRAPH = {
      "path": "UpgradePlan"
     },
     {
-     "doc": "Resolves a relative path against this process's working directory.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "absolute"
-    },
-    {
      "doc": "An access key may keep its old name, but cannot also be the admin key.",
      "kind": "fn",
      "path": "admin_key_collision"
@@ -14238,12 +14251,6 @@ window.KKT_GRAPH = {
      "doc": "What `kkt backup` backs up, given the recorded `mode` (`None` with no record), the folder given (`into`) and whether `--db` or `--config` was given (`local_options`).",
      "kind": "fn",
      "path": "backup_of"
-    },
-    {
-     "doc": "Follows links and resolves the actual file path.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "canonicalize"
     },
     {
      "doc": "One key per server, so another server's saved key is never replaced.",
@@ -14458,12 +14465,6 @@ window.KKT_GRAPH = {
      "path": "key_fix"
     },
     {
-     "doc": "This program's absolute path, for client configurations that run it.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "kkt_path"
-    },
-    {
      "doc": "The report of a lane import, and the Docker limit when no install is present.",
      "kind": "mod",
      "path": "lane_reports"
@@ -14497,45 +14498,9 @@ window.KKT_GRAPH = {
      "path": "lanes_on"
     },
     {
-     "doc": "Makes the default database's parent folder.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "make_data_folder"
-    },
-    {
-     "doc": "Whether a program is a file in the already-captured PATH folders.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "on_path"
-    },
-    {
      "doc": "Where this machine's key of `kind` is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
      "kind": "fn",
      "path": "operator_key"
-    },
-    {
-     "doc": "One snapshot of PATH, shared by all client checks in a setup invocation.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "path_dirs"
-    },
-    {
-     "doc": "This program's absolute path, with links followed.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "program_path"
-    },
-    {
-     "doc": "Reads the setup record from the selected config folder, if present.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "read_record"
-    },
-    {
-     "doc": "Reads the unfinished note; the caller checks whether its install is present.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "read_unfinished"
     },
     {
      "doc": "Where the setup record is: `setup.toml` in kkt's config directory, `config_dir`, beside the config file and the access key.",
@@ -14551,18 +14516,6 @@ window.KKT_GRAPH = {
      "doc": "This machine's setup record.",
      "kind": "fn",
      "path": "recorded_setup"
-    },
-    {
-     "doc": "Removes the setup record; missing files retain the caller's original refusal.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "remove_record"
-    },
-    {
-     "doc": "Removes the unfinished note, accepting an already-missing file.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "remove_unfinished"
     },
     {
      "doc": "Runs `kkt setup`: asks what `answers` leaves open, sets the machine up, checks the connection, connects clients, and records it.",
@@ -14701,42 +14654,14 @@ window.KKT_GRAPH = {
      "doc": "",
      "kind": "fn",
      "path": "web_key_line"
-    },
-    {
-     "doc": "Saves the setup record with the original write-then-rename operation.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "write_record"
-    },
-    {
-     "doc": "Saves the unfinished note with the same write-then-rename operation.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "write_unfinished"
     }
    ],
    "lib": "kkt_setup",
-   "machine_work": {
-    "src/files.rs": [
-     "env::current_exe",
-     "env::split_paths",
-     "env::var_os",
-     "fs::create_dir_all",
-     "fs::read_to_string",
-     "fs::remove_file",
-     "fs::rename",
-     "fs::write",
-     "path::absolute",
-     "Path::canonicalize",
-     "Path::is_file"
-    ]
-   },
+   "machine_work": {},
    "name": "kkt-setup",
    "optional_third_party": {},
    "path": "crates/kkt-setup",
-   "real_files": [
-    "src/files.rs"
-   ],
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -14838,13 +14763,125 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "A signal that the server is stopping.",
+   "crate_doc": "Setup's record and unfinished note, data folder and program paths on this machine.",
    "dev_only": false,
    "features": {
-    "real": [
-     "dep:tokio"
+    "real": []
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "Resolves a relative path against this process's working directory.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "absolute"
+    },
+    {
+     "doc": "Follows links and resolves the actual file path.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "canonicalize"
+    },
+    {
+     "doc": "This program's absolute path, for client configurations that run it.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "kkt_path"
+    },
+    {
+     "doc": "Makes the default database's parent folder.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "make_data_folder"
+    },
+    {
+     "doc": "Whether a program is a file in the already-captured PATH folders.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "on_path"
+    },
+    {
+     "doc": "One snapshot of PATH, shared by all client checks in a setup invocation.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "path_dirs"
+    },
+    {
+     "doc": "This program's absolute path, with links followed.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "program_path"
+    },
+    {
+     "doc": "Reads the setup record from the selected config folder, if present.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "read_record"
+    },
+    {
+     "doc": "Reads the unfinished note; the caller checks whether its install is present.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "read_unfinished"
+    },
+    {
+     "doc": "Removes the setup record; missing files retain the caller's original refusal.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "remove_record"
+    },
+    {
+     "doc": "Removes the unfinished note, accepting an already-missing file.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "remove_unfinished"
+    },
+    {
+     "doc": "Saves the setup record with the original write-then-rename operation.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "write_record"
+    },
+    {
+     "doc": "Saves the unfinished note with the same write-then-rename operation.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "write_unfinished"
+    }
+   ],
+   "lib": "kkt_setup_os",
+   "machine_work": {
+    "src/lib.rs": [
+     "env::current_exe",
+     "env::split_paths",
+     "env::var_os",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::write",
+     "path::absolute",
+     "Path::canonicalize",
+     "Path::is_file"
     ]
    },
+   "name": "kkt-setup-os",
+   "optional_third_party": {},
+   "path": "crates/kkt-setup-os",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "A signal that the server is stopping.",
+   "dev_only": false,
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
@@ -14859,7 +14896,33 @@ window.KKT_GRAPH = {
       "stopped"
      ],
      "path": "Shutdown"
-    },
+    }
+   ],
+   "lib": "kkt_shutdown",
+   "machine_work": {},
+   "name": "kkt-shutdown",
+   "optional_third_party": {},
+   "path": "crates/kkt-shutdown",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "tokio-util"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "The operating system's stop signals.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
     {
      "doc": "OS stop signals, installed before the server announces it is ready.",
      "feature": "real",
@@ -14871,24 +14934,17 @@ window.KKT_GRAPH = {
      "path": "StopSignals"
     }
    ],
-   "lib": "kkt_shutdown",
+   "lib": "kkt_shutdown_os",
    "machine_work": {},
-   "name": "kkt-shutdown",
-   "optional_third_party": {
-    "tokio": [
-     "real"
-    ]
-   },
-   "path": "crates/kkt-shutdown",
-   "real_files": [
-    "src/signals.rs"
-   ],
+   "name": "kkt-shutdown-os",
+   "optional_third_party": {},
+   "path": "crates/kkt-shutdown-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
    "third_party": [
-    "tokio",
-    "tokio-util"
+    "tokio"
    ]
   },
   {
@@ -16920,17 +16976,13 @@ window.KKT_GRAPH = {
    "to": "kkt-api-agent"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Contents",
     "Layout",
     "Settings",
-    "layout",
-    "prune",
-    "write"
+    "layout"
    ],
    "kind": "normal",
    "optional": false,
@@ -16941,7 +16993,30 @@ window.KKT_GRAPH = {
       "Contents",
       "Layout",
       "Settings",
-      "layout",
+      "layout"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-backup"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "prune",
+    "write"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
       "prune",
       "write"
      ],
@@ -16950,7 +17025,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-backup"
+   "to": "kkt-backup-os"
   },
   {
    "features": [
@@ -18144,9 +18219,7 @@ window.KKT_GRAPH = {
    "to": "kkt-service-systemd"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Answers",
@@ -18156,26 +18229,13 @@ window.KKT_GRAPH = {
     "Switch",
     "Target",
     "Unfinished",
-    "absolute",
-    "canonicalize",
     "connection",
     "connection::Connection",
     "connection::ConnectionOptions",
     "connection::serve_connection",
     "credential_file_check",
     "default_db",
-    "kkt_path",
-    "make_data_folder",
-    "on_path",
-    "path_dirs",
-    "program_path",
-    "read_record",
-    "read_unfinished",
-    "remove_record",
-    "remove_unfinished",
-    "upgrade_backup_folder",
-    "write_record",
-    "write_unfinished"
+    "upgrade_backup_folder"
    ],
    "kind": "normal",
    "optional": false,
@@ -18197,26 +18257,13 @@ window.KKT_GRAPH = {
       "Switch",
       "Target",
       "Unfinished",
-      "absolute",
-      "canonicalize",
       "connection",
       "connection::Connection",
       "connection::ConnectionOptions",
       "connection::serve_connection",
       "credential_file_check",
       "default_db",
-      "kkt_path",
-      "make_data_folder",
-      "on_path",
-      "path_dirs",
-      "program_path",
-      "read_record",
-      "read_unfinished",
-      "remove_record",
-      "remove_unfinished",
-      "upgrade_backup_folder",
-      "write_record",
-      "write_unfinished"
+      "upgrade_backup_folder"
      ],
      "role": "uses"
     }
@@ -18236,7 +18283,74 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
-    "Shutdown",
+    "absolute",
+    "canonicalize",
+    "kkt_path",
+    "make_data_folder",
+    "on_path",
+    "path_dirs",
+    "program_path",
+    "read_record",
+    "read_unfinished",
+    "remove_record",
+    "remove_unfinished",
+    "write_record",
+    "write_unfinished"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "absolute",
+      "canonicalize",
+      "kkt_path",
+      "make_data_folder",
+      "on_path",
+      "path_dirs",
+      "program_path",
+      "read_record",
+      "read_unfinished",
+      "remove_record",
+      "remove_unfinished",
+      "write_record",
+      "write_unfinished"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-setup-os"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "Shutdown"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Shutdown"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-shutdown"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
     "StopSignals"
    ],
    "kind": "normal",
@@ -18245,7 +18359,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -18253,7 +18366,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown"
+   "to": "kkt-shutdown-os"
   },
   {
    "features": [
@@ -19733,8 +19846,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "Span",
-    "to_text"
+    "Span"
    ],
    "to": "kkt-clock"
   },
@@ -19743,6 +19855,58 @@ window.KKT_GRAPH = {
     "testing"
    ],
    "from": "kkt-backup",
+   "items": [
+    "Span"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Span"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-backup-os",
+   "items": [
+    "DATABASE_FILE",
+    "Layout",
+    "old_names"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "DATABASE_FILE",
+      "Layout",
+      "old_names"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Contents",
+    "layout",
+    "name"
+   ],
+   "to": "kkt-backup"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-backup-os",
    "items": [
     "Span",
     "Time",
@@ -19767,7 +19931,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-backup",
+   "from": "kkt-backup-os",
    "items": [
     "Dir"
    ],
@@ -21131,12 +21295,32 @@ window.KKT_GRAPH = {
    "to": "kkt-server-listen"
   },
   {
+   "features": [],
+   "from": "kkt-fake-product",
+   "items": [
+    "Shutdown"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Shutdown"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-shutdown"
+  },
+  {
    "features": [
     "real"
    ],
    "from": "kkt-fake-product",
    "items": [
-    "Shutdown",
     "StopSignals"
    ],
    "kind": "normal",
@@ -21145,7 +21329,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -21153,7 +21336,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown"
+   "to": "kkt-shutdown-os"
   },
   {
    "features": [
@@ -22114,12 +22297,32 @@ window.KKT_GRAPH = {
    "to": "kkt-server-listen"
   },
   {
+   "features": [],
+   "from": "kkt-keymode",
+   "items": [
+    "Shutdown"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Shutdown"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-shutdown"
+  },
+  {
    "features": [
     "real"
    ],
    "from": "kkt-keymode",
    "items": [
-    "Shutdown",
     "StopSignals"
    ],
    "kind": "normal",
@@ -22128,7 +22331,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -22136,7 +22338,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown"
+   "to": "kkt-shutdown-os"
   },
   {
    "features": [
@@ -26022,6 +26224,54 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-setup-os",
+   "items": [
+    "Record",
+    "Unfinished",
+    "record_path",
+    "unfinished_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Record",
+      "Unfinished",
+      "record_path",
+      "unfinished_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-setup"
+  },
+  {
+   "features": [],
+   "from": "kkt-shutdown-os",
+   "items": [
+    "Shutdown"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Shutdown"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-shutdown"
+  },
+  {
+   "features": [],
    "from": "kkt-watch",
    "items": [
     "Channel",
@@ -26782,12 +27032,32 @@ window.KKT_GRAPH = {
    "to": "kkt-server-listen"
   },
   {
+   "features": [],
+   "from": "kkt-web-preview",
+   "items": [
+    "Shutdown"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Shutdown"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-shutdown"
+  },
+  {
    "features": [
     "real"
    ],
    "from": "kkt-web-preview",
    "items": [
-    "Shutdown",
     "StopSignals"
    ],
    "kind": "normal",
@@ -26796,7 +27066,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown",
       "StopSignals"
      ],
      "role": "uses"
@@ -26804,7 +27073,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-shutdown"
+   "to": "kkt-shutdown-os"
   },
   {
    "features": [],
@@ -26903,10 +27172,16 @@ window.KKT_CONCERNS = {
    "must_not": "Be in a release, or anything but a stand-in."
   },
   "kkt-backup": {
-   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`); behind real, writing a layout and removing the old folders it chooses (`write`, `prune`).",
-   "kind": "logic and effect",
+   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
+   "kind": "logic",
    "layer": "operations",
-   "must_not": "Read the clock or copy the database itself: the caller passes both; let a consumer reach `write` or `prune` without real."
+   "must_not": "Read the clock or copy the database itself: the caller passes both."
+  },
+  "kkt-backup-os": {
+   "concern": "Writing immutable backup layouts and removing old folders selected by the backup logic (`write`, `prune`).",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Choose backup names, contents, modes or retention."
   },
   "kkt-browser": {
    "concern": "Opening a link in the person's browser with the system's own opener (open on macOS, xdg-open elsewhere): SystemBrowser (behind real), with its own methods: starting the opener, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real. It declares no contract: the program adapts SystemBrowser to kkt-container-docker's Browser (phase 16).",
@@ -27198,16 +27473,28 @@ window.KKT_CONCERNS = {
    "must_not": "Decide what the service runs or check the server's settings."
   },
   "kkt-setup": {
-   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`. Behind real: setup's record and unfinished note, data folder, program paths and PATH checks on this machine.",
-   "kind": "logic and effect",
+   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
+   "kind": "logic",
    "layer": "operations",
-   "must_not": "Read files or run anything outside real: the program carries out, or passes in, what is decided here; let a consumer reach setup's files without real."
+   "must_not": "Read files or run anything: the program carries out, or passes in, what is decided here."
+  },
+  "kkt-setup-os": {
+   "concern": "Setup's record and unfinished note, data folder, program paths and PATH checks on this machine.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Decide what setup does or where its files belong."
   },
   "kkt-shutdown": {
-   "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server; behind real, `StopSignals`, the operating system's stop signals, which stop it.",
-   "kind": "logic and effect",
+   "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value.",
+   "kind": "logic",
    "layer": "foundations",
-   "must_not": "Let a tokio-util or tokio signal type out of the crate; let a consumer reach `StopSignals` without real."
+   "must_not": "Let a tokio-util type out of the crate."
+  },
+  "kkt-shutdown-os": {
+   "concern": "The operating system's stop signals (Ctrl-C, SIGTERM), stopping the shared `Shutdown` (`StopSignals`).",
+   "kind": "effect",
+   "layer": "foundations",
+   "must_not": "Let a tokio signal type out of the crate."
   },
   "kkt-terminal-os": {
    "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the terminal's half of the login link: showing it, and the Enter key.",
@@ -27798,7 +28085,7 @@ window.KKT_ASSEMBLY = {
       "kkt-shutdown::Shutdown",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ],
      "text": "build assembles the server from the parts and config; listen binds it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
      "title": "Build and run"
@@ -27968,8 +28255,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt connect",
-     "own": "ThisProgram, adapting kkt-setup::kkt_path",
-     "supplier": "kkt-setup",
+     "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
+     "supplier": "kkt-setup-os",
      "supplier_item": "kkt_path",
      "to": [
       {
@@ -28168,8 +28455,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup's files, behind real",
-     "supplier": "kkt-setup",
+     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
+     "supplier": "kkt-setup-os",
      "to": [
       {
        "at": "OperateParts",
@@ -28203,8 +28490,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeBackups, writing kkt-backup's layouts through its write, behind real, with this program's database copy",
-     "supplier": "kkt-backup",
+     "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os' write, with this program's database copy",
+     "supplier": "kkt-backup-os",
      "supplier_item": "write",
      "to": [
       {
@@ -28523,7 +28810,7 @@ window.KKT_ASSEMBLY = {
       "kkt-server::build",
       "kkt-server-listen::listen",
       "kkt-server-listen::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ],
      "text": "build, listen, and serve_until a stop signal.",
      "title": "Build and run"
@@ -28666,7 +28953,7 @@ window.KKT_ASSEMBLY = {
      "items": [
       "kkt-server::page",
       "kkt-server-listen::listen",
-      "kkt-shutdown::StopSignals"
+      "kkt-shutdown-os::StopSignals"
      ],
      "text": "kkt-server's page builds the page alone, and kkt-server-listen serves it until a stop signal.",
      "title": "Serve"

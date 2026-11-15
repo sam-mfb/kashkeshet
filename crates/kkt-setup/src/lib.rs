@@ -10,10 +10,7 @@
 //!
 //! Its logic reads no files and runs nothing itself. The caller reads what
 //! is installed, answers questions through [`Ask`], and carries out what is
-//! decided here, so every rule here is tested directly. Behind `real`, which
-//! only programs turn on, are setup's files on this machine: reading and
-//! writing the record and its unfinished note, making the data folder, this
-//! program's path, absolute and canonical paths, and one snapshot of `PATH`.
+//! decided here, so every rule here is tested directly.
 
 mod acts_on;
 mod adopt;
@@ -23,13 +20,6 @@ pub mod connection;
 mod credentials;
 mod doctor;
 pub mod doctor_checks;
-#[cfg(feature = "real")]
-mod files;
-#[cfg(feature = "real")]
-pub use files::{
-    absolute, canonicalize, kkt_path, make_data_folder, on_path, path_dirs, program_path,
-    read_record, read_unfinished, remove_record, remove_unfinished, write_record, write_unfinished,
-};
 mod program;
 pub use program::{
     admin_key_line, client_key, configured_name_pack_line, docker_status_lines,
