@@ -8,14 +8,9 @@ kinds (`rule_breaks`). generate.py and check-programs.py use it.
 
 import re
 
-# "contract and effect" is a merged crate (phase 13): a contract in the open
-# and its one implementation behind `real`, which only programs turn on.
-MERGED = "contract and effect"
-# "logic and effect" (phase 14): logic in the open and the effect that only
-# carries out its plans behind `real`, which only programs turn on, so the
-# logic builds and tests without the effect.
-LOGIC_EFFECT = "logic and effect"
-KINDS = ["contract", MERGED, "logic", LOGIC_EFFECT, "effect", "composition", "test support", "mixed"]
+# One kind per crate (phase 16). "mixed" is a crate that is still a
+# contract or logic together with a real effect: the current map only.
+KINDS = ["contract", "logic", "effect", "composition", "test support", "mixed"]
 
 # Third-party crates that reach the machine: a crate that uses one does
 # I/O of its own.
@@ -30,6 +25,10 @@ STD_IO = ["fs", "env", "os::unix::fs", "process::Command", "process::Stdio", "pr
           "net::TcpListener", "net::TcpStream", "net::UdpSocket", "io::stdin", "io::stdout", "io::stderr",
           "io::IsTerminal", "time::SystemTime::now", "time::Instant::now", "thread::sleep",
           "path::absolute"]
+# tokio's machine work, as paths under `tokio`: files, sockets, processes,
+# signals, the terminal, and waiting on or reading the clock.
+TOKIO_IO = ["fs", "net", "process", "signal", "io::stdin", "io::stdout", "io::stderr",
+            "time::sleep", "time::sleep_until", "time::interval", "time::Instant"]
 # Macros that write to the terminal.
 PRINT_MACROS = ["print", "println", "eprint", "eprintln"]
 # Methods of `Path` and `PathBuf` that ask the file system about a path:
@@ -52,6 +51,11 @@ def is_std_io(path):
     return any(path == p or path.startswith(p + "::") for p in STD_IO)
 
 
+def is_tokio_io(path):
+    """Whether a path under `tokio` is machine work."""
+    return any(path == p or path.startswith(p + "::") for p in TOKIO_IO)
+
+
 def path_probes(text):
     """The `Path` methods in PATH_PROBES that `text` calls, as `Path::name`."""
     names = "|".join(PATH_PROBES)
@@ -67,41 +71,24 @@ def unknown(crates, kind_of):
 
 def is_contract(kind):
     """Whether a crate of this kind holds a contract that any crate may
-    implement: a contract crate, or a merged crate's open contract."""
-    return kind in ("contract", MERGED)
+    implement."""
+    return kind == "contract"
 
 
 def reaches_effect(edge, kind_of):
-    """Whether an arrow depends on an effect: on an effect crate, or on a
-    merged crate's effect, by turning its `real` on. Depending on a merged
-    crate without `real` is depending on its contract or logic alone."""
-    kind = kind_of.get(edge["to"])
-    return kind == "effect" or (kind in (MERGED, LOGIC_EFFECT) and "real" in edge.get("features", []))
+    """Whether an arrow depends on an effect: on an effect crate."""
+    return kind_of.get(edge["to"]) == "effect"
 
 
-def slot_feature(crate, slot):
-    """The feature a slot is behind: the one the map records for it, or
-    else its owner's. A slot on `Type::new` or a field of `Type` is behind
-    whatever `Type` is behind."""
-    if slot.get("feature"):
-        return slot["feature"]
-    features = {i["path"]: i.get("feature") for i in crate.get("items", [])}
-    owner = slot["at"] if slot.get("kind") == "field" else slot["at"].rsplit("::", 1)[0]
-    return features.get(slot["at"]) or features.get(owner)
-
-
-def beyond_values(crate, edges, skip_real=False):
+def beyond_values(crate, edges):
     """What a contract crate does beyond pure behaviour on its own values:
     behaviour through an injected dependency (a slot outside `testing`),
     and wiring other crates' implementations. A contract may compute on
     its own value types (Time arithmetic, query checks, search matching);
-    an effect is checked apart. With `skip_real`, a slot behind `real` is
-    the implementation's, not the contract's (a merged crate)."""
+    an effect is checked apart."""
     found = []
     for slot in crate["slots"]:
         if slot["at"].startswith("testing::") or not slot["traits"]:
-            continue
-        if skip_real and slot_feature(crate, slot) == "real":
             continue
         traits = ", ".join(t["trait"] for t in slot["traits"])
         found.append(f"{slot['at']} takes {slot['name']} ({traits})")
@@ -111,73 +98,12 @@ def beyond_values(crate, edges, skip_real=False):
     return sorted(set(found))
 
 
-def turns_on_real(crate, edges):
-    """Whether `crate` has a `real` feature, or turns one on in a crate it
-    depends on in normal code."""
-    if "real" in crate["features"]:
-        return True
-    return any(e["from"] == crate["name"] and e["kind"] == "normal" and "real" in e.get("features", [])
-               for e in edges)
-
-
-def io_outside_real(crate):
-    """The I/O dependencies a crate has other than optional ones that only
-    its `real` turns on."""
-    optional = crate.get("optional_third_party", {})
-    return sorted(d for d in IO_CRATES & set(crate["third_party"]) if optional.get(d) != ["real"])
-
-
-def merged_mismatches(crate, edges, crates_by_name):
-    """Where a crate marked "contract and effect" is not one. It differs
-    from "mixed" in two things that must hold together: its effect is the
-    implementation of its own contract, behind `real`, and only programs
-    turn that `real` on."""
-    name, found = crate["name"], []
-    does = beyond_values(crate, edges, skip_real=True)
-    if does:
-        found.append(f"its contract does more than compute on its own values: {'; '.join(does)}")
-    if "real" not in crate["features"]:
-        found.append("it has no `real` feature")
-    io = io_outside_real(crate)
-    if io:
-        found.append(f"it has I/O dependencies outside `real`: {', '.join(io)}")
-    if not any(i["trait_crate"] == name and i.get("type") and not i["type"].startswith("testing::")
-               for i in crate.get("implements", [])):
-        found.append("nothing in it implements its own contract")
-    found += others_turn_on_real(name, edges, crates_by_name)
-    return [f"{name} is marked {MERGED} but {f}" for f in found]
-
-
-def others_turn_on_real(name, edges, crates_by_name):
-    """A merged crate's `real` is for programs only: the crates other than
-    programs that turn it on, as a finding."""
-    on = sorted(e["from"] for e in edges
-                if e["to"] == name and e["kind"] == "normal" and "real" in e.get("features", [])
-                and not crates_by_name.get(e["from"], {}).get("bins"))
-    return [f"crates other than programs turn its `real` on: {', '.join(on)}"] if on else []
-
-
-def logic_effect_mismatches(crate, edges, crates_by_name):
-    """Where a crate marked "logic and effect" is not one. Its logic, outside
-    `real`, is logic: no machine work in its own code, no I/O dependency,
-    and no other crate's `real`. Its effect is behind its own `real`, in
-    modules only that feature brings, and only programs turn that on."""
-    name, found = crate["name"], []
-    if "real" not in crate["features"]:
-        found.append("it has no `real` feature")
-    io = io_outside_real(crate)
-    if io:
-        found.append(f"it has I/O dependencies outside `real`: {', '.join(io)}")
-    behind = set(crate.get("real_files", []))
-    work = sorted(f for f in crate.get("machine_work", {}) if f not in behind)
-    if work:
-        found.append(f"it does machine work outside `real`, in {', '.join(work)}")
-    others = sorted(e["to"] for e in edges
-                    if e["from"] == name and e["kind"] == "normal" and "real" in e.get("features", []))
-    if others:
-        found.append(f"it turns on another crate's `real`: {', '.join(others)}")
-    found += others_turn_on_real(name, edges, crates_by_name)
-    return [f"{name} is marked {LOGIC_EFFECT} but {f}" for f in found]
+def does_io(crate):
+    """Where a crate touches the machine: its own code's machine work, by
+    file, and the I/O libraries it uses. Empty when it touches nothing."""
+    work = sorted(crate.get("machine_work", {}))
+    io = sorted(IO_CRATES & set(crate["third_party"]))
+    return ([f"in {', '.join(work)}"] if work else []) + ([f"with {', '.join(io)}"] if io else [])
 
 
 def check(crates, edges, kind_of, mixed_allowed):
@@ -187,35 +113,26 @@ def check(crates, edges, kind_of, mixed_allowed):
     mismatches, violations = [], []
     for c in crates:
         kind = kind_of[c["name"]]
+        io = does_io(c)
         if kind == "contract":
             does = beyond_values(c, edges)
             if does:
                 mismatches.append(f"{c['name']} is marked contract but does more than compute on its own values: {'; '.join(does)}")
-            if turns_on_real(c, edges) or IO_CRATES & set(c["third_party"]):
-                mismatches.append(f"{c['name']} is marked contract but has an effect: a `real` feature or an I/O dependency")
-        if kind == MERGED:
-            mismatches += merged_mismatches(c, edges, {x["name"]: x for x in crates})
-        if kind == LOGIC_EFFECT:
-            mismatches += logic_effect_mismatches(c, edges, {x["name"]: x for x in crates})
-        if kind == "logic" and turns_on_real(c, edges):
-            mismatches.append(f"{c['name']} is marked logic but turns on `real`")
-        # Named tool wrappers remain effects even though they also own their
-        # tool's decisions, tested over a private runner (Sam, phase 12).
-        # The contract stays effect-free; implementing it directly is allowed.
-        if kind == "effect" and not turns_on_real(c, edges) and not IO_CRATES & set(c["third_party"]):
-            mismatches.append(f"{c['name']} is marked effect but has no `real` feature and no I/O dependency")
-        if kind == "composition":
+            if io:
+                mismatches.append(f"{c['name']} is marked contract but touches the machine: {'; '.join(io)}")
+        if kind == "logic" and io:
+            mismatches.append(f"{c['name']} is marked logic but touches the machine: {'; '.join(io)}")
+        # An effect crate touches the machine: in its own code, or through
+        # an I/O library. Named tool wrappers remain effects even though they
+        # also own their tool's decisions, tested over a private runner (Sam,
+        # phase 12).
+        if kind == "effect" and not io:
+            mismatches.append(f"{c['name']} is marked effect but touches the machine nowhere the map can see")
+        if kind == "composition" and io:
             # Composition only wires and adapts: machine work in its own
             # code, or a third-party crate that does it, is an effect of
             # its own.
-            work = sorted(c.get("machine_work", {}))
-            io = sorted(IO_CRATES & set(c["third_party"]))
-            if work or io:
-                parts = ([f"in {', '.join(work)}"] if work else []) + ([f"with {', '.join(io)}"] if io else [])
-                text = f"{c['name']} is marked composition but does machine work itself: {'; '.join(parts)}"
-                (mismatches if mixed_allowed else violations).append(text)
-        if kind == "composition" and not c["bins"] and "real" in c["features"]:
-            text = f"{c['name']} is marked composition but its own `real` feature touches the machine"
+            text = f"{c['name']} is marked composition but does machine work itself: {'; '.join(io)}"
             (mismatches if mixed_allowed else violations).append(text)
         if kind == "mixed" and not mixed_allowed:
             violations.append(f"{c['name']} is still mixed: a contract or logic together with a real effect")
@@ -224,15 +141,15 @@ def check(crates, edges, kind_of, mixed_allowed):
 
 def rule_breaks(crates, edges, kind_of):
     """Where the code breaks the rules that rest on the kinds: only programs
-    and compositions depend on an effect (an effect crate, or a merged
-    crate's `real`), in code or in tests; and a crate implements another
-    crate's trait only if that crate is a contract or a merged one, or the
-    implementer is a program, a composition or test support; and no crate is
-    mixed. Sorted text, one line per break."""
-    allowed = {c["name"] for c in crates if c["bins"]} | {n for n, k in kind_of.items() if k == "composition"}
+    depend on an effect crate, in code or in tests (phase 16); a crate
+    implements another crate's trait only if that crate is a contract, or
+    the implementer is a program, a composition or test support; and no
+    crate is mixed. Sorted text, one line per break."""
+    programs = {c["name"] for c in crates if c["bins"]}
+    allowed = programs | {n for n, k in kind_of.items() if k == "composition"}
     breaks = [f"{e['from']} depends on the effect crate {e['to']}" + (" in its tests" if e["kind"] == "dev" else "")
               for e in edges
-              if reaches_effect(e, kind_of) and e["kind"] in ("normal", "dev") and e["from"] not in allowed]
+              if reaches_effect(e, kind_of) and e["kind"] in ("normal", "dev") and e["from"] not in programs]
     for c in crates:
         for r in c["implements"]:
             if r["trait_crate"] == c["name"] or c["name"] in allowed or kind_of.get(c["name"]) == "test support":

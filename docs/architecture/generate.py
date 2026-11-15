@@ -406,52 +406,45 @@ def test_module_files(package_dir, files):
     return found
 
 
-def behind_real(cfg):
-    """Whether a `#[cfg(...)]` condition holds only with the crate's `real`
-    feature: `feature = "real"`, alone, with `test` in an `any`, or as one
-    of an `all`'s conditions."""
+def behind_testing(cfg):
+    """Whether a `#[cfg(...)]` condition holds only for tests or the crate's
+    `testing` feature: `feature = "testing"`, alone or with `test` in an
+    `any`."""
     cfg = re.sub(r"\s+", "", cfg)
-    real = 'feature="real"'
-    if cfg == real or cfg in (f"any({real},test)", f"any(test,{real})"):
-        return True
-    return cfg.startswith("all(") and real in cfg and "not(" not in cfg and "any(" not in cfg
+    testing = 'feature="testing"'
+    return cfg in (testing, f"any({testing},test)", f"any(test,{testing})")
 
 
-def real_module_files(package_dir, files):
-    """Files declared as modules only `real` brings (a merged crate's effect,
-    kinds.py), every file in such a module's folder included."""
+def testing_module_files(package_dir, files):
+    """Files declared as modules only tests or `testing` bring (a stand-in),
+    every file in such a module's folder, and every module within, included.
+    Their machine work is test support's, not the crate's (kinds.py)."""
     found = set()
     for path in files:
         text = path.read_text()
         for match in re.finditer(r"#\[cfg\(((?:[^()]|\([^()]*\))*)\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;", text):
-            if not behind_real(match.group(1)):
+            if not behind_testing(match.group(1)):
                 continue
             name = match.group(2)
             base = path.parent if path.name in ("lib.rs", "main.rs", "mod.rs") else path.parent / path.stem
-            if (base / f"{name}.rs").exists():
-                found.add(base / f"{name}.rs")
+            for sub in (base / f"{name}.rs", base / name / "mod.rs"):
+                if sub.exists():
+                    found.add(sub)
             if (base / name).is_dir():
                 found.update((base / name).rglob("*.rs"))
-    # A module inside one behind `real` is behind it too.
     while True:
-        more = real_module_files_within(found) - found
-        if not more:
+        more = set()
+        for path in found:
+            for match in re.finditer(r"(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;", path.read_text()):
+                name = match.group(1)
+                base = path.parent if path.name in ("lib.rs", "main.rs", "mod.rs") else path.parent / path.stem
+                if (base / f"{name}.rs").exists():
+                    more.add(base / f"{name}.rs")
+                if (base / name).is_dir():
+                    more.update((base / name).rglob("*.rs"))
+        if more <= found:
             return found
         found |= more
-
-
-def real_module_files_within(found):
-    """The files that modules declared in `found` bring, whatever their cfg."""
-    within = set()
-    for path in found:
-        for match in re.finditer(r"(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;", path.read_text()):
-            name = match.group(1)
-            base = path.parent if path.name in ("lib.rs", "main.rs", "mod.rs") else path.parent / path.stem
-            if (base / f"{name}.rs").exists():
-                within.add(base / f"{name}.rs")
-            if (base / name).is_dir():
-                within.update((base / name).rglob("*.rs"))
-    return within
 
 
 def file_kind(package_dir, path, test_files):
@@ -611,9 +604,8 @@ def main():
                 feature_doc = rustdoc(name, lib, feature)
                 _, with_feature, feature_ids = public_items(feature_doc)
                 more_takes, more_gives = signatures(feature_doc, with_feature, feature_ids)
-                # A slot only a feature brings (a merged crate's
-                # implementation, behind `real`) records that feature
-                # (kinds.py).
+                # A slot only a feature brings (a stand-in behind
+                # `testing`) records that feature (kinds.py).
                 takes += [dict(t, feature=feature) for t in more_takes
                           if not any({k: v for k, v in x.items() if k != "feature"} == t for x in takes)]
                 gives += [g for g in more_gives if g not in gives]
@@ -659,16 +651,6 @@ def main():
                               if d["name"] not in packages and d["kind"] is None]
         third_party = sorted({d["name"] for d in normal_third_party if not testing_only(d)})
         testing_third_party = sorted({d["name"] for d in normal_third_party if testing_only(d)})
-        # The features that turn each optional third-party dependency on
-        # (a merged crate's I/O dependencies are behind `real`; kinds.py).
-        optional_third_party = {}
-        for d in normal_third_party:
-            if d.get("optional") and not testing_only(d):
-                key = d.get("rename") or d["name"]
-                optional_third_party[d["name"]] = sorted(
-                    f for f, wants in p["features"].items() if f != "default"
-                    and any(w == f"dep:{key}" or w == key or w.startswith(f"{key}/") or w.startswith(f"{key}?/")
-                            for w in wants))
         crates.append({
             "name": name,
             "lib": lib,
@@ -680,7 +662,6 @@ def main():
             "crate_doc": doc_summary,
             "third_party": third_party,
             "testing_third_party": testing_third_party,
-            "optional_third_party": optional_third_party,
             "items": sorted(items.values(), key=lambda e: e["path"]),
         })
 
@@ -695,6 +676,7 @@ def main():
         files = list(rust_files(package_dir, nested))
         test_files = test_module_files(package_dir, files)
         machine_work = {}
+        stand_ins = testing_module_files(package_dir, files)
         for path in files:
             text = strip_comments(path.read_text())
             kind = file_kind(package_dir, path, test_files)
@@ -703,16 +685,13 @@ def main():
                 texts["dev"] += tests
                 # The machine work the file's own code does (kinds.py).
                 work = sorted(p for p in uses_in(text, "std") if kinds.is_std_io(p))
+                work += sorted(f"tokio::{p}" for p in uses_in(text, "tokio") if kinds.is_tokio_io(p))
                 work += sorted(f"{m}!" for m in set(re.findall(r"\b(\w+)!", text)) if m in kinds.PRINT_MACROS)
                 work += kinds.path_probes(text)
-                if work:
+                if work and path not in stand_ins:
                     machine_work[str(path.relative_to(package_dir))] = work
             texts[kind] += text
         crate_of_name[name]["machine_work"] = machine_work
-        # The files only `real` brings, where a merged crate's effect sits
-        # (kinds.py).
-        crate_of_name[name]["real_files"] = sorted(
-            str(f.relative_to(package_dir)) for f in real_module_files(package_dir, files) - test_files)
         normal_deps = {d["name"] for d in p["dependencies"] if d["kind"] is None}
         for dep in p["dependencies"]:
             if dep["name"] not in packages:
