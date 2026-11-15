@@ -37,4 +37,4 @@ tower.workspace = true
 
 [build-dependencies]
 # Reads the tool text files (agent-tools.toml, admin-tools.toml).
-toml.workspace = true
+kkt-toml = { path = "../kkt-toml" }

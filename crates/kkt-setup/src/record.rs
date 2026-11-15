@@ -151,8 +151,8 @@ impl Record {
     /// file and what is wrong with it.
     pub fn parse(text: &str, path: &Path) -> Result<Record, String> {
         let bad = |what: String| format!("the setup record {} {what}", path.display());
-        let file: File = toml::from_str(text)
-            .map_err(|e: toml::de::Error| bad(format!("is not valid: {}", e.message().trim())))?;
+        let file: File = kkt_toml::read(text)
+            .map_err(|e| bad(format!("is not valid: {}", e.reason().trim())))?;
         Record::from_file(file, &bad)
     }
 
@@ -272,7 +272,7 @@ impl Record {
 
     /// The record as file text, which [`Record::parse`] reads back.
     pub fn render(&self) -> Result<String, String> {
-        toml::to_string(&self.to_file())
+        kkt_toml::write(&self.to_file())
             .map_err(|e| format!("could not write the setup record: {e}"))
     }
 
@@ -394,8 +394,8 @@ impl Unfinished {
     /// What is in `text`, read from the file at `path`.
     pub fn parse(text: &str, path: &Path) -> Result<Unfinished, String> {
         let bad = |what: String| format!("the unfinished setup {} {what}", path.display());
-        let file: UnfinishedFile = toml::from_str(text)
-            .map_err(|e: toml::de::Error| bad(format!("is not valid: {}", e.message().trim())))?;
+        let file: UnfinishedFile = kkt_toml::read(text)
+            .map_err(|e| bad(format!("is not valid: {}", e.reason().trim())))?;
         let purpose = match Purpose::from_name(&file.mode) {
             Some(purpose @ (Purpose::Docker | Purpose::Service)) => purpose,
             _ => {
@@ -466,7 +466,7 @@ impl Unfinished {
             ts_authkey_file: login.and_then(|login| login.auth_key_file.clone()),
             record: self.record.as_ref().map(Record::to_file),
         };
-        toml::to_string(&file).map_err(|e| format!("could not write the unfinished setup: {e}"))
+        kkt_toml::write(&file).map_err(|e| format!("could not write the unfinished setup: {e}"))
     }
 
     /// What to look at to tell whether the install noted is still here: a
