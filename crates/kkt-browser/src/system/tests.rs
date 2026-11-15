@@ -1,5 +1,4 @@
-//! Which opener, how a failure is worded and kept, and, with `real`, the
-//! opener itself.
+//! Which opener, how a failure is worded and kept, and the opener itself.
 
 use super::*;
 use std::sync::Arc;

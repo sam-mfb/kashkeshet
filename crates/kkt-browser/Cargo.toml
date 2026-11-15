@@ -1,6 +1,6 @@
 [package]
 name = "kkt-browser"
-description = "Opening a link in the person's browser: the contract, and the system's own opener behind `real`"
+description = "Opening a link in the person's browser with the system's own opener"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

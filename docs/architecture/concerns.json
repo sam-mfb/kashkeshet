@@ -215,13 +215,13 @@
   "kkt-service-launchd": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "Implements Service as a launchd user agent on macOS: the plist, launchctl's commands and answers, the log file and the retries while launchd removes an old service, tested against a private system; the real files and commands are behind real.",
+   "concern": "Implements Service as a launchd user agent on macOS: the plist, launchctl's commands and answers, the log file and the retries while launchd removes an old service, tested against a private system.",
    "must_not": "Decide what the service runs or check the server's settings."
   },
   "kkt-service-systemd": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "Implements Service as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system; the real files and commands are behind real.",
+   "concern": "Implements Service as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system.",
    "must_not": "Decide what the service runs or check the server's settings."
   },
   "kkt-container": {
@@ -232,7 +232,7 @@
   },
   "kkt-container-docker": {
    "layer": "operations",
-   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands, behind real; what they do is tested over a private runner and a fake host. A sharing setup's login link opens in the Browser it declares, which the program supplies.",
+   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands; what they do is tested over a private runner and a fake host. A sharing setup's login link opens in the Browser it declares, which the program supplies.",
    "must_not": "Decide setup answers or remember the setup record.",
    "kind": "effect"
   },
@@ -244,7 +244,7 @@
   },
   "kkt-remote-access-tailscale": {
    "layer": "operations",
-   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner, and the real command is behind real.",
+   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner.",
    "must_not": "Change login, DNS preferences, unrelated sharing, config or the service.",
    "kind": "effect"
   },
@@ -262,7 +262,7 @@
   },
   "kkt-client-command": {
    "layer": "operations",
-   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude` (behind real), with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
+   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
    "must_not": "Echo the command's output, which may hold credentials.",
    "kind": "effect"
   },
@@ -274,7 +274,7 @@
   },
   "kkt-probe": {
    "layer": "operations",
-   "concern": "Probing a kkt server over HTTP and reading its key files: `HttpProber` (behind real), with its own methods and the prober's `Settings`: the probe with reqwest, MCP's initialize handshake read from its answer, key files read from disk, and what it finds worded as its own records (`Finding`, `FileRead`). It declares no contract: the program adapts `HttpProber` to kkt-diagnostics' Prober (phase 16).",
+   "concern": "Probing a kkt server over HTTP and reading its key files: `HttpProber`, with its own methods and the prober's `Settings`: the probe with reqwest, MCP's initialize handshake read from its answer, key files read from disk, and what it finds worded as its own records (`Finding`, `FileRead`). It declares no contract: the program adapts `HttpProber` to kkt-diagnostics' Prober (phase 16).",
    "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them.",
    "kind": "effect"
   },
@@ -298,7 +298,7 @@
   },
   "kkt-lane-commit": {
    "layer": "operations",
-   "concern": "The commit a lane folder is at, as the machine's git says: `Git` (behind real), with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
+   "concern": "The commit a lane folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
    "must_not": "Read or write the lane files.",
    "kind": "effect"
   },
@@ -310,14 +310,14 @@
   },
   "kkt-agent-client-mcp": {
    "layer": "clients",
-   "concern": "Implements kkt-agent-client over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), with plain Http requests for a program's test client, behind real; what the watch asks for at a time (Settings), as plain values.",
+   "concern": "Implements kkt-agent-client over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), with plain Http requests for a program's test client; what the watch asks for at a time (Settings), as plain values.",
    "must_not": "Let an rmcp or reqwest type out of the crate.",
    "kind": "effect"
   },
   "kkt-agent-commands": {
    "layer": "assembly",
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
-   "must_not": "Depend on an `-os` crate, on a contract's implementation, turn on another crate's `real`, or depend on another assembly; touch the machine except through `AgentParts`.",
+   "must_not": "Depend on an effect crate (an `-os` crate or a contract's implementation) or on another assembly; touch the machine except through `AgentParts`.",
    "kind": "composition"
   },
   "kkt-agent-files-os": {
@@ -402,7 +402,7 @@
   },
   "kkt-browser": {
    "layer": "operations",
-   "concern": "Opening a link in the person's browser with the system's own opener (open on macOS, xdg-open elsewhere): SystemBrowser (behind real), with its own methods: starting the opener, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real. It declares no contract: the program adapts SystemBrowser to kkt-container-docker's Browser (phase 16).",
+   "concern": "Opening a link in the person's browser with the system's own opener (open on macOS, xdg-open elsewhere): SystemBrowser, with its own methods: starting the opener, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without starting it. It declares no contract: the program adapts SystemBrowser to kkt-container-docker's Browser (phase 16).",
    "must_not": "Wait for the browser; repeat the link in a message.",
    "kind": "effect"
   },

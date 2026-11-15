@@ -2,7 +2,7 @@
 //! elsewhere. It starts the opener with the link and does not wait for it;
 //! a thread waits for it and reaps it, and a failure is kept to report once.
 //! Which opener, and how a failure is worded, are plain functions tested
-//! without `real`; starting the opener is behind `real`.
+//! without starting it.
 
 use std::sync::{Mutex, PoisonError};
 

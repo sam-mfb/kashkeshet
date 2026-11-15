@@ -31,14 +31,14 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **New logic crates.** `kkt-hash` (`sha256`), `kkt-search` (search's words, terms and excerpts, from kkt-db), `kkt-identity-keymode` (`KeyMode`, from kkt-identity, which keeps `Identify`) and `kkt-config-file` (the config file's format, from kkt-settings). `kkt-api-sim` is new test support: the simulated application, for tests and the page preview, behind `testing`.
 - **Container contract and implementation.** `kkt-container::Container`
   replaces its command-level `Host` and free functions.
-  `kkt_container_docker::Docker` (behind `real`) implements it, in a crate
+  `kkt_container_docker::Docker` implements it, in a crate
   of its own, with no program adapter; `kkt-container-os` goes.
   `kkt-container` holds the contract and its `testing::Memory` stand-in
   alone, without Docker's dependencies. Files, commands and messages are
   unchanged; this changes the shared Rust API.
 - **Remote sharing contract and implementation.**
   `kkt-remote-access::RemoteAccess` replaces its command-level `Host` and free
-  functions. `kkt_remote_access_tailscale::Tailscale` (behind `real`)
+  functions. `kkt_remote_access_tailscale::Tailscale`
   implements it, in a crate of its own; `kkt-remote-access-os` goes. The
   program injects it directly, with no adapter. `kkt-remote-access` holds the
   contract and `testing::Memory` alone, with no third-party dependency.
@@ -49,7 +49,7 @@ The shared crates are reorganized so that every dependency is injected and each 
   client of kkt's server: `Servers`, `Avatars` and `Watched`, with `Address`
   and the records and `Failure` it already had, and `testing::Memory`.
   Its one implementation, over MCP (`Mcp`, `Client`, `Remote`,
-  `AdminRemote`, `Http`, `HttpReply`; behind `real`), is in
+  `AdminRemote`, `Http`, `HttpReply`), is in
   `kkt-agent-client-mcp`, with `Settings`.
   The credential and watch-state files move to `kkt-agent-files-os`.
   kkt-watch's `Server`, `Channel`, `Message`, `Waited`, `NewerLane` and
@@ -61,7 +61,7 @@ The shared crates are reorganized so that every dependency is injected and each 
   `DryRun`, `Command` and `Finished`: what kkt asks of the service manager, in
   kkt's terms, with `Unsupported` for other systems and `testing::Memory` for
   tests. `kkt-service-launchd::Launchd` and `kkt-service-systemd::Systemd`
-  (behind `real`) implement it directly, each holding its own manager's files
+  implement it directly, each holding its own manager's files
   and commands; the program picks one by platform and injects it into
   `OperateParts::service`, in place of its adapter. `kkt-service-os` keeps
   only `try_bind`. launchd's waits (`removal_wait`, `reload_retry`) move from
@@ -73,13 +73,13 @@ The shared crates are reorganized so that every dependency is injected and each 
   kkt's server, add it as the client's own entry; `testing::Recorder`) is
   how kkt-client-config changes a client through its own command.
   Its one implementation is in the same crate: `kkt_client_command::Claude`
-  (behind `real`, which only the program turns on), for Claude Code. `kkt_client_config::Host` and kkt-client-config-os' `OsHost`
+ , for Claude Code. `kkt_client_config::Host` and kkt-client-config-os' `OsHost`
   lose `claude`, and `configure` takes a `&dyn ClientCommand` after the
   host. The commands run and their messages are unchanged.
 - **Probe contract.** `kkt-probe::Prober`, with `KeyFile`, `Check`
   and `Probing`, moves out of kkt-diagnostics into its own crate, with
   `testing::Memory`, and with its one implementation: `kkt_probe::HttpProber`
-  (behind `real`, which only the program turns on), with the `Settings` the
+ , with the `Settings` the
   program passes, replacing
   `kkt-diagnostics-os` and its `OsProber` and records, and the program's
   adapter. `OperateParts::prober` takes a `&dyn kkt_probe::Prober`. The
@@ -87,7 +87,7 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **Lane folder commit contract.** `kkt-lane-commit::LaneCommit` asks the
   commit a lane folder is at, in kkt's terms, with `testing::Memory` for
   tests, and its one implementation in the same crate: `kkt_lane_commit::Git`
-  (behind `real`, which only the program turns on), with git's meaning,
+ , with git's meaning,
   which moves out of kkt-lane-files (its `git` module and
   `Git`, `Ran` and `commit` go). `kkt_lane_files::Disk` loses `git_commit`,
   `read_folder` takes the `LaneCommit` beside the `Disk`, and
@@ -95,18 +95,17 @@ The shared crates are reorganized so that every dependency is injected and each 
   `lane_commit`. Messages and the commits recorded are unchanged.
 - **Browser contract.** `kkt-browser::Browser` (start opening a link; say
   later, once, if that failed; `testing::Recorder`) is how a sharing
-  setup's login link opens. `kkt-browser::SystemBrowser` (behind `real`)
+  setup's login link opens. `kkt-browser::SystemBrowser`
   implements it with `open` or `xdg-open`, moved from kkt-terminal-os.
   `kkt_container::LoginLink` and kkt-terminal-os' `BrowserLink` keep only
   `show` and `open_requested`; `kkt_container_docker::Docker` is now built
   with `Docker::new(browser)`. Messages are unchanged.
-- **Effects in `-os` crates.** What touches the machine moves out of each crate's `real` feature into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os`, `kkt-shutdown-os` (`StopSignals`, from kkt-shutdown, which keeps `Shutdown`), `kkt-backup-os` (`write` and `prune`; kkt-backup keeps the layouts), `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`) and `kkt-logs-os` (`RotatingFile` and `open_log_file`; kkt-logs keeps the levels and the policy's plans). A logic crate has a `real` feature only where its effect has rejoined it, as the next entry says.
-- **Logic and its effect in one crate.** Where an `-os` crate only carried out its logic crate's plans, the two are one crate again, the effect behind `real`, which only programs turn on: a crate that depends on it without `real` gets the logic alone. Messages and file modes are unchanged.
+- **Effects in `-os` crates.** What touches the machine moves into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os`, `kkt-shutdown-os` (`StopSignals`, from kkt-shutdown, which keeps `Shutdown`), `kkt-backup-os` (`write` and `prune`; kkt-backup keeps the layouts), `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`) and `kkt-logs-os` (`RotatingFile` and `open_log_file`; kkt-logs keeps the levels and the policy's plans).
 - **Logs.** `kkt-logs-os` keeps only the log file: `RotatingFile`, with
-  `open_log_file(path, policy, clock)` (behind `real`), which checks the
+  `open_log_file(path, policy, clock)`, which checks the
   policy and opens the file, as `init_logging` did. Its `TracingLog`,
-  `init_logging` and `init_stderr_logging` are now `kkt-log-tracing`'s
-  (behind `real`). kkt-logs is logic alone, with no `real` feature. `init_logging` takes the writer to
+  `init_logging` and `init_stderr_logging` are now `kkt-log-tracing`'s.
+  kkt-logs is logic alone. `init_logging` takes the writer to
   log to (`None` for stdout) in place of a path, a policy and a clock.
   Messages are unchanged.
 - **Server keys.** `kkt-admission` held two concerns; the server's keys
@@ -143,10 +142,11 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **The page preview** is now a program of its own: `cargo run -p kkt-web-preview`, in place of kkt-web's example.
 - **The output format.** `kkt_mcp_formatter::Format` no longer derives serde's `Deserialize` or schemars' `JsonSchema`, and kkt-mcp-formatter no longer depends on either. kkt-mcp, which wraps the MCP library, reads the tools' `format` parameter with a type of its own and turns it into `Format`. The tools' parameters and descriptions are unchanged.
 - **TOML.** A new logic crate, `kkt-toml`, is the only one that uses the `toml` and `toml_edit` libraries. It parses TOML text into its own tree of values (`parse`, `Table`, `Value`), reads and writes typed records (`read`, `write`), and edits a document while keeping its comments (`Document`), with errors of its own (`ParseError`, `Place`, `WriteError`, `EditError`). kkt-config-file, kkt-client-config, kkt-setup and kkt-mcp's build script use it, and no longer depend on `toml` or `toml_edit`. Their public items, and every message they give, are unchanged.
-- **A client's own command.** `ClientCommand` is now kkt-client-config's (`kkt_client_config::ClientCommand`), with its stand-in `kkt_client_config::testing::Recorder` and `Call` behind kkt-client-config's new `testing` feature. kkt-client-command declares no contract: `kkt_client_command::Claude` (behind `real`) has `remove_server` and `add_server` as its own methods, and a program adapts it to `ClientCommand`. kkt-client-command has no `testing` feature. The commands run and every message are unchanged.
-- **A lane folder's commit.** `LaneCommit` is now kkt-lane-files' (`kkt_lane_files::LaneCommit`), with its stand-in `kkt_lane_files::testing::Memory` behind kkt-lane-files' new `testing` feature. kkt-lane-commit declares no contract and has no `testing` feature: `kkt_lane_commit::Git` (behind `real`) has `commit` as its own method, and a program adapts it to `LaneCommit`. The commands run and every message are unchanged.
-- **Probing a server.** `Prober`, `Probing`, `KeyFile` and `Check` are now kkt-diagnostics' (`kkt_diagnostics::Prober` and so on), with the stand-in `kkt_diagnostics::testing::Memory` behind kkt-diagnostics' new `testing` feature. kkt-probe declares no contract and has no `testing` feature: `kkt_probe::HttpProber` (behind `real`) has `key_file` and `probe` as its own methods, which give kkt-probe's own records, `FileRead` and `Finding`, and a program adapts it to `Prober`. Every check's name and wording is unchanged.
-- **Opening a link in the browser.** `Browser` is now kkt-container-docker's (`kkt_container_docker::Browser`, behind its `real`, as `Docker` is). kkt-browser declares no contract and has no `testing` feature: `kkt_browser::SystemBrowser` (behind `real`) has `open` and `open_failure` as its own methods, and a program adapts it to `Browser`. `kkt_browser::testing::Recorder` is gone: nothing used it. The opener, and every message, are unchanged.
+- **A client's own command.** `ClientCommand` is now kkt-client-config's (`kkt_client_config::ClientCommand`), with its stand-in `kkt_client_config::testing::Recorder` and `Call` behind kkt-client-config's new `testing` feature. kkt-client-command declares no contract: `kkt_client_command::Claude` has `remove_server` and `add_server` as its own methods, and a program adapts it to `ClientCommand`. kkt-client-command has no `testing` feature. The commands run and every message are unchanged.
+- **A lane folder's commit.** `LaneCommit` is now kkt-lane-files' (`kkt_lane_files::LaneCommit`), with its stand-in `kkt_lane_files::testing::Memory` behind kkt-lane-files' new `testing` feature. kkt-lane-commit declares no contract and has no `testing` feature: `kkt_lane_commit::Git` has `commit` as its own method, and a program adapts it to `LaneCommit`. The commands run and every message are unchanged.
+- **Probing a server.** `Prober`, `Probing`, `KeyFile` and `Check` are now kkt-diagnostics' (`kkt_diagnostics::Prober` and so on), with the stand-in `kkt_diagnostics::testing::Memory` behind kkt-diagnostics' new `testing` feature. kkt-probe declares no contract and has no `testing` feature: `kkt_probe::HttpProber` has `key_file` and `probe` as its own methods, which give kkt-probe's own records, `FileRead` and `Finding`, and a program adapts it to `Prober`. Every check's name and wording is unchanged.
+- **Opening a link in the browser.** `Browser` is now kkt-container-docker's (`kkt_container_docker::Browser`). kkt-browser declares no contract and has no `testing` feature: `kkt_browser::SystemBrowser` has `open` and `open_failure` as its own methods, and a program adapts it to `Browser`. `kkt_browser::testing::Recorder` is gone: nothing used it. The opener, and every message, are unchanged.
+- **No `real` feature.** No crate has a `real` feature any more: phase 16 took apart the crates that held a contract or logic beside its effect, and each effect crate builds all of its code. **This breaks a crate that depends on kkt by git and asks for `real`**: Cargo refuses a dependency with a feature it does not have. Drop `features = ["real"]` from every kkt crate in your `Cargo.toml`, kkt-server-listen included, on the same update. An effect crate's third-party libraries are now ordinary dependencies of it. Nothing an agent, a person or an install sees changes.
 
 ### What affects existing setups
 - **JSON client configs keep their key order.** The next `kkt connect`, `kkt switch` or `kkt setup` that changes an OpenCode, Antigravity or Muse Code config leaves its keys in their order instead of sorting them. A file an older kkt already sorted stays sorted. The settings in it are the same either way.
