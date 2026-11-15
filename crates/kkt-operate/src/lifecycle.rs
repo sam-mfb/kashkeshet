@@ -549,7 +549,7 @@ mod tests {
         }
     }
 
-    impl kkt_lane_commit::LaneCommit for Untouched {
+    impl kkt_lane_files::LaneCommit for Untouched {
         fn commit(&self, _: &Path) -> std::io::Result<Option<String>> {
             self.asked("lane_commit.commit")
         }

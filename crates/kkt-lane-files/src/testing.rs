@@ -1,5 +1,5 @@
-//! Commits in memory, for consumers' tests: each folder given one is at it,
-//! and any other folder is at none.
+//! Commits in memory, a stand-in `LaneCommit` for tests: each folder given
+//! one is at it, and any other folder is at none.
 
 use crate::LaneCommit;
 use std::collections::BTreeMap;

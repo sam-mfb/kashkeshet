@@ -206,7 +206,7 @@ pub(crate) async fn local_import_lanes<D>(
 /// `retire_missing`, a folder that could only retire every lane is refused.
 fn read_lanes_warning(
     disk: &dyn lane_files::Disk,
-    commits: &dyn kkt_lane_commit::LaneCommit,
+    commits: &dyn kkt_lane_files::LaneCommit,
     output: &dyn crate::Output,
     folder: &Path,
     retire_missing: bool,
@@ -286,7 +286,7 @@ pub(crate) fn docker_lane_limit<D>(
 /// names the file or lane that is wrong.
 pub(crate) fn check_lanes_folder(
     disk: &dyn lane_files::Disk,
-    commits: &dyn kkt_lane_commit::LaneCommit,
+    commits: &dyn kkt_lane_files::LaneCommit,
     output: &dyn crate::Output,
     folder: &Path,
     max_lane_chars: usize,
