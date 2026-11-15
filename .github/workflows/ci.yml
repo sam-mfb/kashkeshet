@@ -152,7 +152,7 @@ jobs:
       - name: Test the check and the map's scripts
         run: python3 -m unittest discover -s docs/architecture -p 'test_*.py' -v
 
-      - name: Build the crate map from the code and check the programs
+      - name: Build the crate map from the code; check the programs, the kinds and the rules
         run: python3 docs/architecture/check-programs.py
 
   crate-map:

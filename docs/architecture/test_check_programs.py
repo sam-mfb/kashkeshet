@@ -66,6 +66,19 @@ class CheckPrograms(unittest.TestCase):
                          ["kkt-server is composition but has a `real` feature of its own"])
 
 
+class KindsAndRules(unittest.TestCase):
+    def test_a_map_with_none_passes(self):
+        self.assertEqual(check.kinds_and_rules({"kind_mismatches": [], "rule_breaks": []}), [])
+
+    def test_a_kind_that_does_not_fit_or_a_broken_rule_fails(self):
+        graph = {"kind_mismatches": ["kkt-x is marked logic but turns on `real`"],
+                 "rule_breaks": ["kkt-y depends on the effect crate kkt-z"]}
+        self.assertEqual(check.kinds_and_rules(graph), [
+            "kind: kkt-x is marked logic but turns on `real`",
+            "rule: kkt-y depends on the effect crate kkt-z",
+        ])
+
+
 class PathProbes(unittest.TestCase):
     """A program asking the file system about a path counts as machine work."""
 
