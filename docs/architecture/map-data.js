@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "507e6a0",
+ "commit": "cced9a1",
  "crates": [
   {
    "bins": [
@@ -534,13 +534,13 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "kkt_setup::kkt_path",
+     "from": "kkt_setup_os::kkt_path",
      "kind": "fn",
      "path": "process::kkt_path"
     },
     {
      "doc": "",
-     "from": "kkt_setup::program_path",
+     "from": "kkt_setup_os::program_path",
      "kind": "fn",
      "path": "process::program_path"
     },
@@ -13707,7 +13707,6 @@ window.KKT_GRAPH = {
    "crate_doc": "`kkt setup`: what this machine is set up as (a server run as a service, a server in Docker, or a client of a server elsewhere), the record that says so, and what follows from it: whether `kkt serve` may run here, and which server this ma...",
    "dev_only": false,
    "features": {
-    "real": [],
     "testing": []
    },
    "holders": [
@@ -14163,12 +14162,6 @@ window.KKT_GRAPH = {
      "path": "UpgradePlan"
     },
     {
-     "doc": "Resolves a relative path against this process's working directory.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "absolute"
-    },
-    {
      "doc": "An access key may keep its old name, but cannot also be the admin key.",
      "kind": "fn",
      "path": "admin_key_collision"
@@ -14237,12 +14230,6 @@ window.KKT_GRAPH = {
      "doc": "What `kkt backup` backs up, given the recorded `mode` (`None` with no record), the folder given (`into`) and whether `--db` or `--config` was given (`local_options`).",
      "kind": "fn",
      "path": "backup_of"
-    },
-    {
-     "doc": "Follows links and resolves the actual file path.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "canonicalize"
     },
     {
      "doc": "One key per server, so another server's saved key is never replaced.",
@@ -14457,12 +14444,6 @@ window.KKT_GRAPH = {
      "path": "key_fix"
     },
     {
-     "doc": "This program's absolute path, for client configurations that run it.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "kkt_path"
-    },
-    {
      "doc": "The report of a lane import, and the Docker limit when no install is present.",
      "kind": "mod",
      "path": "lane_reports"
@@ -14496,45 +14477,9 @@ window.KKT_GRAPH = {
      "path": "lanes_on"
     },
     {
-     "doc": "Makes the default database's parent folder.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "make_data_folder"
-    },
-    {
-     "doc": "Whether a program is a file in the already-captured PATH folders.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "on_path"
-    },
-    {
      "doc": "Where this machine's key of `kind` is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
      "kind": "fn",
      "path": "operator_key"
-    },
-    {
-     "doc": "One snapshot of PATH, shared by all client checks in a setup invocation.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "path_dirs"
-    },
-    {
-     "doc": "This program's absolute path, with links followed.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "program_path"
-    },
-    {
-     "doc": "Reads the setup record from the selected config folder, if present.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "read_record"
-    },
-    {
-     "doc": "Reads the unfinished note; the caller checks whether its install is present.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "read_unfinished"
     },
     {
      "doc": "Where the setup record is: `setup.toml` in kkt's config directory, `config_dir`, beside the config file and the access key.",
@@ -14550,18 +14495,6 @@ window.KKT_GRAPH = {
      "doc": "This machine's setup record.",
      "kind": "fn",
      "path": "recorded_setup"
-    },
-    {
-     "doc": "Removes the setup record; missing files retain the caller's original refusal.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "remove_record"
-    },
-    {
-     "doc": "Removes the unfinished note, accepting an already-missing file.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "remove_unfinished"
     },
     {
      "doc": "Runs `kkt setup`: asks what `answers` leaves open, sets the machine up, checks the connection, connects clients, and records it.",
@@ -14700,42 +14633,14 @@ window.KKT_GRAPH = {
      "doc": "",
      "kind": "fn",
      "path": "web_key_line"
-    },
-    {
-     "doc": "Saves the setup record with the original write-then-rename operation.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "write_record"
-    },
-    {
-     "doc": "Saves the unfinished note with the same write-then-rename operation.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "write_unfinished"
     }
    ],
    "lib": "kkt_setup",
-   "machine_work": {
-    "src/files.rs": [
-     "env::current_exe",
-     "env::split_paths",
-     "env::var_os",
-     "fs::create_dir_all",
-     "fs::read_to_string",
-     "fs::remove_file",
-     "fs::rename",
-     "fs::write",
-     "path::absolute",
-     "Path::canonicalize",
-     "Path::is_file"
-    ]
-   },
+   "machine_work": {},
    "name": "kkt-setup",
    "optional_third_party": {},
    "path": "crates/kkt-setup",
-   "real_files": [
-    "src/files.rs"
-   ],
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -14832,6 +14737,122 @@ window.KKT_GRAPH = {
     "semver",
     "serde"
    ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Setup's record and unfinished note, data folder and program paths on this machine.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "Resolves a relative path against this process's working directory.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "absolute"
+    },
+    {
+     "doc": "Follows links and resolves the actual file path.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "canonicalize"
+    },
+    {
+     "doc": "This program's absolute path, for client configurations that run it.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "kkt_path"
+    },
+    {
+     "doc": "Makes the default database's parent folder.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "make_data_folder"
+    },
+    {
+     "doc": "Whether a program is a file in the already-captured PATH folders.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "on_path"
+    },
+    {
+     "doc": "One snapshot of PATH, shared by all client checks in a setup invocation.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "path_dirs"
+    },
+    {
+     "doc": "This program's absolute path, with links followed.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "program_path"
+    },
+    {
+     "doc": "Reads the setup record from the selected config folder, if present.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "read_record"
+    },
+    {
+     "doc": "Reads the unfinished note; the caller checks whether its install is present.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "read_unfinished"
+    },
+    {
+     "doc": "Removes the setup record; missing files retain the caller's original refusal.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "remove_record"
+    },
+    {
+     "doc": "Removes the unfinished note, accepting an already-missing file.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "remove_unfinished"
+    },
+    {
+     "doc": "Saves the setup record with the original write-then-rename operation.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "write_record"
+    },
+    {
+     "doc": "Saves the unfinished note with the same write-then-rename operation.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "write_unfinished"
+    }
+   ],
+   "lib": "kkt_setup_os",
+   "machine_work": {
+    "src/lib.rs": [
+     "env::current_exe",
+     "env::split_paths",
+     "env::var_os",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::write",
+     "path::absolute",
+     "Path::canonicalize",
+     "Path::is_file"
+    ]
+   },
+   "name": "kkt-setup-os",
+   "optional_third_party": {},
+   "path": "crates/kkt-setup-os",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
   },
   {
    "bins": [],
@@ -18133,9 +18154,7 @@ window.KKT_GRAPH = {
    "to": "kkt-service-systemd"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Answers",
@@ -18145,26 +18164,13 @@ window.KKT_GRAPH = {
     "Switch",
     "Target",
     "Unfinished",
-    "absolute",
-    "canonicalize",
     "connection",
     "connection::Connection",
     "connection::ConnectionOptions",
     "connection::serve_connection",
     "credential_file_check",
     "default_db",
-    "kkt_path",
-    "make_data_folder",
-    "on_path",
-    "path_dirs",
-    "program_path",
-    "read_record",
-    "read_unfinished",
-    "remove_record",
-    "remove_unfinished",
-    "upgrade_backup_folder",
-    "write_record",
-    "write_unfinished"
+    "upgrade_backup_folder"
    ],
    "kind": "normal",
    "optional": false,
@@ -18186,26 +18192,13 @@ window.KKT_GRAPH = {
       "Switch",
       "Target",
       "Unfinished",
-      "absolute",
-      "canonicalize",
       "connection",
       "connection::Connection",
       "connection::ConnectionOptions",
       "connection::serve_connection",
       "credential_file_check",
       "default_db",
-      "kkt_path",
-      "make_data_folder",
-      "on_path",
-      "path_dirs",
-      "program_path",
-      "read_record",
-      "read_unfinished",
-      "remove_record",
-      "remove_unfinished",
-      "upgrade_backup_folder",
-      "write_record",
-      "write_unfinished"
+      "upgrade_backup_folder"
      ],
      "role": "uses"
     }
@@ -18218,6 +18211,53 @@ window.KKT_GRAPH = {
     "Unrecorded"
    ],
    "to": "kkt-setup"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "absolute",
+    "canonicalize",
+    "kkt_path",
+    "make_data_folder",
+    "on_path",
+    "path_dirs",
+    "program_path",
+    "read_record",
+    "read_unfinished",
+    "remove_record",
+    "remove_unfinished",
+    "write_record",
+    "write_unfinished"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "absolute",
+      "canonicalize",
+      "kkt_path",
+      "make_data_folder",
+      "on_path",
+      "path_dirs",
+      "program_path",
+      "read_record",
+      "read_unfinished",
+      "remove_record",
+      "remove_unfinished",
+      "write_record",
+      "write_unfinished"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-setup-os"
   },
   {
    "features": [],
@@ -26135,6 +26175,33 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-setup-os",
+   "items": [
+    "Record",
+    "Unfinished",
+    "record_path",
+    "unfinished_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Record",
+      "Unfinished",
+      "record_path",
+      "unfinished_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-setup"
+  },
+  {
+   "features": [],
    "from": "kkt-shutdown-os",
    "items": [
     "Shutdown"
@@ -27351,10 +27418,16 @@ window.KKT_CONCERNS = {
    "must_not": "Decide what the service runs or check the server's settings."
   },
   "kkt-setup": {
-   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`. Behind real: setup's record and unfinished note, data folder, program paths and PATH checks on this machine.",
-   "kind": "logic and effect",
+   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
+   "kind": "logic",
    "layer": "operations",
-   "must_not": "Read files or run anything outside real: the program carries out, or passes in, what is decided here; let a consumer reach setup's files without real."
+   "must_not": "Read files or run anything: the program carries out, or passes in, what is decided here."
+  },
+  "kkt-setup-os": {
+   "concern": "Setup's record and unfinished note, data folder, program paths and PATH checks on this machine.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Decide what setup does or where its files belong."
   },
   "kkt-shutdown": {
    "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value.",
@@ -28127,8 +28200,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt connect",
-     "own": "ThisProgram, adapting kkt-setup::kkt_path",
-     "supplier": "kkt-setup",
+     "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
+     "supplier": "kkt-setup-os",
      "supplier_item": "kkt_path",
      "to": [
       {
@@ -28325,8 +28398,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup's files, behind real",
-     "supplier": "kkt-setup",
+     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
+     "supplier": "kkt-setup-os",
      "to": [
       {
        "at": "OperateParts",

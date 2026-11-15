@@ -1,0 +1,15 @@
+[package]
+name = "kkt-setup-os"
+description = "Setup's record and unfinished note, data folder and program paths on this machine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-setup = { path = "../kkt-setup" }
+
+[features]
+# Reads and writes setup files and resolves paths on this machine.
+real = []
