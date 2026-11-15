@@ -1,8 +1,11 @@
-//! The log file on disk: appended to, rolled over and pruned as the
-//! policy's plans say. The program supplies the wall clock.
+//! The log file on disk: appended to, rolled over and pruned as kkt-logs'
+//! policy plans say ([`RotatingFile`], opened by [`open_log_file`] after
+//! the policy's check). The program supplies the wall clock.
 
-use crate::{LogPolicy, prune_due, pruning, rotation, should_roll};
+#![cfg(any(test, feature = "real"))]
+
 use kkt_clock::{Clock, Time};
+use kkt_logs::{LogPolicy, prune_due, pruning, rotation, should_roll};
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -144,6 +147,10 @@ fn rename_if_present(from: &Path, to: &Path) -> io::Result<()> {
 fn invalid_policy(error: kkt_clock::OutOfRange) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, error)
 }
+
+/// Where unit tests put their scratch files: shared with the integration tests.
+#[cfg(test)]
+use kkt_scratch as scratch;
 
 #[cfg(test)]
 mod tests;

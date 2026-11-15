@@ -11,10 +11,5 @@ publish = false
 kkt-clock = { path = "../kkt-clock" }
 thiserror.workspace = true
 
-[features]
-# The log file on disk: `RotatingFile` and `open_log_file`.
-real = []
-
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-scratch = { path = "../kkt-scratch" }

@@ -1070,6 +1070,7 @@ dependencies = [
  "kkt-lane-files-os",
  "kkt-log-tracing",
  "kkt-logs",
+ "kkt-logs-os",
  "kkt-machine",
  "kkt-machine-os",
  "kkt-mcp",
@@ -1487,8 +1488,16 @@ name = "kkt-logs"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-scratch",
  "thiserror",
+]
+
+[[package]]
+name = "kkt-logs-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-logs",
+ "kkt-scratch",
 ]
 
 [[package]]
