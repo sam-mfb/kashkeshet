@@ -297,6 +297,10 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .delivery { fill: none; stroke: var(--wires); stroke-width: 1.8; stroke-dasharray: 1.5 3; stroke-linecap: round; pointer-events: stroke; }
 .delivery-label { font-size: 10.5px; fill: var(--wires-text, var(--wires)); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; cursor: help; }
 .delivery-words { font-size: 12px; margin-top: 3px; }
+/* The injector's own work, not another crate's implementation: a longer
+   dash and an italic label. */
+.delivery.own-work { stroke-dasharray: 6 3; }
+.delivery-label.own-work { font-style: italic; }
 .deliveries-words { margin-top: 2px; }
 /* Each chip's left mark is its role's arrow colour, whatever its text colour. */
 .chip.role-text-implements { border-left-color: var(--implements); }

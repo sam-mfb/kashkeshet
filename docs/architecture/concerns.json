@@ -238,7 +238,7 @@
   },
   "kkt-client-config": {
    "layer": "operations",
-   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through kkt-client-command's ClientCommand, and its file restored if that fails.",
+   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through the ClientCommand it declares, with its testing Recorder, and its file restored if that fails.",
    "must_not": "Touch the machine except through `Host` and `ClientCommand`.",
    "kind": "logic"
   },
@@ -250,9 +250,9 @@
   },
   "kkt-client-command": {
    "layer": "operations",
-   "concern": "Configuring an MCP client through that client's own command line: the ClientCommand contract in the open (remove kkt's server, add it as the client's own entry), with the testing Recorder, and its one implementation behind real, Claude: claude mcp remove and add-json at user scope, CLAUDE_CONFIG_DIR and the wording, tested over a private runner.",
-   "must_not": "Echo the command's output, which may hold credentials; let a consumer reach Claude without real.",
-   "kind": "contract and effect"
+   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude` (behind real), with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
+   "must_not": "Echo the command's output, which may hold credentials.",
+   "kind": "effect"
   },
   "kkt-diagnostics": {
    "layer": "operations",

@@ -215,7 +215,7 @@ fn parts(
                 .collect(),
         )),
         clients: Box::new(NoClients),
-        client_command: Box::new(kkt_client_command::testing::Recorder::default()),
+        client_command: Box::new(kkt_client_config::testing::Recorder::default()),
         program: Box::new(Kkt),
         report: Box::new(Lines),
         output: Box::new(Out(seen.clone())),

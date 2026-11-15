@@ -1007,22 +1007,32 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
 
 
 def check_assembly(assembly, items_of, packages, slots_of):
-    """Fails if assembly.json names a program, an item or a slot that is not
-    there."""
+    """Fails if assembly.json names a program, an item, a supplier or a slot
+    that is not there, or records as an injection a value of the receiving
+    crate's own type."""
     problems = []
     # The programs' wiring, and that of a shared crate that assembles
-    # (kkt-server, under "injectors").
+    # (kkt-server and the two assemblies, under "injectors").
     for program, flow in list(assembly["programs"].items()) + list(assembly.get("injectors", {}).items()):
         if program not in packages:
             problems.append(f"no package {program}")
         for wire in flow.get("wiring", []):
+            forms = [f for f in ("impl", "own", "passes_on") if wire.get(f)]
+            if len(forms) != 1:
+                problems.append(f"{program}: a wiring entry into {wire.get('crate')} needs one of impl, own or passes_on")
             impl = wire.get("impl")
             if impl:
                 crate, _, path = impl.partition("::")
                 if crate not in items_of or path not in items_of[crate]:
                     problems.append(f"{program}: wiring names no public item {path} in {crate}")
-            elif not wire.get("own"):
-                problems.append(f"{program}: a wiring entry has neither impl nor own")
+                if crate == wire["crate"]:
+                    problems.append(f"{program}: {impl} is {crate}'s own type, not an injection into it")
+            if wire.get("own"):
+                supplier = wire.get("supplier")
+                if supplier not in packages:
+                    problems.append(f"{program}: {wire['own']} names no supplier package ({supplier})")
+                elif wire.get("supplier_item") and wire["supplier_item"] not in items_of.get(supplier, {}):
+                    problems.append(f"{program}: no public item {wire['supplier_item']} in the supplier {supplier}")
             for slot in wire["to"]:
                 if not any(s["at"] == slot["at"] and s["name"] == slot["param"]
                            for s in slots_of.get(wire["crate"], [])):
