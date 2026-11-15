@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a748b44",
+ "commit": "5471a1e",
  "crates": [
   {
    "bins": [
@@ -26795,14 +26795,13 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself (kkt-server, which assembles the server), in the same form; an entry that passes on what it was given names it in \"own\" and its supplier in \"supplier\".",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, or an impl's crate is the receiving crate. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the two assemblies, kkt-operate and kkt-agent-commands, which pass on what the program gave their parts.",
  "injectors": {
   "kkt-agent-commands": {
    "wiring": [
     {
      "crate": "kkt-watch",
-     "own": "the Watched the program's Servers made",
-     "supplier": "the program's Servers",
+     "passes_on": "the Watched the program's Servers made",
      "to": [
       {
        "at": "run",
@@ -26812,8 +26811,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-watch",
-     "own": "the clock the program gave AgentParts",
-     "supplier": "the program's clock",
+     "passes_on": "the clock the program gave AgentParts",
      "to": [
       {
        "at": "run",
@@ -26823,8 +26821,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-watch",
-     "own": "the credentials the program gave AgentParts",
-     "supplier": "the program's credentials",
+     "passes_on": "the credentials the program gave AgentParts",
      "to": [
       {
        "at": "run",
@@ -26834,8 +26831,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-watch",
-     "own": "the report the program gave AgentParts",
-     "supplier": "the program's report",
+     "passes_on": "the report the program gave AgentParts",
      "to": [
       {
        "at": "run",
@@ -26845,8 +26841,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-client-config",
-     "own": "the client configs' host the program gave AgentParts",
-     "supplier": "the program's client configs' host",
+     "passes_on": "the client configs' host the program gave AgentParts",
      "to": [
       {
        "at": "configure",
@@ -26860,8 +26855,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-setup",
-     "own": "the connection question the program gave AgentParts",
-     "supplier": "the program's connection question",
+     "passes_on": "the connection question the program gave AgentParts",
      "to": [
       {
        "at": "connection::client_connection",
@@ -26875,12 +26869,129 @@ window.KKT_ASSEMBLY = {
     }
    ]
   },
+  "kkt-operate": {
+   "wiring": [
+    {
+     "crate": "kkt-diagnostics",
+     "note": "kkt doctor, kkt setup",
+     "passes_on": "the prober the program gave OperateParts",
+     "to": [
+      {
+       "at": "Inspector::new",
+       "param": "prober"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-diagnostics",
+     "note": "kkt setup, waiting for a new server",
+     "passes_on": "the clock the program gave OperateParts",
+     "to": [
+      {
+       "at": "until_reachable",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-rules",
+     "note": "kkt agent, kkt lanes",
+     "passes_on": "the clock the program gave OperateParts",
+     "to": [
+      {
+       "at": "CommandLine::new",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-setup",
+     "note": "kkt setup, kkt switch",
+     "passes_on": "the lines the program gave OperateParts",
+     "to": [
+      {
+       "at": "ask::Prompter::new",
+       "param": "lines"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-setup",
+     "note": "kkt setup: the assembly's own work",
+     "own": "OsSteps, setup's steps through the program's parts",
+     "supplier": "kkt-operate",
+     "to": [
+      {
+       "at": "run",
+       "param": "steps"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-setup",
+     "note": "kkt switch: the assembly's own work",
+     "own": "OsSwitchSteps, switch's steps through the program's parts",
+     "supplier": "kkt-operate",
+     "to": [
+      {
+       "at": "switch",
+       "param": "steps"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-client-config",
+     "note": "kkt setup, kkt doctor",
+     "passes_on": "the client configs' host the program gave OperateParts",
+     "to": [
+      {
+       "at": "configure",
+       "param": "host"
+      },
+      {
+       "at": "Client::file",
+       "param": "host"
+      },
+      {
+       "at": "Client::installed",
+       "param": "host"
+      },
+      {
+       "at": "Client::connected",
+       "param": "host"
+      },
+      {
+       "at": "allow_kkt",
+       "param": "host"
+      },
+      {
+       "at": "codex_password_store_hint",
+       "param": "host"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-lane-files",
+     "note": "kkt lanes import and export, kkt setup --lanes",
+     "passes_on": "the lane folder's disk the program gave OperateParts",
+     "to": [
+      {
+       "at": "read_folder",
+       "param": "disk"
+      },
+      {
+       "at": "write_folder",
+       "param": "disk"
+      }
+     ]
+    }
+   ]
+  },
   "kkt-server": {
    "wiring": [
     {
      "crate": "kkt-web",
-     "own": "the AdminApi the program gave Parts",
-     "supplier": "the program's AdminApi",
+     "passes_on": "the AdminApi the program gave Parts",
      "to": [
       {
        "at": "router",
@@ -26890,7 +27001,9 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-web",
-     "impl": "kkt-server::AdmissionGate",
+     "own": "AdmissionGate, asking kkt-admission's web admission and the identity the program gave Parts",
+     "supplier": "kkt-admission",
+     "supplier_item": "WebAdmission",
      "to": [
       {
        "at": "router",
@@ -26900,8 +27013,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-mcp",
-     "own": "the AdminApi the program gave Parts",
-     "supplier": "the program's AdminApi",
+     "passes_on": "the AdminApi the program gave Parts",
      "to": [
       {
        "at": "endpoint",
@@ -26929,8 +27041,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-mcp",
-     "own": "the identity the program gave Parts",
-     "supplier": "the program's identity",
+     "passes_on": "the identity the program gave Parts",
      "to": [
       {
        "at": "endpoint",
@@ -26944,8 +27055,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-web",
-     "own": "the clock and entropy the program gave Parts",
-     "supplier": "the program's clock and entropy",
+     "passes_on": "the clock and entropy the program gave Parts",
      "to": [
       {
        "at": "Sessions::new",
@@ -26959,8 +27069,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-mcp",
-     "own": "the log the program gave Parts",
-     "supplier": "the program's log",
+     "passes_on": "the log the program gave Parts",
      "to": [
       {
        "at": "endpoint",
@@ -26974,8 +27083,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-web",
-     "own": "the log the program gave Parts",
-     "supplier": "the program's log",
+     "passes_on": "the log the program gave Parts",
      "to": [
       {
        "at": "router",
@@ -27128,7 +27236,8 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-admission",
      "note": "kkt serve",
      "own": "ServerKeyFiles, adapting kkt-server-keys::KeyFiles",
-     "supplier": "kkt-server-keys::KeyFiles",
+     "supplier": "kkt-server-keys",
+     "supplier_item": "KeyFiles",
      "to": [
       {
        "at": "server_keys::check",
@@ -27155,26 +27264,6 @@ window.KKT_ASSEMBLY = {
       {
        "at": "Db::new",
        "param": "database"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-rules",
-     "impl": "kkt-rules::Db",
-     "to": [
-      {
-       "at": "Startup",
-       "param": "db"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-rules",
-     "impl": "kkt-rules::DefaultWording",
-     "to": [
-      {
-       "at": "Startup",
-       "param": "wording"
       }
      ]
     },
@@ -27240,42 +27329,11 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-server",
-     "impl": "kkt-server::Parts",
-     "to": [
-      {
-       "at": "build",
-       "param": "parts"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-rules",
-     "impl": "kkt-rules::Db",
-     "note": "kkt agent, kkt lanes",
-     "to": [
-      {
-       "at": "CommandLine::new",
-       "param": "db"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-rules",
-     "impl": "kkt-clock-system::SystemClock",
-     "note": "kkt agent, kkt lanes",
-     "to": [
-      {
-       "at": "CommandLine::new",
-       "param": "clock"
-      }
-     ]
-    },
-    {
      "crate": "kkt-agent-commands",
      "note": "kkt watch --admin",
      "own": "AdminKeyHere, asking kkt-operate's key finder (keys::selected_key_path) over the operator's parts on this machine",
-     "supplier": "kkt-operate::keys::selected_key_path",
+     "supplier": "kkt-operate",
+     "supplier_item": "keys::selected_key_path",
      "to": [
       {
        "at": "AgentParts",
@@ -27298,7 +27356,8 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and watch",
      "own": "CredentialFiles, applying kkt-setup's credential-file rule to kkt-agent-files-os' credential and state files",
-     "supplier": "kkt-agent-files-os::CredentialFile",
+     "supplier": "kkt-agent-files-os",
+     "supplier_item": "CredentialFile",
      "to": [
       {
        "at": "AgentParts",
@@ -27310,7 +27369,8 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and watch",
      "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
-     "supplier": "kkt-server-keys::KeyFiles",
+     "supplier": "kkt-server-keys",
+     "supplier_item": "KeyFiles",
      "to": [
       {
        "at": "AgentParts",
@@ -27322,7 +27382,8 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt connect",
      "own": "ClientHost, adapting kkt-client-config-os's OsHost",
-     "supplier": "kkt-client-config-os's OsHost",
+     "supplier": "kkt-client-config-os",
+     "supplier_item": "OsHost",
      "to": [
       {
        "at": "AgentParts",
@@ -27334,7 +27395,8 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt connect",
      "own": "ThisProgram, adapting kkt-setup::kkt_path",
-     "supplier": "kkt-setup::kkt_path",
+     "supplier": "kkt-setup",
+     "supplier_item": "kkt_path",
      "to": [
       {
        "at": "AgentParts",
@@ -27346,7 +27408,8 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt watch",
      "own": "WatchOutput, adapting kkt-terminal-os::Terminal",
-     "supplier": "kkt-terminal-os::Terminal",
+     "supplier": "kkt-terminal-os",
+     "supplier_item": "Terminal",
      "to": [
       {
        "at": "AgentParts",
@@ -27358,7 +27421,8 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and connect",
      "own": "TerminalOutput, adapting kkt-terminal-os::Terminal",
-     "supplier": "kkt-terminal-os::Terminal",
+     "supplier": "kkt-terminal-os",
+     "supplier_item": "Terminal",
      "to": [
       {
        "at": "AgentParts",
@@ -27374,144 +27438,6 @@ window.KKT_ASSEMBLY = {
       {
        "at": "AgentParts",
        "param": "clock"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-setup",
-     "note": "kkt setup, kkt switch",
-     "own": "TerminalLines, adapting kkt-terminal-os::Terminal",
-     "supplier": "kkt-terminal-os::Terminal",
-     "to": [
-      {
-       "at": "ask::Prompter::new",
-       "param": "lines"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-setup",
-     "impl": "kkt-setup::ask::Prompter",
-     "note": "kkt setup, kkt switch",
-     "to": [
-      {
-       "at": "run",
-       "param": "ask"
-      },
-      {
-       "at": "switch",
-       "param": "ask"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-setup",
-     "note": "kkt setup",
-     "own": "setup's steps on this machine (a type of its own)",
-     "to": [
-      {
-       "at": "run",
-       "param": "steps"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-setup",
-     "note": "kkt switch",
-     "own": "switch's steps on this machine (a type of its own)",
-     "to": [
-      {
-       "at": "switch",
-       "param": "steps"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-client-config",
-     "note": "kkt setup, kkt doctor",
-     "own": "ClientHost, adapting kkt-client-config-os's OsHost",
-     "supplier": "kkt-client-config-os's OsHost",
-     "to": [
-      {
-       "at": "configure",
-       "param": "host"
-      },
-      {
-       "at": "Client::file",
-       "param": "host"
-      },
-      {
-       "at": "Client::installed",
-       "param": "host"
-      },
-      {
-       "at": "Client::connected",
-       "param": "host"
-      },
-      {
-       "at": "allow_kkt",
-       "param": "host"
-      },
-      {
-       "at": "codex_password_store_hint",
-       "param": "host"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-diagnostics",
-     "impl": "kkt-probe::HttpProber",
-     "note": "kkt doctor, kkt setup",
-     "to": [
-      {
-       "at": "Inspector::new",
-       "param": "prober"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-diagnostics",
-     "impl": "kkt-diagnostics::Inspector",
-     "note": "kkt doctor, kkt setup",
-     "to": [
-      {
-       "at": "ServerLines::inspect",
-       "param": "inspector"
-      },
-      {
-       "at": "Plan::checks",
-       "param": "inspector"
-      },
-      {
-       "at": "until_reachable",
-       "param": "inspector"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-diagnostics",
-     "impl": "kkt-clock-system::SystemClock",
-     "note": "kkt setup, waiting for a new server",
-     "to": [
-      {
-       "at": "until_reachable",
-       "param": "clock"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-lane-files",
-     "note": "kkt lanes import and export, kkt setup --lanes",
-     "own": "LaneDisk, adapting kkt-lane-files-os's OsDisk",
-     "supplier": "kkt-lane-files-os's OsDisk",
-     "to": [
-      {
-       "at": "read_folder",
-       "param": "disk"
-      },
-      {
-       "at": "write_folder",
-       "param": "disk"
       }
      ]
     },
@@ -27550,7 +27476,9 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
+     "note": "the program's own work, not another crate's implementation",
      "own": "ContainerConfigs",
+     "supplier": "kashkeshet",
      "to": [
       {
        "at": "OperateParts",
@@ -27605,6 +27533,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "ClientHost",
+     "supplier": "kkt-client-config-os",
+     "supplier_item": "OsHost",
      "to": [
       {
        "at": "OperateParts",
@@ -27626,6 +27556,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "LaneDisk",
+     "supplier": "kkt-lane-files-os",
+     "supplier_item": "OsDisk",
      "to": [
       {
        "at": "OperateParts",
@@ -27646,7 +27578,9 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
+     "note": "the program's own work, not another crate's implementation",
      "own": "ServeReads, answering the program's serving questions lazily",
+     "supplier": "kashkeshet",
      "to": [
       {
        "at": "OperateParts",
@@ -27657,6 +27591,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup's files, behind real",
+     "supplier": "kkt-setup",
      "to": [
       {
        "at": "OperateParts",
@@ -27667,6 +27602,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "NativeKeyFiles, forwarding key files to kkt-server-keys and generation to kkt-entropy-os",
+     "supplier": "kkt-server-keys",
+     "supplier_item": "KeyFiles",
      "to": [
       {
        "at": "OperateParts",
@@ -27677,6 +27614,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "NativeDatabases, opening this program's database",
+     "supplier": "kkt-db-sqlite",
+     "supplier_item": "SqlitePlace",
      "to": [
       {
        "at": "OperateParts",
@@ -27687,7 +27626,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "NativeBackups, writing kkt-backup's layouts through its write, behind real, with this program's database copy",
-     "supplier": "kkt-backup::write",
+     "supplier": "kkt-backup",
+     "supplier_item": "write",
      "to": [
       {
        "at": "OperateParts",
@@ -27698,6 +27638,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "NativeOutput, adapting kkt-terminal-os",
+     "supplier": "kkt-terminal-os",
+     "supplier_item": "Terminal",
      "to": [
       {
        "at": "OperateParts",
@@ -27717,7 +27659,9 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
+     "note": "the program's own work, not another crate's implementation",
      "own": "ServiceCheck, keeping the program's loaded serve options and source context until the service plan is checked",
+     "supplier": "kashkeshet",
      "to": [
       {
        "at": "ServiceInputs",
@@ -27728,7 +27672,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "TerminalLink, adapting the terminal's half of the login link",
-     "supplier": "kkt-terminal-os::BrowserLink",
+     "supplier": "kkt-terminal-os",
+     "supplier_item": "BrowserLink",
      "to": [
       {
        "at": "OperateParts",
@@ -27739,7 +27684,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "TerminalLines, adapting the terminal",
-     "supplier": "kkt-terminal-os::Terminal",
+     "supplier": "kkt-terminal-os",
+     "supplier_item": "Terminal",
      "to": [
       {
        "at": "OperateParts",
@@ -27750,7 +27696,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "NativeConfigText, forwarding config text reads and writes",
-     "supplier": "kkt-config-file-os::read",
+     "supplier": "kkt-config-file-os",
+     "supplier_item": "read",
      "to": [
       {
        "at": "OperateParts",
@@ -27856,80 +27803,6 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-fake-product",
-     "impl": "kkt-rules::Db",
-     "to": [
-      {
-       "at": "Product::start",
-       "param": "db"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-fake-product",
-     "impl": "kkt-clock-system::SystemClock",
-     "note": "its program; its tests pass a fixed clock",
-     "to": [
-      {
-       "at": "Product::start",
-       "param": "clock"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-fake-product",
-     "impl": "kkt-entropy-os::OsEntropy",
-     "note": "its program; its tests pass seeded entropy",
-     "to": [
-      {
-       "at": "Product::start",
-       "param": "entropy"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-rules",
-     "own": "the database, clock and entropy Product::start was given",
-     "to": [
-      {
-       "at": "Startup",
-       "param": "db"
-      },
-      {
-       "at": "Startup",
-       "param": "clock"
-      },
-      {
-       "at": "Startup",
-       "param": "entropy"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-server",
-     "own": "the clock and entropy Product::start was given",
-     "to": [
-      {
-       "at": "Parts::new",
-       "param": "clock"
-      },
-      {
-       "at": "Parts::new",
-       "param": "entropy"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-rules",
-     "impl": "kkt-rules::DefaultWording",
-     "to": [
-      {
-       "at": "Startup",
-       "param": "wording"
-      }
-     ]
-    },
-    {
      "crate": "kkt-server",
      "impl": "kkt-rules::Rules",
      "note": "start built them, after recording the run",
@@ -27952,22 +27825,56 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-server",
-     "impl": "kkt-server::Parts",
-     "to": [
-      {
-       "at": "build",
-       "param": "parts"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-server",
      "impl": "kkt-log-tracing::TracingLog",
      "note": "The MCP endpoints and web page share the program's log.",
      "to": [
       {
        "at": "Parts::new",
        "param": "log"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-rules",
+     "impl": "kkt-clock-system::SystemClock",
+     "note": "through Product::start, which its program calls with these; its tests pass a fixed clock and seeded entropy",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-rules",
+     "impl": "kkt-entropy-os::OsEntropy",
+     "note": "through Product::start, which its program calls with these; its tests pass a fixed clock and seeded entropy",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-server",
+     "impl": "kkt-clock-system::SystemClock",
+     "note": "through Product::start, which its program calls with these; its tests pass a fixed clock and seeded entropy",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-server",
+     "impl": "kkt-entropy-os::OsEntropy",
+     "note": "through Product::start, which its program calls with these; its tests pass a fixed clock and seeded entropy",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "entropy"
       }
      ]
     }
@@ -28043,7 +27950,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-admission",
      "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
-     "supplier": "kkt-server-keys::KeyFiles",
+     "supplier": "kkt-server-keys",
+     "supplier_item": "KeyFiles",
      "to": [
       {
        "at": "server_keys::check",
@@ -28059,26 +27967,6 @@ window.KKT_ASSEMBLY = {
       {
        "at": "Db::new",
        "param": "database"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-rules",
-     "impl": "kkt-rules::Db",
-     "to": [
-      {
-       "at": "Startup",
-       "param": "db"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-rules",
-     "impl": "kkt-rules::DefaultWording",
-     "to": [
-      {
-       "at": "Startup",
-       "param": "wording"
       }
      ]
     },
@@ -28140,16 +28028,6 @@ window.KKT_ASSEMBLY = {
       {
        "at": "Parts::new",
        "param": "identify"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-server",
-     "impl": "kkt-server::Parts",
-     "to": [
-      {
-       "at": "build",
-       "param": "parts"
       }
      ]
     },
