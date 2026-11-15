@@ -1,0 +1,16 @@
+[package]
+name = "kkt-server-keys-os"
+description = "kkt's server key files on disk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-server-keys = { path = "../kkt-server-keys" }
+
+[features]
+# `KeyFiles`, `ReadError`, `make_default_key`, `new_key_file`,
+# `write_admin_name` and `write_key_file`: the key files on disk.
+real = []

@@ -128,9 +128,9 @@
   },
   "kkt-server-keys": {
    "layer": "access",
-   "kind": "logic and effect",
-   "concern": "The server's keys: what a valid key is and how a new one is made, which access key a server uses, the key files' names, mode and places, and the admin name file's binding to its key and the advice about it; behind real, the key files on disk: texts, private key writes, admin-name writes and staged-key moves.",
-   "must_not": "Decide who a key lets in; choose a randomness provider; word each program's key refusals."
+   "kind": "logic",
+   "concern": "The server's keys: what a valid key is and how a new one is made, which access key a server uses, the key files' names, mode and places, and the admin name file's binding to its key and the advice about it. The key files on disk are kkt-server-keys-os'.",
+   "must_not": "Decide who a key lets in; choose a randomness provider; word each program's key refusals; touch the key files."
   },
   "kkt-hosts": {
    "layer": "access",
@@ -447,6 +447,12 @@
    "kind": "effect",
    "concern": "The log file on disk, appended to, rolled over and pruned as kkt-logs' plans say: RotatingFile, opened by open_log_file after the policy's check, with the clock the program gives (phase 16, the reverse of 14.4's merge).",
    "must_not": "Decide the policy or its plans; read a real clock itself; start a logging library."
+  },
+  "kkt-server-keys-os": {
+   "layer": "access",
+   "kind": "effect",
+   "concern": "The server's key files on disk, as kkt-server-keys names and places them: KeyFiles (reading the access, web and admin keys and the admin name file), ReadError, and private key writes (new_key_file, write_key_file, make_default_key), admin-name writes and staged-key moves (phase 16, the reverse of 14.5's merge of kkt-admission-os).",
+   "must_not": "Decide what a valid key is, who a key lets in, or where key files go; draw randomness itself."
   }
  },
  "kinds": [

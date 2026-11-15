@@ -110,8 +110,8 @@ The shared crates are reorganized so that every dependency is injected and each 
   log to (`None` for stdout) in place of a path, a policy and a clock.
   Messages are unchanged.
 - **Server keys.** `kkt-admission` held two concerns; the server's keys
-  are now `kkt-server-keys`, and `kkt-admission-os` is merged into it
-  (behind `real`). kkt-admission depends on kkt-server-keys, never the
+  are now `kkt-server-keys`, and `kkt-admission-os`'s key files are now
+  `kkt-server-keys-os` (behind `real`). kkt-admission depends on kkt-server-keys, never the
   reverse, and keeps who is let in: `Admission`, `AdminAdmission`, `Mode`,
   `Open`, `SharedKey`, `AnyBearer`, `BearerToken`, `Credentials`,
   `Decision`, `Principal`, `ServerKey`, `Refusal`, `WebAdmission`,
@@ -132,7 +132,8 @@ The shared crates are reorganized so that every dependency is injected and each 
     has no `testing` feature;
   - `kkt_admission_os::{KeyFiles, ReadError, make_default_key,
     new_key_file, write_key_file, write_admin_name}` are now
-    `kkt_server_keys::` items of the same names, behind `real`.
+    `kkt_server_keys_os::` items of the same names, behind `real`;
+    kkt-server-keys itself has no `real` feature.
 
   Key checks, refusals, file names, file modes and how keys are written,
   read and hashed are unchanged.

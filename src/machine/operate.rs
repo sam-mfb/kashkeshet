@@ -283,39 +283,39 @@ impl SetupFiles for NativeSetupFiles {
 pub(crate) struct NativeKeyFiles;
 impl KeyFiles for NativeKeyFiles {
     fn read(&self, path: &Path) -> std::io::Result<String> {
-        kkt_server_keys::KeyFiles::read(path).map_err(|e| e.error)
+        kkt_server_keys_os::KeyFiles::read(path).map_err(|e| e.error)
     }
     fn read_optional(&self, path: &Path) -> std::io::Result<Option<String>> {
-        kkt_server_keys::KeyFiles::read_optional(path).map_err(|e| e.error)
+        kkt_server_keys_os::KeyFiles::read_optional(path).map_err(|e| e.error)
     }
     fn exists(&self, path: &Path) -> bool {
-        kkt_server_keys::KeyFiles::exists(path)
+        kkt_server_keys_os::KeyFiles::exists(path)
     }
     fn try_exists(&self, path: &Path) -> std::io::Result<bool> {
-        kkt_server_keys::KeyFiles::try_exists(path)
+        kkt_server_keys_os::KeyFiles::try_exists(path)
     }
     fn is_file(&self, path: &Path) -> bool {
-        kkt_server_keys::KeyFiles::is_file(path)
+        kkt_server_keys_os::KeyFiles::is_file(path)
     }
     fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
-        kkt_server_keys::KeyFiles::create_dir_all(dir)
+        kkt_server_keys_os::KeyFiles::create_dir_all(dir)
     }
     fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String> {
-        kkt_server_keys::KeyFiles::keep_staged(staged, path)
+        kkt_server_keys_os::KeyFiles::keep_staged(staged, path)
     }
     fn remove(&self, path: &Path) -> std::io::Result<()> {
-        kkt_server_keys::KeyFiles::remove(path)
+        kkt_server_keys_os::KeyFiles::remove(path)
     }
     fn new_key(&self, path: &Path, force: bool) -> Result<String, String> {
-        kkt_server_keys::new_key_file(path, force, || {
+        kkt_server_keys_os::new_key_file(path, force, || {
             kkt_server_keys::generate(&kkt_entropy_os::OsEntropy)
         })
     }
     fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String> {
-        kkt_server_keys::write_key_file(path, key, force)
+        kkt_server_keys_os::write_key_file(path, key, force)
     }
     fn write_admin_name(&self, path: &Path, bound: Option<&str>) -> Result<(), String> {
-        kkt_server_keys::write_admin_name(path, bound).map_err(|e| e.to_string())
+        kkt_server_keys_os::write_admin_name(path, bound).map_err(|e| e.to_string())
     }
 }
 

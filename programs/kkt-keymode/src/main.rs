@@ -127,7 +127,7 @@ async fn run(args: &[String]) -> Result<(), String> {
         web_admission,
         admin_key,
         admin_name,
-    } = server_keys::check(&mut KeyFiles(kkt_server_keys::KeyFiles::new(
+    } = server_keys::check(&mut KeyFiles(kkt_server_keys_os::KeyFiles::new(
         key_path(&access_key),
         key_path(&web_key),
         admin_key.as_deref(),
@@ -396,7 +396,7 @@ fn key_path(key: &AccessKey) -> Option<&Path> {
 }
 
 /// Adapts native key texts, preserving this program's refusal wording.
-struct KeyFiles<'a>(kkt_server_keys::KeyFiles<'a>);
+struct KeyFiles<'a>(kkt_server_keys_os::KeyFiles<'a>);
 impl KeyTexts for KeyFiles<'_> {
     type Error = String;
     fn access(&mut self) -> Result<Option<KeyText>, String> {
