@@ -1,4 +1,4 @@
-//! `ClientCommand` for Claude Code: `claude mcp remove` and
+//! Claude Code's command: `claude mcp remove` and
 //! `claude mcp add-json`, at user scope, under the name `kkt`, with
 //! `CLAUDE_CONFIG_DIR` set to the profile's folder or unset for the default.
 //! The command goes through a private runner, so the arguments and the
@@ -6,8 +6,6 @@
 
 mod runner;
 
-#[cfg(feature = "real")]
-use crate::ClientCommand;
 use runner::{Ran, Runner};
 use std::io;
 use std::path::Path;
@@ -15,17 +13,21 @@ use std::path::Path;
 /// The name kkt's server has in Claude Code's settings.
 const SERVER_NAME: &str = "kkt";
 
-/// Claude Code's own command, which the program injects as the
-/// `ClientCommand`.
+/// Claude Code's own command. `config_dir` is the profile's settings
+/// folder, set as `CLAUDE_CONFIG_DIR`, or `None` to unset it. An error is
+/// for people, and never holds the command's output, which may hold
+/// credentials.
 #[cfg(feature = "real")]
 pub struct Claude;
 
 #[cfg(feature = "real")]
-impl ClientCommand for Claude {
-    fn remove_server(&self, config_dir: Option<&Path>) -> Result<(), String> {
+impl Claude {
+    /// Removes kkt's server from Claude Code's settings.
+    pub fn remove_server(&self, config_dir: Option<&Path>) -> Result<(), String> {
         remove_server(&runner::OsRunner, config_dir)
     }
-    fn add_server(&self, entry: &str, config_dir: Option<&Path>) -> Result<(), String> {
+    /// Adds kkt's server, as `entry`, Claude Code's own JSON for it.
+    pub fn add_server(&self, entry: &str, config_dir: Option<&Path>) -> Result<(), String> {
         add_server(&runner::OsRunner, entry, config_dir)
     }
 }

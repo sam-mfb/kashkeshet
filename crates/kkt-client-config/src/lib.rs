@@ -1,16 +1,18 @@
 //! Client configuration and its on-disk formats. Helpers refer to the key
 //! file; only Antigravity and Muse Code require a copy of the key in their
 //! configuration. Also each client's permission rules that let it always
-//! use kkt ([`allow_kkt`]).
+//! use kkt ([`allow_kkt`]). A client whose settings only its own command
+//! should change is changed through the [`ClientCommand`] the caller gives.
 
+mod command;
 mod files;
 mod formats;
 mod host;
 mod order;
 mod permissions;
 
+pub use command::ClientCommand;
 pub use host::Host;
-use kkt_client_command::ClientCommand;
 pub use permissions::{KKT_AGENT_TOOLS, allow_kkt};
 
 use kkt_machine::Env;
@@ -313,3 +315,6 @@ pub fn configure(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;

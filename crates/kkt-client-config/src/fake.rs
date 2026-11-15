@@ -2,8 +2,8 @@
 //! client's own command: a call can write a file, as Claude Code's does.
 
 use super::Host;
-use kkt_client_command::ClientCommand;
-use kkt_client_command::testing::Call;
+use crate::ClientCommand;
+use crate::testing::Call;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;

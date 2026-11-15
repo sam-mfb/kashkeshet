@@ -1,5 +1,4 @@
-use kashkeshet::machine::client_config::ClientHost;
-use kkt_client_command::Claude;
+use kashkeshet::machine::client_config::{ClaudeCommand, ClientHost};
 use kkt_scratch as scratch;
 
 use kkt_client_config::{self as clients, Client, Setup};
@@ -59,7 +58,8 @@ fn previews_use_vendor_shapes_and_never_show_the_key() {
             client_config: &client_config,
             source: "HOME",
         };
-        let out = clients::configure(client, &setup, false, &ClientHost, &Claude).expect("preview");
+        let out = clients::configure(client, &setup, false, &ClientHost, &ClaudeCommand)
+            .expect("preview");
         assert!(out.contains(required), "{out}");
         assert!(!out.contains(KEY), "preview exposed key");
         assert!(!client_config.exists());
@@ -92,7 +92,7 @@ fn clients_with_a_fixed_filename_reject_custom_filenames_before_modifying_files(
             source: "--client-config",
         };
         for write in [false, true] {
-            let error = clients::configure(client, &setup, write, &ClientHost, &Claude)
+            let error = clients::configure(client, &setup, write, &ClientHost, &ClaudeCommand)
                 .expect_err("unsupported filename");
             assert!(
                 error.contains(&format!("must be named {required}")),
@@ -121,7 +121,7 @@ fn codex_merge_preserves_comments_other_servers_and_options_and_is_idempotent() 
         client_config: &file,
         source: "--client-config",
     };
-    clients::configure(Client::Codex, &setup, true, &ClientHost, &Claude).expect("write");
+    clients::configure(Client::Codex, &setup, true, &ClientHost, &ClaudeCommand).expect("write");
     let first = std::fs::read_to_string(&file).expect("config");
     assert!(first.contains("# keep my comment"));
     let parsed = serde_json::to_value(kkt_toml::parse(&first).expect("TOML")).expect("JSON");
@@ -149,7 +149,8 @@ fn codex_merge_preserves_comments_other_servers_and_options_and_is_idempotent() 
         std::fs::read_to_string(file.with_file_name("config.toml.bak")).expect("backup"),
         original
     );
-    let out = clients::configure(Client::Codex, &setup, true, &ClientHost, &Claude).expect("again");
+    let out = clients::configure(Client::Codex, &setup, true, &ClientHost, &ClaudeCommand)
+        .expect("again");
     assert!(out.contains("Already configured"));
     assert_eq!(std::fs::read_to_string(&file).expect("config"), first);
     assert!(!file.with_file_name("config.toml.bak.1").exists());
@@ -174,7 +175,8 @@ fn json_clients_merge_without_losing_other_settings_and_back_up_once() {
             client_config: &file,
             source: "--client-config",
         };
-        let out = clients::configure(client, &setup, true, &ClientHost, &Claude).expect("write");
+        let out =
+            clients::configure(client, &setup, true, &ClientHost, &ClaudeCommand).expect("write");
         assert!(!out.contains(KEY));
         let first = std::fs::read_to_string(&file).expect("config");
         let parsed: serde_json::Value = serde_json::from_str(&first).expect("JSON");
@@ -202,7 +204,7 @@ fn json_clients_merge_without_losing_other_settings_and_back_up_once() {
             );
             assert!(!first.contains(KEY));
         }
-        clients::configure(client, &setup, true, &ClientHost, &Claude).expect("again");
+        clients::configure(client, &setup, true, &ClientHost, &ClaudeCommand).expect("again");
         assert_eq!(std::fs::read_to_string(&file).expect("config"), first);
         #[cfg(unix)]
         {
@@ -248,12 +250,12 @@ fn muse_code_merge_keeps_other_settings_adds_schema_version_and_is_idempotent() 
         client_config: &file,
         source: "HOME",
     };
-    let preview =
-        clients::configure(Client::MuseCode, &setup, false, &ClientHost, &Claude).expect("preview");
+    let preview = clients::configure(Client::MuseCode, &setup, false, &ClientHost, &ClaudeCommand)
+        .expect("preview");
     assert!(preview.contains("Muse Code stores the key"), "{preview}");
     assert!(!preview.contains(KEY), "preview exposed key");
-    let out =
-        clients::configure(Client::MuseCode, &setup, true, &ClientHost, &Claude).expect("write");
+    let out = clients::configure(Client::MuseCode, &setup, true, &ClientHost, &ClaudeCommand)
+        .expect("write");
     assert!(out.contains("Muse Code stores the key"), "{out}");
     assert!(!out.contains(KEY), "output exposed key");
     let first = std::fs::read_to_string(&file).expect("config");
@@ -281,8 +283,8 @@ fn muse_code_merge_keeps_other_settings_adds_schema_version_and_is_idempotent() 
             0o600
         );
     }
-    let again =
-        clients::configure(Client::MuseCode, &setup, true, &ClientHost, &Claude).expect("again");
+    let again = clients::configure(Client::MuseCode, &setup, true, &ClientHost, &ClaudeCommand)
+        .expect("again");
     assert!(again.contains("Already configured"), "{again}");
     assert_eq!(std::fs::read_to_string(&file).expect("config"), first);
     assert!(!home.0.join(".config/muse/settings.json.bak.1").exists());
@@ -332,10 +334,10 @@ fn muse_code_without_a_key_writes_no_credentials() {
         client_config: &file,
         source: "HOME",
     };
-    let preview =
-        clients::configure(Client::MuseCode, &setup, false, &ClientHost, &Claude).expect("preview");
+    let preview = clients::configure(Client::MuseCode, &setup, false, &ClientHost, &ClaudeCommand)
+        .expect("preview");
     assert!(!preview.contains("stores the key"), "{preview}");
-    clients::configure(Client::MuseCode, &setup, true, &ClientHost, &Claude).expect("write");
+    clients::configure(Client::MuseCode, &setup, true, &ClientHost, &ClaudeCommand).expect("write");
     let parsed: serde_json::Value = serde_json::from_str(
         &std::fs::read_to_string(home.0.join(".config/muse/settings.json")).expect("config"),
     )
@@ -378,8 +380,8 @@ fn malformed_client_files_are_left_intact_and_errors_do_not_echo_secrets() {
             client_config: &file,
             source: "--client-config",
         };
-        let error =
-            clients::configure(client, &setup, true, &ClientHost, &Claude).expect_err("invalid");
+        let error = clients::configure(client, &setup, true, &ClientHost, &ClaudeCommand)
+            .expect_err("invalid");
         assert!(!error.contains(KEY));
         assert_eq!(std::fs::read_to_string(file).expect("config"), original);
     }
@@ -402,7 +404,7 @@ fn legacy_antigravity_path_is_used_when_it_is_the_existing_file() {
         client_config: &client_config,
         source: Client::Agy.source(&env),
     };
-    clients::configure(Client::Agy, &setup, true, &ClientHost, &Claude).expect("write");
+    clients::configure(Client::Agy, &setup, true, &ClientHost, &ClaudeCommand).expect("write");
     assert!(
         std::fs::read_to_string(file)
             .expect("config")
@@ -425,10 +427,11 @@ fn later_changes_keep_the_original_backup_and_save_the_previous_configuration() 
         client_config: &file,
         source: "--client-config",
     };
-    clients::configure(Client::OpenCode, &setup, true, &ClientHost, &Claude).expect("first");
+    clients::configure(Client::OpenCode, &setup, true, &ClientHost, &ClaudeCommand).expect("first");
     let first = std::fs::read_to_string(&file).expect("first");
     setup.url = "https://tail.example/mcp";
-    clients::configure(Client::OpenCode, &setup, true, &ClientHost, &Claude).expect("second");
+    clients::configure(Client::OpenCode, &setup, true, &ClientHost, &ClaudeCommand)
+        .expect("second");
     assert_eq!(
         std::fs::read_to_string(file.with_file_name("opencode.json.bak")).expect("original backup"),
         original
@@ -454,7 +457,7 @@ fn opencode_refuses_key_paths_its_file_substitution_cannot_represent() {
             client_config: Path::new(".config/opencode/opencode.json"),
             source: "--client-config",
         };
-        let error = clients::configure(Client::OpenCode, &setup, true, &ClientHost, &Claude)
+        let error = clients::configure(Client::OpenCode, &setup, true, &ClientHost, &ClaudeCommand)
             .expect_err("unsupported reference");
         assert!(error.contains("file references cannot represent"));
         assert!(!home.0.join(".config/opencode/opencode.json").exists());
@@ -477,7 +480,8 @@ fn codex_accepts_inline_server_tables_without_losing_existing_entries() {
         client_config: &file,
         source: "--client-config",
     };
-    clients::configure(Client::Codex, &setup, true, &ClientHost, &Claude).expect("inline write");
+    clients::configure(Client::Codex, &setup, true, &ClientHost, &ClaudeCommand)
+        .expect("inline write");
     let contents = std::fs::read_to_string(file).expect("config");
     let parsed =
         serde_json::to_value(kkt_toml::parse(&contents).expect("valid TOML")).expect("JSON");
@@ -513,7 +517,8 @@ fn opencode_local_to_remote_conversion_removes_local_only_options() {
         client_config: &file,
         source: "--client-config",
     };
-    clients::configure(Client::OpenCode, &setup, true, &ClientHost, &Claude).expect("convert");
+    clients::configure(Client::OpenCode, &setup, true, &ClientHost, &ClaudeCommand)
+        .expect("convert");
     let parsed: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(file).expect("config")).expect("JSON");
     let entry = &parsed["mcp"]["kkt"];
@@ -611,8 +616,14 @@ fn claude_reports_a_selected_profile_directory_it_cannot_resolve() {
         client_config: &file,
         source: Client::ClaudeCode.source(&env),
     };
-    let error = clients::configure(Client::ClaudeCode, &setup, false, &ClientHost, &Claude)
-        .expect_err("unresolvable profile directory");
+    let error = clients::configure(
+        Client::ClaudeCode,
+        &setup,
+        false,
+        &ClientHost,
+        &ClaudeCommand,
+    )
+    .expect_err("unresolvable profile directory");
     assert!(error.contains(&file.display().to_string()), "{error}");
     assert!(error.contains("(from CLAUDE_CONFIG_DIR)"), "{error}");
 }
@@ -634,8 +645,14 @@ fn claude_explicit_config_ignores_an_inherited_profile_it_cannot_resolve() {
         client_config: &file,
         source: "--client-config",
     };
-    let preview = clients::configure(Client::ClaudeCode, &setup, false, &ClientHost, &Claude)
-        .expect("explicit config preview");
+    let preview = clients::configure(
+        Client::ClaudeCode,
+        &setup,
+        false,
+        &ClientHost,
+        &ClaudeCommand,
+    )
+    .expect("explicit config preview");
     let dir = file
         .parent()
         .expect("parent")

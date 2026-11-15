@@ -4,7 +4,7 @@
 //! the serve settings.
 
 use crate::commands::watch::WatchOutput;
-use crate::machine::client_config::ClientHost;
+use crate::machine::client_config::{ClaudeCommand, ClientHost};
 use crate::machine::connection::ConnectionReads;
 use crate::machine::credentials::CredentialFiles;
 use crate::machine::operate::NativeOperate;
@@ -34,7 +34,7 @@ pub fn agent_parts(
         credentials: Box::new(CredentialFiles),
         key_files: Box::new(KeyFiles),
         clients: Box::new(ClientHost),
-        client_command: Box::new(kkt_client_command::Claude),
+        client_command: Box::new(ClaudeCommand),
         program: Box::new(ThisProgram),
         report: Box::new(WatchOutput),
         output: Box::new(TerminalOutput),

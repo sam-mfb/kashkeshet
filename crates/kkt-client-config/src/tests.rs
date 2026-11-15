@@ -2,7 +2,7 @@
 
 use super::fake::{FakeHost, File};
 use super::*;
-use kkt_client_command::testing::Call;
+use crate::testing::Call;
 
 const HOME: &str = "/home/sam";
 const KEY: &str = "0123456789abcdef0123456789abcdef";
