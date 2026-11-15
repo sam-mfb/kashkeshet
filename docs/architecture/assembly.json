@@ -471,7 +471,9 @@
      "supplier_item": "OsDisk"
     },
     {
-     "impl": "kkt-lane-commit::Git",
+     "own": "LaneGit, adapting kkt-lane-commit's Git to kkt-lane-files' LaneCommit",
+     "supplier": "kkt-lane-commit",
+     "supplier_item": "Git",
      "crate": "kkt-operate",
      "to": [
       {
@@ -479,7 +481,7 @@
        "param": "lane_commit"
       }
      ],
-     "note": "The program turns on kkt-lane-commit's real and injects its Git directly as the lane folder's commit (12.5a, merged in 13.4)."
+     "note": "The lane folder's commit, from the machine's git (phase 16)."
     },
     {
      "own": "ServeReads, answering the program's serving questions lazily",

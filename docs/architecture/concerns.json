@@ -280,15 +280,15 @@
   },
   "kkt-lane-files": {
    "layer": "operations",
-   "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from kkt-lane-commit's `LaneCommit`.",
+   "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from the `LaneCommit` it declares.",
    "must_not": "Touch the machine except through `Disk`; know a version-control tool.",
    "kind": "logic"
   },
   "kkt-lane-commit": {
    "layer": "operations",
-   "concern": "The commit a lane folder is at: the `LaneCommit` contract in the open, with its testing Memory stand-in, and its one implementation behind real, `Git`: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner.",
-   "must_not": "Read or write the lane files; let a consumer reach `Git` without real.",
-   "kind": "contract and effect"
+   "concern": "The commit a lane folder is at, as the machine's git says: `Git` (behind real), with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
+   "must_not": "Read or write the lane files.",
+   "kind": "effect"
   },
   "kkt-agent-client": {
    "layer": "clients",

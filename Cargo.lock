@@ -1452,9 +1452,6 @@ version = "0.10.0"
 [[package]]
 name = "kkt-lane-files"
 version = "0.10.0"
-dependencies = [
- "kkt-lane-commit",
-]
 
 [[package]]
 name = "kkt-lane-files-os"
@@ -1557,7 +1554,6 @@ dependencies = [
  "kkt-config-file",
  "kkt-container",
  "kkt-diagnostics",
- "kkt-lane-commit",
  "kkt-lane-files",
  "kkt-machine",
  "kkt-names",
