@@ -73,7 +73,7 @@ impl<'a, D> NativeOperate<'a, D> {
             try_bind: &kkt_service_os::try_bind,
             remote: &kkt_remote_access::Tailscale,
             clients: &super::client_config::ClientHost,
-            client_command: &kkt_client_command::Claude,
+            client_command: &super::client_config::ClaudeCommand,
             prober: &self.prober,
             lanes: &crate::commands::lanes::LaneDisk,
             lane_commit: &kkt_lane_commit::Git,

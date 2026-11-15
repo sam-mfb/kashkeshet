@@ -772,7 +772,8 @@
      ]
     },
     {
-     "impl": "kkt-client-command::Claude",
+     "own": "ClaudeCommand, adapting kkt-client-command's Claude to kkt-client-config's ClientCommand",
+     "supplier": "kkt-client-command::Claude",
      "crate": "kkt-operate",
      "to": [
       {
@@ -780,10 +781,11 @@
        "param": "client_command"
       }
      ],
-     "note": "kkt setup: Claude Code's own command, injected as it is"
+     "note": "kkt setup: Claude Code's own command"
     },
     {
-     "impl": "kkt-client-command::Claude",
+     "own": "ClaudeCommand, adapting kkt-client-command's Claude to kkt-client-config's ClientCommand",
+     "supplier": "kkt-client-command::Claude",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -791,7 +793,7 @@
        "param": "client_command"
       }
      ],
-     "note": "kkt connect: Claude Code's own command, injected as it is"
+     "note": "kkt connect: Claude Code's own command"
     },
     {
      "impl": "kkt-browser::SystemBrowser",

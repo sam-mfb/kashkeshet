@@ -406,7 +406,7 @@ fn connected_clients(env: &Env, host: &dyn clients::Host) -> Result<Vec<Client>,
 fn connect(
     env: &Env,
     host: &dyn clients::Host,
-    command: &dyn kkt_client_command::ClientCommand,
+    command: &dyn kkt_client_config::ClientCommand,
     program: &dyn crate::SetupFiles,
     client: Client,
     record: &setup::Record,
