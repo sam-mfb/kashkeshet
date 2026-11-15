@@ -455,8 +455,10 @@
        "param": "prober"
       }
      ],
-     "impl": "kkt-probe::HttpProber",
-     "note": "The program builds HttpProber with the doctor's settings and injects it directly (12.5b)."
+     "own": "Probe, adapting kkt-probe's HttpProber to kkt-diagnostics' Prober",
+     "supplier": "kkt-probe",
+     "supplier_item": "HttpProber",
+     "note": "The program builds HttpProber with the doctor's settings and adapts it (phase 16)."
     },
     {
      "own": "LaneDisk",

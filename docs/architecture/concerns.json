@@ -268,15 +268,15 @@
   },
   "kkt-diagnostics": {
    "layer": "operations",
-   "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server.",
-   "must_not": "Change anything, or touch the machine except through kkt-probe's `Prober`.",
+   "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server; the `Prober` it declares for the machine, with what it finds (`KeyFile`), the checks (`Check`) and its testing Memory stand-in.",
+   "must_not": "Change anything, or touch the machine except through its `Prober`.",
    "kind": "logic"
   },
   "kkt-probe": {
    "layer": "operations",
-   "concern": "Probing a kkt server and reading its key files: the `Prober` contract in the open, with what it finds (`KeyFile`), the checks it gives (`Check`), the prober's `Settings` and its testing Memory stand-in; and its one implementation behind real, `HttpProber`: the probe over HTTP with reqwest, MCP's initialize handshake read from its answer, and key files read from disk.",
+   "concern": "Probing a kkt server over HTTP and reading its key files: `HttpProber` (behind real), with its own methods and the prober's `Settings`: the probe with reqwest, MCP's initialize handshake read from its answer, key files read from disk, and what it finds worded as its own records (`Finding`, `FileRead`). It declares no contract: the program adapts `HttpProber` to kkt-diagnostics' Prober (phase 16).",
    "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them.",
-   "kind": "contract and effect"
+   "kind": "effect"
   },
   "kkt-backup": {
    "layer": "operations",

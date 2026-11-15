@@ -494,11 +494,11 @@ mod tests {
 
     // A `Prober` must be `Sync`, so it keeps no log: it fails the test.
     struct NoProbes;
-    impl kkt_probe::Prober for NoProbes {
-        fn key_file(&self, _: &Path) -> Result<kkt_probe::KeyFile, String> {
+    impl kkt_diagnostics::Prober for NoProbes {
+        fn key_file(&self, _: &Path) -> Result<kkt_diagnostics::KeyFile, String> {
             panic!("uninstall read a key file to probe")
         }
-        fn probe<'a>(&'a self, _: &'a str, _: Option<&'a str>) -> kkt_probe::Probing<'a> {
+        fn probe<'a>(&'a self, _: &'a str, _: Option<&'a str>) -> kkt_diagnostics::Probing<'a> {
             panic!("uninstall probed a server")
         }
     }

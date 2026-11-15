@@ -1330,7 +1330,6 @@ name = "kkt-diagnostics"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-probe",
  "kkt-server-keys",
  "url",
 ]
@@ -1570,7 +1569,6 @@ dependencies = [
  "kkt-lane-files",
  "kkt-machine",
  "kkt-names",
- "kkt-probe",
  "kkt-provenance",
  "kkt-remote-access",
  "kkt-rules",

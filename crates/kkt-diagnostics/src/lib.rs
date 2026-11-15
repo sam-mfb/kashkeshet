@@ -1,16 +1,20 @@
 //! Read-only connection diagnostics. HTTP and JSON types stay in this part.
 //! The checks and their names are here, and doctor's plan of them
 //! (`plan.rs`) and setup's wait for a new server (`wait.rs`). What touches
-//! the machine, reading key files and probing a server, is behind
-//! kkt-probe's `Prober`, which the program injects.
+//! the machine, reading key files and probing a server, is behind the
+//! [`Prober`] it declares, which the program supplies (adapting kkt-probe's
+//! `HttpProber`).
 
 mod plan;
+mod probe;
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 mod wait;
 
-pub(crate) use kkt_probe::{Check, KeyFile, Prober};
 pub use plan::{
     KeyToCheck, Plan, SETUP_CHECK, ServerLines, ThisMachine, point_server_fix_at, report,
 };
+pub use probe::{Check, KeyFile, Prober, Probing};
 use std::net::SocketAddr;
 use std::path::Path;
 use std::time::Duration;
