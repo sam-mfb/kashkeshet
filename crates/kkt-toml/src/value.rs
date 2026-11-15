@@ -52,13 +52,6 @@ impl Value {
             _ => None,
         }
     }
-
-    pub fn as_table(&self) -> Option<&Table> {
-        match self {
-            Value::Table(table) => Some(table),
-            _ => None,
-        }
-    }
 }
 
 /// Written by the library from the same value, so that it reads exactly

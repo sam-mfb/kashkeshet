@@ -31,7 +31,9 @@ fn parse_gives_each_kind_of_value() {
         table["hosts"],
         Value::List(vec![Value::Text("a".into()), Value::Text("b".into())])
     );
-    let server = table["server"].as_table().expect("a table");
+    let Value::Table(server) = &table["server"] else {
+        panic!("a table");
+    };
     assert_eq!(server["url"].as_text(), Some("http://a/mcp"));
 }
 
