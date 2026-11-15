@@ -3,7 +3,8 @@
 The kinds are written by hand in concerns.json (for the current map) and
 proposed.json (for the proposal); this module only checks them against
 what the map shows, and reports a crate whose kind does not fit rather than
-changing it. generate.py and propose.py both use it.
+changing it. It also checks the rules that rest on the kinds
+(`rule_breaks`). generate.py, propose.py and progress.py use it.
 """
 
 import re
@@ -221,3 +222,23 @@ def check(crates, edges, kind_of, mixed_allowed):
         if kind == "mixed" and not mixed_allowed:
             violations.append(f"{c['name']} is still mixed: a contract or logic together with a real effect")
     return mismatches, violations
+
+
+def rule_breaks(crates, edges, kind_of):
+    """Where the code breaks the rules that rest on the kinds: only programs
+    and compositions depend on an effect (an effect crate, or a merged
+    crate's `real`), in code or in tests; and a crate implements another
+    crate's trait only if that crate is a contract or a merged one, or the
+    implementer is a program, a composition or test support. Sorted text,
+    one line per break."""
+    allowed = {c["name"] for c in crates if c["bins"]} | {n for n, k in kind_of.items() if k == "composition"}
+    breaks = [f"{e['from']} depends on the effect crate {e['to']}" + (" in its tests" if e["kind"] == "dev" else "")
+              for e in edges
+              if reaches_effect(e, kind_of) and e["kind"] in ("normal", "dev") and e["from"] not in allowed]
+    for c in crates:
+        for r in c["implements"]:
+            if r["trait_crate"] == c["name"] or c["name"] in allowed or kind_of.get(c["name"]) == "test support":
+                continue
+            if not is_contract(kind_of.get(r["trait_crate"])):
+                breaks.append(f"{c['name']}'s {r['type'] or 'own type'} implements {r['trait_crate']}::{r['trait']}")
+    return sorted(set(breaks))

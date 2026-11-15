@@ -180,7 +180,7 @@ Message numbers are given only where they help to find a discussion in
 
 - **kkt-config is broken up by domain** (msg 1979). Format and fixed facts go
   to the crate that owns them; tuning values become settings the program
-  fills. The page's kkt-config table lists every item.
+  fills. `config-split.json` lists every item.
 - **kkt-config goes altogether** (msg 2111). Its last items go to their
   owners: the web session ID length to kkt-web, with the sessions; the access
   key's form and check, and the key files' mode, to kkt-admission; the error
@@ -313,7 +313,7 @@ Message numbers are given only where they help to find a discussion in
 - **The proposed map is updated as we go** (Sam, 2026-11-11, msg 2357). A
   step that differs from the proposal on purpose adds a row to the
   differences table in `refactor-plan.md`; once it merges, the difference is
-  charted into the proposal, so the page shows it. The table says which
+  charted into the proposal, so the scorecard measures against it. The table says which
   differences Sam has accepted. The first to be charted are 1.9's single
   watch adapter, 2.2's own service output, 2.6's git contract and 3.1d's
   program arrows to the formatter's and the page's settings.
