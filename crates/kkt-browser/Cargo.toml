@@ -11,8 +11,6 @@ publish = false
 # `SystemBrowser`: starts the system's opener. The opener's choice and the
 # failure wording stay testable without it. Only programs turn it on.
 real = []
-# `testing`: `testing::Recorder`, which records each link and can fail.
-testing = []
 
 [dev-dependencies]
 kkt-scratch = { path = "../kkt-scratch" }

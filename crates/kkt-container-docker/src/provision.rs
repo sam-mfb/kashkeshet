@@ -23,7 +23,7 @@ const DOCKER_IMAGE_USER_ID: u32 = 10001;
 #[derive(Clone, Copy)]
 pub struct LinkAndBrowser<'a> {
     pub link: &'a dyn LoginLink,
-    pub browser: &'a dyn kkt_browser::Browser,
+    pub browser: &'a dyn crate::Browser,
 }
 
 /// Writes the files for `inputs` into `folder`, starts kkt (and Tailscale)

@@ -3,7 +3,8 @@
 //! folder kkt manages for them, and the commands that set it up, start it,
 //! back it up, import and export its lanes, upgrade it and remove it. All of
 //! it goes through the private runner, so it is tested against a fake host;
-//! the real host is behind `real`.
+//! the real host is behind `real`. A sharing setup's login link opens in
+//! the [`Browser`] it declares, which the program supplies.
 //!
 //! This crate only runs Docker. It does not decide what a person wants (the
 //! setup answers) or remember what was set up (the setup record); the caller
@@ -15,6 +16,7 @@
 
 #![cfg(any(feature = "real", test))]
 
+mod browser;
 mod compose;
 mod files;
 mod lanes;
@@ -25,6 +27,7 @@ mod tailscale;
 #[cfg(test)]
 mod tests;
 
+pub use browser::Browser;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -255,13 +258,13 @@ impl DockerError {
 /// sharing setup's login link opens in `browser` when the person asks.
 #[cfg(feature = "real")]
 pub struct Docker {
-    browser: Box<dyn kkt_browser::Browser>,
+    browser: Box<dyn Browser>,
 }
 
 #[cfg(feature = "real")]
 impl Docker {
     /// Docker and Compose, opening a login link in `browser`.
-    pub fn new(browser: Box<dyn kkt_browser::Browser>) -> Docker {
+    pub fn new(browser: Box<dyn Browser>) -> Docker {
         Docker { browser }
     }
 }

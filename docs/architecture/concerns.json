@@ -232,7 +232,7 @@
   },
   "kkt-container-docker": {
    "layer": "operations",
-   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands, behind real; what they do is tested over a private runner and a fake host.",
+   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands, behind real; what they do is tested over a private runner and a fake host. A sharing setup's login link opens in the Browser it declares, which the program supplies.",
    "must_not": "Decide setup answers or remember the setup record.",
    "kind": "effect"
   },
@@ -402,9 +402,9 @@
   },
   "kkt-browser": {
    "layer": "operations",
-   "concern": "Opening a link in the person's browser. The contract: Browser (start opening it now; say later, once, if that failed), with the testing Recorder. Its one implementation, SystemBrowser, with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real (step 13.3).",
-   "must_not": "Name an opener program in the contract; wait for the browser; repeat the link in a message.",
-   "kind": "contract and effect"
+   "concern": "Opening a link in the person's browser with the system's own opener (open on macOS, xdg-open elsewhere): SystemBrowser (behind real), with its own methods: starting the opener, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real. It declares no contract: the program adapts SystemBrowser to kkt-container-docker's Browser (phase 16).",
+   "must_not": "Wait for the browser; repeat the link in a message.",
+   "kind": "effect"
   },
   "kkt-logs": {
    "layer": "foundations",

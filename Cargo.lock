@@ -1292,7 +1292,6 @@ name = "kkt-container-docker"
 version = "0.10.0"
 dependencies = [
  "futures",
- "kkt-browser",
  "kkt-clock",
  "kkt-config-file",
  "kkt-container",

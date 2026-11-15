@@ -10,21 +10,19 @@ publish = false
 [features]
 # Run the real `docker` commands and touch the real files. What they do is
 # tested without it, over a private runner and a fake host.
-real = ["dep:kkt-browser", "dep:kkt-config-file", "dep:kkt-machine", "dep:serde_json", "dep:thiserror"]
+real = ["dep:kkt-config-file", "dep:kkt-machine", "dep:serde_json", "dep:thiserror"]
 
 [dependencies]
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
 kkt-container = { path = "../kkt-container" }
 kkt-names = { path = "../kkt-names" }
-kkt-browser = { path = "../kkt-browser", optional = true }
 kkt-config-file = { path = "../kkt-config-file", optional = true }
 kkt-machine = { path = "../kkt-machine", optional = true }
 serde_json = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 
 [dev-dependencies]
-kkt-browser = { path = "../kkt-browser" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-config-file = { path = "../kkt-config-file" }
 kkt-machine = { path = "../kkt-machine" }
