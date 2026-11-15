@@ -67,55 +67,19 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     const home = await places();
     check("nothing ticked, every arrow faint", (await p.$$eval("path.edge:not(.faint)", (x) => x.length)) === 0);
 
-    // A merged crate's box is split, and an arrow that turns its `real`
-    // on meets the implementation part, right of one that does not.
-    const merged = "kkt-agent-client";
-    check("a merged crate's box has its implementation part",
-      (await p.$$eval(`${node(merged)} .impl-part`, (x) => x.length)) === 1);
-    // Every merged crate's name ends before the divider, and the green
-    // mark on the divider sits below it.
-    const overruns = await p.$$eval(".node .impl-divider", (dividers) => dividers.map((d) => {
-      const name = d.parentNode.querySelector("text.name").getBBox();
-      const mark = d.parentNode.querySelector(".self-implements").getBBox();
-      return [d.parentNode.getAttribute("aria-label").split(":")[0], name.x + name.width, d.getBBox().x, name.y + name.height, mark.y];
-    }).filter(([, end, divider, bottom, markTop]) => end > divider || markTop < bottom));
-    check("each merged crate's name clears the divider and its mark", overruns.length === 0, overruns);
-    const endX = (from) => p.$eval(`path.edge[data-edge='${from}>${merged}>normal'][data-head]`, (path) => {
-      const box = path.ownerSVGElement.querySelector(`.node[aria-label^='${path.dataset.edge.split(">")[1]}:']`);
-      const at = path.getPointAtLength(path.getTotalLength());
-      return at.x - box.transform.baseVal[0].matrix.e;
-    });
-    const contractX = await endX("kkt-agent-commands");
-    const implementationX = await endX("kashkeshet");
-    check("a consumer's arrow meets the contract, the program's the implementation",
-      contractX < implementationX - 40, { contractX, implementationX });
-    // Each stroke meets the part its role depends on: the program's
-    // arrow to kkt-container implements its contract (the program's
-    // adapters) and wires its implementation.
-    const strokes = await p.$$eval("path.edge[data-edge='kashkeshet>kkt-container>normal']", (paths) => paths.map((path) => {
-      const box = path.ownerSVGElement.querySelector(".node[aria-label^='kkt-container:']");
-      const end = path.getPointAtLength(path.getTotalLength()).x - box.transform.baseVal[0].matrix.e;
-      return [[...path.classList].find((c) => c.startsWith("role-")), Math.round(end)];
-    }));
-    const at = (role) => (strokes.find(([r]) => r === role) || [])[1];
-    check("an implementing stroke meets the contract, a wiring one the implementation",
-      at("role-implements") < 110 && at("role-wires") > 122, strokes);
+    // No box is split any more: every crate is one kind (phase 16).
+    check("no crate's box is split", (await p.$$eval(".node .impl-part", (x) => x.length)) === 0);
+    const client = "kkt-agent-client";
     // A "uses" arrow's head is at the user: drawn from the used crate.
-    const head = await p.$eval(`path.edge[data-edge='kkt-agent-commands>${merged}>normal'][data-head]`,
+    const head = await p.$eval(`path.edge[data-edge='kkt-agent-commands>${client}>normal'][data-head]`,
       (path) => [path.getAttribute("marker-start"), path.getAttribute("marker-end"), path.dataset.head]);
     check("a uses arrow points at the crate that uses",
       head[0] === "url(#head-uses)" && head[1] === null && head[2] === "kkt-agent-commands", head);
-    // Its panel lists the two parts, and which crates include each.
-    await p.click(`${node(merged)} > rect`);
-    const parts = await p.$eval("#panel", (panel) => panel.innerText);
-    check("a merged crate's panel lists its two parts",
-      /Contract \(\d+\): .*Servers/.test(parts) && /Implementation, behind real \(\d+\): .*Mcp/.test(parts)
-        && /turning real on: .*kashkeshet/.test(parts) && /the contract only: .*kkt-agent-commands/.test(parts), parts.slice(0, 200));
-
-    // A ticked merged crate shows its delivery line, clear of the
+    // A ticked implementation shows its delivery line, clear of the
     // highlighted arrows: kashkeshet sits just above kkt-agent-commands,
     // and a line meeting the boxes where the arrows do lay hidden on them.
-    await p.click(`${node(merged)} .pick-hit`, { force: true });
+    const mcp = "kkt-agent-client-mcp";
+    await p.click(`${node(mcp)} .pick-hit`, { force: true });
     const clear = await p.evaluate(() => {
       const ends = (path) => [path.getPointAtLength(0), path.getPointAtLength(path.getTotalLength())];
       const line = document.querySelector("path.delivery[data-from='kashkeshet'][data-to='kkt-agent-commands']");
@@ -124,8 +88,8 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       const near = ends(line).filter((q) => arrows.some((r) => Math.hypot(q.x - r.x, q.y - r.y) < 6));
       return { drawn: true, near: near.length };
     });
-    check("a ticked merged crate's delivery line is drawn clear of the arrows", clear.drawn && clear.near === 0, clear);
-    await p.click(`${node(merged)} .pick-hit`, { force: true });
+    check("a ticked implementation's delivery line is drawn clear of the arrows", clear.drawn && clear.near === 0, clear);
+    await p.click(`${node(mcp)} .pick-hit`, { force: true });
 
     // Injections follow the rule (msg 3343): the program injects nothing of
     // kkt-diagnostics' own into it; kkt-operate passes on the prober it was

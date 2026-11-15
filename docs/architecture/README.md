@@ -20,8 +20,7 @@ and items. Above the map, the Crates menu shows or hides crates by kind
 (a hidden kind's crates keep their places) and dev-only crates; the Arrows
 menu shows or hides arrows by role and by what uses them (code, tests or
 build scripts). A crate's panel lists every public item; one that exists
-only with the `real` or `testing` feature is marked "real only" or "tests
-only". Clicking a layer's name on the map hides that
+only with the `testing` feature is marked "tests only". Clicking a layer's name on the map hides that
 layer: its crates stay in place, faded and still clickable, and no arrow
 or delivery line goes to or from them. Each menu has All and None buttons
 at its top; "Show all" and "Hide all" above the map turn every layer on or
@@ -47,8 +46,7 @@ computed from the code.
 The overview, shown when no crate is picked, reports two checks: the kind
 checks (below), and the rule checks, where the code breaks the rules that
 rest on the kinds (`kinds.rule_breaks`): only
-programs and compositions depend on an effect crate or turn on another
-crate's `real`, in code or in tests; and a crate implements another crate's
+programs depend on an effect crate, in code or in tests (phase 16); and a crate implements another crate's
 trait only if that crate is a contract, unless it is a program, a
 composition or test support; and no crate is mixed.
 
@@ -87,58 +85,37 @@ or kind is not one it knows: fix the entry and run it again.
 Each box is outlined in its kind's colour, written by hand per crate:
 
 - **contract**: traits and plain values, with pure behaviour on its own value types (Time arithmetic, query checks, search matching), and no effect or wiring;
-- **contract and effect**: a contract in the open and its one implementation behind `real`, which only programs turn on (phase 13); a crate that depends on it without `real` depends on the contract alone;
 - **logic**: behaviour, with every effect injected (protocol translation counts, so kkt-mcp and kkt-web are logic);
-- **logic and effect**: logic in the open and the effect that only carries out its plans behind `real`, which only programs turn on (phase 14); a crate that depends on it without `real` depends on the logic alone;
-- **effect**: touches the operating system, disk, network, real time or real randomness directly; a named tool wrapper also owns its tool knowledge, tested through a private runner, with process execution behind `real`;
+- **effect**: touches the operating system, disk, network, real time or real randomness directly; a named tool wrapper also owns its tool knowledge, tested through a private runner;
 - **composition**: wires others and decides nothing (kkt-server and the programs);
 - **test support**: for tests only;
 - **mixed**: a contract or logic together with a real effect. Named tool wrappers are the explicit exception and are marked effect. A mixed crate breaks a rule (the rule checks).
 
 `kinds.py` checks what it can: a contract that does more than compute on its
-own values (behaviour through an injected dependency, wiring, or an effect), a logic crate that turns on `real`,
-an effect crate with no `real` feature and no I/O dependency, a composition
-crate other than a program with a `real` feature of its own, and a composition
-crate, programs included, that does machine work in its own code. For a crate
-marked contract and effect, it checks that its contract, outside `real`, only
-computes on its own values (a slot behind `real` is the implementation's), that
-it has a `real` feature, that its I/O dependencies are optional ones only `real`
-turns on, that a type outside `testing` implements its own contract, and that
-only programs turn its `real` on. For a crate marked logic and effect, it
-checks that it has a `real` feature, that its I/O dependencies are optional
-ones only `real` turns on, that its machine work is only in modules that
-`real` brings (generate.py records those files), that it turns on no other
-crate's `real`, and that only programs turn its own on. A crate that fails these is mixed. It reports
-a mismatch on the page and does not change the kind. `check-programs.py`
-fails CI on the two composition checks (a `real` feature of its own, and
-machine work in its own code).
+own values (behaviour through an injected dependency, or wiring); a contract or
+logic crate that touches the machine (machine work in its own code, or an I/O
+library); an effect crate that touches it nowhere the map can see; and a
+composition crate, programs included, that does machine work in its own code.
+Every crate is one kind: phase 16 removed the merged kinds of phases 13 and
+14, and the `real` feature that kept their parts apart. It reports a mismatch
+on the page and does not change the kind. `check-programs.py` fails CI on the
+composition check (machine work in its own code).
 
 Machine work is what `generate.py` finds in a crate's own code, outside its
-tests: a third-party crate that reaches the machine (libc, tracing-subscriber,
-rusqlite, reqwest, rand); a path under `std` for files, the environment,
-processes, sockets, the terminal or the clock (`std::fs`, `std::env::var`,
-`std::process::Command`, `std::io::stdin`, `std::path::absolute` and the
-like); a print macro; or a `Path` method that asks the file system about a
+tests and outside the modules only tests or the `testing` feature bring (a
+stand-in's work is test support's): a third-party crate that reaches the
+machine (libc, tracing-subscriber, rusqlite, reqwest, rand); a path under
+`std` for files, the environment, processes, sockets, the terminal or the
+clock (`std::fs`, `std::env::var`, `std::process::Command`, `std::io::stdin`,
+`std::path::absolute` and the like); the same under `tokio` (`tokio::fs`,
+`tokio::net`, `tokio::process`, `tokio::signal`, its terminal streams, and
+`tokio::time::sleep` and the like); a print macro; or a `Path` method that asks the file system about a
 path (`exists`, `is_file`, `canonicalize` and the like, called with no
 arguments, so an effect crate's `host.exists(path)` is not counted).
 Reading the command line (`std::env::args`) is not machine work: parsing its
 arguments is the program's. Value types such as `SocketAddr` and `ExitCode`
 are not either. The scan reads names, so it misses calls such as
 `path.exists()` on a `Path`. The map records the work by file.
-
-A merged crate, of kind "contract and effect", is drawn as a split box:
-its contract on the left, and on the right a tinted strip labelled `real`,
-its one implementation. A small hollow green triangle on the divider, on
-the second line, is the implementation implementing its own contract. A
-name too long for the contract part is squeezed to end before the divider. An arrow meets the part
-it depends on: one that turns `real` on (the program's, or the fake
-product's tests') meets the implementation; any other meets the contract.
-An arrow with several roles is placed stroke by stroke: an "implements"
-stroke always meets the contract, which is what it implements.
-The merged crate's own optional dependencies, which only `real` turns on,
-leave from the implementation. The page reads all of this from the data
-it already has: the crate's kind, each arrow's features and whether it is
-optional.
 
 ## Roles, contracts and slots
 
@@ -152,7 +129,7 @@ Which way an arrow points (Sam, msg 3155): a "uses" or "wires" arrow runs from t
 | used by | grey, filled arrow | B calls or reads A's items | every named item that is not one of the others |
 | built by | amber, open arrow | B builds A's implementation of a contract, or a type that holds one, to hand it on (a program building `SqlitePlace` for `Db::new`) | items that implement a contract, build one (a public method returns another crate's holder, as `SqlitePlace::open` gives a `Database`), or hold one, which the crate builds: it calls one of the type's constructors (a public function giving back the type, such as `KeyMode::new`), or names it if it has none (`SystemClock`). Calling another function of such a type (`KeyMode::admin_operator`) is using it. Plain settings structs and the traits the wired types implement go with the wiring |
 
-Where wired things go comes from the assembly data (assembly.json): what an injector (a program, kkt-server, or one of the two assemblies, kkt-operate and kkt-agent-commands, under "injectors") puts into which slot of which crate. Each injection is one of four. It injects another crate's implementation ("impl"); or its own adapter over another crate's implementation, which names that crate as the supplier that does the work ("own" with "supplier"); or its own work, with no other crate's implementation (a supplier that is the injector itself, such as kkt's `ServeReads`); or it passes on what it was given ("passes_on"). A value of the receiving crate's own type is never an injection into it: `Db`, `Parts`, `Prompter`, `Inspector` and kkt-rules' own `DefaultWording` are not shown as injected, and what goes into them is (generate.py refuses such an entry; Sam, msg 3343). A slot such as kkt-rules' `Startup.wording` still shows in its crate's panel, so a product can see it may fill it. A wires arrow's tooltip and its panel entry say so in words. Ticking a crate that injects, supplies or receives things draws thin dotted amber lines from the injector to each receiving crate, one per pair, labelled with the crates that supply what is injected, "its own work" first where the injector does some itself, and "passed on"; a line that carries only the injector's own work has longer dashes and an italic label. Hovering a line or its label lists each injection, with the slot it fills and the contract it meets. They are not dependencies, and they follow the filters. A line meets each box a quarter of the way along it, where no arrow meets the box (arrows meet the middle, or a merged crate's parts), so it stays visible beside the arrows, even between a program and the crate just below it.
+Where wired things go comes from the assembly data (assembly.json): what an injector (a program, kkt-server, or one of the two assemblies, kkt-operate and kkt-agent-commands, under "injectors") puts into which slot of which crate. Each injection is one of four. It injects another crate's implementation ("impl"); or its own adapter over another crate's implementation, which names that crate as the supplier that does the work ("own" with "supplier"); or its own work, with no other crate's implementation (a supplier that is the injector itself, such as kkt's `ServeReads`); or it passes on what it was given ("passes_on"). A value of the receiving crate's own type is never an injection into it: `Db`, `Parts`, `Prompter`, `Inspector` and kkt-rules' own `DefaultWording` are not shown as injected, and what goes into them is (generate.py refuses such an entry; Sam, msg 3343). A slot such as kkt-rules' `Startup.wording` still shows in its crate's panel, so a product can see it may fill it. A wires arrow's tooltip and its panel entry say so in words. Ticking a crate that injects, supplies or receives things draws thin dotted amber lines from the injector to each receiving crate, one per pair, labelled with the crates that supply what is injected, "its own work" first where the injector does some itself, and "passed on"; a line that carries only the injector's own work has longer dashes and an italic label. Hovering a line or its label lists each injection, with the slot it fills and the contract it meets. They are not dependencies, and they follow the filters. A line meets each box a quarter of the way along it, where no arrow meets the box (arrows meet the middle), so it stays visible beside the arrows, even between a program and the crate just below it.
 
 A crate's panel lists the contracts it defines (its public traits, with who
 implements each), the contracts of other crates it implements, and the
