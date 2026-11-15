@@ -14,6 +14,7 @@
 //! There is no waiting: `kkt watch --admin` waits from a shell by calling
 //! `new_messages`.
 
+use crate::format_choice::{FormatChoice, chosen};
 use crate::mcp_tools::{self, with_limits, with_text};
 use crate::mcp_transport::Transport;
 use crate::principal;
@@ -216,7 +217,7 @@ fn word(audit: &Audit, e: RuleError) -> RuleError {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct FormatOnly {
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -224,7 +225,7 @@ struct ListChannelsParams {
     query: Option<String>,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -233,20 +234,20 @@ struct ListAgentsParams {
     lane: Option<String>,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct AgentParams {
     handle: String,
     offset: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ChannelParams {
     channel_id: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -254,7 +255,7 @@ struct ListMemoriesParams {
     handle: String,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -262,7 +263,7 @@ struct RecallParams {
     handle: String,
     name: String,
     offset: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -270,14 +271,14 @@ struct ListMembersParams {
     channel_id: String,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct GetNoteParams {
     channel_id: String,
     offset: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -288,19 +289,19 @@ struct ReadParams {
     from_agent: Option<String>,
     limit: Option<u32>,
     max_body_chars: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct GetMessageParams {
     message_id: i64,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ActivityParams {
     after_id: i64,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -309,7 +310,7 @@ struct NewMessagesParams {
     channel_ids: Option<Vec<String>>,
     limit: Option<u32>,
     max_body_chars: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -318,67 +319,67 @@ struct CreateChannelParams {
     open: bool,
     purpose: Option<String>,
     members: Option<Vec<String>>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct SetPurposeParams {
     channel_id: String,
     purpose: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct SetOpenParams {
     channel_id: String,
     open: bool,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ChannelAgentParams {
     channel_id: String,
     handle: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct HandleParams {
     handle: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct StaleParams {
     idle_hours: u32,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct HideStaleParams {
     idle_hours: u32,
     handles: Vec<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct AnnouncementParams {
     text: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ListLanesParams {
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct GetLaneParams {
     lane: String,
     offset: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -386,13 +387,13 @@ struct SetLaneParams {
     lane: String,
     description: String,
     text: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct LaneParams {
     lane: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[tool_router]
@@ -405,7 +406,7 @@ impl AdminServer {
         Parameters(p): Parameters<ListChannelsParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -429,7 +430,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -451,7 +452,7 @@ impl AdminServer {
         Parameters(p): Parameters<ListMembersParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -473,7 +474,7 @@ impl AdminServer {
         Parameters(p): Parameters<GetNoteParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -499,7 +500,7 @@ impl AdminServer {
         Parameters(p): Parameters<ReadParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -527,7 +528,7 @@ impl AdminServer {
         Parameters(p): Parameters<GetMessageParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -549,7 +550,7 @@ impl AdminServer {
         Parameters(p): Parameters<ActivityParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -571,7 +572,7 @@ impl AdminServer {
         Parameters(p): Parameters<NewMessagesParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -602,7 +603,7 @@ impl AdminServer {
         Parameters(p): Parameters<ListAgentsParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -630,7 +631,7 @@ impl AdminServer {
         Parameters(p): Parameters<AgentParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -654,7 +655,7 @@ impl AdminServer {
         Parameters(p): Parameters<ListMemoriesParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -676,7 +677,7 @@ impl AdminServer {
         Parameters(p): Parameters<RecallParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -700,7 +701,7 @@ impl AdminServer {
         Parameters(p): Parameters<FormatOnly>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -721,7 +722,7 @@ impl AdminServer {
         Parameters(p): Parameters<ListLanesParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -743,7 +744,7 @@ impl AdminServer {
         Parameters(p): Parameters<GetLaneParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -769,7 +770,7 @@ impl AdminServer {
         Parameters(p): Parameters<CreateChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -798,7 +799,7 @@ impl AdminServer {
         Parameters(p): Parameters<SetPurposeParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -823,7 +824,7 @@ impl AdminServer {
         Parameters(p): Parameters<SetOpenParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -840,7 +841,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelAgentParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -857,7 +858,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelAgentParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -879,7 +880,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelAgentParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -901,7 +902,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -918,7 +919,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -935,7 +936,7 @@ impl AdminServer {
         Parameters(p): Parameters<HandleParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -954,7 +955,7 @@ impl AdminServer {
         Parameters(p): Parameters<StaleParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -976,7 +977,7 @@ impl AdminServer {
         Parameters(p): Parameters<HideStaleParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -998,7 +999,7 @@ impl AdminServer {
         Parameters(p): Parameters<AnnouncementParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -1020,7 +1021,7 @@ impl AdminServer {
         Parameters(p): Parameters<SetLaneParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -1044,7 +1045,7 @@ impl AdminServer {
         Parameters(p): Parameters<LaneParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),

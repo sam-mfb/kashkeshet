@@ -1514,8 +1514,6 @@ dependencies = [
  "kkt-clock",
  "kkt-names",
  "kkt-rules",
- "schemars",
- "serde",
  "serde_json",
  "thiserror",
 ]

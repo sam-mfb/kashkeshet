@@ -19,13 +19,11 @@ mod tests;
 
 use kkt_api_agent::RuleError;
 use kkt_clock::Clock;
-use schemars::JsonSchema;
-use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
+/// How a response is written.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Format {
     /// Compact lines of text. The default.
     #[default]

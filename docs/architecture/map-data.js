@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a2404f3",
+ "commit": "a20d345",
  "crates": [
   {
    "bins": [
@@ -7557,7 +7557,7 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
-     "doc": "",
+     "doc": "How a response is written.",
      "kind": "enum",
      "path": "Format",
      "variants": [
@@ -7655,8 +7655,6 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
-    "schemars",
-    "serde",
     "serde_json",
     "thiserror"
    ]

@@ -13,7 +13,8 @@ The plan has five parts: the rules every step follows; how progress is
 measured; how parallel work avoids collisions; the steps; and what needs
 Sam, each with the default we proceed on.
 
-The refactor's phases 0 to 14 are done. After phase 8, Sam decided four
+The refactor's phases 0 to 14 are done; phase 15 wraps three more
+libraries. After phase 8, Sam decided four
 more (2026-11-12). Phase 9 removed kkt-settings: each owner checks and words
 its own settings, and kkt-server takes them checked. Phase 10 moved the
 program's tools out of its library into two assemblies, kkt-operate and
@@ -1956,6 +1957,40 @@ the plan did not say, the row says what and why.
 | kkt-shutdown + kkt-shutdown-os | Merged; `StopSignals` behind `real`, in a private `signals` module; tokio optional, only `real` turns it on | 14.3 (#539) | No |
 | Logs: kkt-logs-os splits in two | `RotatingFile` and the new `open_log_file` in kkt-logs behind `real`; `TracingLog`, `init_logging` and `init_stderr_logging` in kkt-log-tracing, with tracing and tracing-subscriber optional | 14.4 (#536) | No. Three new tests cover `open_log_file`: a policy too small, a file that cannot be opened, and a good one |
 | Admission: the server's keys leave kkt-admission | kkt-server-keys, of kind "logic and effect", with kkt-admission-os' files behind `real`; kkt-admission depends on it, never the reverse; `SharedKey::generate` became `kkt_server_keys::generate`; the pull request and the CHANGELOG list every moved item | 14.5 (#538) | No. Review added one CI change: the programs job runs every `test_*.py` in docs/architecture, so propose.py's tests, with `late_moves`' new `as`, run in CI |
+
+### Phase 15: three libraries wrapped (Sam, 2026-11-15)
+
+**Why.** The revised `principles/` (#542) give RUST.md rule 7 a closed
+list of crates that may be used unwrapped: thiserror, futures, serde,
+serde_json, tokio and tokio-util. Sam decided that `schemars`, `toml` and
+`toml_edit` stay off it, and approved the two changes below, the new crate
+included (msg 3332, from sage-cardinal).
+
+**Sam's decisions.**
+- **`schemars`.** kkt-mcp is the one crate that wraps the MCP library,
+  which needs `schemars` on tool inputs, so it wraps `schemars` too.
+  kkt-mcp-formatter's `Format` no longer derives a schema: kkt-mcp has its
+  own input type for the text or JSON choice and turns it into `Format`.
+  The published tool descriptions do not change.
+- **`toml` and `toml_edit`.** A new logic crate, kkt-toml, owns reading,
+  writing and editing TOML text, and is the only crate that imports the two
+  libraries. It parses text into a tree of values, reads a typed record from
+  text and writes one back, and opens a document for editing that keeps
+  comments and layout. Its errors are its own and say where in the text the
+  problem is. No library type is in its public items, and its editing
+  words are kkt's. kkt-config-file, kkt-client-config, kkt-setup, kkt-mcp's
+  build script and the end-to-end tests that parse TOML move onto it. It is
+  pure logic, so they depend on it directly, not by injection. No message a
+  user sees changes.
+
+**The steps.** Sam dropped a separate plan step: the proposal and the
+scorecard are being removed (kkt-map-h), so this phase is recorded here
+and charted nowhere else.
+
+| Step | What | Builds | Reviews |
+|---|---|---|---|
+| 15.B | `schemars` only in kkt-mcp; this section | kkt-build-h | kkt-review-h |
+| 15.C | kkt-toml, and its users moved onto it | kkt-build-h | kkt-review-h |
 
 ## Order at a glance
 
