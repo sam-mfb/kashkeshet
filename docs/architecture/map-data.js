@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "6f31650",
+ "commit": "6d4a742",
  "crates": [
   {
    "bins": [
@@ -27140,6 +27140,17 @@ window.KKT_ASSEMBLY = {
        "param": "source"
       }
      ]
+    },
+    {
+     "crate": "kkt-client-config",
+     "note": "kkt connect",
+     "passes_on": "the client command the program gave AgentParts",
+     "to": [
+      {
+       "at": "configure",
+       "param": "command"
+      }
+     ]
     }
    ]
   },
@@ -27256,6 +27267,28 @@ window.KKT_ASSEMBLY = {
       {
        "at": "write_folder",
        "param": "disk"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-lane-files",
+     "note": "kkt lanes import and export, kkt setup --lanes",
+     "passes_on": "the lane folder's commit the program gave OperateParts",
+     "to": [
+      {
+       "at": "read_folder",
+       "param": "commits"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-client-config",
+     "note": "kkt setup",
+     "passes_on": "the client command the program gave OperateParts",
+     "to": [
+      {
+       "at": "configure",
+       "param": "command"
       }
      ]
     }

@@ -1248,6 +1248,17 @@
       }
      ],
      "passes_on": "the connection question the program gave AgentParts"
+    },
+    {
+     "passes_on": "the client command the program gave AgentParts",
+     "crate": "kkt-client-config",
+     "to": [
+      {
+       "at": "configure",
+       "param": "command"
+      }
+     ],
+     "note": "kkt connect"
     }
    ]
   },
@@ -1366,6 +1377,28 @@
       }
      ],
      "note": "kkt lanes import and export, kkt setup --lanes"
+    },
+    {
+     "passes_on": "the lane folder's commit the program gave OperateParts",
+     "crate": "kkt-lane-files",
+     "to": [
+      {
+       "at": "read_folder",
+       "param": "commits"
+      }
+     ],
+     "note": "kkt lanes import and export, kkt setup --lanes"
+    },
+    {
+     "passes_on": "the client command the program gave OperateParts",
+     "crate": "kkt-client-config",
+     "to": [
+      {
+       "at": "configure",
+       "param": "command"
+      }
+     ],
+     "note": "kkt setup"
     }
    ]
   }
