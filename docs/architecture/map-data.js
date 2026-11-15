@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a20d345",
+ "commit": "0e5662a",
  "crates": [
   {
    "bins": [
@@ -3971,8 +3971,7 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "serde",
-    "serde_json",
-    "toml_edit"
+    "serde_json"
    ]
   },
   {
@@ -4304,9 +4303,7 @@ window.KKT_GRAPH = {
    "slots": [],
    "testing_third_party": [],
    "third_party": [
-    "thiserror",
-    "toml",
-    "toml_edit"
+    "thiserror"
    ]
   },
   {
@@ -14736,8 +14733,7 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "semver",
-    "serde",
-    "toml"
+    "serde"
    ]
   },
   {
@@ -14870,6 +14866,160 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "libc"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "TOML text, in kkt's terms.",
+   "dev_only": false,
+   "features": {},
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "A TOML text open for editing.",
+     "kind": "struct",
+     "methods": [
+      "find",
+      "list_mut",
+      "parse",
+      "table_mut",
+      "text"
+     ],
+     "path": "Document"
+    },
+    {
+     "doc": "Why a document could not be changed at a key.",
+     "kind": "enum",
+     "path": "EditError",
+     "variants": [
+      "Missing",
+      "NotATable",
+      "NotAList"
+     ]
+    },
+    {
+     "doc": "What a document holds at a key.",
+     "kind": "enum",
+     "path": "Found",
+     "variants": [
+      "Table",
+      "Text",
+      "Other"
+     ]
+    },
+    {
+     "doc": "What opening a table does when a key on its path is missing.",
+     "kind": "enum",
+     "path": "IfMissing",
+     "variants": [
+      "Add",
+      "Refuse"
+     ]
+    },
+    {
+     "doc": "A list in a document, to change.",
+     "kind": "struct",
+     "methods": [
+      "contains_text",
+      "push_text"
+     ],
+     "path": "ListMut"
+    },
+    {
+     "doc": "Why a TOML text could not be read.",
+     "kind": "struct",
+     "methods": [
+      "place",
+      "reason"
+     ],
+     "path": "ParseError"
+    },
+    {
+     "doc": "A place in a text: its line and column, both counted from 1.",
+     "fields": [
+      "line",
+      "column"
+     ],
+     "kind": "struct",
+     "path": "Place"
+    },
+    {
+     "doc": "A TOML table: its keys in name order, each with its value.",
+     "kind": "type",
+     "path": "Table"
+    },
+    {
+     "doc": "A table in a document, to change.",
+     "kind": "struct",
+     "methods": [
+      "find",
+      "keys",
+      "remove",
+      "set_text",
+      "table_mut",
+      "written"
+     ],
+     "path": "TableMut"
+    },
+    {
+     "doc": "One value in a TOML text.",
+     "kind": "enum",
+     "methods": [
+      "as_boolean",
+      "as_integer",
+      "as_list",
+      "as_table",
+      "as_text"
+     ],
+     "path": "Value",
+     "variants": [
+      "Text",
+      "Integer",
+      "Float",
+      "Boolean",
+      "DateTime",
+      "List",
+      "Table"
+     ]
+    },
+    {
+     "doc": "Why a record could not be written as TOML.",
+     "kind": "struct",
+     "path": "WriteError"
+    },
+    {
+     "doc": "The tree of values `text` holds, its keys in name order.",
+     "kind": "fn",
+     "path": "parse"
+    },
+    {
+     "doc": "The record of type `T` that `text` holds.",
+     "kind": "fn",
+     "path": "read"
+    },
+    {
+     "doc": "`record` written as TOML text.",
+     "kind": "fn",
+     "path": "write"
+    }
+   ],
+   "lib": "kkt_toml",
+   "machine_work": {},
+   "name": "kkt-toml",
+   "optional_third_party": {},
+   "path": "crates/kkt-toml",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "serde",
+    "thiserror",
+    "toml",
+    "toml_edit"
    ]
   },
   {
@@ -18182,6 +18332,27 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "parse"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "parse"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-toml"
+  },
+  {
+   "features": [],
    "from": "kkt-admission",
    "items": [
     "sha256"
@@ -19463,6 +19634,33 @@ window.KKT_GRAPH = {
    "to": "kkt-server-keys"
   },
   {
+   "features": [],
+   "from": "kkt-client-config",
+   "items": [
+    "Document",
+    "EditError",
+    "Found",
+    "IfMissing"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Document",
+      "EditError",
+      "Found",
+      "IfMissing"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-toml"
+  },
+  {
    "features": [
     "testing"
    ],
@@ -19516,6 +19714,31 @@ window.KKT_GRAPH = {
     "Span"
    ],
    "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-config-file",
+   "items": [
+    "Document",
+    "Value",
+    "parse"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Document",
+      "Value",
+      "parse"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-toml"
   },
   {
    "features": [],
@@ -22328,6 +22551,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-rules"
+  },
+  {
+   "features": [],
+   "from": "kkt-mcp",
+   "items": [
+    "Value",
+    "parse"
+   ],
+   "kind": "build",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Value",
+      "parse"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-toml"
   },
   {
    "features": [],
@@ -25511,6 +25757,29 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-setup",
+   "items": [
+    "read",
+    "write"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "read",
+      "write"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-toml"
+  },
+  {
+   "features": [],
    "from": "kkt-watch",
    "items": [
     "Channel",
@@ -26679,6 +26948,12 @@ window.KKT_CONCERNS = {
    "kind": "effect",
    "layer": "operations",
    "must_not": "Decide setup answers or depend on setup/container logic."
+  },
+  "kkt-toml": {
+   "concern": "TOML text, in kkt's terms: parsing it into a tree of values (`parse`, `Table`, `Value`), reading a typed record from it and writing one back (`read`, `write`), and editing a document with its comments and layout kept (`Document`, `TableMut`, `ListMut`, `Found`, `IfMissing`, `EditError`). Its errors are its own and say where in the text the problem is (`ParseError`, `Place`, `WriteError`). The one crate that uses toml and toml_edit (phase 15); its users depend on it directly.",
+   "kind": "logic",
+   "layer": "foundations",
+   "must_not": "Let a toml or toml_edit type into its public items; know whose file it reads."
   },
   "kkt-watch": {
    "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server (kkt-agent-client's Watched), clock, saved place and output are injected.",

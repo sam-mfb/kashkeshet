@@ -16,7 +16,7 @@ kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
 semver.workspace = true
 serde.workspace = true
-toml.workspace = true
+kkt-toml = { path = "../kkt-toml" }
 
 [features]
 # Setup's files on this machine: the record and its note, the data folder,
