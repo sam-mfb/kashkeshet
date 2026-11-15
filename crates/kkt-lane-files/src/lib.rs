@@ -3,21 +3,25 @@
 //! lanes import` reads, and the folder's git commit, which an import
 //! records. A `README.md`, or a Markdown file with no lane header, is
 //! skipped, so a folder can hold notes beside its lanes. Everything on disk
-//! goes through [`Disk`], and the commit through kkt-lane-commit's
-//! `LaneCommit`, so this part is tested against fakes. The program supplies
-//! the real disk through an adapter, and injects the commit's git wrapper.
+//! goes through [`Disk`], and the commit through [`LaneCommit`], so this
+//! part is tested against fakes. The program supplies both through
+//! adapters: the disk over kkt-lane-files-os, the commit over
+//! kkt-lane-commit's git.
 //!
 //! This part only reads and writes files. Whether a lane is acceptable, and
 //! what an import changes, is for the lane rules (`rules::Operator`).
 
+mod commit;
 mod format;
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 #[cfg(test)]
 mod tests;
 
+pub use commit::LaneCommit;
 pub use format::{EXTENSION, LaneFile, parse, render};
 
 use format::has_header;
-use kkt_lane_commit::LaneCommit;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};

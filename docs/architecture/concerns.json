@@ -220,15 +220,27 @@
   },
   "kkt-container": {
    "layer": "operations",
-   "concern": "The container installation contract and stand-in, with Docker and Compose implementation behind real and private tool logic tested against a fake.",
-   "must_not": "Let Docker details into the open contract; decide setup answers or remember the setup record.",
-   "kind": "contract and effect"
+   "concern": "The container installation contract (Container, ConfigReader, LoginLink and their records) and its stand-in.",
+   "must_not": "Let Docker details into the contract; decide setup answers or remember the setup record.",
+   "kind": "contract"
+  },
+  "kkt-container-docker": {
+   "layer": "operations",
+   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands, behind real; what they do is tested over a private runner and a fake host.",
+   "must_not": "Decide setup answers or remember the setup record.",
+   "kind": "effect"
   },
   "kkt-remote-access": {
    "layer": "operations",
-   "concern": "The remote-sharing contract and stand-in, with Tailscale behind real; tool logic is tested over a private runner.",
-   "must_not": "Let tool details into the open contract; change login, DNS preferences, unrelated sharing, config or the service.",
-   "kind": "contract and effect"
+   "concern": "The remote-sharing contract (RemoteAccess, Node) and its stand-in.",
+   "must_not": "Let tool details into the contract.",
+   "kind": "contract"
+  },
+  "kkt-remote-access-tailscale": {
+   "layer": "operations",
+   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner, and the real command is behind real.",
+   "must_not": "Change login, DNS preferences, unrelated sharing, config or the service.",
+   "kind": "effect"
   },
   "kkt-client-config": {
    "layer": "operations",
@@ -268,21 +280,27 @@
   },
   "kkt-lane-files": {
    "layer": "operations",
-   "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from kkt-lane-commit's `LaneCommit`.",
+   "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from the `LaneCommit` it declares.",
    "must_not": "Touch the machine except through `Disk`; know a version-control tool.",
    "kind": "logic"
   },
   "kkt-lane-commit": {
    "layer": "operations",
-   "concern": "The commit a lane folder is at: the `LaneCommit` contract in the open, with its testing Memory stand-in, and its one implementation behind real, `Git`: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner.",
-   "must_not": "Read or write the lane files; let a consumer reach `Git` without real.",
-   "kind": "contract and effect"
+   "concern": "The commit a lane folder is at, as the machine's git says: `Git` (behind real), with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
+   "must_not": "Read or write the lane files.",
+   "kind": "effect"
   },
   "kkt-agent-client": {
    "layer": "clients",
-   "concern": "A client of kkt's server. The contract, in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records, Failure and Settings; the testing Memory stand-in. Its one implementation, over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), and plain Http requests for a program's test client, are behind real (step 13.6).",
-   "must_not": "Name a transport, a protocol library or its errors in the contract; let an rmcp or reqwest type out of the crate.",
-   "kind": "contract and effect"
+   "concern": "A client of kkt's server, as a contract in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records and Failure; the testing Memory stand-in.",
+   "must_not": "Name a transport, a protocol library or its errors.",
+   "kind": "contract"
+  },
+  "kkt-agent-client-mcp": {
+   "layer": "clients",
+   "concern": "Implements kkt-agent-client over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), with plain Http requests for a program's test client, behind real; what the watch asks for at a time (Settings), as plain values.",
+   "must_not": "Let an rmcp or reqwest type out of the crate.",
+   "kind": "effect"
   },
   "kkt-agent-commands": {
    "layer": "assembly",

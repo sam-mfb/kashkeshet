@@ -1,5 +1,5 @@
 use super::*;
-use kkt_lane_commit::testing::Memory;
+use crate::testing::Memory;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 

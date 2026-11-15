@@ -644,21 +644,29 @@
   }
 
   // ---- Where wired things go ----
-  // From the programs' assembly: each thing a program builds, the crate
-  // whose type it is, and the slot of another crate it goes into.
-  // The injector is a program, or a shared crate that does wiring of its
-  // own (kkt-server, under "injectors"). An entry that passes on what the
-  // injector was given names its supplier instead of a crate.
+  // From the programs' assembly: each thing an injector puts into a slot
+  // of another crate. The injector is a program, or a shared crate that
+  // does wiring of its own (kkt-server and the assemblies, under
+  // "injectors"). Each is one of four (`how`):
+  // - "injects": another crate's implementation (`builder`);
+  // - "adapts": the injector's own adapter over `builder`'s implementation,
+  //   which does the work;
+  // - "own": the injector's own work, no other crate's implementation;
+  // - "passed": what the injector was given, passed on (no `builder`).
   function deliveries() {
     const out = [];
     const injectors = Object.entries(assembly.programs || {}).concat(Object.entries(assembly.injectors || {}));
     for (const [program, flow] of injectors) {
       for (const w of flow.wiring || []) {
+        const at = { program, receiver: w.crate, slots: w.to, via: w.through_adapter || [] };
         if (w.impl) {
           const [builder, ...rest] = w.impl.split("::");
-          out.push({ program, builder, item: rest.join("::"), receiver: w.crate, slots: w.to, via: w.through_adapter || [] });
-        } else if (w.own && w.supplier) {
-          out.push({ program, builder: w.supplier, item: w.own, receiver: w.crate, slots: w.to, via: [], passed: true });
+          out.push({ ...at, how: "injects", builder, item: rest.join("::") });
+        } else if (w.own) {
+          const own = w.supplier === program;
+          out.push({ ...at, how: own ? "own" : "adapts", builder: w.supplier, item: w.own, supplierItem: w.supplier_item });
+        } else if (w.passes_on) {
+          out.push({ ...at, how: "passed", builder: null, item: w.passes_on });
         }
       }
     }
@@ -677,9 +685,13 @@
   // slot takes and the program's adapter where there is one.
   function deliveryWords(d) {
     return el("div", { class: "delivery-words" },
-      d.passed
-        ? [`${d.program} passes on ${d.item} into `]
-        : [`${d.program} injects `, roleItem(d.item, ["wires"], `from ${d.builder}`), ` (from ${d.builder}) into `],
+      {
+        passed: () => [`${d.program} passes on ${d.item} into `],
+        own: () => [`${d.program} does this itself, with no other crate's implementation: ${d.item}; into `],
+        adapts: () => [`${d.program} injects its own adapter, ${d.item}; the work is ${d.builder}'s`,
+          d.supplierItem ? [" ", roleItem(d.supplierItem, ["wires"], `from ${d.builder}`)] : "", `; into `],
+        injects: () => [`${d.program} injects `, roleItem(d.item, ["wires"], `from ${d.builder}`), ` (from ${d.builder}) into `],
+      }[d.how](),
       // Slots that take the same contracts through the same adapter are
       // named together.
       [...d.slots.reduce((groups, slot) => {
@@ -751,8 +763,16 @@
       path.addEventListener("mousemove", tip);
       path.addEventListener("mouseleave", hideTip);
       layer.append(path);
-      const suppliers = [...new Set(line.all.map((d) => d.builder))].sort();
-      const label = svg("text", { class: "delivery-label" });
+      // Labelled with the crates whose implementations do the work; the
+      // injector's own work and what it passes on are named as such.
+      // The injector's own work comes first, so a shortened label keeps it.
+      const suppliers = [
+        ...(line.all.some((d) => d.how === "own") ? ["its own work"] : []),
+        ...[...new Set(line.all.filter((d) => d.how === "injects" || d.how === "adapts").map((d) => d.builder))].sort(),
+        ...(line.all.some((d) => d.how === "passed") ? ["passed on"] : []),
+      ];
+      if (line.all.every((d) => d.how === "own")) path.classList.add("own-work");
+      const label = svg("text", { class: "delivery-label" + (line.all.every((d) => d.how === "own") ? " own-work" : "") });
       label.textContent = shortLabel(suppliers);
       label.addEventListener("mousemove", tip);
       label.addEventListener("mouseleave", hideTip);
@@ -1164,7 +1184,10 @@
       el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
       el("p", { class: "muted" }, "Read from the program's code by hand: every implementation the program passes to a slot of the shared crates, for the server and each of its commands. When the map is generated, every implementation and slot named here is checked to exist."),
       el("ul", { class: "flows" }, (flow.wiring || []).map((w) => el("li", {},
-        w.impl ? ref(w.impl) : el("span", { class: "chip" }, `${program}: ${w.own}`),
+        w.impl ? ref(w.impl) : el("span", { class: "chip" }, `${program}: ${w.own || w.passes_on}`),
+        w.own && w.supplier === program ? el("span", { class: "muted" }, " (its own work, not another crate's implementation)") : null,
+        w.own && w.supplier !== program ? [el("span", { class: "muted" }, " adapting "),
+          w.supplier_item ? ref(`${w.supplier}::${w.supplier_item}`) : el("span", { class: "muted" }, w.supplier)] : null,
         ` → ${w.crate}'s `,
         el("span", { class: "chips inline" }, w.to.map((t) => el("span", {},
           itemRefAt(w.crate, t.at, dialog), " ", el("code", {}, t.param)))),
