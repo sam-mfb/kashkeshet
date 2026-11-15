@@ -1,0 +1,19 @@
+[package]
+name = "kkt-backup-os"
+description = "Writing and pruning kkt's backup folders on disk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-backup = { path = "../kkt-backup" }
+
+[features]
+# `write` and `prune`: backup filesystem effects.
+real = []
+
+[dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-scratch = { path = "../kkt-scratch" }
