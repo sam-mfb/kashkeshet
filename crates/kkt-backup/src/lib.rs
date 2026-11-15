@@ -1,12 +1,8 @@
 //! Backup layouts, names, file modes and pruning choices, with no file I/O.
-//! The caller supplies the time and source paths. Behind `real`, `write`
-//! carries out a layout on disk and `prune` removes the old folders
-//! `old_names` chooses; only programs turn `real` on.
+//! The caller supplies the time and source paths.
 
-mod files;
 mod settings;
 
-pub use files::{prune, write};
 pub use settings::{Problem, Settings};
 
 use kkt_clock::Time;

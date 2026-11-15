@@ -16,7 +16,8 @@ use kkt_entropy_os::OsEntropy;
 use kkt_events::Events;
 use kkt_identity_keymode::KeyMode;
 use kkt_log_tracing::init_logging;
-use kkt_logs::{LogPolicy, check_dependency_log_level, open_log_file};
+use kkt_logs::{LogPolicy, check_dependency_log_level};
+use kkt_logs_os::open_log_file;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_server::{self as app, Parts};
@@ -221,7 +222,7 @@ fn write_backup(
     contents: &backup::Contents,
 ) -> Result<PathBuf, String> {
     let layout = backup::layout(clock.now(), Build::CURRENT.version, contents);
-    kkt_backup::write(folder, &layout, crate::machine::database::copy)
+    kkt_backup_os::write(folder, &layout, crate::machine::database::copy)
 }
 
 /// Before the server upgrades the tables in `database`, backs it up beside
@@ -258,7 +259,7 @@ fn backup_before_upgrade(database: &Path, keep: usize, clock: &dyn Clock) -> Res
     );
     // The backup is made, so the upgrade is safe; an old backup left behind
     // only takes space.
-    match kkt_backup::prune(&folder, keep) {
+    match kkt_backup_os::prune(&folder, keep) {
         Ok(removed) => {
             for path in removed {
                 tracing::info!("removed the old backup {}", path.display());

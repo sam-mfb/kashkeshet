@@ -3,6 +3,7 @@
 //! credential files, and the database file.
 
 pub mod agent_parts;
+mod browser;
 pub mod client_config;
 pub mod connection;
 pub(crate) mod credentials;

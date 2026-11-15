@@ -1046,6 +1046,7 @@ dependencies = [
  "kkt-api-admin",
  "kkt-api-agent",
  "kkt-backup",
+ "kkt-backup-os",
  "kkt-browser",
  "kkt-client-command",
  "kkt-client-config",
@@ -1069,6 +1070,7 @@ dependencies = [
  "kkt-lane-files-os",
  "kkt-log-tracing",
  "kkt-logs",
+ "kkt-logs-os",
  "kkt-machine",
  "kkt-machine-os",
  "kkt-mcp",
@@ -1088,6 +1090,7 @@ dependencies = [
  "kkt-service-os",
  "kkt-service-systemd",
  "kkt-setup",
+ "kkt-setup-os",
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-terminal-os",
@@ -1204,8 +1207,16 @@ name = "kkt-backup"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-scratch",
  "thiserror",
+]
+
+[[package]]
+name = "kkt-backup-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-backup",
+ "kkt-clock",
+ "kkt-scratch",
 ]
 
 [[package]]
@@ -1282,7 +1293,6 @@ name = "kkt-container-docker"
 version = "0.10.0"
 dependencies = [
  "futures",
- "kkt-browser",
  "kkt-clock",
  "kkt-config-file",
  "kkt-container",
@@ -1320,7 +1330,6 @@ name = "kkt-diagnostics"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-probe",
  "kkt-server-keys",
  "url",
 ]
@@ -1479,8 +1488,16 @@ name = "kkt-logs"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-scratch",
  "thiserror",
+]
+
+[[package]]
+name = "kkt-logs-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-logs",
+ "kkt-scratch",
 ]
 
 [[package]]
@@ -1560,7 +1577,6 @@ dependencies = [
  "kkt-lane-files",
  "kkt-machine",
  "kkt-names",
- "kkt-probe",
  "kkt-provenance",
  "kkt-remote-access",
  "kkt-rules",
@@ -1733,6 +1749,13 @@ dependencies = [
  "kkt-toml",
  "semver",
  "serde",
+]
+
+[[package]]
+name = "kkt-setup-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-setup",
 ]
 
 [[package]]

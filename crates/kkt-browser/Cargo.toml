@@ -7,9 +7,5 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-[features]
-# `testing`: `testing::Recorder`, which records each link and can fail.
-testing = []
-
 [dev-dependencies]
 kkt-scratch = { path = "../kkt-scratch" }

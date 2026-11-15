@@ -297,7 +297,7 @@
      "supplier_item": "OsHost"
     },
     {
-     "own": "ThisProgram, adapting kkt-setup::kkt_path",
+     "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -306,7 +306,7 @@
       }
      ],
      "note": "kkt connect",
-     "supplier": "kkt-setup",
+     "supplier": "kkt-setup-os",
      "supplier_item": "kkt_path"
     },
     {
@@ -348,7 +348,7 @@
     },
     {
      "impl": "kkt-clock-system::SystemClock",
-     "crate": "kkt-logs",
+     "crate": "kkt-logs-os",
      "to": [
       {
        "at": "open_log_file",
@@ -455,8 +455,10 @@
        "param": "prober"
       }
      ],
-     "impl": "kkt-probe::HttpProber",
-     "note": "The program builds HttpProber with the doctor's settings and injects it directly (12.5b)."
+     "own": "Probe, adapting kkt-probe's HttpProber to kkt-diagnostics' Prober",
+     "supplier": "kkt-probe",
+     "supplier_item": "HttpProber",
+     "note": "The program builds HttpProber with the doctor's settings and adapts it (phase 16)."
     },
     {
      "own": "LaneDisk",
@@ -496,7 +498,7 @@
      "note": "the program's own work, not another crate's implementation"
     },
     {
-     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup's files, behind real",
+     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
      "crate": "kkt-operate",
      "to": [
       {
@@ -504,7 +506,7 @@
        "param": "setup_files"
       }
      ],
-     "supplier": "kkt-setup"
+     "supplier": "kkt-setup-os"
     },
     {
      "own": "NativeKeyFiles, forwarding key files to kkt-server-keys and generation to kkt-entropy-os",
@@ -531,7 +533,7 @@
      "supplier_item": "SqlitePlace"
     },
     {
-     "own": "NativeBackups, writing kkt-backup's layouts through its write, behind real, with this program's database copy",
+     "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os' write, with this program's database copy",
      "crate": "kkt-operate",
      "to": [
       {
@@ -539,7 +541,7 @@
        "param": "backups"
       }
      ],
-     "supplier": "kkt-backup",
+     "supplier": "kkt-backup-os",
      "supplier_item": "write"
     },
     {
@@ -639,7 +641,9 @@
      "supplier_item": "Claude"
     },
     {
-     "impl": "kkt-browser::SystemBrowser",
+     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container-docker's Browser",
+     "supplier": "kkt-browser",
+     "supplier_item": "SystemBrowser",
      "crate": "kkt-container-docker",
      "to": [
       {
@@ -647,7 +651,7 @@
        "param": "browser"
       }
      ],
-     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener, given to the Docker wrapper as it is"
+     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener (phase 16)"
     }
    ],
    "inferred": false

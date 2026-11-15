@@ -1,4 +1,4 @@
-//! A prober in memory, for consumers' tests: key files and each address's
+//! A prober in memory, a stand-in `Prober` for tests: key files and each address's
 //! checks are given up front, and nothing touches the machine or a network.
 
 use crate::{Check, KeyFile, Prober, Probing};

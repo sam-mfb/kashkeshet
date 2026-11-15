@@ -2,7 +2,8 @@
 //! `Container`. It holds the Compose files that come with this program, the
 //! folder kkt manages for them, and the commands that set it up, start it,
 //! back it up, import and export its lanes, upgrade it and remove it. All of
-//! it goes through the private runner, so it is tested against a fake host.
+//! it goes through the private runner, so it is tested against a fake host. A sharing setup's login link opens in
+//! the [`Browser`] it declares, which the program supplies.
 //!
 //! This crate only runs Docker. It does not decide what a person wants (the
 //! setup answers) or remember what was set up (the setup record); the caller
@@ -12,6 +13,7 @@
 //! `Inputs.allow_hosts` is written to `.env` as `KKT_ALLOW_HOSTS`;
 //! `Inputs.sharing` starts the Tailscale sidecar and waits for its login.
 
+mod browser;
 mod compose;
 mod files;
 mod lanes;
@@ -22,6 +24,7 @@ mod tailscale;
 #[cfg(test)]
 mod tests;
 
+pub use browser::Browser;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -245,12 +248,12 @@ impl DockerError {
 /// Docker and Compose implement the container contract directly. A
 /// sharing setup's login link opens in `browser` when the person asks.
 pub struct Docker {
-    browser: Box<dyn kkt_browser::Browser>,
+    browser: Box<dyn Browser>,
 }
 
 impl Docker {
     /// Docker and Compose, opening a login link in `browser`.
-    pub fn new(browser: Box<dyn kkt_browser::Browser>) -> Docker {
+    pub fn new(browser: Box<dyn Browser>) -> Docker {
         Docker { browser }
     }
 }

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "0c9c256",
+ "commit": "8a9d68e",
  "crates": [
   {
    "bins": [
@@ -117,6 +117,18 @@ window.KKT_GRAPH = {
      "trait": "LoginLink",
      "trait_crate": "kkt-container",
      "type": "terminal::browser_login::TerminalLink"
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Browser",
+     "trait_crate": "kkt-container-docker",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Prober",
+     "trait_crate": "kkt-diagnostics",
+     "type": "machine::diagnostics::Probe"
     },
     {
      "crate": "kashkeshet",
@@ -309,9 +321,14 @@ window.KKT_GRAPH = {
      "path": "machine::database::pending_upgrade"
     },
     {
-     "doc": "The program's prober: kkt-probe's `HttpProber`, with the doctor's timeout, response cap, protocol version and check names from kkt-diagnostics.",
+     "doc": "The program's prober: kkt-probe's `HttpProber`, with the doctor's timeout, response cap, protocol version and check names from kkt-diagnostics, adapted to kkt-diagnostics' `Prober` (`Probe`).",
      "kind": "mod",
      "path": "machine::diagnostics"
+    },
+    {
+     "doc": "kkt-probe's `HttpProber`, adapted to kkt-diagnostics' `Prober`: each record it gives becomes kkt-diagnostics' record of the same fields.",
+     "kind": "struct",
+     "path": "machine::diagnostics::Probe"
     },
     {
      "doc": "The prober `kkt doctor` and `kkt setup` use.",
@@ -534,13 +551,13 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "kkt_setup::kkt_path",
+     "from": "kkt_setup_os::kkt_path",
      "kind": "fn",
      "path": "process::kkt_path"
     },
     {
      "doc": "",
-     "from": "kkt_setup::program_path",
+     "from": "kkt_setup_os::program_path",
      "kind": "fn",
      "path": "process::program_path"
     },
@@ -3498,9 +3515,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Backup layouts, names, file modes and pruning choices, with no file I/O.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
@@ -3583,7 +3598,33 @@ window.KKT_GRAPH = {
      "doc": "Finished backup names to remove, oldest first.",
      "kind": "fn",
      "path": "old_names"
-    },
+    }
+   ],
+   "lib": "kkt_backup",
+   "machine_work": {},
+   "name": "kkt-backup",
+   "optional_third_party": {},
+   "path": "crates/kkt-backup",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "thiserror"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Writes backup layouts and removes old backup folders selected by the backup logic.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
     {
      "doc": "Lists the folder, asks the backup logic which names are old, and removes only those.",
      "feature": "real",
@@ -3597,9 +3638,9 @@ window.KKT_GRAPH = {
      "path": "write"
     }
    ],
-   "lib": "kkt_backup",
+   "lib": "kkt_backup_os",
    "machine_work": {
-    "src/files.rs": [
+    "src/lib.rs": [
      "fs",
      "fs::DirBuilder",
      "fs::DirBuilder::new",
@@ -3617,93 +3658,37 @@ window.KKT_GRAPH = {
      "Path::exists"
     ]
    },
-   "name": "kkt-backup",
+   "name": "kkt-backup-os",
    "optional_third_party": {},
-   "path": "crates/kkt-backup",
-   "real_files": [
-    "src/files.rs"
-   ],
+   "path": "crates/kkt-backup-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": [
-    "thiserror"
-   ]
+   "third_party": []
   },
   {
    "bins": [],
    "builds": [],
-   "contracts": [
-    {
-     "implementors": [
-      {
-       "crate": "kkt-browser",
-       "type": "SystemBrowser"
-      },
-      {
-       "crate": "kkt-browser",
-       "type": "testing::Recorder"
-      }
-     ],
-     "trait": "Browser"
-    }
-   ],
-   "crate_doc": "Opening a link in the person's browser, in kkt's terms: start opening it now, and say later, once, if that failed.",
+   "contracts": [],
+   "crate_doc": "Opening a link in the person's browser with the system's own opener: `SystemBrowser` (behind `real`), which starts opening a link now and says later, once, if that failed.",
    "dev_only": false,
    "features": {
-    "real": [],
-    "testing": []
+    "real": []
    },
    "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-browser",
-     "trait": "Browser",
-     "trait_crate": "kkt-browser",
-     "type": "SystemBrowser"
-    },
-    {
-     "crate": "kkt-browser",
-     "trait": "Browser",
-     "trait_crate": "kkt-browser",
-     "type": "testing::Recorder"
-    }
-   ],
+   "implements": [],
    "items": [
     {
-     "doc": "The person's browser.",
-     "kind": "trait",
-     "methods": [
-      "open",
-      "open_failure"
-     ],
-     "path": "Browser"
-    },
-    {
-     "doc": "The system's opener, which the program injects as the `Browser`.",
+     "doc": "The system's opener, which the program adapts to a consumer's browser.",
      "feature": "real",
      "kind": "struct",
      "methods": [
-      "new"
+      "new",
+      "open",
+      "open_failure"
      ],
      "path": "SystemBrowser"
-    },
-    {
-     "doc": "A stand-in browser, for tests of the crates that open links: it records each link, can refuse to start, and can report a later failure once.",
-     "feature": "testing",
-     "kind": "mod",
-     "path": "testing"
-    },
-    {
-     "doc": "",
-     "feature": "testing",
-     "fields": [
-      "opened",
-      "open_fails",
-      "later_failure"
-     ],
-     "kind": "struct",
-     "path": "testing::Recorder"
     }
    ],
    "lib": "kkt_browser",
@@ -4667,12 +4652,21 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "Browser"
+    }
+   ],
    "crate_doc": "kkt-container over Docker and Compose: `Docker` implements its `Container`.",
    "dev_only": false,
    "features": {
     "real": [
-     "dep:kkt-browser",
      "dep:kkt-config-file",
      "dep:kkt-machine",
      "dep:serde_json",
@@ -4683,7 +4677,7 @@ window.KKT_GRAPH = {
     {
      "holds": [
       {
-       "crate": "kkt-browser",
+       "crate": "kkt-container-docker",
        "trait": "Browser"
       }
      ],
@@ -4699,6 +4693,16 @@ window.KKT_GRAPH = {
     }
    ],
    "items": [
+    {
+     "doc": "The person's browser.",
+     "feature": "real",
+     "kind": "trait",
+     "methods": [
+      "open",
+      "open_failure"
+     ],
+     "path": "Browser"
+    },
     {
      "doc": "Docker and Compose implement the container contract directly.",
      "feature": "real",
@@ -4755,7 +4759,7 @@ window.KKT_GRAPH = {
      "name": "browser",
      "traits": [
       {
-       "crate": "kkt-browser",
+       "crate": "kkt-container-docker",
        "trait": "Browser"
       }
      ]
@@ -5624,23 +5628,61 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": "machine::diagnostics::Probe"
+      },
+      {
+       "crate": "kkt-diagnostics",
+       "type": "testing::Memory"
+      }
+     ],
+     "trait": "Prober"
+    }
+   ],
    "crate_doc": "Read-only connection diagnostics.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "testing": []
+   },
    "holders": [
     {
      "holds": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ],
      "type": "Inspector"
     }
    ],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-diagnostics",
+     "trait": "Prober",
+     "trait_crate": "kkt-diagnostics",
+     "type": "testing::Memory"
+    }
+   ],
    "items": [
+    {
+     "doc": "One check and its outcome: its name, whether it passed, what was found, and for a problem, how to fix it.",
+     "fields": [
+      "name",
+      "ok",
+      "detail",
+      "fix"
+     ],
+     "kind": "struct",
+     "methods": [
+      "ok",
+      "problem"
+     ],
+     "path": "Check"
+    },
     {
      "doc": "The most bytes of an MCP response a probe reads.",
      "kind": "const",
@@ -5670,6 +5712,15 @@ window.KKT_GRAPH = {
      "path": "KEY_CHECK"
     },
     {
+     "doc": "What a `Prober` found in a key file.",
+     "fields": [
+      "mode",
+      "text"
+     ],
+     "kind": "struct",
+     "path": "KeyFile"
+    },
+    {
      "doc": "An operator key file doctor checks on this machine, and the fix for a problem with it, which depends on how the server is run.",
      "fields": [
       "path",
@@ -5694,6 +5745,20 @@ window.KKT_GRAPH = {
       "checks"
      ],
      "path": "Plan"
+    },
+    {
+     "doc": "What the checks do to the machine.",
+     "kind": "trait",
+     "methods": [
+      "key_file",
+      "probe"
+     ],
+     "path": "Prober"
+    },
+    {
+     "doc": "The server checks a `Prober` makes, once they are done.",
+     "kind": "type",
+     "path": "Probing"
     },
     {
      "doc": "The name of the check that the server answered at all.",
@@ -5797,6 +5862,23 @@ window.KKT_GRAPH = {
      "path": "shell_word"
     },
     {
+     "doc": "A prober in memory, a stand-in `Prober` for tests: key files and each address's checks are given up front, and nothing touches the machine or a network.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "Key files and servers, held in memory.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "key",
+      "new",
+      "server"
+     ],
+     "path": "testing::Memory"
+    },
+    {
      "doc": "Whether `checks` found the server not answering at all, as opposed to answering with a problem.",
      "kind": "fn",
      "path": "unreachable"
@@ -5821,7 +5903,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -5833,7 +5915,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-diagnostics",
        "traits": [
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         }
        ],
@@ -5851,7 +5933,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-diagnostics",
        "traits": [
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         }
        ],
@@ -5868,7 +5950,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -5879,7 +5961,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -5890,7 +5972,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -5901,7 +5983,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -5924,7 +6006,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-diagnostics",
        "traits": [
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         }
        ],
@@ -7085,7 +7167,7 @@ window.KKT_GRAPH = {
      "path": "TracingLog"
     },
     {
-     "doc": "Sends the log to stdout, or to `log_file`, such as the log file kkt-logs opens.",
+     "doc": "Sends the log to stdout, or to `log_file`, such as the log file kkt-logs-os opens.",
      "feature": "real",
      "kind": "fn",
      "path": "init_logging"
@@ -7133,9 +7215,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Log levels, their checks, and pure rollover and age-pruning rules.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
@@ -7188,15 +7268,6 @@ window.KKT_GRAPH = {
      "path": "Pruning"
     },
     {
-     "doc": "The log file at `path`, appended to, and rolled over by its policy.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "open"
-     ],
-     "path": "RotatingFile"
-    },
-    {
      "doc": "The filesystem steps for one rollover, in their existing order.",
      "fields": [
       "oldest",
@@ -7224,12 +7295,6 @@ window.KKT_GRAPH = {
      "path": "check_dependency_log_level"
     },
     {
-     "doc": "Opens the log file at `path` for `RotatingFile::open`, after checking `policy`.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "open_log_file"
-    },
-    {
      "doc": "Whether age pruning is due on this write.",
      "kind": "fn",
      "path": "prune_due"
@@ -7251,8 +7316,49 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_logs",
+   "machine_work": {},
+   "name": "kkt-logs",
+   "optional_third_party": {},
+   "path": "crates/kkt-logs",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "thiserror"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "The log file on disk: appended to, rolled over and pruned as kkt-logs' policy plans say (`RotatingFile`, opened by `open_log_file` after the policy's check).",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "The log file at `path`, appended to, and rolled over by its policy.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "open"
+     ],
+     "path": "RotatingFile"
+    },
+    {
+     "doc": "Opens the log file at `path` for `RotatingFile::open`, after checking `policy`.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "open_log_file"
+    }
+   ],
+   "lib": "kkt_logs_os",
    "machine_work": {
-    "src/file.rs": [
+    "src/lib.rs": [
      "fs",
      "fs::File",
      "fs::OpenOptions",
@@ -7264,12 +7370,10 @@ window.KKT_GRAPH = {
      "Path::metadata"
     ]
    },
-   "name": "kkt-logs",
+   "name": "kkt-logs-os",
    "optional_third_party": {},
-   "path": "crates/kkt-logs",
-   "real_files": [
-    "src/file.rs"
-   ],
+   "path": "crates/kkt-logs-os",
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -7298,9 +7402,7 @@ window.KKT_GRAPH = {
     }
    ],
    "testing_third_party": [],
-   "third_party": [
-    "thiserror"
-   ]
+   "third_party": []
   },
   {
    "bins": [],
@@ -7998,7 +8100,7 @@ window.KKT_GRAPH = {
        "trait": "ClientCommand"
       },
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       },
       {
@@ -8719,7 +8821,7 @@ window.KKT_GRAPH = {
      "name": "prober",
      "traits": [
       {
-       "crate": "kkt-probe",
+       "crate": "kkt-diagnostics",
        "trait": "Prober"
       }
      ]
@@ -8814,7 +8916,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -8909,7 +9011,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9008,7 +9110,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9107,7 +9209,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9206,7 +9308,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9316,7 +9418,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9411,7 +9513,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9517,7 +9619,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9616,7 +9718,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9737,7 +9839,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9832,7 +9934,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -9927,7 +10029,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10022,7 +10124,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10117,7 +10219,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10212,7 +10314,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10311,7 +10413,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10410,7 +10512,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10586,7 +10688,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10685,7 +10787,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10795,7 +10897,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10890,7 +10992,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -10985,7 +11087,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -11084,7 +11186,7 @@ window.KKT_GRAPH = {
          "trait": "ClientCommand"
         },
         {
-         "crate": "kkt-probe",
+         "crate": "kkt-diagnostics",
          "trait": "Prober"
         },
         {
@@ -11153,48 +11255,29 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [
-    {
-     "implementors": [
-      {
-       "crate": "kkt-probe",
-       "type": "HttpProber"
-      },
-      {
-       "crate": "kkt-probe",
-       "type": "testing::Memory"
-      }
-     ],
-     "trait": "Prober"
-    }
-   ],
-   "crate_doc": "Probing a kkt server and reading its key files: `Prober`, with what it finds (`KeyFile`) and the checks it gives back (`Check`), and its one implementation, `HttpProber` (behind `real`), which probes over HTTP with reqwest, whose types s...",
+   "contracts": [],
+   "crate_doc": "Probing a kkt server over HTTP and reading its key files, with reqwest, whose types stay inside this crate: `HttpProber` (behind `real`), with the `Settings` the program chooses.",
    "dev_only": false,
    "features": {
     "real": [
      "dep:reqwest",
      "dep:serde_json"
-    ],
-    "testing": []
+    ]
    },
    "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-probe",
-     "trait": "Prober",
-     "trait_crate": "kkt-probe",
-     "type": "HttpProber"
-    },
-    {
-     "crate": "kkt-probe",
-     "trait": "Prober",
-     "trait_crate": "kkt-probe",
-     "type": "testing::Memory"
-    }
-   ],
+   "implements": [],
    "items": [
     {
-     "doc": "One check and its outcome: its name, whether it passed, what was found, and for a problem, how to fix it.",
+     "doc": "What `HttpProber` found in a key file.",
+     "fields": [
+      "mode",
+      "text"
+     ],
+     "kind": "struct",
+     "path": "FileRead"
+    },
+    {
+     "doc": "One thing a probe found: the check's name, whether it passed, what was found, and for a problem, how to fix it.",
      "fields": [
       "name",
       "ok",
@@ -11202,43 +11285,18 @@ window.KKT_GRAPH = {
       "fix"
      ],
      "kind": "struct",
-     "methods": [
-      "ok",
-      "problem"
-     ],
-     "path": "Check"
+     "path": "Finding"
     },
     {
      "doc": "Reads key files and probes servers over HTTP, as its settings say.",
      "feature": "real",
      "kind": "struct",
      "methods": [
-      "new"
-     ],
-     "path": "HttpProber"
-    },
-    {
-     "doc": "What a `Prober` found in a key file.",
-     "fields": [
-      "mode",
-      "text"
-     ],
-     "kind": "struct",
-     "path": "KeyFile"
-    },
-    {
-     "doc": "What the checks do to the machine.",
-     "kind": "trait",
-     "methods": [
       "key_file",
+      "new",
       "probe"
      ],
-     "path": "Prober"
-    },
-    {
-     "doc": "The server checks a `Prober` makes, once they are done.",
-     "kind": "type",
-     "path": "Probing"
+     "path": "HttpProber"
     },
     {
      "doc": "What the HTTP prober takes from the program; it chooses no defaults.",
@@ -11251,23 +11309,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Settings"
-    },
-    {
-     "doc": "A prober in memory, for consumers' tests: key files and each address's checks are given up front, and nothing touches the machine or a network.",
-     "feature": "testing",
-     "kind": "mod",
-     "path": "testing"
-    },
-    {
-     "doc": "Key files and servers, held in memory.",
-     "feature": "testing",
-     "kind": "struct",
-     "methods": [
-      "key",
-      "new",
-      "server"
-     ],
-     "path": "testing::Memory"
     }
    ],
    "lib": "kkt_probe",
@@ -13687,7 +13728,6 @@ window.KKT_GRAPH = {
    "crate_doc": "`kkt setup`: what this machine is set up as (a server run as a service, a server in Docker, or a client of a server elsewhere), the record that says so, and what follows from it: whether `kkt serve` may run here, and which server this ma...",
    "dev_only": false,
    "features": {
-    "real": [],
     "testing": []
    },
    "holders": [
@@ -14143,12 +14183,6 @@ window.KKT_GRAPH = {
      "path": "UpgradePlan"
     },
     {
-     "doc": "Resolves a relative path against this process's working directory.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "absolute"
-    },
-    {
      "doc": "An access key may keep its old name, but cannot also be the admin key.",
      "kind": "fn",
      "path": "admin_key_collision"
@@ -14217,12 +14251,6 @@ window.KKT_GRAPH = {
      "doc": "What `kkt backup` backs up, given the recorded `mode` (`None` with no record), the folder given (`into`) and whether `--db` or `--config` was given (`local_options`).",
      "kind": "fn",
      "path": "backup_of"
-    },
-    {
-     "doc": "Follows links and resolves the actual file path.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "canonicalize"
     },
     {
      "doc": "One key per server, so another server's saved key is never replaced.",
@@ -14437,12 +14465,6 @@ window.KKT_GRAPH = {
      "path": "key_fix"
     },
     {
-     "doc": "This program's absolute path, for client configurations that run it.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "kkt_path"
-    },
-    {
      "doc": "The report of a lane import, and the Docker limit when no install is present.",
      "kind": "mod",
      "path": "lane_reports"
@@ -14476,45 +14498,9 @@ window.KKT_GRAPH = {
      "path": "lanes_on"
     },
     {
-     "doc": "Makes the default database's parent folder.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "make_data_folder"
-    },
-    {
-     "doc": "Whether a program is a file in the already-captured PATH folders.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "on_path"
-    },
-    {
      "doc": "Where this machine's key of `kind` is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
      "kind": "fn",
      "path": "operator_key"
-    },
-    {
-     "doc": "One snapshot of PATH, shared by all client checks in a setup invocation.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "path_dirs"
-    },
-    {
-     "doc": "This program's absolute path, with links followed.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "program_path"
-    },
-    {
-     "doc": "Reads the setup record from the selected config folder, if present.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "read_record"
-    },
-    {
-     "doc": "Reads the unfinished note; the caller checks whether its install is present.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "read_unfinished"
     },
     {
      "doc": "Where the setup record is: `setup.toml` in kkt's config directory, `config_dir`, beside the config file and the access key.",
@@ -14530,18 +14516,6 @@ window.KKT_GRAPH = {
      "doc": "This machine's setup record.",
      "kind": "fn",
      "path": "recorded_setup"
-    },
-    {
-     "doc": "Removes the setup record; missing files retain the caller's original refusal.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "remove_record"
-    },
-    {
-     "doc": "Removes the unfinished note, accepting an already-missing file.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "remove_unfinished"
     },
     {
      "doc": "Runs `kkt setup`: asks what `answers` leaves open, sets the machine up, checks the connection, connects clients, and records it.",
@@ -14680,42 +14654,14 @@ window.KKT_GRAPH = {
      "doc": "",
      "kind": "fn",
      "path": "web_key_line"
-    },
-    {
-     "doc": "Saves the setup record with the original write-then-rename operation.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "write_record"
-    },
-    {
-     "doc": "Saves the unfinished note with the same write-then-rename operation.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "write_unfinished"
     }
    ],
    "lib": "kkt_setup",
-   "machine_work": {
-    "src/files.rs": [
-     "env::current_exe",
-     "env::split_paths",
-     "env::var_os",
-     "fs::create_dir_all",
-     "fs::read_to_string",
-     "fs::remove_file",
-     "fs::rename",
-     "fs::write",
-     "path::absolute",
-     "Path::canonicalize",
-     "Path::is_file"
-    ]
-   },
+   "machine_work": {},
    "name": "kkt-setup",
    "optional_third_party": {},
    "path": "crates/kkt-setup",
-   "real_files": [
-    "src/files.rs"
-   ],
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -14812,6 +14758,122 @@ window.KKT_GRAPH = {
     "semver",
     "serde"
    ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Setup's record and unfinished note, data folder and program paths on this machine.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "Resolves a relative path against this process's working directory.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "absolute"
+    },
+    {
+     "doc": "Follows links and resolves the actual file path.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "canonicalize"
+    },
+    {
+     "doc": "This program's absolute path, for client configurations that run it.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "kkt_path"
+    },
+    {
+     "doc": "Makes the default database's parent folder.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "make_data_folder"
+    },
+    {
+     "doc": "Whether a program is a file in the already-captured PATH folders.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "on_path"
+    },
+    {
+     "doc": "One snapshot of PATH, shared by all client checks in a setup invocation.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "path_dirs"
+    },
+    {
+     "doc": "This program's absolute path, with links followed.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "program_path"
+    },
+    {
+     "doc": "Reads the setup record from the selected config folder, if present.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "read_record"
+    },
+    {
+     "doc": "Reads the unfinished note; the caller checks whether its install is present.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "read_unfinished"
+    },
+    {
+     "doc": "Removes the setup record; missing files retain the caller's original refusal.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "remove_record"
+    },
+    {
+     "doc": "Removes the unfinished note, accepting an already-missing file.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "remove_unfinished"
+    },
+    {
+     "doc": "Saves the setup record with the original write-then-rename operation.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "write_record"
+    },
+    {
+     "doc": "Saves the unfinished note with the same write-then-rename operation.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "write_unfinished"
+    }
+   ],
+   "lib": "kkt_setup_os",
+   "machine_work": {
+    "src/lib.rs": [
+     "env::current_exe",
+     "env::split_paths",
+     "env::var_os",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::write",
+     "path::absolute",
+     "Path::canonicalize",
+     "Path::is_file"
+    ]
+   },
+   "name": "kkt-setup-os",
+   "optional_third_party": {},
+   "path": "crates/kkt-setup-os",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
   },
   {
    "bins": [],
@@ -16914,17 +16976,13 @@ window.KKT_GRAPH = {
    "to": "kkt-api-agent"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Contents",
     "Layout",
     "Settings",
-    "layout",
-    "prune",
-    "write"
+    "layout"
    ],
    "kind": "normal",
    "optional": false,
@@ -16935,9 +16993,7 @@ window.KKT_GRAPH = {
       "Contents",
       "Layout",
       "Settings",
-      "layout",
-      "prune",
-      "write"
+      "layout"
      ],
      "role": "uses"
     }
@@ -16952,17 +17008,42 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
+    "prune",
+    "write"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "prune",
+      "write"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-backup-os"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
     "SystemBrowser"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
     {
      "detail": [
       "SystemBrowser"
      ],
-     "role": "wires"
+     "role": "uses"
     }
    ],
    "target": null,
@@ -17193,12 +17274,19 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
+    "Browser",
     "Docker"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "implements",
    "roles": [
+    {
+     "detail": [
+      "a type of its own implements Browser"
+     ],
+     "role": "implements"
+    },
     {
      "detail": [
       "Docker"
@@ -17265,9 +17353,13 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Check",
     "DOCTOR_MAX_RESPONSE_BYTES",
     "DOCTOR_PROTOCOL_VERSION",
     "KEY_CHECK",
+    "KeyFile",
+    "Prober",
+    "Probing",
     "SERVER_CHECK",
     "Settings",
     "endpoint",
@@ -17275,13 +17367,22 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "implements",
    "roles": [
     {
      "detail": [
+      "machine::diagnostics::Probe implements Prober"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Check",
       "DOCTOR_MAX_RESPONSE_BYTES",
       "DOCTOR_PROTOCOL_VERSION",
       "KEY_CHECK",
+      "KeyFile",
+      "Probing",
       "SERVER_CHECK",
       "Settings",
       "endpoint",
@@ -17493,9 +17594,7 @@ window.KKT_GRAPH = {
    "to": "kkt-log-tracing"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "DEFAULT_DEPENDENCY_LOG_LEVEL",
@@ -17503,8 +17602,7 @@ window.KKT_GRAPH = {
     "LogLevel",
     "LogPolicy",
     "SettingError",
-    "check_dependency_log_level",
-    "open_log_file"
+    "check_dependency_log_level"
    ],
    "kind": "normal",
    "optional": false,
@@ -17517,8 +17615,7 @@ window.KKT_GRAPH = {
       "LogLevel",
       "LogPolicy",
       "SettingError",
-      "check_dependency_log_level",
-      "open_log_file"
+      "check_dependency_log_level"
      ],
      "role": "uses"
     }
@@ -17526,6 +17623,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-logs"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "open_log_file"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "open_log_file"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-logs-os"
   },
   {
    "features": [],
@@ -17763,18 +17883,23 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
+    "FileRead",
+    "Finding",
     "HttpProber",
     "Settings"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
     {
      "detail": [
-      "HttpProber"
+      "FileRead",
+      "Finding",
+      "HttpProber",
+      "Settings"
      ],
-     "role": "wires"
+     "role": "uses"
     }
    ],
    "target": null,
@@ -18094,9 +18219,7 @@ window.KKT_GRAPH = {
    "to": "kkt-service-systemd"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Answers",
@@ -18106,26 +18229,13 @@ window.KKT_GRAPH = {
     "Switch",
     "Target",
     "Unfinished",
-    "absolute",
-    "canonicalize",
     "connection",
     "connection::Connection",
     "connection::ConnectionOptions",
     "connection::serve_connection",
     "credential_file_check",
     "default_db",
-    "kkt_path",
-    "make_data_folder",
-    "on_path",
-    "path_dirs",
-    "program_path",
-    "read_record",
-    "read_unfinished",
-    "remove_record",
-    "remove_unfinished",
-    "upgrade_backup_folder",
-    "write_record",
-    "write_unfinished"
+    "upgrade_backup_folder"
    ],
    "kind": "normal",
    "optional": false,
@@ -18147,26 +18257,13 @@ window.KKT_GRAPH = {
       "Switch",
       "Target",
       "Unfinished",
-      "absolute",
-      "canonicalize",
       "connection",
       "connection::Connection",
       "connection::ConnectionOptions",
       "connection::serve_connection",
       "credential_file_check",
       "default_db",
-      "kkt_path",
-      "make_data_folder",
-      "on_path",
-      "path_dirs",
-      "program_path",
-      "read_record",
-      "read_unfinished",
-      "remove_record",
-      "remove_unfinished",
-      "upgrade_backup_folder",
-      "write_record",
-      "write_unfinished"
+      "upgrade_backup_folder"
      ],
      "role": "uses"
     }
@@ -18179,6 +18276,53 @@ window.KKT_GRAPH = {
     "Unrecorded"
    ],
    "to": "kkt-setup"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "absolute",
+    "canonicalize",
+    "kkt_path",
+    "make_data_folder",
+    "on_path",
+    "path_dirs",
+    "program_path",
+    "read_record",
+    "read_unfinished",
+    "remove_record",
+    "remove_unfinished",
+    "write_record",
+    "write_unfinished"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "absolute",
+      "canonicalize",
+      "kkt_path",
+      "make_data_folder",
+      "on_path",
+      "path_dirs",
+      "program_path",
+      "read_record",
+      "read_unfinished",
+      "remove_record",
+      "remove_unfinished",
+      "write_record",
+      "write_unfinished"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-setup-os"
   },
   {
    "features": [],
@@ -19702,8 +19846,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "Span",
-    "to_text"
+    "Span"
    ],
    "to": "kkt-clock"
   },
@@ -19712,6 +19855,58 @@ window.KKT_GRAPH = {
     "testing"
    ],
    "from": "kkt-backup",
+   "items": [
+    "Span"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Span"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-backup-os",
+   "items": [
+    "DATABASE_FILE",
+    "Layout",
+    "old_names"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "DATABASE_FILE",
+      "Layout",
+      "old_names"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Contents",
+    "layout",
+    "name"
+   ],
+   "to": "kkt-backup"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-backup-os",
    "items": [
     "Span",
     "Time",
@@ -19736,7 +19931,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-backup",
+   "from": "kkt-backup-os",
    "items": [
     "Dir"
    ],
@@ -19992,27 +20187,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-container-docker",
    "items": [
-    "Browser"
-   ],
-   "kind": "normal",
-   "optional": true,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Browser"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-browser"
-  },
-  {
-   "features": [],
-   "from": "kkt-container-docker",
-   "items": [
     "Clock",
     "Span"
    ],
@@ -20163,27 +20337,6 @@ window.KKT_GRAPH = {
     "MAX_ADMIN_NAME_CHARS"
    ],
    "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-container-docker",
-   "items": [
-    "Browser"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Browser"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-browser"
   },
   {
    "features": [
@@ -20542,33 +20695,6 @@ window.KKT_GRAPH = {
     "testing::FixedClock"
    ],
    "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-diagnostics",
-   "items": [
-    "Check",
-    "KeyFile",
-    "Prober"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Check",
-      "KeyFile",
-      "Prober"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Probing"
-   ],
-   "to": "kkt-probe"
   },
   {
    "features": [],
@@ -22315,7 +22441,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-logs",
    "items": [
-    "Clock",
     "OutOfRange",
     "Span",
     "Time"
@@ -22326,7 +22451,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Clock",
       "OutOfRange",
       "Span",
       "Time"
@@ -22335,9 +22459,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [
-    "testing::FixedClock"
-   ],
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
@@ -22345,6 +22467,82 @@ window.KKT_GRAPH = {
     "testing"
    ],
    "from": "kkt-logs",
+   "items": [],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-logs-os",
+   "items": [
+    "Clock",
+    "OutOfRange",
+    "Time"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock",
+      "OutOfRange",
+      "Time"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Span",
+    "testing::FixedClock"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-logs-os",
+   "items": [
+    "LogPolicy",
+    "prune_due",
+    "pruning",
+    "rotation",
+    "should_roll"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "LogPolicy",
+      "prune_due",
+      "pruning",
+      "rotation",
+      "should_roll"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-logs"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-logs-os",
    "items": [
     "Span",
     "testing::FixedClock"
@@ -22372,7 +22570,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-logs",
+   "from": "kkt-logs-os",
    "items": [
     "Dir"
    ],
@@ -23317,9 +23515,11 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operate",
    "items": [
+    "Check",
     "Inspector",
     "KeyToCheck",
     "Plan",
+    "Prober",
     "ServerLines",
     "Settings",
     "SetupServer",
@@ -23338,7 +23538,9 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Check",
       "Plan",
+      "Prober",
       "ServerLines",
       "SetupServer",
       "ThisMachine",
@@ -23360,7 +23562,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "KeyFile",
+    "Probing"
+   ],
    "to": "kkt-diagnostics"
   },
   {
@@ -23441,32 +23646,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-operate",
-   "items": [
-    "Check",
-    "Prober"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Check",
-      "Prober"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "KeyFile",
-    "Probing"
-   ],
-   "to": "kkt-probe"
   },
   {
    "features": [],
@@ -26045,6 +26224,33 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-setup-os",
+   "items": [
+    "Record",
+    "Unfinished",
+    "record_path",
+    "unfinished_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Record",
+      "Unfinished",
+      "record_path",
+      "unfinished_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-setup"
+  },
+  {
+   "features": [],
    "from": "kkt-shutdown-os",
    "items": [
     "Shutdown"
@@ -26966,16 +27172,22 @@ window.KKT_CONCERNS = {
    "must_not": "Be in a release, or anything but a stand-in."
   },
   "kkt-backup": {
-   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`); behind real, writing a layout and removing the old folders it chooses (`write`, `prune`).",
-   "kind": "logic and effect",
+   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
+   "kind": "logic",
    "layer": "operations",
-   "must_not": "Read the clock or copy the database itself: the caller passes both; let a consumer reach `write` or `prune` without real."
+   "must_not": "Read the clock or copy the database itself: the caller passes both."
+  },
+  "kkt-backup-os": {
+   "concern": "Writing immutable backup layouts and removing old folders selected by the backup logic (`write`, `prune`).",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Choose backup names, contents, modes or retention."
   },
   "kkt-browser": {
-   "concern": "Opening a link in the person's browser. The contract: Browser (start opening it now; say later, once, if that failed), with the testing Recorder. Its one implementation, SystemBrowser, with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real (step 13.3).",
-   "kind": "contract and effect",
+   "concern": "Opening a link in the person's browser with the system's own opener (open on macOS, xdg-open elsewhere): SystemBrowser (behind real), with its own methods: starting the opener, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real. It declares no contract: the program adapts SystemBrowser to kkt-container-docker's Browser (phase 16).",
+   "kind": "effect",
    "layer": "operations",
-   "must_not": "Name an opener program in the contract; wait for the browser; repeat the link in a message."
+   "must_not": "Wait for the browser; repeat the link in a message."
   },
   "kkt-client-command": {
    "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude` (behind real), with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
@@ -27026,7 +27238,7 @@ window.KKT_CONCERNS = {
    "must_not": "Let Docker details into the contract; decide setup answers or remember the setup record."
   },
   "kkt-container-docker": {
-   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands, behind real; what they do is tested over a private runner and a fake host.",
+   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands, behind real; what they do is tested over a private runner and a fake host. A sharing setup's login link opens in the Browser it declares, which the program supplies.",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Decide setup answers or remember the setup record."
@@ -27044,10 +27256,10 @@ window.KKT_CONCERNS = {
    "must_not": "Know a product's tables, or let a rusqlite type out of the crate."
   },
   "kkt-diagnostics": {
-   "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server.",
+   "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server; the `Prober` it declares for the machine, with what it finds (`KeyFile`), the checks (`Check`) and its testing Memory stand-in.",
    "kind": "logic",
    "layer": "operations",
-   "must_not": "Change anything, or touch the machine except through kkt-probe's `Prober`."
+   "must_not": "Change anything, or touch the machine except through its `Prober`."
   },
   "kkt-entropy": {
    "concern": "The randomness contract `Entropy`, with `random_chars` as a provided method that takes the alphabet to draw from, and its test doubles behind `testing`.",
@@ -27130,10 +27342,16 @@ window.KKT_CONCERNS = {
    "must_not": "Open, roll over or prune log files; choose log levels' defaults."
   },
   "kkt-logs": {
-   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans; behind real, the log file on disk that carries them out.",
-   "kind": "logic and effect",
+   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans; kkt-logs-os carries them out on the log file.",
+   "kind": "logic",
    "layer": "foundations",
    "must_not": "Read a real clock itself; start a logging library."
+  },
+  "kkt-logs-os": {
+   "concern": "The log file on disk, appended to, rolled over and pruned as kkt-logs' plans say: RotatingFile, opened by open_log_file after the policy's check, with the clock the program gives (phase 16, the reverse of 14.4's merge).",
+   "kind": "effect",
+   "layer": "foundations",
+   "must_not": "Decide the policy or its plans; read a real clock itself; start a logging library."
   },
   "kkt-machine": {
    "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
@@ -27171,8 +27389,8 @@ window.KKT_CONCERNS = {
    "must_not": "Choose native implementations, depend on an effect or another assembly, or parse command-line flags."
   },
   "kkt-probe": {
-   "concern": "Probing a kkt server and reading its key files: the `Prober` contract in the open, with what it finds (`KeyFile`), the checks it gives (`Check`), the prober's `Settings` and its testing Memory stand-in; and its one implementation behind real, `HttpProber`: the probe over HTTP with reqwest, MCP's initialize handshake read from its answer, and key files read from disk.",
-   "kind": "contract and effect",
+   "concern": "Probing a kkt server over HTTP and reading its key files: `HttpProber` (behind real), with its own methods and the prober's `Settings`: the probe with reqwest, MCP's initialize handshake read from its answer, key files read from disk, and what it finds worded as its own records (`Finding`, `FileRead`). It declares no contract: the program adapts `HttpProber` to kkt-diagnostics' Prober (phase 16).",
+   "kind": "effect",
    "layer": "operations",
    "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them."
   },
@@ -27255,10 +27473,16 @@ window.KKT_CONCERNS = {
    "must_not": "Decide what the service runs or check the server's settings."
   },
   "kkt-setup": {
-   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`. Behind real: setup's record and unfinished note, data folder, program paths and PATH checks on this machine.",
-   "kind": "logic and effect",
+   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
+   "kind": "logic",
    "layer": "operations",
-   "must_not": "Read files or run anything outside real: the program carries out, or passes in, what is decided here; let a consumer reach setup's files without real."
+   "must_not": "Read files or run anything: the program carries out, or passes in, what is decided here."
+  },
+  "kkt-setup-os": {
+   "concern": "Setup's record and unfinished note, data folder, program paths and PATH checks on this machine.",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Decide what setup does or where its files belong."
   },
   "kkt-shutdown": {
    "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value.",
@@ -28031,8 +28255,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt connect",
-     "own": "ThisProgram, adapting kkt-setup::kkt_path",
-     "supplier": "kkt-setup",
+     "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
+     "supplier": "kkt-setup-os",
      "supplier_item": "kkt_path",
      "to": [
       {
@@ -28079,7 +28303,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-logs",
+     "crate": "kkt-logs-os",
      "impl": "kkt-clock-system::SystemClock",
      "note": "kkt serve --log-file",
      "to": [
@@ -28181,8 +28405,10 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "impl": "kkt-probe::HttpProber",
-     "note": "The program builds HttpProber with the doctor's settings and injects it directly (12.5b).",
+     "note": "The program builds HttpProber with the doctor's settings and adapts it (phase 16).",
+     "own": "Probe, adapting kkt-probe's HttpProber to kkt-diagnostics' Prober",
+     "supplier": "kkt-probe",
+     "supplier_item": "HttpProber",
      "to": [
       {
        "at": "OperateParts",
@@ -28229,8 +28455,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup's files, behind real",
-     "supplier": "kkt-setup",
+     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
+     "supplier": "kkt-setup-os",
      "to": [
       {
        "at": "OperateParts",
@@ -28264,8 +28490,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeBackups, writing kkt-backup's layouts through its write, behind real, with this program's database copy",
-     "supplier": "kkt-backup",
+     "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os' write, with this program's database copy",
+     "supplier": "kkt-backup-os",
      "supplier_item": "write",
      "to": [
       {
@@ -28372,8 +28598,10 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-container-docker",
-     "impl": "kkt-browser::SystemBrowser",
-     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener, given to the Docker wrapper as it is",
+     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener (phase 16)",
+     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container-docker's Browser",
+     "supplier": "kkt-browser",
+     "supplier_item": "SystemBrowser",
      "to": [
       {
        "at": "Docker::new",

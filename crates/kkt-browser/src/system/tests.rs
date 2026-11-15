@@ -60,7 +60,6 @@ fn a_failure_kept_in_a_poisoned_slot_is_reported_once_with_the_poisoning_as_its_
 /// can fail with "Text file busy" while other threads start processes.
 mod real {
     use super::*;
-    use crate::Browser;
 
     /// A login link's secret part, which no message may repeat.
     const MARKER: &str = "kkt-marker-7f3a";

@@ -1,0 +1,16 @@
+[package]
+name = "kkt-logs-os"
+description = "kkt's log file on disk, rolled over and pruned as kkt-logs plans"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-clock = { path = "../kkt-clock" }
+kkt-logs = { path = "../kkt-logs" }
+
+[dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-scratch = { path = "../kkt-scratch" }

@@ -6,7 +6,7 @@
 
 use std::sync::{Mutex, PoisonError};
 
-/// The system's opener, which the program injects as the `Browser`.
+/// The system's opener, which the program adapts to a consumer's browser.
 pub struct SystemBrowser {
     opener: String,
     failure: std::sync::Arc<Mutex<Option<String>>>,
@@ -28,9 +28,11 @@ impl SystemBrowser {
     }
 }
 
-impl crate::Browser for SystemBrowser {
-    /// Starts the system opener without waiting for it to finish.
-    fn open(&self, url: &str) -> std::io::Result<()> {
+impl SystemBrowser {
+    /// Starts the system opener on `url` without waiting for it to finish.
+    /// Fails if it cannot be started; whether it then worked is told by
+    /// `open_failure`.
+    pub fn open(&self, url: &str) -> std::io::Result<()> {
         use std::process::Stdio;
         let mut child = std::process::Command::new(&self.opener)
             .arg(url)
@@ -52,8 +54,9 @@ impl crate::Browser for SystemBrowser {
         Ok(())
     }
 
-    /// Takes a completed opener failure, once.
-    fn open_failure(&self) -> Option<String> {
+    /// Why the opener ended without success, if it did since the last time
+    /// this was asked, once. Never repeats the link, which may hold a secret.
+    pub fn open_failure(&self) -> Option<String> {
         take_failure(&self.failure)
     }
 }

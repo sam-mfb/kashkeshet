@@ -1,15 +1,8 @@
 //! Log levels, their checks, and pure rollover and age-pruning rules.
-//! Behind `real`, the log file on disk ([`RotatingFile`]), which applies
-//! these plans to the files.
+//! kkt-logs-os carries these plans out on the log file on disk.
 
-mod file;
 mod policy;
-pub use file::{RotatingFile, open_log_file};
 pub use policy::{Pruning, Rotation, prune_due, pruning, rotation, should_roll};
-
-/// Where unit tests put their scratch files: shared with the integration tests.
-#[cfg(test)]
-use kkt_scratch as scratch;
 
 use std::time::Duration;
 

@@ -10,9 +10,12 @@ publish = false
 [dependencies]
 kkt-server-keys = { path = "../kkt-server-keys" }
 kkt-clock = { path = "../kkt-clock" }
-kkt-probe = { path = "../kkt-probe" }
 url.workspace = true
 
 [dev-dependencies]
 kkt-server-keys = { path = "../kkt-server-keys", features = ["testing"] }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+
+[features]
+# `testing::Memory`, a stand-in `Prober` with key files and answers in memory.
+testing = []

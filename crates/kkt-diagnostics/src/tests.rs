@@ -2,9 +2,9 @@
 //! `FixedClock`.
 
 use super::*;
+use crate::Probing;
 use kkt_clock::Clock;
 use kkt_clock::testing::FixedClock;
-use kkt_probe::Probing;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::path::PathBuf;

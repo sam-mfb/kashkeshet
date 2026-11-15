@@ -21,7 +21,7 @@ pub struct NativeOperate<'a, D = ()> {
     connection: ConnectionReads<'a>,
     service_defaults: D,
     service: Box<dyn kkt_service::Service>,
-    prober: kkt_probe::HttpProber,
+    prober: super::diagnostics::Probe,
     login_link: crate::terminal::browser_login::TerminalLink,
     /// Docker and Compose, opening a sharing setup's login link with the
     /// system's own opener.
@@ -38,7 +38,9 @@ impl<'a> NativeOperate<'a> {
             service: super::service::for_this_os(env),
             prober: super::diagnostics::prober(),
             login_link: crate::terminal::browser_login::TerminalLink::new(),
-            docker: kkt_container_docker::Docker::new(Box::new(kkt_browser::SystemBrowser::new())),
+            docker: kkt_container_docker::Docker::new(Box::new(
+                super::browser::OpenerBrowser::new(),
+            )),
         }
     }
 
@@ -237,44 +239,44 @@ impl kkt_operate::CheckService for ServiceCheck<'_> {
 pub(crate) struct NativeSetupFiles;
 impl SetupFiles for NativeSetupFiles {
     fn read_record(&self, dir: &Path) -> Result<Option<kkt_setup::Record>, String> {
-        kkt_setup::read_record(dir)
+        kkt_setup_os::read_record(dir)
     }
     fn read_unfinished(&self, dir: &Path) -> Result<Option<kkt_setup::Unfinished>, String> {
-        kkt_setup::read_unfinished(dir)
+        kkt_setup_os::read_unfinished(dir)
     }
     fn write_record(&self, dir: &Path, record: &kkt_setup::Record) -> Result<(), String> {
-        kkt_setup::write_record(dir, record)
+        kkt_setup_os::write_record(dir, record)
     }
     fn write_unfinished(
         &self,
         dir: &Path,
         unfinished: &kkt_setup::Unfinished,
     ) -> Result<(), String> {
-        kkt_setup::write_unfinished(dir, unfinished)
+        kkt_setup_os::write_unfinished(dir, unfinished)
     }
     fn remove_unfinished(&self, dir: &Path) -> Result<(), String> {
-        kkt_setup::remove_unfinished(dir)
+        kkt_setup_os::remove_unfinished(dir)
     }
     fn kkt_path(&self) -> Result<PathBuf, String> {
-        kkt_setup::kkt_path()
+        kkt_setup_os::kkt_path()
     }
     fn path_dirs(&self) -> Vec<PathBuf> {
-        kkt_setup::path_dirs()
+        kkt_setup_os::path_dirs()
     }
     fn on_path(&self, dirs: &[PathBuf], program: &str) -> bool {
-        kkt_setup::on_path(dirs, program)
+        kkt_setup_os::on_path(dirs, program)
     }
     fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
-        kkt_setup::absolute(path)
+        kkt_setup_os::absolute(path)
     }
     fn program_path(&self) -> std::io::Result<PathBuf> {
-        kkt_setup::program_path()
+        kkt_setup_os::program_path()
     }
     fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
-        kkt_setup::canonicalize(path)
+        kkt_setup_os::canonicalize(path)
     }
     fn remove_record(&self, dir: &Path) -> Result<(), String> {
-        kkt_setup::remove_record(dir)
+        kkt_setup_os::remove_record(dir)
     }
 }
 
@@ -352,6 +354,6 @@ impl kkt_operate::ConfigText for NativeConfigText {
 pub(crate) struct NativeBackups;
 impl BackupWriter for NativeBackups {
     fn write(&self, folder: &Path, layout: &kkt_backup::Layout<'_>) -> Result<PathBuf, String> {
-        kkt_backup::write(folder, layout, super::database::copy)
+        kkt_backup_os::write(folder, layout, super::database::copy)
     }
 }

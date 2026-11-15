@@ -1,7 +1,7 @@
-//! Writing backup layouts and removing old backup folders selected by the
-//! backup logic, behind `real`. Database copying is supplied by the program.
+//! Writes backup layouts and removes old backup folders selected by the
+//! backup logic. Database copying is supplied by the program.
 
-use crate::{DATABASE_FILE, Layout};
+use kkt_backup::{DATABASE_FILE, Layout};
 use std::fs::{DirBuilder, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -105,7 +105,7 @@ pub fn prune(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String> {
         }
     }
     let mut removed = Vec::new();
-    for name in crate::old_names(names, keep) {
+    for name in kkt_backup::old_names(names, keep) {
         let path = folder.join(name);
         std::fs::remove_dir_all(&path)
             .map_err(|e| format!("could not remove {}: {e}", path.display()))?;
