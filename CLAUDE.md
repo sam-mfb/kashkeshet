@@ -53,22 +53,20 @@ owns. Put new code in the crate that owns its area. If none fits, add a
 crate named for the area (e.g. `kkt-search`), not for a kind of code
 (`types`, `utils`) or the library behind it.
 
-Features: code that touches the machine (files, network, processes, the
-clock, randomness, signals) is behind a `real` feature; plain data types
-stay outside it. Only programs (binaries and examples) turn on `real`, and
-a contract crate never has one. A merged crate (concerns.json's kind
-"contract and effect") holds a contract in the open and its one
-implementation behind `real`: a crate that depends on it without `real`
-depends on the contract alone. So does a crate of kind "logic and effect"
-(phase 14): its logic in the open, and the effect that only carries out
-its plans behind `real`, in modules only `real` brings; a crate that
-depends on it without `real` depends on the logic alone. Phase 16 (Sam,
-2026-11-15) reverses both kinds: each of its steps supersedes these
-sentences for the crates it changes, and step 16.4 rewrites this
-paragraph. Tests SHOULD NOT turn on `real`; a test
-that must is a documented exception, listed with its reason in
-`.github/scripts/real-exceptions.json` (today, the fake product's tests,
-which drive it over HTTP with kkt-agent-client-mcp). Stand-ins and other test
+Kinds and features: every crate is one kind, as concerns.json says:
+contract, logic, effect, composition or test support. Code that touches
+the machine (files, network, processes, the clock, randomness, signals) is
+in an effect crate of its own, and only programs depend on an effect
+crate, in code or in tests. A contract with one implementation is a
+contract crate and a crate named for the implementation that implements it
+directly (kkt-service and kkt-service-systemd), or the consumer declares
+the contract it needs and the program adapts the effect crate to it
+(kkt-client-config's `ClientCommand`, over kkt-client-command); logic and
+the effect that carries out its plans are a logic crate and its `-os`
+crate. No crate has a `real` feature (phase 16, Sam, 2026-11-15, which
+removed phases 13 and 14's mixed kinds). A test that must depend on an
+effect crate outside a program is a documented exception, listed with its
+reason in `.github/scripts/effect-exceptions.json` (today, none). Stand-ins and other test
 support are behind a `testing` feature, which other crates turn on only in
 their dev-dependencies (RUST.md 6); a crate's own `testing` may turn on
 its dependencies' `testing`, and a dev-only program (see "Dev-only
@@ -278,29 +276,13 @@ as `{max_limit}`. After an intended change, run
 **Public surface.** Make an item public only when another crate or the program needs it.
 
 **Third-party tools and libraries (Sam, 2026-11-12, revised for phase
-13).** A third-party tool or library with one implementation is one crate
-named for the scope: its contract in the open, and the implementation
-behind `real`. The implementation owns its tool's logic, tested against a
-private runner without `real`. Several implementations, or a contract many
-crates share, keep a contract crate with named implementations, as
-kkt-service and kkt-db do. Either way the program injects the
-implementation, with no forwarding adapter. Language-shaping libraries
-retain RUST.md rule 7's exemption. This is Sam's explicit exception to
-one-kind-per-crate. Phase 12 split each tool into a contract crate and a
-wrapper; the plan's phase 13 merges the pairs with one implementation.
-Phase 16 (Sam, 2026-11-15) reverses this: each of its steps supersedes
-this paragraph for the crates it changes, and step 16.4 removes it.
-
-**Logic and its effect (Sam, 2026-11-13, phase 14).** A logic crate and
-the effect crate that only carries out its plans need not be two crates.
-As with a merged contract (phase 13), they may share one crate, named for
-the domain, with the effect behind `real`, which only programs turn on, so
-the logic builds and tests without the effect. Crates follow domains, not
-the kind of code. Sam is revising `principles/` to say so; until he does,
-this paragraph is the rule. The plan's phase 14 lists the crates it
-merges. Phase 16 (Sam, 2026-11-15) reverses this: each of its steps
-supersedes this paragraph for the crates it changes, and step 16.4
-removes it.
+16).** A third-party tool or library is wrapped by a crate named for what it
+does for kkt, with a contract in kkt's terms. With one implementation, the
+contract and the implementation are two crates, or the consumer declares
+the contract (the adapter model), as "Kinds and features" says. The
+implementation owns its tool's logic, tested against a private runner.
+Either way the program injects it. Language-shaping libraries retain
+RUST.md rule 7's exemption.
 
 **Dependencies between crates.** Add one only for a real reason. A crate
 that depends on another for something minor, such as one small helper, is
@@ -312,15 +294,16 @@ a sign the crate lines are wrong.
   `cargo fmt --check` before every commit. CI runs the same on Ubuntu and
   macOS, and a pull request merges only when they pass.
 - CI also builds a crate outside the workspace that depends on
-  kkt-api-agent, kkt-rules, kkt-server and kkt-server-listen (with `real`), whose dependencies have
+  kkt-api-agent, kkt-rules, kkt-server and kkt-server-listen, whose dependencies have
   build scripts, by git at the commit under test, as kkt-pro will
   (`.github/scripts/build-outside-crate.sh`): a shared crate must build
   when used that way.
-- CI also checks two of the refactor's rules. check-crates.sh fails on a
-  `real` feature, or an item behind one, in a crate concerns.json marks as a
-  contract. `docs/architecture/check-programs.py` builds the map from the
-  code and fails on machine work in a program's own code that the refactor
-  plan's temporary breaks do not list.
+- CI also checks the refactor's rules. check-crates.sh fails on a crate
+  other than a program that depends on an effect crate (unless listed in
+  effect-exceptions.json), and on any `real` feature.
+  `docs/architecture/check-programs.py` builds the map from the code and
+  fails on a kind that does not fit, a broken rule, and machine work in a
+  program's own code that the refactor plan's temporary breaks do not list.
 - A bug fix, a robustness change or a performance claim comes with a test
   that fails without it.
 - Every pull request says whether it can affect an existing install, and how
