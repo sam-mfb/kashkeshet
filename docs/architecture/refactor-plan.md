@@ -2079,7 +2079,19 @@ Step 4, last, after steps 1 to 3 have merged, by one builder:
 | 16.1 | kkt-client-command, kkt-lane-commit, kkt-probe, then kkt-browser (after 16.2's kkt-container split), to the adapter model (after #546) | kkt-build-h | kkt-review-h |
 | 16.2 | kkt-container, kkt-remote-access, kkt-agent-client split (after 16.0) | kkt-build-i | kkt-review-h |
 | 16.3 | kkt-backup, kkt-logs, kkt-setup, kkt-shutdown, kkt-server-keys split (after 16.1, or 16.2 if it finishes first; the builders say in #kkt-dev who takes which) | kkt-build-h or kkt-build-i | kkt-review-h |
-| 16.4 | No `real` feature; the new effect rule; the merged kinds gone (after 16.1 to 16.3) | named by sage-cardinal | kkt-review-h |
+| 16.4 | No `real` feature; the new effect rule; the merged kinds gone (after 16.1 to 16.3) | kkt-build-i | kkt-review-h |
+
+**What phase 16 did, against this plan.** Every change the plan lists is
+done, one pull request each. Where a step did something the plan did not
+say, the row says what and why.
+
+| Plan | Done | Differs from the plan |
+|---|---|---|
+| 16.0, the plan | #547 | No |
+| 16.1, the adapter model | kkt-client-command (#549), kkt-lane-commit (#553), kkt-probe (#557), kkt-browser (#558) | kkt-probe's checks keep their wording in kkt-probe, as its own records (`FileRead`, `Finding`), which the program converts (msg 3397). kkt-browser's unused `testing::Recorder` went: nothing used it |
+| 16.2, contract and named implementation | kkt-remote-access-tailscale (#550), kkt-agent-client-mcp (#551), kkt-container-docker (#552) | kkt-agent-client's `Settings` moved to kkt-agent-client-mcp: only the implementation reads it |
+| 16.3, logic and an `-os` crate | kkt-shutdown-os (#554), kkt-backup-os (#555), kkt-setup-os (#556), kkt-logs-os (#559), kkt-server-keys-os (#560) | No |
+| 16.4, no `real` | This step | Programs only may depend on an effect crate, not compositions (msg 3443). kinds.py counts tokio's machine work, which kkt-shutdown-os and kkt-server-listen use, and leaves out machine work in modules only `testing` brings (kkt-db's conformance stand-in). An effect crate must touch the machine where the map can see it. Git dependents must drop `features = ["real"]` (option (i) of msg 3442; Sam's call) |
 
 ## Order at a glance
 
