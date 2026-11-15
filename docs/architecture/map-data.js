@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "0c9c256",
+ "commit": "507e6a0",
  "crates": [
   {
    "bins": [
@@ -3498,9 +3498,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Backup layouts, names, file modes and pruning choices, with no file I/O.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
@@ -3583,7 +3581,33 @@ window.KKT_GRAPH = {
      "doc": "Finished backup names to remove, oldest first.",
      "kind": "fn",
      "path": "old_names"
-    },
+    }
+   ],
+   "lib": "kkt_backup",
+   "machine_work": {},
+   "name": "kkt-backup",
+   "optional_third_party": {},
+   "path": "crates/kkt-backup",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "thiserror"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Writes backup layouts and removes old backup folders selected by the backup logic.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
     {
      "doc": "Lists the folder, asks the backup logic which names are old, and removes only those.",
      "feature": "real",
@@ -3597,9 +3621,9 @@ window.KKT_GRAPH = {
      "path": "write"
     }
    ],
-   "lib": "kkt_backup",
+   "lib": "kkt_backup_os",
    "machine_work": {
-    "src/files.rs": [
+    "src/lib.rs": [
      "fs",
      "fs::DirBuilder",
      "fs::DirBuilder::new",
@@ -3617,18 +3641,14 @@ window.KKT_GRAPH = {
      "Path::exists"
     ]
    },
-   "name": "kkt-backup",
+   "name": "kkt-backup-os",
    "optional_third_party": {},
-   "path": "crates/kkt-backup",
-   "real_files": [
-    "src/files.rs"
-   ],
+   "path": "crates/kkt-backup-os",
+   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": [
-    "thiserror"
-   ]
+   "third_party": []
   },
   {
    "bins": [],
@@ -16914,17 +16934,13 @@ window.KKT_GRAPH = {
    "to": "kkt-api-agent"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Contents",
     "Layout",
     "Settings",
-    "layout",
-    "prune",
-    "write"
+    "layout"
    ],
    "kind": "normal",
    "optional": false,
@@ -16935,7 +16951,30 @@ window.KKT_GRAPH = {
       "Contents",
       "Layout",
       "Settings",
-      "layout",
+      "layout"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-backup"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "prune",
+    "write"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
       "prune",
       "write"
      ],
@@ -16944,7 +16983,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-backup"
+   "to": "kkt-backup-os"
   },
   {
    "features": [
@@ -19702,8 +19741,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "Span",
-    "to_text"
+    "Span"
    ],
    "to": "kkt-clock"
   },
@@ -19712,6 +19750,58 @@ window.KKT_GRAPH = {
     "testing"
    ],
    "from": "kkt-backup",
+   "items": [
+    "Span"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Span"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-backup-os",
+   "items": [
+    "DATABASE_FILE",
+    "Layout",
+    "old_names"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "DATABASE_FILE",
+      "Layout",
+      "old_names"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Contents",
+    "layout",
+    "name"
+   ],
+   "to": "kkt-backup"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-backup-os",
    "items": [
     "Span",
     "Time",
@@ -19736,7 +19826,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-backup",
+   "from": "kkt-backup-os",
    "items": [
     "Dir"
    ],
@@ -26966,10 +27056,16 @@ window.KKT_CONCERNS = {
    "must_not": "Be in a release, or anything but a stand-in."
   },
   "kkt-backup": {
-   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`); behind real, writing a layout and removing the old folders it chooses (`write`, `prune`).",
-   "kind": "logic and effect",
+   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
+   "kind": "logic",
    "layer": "operations",
-   "must_not": "Read the clock or copy the database itself: the caller passes both; let a consumer reach `write` or `prune` without real."
+   "must_not": "Read the clock or copy the database itself: the caller passes both."
+  },
+  "kkt-backup-os": {
+   "concern": "Writing immutable backup layouts and removing old folders selected by the backup logic (`write`, `prune`).",
+   "kind": "effect",
+   "layer": "operations",
+   "must_not": "Choose backup names, contents, modes or retention."
   },
   "kkt-browser": {
    "concern": "Opening a link in the person's browser. The contract: Browser (start opening it now; say later, once, if that failed), with the testing Recorder. Its one implementation, SystemBrowser, with the system's own opener (open on macOS, xdg-open elsewhere): starting it, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real; starting it is behind real (step 13.3).",
@@ -28264,8 +28360,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeBackups, writing kkt-backup's layouts through its write, behind real, with this program's database copy",
-     "supplier": "kkt-backup",
+     "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os' write, with this program's database copy",
+     "supplier": "kkt-backup-os",
      "supplier_item": "write",
      "to": [
       {
