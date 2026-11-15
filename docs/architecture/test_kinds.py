@@ -1,5 +1,4 @@
-"""Tests of kinds.py's rule checks, which generate.py puts on the page and
-progress.py runs against the proposal."""
+"""Tests of kinds.py's rule checks, which generate.py puts on the page."""
 
 import sys
 import unittest
@@ -55,6 +54,10 @@ class RuleBreaks(unittest.TestCase):
         crates = [crate("logic", implements=[on_contract, on_logic, on_merged, own]), crate("other-logic"),
                   crate("stand-in", implements=[on_logic]), crate("prog", implements=[on_logic])]
         self.assertEqual(self.breaks(crates, []), ["logic's own type implements other-logic::Disk"])
+
+    def test_a_mixed_crate_breaks(self):
+        self.assertEqual(kinds.rule_breaks([crate("odd")], [], {"odd": "mixed"}),
+                         ["odd is mixed: a contract or logic together with a real effect"])
 
 
 if __name__ == "__main__":

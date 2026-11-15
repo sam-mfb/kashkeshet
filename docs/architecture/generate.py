@@ -41,9 +41,9 @@ Where each part of the map comes from:
   crate, and the mismatches are reported on the page, not corrected.
 - Where the code breaks the rules that rest on the kinds (only programs and
   compositions depend on an effect; a crate implements another crate's
-  trait only if that crate is a contract): `kinds.rule_breaks`, the check
-  progress.py runs, on the code and the kinds in `concerns.json`. Reported
-  on the page beside the kind checks.
+  trait only if that crate is a contract; no crate is mixed):
+  `kinds.rule_breaks`, on the code and the kinds in `concerns.json`.
+  Reported on the page beside the kind checks.
 - How each program assembles the server: written by hand in
   `assembly.json`, whose every item is checked against the public items.
 """
@@ -781,7 +781,7 @@ def main():
     commit = run(["git", "rev-parse", "--short", "HEAD"]).strip()
     out = HERE / "map-data.js"
     # --out PATH writes the map elsewhere, leaving map-data.js as it is
-    # (progress.py, during the refactor, while the proposal stays frozen).
+    # (check-programs.py builds its own map this way).
     args = sys.argv[1:]
     if "--out" in args:
         out = Path(args[args.index("--out") + 1]).resolve()

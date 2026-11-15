@@ -46,27 +46,29 @@ computed from the code.
 
 The overview, shown when no crate is picked, reports two checks: the kind
 checks (below), and the rule checks, where the code breaks the rules that
-rest on the kinds (`kinds.rule_breaks`, which `progress.py` runs too): only
+rest on the kinds (`kinds.rule_breaks`): only
 programs and compositions depend on an effect crate or turn on another
 crate's `real`, in code or in tests; and a crate implements another crate's
 trait only if that crate is a contract, unless it is a program, a
-composition or test support.
+composition or test support; and no crate is mixed.
 
-The refactor's plan, the proposed map, is no longer on the page. Its files
-stay, for the scorecard and the checks that rest on it ("The proposed map",
-below).
+The refactor's plan, the proposed map, is gone: its files and the scorecard
+that compared the code with it were removed once the scorecard reached its
+end (`refactor-plan.md`, "Final scorecard"). `refactor-plan.md` and
+`decisions.md` keep its history.
 
 | File | What it is |
 |---|---|
 | `index.html`, `map.css`, `map.js` | The page |
 | `concerns.json` | Written by hand: the layers (where in the system a crate sits), the kinds (what sort of crate it is), and each crate's layer, kind, concern and what it must not do, from CLAUDE.md and the crates' docs |
-| `kinds.py` | The kinds, and the checks a map's kinds must pass; `generate.py` and `propose.py` both use it |
+| `kinds.py` | The kinds, the checks a map's kinds must pass, and the rule checks; `generate.py` and `check-programs.py` use it |
 | `page-test.js` | A headless check of the page: no switch of map and no proposal loaded, the overview's kind and rule checks, ticks and the panel's crate kept by name through every filter, Reset view clearing them, no box moving when a filter changes, and only full-strength arrows answering the pointer. Needs Playwright with Chromium; from the repository's root, once: `npm install --prefix target/tmp/page-test playwright` and `target/tmp/page-test/node_modules/.bin/playwright install chromium`; then `NODE_PATH=target/tmp/page-test/node_modules node docs/architecture/page-test.js`. CI does not run it |
 | `assembly.json` | Written by hand: how each program (kkt, kkt-keymode, the fake product) assembles the server, step by step; every item a step names is checked against the code |
 | `generate.py` | Writes `map-data.js` from the code; its docstring says where each part comes from; with `--out FILE` it writes the map to that file instead and leaves `map-data.js` as it is |
-| `progress.py` | The refactor's scorecard: builds the map from the code into `target/tmp` and compares it with the proposed map, by crates, items, arrows, wiring (what each program injects into which slot, from the assembly data) and rules (`kinds.py`'s checks with the proposed kinds, and `kinds.rule_breaks`). The wiring compares two hand-written lists, the proposal and `assembly.json`: it catches the proposal falling behind `assembly.json`, but not `assembly.json` falling behind the code, since generate.py checks only that the names it uses exist. A full wiring score does not mean every wiring in the code is recorded. `--list` names every missing or extra entry. While the refactor ran, `map-data.js` stayed at the map the proposal was made from, and the proposal was updated as deliberate differences merged; see `refactor-plan.md` |
 | `check-programs.py` | CI's check that the programs do no machine work (step 8.2): builds the map from the code into `target/tmp` and fails on machine work in a composition crate's own code, file by file and library by library, unless the plan's "Temporary breaks" table lists it in a row such as "`kkt-keymode` does machine work in `src/main.rs`". A listed file that no longer does any also fails, so the step that moves the work out removes the row. `test_check_programs.py` tests it |
 | `map-data.js` | Generated: the crates, arrows and public items, the kind checks and the rule checks, with `concerns.json` and `assembly.json` |
+| `test_check_programs.py`, `test_kinds.py` | Tests of the scripts; CI runs them |
+| `refactor-plan.md`, `decisions.md`, `refactor-merge.md`, `contract-audit.md` | The refactor's history: its plan, the decisions behind it, the merge's description and the contract audit. `check-programs.py` reads the plan's "Temporary breaks" table |
 
 To refresh it after the code changes, run
 
@@ -91,7 +93,7 @@ Each box is outlined in its kind's colour, written by hand per crate:
 - **effect**: touches the operating system, disk, network, real time or real randomness directly; a named tool wrapper also owns its tool knowledge, tested through a private runner, with process execution behind `real`;
 - **composition**: wires others and decides nothing (kkt-server and the programs);
 - **test support**: for tests only;
-- **mixed**: a contract or logic together with a real effect. Named tool wrappers are the explicit exception and are marked effect. Against the proposal (`progress.py`), a mixed crate is a violation.
+- **mixed**: a contract or logic together with a real effect. Named tool wrappers are the explicit exception and are marked effect. A mixed crate breaks a rule (the rule checks).
 
 `kinds.py` checks what it can: a contract that does more than compute on its
 own values (behaviour through an injected dependency, wiring, or an effect), a logic crate that turns on `real`,
@@ -106,10 +108,10 @@ only programs turn its `real` on. For a crate marked logic and effect, it
 checks that it has a `real` feature, that its I/O dependencies are optional
 ones only `real` turns on, that its machine work is only in modules that
 `real` brings (generate.py records those files), that it turns on no other
-crate's `real`, and that only programs turn its own on. A crate that fails these is mixed. Against the
-proposal (`progress.py`), the two composition checks (a `real` feature of its own, and machine work in
-its own code), like a mixed crate, are violations. It reports
-a mismatch on the page and does not change the kind.
+crate's `real`, and that only programs turn its own on. A crate that fails these is mixed. It reports
+a mismatch on the page and does not change the kind. `check-programs.py`
+fails CI on the two composition checks (a `real` feature of its own, and
+machine work in its own code).
 
 Machine work is what `generate.py` finds in a crate's own code, outside its
 tests: a third-party crate that reaches the machine (libc, tracing-subscriber,
@@ -122,12 +124,7 @@ arguments, so an effect crate's `host.exists(path)` is not counted).
 Reading the command line (`std::env::args`) is not machine work: parsing its
 arguments is the program's. Value types such as `SocketAddr` and `ExitCode`
 are not either. The scan reads names, so it misses calls such as
-`path.exists()` on a `Path`. The map records the work by file. In the
-proposal, `program_work` in `proposed.json` says, for every program file that
-does machine work today, which effect crates take the work and which logic
-crates take its decisions. `propose.py` stops if a file is left out, if a
-crate named is of the wrong kind, or if the program has no arrow to the effect
-crate.
+`path.exists()` on a `Path`. The map records the work by file.
 
 A merged crate, of kind "contract and effect", is drawn as a split box:
 its contract on the left, and on the right a tinted strip labelled `real`,
@@ -155,7 +152,7 @@ Which way an arrow points (Sam, msg 3155): a "uses" or "wires" arrow runs from t
 | used by | grey, filled arrow | B calls or reads A's items | every named item that is not one of the others |
 | built by | amber, open arrow | B builds A's implementation of a contract, or a type that holds one, to hand it on (a program building `SqlitePlace` for `Db::new`) | items that implement a contract, build one (a public method returns another crate's holder, as `SqlitePlace::open` gives a `Database`), or hold one, which the crate builds: it calls one of the type's constructors (a public function giving back the type, such as `KeyMode::new`), or names it if it has none (`SystemClock`). Calling another function of such a type (`KeyMode::admin_operator`) is using it. Plain settings structs and the traits the wired types implement go with the wiring |
 
-Where wired things go comes from the assembly data (assembly.json, and the proposal's flows): what a program, or kkt-server where it does the wiring itself (its "injectors" entry), builds or passes on, from which crate, and which slot of which crate it injects it into, with the program's adapter where there is one. A wires arrow's tooltip and its panel entry say so in words. Ticking a crate that injects, supplies or receives things draws thin dotted amber lines from the injecting program, or kkt-server, to each receiving crate, one per pair, labelled with the crates that supply what is injected; hovering a line or its label lists each injection, with the slot it fills and the contract it meets. They are not dependencies, and they follow the filters. A line meets each box a quarter of the way along it, where no arrow meets the box (arrows meet the middle, or a merged crate's parts), so it stays visible beside the arrows, even between a program and the crate just below it.
+Where wired things go comes from the assembly data (assembly.json): what a program, or kkt-server where it does the wiring itself (its "injectors" entry), builds or passes on, from which crate, and which slot of which crate it injects it into, with the program's adapter where there is one. A wires arrow's tooltip and its panel entry say so in words. Ticking a crate that injects, supplies or receives things draws thin dotted amber lines from the injecting program, or kkt-server, to each receiving crate, one per pair, labelled with the crates that supply what is injected; hovering a line or its label lists each injection, with the slot it fills and the contract it meets. They are not dependencies, and they follow the filters. A line meets each box a quarter of the way along it, where no arrow meets the box (arrows meet the middle, or a merged crate's parts), so it stays visible beside the arrows, even between a program and the crate just below it.
 
 A crate's panel lists the contracts it defines (its public traits, with who
 implements each), the contracts of other crates it implements, and the
@@ -192,32 +189,3 @@ CI runs `--check` only on pull requests into `main`, so a release needs a
 fresh map: regenerate it on `next` and merge that, and the release's pull
 request picks it up. Pull requests into `next` and pushes don't run it, so
 a change to public items there is never held up by the map.
-
-## The proposed map
-
-The proposed map is the workspace reorganized by one dependency-injection
-rule and Sam's decisions on it. It was made to plan the refactor, and is now
-its record. It is a chart, not a change to the code, and the page no longer
-shows it: `progress.py` compares the code with it, and `propose.py --check`
-and `test_propose.py` keep it whole. Every change on it carries a status:
-decided by Sam, or recommended pending Sam. It includes item 7, kkt-config
-broken up by domain, which Sam accepted.
-
-| File | What it is |
-|---|---|
-| `decisions.md` | Written by hand: the decisions behind the proposed map, with their reasons, the accepted assumptions and the rejected options |
-| `proposed.json` | Written by hand: the rule and Sam's strict reading of it (no implementation implements another crate's contract, though a crate may implement its own traits; the program, or a composition, adapts), and how they apply here: new crates, renamed crates, moves, items made private or added, methods that move, features that move, new slots, traits consumers declare, implementations in other crates that stop implementing a trait, code that moves with a moved type, adapters (with their size), adapters shared from composition crates, implementations that stay because their crate is itself the adapter, functions that become a trait's provided methods, every adapter measured method by method (forwarding or translating) before and after the reshape of msg 2009, slots that take one value meeting several contracts, the types a slot holds, arrow edits, the programs' flows as they change, a decision for every trait, the conflicts and how they are resolved, and the assumptions. Every entry has a status, kept for the checks and decisions.md |
-| `config-split.json` | Written by hand (drafted from each item's users, then decided item by item): item 7, accepted by Sam, where each of kkt-config's public items goes, and whether it stays a constant, becomes injected, or is test-visible |
-| `proposal-base-data.js` | A copy of `map-data.js` as it was at 27f1d11, the map the proposal was made from. It does not change |
-| `propose.py` | Applies both to `proposal-base-data.js` and writes `proposed-data.js`; its docstring says what it derives |
-| `proposed-data.js` | Generated: the proposed map (with item 7), the table of traits with their consumers, the item 7 table, and what changed. `progress.py` reads it; the page does not |
-
-Run `python3 docs/architecture/propose.py` (with `--check` to compare
-without writing). It reads `proposal-base-data.js`, not `map-data.js`, so
-regenerating the current map does not change the proposal. It stops if a trait in the map has no
-decision, a kkt-config item is missing from `config-split.json`, an item made
-private is still used elsewhere, or anything named is not in the map, including
-every item and slot the programs' proposed flows name. The
-consumer counts are derived: a consumer is a crate other than the trait's
-definer and implementers that takes it in a public slot or names it in normal
-code.

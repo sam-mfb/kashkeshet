@@ -320,6 +320,10 @@ Message numbers are given only where they help to find a discussion in
 
 ## After the refactor
 
+The proposal's files were removed on 2026-11-15, once the scorecard
+reached 62/62, 795/795, 248/248 and 102/102 (Sam). Where this file names
+`proposed.json`, `propose.py` or the scorecard, it is history.
+
 After step 8.1, Sam decided three more phases (2026-11-12): kkt-settings
 goes (phase 9), the program's tools become two assemblies, kkt-operate and
 kkt-agent-commands (phase 10), and kkt-db gets a fast test stand-in, so

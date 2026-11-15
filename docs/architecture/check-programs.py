@@ -21,6 +21,7 @@ does machine work, so a step that moves the work out also removes the row.
   python3 docs/architecture/check-programs.py --map FILE   check a map already built
 """
 
+import json
 import re
 import subprocess
 import sys
@@ -30,11 +31,20 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 sys.path.insert(0, str(HERE))
 import kinds  # noqa: E402
-from progress import load  # noqa: E402
 
 BUILT = ROOT / "target" / "tmp" / "check-programs" / "map-data.js"
 PLAN = HERE / "refactor-plan.md"
 ROW = re.compile(r"^\| `([^`]+)` does machine work (.*?) \|")
+
+
+def load(path, names):
+    """The objects a generated .js file assigns to window.<name>."""
+    text = path.read_text()
+    found = {}
+    for name in names:
+        start = text.index(f"window.{name} = ") + len(f"window.{name} = ")
+        found[name], _ = json.JSONDecoder().raw_decode(text, start)
+    return found
 
 
 def listed(plan_text):
