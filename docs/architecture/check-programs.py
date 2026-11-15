@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""CI's check that the programs do no machine work (the audit's F1).
+"""CI's check that the programs do no machine work (the audit's F1), and
+that every kind fits and no rule is broken.
 
 It builds the map from the code (generate.py --out, into target/tmp) and
 fails on any crate concerns.json marks as composition, the programs
@@ -17,10 +18,16 @@ each file or library, such as:
 Anything else fails, and so does a listed file or library that no longer
 does machine work, so a step that moves the work out also removes the row.
 
+It also fails on the map's kind checks (`kind_mismatches`: a crate whose
+hand-written kind does not fit what the map shows) and rule checks
+(`rule_breaks`), which generate.py computes with kinds.py and the page
+shows.
+
   python3 docs/architecture/check-programs.py              build the map and check
   python3 docs/architecture/check-programs.py --map FILE   check a map already built
 """
 
+import json
 import re
 import subprocess
 import sys
@@ -30,11 +37,20 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 sys.path.insert(0, str(HERE))
 import kinds  # noqa: E402
-from progress import load  # noqa: E402
 
 BUILT = ROOT / "target" / "tmp" / "check-programs" / "map-data.js"
 PLAN = HERE / "refactor-plan.md"
 ROW = re.compile(r"^\| `([^`]+)` does machine work (.*?) \|")
+
+
+def load(path, names):
+    """The objects a generated .js file assigns to window.<name>."""
+    text = path.read_text()
+    found = {}
+    for name in names:
+        start = text.index(f"window.{name} = ") + len(f"window.{name} = ")
+        found[name], _ = json.JSONDecoder().raw_decode(text, start)
+    return found
 
 
 def listed(plan_text):
@@ -80,6 +96,12 @@ def problems(graph, concerns, allowed):
     return out
 
 
+def kinds_and_rules(graph):
+    """The map's kind checks and rule checks that fail, as lines."""
+    return ([f"kind: {m}" for m in graph.get("kind_mismatches", [])] +
+            [f"rule: {b}" for b in graph.get("rule_breaks", [])])
+
+
 def main():
     args = sys.argv[1:]
     if "--map" in args:
@@ -89,11 +111,17 @@ def main():
         built = BUILT
     current = load(built, ["KKT_GRAPH", "KKT_CONCERNS"])
     found = problems(current["KKT_GRAPH"], current["KKT_CONCERNS"], listed(PLAN.read_text()))
+    broken = kinds_and_rules(current["KKT_GRAPH"])
     if found:
         print("check-programs: the programs do machine work the plan does not allow:")
         print("\n".join(f"  {p}" for p in found))
+    if broken:
+        print("check-programs: kinds that do not fit, or rules the code breaks:")
+        print("\n".join(f"  {p}" for p in broken))
+    if found or broken:
         sys.exit(1)
-    print("check-programs: no program does machine work beyond the plan's temporary breaks")
+    print("check-programs: no program does machine work beyond the plan's temporary breaks; "
+          "every kind fits, and no rule is broken")
 
 
 if __name__ == "__main__":
