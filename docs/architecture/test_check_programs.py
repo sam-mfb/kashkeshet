@@ -1,9 +1,7 @@
-"""check-programs.py: machine work in a composition crate fails unless the plan's temporary breaks list it; progress.py compares wiring."""
+"""check-programs.py: machine work in a composition crate fails unless the plan's temporary breaks list it."""
 
 import importlib.util
-import json
 import unittest
-from unittest.mock import patch
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location(
@@ -66,6 +64,19 @@ class CheckPrograms(unittest.TestCase):
         graph = {"crates": [crate("kkt-server", bins=False, features=["real"])]}
         self.assertEqual(check.problems(graph, concerns, {}),
                          ["kkt-server is composition but has a `real` feature of its own"])
+
+
+class KindsAndRules(unittest.TestCase):
+    def test_a_map_with_none_passes(self):
+        self.assertEqual(check.kinds_and_rules({"kind_mismatches": [], "rule_breaks": []}), [])
+
+    def test_a_kind_that_does_not_fit_or_a_broken_rule_fails(self):
+        graph = {"kind_mismatches": ["kkt-x is marked logic but turns on `real`"],
+                 "rule_breaks": ["kkt-y depends on the effect crate kkt-z"]}
+        self.assertEqual(check.kinds_and_rules(graph), [
+            "kind: kkt-x is marked logic but turns on `real`",
+            "rule: kkt-y depends on the effect crate kkt-z",
+        ])
 
 
 class PathProbes(unittest.TestCase):
@@ -268,73 +279,6 @@ class FilesBehindReal(unittest.TestCase):
         self.assertEqual(sorted(str(f.relative_to(root)) for f in found),
                          ["src/files.rs", "src/files/inner.rs", "src/plan.rs"])
 
-
-class ProposedMachineWork(unittest.TestCase):
-    """The frozen program work must still have a real destination after a merge."""
-
-    @classmethod
-    def setUpClass(cls):
-        module_spec = importlib.util.spec_from_file_location(
-            "propose", Path(__file__).resolve().parent / "propose.py")
-        cls.propose = importlib.util.module_from_spec(module_spec)
-        module_spec.loader.exec_module(cls.propose)
-
-    def proposal_with_container_kind(self, kind):
-        path = self.propose.HERE / "proposed.json"
-        original_read = Path.read_text
-        data = json.loads(original_read(path))
-        data["kind_edits"]["kkt-container"] = kind
-
-        def read(candidate, *args, **kwargs):
-            return json.dumps(data) if candidate == path else original_read(candidate, *args, **kwargs)
-
-        with patch.object(Path, "read_text", read):
-            return self.propose.main()
-
-    def test_merged_container_accepts_its_historical_machine_work(self):
-        page = self.proposal_with_container_kind("contract and effect")
-        self.assertFalse(page["violations"])
-
-    def test_pure_contract_still_refuses_machine_work(self):
-        with self.assertRaisesRegex(SystemExit, "sends its machine work to kkt-container, which is not an effect crate"):
-            self.proposal_with_container_kind("contract")
-
-
-
-progress_spec = importlib.util.spec_from_file_location("progress", Path(__file__).resolve().parent / "progress.py")
-progress = importlib.util.module_from_spec(progress_spec)
-progress_spec.loader.exec_module(progress)
-
-
-class Wiring(unittest.TestCase):
-    """The scorecard compares what each program injects where, in the code
-    and in the proposal."""
-
-    MCP = {"impl": "kkt-agent-client::Mcp", "crate": "kkt-agent-commands", "to": [{"at": "AgentParts", "param": "servers"}]}
-    OWN = {"own": "ClientHost, adapting kkt-client-config-os's OsHost", "crate": "kkt-operate",
-           "to": [{"at": "OperateParts", "param": "clients"}]}
-
-    def test_the_same_wiring_matches(self):
-        both = {"programs": {"kkt": {"wiring": [self.MCP, self.OWN]}}}
-        self.assertEqual(progress.wiring(both, both), {"present": 2, "total": 2, "missing": [], "extra": []})
-
-    def test_a_program_type_is_named_by_its_first_words(self):
-        reworded = dict(self.OWN, own="ClientHost, worded otherwise")
-        got = progress.wiring({"programs": {"kkt": {"wiring": [self.OWN]}}}, {"programs": {"kkt": {"wiring": [reworded]}}})
-        self.assertEqual((got["present"], got["missing"], got["extra"]), (1, [], []))
-
-    def test_a_wiring_the_proposal_lacks_is_extra_and_one_the_code_lacks_is_missing(self):
-        stale = {"impl": "kkt-agent-client::Remote", "crate": "kkt-watch", "to": [{"at": "run", "param": "server"}]}
-        got = progress.wiring({"programs": {"kkt": {"wiring": [self.MCP]}}}, {"programs": {"kkt": {"wiring": [stale]}}})
-        self.assertEqual(got["present"], 0)
-        self.assertEqual(got["missing"], ["kkt: kkt-agent-client::Remote into kkt-watch (run.server)"])
-        self.assertEqual(got["extra"], ["kkt: kkt-agent-client::Mcp into kkt-agent-commands (AgentParts.servers)"])
-
-    def test_injectors_count_and_slots_tell_wirings_apart(self):
-        other_slot = dict(self.MCP, to=[{"at": "AgentParts", "param": "clients"}])
-        got = progress.wiring({"injectors": {"kkt-server": {"wiring": [self.MCP]}}},
-                              {"injectors": {"kkt-server": {"wiring": [other_slot]}}})
-        self.assertEqual((got["present"], len(got["missing"]), len(got["extra"])), (0, 1, 1))
 
 if __name__ == "__main__":
     unittest.main()

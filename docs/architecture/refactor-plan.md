@@ -2164,11 +2164,15 @@ Each has the default we proceed on, so nothing waits.
    and the page's "Current" map shows the code. Accepted by Sam, 2026-11-12.
    On 2026-11-15 Sam took the proposal off the page: the map is an
    observation tool, not a planning tool, so it shows only the code, with
-   the rule checks computed on it beside the kind checks. The proposal's
-   files and the checks that rest on them (`propose.py --check`,
-   `progress.py`) stay.
+   the rule checks computed on it beside the kind checks.
 
 ## Final scorecard
+
+The proposal's files and the scorecard (`proposed.json`, `proposed-data.js`,
+`proposal-base-data.js`, `config-split.json`, `propose.py`, `progress.py`)
+were removed on 2026-11-15, once the scorecard reached 62/62, 795/795,
+248/248 and 102/102 (Sam). What this plan says about running them is
+history.
 
 On the code at the end of phase 14, at f66b0ab (#538 merged), against
 the proposal with phases 9 to 14 charted (`progress.py`, step 14.6):
