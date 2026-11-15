@@ -2,8 +2,6 @@
 //! ready, they stop the shared `kkt_shutdown::Shutdown` value on receipt.
 //! Tokio's signal types stay inside this crate.
 
-#![cfg(feature = "real")]
-
 use kkt_shutdown::Shutdown;
 
 /// OS stop signals, installed before the server announces it is ready.

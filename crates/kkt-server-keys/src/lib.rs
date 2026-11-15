@@ -7,13 +7,11 @@
 //! writes, admin-name writes and staged-key moves.
 
 mod admin_name;
-#[cfg(feature = "real")]
 mod files;
 #[cfg(feature = "testing")]
 pub mod testing;
 
 pub use admin_name::{admin_name_line, admin_name_written, bound_in, bound_to};
-#[cfg(feature = "real")]
 pub use files::{
     KeyFiles, ReadError, make_default_key, new_key_file, write_admin_name, write_key_file,
 };

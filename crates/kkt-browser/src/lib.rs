@@ -19,7 +19,5 @@ pub trait Browser {
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
-#[cfg(any(feature = "real", test))]
 mod system;
-#[cfg(feature = "real")]
 pub use system::SystemBrowser;

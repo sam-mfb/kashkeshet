@@ -5,7 +5,5 @@
 //! runner. It declares no contract: the program adapts `Claude` to the
 //! contract kkt-client-config declares for a client's own command.
 
-#[cfg(any(feature = "real", test))]
 mod claude;
-#[cfg(feature = "real")]
 pub use claude::Claude;

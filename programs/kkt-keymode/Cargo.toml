@@ -21,16 +21,16 @@ dev-only = true
 
 [dependencies]
 kkt-backup = { path = "../../crates/kkt-backup" }
-kkt-log-tracing = { path = "../../crates/kkt-log-tracing", features = ["real"] }
+kkt-log-tracing = { path = "../../crates/kkt-log-tracing" }
 kkt-admission = { path = "../../crates/kkt-admission" }
 kkt-api-agent = { path = "../../crates/kkt-api-agent" }
-kkt-server-keys = { path = "../../crates/kkt-server-keys", features = ["real"] }
+kkt-server-keys = { path = "../../crates/kkt-server-keys" }
 kkt-clock = { path = "../../crates/kkt-clock" }
-kkt-clock-system = { path = "../../crates/kkt-clock-system", features = ["real"] }
+kkt-clock-system = { path = "../../crates/kkt-clock-system" }
 kkt-config-file = { path = "../../crates/kkt-config-file" }
-kkt-config-file-os = { path = "../../crates/kkt-config-file-os", features = ["real"] }
-kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
-kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
+kkt-config-file-os = { path = "../../crates/kkt-config-file-os" }
+kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite" }
+kkt-entropy-os = { path = "../../crates/kkt-entropy-os" }
 kkt-events = { path = "../../crates/kkt-events" }
 kkt-mcp-formatter = { path = "../../crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
@@ -41,9 +41,9 @@ kkt-names = { path = "../../crates/kkt-names" }
 kkt-provenance = { path = "../../crates/kkt-provenance" }
 kkt-rules = { path = "../../crates/kkt-rules" }
 kkt-server = { path = "../../crates/kkt-server" }
-kkt-server-listen = { path = "../../crates/kkt-server-listen", features = ["real"] }
+kkt-server-listen = { path = "../../crates/kkt-server-listen" }
 kkt-shutdown = { path = "../../crates/kkt-shutdown" }
-kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }
+kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os" }
 kkt-web = { path = "../../crates/kkt-web" }
-kkt-terminal-os = { path = "../../crates/kkt-terminal-os", features = ["real"] }
+kkt-terminal-os = { path = "../../crates/kkt-terminal-os" }
 tokio.workspace = true

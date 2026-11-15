@@ -6,8 +6,6 @@
 //! Running takes two steps, [`listen`] and [`Listening::serve_until`], so a
 //! caller can report what it bound (and log) before the server answers.
 
-#![cfg(any(test, feature = "real"))]
-
 use axum::Router;
 use axum::serve::ListenerExt;
 use kkt_server::App;

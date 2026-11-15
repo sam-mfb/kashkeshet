@@ -8,7 +8,6 @@ use std::cell::RefCell;
 use std::fmt;
 use std::io;
 use std::path::Path;
-#[cfg(feature = "real")]
 use std::process::Stdio;
 
 /// The files and commands the service manager is worked through: the real
@@ -96,10 +95,8 @@ impl Finished {
 }
 
 /// The real system: files on disk and real commands.
-#[cfg(feature = "real")]
 pub(crate) struct OsSystem;
 
-#[cfg(feature = "real")]
 impl System for OsSystem {
     fn user_id(&self) -> io::Result<u32> {
         let finished = self.run(&Command::query("id", &["-u"]))?;

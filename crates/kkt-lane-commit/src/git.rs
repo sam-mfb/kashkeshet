@@ -92,10 +92,8 @@ fn failed(args: &[&str], ran: &Ran) -> io::Error {
 }
 
 /// The machine's git.
-#[cfg(feature = "real")]
 pub(crate) struct OsGit;
 
-#[cfg(feature = "real")]
 impl Git for OsGit {
     fn run(&self, folder: &Path, args: &[&str]) -> io::Result<Ran> {
         let done = std::process::Command::new("git")

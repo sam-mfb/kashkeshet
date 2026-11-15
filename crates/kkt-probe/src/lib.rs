@@ -79,7 +79,5 @@ pub struct Settings {
     pub key_check: &'static str,
 }
 
-#[cfg(feature = "real")]
 mod http;
-#[cfg(feature = "real")]
 pub use http::HttpProber;

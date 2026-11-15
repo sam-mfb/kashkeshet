@@ -2,8 +2,6 @@
 //! program adapts them to the lane-file logic's `Disk`. The folder's git
 //! commit is kkt-lane-commit's.
 
-#![cfg(feature = "real")]
-
 use std::io;
 use std::path::{Path, PathBuf};
 

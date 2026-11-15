@@ -13,8 +13,6 @@
 //! `Inputs.allow_hosts` is written to `.env` as `KKT_ALLOW_HOSTS`;
 //! `Inputs.sharing` starts the Tailscale sidecar and waits for its login.
 
-#![cfg(any(feature = "real", test))]
-
 mod compose;
 mod files;
 mod lanes;
@@ -30,11 +28,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-#[cfg(feature = "real")]
 use futures::future::LocalBoxFuture;
-#[cfg(feature = "real")]
 use kkt_clock::Clock;
-#[cfg(feature = "real")]
 use kkt_container::Container;
 use kkt_container::{
     ADMIN_KEY_FILE_NAME as DOCKER_ADMIN_KEY_FILE_NAME, NO_ADMIN_KEY_EXIT,
@@ -44,9 +39,7 @@ use kkt_container::{
     ConfigReader, Existing, Folder, Inputs, KeyCopy, LanesImport, Login, LoginLink, Provisioned,
     State,
 };
-#[cfg(feature = "real")]
 use kkt_names::AdminName;
-#[cfg(feature = "real")]
 mod runner;
 #[cfg(test)]
 use files::env_text;
@@ -55,7 +48,6 @@ use files::{ENV_FILE, docker_env, tailscale_auth_key, version_in_env};
 use kkt_container::{ContainerConfig, Sharing as Tailscale};
 use lanes::{export_lanes, import_lanes, lane_limit};
 use lifecycle::{backup, compare_web_key, down, existing, status, up, upgrade};
-#[cfg(feature = "real")]
 use runner::OsHost;
 
 use provision::{LinkAndBrowser, add_admin_key, provision};
@@ -253,12 +245,10 @@ impl DockerError {
 
 /// Docker and Compose implement the container contract directly. A
 /// sharing setup's login link opens in `browser` when the person asks.
-#[cfg(feature = "real")]
 pub struct Docker {
     browser: Box<dyn kkt_browser::Browser>,
 }
 
-#[cfg(feature = "real")]
 impl Docker {
     /// Docker and Compose, opening a login link in `browser`.
     pub fn new(browser: Box<dyn kkt_browser::Browser>) -> Docker {
@@ -266,7 +256,6 @@ impl Docker {
     }
 }
 
-#[cfg(feature = "real")]
 impl Container for Docker {
     fn provision<'a>(
         &'a self,

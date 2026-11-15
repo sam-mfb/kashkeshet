@@ -1,7 +1,0 @@
-[
-  {
-    "package": "kkt-fake-product",
-    "dependency": "kkt-agent-client-mcp",
-    "reason": "Its tests drive a running server over HTTP, through kkt-agent-client-mcp's HTTP client, which only `real` builds (Sam, 2026-11-12)."
-  }
-]

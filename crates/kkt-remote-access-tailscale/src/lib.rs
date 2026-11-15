@@ -5,8 +5,6 @@
 //! never changes login, DNS preferences, kkt's config, or its service. It
 //! owns only the HTTPS root proxy it installs.
 
-#![cfg(any(feature = "real", test))]
-
 use serde::Deserialize;
 use serde_json::Value;
 use serde_json::error::Category;
@@ -20,10 +18,8 @@ use kkt_remote_access::Node;
 use runner::{Output, Runner};
 
 /// Shares this machine's server through its existing Tailscale login.
-#[cfg(feature = "real")]
 pub struct Tailscale;
 
-#[cfg(feature = "real")]
 impl kkt_remote_access::RemoteAccess for Tailscale {
     fn prepare(&self) -> Result<Node, String> {
         prepare(&runner::OsRunner)

@@ -15,15 +15,10 @@
 //! kkt-search's words, kept in the same transaction as
 //! their rows.
 
-#[cfg(any(test, feature = "real", feature = "testing"))]
 mod adopt;
-#[cfg(any(test, feature = "real", feature = "testing"))]
 mod conn;
-#[cfg(any(test, feature = "real", feature = "testing"))]
 mod ddl;
-#[cfg(any(test, feature = "real", feature = "testing"))]
 mod open;
-#[cfg(any(test, feature = "real", feature = "testing"))]
 mod sql;
 
 #[cfg(test)]
@@ -31,7 +26,6 @@ mod tests;
 
 #[cfg(any(test, feature = "testing"))]
 pub use open::MemoryPlace;
-#[cfg(any(test, feature = "real"))]
 pub use open::{CreateError, SqlitePlace, copy_database};
 
 use std::time::Duration;

@@ -4,8 +4,6 @@
 //! and where its warnings are sent. All of it touches the machine, so all of
 //! it is behind `real`.
 
-#![cfg(feature = "real")]
-
 use std::io;
 use std::path::{Path, PathBuf};
 

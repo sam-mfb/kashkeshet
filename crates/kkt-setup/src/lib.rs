@@ -23,9 +23,7 @@ pub mod connection;
 mod credentials;
 mod doctor;
 pub mod doctor_checks;
-#[cfg(feature = "real")]
 mod files;
-#[cfg(feature = "real")]
 pub use files::{
     absolute, canonicalize, kkt_path, make_data_folder, on_path, path_dirs, program_path,
     read_record, read_unfinished, remove_record, remove_unfinished, write_record, write_unfinished,

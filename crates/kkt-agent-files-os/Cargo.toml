@@ -8,12 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-libc = { workspace = true, optional = true }
-
-[features]
-# All of it: the files are on this machine. libc reads the effective uid for
-# the credential-ownership check on Unix.
-real = ["dep:libc"]
+libc.workspace = true
 
 [dev-dependencies]
 kkt-scratch = { path = "../kkt-scratch" }

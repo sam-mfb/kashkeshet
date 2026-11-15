@@ -28,33 +28,33 @@ kkt-api-admin = { path = "../../crates/kkt-api-admin" }
 kkt-api-agent = { path = "../../crates/kkt-api-agent" }
 # The real clock, so agents' waits end on time.
 kkt-clock = { path = "../../crates/kkt-clock" }
-kkt-clock-system = { path = "../../crates/kkt-clock-system", features = ["real"] }
+kkt-clock-system = { path = "../../crates/kkt-clock-system" }
 # The program's database file.
-kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite", features = ["real"] }
+kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite" }
 kkt-events = { path = "../../crates/kkt-events" }
-kkt-log-tracing = { path = "../../crates/kkt-log-tracing", features = ["real"] }
+kkt-log-tracing = { path = "../../crates/kkt-log-tracing" }
 kkt-mcp-formatter = { path = "../../crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }
 kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
 kkt-entropy = { path = "../../crates/kkt-entropy" }
-kkt-entropy-os = { path = "../../crates/kkt-entropy-os", features = ["real"] }
+kkt-entropy-os = { path = "../../crates/kkt-entropy-os" }
 kkt-mcp = { path = "../../crates/kkt-mcp" }
 kkt-names = { path = "../../crates/kkt-names" }
 kkt-rules = { path = "../../crates/kkt-rules" }
 kkt-server = { path = "../../crates/kkt-server" }
-kkt-server-listen = { path = "../../crates/kkt-server-listen", features = ["real"] }
+kkt-server-listen = { path = "../../crates/kkt-server-listen" }
 kkt-shutdown = { path = "../../crates/kkt-shutdown" }
-kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os", features = ["real"] }
+kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os" }
 kkt-web = { path = "../../crates/kkt-web" }
-kkt-terminal-os = { path = "../../crates/kkt-terminal-os", features = ["real"] }
+kkt-terminal-os = { path = "../../crates/kkt-terminal-os" }
 tokio.workspace = true
 
 [dev-dependencies]
 # The tests drive the running product over HTTP with kkt-agent-client-mcp's
 # client, which only `real` builds. Tests should not turn on `real`; this is
 # a documented exception (.github/scripts/real-exceptions.json).
-kkt-agent-client-mcp = { path = "../../crates/kkt-agent-client-mcp", features = ["real"] }
+kkt-agent-client-mcp = { path = "../../crates/kkt-agent-client-mcp" }
 futures.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true

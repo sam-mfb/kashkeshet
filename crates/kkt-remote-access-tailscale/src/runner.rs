@@ -10,10 +10,8 @@ pub(super) struct Output {
     pub stderr: String,
 }
 
-#[cfg(feature = "real")]
 pub(super) struct OsRunner;
 
-#[cfg(feature = "real")]
 impl Runner for OsRunner {
     fn run(&self, args: &[String]) -> Result<Output, String> {
         let output = std::process::Command::new("tailscale")

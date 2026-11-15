@@ -8,11 +8,9 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-reqwest = { workspace = true, optional = true }
-serde_json = { workspace = true, optional = true }
+reqwest.workspace = true
+serde_json.workspace = true
 
 [features]
 # `testing::Memory`, key files and probe answers in memory for consumers' tests.
 testing = []
-# `HttpProber`: key files and HTTP probes; reqwest's types stay inside.
-real = ["dep:reqwest", "dep:serde_json"]

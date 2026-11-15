@@ -2,8 +2,6 @@
 //! the program to the client-config logic. (Claude Code's `claude` command
 //! is kkt-client-command's.)
 
-#![cfg(feature = "real")]
-
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};

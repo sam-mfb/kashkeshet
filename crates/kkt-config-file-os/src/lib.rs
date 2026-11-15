@@ -4,7 +4,6 @@
 
 use std::fmt;
 use std::io;
-#[cfg(any(test, feature = "real"))]
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -58,7 +57,6 @@ impl std::error::Error for WriteError {
 }
 
 /// The config file's text at `path`; `None` if there is no file there.
-#[cfg(any(test, feature = "real"))]
 pub fn read(path: &Path) -> Result<Option<String>, ReadError> {
     match std::fs::read_to_string(path) {
         Ok(text) => Ok(Some(text)),
@@ -74,7 +72,6 @@ pub fn read(path: &Path) -> Result<Option<String>, ReadError> {
 /// when [`Path::exists`] says there is none, which includes a file in a
 /// folder that cannot be searched. `kkt serve` has always skipped a default
 /// file it cannot see; one it can see but not read is an error.
-#[cfg(any(test, feature = "real"))]
 pub fn read_default(path: &Path) -> Result<Option<String>, ReadError> {
     match path.exists() {
         true => read_whole(path).map(Some),
@@ -84,18 +81,15 @@ pub fn read_default(path: &Path) -> Result<Option<String>, ReadError> {
 
 /// The config file's text at `path`, which must be there: a file someone
 /// named, for whom a missing file is an error like any other.
-#[cfg(any(test, feature = "real"))]
 pub fn read_named(path: &Path) -> Result<String, ReadError> {
     read_whole(path)
 }
 
 /// The instructions file's text at `path`, which must be there.
-#[cfg(any(test, feature = "real"))]
 pub fn read_instructions(path: &Path) -> Result<String, ReadError> {
     read_whole(path)
 }
 
-#[cfg(any(test, feature = "real"))]
 fn read_whole(path: &Path) -> Result<String, ReadError> {
     std::fs::read_to_string(path).map_err(|cause| ReadError {
         path: path.to_path_buf(),
@@ -105,7 +99,6 @@ fn read_whole(path: &Path) -> Result<String, ReadError> {
 
 /// Writes `text` as the config file at `path`, whole, making the folder it
 /// goes in first if there is none.
-#[cfg(any(test, feature = "real"))]
 pub fn write(path: &Path, text: &str) -> Result<(), WriteError> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|cause| WriteError::Folder {

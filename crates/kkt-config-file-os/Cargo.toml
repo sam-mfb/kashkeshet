@@ -13,5 +13,3 @@ publish = false
 kkt-scratch = { path = "../kkt-scratch" }
 
 [features]
-# `read`, `write` and `read_instructions`: they read and write files.
-real = []

@@ -10,7 +10,5 @@
 mod settings;
 pub use settings::Settings;
 
-#[cfg(feature = "real")]
 mod client;
-#[cfg(feature = "real")]
 pub use client::{AdminRemote, Client, Http, HttpReply, Mcp, Remote};

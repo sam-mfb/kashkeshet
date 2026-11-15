@@ -8,7 +8,6 @@ use std::cell::RefCell;
 use std::fmt;
 use std::io;
 use std::path::Path;
-#[cfg(any(test, feature = "real"))]
 use std::process::Stdio;
 
 /// The files and commands the service manager is worked through: the real
@@ -89,10 +88,8 @@ impl Finished {
 }
 
 /// The real system: files on disk and real commands.
-#[cfg(any(test, feature = "real"))]
 pub(crate) struct OsSystem;
 
-#[cfg(any(test, feature = "real"))]
 impl System for OsSystem {
     fn exists(&self, path: &Path) -> io::Result<bool> {
         path.try_exists()

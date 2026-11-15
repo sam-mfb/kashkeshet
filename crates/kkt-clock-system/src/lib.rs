@@ -1,8 +1,6 @@
 //! The system clock and its wall-clock sleep, implementing the shared
 //! `kkt_clock::Clock` contract. Time values and formatting stay in kkt-clock.
 
-#![cfg(any(test, feature = "real"))]
-
 use futures::future::BoxFuture;
 use kkt_clock::{Clock, Time};
 

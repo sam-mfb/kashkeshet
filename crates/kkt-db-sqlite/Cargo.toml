@@ -20,8 +20,5 @@ kkt-scratch = { path = "../kkt-scratch" }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [features]
-# `SqlitePlace`, `pending_upgrade` and `copy_database`: they open database
-# files.
-real = []
 # `testing`: `MemoryPlace`, a SQLite database held in memory.
 testing = []

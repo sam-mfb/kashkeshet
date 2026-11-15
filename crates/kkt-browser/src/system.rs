@@ -7,13 +7,11 @@
 use std::sync::{Mutex, PoisonError};
 
 /// The system's opener, which the program injects as the `Browser`.
-#[cfg(feature = "real")]
 pub struct SystemBrowser {
     opener: String,
     failure: std::sync::Arc<Mutex<Option<String>>>,
 }
 
-#[cfg(feature = "real")]
 impl SystemBrowser {
     #[allow(clippy::new_without_default)]
     pub fn new() -> SystemBrowser {
@@ -30,7 +28,6 @@ impl SystemBrowser {
     }
 }
 
-#[cfg(feature = "real")]
 impl crate::Browser for SystemBrowser {
     /// Starts the system opener without waiting for it to finish.
     fn open(&self, url: &str) -> std::io::Result<()> {

@@ -1,7 +1,6 @@
 //! Opening a database: the connections, reads and writes over them,
 //! and migrations.
 
-#[cfg(any(test, feature = "real"))]
 use crate::Options;
 use crate::adopt::adopt;
 use crate::conn::{SqliteConnection, db_error, index_words};
@@ -378,7 +377,6 @@ fn open_with(
 }
 
 /// Why creating a new database file did not succeed.
-#[cfg(any(test, feature = "real"))]
 #[derive(Debug)]
 pub enum CreateError {
     /// A file or folder already exists at that path; it was not opened.
@@ -386,7 +384,6 @@ pub enum CreateError {
     /// Opening a missing path failed.
     Open(DbError),
 }
-#[cfg(any(test, feature = "real"))]
 impl std::fmt::Display for CreateError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -395,7 +392,6 @@ impl std::fmt::Display for CreateError {
         }
     }
 }
-#[cfg(any(test, feature = "real"))]
 impl std::error::Error for CreateError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -406,14 +402,12 @@ impl std::error::Error for CreateError {
 }
 
 /// A database file.
-#[cfg(any(test, feature = "real"))]
 pub struct SqlitePlace {
     pub(crate) path: std::path::PathBuf,
     options: Options,
     legacy: Option<Legacy>,
 }
 
-#[cfg(any(test, feature = "real"))]
 impl SqlitePlace {
     /// Whether the database path exists, without opening it.
     pub fn exists(path: &std::path::Path) -> bool {
@@ -518,7 +512,6 @@ impl SqlitePlace {
     }
 }
 
-#[cfg(any(test, feature = "real"))]
 fn read_only(path: &std::path::Path) -> Result<Connection, DbError> {
     use rusqlite::OpenFlags;
     Connection::open_with_flags(
@@ -529,10 +522,8 @@ fn read_only(path: &std::path::Path) -> Result<Connection, DbError> {
 }
 
 /// A database with no tables: every set at version 0.
-#[cfg(any(test, feature = "real"))]
 struct Empty;
 
-#[cfg(any(test, feature = "real"))]
 impl Evolve for Empty {
     fn version(&self, _: &'static str) -> Result<u32, DbError> {
         Ok(0)
@@ -583,7 +574,6 @@ impl MemoryPlace {
 /// SQLite's online backup, so the copy is consistent even while a server
 /// writes to `from`. The copy is one file (no write-ahead log beside it),
 /// and it passes SQLite's integrity check before this returns.
-#[cfg(any(test, feature = "real"))]
 pub fn copy_database(
     from: &std::path::Path,
     to: &std::path::Path,

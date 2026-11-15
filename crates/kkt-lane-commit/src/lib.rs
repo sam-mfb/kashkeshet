@@ -9,19 +9,14 @@
 //! installed. Any other failure is an error carrying git's own message.
 //! What the answers mean is tested over a private runner, without `real`.
 
-#[cfg(feature = "real")]
 use std::io;
-#[cfg(feature = "real")]
 use std::path::Path;
 
-#[cfg(any(feature = "real", test))]
 mod git;
 
 /// The machine's git, asked where a lane folder is.
-#[cfg(feature = "real")]
 pub struct Git;
 
-#[cfg(feature = "real")]
 impl Git {
     /// The commit checked out where `folder` is, with `-dirty` added when
     /// files in `folder` differ from it; `None` when `folder` is not in a

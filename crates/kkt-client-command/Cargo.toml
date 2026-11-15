@@ -8,6 +8,3 @@ repository.workspace = true
 publish = false
 
 [features]
-# `Claude`: run the host's `claude` command; the arguments and wording stay
-# testable without it.
-real = []
