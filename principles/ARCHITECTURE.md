@@ -20,7 +20,7 @@ These principles are not an exhaustive list of best practices or responsible cod
 
 1.2.2 If, however, there are multiple VPN implementations, they may be called "vpn-tailscale" and "vpn-openvpn".
 
-1.2.3 Modules MUST NOT be organized by kind of code: there is no module called "types", "utils", or "helpers".
+1.2.3 Modules MUST NOT be organized by kind of code: there is no module called "types", "utils", "helpers", or "settings".
 
 1.2.3.1 The desire to organize modules by kind of code is an indication that a reorganization is needed. All code SHOULD belong to a domain.
 
@@ -30,9 +30,23 @@ These principles are not an exhaustive list of best practices or responsible cod
 
 1.4 Each module MUST state clearly in its documentation what it owns and what it exposes.
 
-1.4.1 A project SHOULD maintain this information consistently across modules.
+1.4.1 A module's statement of its ownership and concern SHOULD be stated in terms of functionality not implementation.
+
+1.4.1.1 For example, a vpn module should not be described as "it provides access to tailscale" but "it provides remote access functionality".
+
+1.4.2 A project SHOULD maintain this information consistently across modules.
 
 1.5 Module boundaries SHOULD be compiler enforced (e.g., by using separate packages, crates, or other units of compilation).
+
+1.5.1 The boundaries of a module do not need to be compiler enforced if there is a more idiomatic way to separate these boundaries from the consumer in a given language.
+
+1.5.1.1 The rules that will govern this separation MUST be stated in a language specific principles file in the project.
+
+1.5.1.2 The rules that govern this separation SHOULD still be enforced by automated means where feasible and reasonable.
+
+1.6 A human MUST approve the decision to create, delete, or materially change the concern of a module.
+
+1.6.1 The fact that two modules share duplicate code is not in and of itself a reason to create a new module (over abstraction).
 
 ## Contracts
 
@@ -46,9 +60,11 @@ These principles are not an exhaustive list of best practices or responsible cod
 
 2.3.1 In this situation it is explicitly intended that the module break when the external contract changes.
 
-2.3.2 Modules that implement external contracts SHOULD be named accordingly, e.g., `vpn` and `vpn-tailscale`.
+2.3.2 Modules that implement external contracts SHOULD be named accordingly, e.g., `vpn` and `vpn-tailscale`, where `vpn-tailscale` indicates it is an implementation of the `vpn` contract.
 
-2.4 Contracts SHOULD NOT break.
+2.3.2.1 If the contract and the implementation exist together in one module (see 3.2.1.2) a single module named `vpn` MAY be used.
+
+2.4 Contracts SHOULD NOT break with new released versions.
 
 2.4.1 New behaviors SHOULD be added to the system rather than replace old behavior.
 
@@ -58,83 +74,127 @@ These principles are not an exhaustive list of best practices or responsible cod
 
 2.6 Modules MUST have automated tests that test their contract.
 
+2.7 Contracts MUST be defined in terms of functionality not implementation.
+
+2.7.1 VPN.login_to_tailscale() is not an acceptable name.
+
+2.7.2 VPN.connect() is an acceptable name.
+
 ## Dependencies
 
-3. Modules MUST state explicitly what they require that is not their concern ("dependencies").
+3. Modules MUST state explicitly what they require ("dependencies").
 
-3.1 Modules SHOULD depend only on the precise functionality they need from their dependencies ("loose coupling").
+3.1 Unless they are implementing a contract, modules SHOULD remain loosely coupled from their dependencies.
 
-3.1.1 A module declares each such dependency in its own terms, including only the functionality it uses.
+3.1.1 A goal of this principle is to avoid modules needing to change any time a dependency is changed.
 
-3.1.2 If a dependency's contract does not match a module's declared dependency, the dependency SHOULD be provided via adapter logic. See also 4.5.
+3.1.2 A goal of this principle is to avoid requiring developers to dedicate mental bandwidth to a deep understanding of all dependencies.
 
-3.1.2.1 Third-party dependencies SHOULD be wrapped in a module that provides adapter logic to meet a contract provided by the project.
+3.2 Loose coupling SHOULD be facilitated by either a "shared contract" model or an "adapter" model.
 
-3.1.2.2 Third-party dependencies SHOULD NOT be directly relied on.
+3.2.1 In a shared contract model, both the target module and its dependency share a contract. The target module depends on the contract; the dependency implements the contract.
 
-3.1.2.3 A module MUST NOT depend on its consumer in order to implement that consumer's dependency (circular dependency).
+3.2.1.1 For example, `app` might depend on a `vpn` module's contract that describes remote access functionality and `vpn-tailscale` implements that contract. In this way `app` remains unaware of the details of `vpn-tailscale`'s implementation and is indifferent as to changes that do not affect the `vpn` contract.
 
-3.2 If multiple modules require the same dependency a contract module SHOULD be used.
+3.2.1.2 A shared contract need not be provided by its own module. Whether it is provided by a contract module or mixed with its implementation is governed by 4.4.
 
-3.2.1 A contract module is a module that declares a contract and is implemented by one or more other modules.
+3.2.2 In an adapter model, the target module and its dependency do not explicitly share types. The target module declares what contract it needs; the dependency declares what contract it provides; adapter code adapts the one to the other.
 
-3.2.2 Contract modules are implemented by modules following principle 2.3.
+3.2.2.1 For example, `app` might declare it requires a `string_format()` function, and `strings` may provide a `Strings.format()` method. Adapter code will adapt the latter to satisfy the dependency of the former.
 
-3.2.3 When using a contract module, the contract module is the contract of its implementer and defines the dependency of its dependent module.
+3.3 Dependency injection SHOULD be used to fulfill dependencies.
 
-3.2.3.1 For example, `vpn` is a contract module, `vpn-tailscale` implements it, and `network` declares a dependency on the contract provided by `vpn`. A parent module injects `vpn-tailscale` into `network` to satisfy the contract of `vpn`.
+3.3.1 In the 'shared contract' model, the target module declares its dependency on the shared contract and a parent component injects the implementing module.
 
-3.2.4 Stand-ins SHOULD be implemented in the contract module or in a separate testing module, not the implementer.
+3.3.2 In the 'adapter' model, the target module declares its needed dependency and the parent provides or incorporates adapter code to adapt the dependency module to that.
 
-3.2.5 If idiomatic in a given language, contract modules MAY provide methods that operate on the contract and values used by the contract.
+3.4 Direct dependency without injection (tight coupling) MAY be used in the following situations:
 
-3.2.5.1 Contract modules MUST NOT provide side effects, implementation-specific methods, or configured values.
+3.4.1 Dependencies that involve only logic provided that coupling is limited to the module's provided contract.
 
-3.3 Developers MUST apply judgment to determine whether a given situation requires the application of 3.1 (loose coupling/adapters) or 3.2 (contract module).
+3.4.2 Dependencies that are being injected by a parent module are directly depended on by the parent module.
 
-3.3.1 Loose coupling SHOULD be used for third-party dependencies.
+3.4.3 Modules that are being composed together in a composition module (see 4).
 
-3.3.2 Loose coupling SHOULD be used for one-to-one dependencies (module A, and only module A, depends on module B) where multiple implementations of the dependency are not likely.
+3.5 A human MUST approve the decision of how to structure a module's dependency (loose-coupling vs. direct dependency, adapter vs. shared contract), considering the following principles.
 
-3.3.3 Contract modules SHOULD be used if multiple implementations are likely.
+3.5.1 The adapter model allows the target module to declare only the precise dependencies it requires. That can reduce cognitive load on the developer of the target module.
 
-3.3.4 Contract modules SHOULD be used if a module is likely to be depended on by more than two other modules.
+3.5.2 The shared contract model allows the dependency module to provide a unitary block of related functionality. That can reduce cognitive load on the developer of the dependency module.
 
-3.4 Modules SHOULD receive implementations of their dependencies upon initialization ("dependency injection").
+3.5.3 What is considered idiomatic or best-practice in the language or framework being used.
+
+3.5.4 The complexity of the adapter code required in the adapter model. The need to maintain a complex adapter may be a sign that the wrong model has been chosen.
+
+3.5.5 The surface area exposed to the target module. A target module that depends on a large shared contract when it requires only a small amount of functionality may be an indication that the wrong model has been chosen.
+
+3.5.6 Whether multiple modules rely on the dependency.
+
+3.5.7 Whether multiple implementations of the dependency are intended or likely.
+
+3.5.8 Whether the module holds shared state.
+
+3.5.8.1 Shared state SHOULD be owned by one module.
+
+3.5.8.2 Modules that only need access to a part of shared state SHOULD be provided a limited view of that shared state.
+
+3.6 Third-party dependencies MUST NOT be directly relied on, but instead wrapped in code that exposes a contract controlled by the project.
+
+3.6.1 A third-party dependency is one that is not under the control of the project developers.
+
+3.6.2 A third-party dependency does not include code or libraries that are native to the language or framework being used.
+
+3.6.2.1 This includes idiomatic language extensions. For example, `futures` in Rust.
+
+3.6.2.2 A human MUST approve language extensions that are not wrapped and that decision MUST be recorded in a language-specific principles file (e.g., principles/RUST.md).
+
+3.6.3 Logic-only third-party dependencies MUST be wrapped but the wrapper MAY be depended on directly.
+
+3.7 A module MUST NOT depend on its consumer in order to implement that consumer's dependency (circular dependency).
+
+3.8 In the shared contract model, the code providing the contract and the code implementing the contract MUST properly divide responsibility.
+
+3.8.1 Stand-ins or mocks of contract functionality SHOULD be the responsibility of the contract provider, not the implementer.
+
+3.8.2 If idiomatic in a given language, contract code MAY provide methods that operate on the contract and values used by the contract.
+
+3.8.3 Contract code MUST NOT provide effects, implementation-specific methods, or configured values.
 
 ## Kinds
 
-4. A module's kind SHOULD be one, and only one, of the following: (1) business logic, (2) side effects, (3) composition, (4) contract.
+4. A module's kind SHOULD be one, and only one, of the following: (1) logic, (2) effects, (3) composition, (4) contract.
 
-4.1 Business logic handles the manipulation of data.
+4.1 Logic handles the manipulation of data or other logic.
 
-4.1.1 Business logic SHOULD return new data ("immutability").
+4.1.1 Logic SHOULD return new data ("immutability").
 
-4.2 Side effects handle interaction with the outside world.
+4.2 Effects handle interaction with the outside world.
 
-4.2.1 The following things are examples of side effects: throwing errors, reading time, obtaining randomness, logging.
+4.2.1 The following things are examples of effects: throwing errors, reading time, obtaining randomness, logging.
 
-4.2.1.1 Returning an error is not a side effect.
+4.2.1.1 Returning an error is not an effect.
 
-4.3 Composition unites business logic and side effect modules together.
+4.3 Composition unites logic and effects modules together.
 
 4.3.1 Composition can be achieved by ordering or by dependency injection.
 
-4.3.2 Composition code SHOULD be clear and readable by a human. Reading compositional code should make it clear which business logic is being implemented and what side effects it will have.
+4.3.2 Composition code SHOULD be clear and readable by a human. Reading compositional code should make it clear which logic is being implemented and what effects it will have.
 
-4.3.3 Composition code MUST NOT itself implement side effects.
+4.3.3 Composition code MUST NOT itself implement effects.
 
-4.3.4 Composition code SHOULD NOT itself implement complex business logic.
+4.3.4 Composition code SHOULD NOT itself implement complex logic.
 
-4.3.4.1 Simple business logic, such as adapter logic, is acceptable in composition code.
+4.3.4.1 Simple logic, such as adapter logic, is acceptable in composition code.
 
-4.4 Contract modules are used to facilitate dependency injection as explained in 3.2.
+4.3.4.2 Simple adapter logic SHOULD be included in composition modules.
 
-4.5 Adapter logic facilitates loose coupling as explained in 3.1.2.
+4.3.4.3 Complex adapter logic SHOULD be provided via a separate logic module.
 
-4.5.1 Simple adapter logic SHOULD be included in composition modules.
+4.4 Modules MAY mix kinds if that is idiomatic in the target language and the language keeps the kinds separate within the module.
 
-4.5.2 Complex adapter logic SHOULD be provided via a separate business logic module.
+4.4.1 Kinds are separate if a consumer can reach a contract without reaching its implementation, and logic can be built and tested without its effects.
+
+4.4.2 The question of whether mixing kinds is appropriate MUST be discussed with a human before it is done, and that decision MUST be recorded in a language-specific principle file.
 
 ## Errors
 
