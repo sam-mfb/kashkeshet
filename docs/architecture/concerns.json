@@ -366,9 +366,15 @@
   },
   "kkt-shutdown": {
    "layer": "foundations",
-   "concern": "The stop signal (Ctrl-C, SIGTERM) and the `Shutdown` that ends the server; behind real, `StopSignals`, the operating system's stop signals, which stop it.",
-   "must_not": "Let a tokio-util or tokio signal type out of the crate; let a consumer reach `StopSignals` without real.",
-   "kind": "logic and effect"
+   "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value.",
+   "must_not": "Let a tokio-util type out of the crate.",
+   "kind": "logic"
+  },
+  "kkt-shutdown-os": {
+   "layer": "foundations",
+   "concern": "The operating system's stop signals (Ctrl-C, SIGTERM), stopping the shared `Shutdown` (`StopSignals`).",
+   "must_not": "Let a tokio signal type out of the crate.",
+   "kind": "effect"
   },
   "kkt-log": {
    "layer": "foundations",
