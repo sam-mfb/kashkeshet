@@ -30,11 +30,11 @@ kkt-clock-system = { path = "../../crates/kkt-clock-system" }
 kkt-entropy = { path = "../../crates/kkt-entropy", features = ["testing"] }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
+kkt-listen = { path = "../../crates/kkt-listen" }
 kkt-log = { path = "../../crates/kkt-log" }
 kkt-logs = { path = "../../crates/kkt-logs" }
 kkt-log-tracing = { path = "../../crates/kkt-log-tracing" }
 kkt-server = { path = "../../crates/kkt-server" }
-kkt-listen = { path = "../../crates/kkt-listen" }
 kkt-shutdown = { path = "../../crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os" }
 kkt-web = { path = "../../crates/kkt-web" }
