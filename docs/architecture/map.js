@@ -40,6 +40,8 @@
   const SVG = "http://www.w3.org/2000/svg";
   const BOX_W = 156;
   const BOX_H = 42;
+  // Where a box's text starts; it ends as far from the right edge.
+  const LABEL_X = 9;
   // Where a delivery line meets a box: off the middle, where arrows meet it.
   const DELIVERY_X = BOX_W / 4;
   const GAP_X = 18;
@@ -431,9 +433,9 @@
         "aria-label": `${name}: ${concernOf(name).concern || ""}`,
       });
       g.append(svg("rect", { width: BOX_W, height: BOX_H }));
-      const label = svg("text", { x: 9, y: 17, class: "name" });
+      const label = svg("text", { x: LABEL_X, y: 17, class: "name" });
       label.textContent = name;
-      const sub = svg("text", { x: 9, y: 32, class: "sub" });
+      const sub = svg("text", { x: LABEL_X, y: 32, class: "sub" });
       sub.textContent = subtitle(c);
       g.append(label, sub);
       g.append(pickBox(name));
@@ -446,6 +448,18 @@
       view.nodes.set(name, g);
     }
     root.append(nodeLayer);
+    // A name or subtitle too long for its box is drawn smaller, whole,
+    // clear of the tick box on the box's right edge.
+    for (const g of view.nodes.values()) {
+      for (const text of g.querySelectorAll("text")) {
+        const room = BOX_W - 2 * LABEL_X;
+        const wide = text.getComputedTextLength();
+        if (wide > room) {
+          const size = parseFloat(getComputedStyle(text).fontSize);
+          text.style.fontSize = `${(size * room / wide).toFixed(2)}px`;
+        }
+      }
+    }
     // The delivery lines' slot names, above the boxes so none is hidden.
     view.deliveryLabels = svg("g", { class: "delivery-labels" });
     root.append(view.deliveryLabels);

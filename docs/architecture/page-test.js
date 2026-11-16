@@ -112,6 +112,15 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     });
     const stray = await endsOnOwnBoxes();
     check("every arrow ends on its own crates' boxes", stray.length === 0, stray.slice(0, 5));
+    // Every crate's name and subtitle fits inside its box.
+    const overflow = await p.evaluate(() => [...document.querySelectorAll(".node")].flatMap((n) => {
+      const box = n.querySelector("rect").getBBox();
+      return [...n.querySelectorAll("text")].filter((x) => {
+        const b = x.getBBox();
+        return b.x < box.x || b.x + b.width > box.x + box.width - 8;
+      }).map((x) => x.textContent);
+    }));
+    check("every label fits inside its box", overflow.length === 0, overflow);
     // The operations layer, with its groups stacked, is narrower than the
     // six boxes a line holds.
     const widest = await p.evaluate(() => {
