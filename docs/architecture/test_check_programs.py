@@ -295,6 +295,58 @@ class AssemblyWiring(unittest.TestCase):
                       self.check([{"crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]}]))
 
 
+class TestCodeSplit(unittest.TestCase):
+    """generate.py's split of a file into its real code and its test code:
+    anything under #[cfg(test)] or the crate's own `testing` feature is test
+    code (msg 3714)."""
+
+    def split(self, text):
+        return generate.split_test_modules(text)
+
+    def test_testing_items_of_every_shape_go_to_the_tests(self):
+        text = """use kkt_log::{Log, Level};
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
+#[cfg(feature = "testing")]
+pub use store::testing;
+pub struct Db {
+    backend: Backend,
+    #[cfg(any(test, feature = "testing"))]
+    faults: Option<kkt_db::testing::FaultyBackend>,
+}
+impl Db {
+    #[cfg(any(test, feature = "testing"))]
+    pub fn recent(&self) -> Result<Vec<Message>, Error> {
+        kkt_log::testing::CapturedLog::new()
+    }
+    pub fn real(&self) -> Level { Level::Info }
+}
+#[cfg(test)]
+mod tests {
+    use kkt_clock::testing::FixedClock;
+}
+"""
+        normal, tests = self.split(text)
+        for gone in ("pub mod testing", "pub use store::testing", "FaultyBackend", "CapturedLog", "FixedClock"):
+            self.assertNotIn(gone, normal)
+            self.assertIn(gone, tests)
+        for kept in ("use kkt_log::{Log, Level};", "backend: Backend,", "pub fn real(&self) -> Level { Level::Info }", "pub struct Db {"):
+            self.assertIn(kept, normal)
+        # The struct and the impl still close.
+        self.assertEqual(normal.count("{"), normal.count("}"))
+
+    def test_other_conditions_stay_real_code(self):
+        text = """#[cfg(unix)]
+fn on_unix() { std::fs::read("x"); }
+#[cfg(feature = "real")]
+mod real;
+"""
+        normal, tests = self.split(text)
+        self.assertEqual(tests, "")
+        self.assertIn("on_unix", normal)
+        self.assertIn("mod real;", normal)
+
+
 class FactoryGives(unittest.TestCase):
     """generate.py's rule for what makes a type a factory: a public function
     that gives back another crate's holder, implementation or contract."""

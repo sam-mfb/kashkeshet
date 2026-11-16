@@ -478,24 +478,63 @@ def file_kind(package_dir, path, test_files):
 
 
 def split_test_modules(text):
-    """`text` without its `#[cfg(test)]` modules, and those modules' text."""
+    """`text` without its test code, and that code's text. Test code is
+    every item under `#[cfg(test)]`, or under a condition that holds only
+    for tests or the crate's own `testing` feature (`behind_testing`),
+    which only tests turn on (RUST.md 6): a module, a function, a `use`, a
+    field. What a crate names only there belongs to its test arrow, never
+    to a role of its code arrow (Sam, msg 3714)."""
     normal, tests = [], []
     pos = 0
-    for match in re.finditer(r"#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{", text):
+    for match in re.finditer(r"#\[cfg\(", text):
         if match.start() < pos:
             continue
-        depth, i = 1, match.end()
+        cond_start = match.end()
+        depth, i = 1, cond_start
         while i < len(text) and depth:
-            if text[i] == "{":
-                depth += 1
-            elif text[i] == "}":
-                depth -= 1
+            depth += {"(": 1, ")": -1}.get(text[i], 0)
             i += 1
+        cond = text[cond_start:i - 1]
+        if re.sub(r"\s+", "", cond) != "test" and not behind_testing(cond):
+            continue
+        end = item_end(text, text.index("]", i - 1) + 1)
         normal.append(text[pos:match.start()])
-        tests.append(text[match.start():i])
-        pos = i
+        tests.append(text[match.start():end])
+        pos = end
     normal.append(text[pos:])
     return "".join(normal), "".join(tests)
+
+
+def item_end(text, i):
+    """Where the item that starts at `i` (after its `#[cfg]`) ends: past
+    any further attributes, at its `;` or its field's `,`, or past its
+    closing brace; or before the brace that closes what holds it."""
+    depth = 0
+    while i < len(text):
+        ch = text[i]
+        if ch == "#" and depth == 0 and text.startswith("#[", i):
+            i = text.index("]", i) + 1
+            continue
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        elif ch == "<" and depth >= 0:
+            depth += 1
+        elif ch == ">" and text[i - 1] not in "-=" and depth > 0:
+            depth -= 1
+        elif ch == "{" and depth == 0:
+            braces, i = 1, i + 1
+            while i < len(text) and braces:
+                braces += {"{": 1, "}": -1}.get(text[i], 0)
+                i += 1
+            return i
+        elif ch == "}" and depth == 0:
+            return i
+        elif ch in ";," and depth == 0:
+            return i + 1
+        i += 1
+    return i
 
 
 def strip_comments(text):
@@ -697,6 +736,10 @@ def main():
         for path in files:
             text = strip_comments(path.read_text())
             kind = file_kind(package_dir, path, test_files)
+            # A module only tests or the crate's own `testing` feature
+            # bring is test code, all of it.
+            if kind == "normal" and path in stand_ins:
+                kind = "dev"
             if kind == "normal":
                 text, tests = split_test_modules(text)
                 texts["dev"] += tests

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "fe649cfb",
+ "commit": "be57d61d",
  "crates": [
   {
    "bins": [
@@ -17637,9 +17637,6 @@ window.KKT_GRAPH = {
     "keys::KeyKind",
     "keys::selected_key_path",
     "lanes::LanesAction",
-    "lanes::existing_db",
-    "lanes::local_lane_limit",
-    "lanes::local_operator",
     "lanes::run",
     "lifecycle::backup",
     "lifecycle::status",
@@ -17687,9 +17684,6 @@ window.KKT_GRAPH = {
       "keys::KeyKind",
       "keys::selected_key_path",
       "lanes::LanesAction",
-      "lanes::existing_db",
-      "lanes::local_lane_limit",
-      "lanes::local_operator",
       "lanes::run",
       "lifecycle::backup",
       "lifecycle::status",
@@ -17712,6 +17706,9 @@ window.KKT_GRAPH = {
    "test_items": [
     "keys::local_operator_key",
     "keys::optional_key_path",
+    "lanes::existing_db",
+    "lanes::local_lane_limit",
+    "lanes::local_operator",
     "service::ServicePlan",
     "service::service_plan"
    ],
@@ -17866,7 +17863,6 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "CORE",
-    "CommandLine",
     "Db",
     "DefaultWording",
     "NewServerRun",
@@ -17883,7 +17879,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "CORE",
-      "CommandLine",
       "Settings",
       "legacy",
       "schema",
@@ -17901,6 +17896,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "CommandLine",
     "Rules",
     "testing",
     "testing::Memory",
@@ -18036,9 +18032,7 @@ window.KKT_GRAPH = {
     "Target",
     "Unfinished",
     "connection",
-    "connection::Connection",
     "connection::ConnectionOptions",
-    "connection::serve_connection",
     "credential_file_check",
     "default_db",
     "record_path",
@@ -18066,9 +18060,7 @@ window.KKT_GRAPH = {
       "Target",
       "Unfinished",
       "connection",
-      "connection::Connection",
       "connection::ConnectionOptions",
-      "connection::serve_connection",
       "credential_file_check",
       "default_db",
       "record_path",
@@ -18083,7 +18075,9 @@ window.KKT_GRAPH = {
     "DockerSetup",
     "Mode",
     "Server",
-    "Unrecorded"
+    "Unrecorded",
+    "connection::Connection",
+    "connection::serve_connection"
    ],
    "to": "kkt-setup"
   },
@@ -18288,6 +18282,7 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
+    "CommandLine",
     "Db",
     "DefaultWording",
     "Rules",
@@ -18309,6 +18304,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "CommandLine",
       "Rules",
       "Settings",
       "schema",
@@ -19930,7 +19926,6 @@ window.KKT_GRAPH = {
     "ADMIN_KEY_FILE_NAME",
     "ConfigReader",
     "Container",
-    "ContainerConfig",
     "Existing",
     "Folder",
     "Inputs",
@@ -19940,7 +19935,6 @@ window.KKT_GRAPH = {
     "LoginLink",
     "NO_ADMIN_KEY_EXIT",
     "Provisioned",
-    "Sharing",
     "State",
     "WEB_KEY_FILE_NAME"
    ],
@@ -19958,7 +19952,6 @@ window.KKT_GRAPH = {
      "detail": [
       "ADMIN_KEY_FILE_NAME",
       "ConfigReader",
-      "ContainerConfig",
       "Existing",
       "Folder",
       "Inputs",
@@ -19968,7 +19961,6 @@ window.KKT_GRAPH = {
       "LoginLink",
       "NO_ADMIN_KEY_EXIT",
       "Provisioned",
-      "Sharing",
       "State",
       "WEB_KEY_FILE_NAME"
      ],
@@ -19976,7 +19968,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "ContainerConfig",
+    "Sharing"
+   ],
    "to": "kkt-container"
   },
   {
@@ -20081,13 +20076,34 @@ window.KKT_GRAPH = {
   {
    "features": [],
    "from": "kkt-db",
+   "items": [],
+   "kind": "normal",
+   "optional": true,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "excerpt",
+    "matches",
+    "terms"
+   ],
+   "to": "kkt-search"
+  },
+  {
+   "features": [],
+   "from": "kkt-db",
    "items": [
     "excerpt",
     "matches",
     "terms"
    ],
-   "kind": "normal",
-   "optional": true,
+   "kind": "dev",
+   "optional": false,
    "role": "uses",
    "roles": [
     {
@@ -20096,23 +20112,6 @@ window.KKT_GRAPH = {
       "matches",
       "terms"
      ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-search"
-  },
-  {
-   "features": [],
-   "from": "kkt-db",
-   "items": [],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
      "role": "uses"
     }
    ],
@@ -21176,10 +21175,8 @@ window.KKT_GRAPH = {
    "items": [
     "Agent",
     "Api",
-    "Code",
     "Operator",
     "Result",
-    "RuleError",
     "SwarmId"
    ],
    "kind": "normal",
@@ -21190,10 +21187,8 @@ window.KKT_GRAPH = {
      "detail": [
       "Agent",
       "Api",
-      "Code",
       "Operator",
       "Result",
-      "RuleError",
       "SwarmId"
      ],
      "role": "uses"
@@ -21202,8 +21197,10 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "Audit",
+    "Code",
     "Permission",
-    "Permissions"
+    "Permissions",
+    "RuleError"
    ],
    "to": "kkt-api-agent"
   },
@@ -24031,7 +24028,6 @@ window.KKT_GRAPH = {
     "Time",
     "floor_text",
     "from_text",
-    "testing::FixedClock",
     "to_text"
    ],
    "kind": "normal",
@@ -24040,6 +24036,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Clock",
       "Span",
       "Time",
       "floor_text",
@@ -24047,16 +24044,12 @@ window.KKT_GRAPH = {
       "to_text"
      ],
      "role": "uses"
-    },
-    {
-     "detail": [
-      "testing::FixedClock"
-     ],
-     "role": "wires"
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -24091,9 +24084,6 @@ window.KKT_GRAPH = {
     "search",
     "search::Excerpt",
     "search::Search",
-    "testing",
-    "testing::FastPlace",
-    "testing::FaultyBackend",
     "through"
    ],
    "kind": "normal",
@@ -24102,15 +24092,19 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Backend",
       "BackendExt",
       "Column",
       "Condition",
       "Connection",
       "Constraint",
+      "Count",
       "DbError",
       "Delete",
       "Field",
+      "Group",
       "Insert",
+      "Legacy",
       "Operand",
       "OrderBy",
       "Related",
@@ -24124,31 +24118,26 @@ window.KKT_GRAPH = {
       "Value",
       "col",
       "search",
-      "testing",
+      "search::Excerpt",
+      "search::Search",
       "through"
      ],
      "role": "uses"
-    },
-    {
-     "detail": [
-      "testing::FastPlace",
-      "testing::FaultyBackend"
-     ],
-     "role": "wires"
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "testing",
+    "testing::FastPlace",
+    "testing::FaultyBackend"
+   ],
    "to": "kkt-db"
   },
   {
    "features": [],
    "from": "kkt-rules",
    "items": [
-    "Entropy",
-    "testing",
-    "testing::FirstOfLongListsEntropy",
-    "testing::SeqEntropy"
+    "Entropy"
    ],
    "kind": "normal",
    "optional": false,
@@ -24156,20 +24145,17 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "testing"
+      "Entropy"
      ],
      "role": "uses"
-    },
-    {
-     "detail": [
-      "testing::FirstOfLongListsEntropy",
-      "testing::SeqEntropy"
-     ],
-     "role": "wires"
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "testing",
+    "testing::FirstOfLongListsEntropy",
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-entropy"
   },
   {
@@ -24186,7 +24172,6 @@ window.KKT_GRAPH = {
     "NewChannel",
     "NewMessage",
     "Notice",
-    "Settings",
     "Subscription",
     "SwarmEvents"
    ],
@@ -24206,7 +24191,6 @@ window.KKT_GRAPH = {
       "NewChannel",
       "NewMessage",
       "Notice",
-      "Settings",
       "Subscription",
       "SwarmEvents"
      ],
@@ -24214,7 +24198,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "Settings"
+   ],
    "to": "kkt-events"
   },
   {
@@ -24243,9 +24229,7 @@ window.KKT_GRAPH = {
    "from": "kkt-rules",
    "items": [
     "ANIMALS",
-    "AdminName",
     "CHANNEL_RANDOM_LEN",
-    "MAX_ADMIN_NAME_CHARS",
     "MAX_CHANNEL_ID_ATTEMPTS",
     "MAX_HANDLE_CHARS",
     "MAX_LANE_NAME_CHARS",
@@ -24265,9 +24249,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ANIMALS",
-      "AdminName",
       "CHANNEL_RANDOM_LEN",
-      "MAX_ADMIN_NAME_CHARS",
       "MAX_CHANNEL_ID_ATTEMPTS",
       "MAX_HANDLE_CHARS",
       "MAX_LANE_NAME_CHARS",
@@ -24284,7 +24266,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "AdminName",
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-names"
   },
   {
@@ -24293,6 +24278,7 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-rules",
    "items": [
+    "Clock",
     "Span",
     "from_text",
     "testing::FixedClock"
@@ -24325,15 +24311,25 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-rules",
    "items": [
-    "testing::FastPlace"
+    "Backend",
+    "testing",
+    "testing::FastPlace",
+    "testing::FaultyBackend"
    ],
    "kind": "dev",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
     {
      "detail": [
-      "testing::FastPlace"
+      "testing"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::FastPlace",
+      "testing::FaultyBackend"
      ],
      "role": "wires"
     }
@@ -24348,6 +24344,7 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-rules",
    "items": [
+    "Entropy",
     "testing",
     "testing::FirstOfLongListsEntropy",
     "testing::SeqEntropy"
@@ -25192,13 +25189,17 @@ window.KKT_GRAPH = {
     "testing"
    ],
    "from": "kkt-service",
-   "items": [],
+   "items": [
+    "Clock"
+   ],
    "kind": "dev",
    "optional": false,
    "role": "uses",
    "roles": [
     {
-     "detail": [],
+     "detail": [
+      "Clock"
+     ],
      "role": "uses"
     }
    ],
@@ -25720,7 +25721,6 @@ window.KKT_GRAPH = {
    "items": [
     "Actor",
     "AgentInfo",
-    "AgentView",
     "ChannelInfo",
     "Code",
     "Lane",
@@ -25744,7 +25744,6 @@ window.KKT_GRAPH = {
      "detail": [
       "Actor",
       "AgentInfo",
-      "AgentView",
       "ChannelInfo",
       "Code",
       "Lane",
@@ -25765,6 +25764,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "AgentView",
     "Audit",
     "Permissions"
    ],
@@ -25777,16 +25777,11 @@ window.KKT_GRAPH = {
     "AgentActivity",
     "ChannelActivity",
     "ChannelChange",
-    "ChannelHidden",
-    "ChannelView",
     "KeptReason",
-    "LaneHistory",
     "LaneSave",
-    "Left",
     "Notice",
     "Notices",
     "OperatorApi",
-    "Overview",
     "ServerRunInfo",
     "StaleAgent",
     "StaleHidden"
@@ -25800,16 +25795,11 @@ window.KKT_GRAPH = {
       "AgentActivity",
       "ChannelActivity",
       "ChannelChange",
-      "ChannelHidden",
-      "ChannelView",
       "KeptReason",
-      "LaneHistory",
       "LaneSave",
-      "Left",
       "Notice",
       "Notices",
       "OperatorApi",
-      "Overview",
       "ServerRunInfo",
       "StaleAgent",
       "StaleHidden"
@@ -25821,9 +25811,14 @@ window.KKT_GRAPH = {
    "test_items": [
     "AgentHidden",
     "ChannelCreated",
+    "ChannelHidden",
     "ChannelMembers",
+    "ChannelView",
     "Joined",
-    "NewAgent"
+    "LaneHistory",
+    "Left",
+    "NewAgent",
+    "Overview"
    ],
    "to": "kkt-api-operator"
   },
@@ -25832,11 +25827,8 @@ window.KKT_GRAPH = {
    "from": "kkt-web",
    "items": [
     "Clock",
-    "Span",
     "Time",
-    "floor_text",
-    "from_text",
-    "to_text"
+    "from_text"
    ],
    "kind": "normal",
    "optional": false,
@@ -25845,18 +25837,18 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Clock",
-      "Span",
       "Time",
-      "floor_text",
-      "from_text",
-      "to_text"
+      "from_text"
      ],
      "role": "uses"
     }
    ],
    "target": null,
    "test_items": [
-    "testing::FixedClock"
+    "Span",
+    "floor_text",
+    "testing::FixedClock",
+    "to_text"
    ],
    "to": "kkt-clock"
   },
@@ -25934,8 +25926,7 @@ window.KKT_GRAPH = {
    "items": [
     "Field",
     "Level",
-    "Log",
-    "testing::CapturedLog"
+    "Log"
    ],
    "kind": "normal",
    "optional": false,
@@ -25944,20 +25935,16 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Field",
-      "Level"
+      "Level",
+      "Log"
      ],
      "role": "uses"
-    },
-    {
-     "detail": [
-      "testing::CapturedLog"
-     ],
-     "role": "wires"
     }
    ],
    "target": null,
    "test_items": [
     "testing",
+    "testing::CapturedLog",
     "testing::Entry"
    ],
    "to": "kkt-log"
@@ -25967,7 +25954,6 @@ window.KKT_GRAPH = {
    "from": "kkt-web",
    "items": [
     "MAX_LANE_NAME_CHARS",
-    "OPERATOR",
     "is_operator"
    ],
    "kind": "normal",
@@ -25977,14 +25963,15 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "MAX_LANE_NAME_CHARS",
-      "OPERATOR",
       "is_operator"
      ],
      "role": "uses"
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "OPERATOR"
+   ],
    "to": "kkt-names"
   },
   {
@@ -26028,7 +26015,11 @@ window.KKT_GRAPH = {
    "from": "kkt-web",
    "items": [
     "Span",
-    "testing::FixedClock"
+    "Time",
+    "floor_text",
+    "from_text",
+    "testing::FixedClock",
+    "to_text"
    ],
    "kind": "dev",
    "optional": false,
@@ -26036,7 +26027,11 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Span"
+      "Span",
+      "Time",
+      "floor_text",
+      "from_text",
+      "to_text"
      ],
      "role": "uses"
     },

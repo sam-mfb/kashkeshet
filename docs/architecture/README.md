@@ -122,6 +122,12 @@ Every crate is one kind: phase 16 removed the merged kinds of phases 13 and
 on the page and does not change the kind. `check-programs.py` fails CI on the
 composition check (machine work in its own code).
 
+Test code is everything under `#[cfg(test)]`, or under a condition that
+holds only for tests or the crate's own `testing` feature, which only tests
+turn on (RUST.md 6): a module, a function, a `use` or a field. What a crate
+names only there belongs to its test arrow ("Used by tests"), never to a
+role of its code arrow (Sam, msg 3714): kkt-web builds kkt-log's
+`CapturedLog` only for its tests, so its code arrow to kkt-log only uses.
 Machine work is what `generate.py` finds in a crate's own code, outside its
 tests and outside the modules only tests or the `testing` feature bring (a
 stand-in's work is test support's): a third-party crate that reaches the
