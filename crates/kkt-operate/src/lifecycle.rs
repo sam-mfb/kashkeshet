@@ -449,7 +449,7 @@ mod tests {
         }
     }
 
-    impl kkt_client_config::Host for Untouched {
+    impl kkt_llm_agent_config::Host for Untouched {
         fn read(&self, _: &Path) -> std::io::Result<String> {
             self.asked("clients.read")
         }
@@ -483,7 +483,7 @@ mod tests {
             0
         }
     }
-    impl kkt_client_config::ClientCommand for Untouched {
+    impl kkt_llm_agent_config::ClientCommand for Untouched {
         fn remove_server(&self, _: Option<&Path>) -> Result<(), String> {
             self.refused("client_command.remove_server")
         }

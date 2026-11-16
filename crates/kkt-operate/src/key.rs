@@ -6,7 +6,7 @@ use crate::keys::{
     KeyKind, admin_key_collision, admin_name_line, local_operator_key, new_key_file,
     optional_key_path, runs_in_docker, selected_key_path, write_admin_name,
 };
-use kkt_client_config as clients;
+use kkt_llm_agent_config as clients;
 use kkt_machine::{Env, Platform};
 use kkt_setup as setup;
 use kkt_setup::connection::ConnectionSource;

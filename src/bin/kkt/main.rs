@@ -36,7 +36,7 @@ async fn main() -> std::process::ExitCode {
     if !matches!(task, Ok(Task::Serve { .. })) {
         end_on_closed_output();
     }
-    let env = kkt_machine_os::env(&kkt_client_config::ENV_FOLDERS);
+    let env = kkt_machine_os::env(&kkt_llm_agent_config::ENV_FOLDERS);
     let platform = kkt_machine_os::platform();
     // `serve` starts logging once its settings say where the log goes.
     let logging = match &task {

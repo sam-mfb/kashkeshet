@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "f1b4ac6",
+ "commit": "2531dcd",
  "crates": [
   {
    "bins": [
@@ -96,18 +96,6 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
-     "trait": "ClientCommand",
-     "trait_crate": "kkt-client-config",
-     "type": "machine::client_config::ClaudeCommand"
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "Host",
-     "trait_crate": "kkt-client-config",
-     "type": "machine::client_config::ClientHost"
-    },
-    {
-     "crate": "kashkeshet",
      "trait": "files::Disk",
      "trait_crate": "kkt-config-file",
      "type": null
@@ -147,6 +135,18 @@ window.KKT_GRAPH = {
      "trait": "LaneCommit",
      "trait_crate": "kkt-lane-files",
      "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "ClientCommand",
+     "trait_crate": "kkt-llm-agent-config",
+     "type": "machine::client_config::ClaudeCommand"
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Host",
+     "trait_crate": "kkt-llm-agent-config",
+     "type": "machine::client_config::ClientHost"
     },
     {
      "crate": "kashkeshet",
@@ -263,7 +263,7 @@ window.KKT_GRAPH = {
      "path": "machine::client_config"
     },
     {
-     "doc": "The program's client command: Claude Code's, adapted to kkt-client-config's `ClientCommand`.",
+     "doc": "The program's client command: Claude Code's, adapted to kkt-llm-agent-config's `ClientCommand`.",
      "kind": "struct",
      "path": "machine::client_config::ClaudeCommand"
     },
@@ -1349,11 +1349,11 @@ window.KKT_GRAPH = {
        "trait": "KeyText"
       },
       {
-       "crate": "kkt-client-config",
+       "crate": "kkt-llm-agent-config",
        "trait": "Host"
       },
       {
-       "crate": "kkt-client-config",
+       "crate": "kkt-llm-agent-config",
        "trait": "ClientCommand"
       },
       {
@@ -1532,7 +1532,7 @@ window.KKT_GRAPH = {
      "name": "client_command",
      "traits": [
       {
-       "crate": "kkt-client-config",
+       "crate": "kkt-llm-agent-config",
        "trait": "ClientCommand"
       }
      ]
@@ -1543,7 +1543,7 @@ window.KKT_GRAPH = {
      "name": "clients",
      "traits": [
       {
-       "crate": "kkt-client-config",
+       "crate": "kkt-llm-agent-config",
        "trait": "Host"
       }
      ]
@@ -1648,11 +1648,11 @@ window.KKT_GRAPH = {
          "trait": "KeyText"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -1707,11 +1707,11 @@ window.KKT_GRAPH = {
          "trait": "KeyText"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -1766,11 +1766,11 @@ window.KKT_GRAPH = {
          "trait": "KeyText"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -1825,11 +1825,11 @@ window.KKT_GRAPH = {
          "trait": "KeyText"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -3640,292 +3640,6 @@ window.KKT_GRAPH = {
    "slots": [],
    "testing_third_party": [],
    "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "Claude Code's own command line, `claude mcp`, for configuring one MCP server, named by the caller, in Claude Code's settings: removing it, and adding it as Claude Code's own entry.",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "Claude Code's own command, for one MCP server.",
-     "kind": "struct",
-     "methods": [
-      "add_server",
-      "new",
-      "remove_server"
-     ],
-     "path": "Claude"
-    }
-   ],
-   "lib": "kkt_client_command",
-   "machine_work": {
-    "src/claude/runner.rs": [
-     "process::Command::new"
-    ]
-   },
-   "name": "kkt-client-command",
-   "path": "crates/kkt-client-command",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [
-    {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": "machine::client_config::ClaudeCommand"
-      },
-      {
-       "crate": "kkt-client-config",
-       "type": "testing::Recorder"
-      }
-     ],
-     "trait": "ClientCommand"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": "machine::client_config::ClientHost"
-      }
-     ],
-     "trait": "Host"
-    }
-   ],
-   "crate_doc": "Client configuration and its on-disk formats.",
-   "dev_only": false,
-   "features": {
-    "testing": []
-   },
-   "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-client-config",
-     "trait": "ClientCommand",
-     "trait_crate": "kkt-client-config",
-     "type": "testing::Recorder"
-    }
-   ],
-   "items": [
-    {
-     "doc": "",
-     "kind": "enum",
-     "methods": [
-      "can_allow_kkt",
-      "check_name",
-      "connected",
-      "copies_key",
-      "display_name",
-      "file",
-      "from_name",
-      "installed",
-      "name",
-      "source"
-     ],
-     "path": "Client",
-     "variants": [
-      "ClaudeCode",
-      "Codex",
-      "Agy",
-      "OpenCode",
-      "MuseCode"
-     ]
-    },
-    {
-     "doc": "A client's own command, as this crate asks it.",
-     "kind": "trait",
-     "methods": [
-      "add_server",
-      "remove_server"
-     ],
-     "path": "ClientCommand"
-    },
-    {
-     "doc": "The environment variables naming the clients' own folders, which the program asks the environment for (kkt-machine's `Env::named`).",
-     "kind": "const",
-     "path": "ENV_FOLDERS"
-    },
-    {
-     "doc": "",
-     "kind": "trait",
-     "methods": [
-      "absolute",
-      "canonicalize",
-      "create_dir_all",
-      "create_private",
-      "exists",
-      "process_id",
-      "read",
-      "remove_file",
-      "rename",
-      "restrict"
-     ],
-     "path": "Host"
-    },
-    {
-     "doc": "The tools of kkt's agent server (`/mcp`).",
-     "kind": "const",
-     "path": "KKT_AGENT_TOOLS"
-    },
-    {
-     "doc": "Inputs chosen by the caller, including the absolute executable/key paths.",
-     "fields": [
-      "env",
-      "url",
-      "executable",
-      "key_file",
-      "client_config",
-      "source"
-     ],
-     "kind": "struct",
-     "path": "Setup"
-    },
-    {
-     "doc": "Lets `client` always use kkt's tools and `kkt watch`, in its default files (following its own variables, as `Client::file` does).",
-     "kind": "fn",
-     "path": "allow_kkt"
-    },
-    {
-     "doc": "Whether Codex has kkt configured without an explicit MCP credential store.",
-     "kind": "fn",
-     "path": "codex_password_store_hint"
-    },
-    {
-     "doc": "Print a plan or apply one change.",
-     "kind": "fn",
-     "path": "configure"
-    },
-    {
-     "doc": "The requested plain header, or the JSON header map both helper clients use.",
-     "kind": "fn",
-     "path": "header"
-    },
-    {
-     "doc": "A stand-in client command, for tests of the crates that ask one: it records each call, and fails every call when told to.",
-     "feature": "testing",
-     "kind": "mod",
-     "path": "testing"
-    },
-    {
-     "doc": "One call, as `Recorder` keeps it.",
-     "feature": "testing",
-     "kind": "enum",
-     "path": "testing::Call",
-     "variants": [
-      "Remove",
-      "Add"
-     ]
-    },
-    {
-     "doc": "Records each call.",
-     "feature": "testing",
-     "fields": [
-      "calls",
-      "fails"
-     ],
-     "kind": "struct",
-     "path": "testing::Recorder"
-    }
-   ],
-   "lib": "kkt_client_config",
-   "machine_work": {},
-   "name": "kkt-client-config",
-   "path": "crates/kkt-client-config",
-   "released_program": false,
-   "slots": [
-    {
-     "at": "Client::connected",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-client-config",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "Client::file",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-client-config",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "Client::installed",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-client-config",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "allow_kkt",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-client-config",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "codex_password_store_hint",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-client-config",
-       "trait": "Host"
-      }
-     ]
-    },
-    {
-     "at": "configure",
-     "kind": "param",
-     "name": "command",
-     "traits": [
-      {
-       "crate": "kkt-client-config",
-       "trait": "ClientCommand"
-      }
-     ]
-    },
-    {
-     "at": "configure",
-     "kind": "param",
-     "name": "host",
-     "traits": [
-      {
-       "crate": "kkt-client-config",
-       "trait": "Host"
-      }
-     ]
-    }
-   ],
-   "testing_third_party": [],
-   "third_party": [
-    "serde",
-    "serde_json"
-   ]
   },
   {
    "bins": [],
@@ -6934,38 +6648,6 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
-   "crate_doc": "The commit a folder is at, as the machine's git says: `Git`.",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "The machine's git, asked which commit a folder is at.",
-     "kind": "struct",
-     "methods": [
-      "commit"
-     ],
-     "path": "Git"
-    }
-   ],
-   "lib": "kkt_lane_commit",
-   "machine_work": {
-    "src/git.rs": [
-     "process::Command::new"
-    ]
-   },
-   "name": "kkt-lane-commit",
-   "path": "crates/kkt-lane-commit",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
    "contracts": [
     {
      "implementors": [
@@ -7204,6 +6886,292 @@ window.KKT_GRAPH = {
    "third_party": [
     "axum",
     "tokio"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Claude Code's own command line, `claude mcp`, for configuring one MCP server, named by the caller, in Claude Code's settings: removing it, and adding it as Claude Code's own entry.",
+   "dev_only": false,
+   "features": {},
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "Claude Code's own command, for one MCP server.",
+     "kind": "struct",
+     "methods": [
+      "add_server",
+      "new",
+      "remove_server"
+     ],
+     "path": "Claude"
+    }
+   ],
+   "lib": "kkt_llm_agent_command",
+   "machine_work": {
+    "src/claude/runner.rs": [
+     "process::Command::new"
+    ]
+   },
+   "name": "kkt-llm-agent-command",
+   "path": "crates/kkt-llm-agent-command",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": "machine::client_config::ClaudeCommand"
+      },
+      {
+       "crate": "kkt-llm-agent-config",
+       "type": "testing::Recorder"
+      }
+     ],
+     "trait": "ClientCommand"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": "machine::client_config::ClientHost"
+      }
+     ],
+     "trait": "Host"
+    }
+   ],
+   "crate_doc": "Client configuration and its on-disk formats.",
+   "dev_only": false,
+   "features": {
+    "testing": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-llm-agent-config",
+     "trait": "ClientCommand",
+     "trait_crate": "kkt-llm-agent-config",
+     "type": "testing::Recorder"
+    }
+   ],
+   "items": [
+    {
+     "doc": "",
+     "kind": "enum",
+     "methods": [
+      "can_allow_kkt",
+      "check_name",
+      "connected",
+      "copies_key",
+      "display_name",
+      "file",
+      "from_name",
+      "installed",
+      "name",
+      "source"
+     ],
+     "path": "Client",
+     "variants": [
+      "ClaudeCode",
+      "Codex",
+      "Agy",
+      "OpenCode",
+      "MuseCode"
+     ]
+    },
+    {
+     "doc": "A client's own command, as this crate asks it.",
+     "kind": "trait",
+     "methods": [
+      "add_server",
+      "remove_server"
+     ],
+     "path": "ClientCommand"
+    },
+    {
+     "doc": "The environment variables naming the clients' own folders, which the program asks the environment for (kkt-machine's `Env::named`).",
+     "kind": "const",
+     "path": "ENV_FOLDERS"
+    },
+    {
+     "doc": "",
+     "kind": "trait",
+     "methods": [
+      "absolute",
+      "canonicalize",
+      "create_dir_all",
+      "create_private",
+      "exists",
+      "process_id",
+      "read",
+      "remove_file",
+      "rename",
+      "restrict"
+     ],
+     "path": "Host"
+    },
+    {
+     "doc": "The tools of kkt's agent server (`/mcp`).",
+     "kind": "const",
+     "path": "KKT_AGENT_TOOLS"
+    },
+    {
+     "doc": "Inputs chosen by the caller, including the absolute executable/key paths.",
+     "fields": [
+      "env",
+      "url",
+      "executable",
+      "key_file",
+      "client_config",
+      "source"
+     ],
+     "kind": "struct",
+     "path": "Setup"
+    },
+    {
+     "doc": "Lets `client` always use kkt's tools and `kkt watch`, in its default files (following its own variables, as `Client::file` does).",
+     "kind": "fn",
+     "path": "allow_kkt"
+    },
+    {
+     "doc": "Whether Codex has kkt configured without an explicit MCP credential store.",
+     "kind": "fn",
+     "path": "codex_password_store_hint"
+    },
+    {
+     "doc": "Print a plan or apply one change.",
+     "kind": "fn",
+     "path": "configure"
+    },
+    {
+     "doc": "The requested plain header, or the JSON header map both helper clients use.",
+     "kind": "fn",
+     "path": "header"
+    },
+    {
+     "doc": "A stand-in client command, for tests of the crates that ask one: it records each call, and fails every call when told to.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "One call, as `Recorder` keeps it.",
+     "feature": "testing",
+     "kind": "enum",
+     "path": "testing::Call",
+     "variants": [
+      "Remove",
+      "Add"
+     ]
+    },
+    {
+     "doc": "Records each call.",
+     "feature": "testing",
+     "fields": [
+      "calls",
+      "fails"
+     ],
+     "kind": "struct",
+     "path": "testing::Recorder"
+    }
+   ],
+   "lib": "kkt_llm_agent_config",
+   "machine_work": {},
+   "name": "kkt-llm-agent-config",
+   "path": "crates/kkt-llm-agent-config",
+   "released_program": false,
+   "slots": [
+    {
+     "at": "Client::connected",
+     "kind": "param",
+     "name": "host",
+     "traits": [
+      {
+       "crate": "kkt-llm-agent-config",
+       "trait": "Host"
+      }
+     ]
+    },
+    {
+     "at": "Client::file",
+     "kind": "param",
+     "name": "host",
+     "traits": [
+      {
+       "crate": "kkt-llm-agent-config",
+       "trait": "Host"
+      }
+     ]
+    },
+    {
+     "at": "Client::installed",
+     "kind": "param",
+     "name": "host",
+     "traits": [
+      {
+       "crate": "kkt-llm-agent-config",
+       "trait": "Host"
+      }
+     ]
+    },
+    {
+     "at": "allow_kkt",
+     "kind": "param",
+     "name": "host",
+     "traits": [
+      {
+       "crate": "kkt-llm-agent-config",
+       "trait": "Host"
+      }
+     ]
+    },
+    {
+     "at": "codex_password_store_hint",
+     "kind": "param",
+     "name": "host",
+     "traits": [
+      {
+       "crate": "kkt-llm-agent-config",
+       "trait": "Host"
+      }
+     ]
+    },
+    {
+     "at": "configure",
+     "kind": "param",
+     "name": "command",
+     "traits": [
+      {
+       "crate": "kkt-llm-agent-config",
+       "trait": "ClientCommand"
+      }
+     ]
+    },
+    {
+     "at": "configure",
+     "kind": "param",
+     "name": "host",
+     "traits": [
+      {
+       "crate": "kkt-llm-agent-config",
+       "trait": "Host"
+      }
+     ]
+    }
+   ],
+   "testing_third_party": [],
+   "third_party": [
+    "serde",
+    "serde_json"
    ]
   },
   {
@@ -7961,11 +7929,11 @@ window.KKT_GRAPH = {
        "trait": "RemoteAccess"
       },
       {
-       "crate": "kkt-client-config",
+       "crate": "kkt-llm-agent-config",
        "trait": "Host"
       },
       {
-       "crate": "kkt-client-config",
+       "crate": "kkt-llm-agent-config",
        "trait": "ClientCommand"
       },
       {
@@ -8532,7 +8500,7 @@ window.KKT_GRAPH = {
      "name": "client_command",
      "traits": [
       {
-       "crate": "kkt-client-config",
+       "crate": "kkt-llm-agent-config",
        "trait": "ClientCommand"
       }
      ]
@@ -8543,7 +8511,7 @@ window.KKT_GRAPH = {
      "name": "clients",
      "traits": [
       {
-       "crate": "kkt-client-config",
+       "crate": "kkt-llm-agent-config",
        "trait": "Host"
       }
      ]
@@ -8773,11 +8741,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -8872,11 +8840,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -8975,11 +8943,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -9078,11 +9046,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -9181,11 +9149,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -9295,11 +9263,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -9394,11 +9362,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -9515,11 +9483,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -9618,11 +9586,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -9743,11 +9711,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -9842,11 +9810,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -9941,11 +9909,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -10040,11 +10008,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -10139,11 +10107,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -10238,11 +10206,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -10341,11 +10309,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -10444,11 +10412,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -10624,11 +10592,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -10727,11 +10695,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -10841,11 +10809,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -10940,11 +10908,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -11039,11 +11007,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -11142,11 +11110,11 @@ window.KKT_GRAPH = {
          "trait": "RemoteAccess"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "Host"
         },
         {
-         "crate": "kkt-client-config",
+         "crate": "kkt-llm-agent-config",
          "trait": "ClientCommand"
         },
         {
@@ -11584,6 +11552,38 @@ window.KKT_GRAPH = {
     "serde_json",
     "thiserror"
    ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "The commit a folder is at, as the machine's git says: `Git`.",
+   "dev_only": false,
+   "features": {},
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "The machine's git, asked which commit a folder is at.",
+     "kind": "struct",
+     "methods": [
+      "commit"
+     ],
+     "path": "Git"
+    }
+   ],
+   "lib": "kkt_revision",
+   "machine_work": {
+    "src/git.rs": [
+     "process::Command::new"
+    ]
+   },
+   "name": "kkt-revision",
+   "path": "crates/kkt-revision",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
   },
   {
    "bins": [],
@@ -16844,64 +16844,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Claude"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Claude"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-client-command"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "Client",
-    "ClientCommand",
-    "ENV_FOLDERS",
-    "Host"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "implements",
-   "roles": [
-    {
-     "detail": [
-      "machine::client_config::ClaudeCommand implements ClientCommand",
-      "machine::client_config::ClientHost implements Host"
-     ],
-     "role": "implements"
-    },
-    {
-     "detail": [
-      "Client",
-      "ENV_FOLDERS"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "KKT_AGENT_TOOLS",
-    "Setup",
-    "configure",
-    "header"
-   ],
-   "to": "kkt-client-config"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
     "Clock"
    ],
    "kind": "normal",
@@ -17352,27 +17294,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Git"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Git"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-lane-commit"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
     "Disk",
     "LaneCommit"
    ],
@@ -17414,6 +17335,64 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-listen"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "Claude"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Claude"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-llm-agent-command"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "Client",
+    "ClientCommand",
+    "ENV_FOLDERS",
+    "Host"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "machine::client_config::ClaudeCommand implements ClientCommand",
+      "machine::client_config::ClientHost implements Host"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Client",
+      "ENV_FOLDERS"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "KKT_AGENT_TOOLS",
+    "Setup",
+    "configure",
+    "header"
+   ],
+   "to": "kkt-llm-agent-config"
   },
   {
    "features": [],
@@ -17753,6 +17732,27 @@ window.KKT_GRAPH = {
     "MIN_RESPONSE_BYTES"
    ],
    "to": "kkt-result-format"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "Git"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Git"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-revision"
   },
   {
    "features": [],
@@ -18593,6 +18593,30 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-agent-commands",
    "items": [
+    "Clock"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Time",
+    "testing::FixedClock"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
     "Client",
     "ClientCommand",
     "Host",
@@ -18618,31 +18642,7 @@ window.KKT_GRAPH = {
    "test_items": [
     "testing::Recorder"
    ],
-   "to": "kkt-client-config"
-  },
-  {
-   "features": [],
-   "from": "kkt-agent-commands",
-   "items": [
-    "Clock"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Clock"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Time",
-    "testing::FixedClock"
-   ],
-   "to": "kkt-clock"
+   "to": "kkt-llm-agent-config"
   },
   {
    "features": [],
@@ -18763,36 +18763,6 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-agent-commands",
    "items": [
-    "Host",
-    "testing::Recorder"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Host"
-     ],
-     "role": "uses"
-    },
-    {
-     "detail": [
-      "testing::Recorder"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-client-config"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-agent-commands",
-   "items": [
     "Time",
     "testing::FixedClock"
    ],
@@ -18837,6 +18807,36 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-keys"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-agent-commands",
+   "items": [
+    "Host",
+    "testing::Recorder"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Host"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Recorder"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-llm-agent-config"
   },
   {
    "features": [],
@@ -19692,75 +19692,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-scratch"
-  },
-  {
-   "features": [],
-   "from": "kkt-client-config",
-   "items": [
-    "check_access_key"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "check_access_key"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-keys"
-  },
-  {
-   "features": [],
-   "from": "kkt-client-config",
-   "items": [
-    "Env"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Env"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-machine"
-  },
-  {
-   "features": [],
-   "from": "kkt-client-config",
-   "items": [
-    "Document",
-    "EditError",
-    "Found",
-    "IfMissing"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Document",
-      "EditError",
-      "Found",
-      "IfMissing"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-toml"
   },
   {
    "features": [],
@@ -22152,6 +22083,75 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-llm-agent-config",
+   "items": [
+    "check_access_key"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "check_access_key"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-llm-agent-config",
+   "items": [
+    "Env"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Env"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-machine"
+  },
+  {
+   "features": [],
+   "from": "kkt-llm-agent-config",
+   "items": [
+    "Document",
+    "EditError",
+    "Found",
+    "IfMissing"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Document",
+      "EditError",
+      "Found",
+      "IfMissing"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-toml"
+  },
+  {
+   "features": [],
    "from": "kkt-log-tracing",
    "items": [
     "Field",
@@ -22760,41 +22760,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operate",
    "items": [
-    "Client",
-    "ClientCommand",
-    "Host",
-    "Setup",
-    "allow_kkt",
-    "codex_password_store_hint",
-    "configure",
-    "header"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Client",
-      "ClientCommand",
-      "Host",
-      "Setup",
-      "allow_kkt",
-      "codex_password_store_hint",
-      "configure",
-      "header"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-client-config"
-  },
-  {
-   "features": [],
-   "from": "kkt-operate",
-   "items": [
     "Clock"
    ],
    "kind": "normal",
@@ -23030,6 +22995,41 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-lane-files"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "Client",
+    "ClientCommand",
+    "Host",
+    "Setup",
+    "allow_kkt",
+    "codex_password_store_hint",
+    "configure",
+    "header"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Client",
+      "ClientCommand",
+      "Host",
+      "Setup",
+      "allow_kkt",
+      "codex_password_store_hint",
+      "configure",
+      "header"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-llm-agent-config"
   },
   {
    "features": [],
@@ -25363,27 +25363,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
-    "Client"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Client"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-client-config"
-  },
-  {
-   "features": [],
-   "from": "kkt-setup",
-   "items": [
     "ADMIN_KEY_FILE_NAME",
     "Folder",
     "KeyCopy",
@@ -25462,6 +25441,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-setup",
+   "items": [
+    "Client"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Client"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-llm-agent-config"
   },
   {
    "features": [],
@@ -26522,18 +26522,6 @@ window.KKT_CONCERNS = {
    "layer": "platform",
    "must_not": "Wait for the browser; repeat the link in a message."
   },
-  "kkt-client-command": {
-   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, made with the server's name and what a person should retry with (`Claude::new`), with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
-   "kind": "effect",
-   "layer": "platform",
-   "must_not": "Echo the command's output, which may hold credentials."
-  },
-  "kkt-client-config": {
-   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through the ClientCommand it declares, with its testing Recorder, and its file restored if that fails.",
-   "kind": "logic",
-   "layer": "operations",
-   "must_not": "Touch the machine except through `Host` and `ClientCommand`."
-  },
   "kkt-clock": {
    "concern": "Time: the Clock contract, Time and Span values, time formatting and FixedClock behind testing. The real clock is in kkt-clock-system.",
    "kind": "contract",
@@ -26650,12 +26638,6 @@ window.KKT_CONCERNS = {
    "layer": "access",
    "must_not": "Decide what a valid key is, who a key lets in, or where key files go; draw randomness itself."
   },
-  "kkt-lane-commit": {
-   "concern": "The commit a folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
-   "kind": "effect",
-   "layer": "platform",
-   "must_not": "Read or write the folder's files."
-  },
   "kkt-lane-files": {
    "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from the `LaneCommit` it declares.",
    "kind": "logic",
@@ -26667,6 +26649,18 @@ window.KKT_CONCERNS = {
    "kind": "effect",
    "layer": "platform",
    "must_not": "Know how the router it serves was built, or depend on the crates that build it."
+  },
+  "kkt-llm-agent-command": {
+   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, made with the server's name and what a person should retry with (`Claude::new`), with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-llm-agent-config's ClientCommand (phase 16).",
+   "kind": "effect",
+   "layer": "platform",
+   "must_not": "Echo the command's output, which may hold credentials."
+  },
+  "kkt-llm-agent-config": {
+   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through the ClientCommand it declares, with its testing Recorder, and its file restored if that fails.",
+   "kind": "logic",
+   "layer": "operations",
+   "must_not": "Touch the machine except through `Host` and `ClientCommand`."
   },
   "kkt-log": {
    "concern": "Structured log events: their level, target, message and named values.",
@@ -26738,6 +26732,12 @@ window.KKT_CONCERNS = {
    "kind": "logic",
    "layer": "surfaces",
    "must_not": "Decide permissions or read the database."
+  },
+  "kkt-revision": {
+   "concern": "The commit a folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
+   "kind": "effect",
+   "layer": "platform",
+   "must_not": "Read or write the folder's files."
   },
   "kkt-rolling-file": {
    "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). Its refusals are values (OpenError, PolicyProblem, PolicyValue), which the caller words in its own terms. It does not implement kkt-log.",
@@ -26973,7 +26973,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "passes_on": "the client configs' host the program gave AgentParts",
      "to": [
       {
@@ -27001,7 +27001,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "note": "kkt connect",
      "passes_on": "the client command the program gave AgentParts",
      "to": [
@@ -27084,7 +27084,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "note": "kkt setup, kkt doctor",
      "passes_on": "the client configs' host the program gave OperateParts",
      "to": [
@@ -27141,7 +27141,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "note": "kkt setup",
      "passes_on": "the client command the program gave OperateParts",
      "to": [
@@ -27727,8 +27727,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "note": "The lane folder's commit, from the machine's git (phase 16).",
-     "own": "LaneGit, adapting kkt-lane-commit's Git to kkt-lane-files' LaneCommit",
-     "supplier": "kkt-lane-commit",
+     "own": "LaneGit, adapting kkt-revision's Git to kkt-lane-files' LaneCommit",
+     "supplier": "kkt-revision",
      "supplier_item": "Git",
      "to": [
       {
@@ -27877,8 +27877,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "note": "kkt setup: Claude Code's own command",
-     "own": "ClaudeCommand, adapting kkt-client-command's Claude to kkt-client-config's ClientCommand",
-     "supplier": "kkt-client-command",
+     "own": "ClaudeCommand, adapting kkt-llm-agent-command's Claude to kkt-llm-agent-config's ClientCommand",
+     "supplier": "kkt-llm-agent-command",
      "supplier_item": "Claude",
      "to": [
       {
@@ -27890,8 +27890,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt connect: Claude Code's own command",
-     "own": "ClaudeCommand, adapting kkt-client-command's Claude to kkt-client-config's ClientCommand",
-     "supplier": "kkt-client-command",
+     "own": "ClaudeCommand, adapting kkt-llm-agent-command's Claude to kkt-llm-agent-config's ClientCommand",
+     "supplier": "kkt-llm-agent-command",
      "supplier_item": "Claude",
      "to": [
       {

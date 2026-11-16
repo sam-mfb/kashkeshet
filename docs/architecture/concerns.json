@@ -236,15 +236,15 @@
    "must_not": "Change login, DNS preferences, unrelated sharing, or anything of the caller's.",
    "kind": "effect"
   },
-  "kkt-client-config": {
+  "kkt-llm-agent-config": {
    "layer": "operations",
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through the ClientCommand it declares, with its testing Recorder, and its file restored if that fails.",
    "must_not": "Touch the machine except through `Host` and `ClientCommand`.",
    "kind": "logic"
   },
-  "kkt-client-command": {
+  "kkt-llm-agent-command": {
    "layer": "platform",
-   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, made with the server's name and what a person should retry with (`Claude::new`), with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
+   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, made with the server's name and what a person should retry with (`Claude::new`), with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-llm-agent-config's ClientCommand (phase 16).",
    "must_not": "Echo the command's output, which may hold credentials.",
    "kind": "effect"
   },
@@ -278,7 +278,7 @@
    "must_not": "Touch the machine except through `Disk`; know a version-control tool.",
    "kind": "logic"
   },
-  "kkt-lane-commit": {
+  "kkt-revision": {
    "layer": "platform",
    "concern": "The commit a folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
    "must_not": "Read or write the folder's files.",

@@ -69,11 +69,11 @@ The shared crates are reorganized so that every dependency is injected and each 
   `Launchd::new`, and `ServiceError::ReloadFailed` holds the text launchd's
   wrapper words. `kkt_operate::service::run` no longer takes the `Env`. The
   service files, commands and messages are unchanged.
-- **Client command contract.** `kkt-client-command::ClientCommand` (remove
+- **Client command contract.** `kkt-llm-agent-command::ClientCommand` (remove
   kkt's server, add it as the client's own entry; `testing::Recorder`) is
-  how kkt-client-config changes a client through its own command.
-  Its one implementation is in the same crate: `kkt_client_command::Claude`
- , for Claude Code. `kkt_client_config::Host` and kkt-client-config-os' `OsHost`
+  how kkt-llm-agent-config changes a client through its own command.
+  Its one implementation is in the same crate: `kkt_llm_agent_command::Claude`
+ , for Claude Code. `kkt_llm_agent_config::Host` and kkt-client-config-os' `OsHost`
   lose `claude`, and `configure` takes a `&dyn ClientCommand` after the
   host. The commands run and their messages are unchanged.
 - **Probe contract.** `kkt-probe::Prober`, with `KeyFile`, `Check`
@@ -84,9 +84,9 @@ The shared crates are reorganized so that every dependency is injected and each 
   `kkt-diagnostics-os` and its `OsProber` and records, and the program's
   adapter. `OperateParts::prober` takes a `&dyn kkt_probe::Prober`. The
   checks and their messages are unchanged.
-- **Lane folder commit contract.** `kkt-lane-commit::LaneCommit` asks the
+- **Lane folder commit contract.** `kkt-revision::LaneCommit` asks the
   commit a lane folder is at, in kkt's terms, with `testing::Memory` for
-  tests, and its one implementation in the same crate: `kkt_lane_commit::Git`
+  tests, and its one implementation in the same crate: `kkt_revision::Git`
  , with git's meaning,
   which moves out of kkt-lane-files (its `git` module and
   `Git`, `Ran` and `commit` go). `kkt_lane_files::Disk` loses `git_commit`,
@@ -101,6 +101,12 @@ The shared crates are reorganized so that every dependency is injected and each 
   `show` and `open_requested`; `kkt_container_docker::Docker` is now built
   with `Docker::new(browser)`. Messages are unchanged.
 - **Effects in `-os` crates.** What touches the machine moves into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os`, `kkt-shutdown-os` (`StopSignals`, from kkt-shutdown, which keeps `Shutdown`), `kkt-backup-os` (`write` and `prune`; kkt-backup keeps the layouts), `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`), `kkt-rolling-file` (`RotatingFile`, `open_log_file` and `LogPolicy`; see Logs) and `kkt-keys-os` (the key files on disk; kkt-keys keeps what a key is and where its files go).
+- **Three crates renamed.** `kkt-lane-commit` is now `kkt-revision`,
+  `kkt-client-config` is now `kkt-llm-agent-config`, and
+  `kkt-client-command` is now `kkt-llm-agent-command`, with their paths
+  (`kkt_revision`, `kkt_llm_agent_config`, `kkt_llm_agent_command`). Their
+  items are unchanged. Rename the dependencies and paths; the notes above
+  and below use the new names.
 - **Platform crates say nothing of kkt.** kkt's words are now the
   caller's:
   - kkt-log-tracing: `init_logging(log_file, own_targets, own,
@@ -113,9 +119,9 @@ The shared crates are reorganized so that every dependency is injected and each 
     in place of a message; the caller words it.
   - kkt-machine: `Env`'s `claude_config_dir` and `codex_home` are gone.
     `Env::named` holds the folders the program asks for by variable, and
-    `kkt_machine_os::env(names)` takes them; kkt-client-config's
+    `kkt_machine_os::env(names)` takes them; kkt-llm-agent-config's
     `ENV_FOLDERS` are the two it needs.
-  - kkt-client-command: `Claude::new(server_name, retry)`, both
+  - kkt-llm-agent-command: `Claude::new(server_name, retry)`, both
     `const`, replaces the unit `Claude` (kkt's are `"kkt"` and `"--write"`).
   - kkt-remote-access-tailscale: `Tailscale::new(rerun)` replaces the unit
     `Tailscale` (kkt's is `` "`kkt setup`" ``).
@@ -185,9 +191,9 @@ The shared crates are reorganized so that every dependency is injected and each 
 - **Settings.** Each crate takes its tuning values as its own `Settings`, with a `DEFAULT` to pass when nothing is set (kkt-db-sqlite's is `Options`). The crates whose settings can be refused (kkt-admission, kkt-hosts and kkt-logs) check them with their own `SettingError`. The formatter, rules, web and backup owners expose every failed check through their own `Problem` and word their own run-record lines. The program supplies its own record values to `ServerSettings::record_lines`. kkt-settings is removed, with `Limits`, `ServeOptions`, `ServeSettings` and `InvalidSetting`: each program gathers its flags and config values itself, and the defaults are their owners' (`kkt_rules::Settings::DEFAULT` and the others, kkt-hosts' `DEFAULT_BIND` and `DEFAULT_ALLOW_ANY_BIND`, kkt-logs' `DEFAULT_LOG_LEVEL` and `DEFAULT_DEPENDENCY_LOG_LEVEL`).
 - **The page preview** is now a program of its own: `cargo run -p kkt-web-preview`, in place of kkt-web's example.
 - **The output format.** `kkt_mcp_formatter::Format` no longer derives serde's `Deserialize` or schemars' `JsonSchema`, and kkt-mcp-formatter no longer depends on either. kkt-mcp, which wraps the MCP library, reads the tools' `format` parameter with a type of its own and turns it into `Format`. The tools' parameters and descriptions are unchanged.
-- **TOML.** A new logic crate, `kkt-toml`, is the only one that uses the `toml` and `toml_edit` libraries. It parses TOML text into its own tree of values (`parse`, `Table`, `Value`), reads and writes typed records (`read`, `write`), and edits a document while keeping its comments (`Document`), with errors of its own (`ParseError`, `Place`, `WriteError`, `EditError`). kkt-config-file, kkt-client-config, kkt-setup and kkt-mcp's build script use it, and no longer depend on `toml` or `toml_edit`. Their public items, and every message they give, are unchanged.
-- **A client's own command.** `ClientCommand` is now kkt-client-config's (`kkt_client_config::ClientCommand`), with its stand-in `kkt_client_config::testing::Recorder` and `Call` behind kkt-client-config's new `testing` feature. kkt-client-command declares no contract: `kkt_client_command::Claude` has `remove_server` and `add_server` as its own methods, and a program adapts it to `ClientCommand`. kkt-client-command has no `testing` feature. The commands run and every message are unchanged.
-- **A lane folder's commit.** `LaneCommit` is now kkt-lane-files' (`kkt_lane_files::LaneCommit`), with its stand-in `kkt_lane_files::testing::Memory` behind kkt-lane-files' new `testing` feature. kkt-lane-commit declares no contract and has no `testing` feature: `kkt_lane_commit::Git` has `commit` as its own method, and a program adapts it to `LaneCommit`. The commands run and every message are unchanged.
+- **TOML.** A new logic crate, `kkt-toml`, is the only one that uses the `toml` and `toml_edit` libraries. It parses TOML text into its own tree of values (`parse`, `Table`, `Value`), reads and writes typed records (`read`, `write`), and edits a document while keeping its comments (`Document`), with errors of its own (`ParseError`, `Place`, `WriteError`, `EditError`). kkt-config-file, kkt-llm-agent-config, kkt-setup and kkt-mcp's build script use it, and no longer depend on `toml` or `toml_edit`. Their public items, and every message they give, are unchanged.
+- **A client's own command.** `ClientCommand` is now kkt-llm-agent-config's (`kkt_llm_agent_config::ClientCommand`), with its stand-in `kkt_llm_agent_config::testing::Recorder` and `Call` behind kkt-llm-agent-config's new `testing` feature. kkt-llm-agent-command declares no contract: `kkt_llm_agent_command::Claude` has `remove_server` and `add_server` as its own methods, and a program adapts it to `ClientCommand`. kkt-llm-agent-command has no `testing` feature. The commands run and every message are unchanged.
+- **A lane folder's commit.** `LaneCommit` is now kkt-lane-files' (`kkt_lane_files::LaneCommit`), with its stand-in `kkt_lane_files::testing::Memory` behind kkt-lane-files' new `testing` feature. kkt-revision declares no contract and has no `testing` feature: `kkt_revision::Git` has `commit` as its own method, and a program adapts it to `LaneCommit`. The commands run and every message are unchanged.
 - **Probing a server.** `Prober`, `Probing`, `KeyFile` and `Check` are now kkt-diagnostics' (`kkt_diagnostics::Prober` and so on), with the stand-in `kkt_diagnostics::testing::Memory` behind kkt-diagnostics' new `testing` feature. kkt-probe declares no contract and has no `testing` feature: `kkt_probe::HttpProber` has `key_file` and `probe` as its own methods, which give kkt-probe's own records, `FileRead` and `Finding`, and a program adapts it to `Prober`. Every check's name and wording is unchanged.
 - **Opening a link in the browser.** `Browser` is now kkt-container-docker's (`kkt_container_docker::Browser`). kkt-browser declares no contract and has no `testing` feature: `kkt_browser::SystemBrowser` has `open` and `open_failure` as its own methods, and a program adapts it to `Browser`. `kkt_browser::testing::Recorder` is gone: nothing used it. The opener, and every message, are unchanged.
 - **No `real` feature.** No crate has a `real` feature any more: phase 16 took apart the crates that held a contract or logic beside its effect, and each effect crate builds all of its code. **This breaks a crate that depends on kkt by git and asks for `real`**: Cargo refuses a dependency with a feature it does not have. Drop `features = ["real"]` from every kkt crate in your `Cargo.toml`, kkt-server-listen included, on the same update. An effect crate's third-party libraries are now ordinary dependencies of it. Nothing an agent, a person or an install sees changes.

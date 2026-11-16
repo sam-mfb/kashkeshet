@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 kkt-agent-client = { path = "../kkt-agent-client" }
-kkt-client-config = { path = "../kkt-client-config" }
+kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-machine = { path = "../kkt-machine" }
 kkt-names = { path = "../kkt-names" }
@@ -18,7 +18,7 @@ kkt-watch = { path = "../kkt-watch" }
 
 [dev-dependencies]
 # The client command's stand-in.
-kkt-client-config = { path = "../kkt-client-config", features = ["testing"] }
+kkt-llm-agent-config = { path = "../kkt-llm-agent-config", features = ["testing"] }
 futures.workspace = true
 # The access key a stand-in connection question answers with.
 kkt-keys = { path = "../kkt-keys" }

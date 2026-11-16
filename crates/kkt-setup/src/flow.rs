@@ -6,7 +6,7 @@ use super::adopt::{AdoptSteps, Unrecorded, adoptable};
 use super::ask::{Ask, Question};
 use super::record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
 use super::switch::SwitchSteps;
-use kkt_client_config::Client;
+use kkt_llm_agent_config::Client;
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use std::path::{Path, PathBuf};
 

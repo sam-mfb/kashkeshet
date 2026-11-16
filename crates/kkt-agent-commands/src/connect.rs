@@ -2,7 +2,7 @@
 //! server.
 
 use crate::AgentParts;
-use kkt_client_config::{self as clients, Client, Setup};
+use kkt_llm_agent_config::{self as clients, Client, Setup};
 use kkt_machine::Env;
 use kkt_setup::connection::{self, ConnectionOptions, ConnectionSource};
 use std::path::PathBuf;

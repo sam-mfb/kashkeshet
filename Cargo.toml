@@ -17,8 +17,8 @@ members = [
     "crates/kkt-backup",
     "crates/kkt-backup-os",
     "crates/kkt-browser",
-    "crates/kkt-client-command",
-    "crates/kkt-client-config",
+    "crates/kkt-llm-agent-command",
+    "crates/kkt-llm-agent-config",
     "crates/kkt-clock",
     "crates/kkt-clock-system",
     "crates/kkt-config-file",
@@ -35,7 +35,7 @@ members = [
     "crates/kkt-hosts",
     "crates/kkt-identity",
     "crates/kkt-identity-keymode",
-    "crates/kkt-lane-commit",
+    "crates/kkt-revision",
     "crates/kkt-lane-files",
     "crates/kkt-listen",
     "crates/kkt-log",
@@ -86,8 +86,8 @@ default-members = [
     "crates/kkt-backup",
     "crates/kkt-backup-os",
     "crates/kkt-browser",
-    "crates/kkt-client-command",
-    "crates/kkt-client-config",
+    "crates/kkt-llm-agent-command",
+    "crates/kkt-llm-agent-config",
     "crates/kkt-clock",
     "crates/kkt-clock-system",
     "crates/kkt-config-file",
@@ -104,7 +104,7 @@ default-members = [
     "crates/kkt-hosts",
     "crates/kkt-identity",
     "crates/kkt-identity-keymode",
-    "crates/kkt-lane-commit",
+    "crates/kkt-revision",
     "crates/kkt-lane-files",
     "crates/kkt-listen",
     "crates/kkt-log",
@@ -220,8 +220,8 @@ kkt-api-agent = { path = "crates/kkt-api-agent" }
 kkt-backup = { path = "crates/kkt-backup" }
 kkt-backup-os = { path = "crates/kkt-backup-os" }
 kkt-browser = { path = "crates/kkt-browser" }
-kkt-client-command = { path = "crates/kkt-client-command" }
-kkt-client-config = { path = "crates/kkt-client-config" }
+kkt-llm-agent-command = { path = "crates/kkt-llm-agent-command" }
+kkt-llm-agent-config = { path = "crates/kkt-llm-agent-config" }
 kkt-clock = { path = "crates/kkt-clock" }
 kkt-clock-system = { path = "crates/kkt-clock-system" }
 kkt-config-file = { path = "crates/kkt-config-file" }
@@ -236,7 +236,7 @@ kkt-files = { path = "crates/kkt-files" }
 kkt-result-format = { path = "crates/kkt-result-format" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
-kkt-lane-commit = { path = "crates/kkt-lane-commit" }
+kkt-revision = { path = "crates/kkt-revision" }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-listen = { path = "crates/kkt-listen" }
 kkt-rolling-file = { path = "crates/kkt-rolling-file" }

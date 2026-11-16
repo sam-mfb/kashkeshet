@@ -1,13 +1,13 @@
 //! Adapts the machine's files and this process's ID to the logic's host, and
 //! Claude Code's command to the logic's `ClientCommand`.
 
-use kkt_client_command::Claude;
+use kkt_llm_agent_command::Claude;
 
 /// Claude Code's command, for kkt's server: named `kkt` in Claude Code's
 /// settings, and `--write` is what a person retries with.
 const CLAUDE: Claude = Claude::new("kkt", "--write");
-use kkt_client_config::{ClientCommand, Host};
 use kkt_files::Files;
+use kkt_llm_agent_config::{ClientCommand, Host};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -48,7 +48,7 @@ impl Host for ClientHost {
 }
 
 /// The program's client command: Claude Code's, adapted to
-/// kkt-client-config's `ClientCommand`. Also used by its integration tests.
+/// kkt-llm-agent-config's `ClientCommand`. Also used by its integration tests.
 pub struct ClaudeCommand;
 
 impl ClientCommand for ClaudeCommand {

@@ -135,7 +135,7 @@ impl CredentialSlot for Slot {
 }
 
 struct NoClients;
-impl kkt_client_config::Host for NoClients {
+impl kkt_llm_agent_config::Host for NoClients {
     fn read(&self, _: &Path) -> io::Result<String> {
         Err(io::ErrorKind::NotFound.into())
     }
@@ -215,7 +215,7 @@ fn parts(
                 .collect(),
         )),
         clients: Box::new(NoClients),
-        client_command: Box::new(kkt_client_config::testing::Recorder::default()),
+        client_command: Box::new(kkt_llm_agent_config::testing::Recorder::default()),
         program: Box::new(Kkt),
         report: Box::new(Lines),
         output: Box::new(Out(seen.clone())),

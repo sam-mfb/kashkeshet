@@ -2242,6 +2242,21 @@ found, beyond the list, seven Tailscale refusals telling a person to rerun
 `kkt setup` and Claude's "retry --write", now arguments (msg 3617), and
 two lint reasons and a tracing callsite name, reworded.
 
+### After phase 16: three renames (Sam, 2026-11-16)
+
+**Sam's decision** (msgs 3623 and 3626, K6, from sage-cardinal). In one
+pull request, purely mechanical, after K5: kkt-lane-commit becomes
+kkt-revision (it reports which revision of a version-controlled folder is
+checked out, with no "lane" and no tool in its name); kkt-client-config
+becomes kkt-llm-agent-config and kkt-client-command kkt-llm-agent-command,
+since "client" alone was confused with kkt as a client of its own server
+(kkt-agent-client, the clients layer). Directory, package and every live
+mention; history keeps the old names.
+
+**What it did, against this decision.** Done as decided. kkt-revision had
+no public item that said "lane" after K5. No release script, workflow or
+dist setting named the three crates.
+
 ## Order at a glance
 
 ```
