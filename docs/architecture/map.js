@@ -620,8 +620,8 @@
     for (const line of lines) {
       const f = facesOf(line.program, line.receiver);
       if (!f) continue;
-      const a = { order: orderOf(f.fa, line.receiver), run: 0 };
-      const b = { order: orderOf(f.fb, line.program), run: 0 };
+      const a = { order: orderOf(f.fa, line.receiver), run: 0, supply: line.supply };
+      const b = { order: orderOf(f.fb, line.program), run: 0, supply: line.supply };
       for (const [name, face, end] of [[line.program, f.fa, a], [line.receiver, f.fb, b]]) {
         const key = `${name}|${face}`;
         if (!byFace.has(key)) byFace.set(key, { face, ends: [] });
@@ -630,17 +630,30 @@
       placed.push({ line, f, a, b });
     }
     for (const [key, { face, ends }] of byFace) {
-      const arrows = (view.faceArrows && view.faceArrows.get(key)) || [];
+      // Each point once: arrows sharing a point leave no space between them.
+      const arrows = [...new Set((view.faceArrows && view.faceArrows.get(key)) || [])];
       if (!arrows.length) { spreadOn(face, ends); continue; }
       const len = faceLength(face);
       const bounds = [MARGIN[face] / len, ...arrows, 1 - MARGIN[face] / len];
       const spaces = bounds.slice(1).map((t, i) => (t + bounds[i]) / 2);
-      ends.sort((x, y) => x.order - y.order);
-      ends.forEach((e, i) => {
-        const pick = ends.length >= spaces.length ? Math.floor((i * spaces.length) / ends.length)
-          : Math.round(((i + 0.5) * spaces.length) / ends.length - 0.5);
-        e.t = spaces[Math.min(spaces.length - 1, pick)];
+      // Ends spread over `slots` of the spaces, in order: one
+      // each while they fit, sharing points when they do not.
+      const spread = (list, slots) => list.forEach((e, i) => {
+        const pick = list.length >= slots.length ? Math.floor((i * slots.length) / list.length)
+          : Math.round(((i + 0.5) * slots.length) / list.length - 0.5);
+        e.t = slots[Math.min(slots.length - 1, pick)];
       });
+      ends.sort((x, y) => x.order - y.order);
+      if (ends.length <= spaces.length) { spread(ends, spaces); continue; }
+      // Too many for a space each: the routes' hops keep a point each, and
+      // the lines from the crates that supply them share the spaces left,
+      // on shared stems, as arrows do.
+      const hops = ends.filter((e) => !e.supply);
+      const supplies = ends.filter((e) => e.supply);
+      const forHops = supplies.length ? Math.min(hops.length, spaces.length - 1) : spaces.length;
+      const taken = new Set(Array.from({ length: forHops }, (_, k) => Math.round(((k + 0.5) * spaces.length) / forHops - 0.5)));
+      spread(hops, [...taken].sort((x, y) => x - y).map((i) => spaces[i]));
+      spread(supplies, spaces.filter((_, i) => !taken.has(i)));
     }
     return placed.map(({ line, f, a, b }) => ({
       line, ends: joinEnds(pointOn(line.program, f.fa, a.t), pointOn(line.receiver, f.fb, b.t), f.arc),
