@@ -256,6 +256,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       await onBox(name, ".pick-hit");
       const got = await p.evaluate(() => ({
         lines: [...document.querySelectorAll("path.delivery")].map((x) => `${x.dataset.from}>${x.dataset.to}`),
+        hops: [...new Set([...document.querySelectorAll("path.edge.route-hop")].map((x) => x.dataset.edge))],
         labels: Object.fromEntries([...document.querySelectorAll("text.delivery-label")]
           .map((x) => [`${x.dataset.from}>${x.dataset.to}`, x.textContent])),
       }));
@@ -264,8 +265,8 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     };
     const watch = await routeOf("kkt-watch");
     check("a ticked receiver's routes run back to the program and the suppliers",
-      ["kashkeshet>kkt-agent-commands", "kkt-agent-commands>kkt-watch", "kkt-agent-client-mcp>kashkeshet"]
-        .every((l) => watch.lines.includes(l)), watch.lines);
+      ["kashkeshet>kkt-agent-commands", "kkt-agent-commands>kkt-watch"].every((l) => watch.lines.includes(l)) &&
+      watch.hops.includes("kashkeshet>kkt-agent-client-mcp>normal"), watch);
     check("no hop's label is only \"passed on\"",
       Object.values(watch.labels).every((l) => !/passed on/.test(l)) && /\(/.test(watch.labels["kkt-agent-commands>kkt-watch"] || ""),
       watch.labels);
@@ -281,7 +282,26 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("a ticked injector's routes run on to the final receiver", forward.lines.includes("kkt-agent-commands>kkt-watch"), forward.lines);
     const supplier = await routeOf("kkt-agent-client-mcp");
     check("a ticked supplier's routes run on to the final receiver",
-      supplier.lines.includes("kkt-agent-client-mcp>kashkeshet") && supplier.lines.includes("kkt-agent-commands>kkt-watch"), supplier.lines);
+      supplier.hops.includes("kashkeshet>kkt-agent-client-mcp>normal") && supplier.lines.includes("kkt-agent-commands>kkt-watch"), supplier);
+
+    // Solid is a dependency, dotted an injection (msg 3696): ticking
+    // kkt-log-tracing lights the solid arrow from it to kashkeshet as the
+    // route's first hop, draws no dotted line from it, and every dotted
+    // line starts at an injector.
+    await onBox("kkt-log-tracing", ".pick-hit");
+    const solid = await p.evaluate(() => {
+      const injectors = new Set([...Object.keys(window.KKT_ASSEMBLY.programs), ...Object.keys(window.KKT_ASSEMBLY.injectors || {})]);
+      const strokes = [...document.querySelectorAll("path.edge[data-edge='kashkeshet>kkt-log-tracing>normal']")];
+      return {
+        lit: strokes.length > 0 && strokes.every((x) => x.classList.contains("route-hop") && getComputedStyle(x).strokeDasharray === "none"),
+        fromIt: [...document.querySelectorAll("path.delivery")].filter((x) => x.dataset.from === "kkt-log-tracing" || x.dataset.to === "kkt-log-tracing").length,
+        notInjector: [...document.querySelectorAll("path.delivery")].map((x) => x.dataset.from).filter((f) => !injectors.has(f)),
+        label: [...document.querySelectorAll("text.delivery-label.supply")].map((x) => x.textContent),
+      };
+    });
+    await onBox("kkt-log-tracing", ".pick-hit");
+    check("the supplier's hop is the solid arrow, lit and labelled, and every dotted line starts at an injector",
+      solid.lit && solid.fromIt === 0 && solid.notInjector.length === 0 && solid.label.some((l) => /TracingLog/.test(l)), solid);
 
     // An adapter is not an implementation (msg 3574): a composition's own
     // type meeting another crate's trait is "adapted by", drawn apart from
