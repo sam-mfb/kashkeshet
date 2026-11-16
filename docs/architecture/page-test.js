@@ -1,4 +1,6 @@
-// A headless check of the map page: groups drawn beneath their heads and
+// A headless check of the map page: arrow heads on the crate that depends,
+// none overlapping, and delivery lines leaving at points of their own;
+// groups drawn beneath their heads and
 // outlined, with every arrow ending on its own boxes; ticked crates and the panel's crate are
 // kept by name through every filter, and Reset view clears them; no box
 // moves when a filter changes; and only full-strength arrows answer the
@@ -110,6 +112,49 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       }
       return bad;
     });
+    // Heads (msg 3550): every head is on the crate that depends on the
+    // other, an implementation arrow's on the implementer; and no two heads
+    // overlap.
+    const heads = await p.evaluate(() => {
+      const boxOf = (name) => {
+        const n = document.querySelector(`.node[aria-label^='${name}:']`);
+        const m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(n.getAttribute("transform"));
+        const r = n.querySelector("rect");
+        return { x: +m[1], y: +m[2], w: +r.getAttribute("width"), h: +r.getAttribute("height") };
+      };
+      const onEdge = (b, q) => q.x >= b.x - 1.5 && q.x <= b.x + b.w + 1.5 && q.y >= b.y - 1.5 && q.y <= b.y + b.h + 1.5 &&
+        (Math.abs(q.x - b.x) < 1.5 || Math.abs(q.x - b.x - b.w) < 1.5 || Math.abs(q.y - b.y) < 1.5 || Math.abs(q.y - b.y - b.h) < 1.5);
+      const wrong = [];
+      const centres = [];
+      let implementing = 0;
+      for (const path of document.querySelectorAll("path.edge[marker-start]")) {
+        const [from] = path.dataset.edge.split(">");
+        const tip = path.getPointAtLength(0);
+        if (path.dataset.head !== from || !onEdge(boxOf(from), tip)) wrong.push(path.dataset.edge);
+        if (path.classList.contains("role-implements")) implementing++;
+        // The head reaches about 7 pixels back along the arrow from its tip.
+        const back = path.getPointAtLength(Math.min(3.5, path.getTotalLength()));
+        centres.push({ edge: path.dataset.edge, x: back.x, y: back.y });
+      }
+      const overlapping = [];
+      for (let i = 0; i < centres.length; i++) {
+        for (let j = i + 1; j < centres.length; j++) {
+          if (Math.hypot(centres[i].x - centres[j].x, centres[i].y - centres[j].y) < 7) overlapping.push(`${centres[i].edge} / ${centres[j].edge}`);
+        }
+      }
+      const markers = [...document.querySelectorAll("path.edge[marker-end]")].length;
+      return { count: centres.length, implementing, markers, wrong, overlapping };
+    });
+    check("every head is on the crate that depends, an implementation arrow's on the implementer",
+      heads.count > 0 && heads.implementing > 0 && heads.markers === 0 && heads.wrong.length === 0, heads.wrong.slice(0, 5));
+    check("no two arrow heads overlap", heads.overlapping.length === 0, heads.overlapping.slice(0, 5));
+    // Inside a group the arrow points down, from the head crate to each
+    // partner.
+    const down = await p.evaluate(() => {
+      const path = document.querySelector("path.edge[data-edge='kkt-db-sqlite>kkt-db>normal']");
+      return path && { head: path.dataset.head, tip: path.getPointAtLength(0).y, tail: path.getPointAtLength(path.getTotalLength()).y };
+    });
+    check("inside a group the arrow points down to the partner", down && down.head === "kkt-db-sqlite" && down.tip > down.tail, down);
     const stray = await endsOnOwnBoxes();
     check("every arrow ends on its own crates' boxes", stray.length === 0, stray.slice(0, 5));
     // Every crate's name and subtitle fits inside its box.
@@ -159,6 +204,21 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     });
     check("a ticked implementation's delivery line is drawn clear of the arrows", clear.drawn && clear.near === 0, clear);
     await p.click(`${node(mcp)} .pick-hit`, { force: true });
+
+    // A program's delivery lines leave it at points of their own.
+    await p.click(`${node("kashkeshet")} .pick-hit`, { force: true });
+    const shared = await p.evaluate(() => {
+      const starts = [...document.querySelectorAll("path.delivery[data-from='kashkeshet']")].map((x) => x.getPointAtLength(0));
+      const close = [];
+      for (let i = 0; i < starts.length; i++) {
+        for (let j = i + 1; j < starts.length; j++) {
+          if (Math.hypot(starts[i].x - starts[j].x, starts[i].y - starts[j].y) < 3) close.push([i, j]);
+        }
+      }
+      return { lines: starts.length, close: close.length };
+    });
+    check("a program's delivery lines leave it at points of their own", shared.lines > 1 && shared.close === 0, shared);
+    await p.click(`${node("kashkeshet")} .pick-hit`, { force: true });
 
     // Injections follow the rule (msg 3343): the program injects nothing of
     // kkt-diagnostics' own into it; kkt-operate passes on the prober it was

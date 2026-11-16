@@ -9,30 +9,27 @@
   const concerns = window.KKT_CONCERNS;
   const assembly = window.KKT_ASSEMBLY;
   // The roles an arrow can play, worded in the direction the arrow is
-  // drawn (Sam, msg 3155): a "uses" or "wires" arrow runs from the crate
-  // that is used or built to the crate that uses or builds it, the way a
-  // part goes into what includes it; an "implements" arrow runs from the
-  // implementer to the contract. The data keeps Cargo's sense: an edge's
-  // `from` is always the crate that depends on `to`.
+  // drawn: every arrow runs from the crate that is depended on to the
+  // crate that depends on it, with its head on the dependant (Sam, msgs
+  // 3155 and 3550). A used or built crate goes into what uses or builds
+  // it; a contract goes into its implementer, which needs the contract to
+  // know what to build. The data keeps Cargo's sense: an edge's `from` is
+  // always the crate that depends on `to`.
   const ROLES = {
-    implements: "implements a contract of",
+    implements: "implemented by",
     uses: "used by",
     wires: "built by",
   };
   // The short words, for the filters and the tooltip.
-  const ROLE_SHORT = { implements: "implements", uses: "used by", wires: "built by" };
+  const ROLE_SHORT = { implements: "implemented by", uses: "used by", wires: "built by" };
   const ROLE_ABOUT = {
-    implements: "the crate at the arrow's tail implements a trait the crate at its head defines",
+    implements: "the crate at the arrow's head implements a trait the crate at its tail defines",
     uses: "the crate at the arrow's head calls or reads items of the crate at its tail",
     wires: "the crate at the arrow's head builds implementations or holders from the crate at its tail, to hand on",
   };
-  // Whether an arrow is drawn against Cargo's sense, from the dependency to
-  // the dependant: every arrow but one that implements (an arrow that both
-  // implements and uses keeps the implementing direction, since using the
-  // contract's records is part of implementing it).
-  const reversed = (roles) => !roles.includes("implements");
-  // The ends an arrow is drawn between, in the drawn direction.
-  const drawnEnds = (e) => (reversed(edgeRoles(e)) ? [e.to, e.from] : [e.from, e.to]);
+  // The ends an arrow is drawn between, in the drawn direction: from the
+  // dependency to the dependant.
+  const drawnEnds = (e) => [e.to, e.from];
   // How far apart the parallel strokes of an arrow with several roles are.
   const STROKE_GAP = 3.2;
   // How many straight pieces an offset stroke is drawn with.
@@ -42,8 +39,6 @@
   const BOX_H = 42;
   // Where a box's text starts; it ends as far from the right edge.
   const LABEL_X = 9;
-  // Where a delivery line meets a box: off the middle, where arrows meet it.
-  const DELIVERY_X = BOX_W / 4;
   const GAP_X = 18;
   const PAD_X = 16;
   const PAD_Y = 14;
@@ -313,7 +308,7 @@
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
       el("span", { class: "key-item", title: "Generated: a crate that implements a contract of exactly one crate in its own layer is drawn beneath it" },
         el("span", { class: "group-key" }), "Group: a crate, with the crates beneath it that implement its contract"),
-      el("span", { class: "muted" }, "Arrows run from the crate that is used or built to the crate that uses or builds it, and from an implementer to its contract. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role; it points the implementing way when one role implements. Thin dotted amber line, for the highlighted crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Arrows run from the crate that is depended on to the crate that depends on it: from what is used, built or implemented to what uses, builds or implements it. Their ends are spread along each side of a box; where a side has too many to keep apart, several share one point and one head, the arrows of one role together. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, for the highlighted crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -384,23 +379,24 @@
     root.append(edgeLayer, hitLayer);
     view.edgeNodes = [];
     view.hitNodes = [];
-    for (const e of graph.edges) {
-      if (!visibleEdge(e)) continue;
-      const ends = endsOf(e.from, e.to, 0.5);
-      if (!ends) continue;
-      const [a, b] = ends;
+    const arrowEnds = placeArrowEnds(graph.edges.filter(visibleEdge));
+    for (const [e, [a, b]] of arrowEnds) {
       // One stroke per shown role, side by side, each in its role's colour.
       // One head, on the middle stroke, in the first role's shape: a head
       // per stroke crowds where arrows meet a box. The path runs from `from`
-      // to `to`; a reversed arrow puts its head at the start.
+      // to `to`, so the head, on `from`, is at its start. An arrow that
+      // shares its end with others leading its run has no head of its own.
+      // The stroke with the head runs through the end's point itself, so
+      // heads keep the spacing of the ends.
       const roles = shownRoles(e);
-      const head = reversed(edgeRoles(e)) ? "marker-start" : "marker-end";
+      const mid = Math.floor((roles.length - 1) / 2);
       roles.forEach((role, i) => {
         const path = svg("path", {
-          d: edgePath(a, b, (i - (roles.length - 1) / 2) * STROKE_GAP),
+          d: edgePath(a, b, (i - mid) * STROKE_GAP),
           class: `edge kind-${e.kind} role-${role}`,
           "data-edge": `${e.from}>${e.to}>${e.kind}`,
-          ...(i === Math.floor((roles.length - 1) / 2) ? { [head]: `url(#head-${roles[0]})`, "data-head": drawnEnds(e)[1] } : {}),
+          ...(i === mid
+            ? (a.lead ? { "marker-start": `url(#head-${roles[0]})`, "data-head": e.from } : { "data-shared": e.from }) : {}),
         });
         edgeLayer.append(path);
         view.edgeNodes.push({ edge: e, path });
@@ -469,36 +465,40 @@
     paint();
   }
 
-  // Where a line between two boxes meets each of them, and which way it
-  // leaves: a point on a face, a unit direction out of the box, and how
-  // far the curve's control point lies along it. `along` is how far
-  // across a top or bottom face the line meets it (arrows meet the
-  // middle); on a side it meets as far down as 1 - along. A line meets
-  // a top or bottom face unless another box of the same group lies that
-  // way, between the face and the other end: then it meets the side
-  // toward the other end, so it never seems to end on a partner.
-  function endsOf(from, to, along) {
+  // Which face of each box a line between two boxes meets: "top" or
+  // "bottom", or "left" or "right". A line meets a top or bottom face
+  // unless another box of the same group lies that way, between the face
+  // and the other end: then it meets the side toward the other end, so it
+  // never seems to end on a partner. `arc`: both ends on one line, so the
+  // line arcs over the boxes between them.
+  function facesOf(from, to) {
     const p = view.position.get(from);
     const q = view.position.get(to);
     if (!p || !q) return null;
     const next = (a, b, step) => a.tier === b.tier && a.x === b.x && b.line === a.line + step;
     const face = (a, b) => {
-      if (b.line <= a.line) return a.stack > 0 && !next(a, b, -1) ? "side" : "top";
-      return a.stack < a.depth - 1 && !next(a, b, 1) ? "side" : "bottom";
+      const side = b.x >= a.x ? "right" : "left";
+      if (b.line <= a.line) return a.stack > 0 && !next(a, b, -1) ? side : "top";
+      return a.stack < a.depth - 1 && !next(a, b, 1) ? side : "bottom";
     };
     const fa = face(p, q);
     const fb = face(q, p);
-    const arc = p.line === q.line && fa === "top" && fb === "top";
-    const end = (a, b, f) => {
-      if (f === "side") {
-        const right = b.x >= a.x;
-        return { pt: [right ? a.x + BOX_W : a.x, a.y + (1 - along) * BOX_H], dir: [right ? 1 : -1, 0] };
-      }
-      const top = f === "top";
-      return { pt: [a.x + along * BOX_W, top ? a.y : a.y + BOX_H], dir: [0, top ? -1 : 1] };
-    };
-    const ea = end(p, q, fa);
-    const eb = end(q, p, fb);
+    return { fa, fb, arc: p.line === q.line && fa === "top" && fb === "top" };
+  }
+
+  // A point `t` of the way along a box's face (left to right, or top to
+  // bottom), and the way out of the box there.
+  function pointOn(name, face, t) {
+    const a = view.position.get(name);
+    if (face === "top") return { pt: [a.x + t * BOX_W, a.y], dir: [0, -1] };
+    if (face === "bottom") return { pt: [a.x + t * BOX_W, a.y + BOX_H], dir: [0, 1] };
+    if (face === "left") return { pt: [a.x, a.y + t * BOX_H], dir: [-1, 0] };
+    return { pt: [a.x + BOX_W, a.y + t * BOX_H], dir: [1, 0] };
+  }
+
+  // The two ends of a line, each a point on a face with its way out, and
+  // how far the curve's control point lies along it.
+  function joinEnds(ea, eb, arc) {
     const dx = Math.abs(eb.pt[0] - ea.pt[0]);
     const dy = Math.abs(eb.pt[1] - ea.pt[1]);
     const reach = (e) => {
@@ -508,6 +508,142 @@
     ea.k = reach(ea);
     eb.k = reach(eb);
     return [ea, eb];
+  }
+
+  // ---- Spreading the ends along a face ----
+  // The lines that meet one face of a box are spread along it, in the
+  // order of where their other ends lie, so they cross as little as they
+  // can. Ends are END_GAP apart where the face has room, and never less
+  // than MIN_GAP, so no two heads touch. A face with more lines than it
+  // can hold MIN_GAP apart shares points: its lines are split into runs,
+  // the lines of a run end at one point on a shared stem, and only the
+  // first of a run is drawn with a head. Lines that end at the box (heads)
+  // and lines that leave it are kept in runs of their own, and heads by
+  // their role, so one head never stands for two roles.
+  const END_GAP = 22;
+  const MIN_GAP = 9;
+  // How far the ends keep from a face's corners: clear of the tick box and
+  // the program's eye, which sit on the right-hand corners.
+  const MARGIN = { top: 16, bottom: 16, left: 9, right: 9 };
+  const faceLength = (face) => (face === "top" || face === "bottom" ? BOX_W : BOX_H);
+  const ROLE_ORDER = ["uses", "wires", "implements"];
+
+  // `ends`: [{ order, run }]; gives each its place along the face (0 to
+  // 1) and whether it leads its run, in `t` and `lead`.
+  function spreadOn(face, ends) {
+    const len = faceLength(face);
+    const room = len - 2 * MARGIN[face];
+    const slots = Math.max(1, Math.floor(room / MIN_GAP) + 1);
+    const at = (pos) => pos / len;
+    if (ends.length <= slots) {
+      ends.sort((a, b) => a.order - b.order);
+      const gap = ends.length > 1 ? Math.min(END_GAP, room / (ends.length - 1)) : 0;
+      const first = len / 2 - (gap * (ends.length - 1)) / 2;
+      ends.forEach((e, i) => { e.t = at(first + i * gap); e.lead = true; });
+      return;
+    }
+    // Too many: each run gets a share of the points, at least one.
+    ends.sort((a, b) => a.run - b.run || a.order - b.order);
+    const runs = [...new Set(ends.map((e) => e.run))];
+    const size = (r) => ends.filter((e) => e.run === r).length;
+    const share = new Map(runs.map((r) => [r, 1]));
+    let spare = slots - runs.length;
+    while (spare > 0) {
+      // The next point goes to the run with the most lines per point.
+      const r = runs.reduce((best, x) => (size(x) / share.get(x) > size(best) / share.get(best) ? x : best));
+      if (size(r) <= share.get(r)) break;
+      share.set(r, share.get(r) + 1);
+      spare--;
+    }
+    const used = runs.reduce((n, r) => n + share.get(r), 0);
+    const gap = Math.min(END_GAP, room / Math.max(1, used - 1));
+    const first = len / 2 - (gap * (used - 1)) / 2;
+    let point = 0;
+    for (const r of runs) {
+      const mine = ends.filter((e) => e.run === r);
+      const k = share.get(r);
+      mine.forEach((e, j) => {
+        const slot = point + Math.floor((j * k) / mine.length);
+        e.t = at(first + slot * gap);
+        e.lead = j === 0 || Math.floor(((j - 1) * k) / mine.length) !== slot - point;
+      });
+      point += k;
+    }
+  }
+
+  // Where the other end of a line lies, along the face: across it for a
+  // top or bottom face, down it for a side.
+  function orderOf(face, other) {
+    const q = view.position.get(other);
+    return face === "top" || face === "bottom" ? q.x + BOX_W / 2 + q.y / 1e4 : q.y + BOX_H / 2 + q.x / 1e4;
+  }
+
+  // Every drawn arrow's two ends: each face's arrows spread along it.
+  // Returns a map from the edge to [its end at `from`, its end at `to`],
+  // each with `lead`, and keeps each face's points for the delivery lines.
+  function placeArrowEnds(edges) {
+    const byFace = new Map();
+    const add = (name, face, end) => {
+      const key = `${name}|${face}`;
+      if (!byFace.has(key)) byFace.set(key, { name, face, ends: [] });
+      byFace.get(key).ends.push(end);
+    };
+    const placed = new Map();
+    for (const e of edges) {
+      const f = facesOf(e.from, e.to);
+      if (!f) continue;
+      // The head is on `from`, the crate that depends on the other.
+      const head = { order: orderOf(f.fa, e.to), run: 1 + ROLE_ORDER.indexOf(shownRoles(e)[0]) };
+      const tail = { order: orderOf(f.fb, e.from), run: 0 };
+      add(e.from, f.fa, head);
+      add(e.to, f.fb, tail);
+      placed.set(e, { f, head, tail });
+    }
+    for (const { face, ends } of byFace.values()) spreadOn(face, ends);
+    view.faceArrows = new Map([...byFace].map(([key, v]) => [key, v.ends.map((x) => x.t).sort((a, b) => a - b)]));
+    const out = new Map();
+    for (const [e, { f, head, tail }] of placed) {
+      const ends = joinEnds(pointOn(e.from, f.fa, head.t), pointOn(e.to, f.fb, tail.t), f.arc);
+      ends[0].lead = head.lead;
+      out.set(e, ends);
+    }
+    return out;
+  }
+
+  // The delivery lines' ends: on each face, in the spaces between the
+  // arrows' ends there, in the order of their other ends; on a face with
+  // no arrows, spread as arrows are.
+  function placeDeliveryEnds(lines) {
+    const byFace = new Map();
+    const placed = [];
+    for (const line of lines) {
+      const f = facesOf(line.program, line.receiver);
+      if (!f) continue;
+      const a = { order: orderOf(f.fa, line.receiver), run: 0 };
+      const b = { order: orderOf(f.fb, line.program), run: 0 };
+      for (const [name, face, end] of [[line.program, f.fa, a], [line.receiver, f.fb, b]]) {
+        const key = `${name}|${face}`;
+        if (!byFace.has(key)) byFace.set(key, { face, ends: [] });
+        byFace.get(key).ends.push(end);
+      }
+      placed.push({ line, f, a, b });
+    }
+    for (const [key, { face, ends }] of byFace) {
+      const arrows = (view.faceArrows && view.faceArrows.get(key)) || [];
+      if (!arrows.length) { spreadOn(face, ends); continue; }
+      const len = faceLength(face);
+      const bounds = [MARGIN[face] / len, ...arrows, 1 - MARGIN[face] / len];
+      const spaces = bounds.slice(1).map((t, i) => (t + bounds[i]) / 2);
+      ends.sort((x, y) => x.order - y.order);
+      ends.forEach((e, i) => {
+        const pick = ends.length >= spaces.length ? Math.floor((i * spaces.length) / ends.length)
+          : Math.round(((i + 0.5) * spaces.length) / ends.length - 0.5);
+        e.t = spaces[Math.min(spaces.length - 1, pick)];
+      });
+    }
+    return placed.map(({ line, f, a, b }) => ({
+      line, ends: joinEnds(pointOn(line.program, f.fa, a.t), pointOn(line.receiver, f.fb, b.t), f.arc),
+    }));
   }
 
   // One arrowhead per role: a filled arrow for uses, a hollow triangle for
@@ -521,7 +657,8 @@
     };
     for (const [role, [d, cls]] of Object.entries(shapes)) {
       const marker = svg("marker", {
-        id: `head-${role}`, viewBox: "-1 -1 10 10", refX: "7.5", refY: "4", markerWidth: "8", markerHeight: "8",
+        id: `head-${role}`, viewBox: "-1 -1 10 10", refX: "7.5", refY: "4", markerWidth: "9", markerHeight: "9",
+        markerUnits: "userSpaceOnUse",
         orient: "auto-start-reverse",
       });
       marker.append(svg("path", { d, class: cls }));
@@ -771,14 +908,10 @@
     const placed = [...view.nodes.keys()].map((n) => view.position.get(n)).filter(Boolean)
       .map((q) => ({ x: q.x, y: q.y, w: BOX_W, h: BOX_H }));
     const overlaps = (r) => placed.some((q) => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h);
-    for (const line of lines.values()) {
-      // A quarter of the way along each box, where no arrow meets it
-      // (arrows meet the middle), so a line
-      // between a program and the crate just below it does not lie on the
-      // arrows leaving the program.
-      const ends = endsOf(line.program, line.receiver, DELIVERY_X / BOX_W);
-      if (!ends) continue;
-      const [a, b] = ends;
+    // In the spaces between the arrows' ends, so a line between a program
+    // and the crate just below it does not lie on the arrows leaving the
+    // program.
+    for (const { line, ends: [a, b] } of placeDeliveryEnds([...lines.values()])) {
       const tip = (ev) => showDeliveryTip(ev, line);
       const path = svg("path", { d: edgePath(a, b), class: "delivery", "data-from": line.program, "data-to": line.receiver });
       path.addEventListener("mousemove", tip);
@@ -1267,7 +1400,7 @@
     return [
       el("h2", {}, "The workspace"),
       el("p", {}, `${graph.crates.length} packages and ${normal} dependencies between them that their code uses. `,
-        "Arrows are drawn by their role. A grey arrow runs from a crate to a crate that uses its items, and an amber one to a crate that builds its implementations to wire into a slot: from what is included to what includes it. A green arrow runs from a crate to the contract it implements. The panel's lists keep Cargo's sense: a crate includes what it depends on. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
+        "Arrows are drawn by their role. A grey arrow runs from a crate to a crate that uses its items, and an amber one to a crate that builds its implementations to wire into a slot: from what is included to what includes it. A green arrow runs from a contract to a crate that implements it, since the implementer needs the contract to know what to build. Every arrow's head is on the crate that depends on the other. The panel's lists keep Cargo's sense: a crate includes what it depends on. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
       el("ul", { class: "overview" }, concerns.layers.map((layer) =>
         el("li", {}, el("strong", {}, `${layer.title} (${counts.get(layer.id) || 0}). `), prose(layer.about)))),
       kindChecks(graph.kind_mismatches),
