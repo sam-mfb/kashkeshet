@@ -9,7 +9,7 @@ members = [
     "crates/kkt-agent-client",
     "crates/kkt-agent-client-mcp",
     "crates/kkt-agent-commands",
-    "crates/kkt-agent-files-os",
+    "crates/kkt-agent-files",
     "crates/kkt-api-admin",
     "crates/kkt-api-agent",
     "crates/kkt-api-operator",
@@ -47,7 +47,7 @@ members = [
     "crates/kkt-machine",
     "crates/kkt-machine-os",
     "crates/kkt-mcp",
-    "crates/kkt-mcp-formatter",
+    "crates/kkt-result-format",
     "crates/kkt-names",
     "crates/kkt-operate",
     "crates/kkt-probe",
@@ -67,12 +67,12 @@ members = [
     "crates/kkt-setup-os",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
-    "crates/kkt-terminal-os",
+    "crates/kkt-terminal",
     "crates/kkt-watch",
     "crates/kkt-web",
     "programs/kkt-fake-product",
     "programs/kkt-keymode",
-    "programs/kkt-web-preview",
+    "programs/kkt-webapp-preview",
 ]
 default-members = [
     ".",
@@ -82,7 +82,7 @@ default-members = [
     "crates/kkt-agent-client",
     "crates/kkt-agent-client-mcp",
     "crates/kkt-agent-commands",
-    "crates/kkt-agent-files-os",
+    "crates/kkt-agent-files",
     "crates/kkt-api-admin",
     "crates/kkt-api-agent",
     "crates/kkt-api-operator",
@@ -120,7 +120,7 @@ default-members = [
     "crates/kkt-machine",
     "crates/kkt-machine-os",
     "crates/kkt-mcp",
-    "crates/kkt-mcp-formatter",
+    "crates/kkt-result-format",
     "crates/kkt-names",
     "crates/kkt-operate",
     "crates/kkt-probe",
@@ -140,12 +140,12 @@ default-members = [
     "crates/kkt-setup-os",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
-    "crates/kkt-terminal-os",
+    "crates/kkt-terminal",
     "crates/kkt-watch",
     "crates/kkt-web",
     "programs/kkt-fake-product",
     "programs/kkt-keymode",
-    "programs/kkt-web-preview",
+    "programs/kkt-webapp-preview",
 ]
 resolver = "3"
 
@@ -223,7 +223,7 @@ kkt-server-keys-os = { path = "crates/kkt-server-keys-os" }
 kkt-agent-client = { path = "crates/kkt-agent-client" }
 kkt-agent-client-mcp = { path = "crates/kkt-agent-client-mcp" }
 kkt-agent-commands = { path = "crates/kkt-agent-commands" }
-kkt-agent-files-os = { path = "crates/kkt-agent-files-os" }
+kkt-agent-files = { path = "crates/kkt-agent-files" }
 kkt-api-agent = { path = "crates/kkt-api-agent" }
 kkt-backup = { path = "crates/kkt-backup" }
 kkt-backup-os = { path = "crates/kkt-backup-os" }
@@ -242,7 +242,7 @@ kkt-db-sqlite = { path = "crates/kkt-db-sqlite" }
 kkt-diagnostics = { path = "crates/kkt-diagnostics" }
 kkt-probe = { path = "crates/kkt-probe" }
 kkt-events = { path = "crates/kkt-events" }
-kkt-mcp-formatter = { path = "crates/kkt-mcp-formatter" }
+kkt-result-format = { path = "crates/kkt-result-format" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
 kkt-lane-commit = { path = "crates/kkt-lane-commit" }
@@ -270,7 +270,7 @@ kkt-setup = { path = "crates/kkt-setup" }
 kkt-setup-os = { path = "crates/kkt-setup-os" }
 kkt-shutdown = { path = "crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "crates/kkt-shutdown-os" }
-kkt-terminal-os = { path = "crates/kkt-terminal-os" }
+kkt-terminal = { path = "crates/kkt-terminal" }
 kkt-watch = { path = "crates/kkt-watch" }
 kkt-web = { path = "crates/kkt-web" }
 tokio.workspace = true

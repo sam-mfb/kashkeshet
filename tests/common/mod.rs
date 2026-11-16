@@ -76,7 +76,7 @@ pub struct TestConfig {
     /// The rules' settings.
     pub rules: kkt_rules::Settings,
     /// The formatter's settings: how long a response may be.
-    pub formatter: kkt_mcp_formatter::Settings,
+    pub formatter: kkt_result_format::Settings,
     /// How many backups an upgrade keeps.
     pub backups: kkt_backup::Settings,
     pub allowed_origins: Vec<String>,
@@ -94,7 +94,7 @@ pub fn test_config() -> TestConfig {
         admin_key: None,
         admin_name: None,
         rules: kkt_rules::Settings::DEFAULT,
-        formatter: kkt_mcp_formatter::Settings::DEFAULT,
+        formatter: kkt_result_format::Settings::DEFAULT,
         backups: kkt_backup::Settings::DEFAULT,
         allowed_origins: vec!["http://localhost:6274".into()],
         allowed_hosts: Vec::new(),
@@ -386,7 +386,7 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
     options.max_response_bytes = count(
         "max_response_bytes",
         config.formatter.max_response_bytes,
-        kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes,
+        kkt_result_format::Settings::DEFAULT.max_response_bytes,
     );
     options.default_limit = count("default_limit", given.default_limit, defaults.default_limit);
     options.max_limit = count("max_limit", given.max_limit, defaults.max_limit);

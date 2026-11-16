@@ -4,7 +4,7 @@
 //! clock, randomness and stop signals.
 //!
 //! ```text
-//! cargo run -p kkt-web-preview -- --bind 127.0.0.1:7421 --seed 7 --rate 60 --page-messages 30
+//! cargo run -p kkt-webapp-preview -- --bind 127.0.0.1:7421 --seed 7 --rate 60 --page-messages 30
 //! ```
 //!
 //! The same seed gives the same world and the same feed. Pass

@@ -332,10 +332,10 @@ impl Databases for NativeDatabases {
 pub(crate) struct NativeOutput;
 impl Output for NativeOutput {
     fn output(&self, text: Arguments<'_>) {
-        kkt_terminal_os::Terminal.output(text);
+        kkt_terminal::Terminal.output(text);
     }
     fn errors(&self, text: Arguments<'_>) {
-        kkt_terminal_os::Terminal.errors(text);
+        kkt_terminal::Terminal.errors(text);
     }
 }
 

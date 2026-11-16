@@ -60,6 +60,12 @@ Message numbers are given only where they help to find a discussion in
   crate is renamed kkt-listen, since it implements nothing of kkt-server's,
   and sits in foundations. check-crates.sh's check 7 keeps any crate but a
   program from depending on a composition crate in [dependencies].
+- **A crate named `x-something` implements `x`'s contract** (Sam,
+  2026-11-16, msg 3516). Nothing else is named that way. kkt-mcp-formatter
+  became kkt-result-format, kkt-web-preview became kkt-webapp-preview,
+  kkt-terminal-os became kkt-terminal and kkt-agent-files-os became
+  kkt-agent-files: none implements a contract of the crate its old name
+  began with.
 - **Layers say where a crate sits**: programs, assembly, surfaces, access,
   core, data, operations, clients, foundations and dev-only. kkt-search sits
   in foundations, as pure text the data crates build on.

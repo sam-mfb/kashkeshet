@@ -33,7 +33,7 @@ use kkt_server_keys::AccessKey;
 use kkt_server_keys::KeyText;
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
-use kkt_terminal_os::Terminal;
+use kkt_terminal::Terminal;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -238,7 +238,7 @@ struct Settings {
     bind: SocketAddr,
     allow_any_bind: bool,
     rules: kkt_rules::Settings,
-    formatter: kkt_mcp_formatter::Settings,
+    formatter: kkt_result_format::Settings,
     web: kkt_web::Settings,
     backups: kkt_backup::Settings,
     allow_origins: Vec<String>,
@@ -332,10 +332,10 @@ fn settings(args: &Args) -> Result<Settings, String> {
             max_memory_chars: config.max_memory_chars.unwrap_or(defaults.max_memory_chars),
             ..defaults
         },
-        formatter: kkt_mcp_formatter::Settings {
+        formatter: kkt_result_format::Settings {
             max_response_bytes: config
                 .max_response_bytes
-                .unwrap_or(kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes),
+                .unwrap_or(kkt_result_format::Settings::DEFAULT.max_response_bytes),
         },
         web: kkt_web::Settings::DEFAULT,
         backups: kkt_backup::Settings {

@@ -2110,6 +2110,16 @@ composition: kkt-server-listen (effect) named kkt-server's `App`
 - CHANGELOG.md tells crates that depend on kkt by git of the rename and
   the new `listen`.
 
+### Phase 16's follow-up: four names (Sam, 2026-11-16)
+
+A crate named `x-something` implements `x`'s contract, and nothing else
+is named that way (msg 3516). One pull request, by kkt-map-i, reviewed by
+kkt-review-i, renames four crates that broke it, with no other change:
+kkt-mcp-formatter to kkt-result-format, kkt-web-preview to
+kkt-webapp-preview, kkt-terminal-os to kkt-terminal and
+kkt-agent-files-os to kkt-agent-files. CHANGELOG.md tells crates that
+depend on kkt by git.
+
 ## Order at a glance
 
 ```

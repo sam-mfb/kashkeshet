@@ -1,7 +1,7 @@
 //! The terminal as kkt-watch's `Report`, for `kkt watch`, which
 //! kkt-agent-commands runs.
 
-use kkt_terminal_os::Terminal;
+use kkt_terminal::Terminal;
 use kkt_watch as watch;
 
 /// Message lines to standard output, flushed one by one; notes to

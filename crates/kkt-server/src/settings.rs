@@ -7,7 +7,7 @@ use kkt_hosts::AllowedHosts;
 /// its database, rules, keys, logging, bind address and backup settings.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServerSettings {
-    pub formatter: kkt_mcp_formatter::Settings,
+    pub formatter: kkt_result_format::Settings,
     pub web: kkt_web::Settings,
     pub mcp: kkt_mcp::Settings,
     pub allowed_origins: Vec<String>,
@@ -43,7 +43,7 @@ pub struct SettingError {
 
 impl ServerSettings {
     pub const DEFAULT: Self = Self {
-        formatter: kkt_mcp_formatter::Settings::DEFAULT,
+        formatter: kkt_result_format::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
         mcp: kkt_mcp::Settings::DEFAULT,
         allowed_origins: Vec::new(),

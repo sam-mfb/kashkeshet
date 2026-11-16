@@ -12,7 +12,7 @@
 //! records. Its own contract is only the gate (`gate`): the server supplies
 //! the operations over the rules and the gate over admission (`web_real`),
 //! and kkt-api-sim both from simulated data, for the page's tests and the
-//! preview program (kkt-web-preview), so the page can run and be worked on
+//! preview program (kkt-webapp-preview), so the page can run and be worked on
 //! without a server.
 
 mod change;

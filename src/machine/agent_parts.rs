@@ -12,7 +12,7 @@ use crate::machine::settings::ServeArgs;
 use kkt_agent_commands::{AdminKey, AgentParts, KeyText, KeyUnread, Output, Program};
 use kkt_clock_system::SystemClock;
 use kkt_machine::{Env, Platform};
-use kkt_terminal_os::Terminal;
+use kkt_terminal::Terminal;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
