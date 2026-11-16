@@ -9,7 +9,7 @@ use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
 use kkt_config_file::Config;
 use kkt_config_file::files as config_files;
-use kkt_logs::LogLevel;
+use kkt_log_tracing::LogLevel;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_server::{AppConfig, CheckedSettings};
@@ -238,7 +238,7 @@ pub fn read_config(
 }
 
 /// The settings in a config file's `text`, as [`ServeOptions`]: the
-/// file parsed by kkt-config-file, with kkt-logs' log levels.
+/// file parsed by kkt-config-file, with kkt-log-tracing's log levels.
 pub(crate) fn parse_config(
     text: &str,
     dir: &Path,
@@ -343,7 +343,7 @@ impl BadSetting for kkt_server::SettingError {
     }
 }
 
-impl BadSetting for kkt_logs::SettingError {
+impl BadSetting for kkt_log_tracing::SettingError {
     fn setting(&self) -> &'static str {
         self.name
     }
@@ -415,7 +415,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     if let Err(p) = kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None) {
         problems.push((p.name, "check_bind", p.rule));
     }
-    if let Err(p) = kkt_logs::check_dependency_log_level(dependency_log_level) {
+    if let Err(p) = kkt_log_tracing::check_dependency_log_level(dependency_log_level) {
         problems.push((p.name, "check_dependency_log_level", p.rule));
     }
     let server_settings = server_settings
@@ -621,7 +621,7 @@ mod tests {
             parse("max_limit = \"5\"").unwrap_err().to_string(),
             "max_limit in the config file must be a whole number of zero or more, not \"5\""
         );
-        // A level that is not one, worded as kkt-logs words it.
+        // A level that is not one, worded as kkt-log-tracing words it.
         let loud = LogLevel::parse("log_level", "loud").unwrap_err();
         assert_eq!(
             parse("log_level = \"loud\"").unwrap_err().to_string(),

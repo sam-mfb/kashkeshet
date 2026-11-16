@@ -1,9 +1,14 @@
-//! The log file on disk: appended to, rolled over and pruned as kkt-logs'
-//! policy plans say ([`RotatingFile`], opened by [`open_log_file`] after
-//! the policy's check). The program supplies the wall clock.
+//! A file on disk that rolls over at a size and prunes old copies by age
+//! ([`RotatingFile`], opened by [`open_log_file`] after checking its
+//! [`LogPolicy`]). The server writes its log to one. The rules that keep
+//! it bounded are pure plans, in `policy`, carried out here. The program
+//! supplies the wall clock.
+
+mod policy;
+pub use policy::LogPolicy;
 
 use kkt_clock::{Clock, Time};
-use kkt_logs::{LogPolicy, prune_due, pruning, rotation, should_roll};
+use policy::{prune_due, pruning, rotation, should_roll};
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};

@@ -1,16 +1,16 @@
 //! The program's run-record values. Owners word their own settings;
 //! kkt-server orders these plain lines with its own settings' lines.
 
+use super::LogPolicy;
 use crate::ServerSettings;
-use kkt_logs::{LogLevel, LogPolicy};
 
 pub(crate) struct RecordedSettings<'a> {
     pub server: &'a ServerSettings,
     pub rules: kkt_rules::Settings,
     pub backup: kkt_backup::Settings,
     pub allow_any_bind: bool,
-    pub log_level: LogLevel,
-    pub dependency_log_level: LogLevel,
+    pub log_level: &'static str,
+    pub dependency_log_level: &'static str,
     pub config_file: Option<String>,
     pub access_key_file: Option<String>,
     pub web_key_file: Option<String>,
@@ -41,8 +41,8 @@ impl RecordedSettings<'_> {
         lines.extend(backup.record_lines());
         lines.extend([
             line("allow_any_bind", allow_any_bind),
-            line("log_level", log_level.name()),
-            line("dependency_log_level", dependency_log_level.name()),
+            line("log_level", log_level),
+            line("dependency_log_level", dependency_log_level),
         ]);
         lines.extend(config_file.iter().map(|file| line("config_file", file)));
         lines.extend(

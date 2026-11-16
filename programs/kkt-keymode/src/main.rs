@@ -27,7 +27,7 @@ use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_events::Events;
 use kkt_identity_keymode::KeyMode;
-use kkt_logs::{LogLevel, LogPolicy};
+use kkt_log_tracing::LogLevel;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
@@ -161,8 +161,6 @@ async fn run(args: &[String]) -> Result<(), String> {
                     .and_then(|admission| admission.key_source())
                     .map(str::to_string),
                 admin_name: admin_name.as_ref().map(|name| name.to_string()),
-                log_file: None,
-                log_policy: LogPolicy::DEFAULT,
             }
             .lines(),
             instructions: config.agent_instructions().to_string(),
@@ -351,10 +349,12 @@ fn settings(args: &Args) -> Result<Settings, String> {
         access_key,
         web_key,
         admin_key,
-        log_level: config.log_level.unwrap_or(kkt_logs::DEFAULT_LOG_LEVEL),
+        log_level: config
+            .log_level
+            .unwrap_or(kkt_log_tracing::DEFAULT_LOG_LEVEL),
         dependency_log_level: config
             .dependency_log_level
-            .unwrap_or(kkt_logs::DEFAULT_DEPENDENCY_LOG_LEVEL),
+            .unwrap_or(kkt_log_tracing::DEFAULT_DEPENDENCY_LOG_LEVEL),
     })
 }
 

@@ -2110,6 +2110,32 @@ composition: kkt-server-listen (effect) named kkt-server's `App`
 - CHANGELOG.md tells crates that depend on kkt by git of the rename and
   the new `listen`.
 
+### After phase 16: kkt-logs goes (Sam, 2026-11-16)
+
+**Sam's decision** (msg 3501, from sage-cardinal). kkt-logs (logic) was
+two unrelated halves, each used by one effect crate and the programs.
+ARCHITECTURE.md 4.2.2 (new that day) lets an effect crate hold logic that
+is properly its own concern, so each half joins its effect, in one pull
+request:
+- the log level setting (`LogLevel`, `DEFAULT_LOG_LEVEL`,
+  `DEFAULT_DEPENDENCY_LOG_LEVEL`, `check_dependency_log_level`) moves to
+  kkt-log-tracing;
+- the file rules (`LogPolicy` and its check, `should_roll`, `prune_due`,
+  `rotation`, `pruning`, with `Rotation` and `Pruning`) move to
+  kkt-logs-os, which is renamed kkt-rolling-file, stays in foundations,
+  and does not implement kkt-log;
+- each gets its own `SettingError`, worded as before, and kkt-logs is
+  deleted.
+
+**What it did, against this decision.** Done as decided, with three
+differences. The plans and `LogPolicy::check` are private to
+kkt-rolling-file now that nothing outside it uses them. kkt-server's
+run-record tests, a sixth user of kkt-logs that the map did not show
+(their dev-dependency), take the log settings as plain values instead, so
+kkt-server's tests use neither effect crate (msg 3505). kkt-keymode's run
+record lost its log-file fields, which were always empty: it writes no
+log file, and its record is unchanged.
+
 ### Phase 16's second follow-up: kkt-files (Sam, 2026-11-16)
 
 Effect crates that implement no contract are named for what they do, not

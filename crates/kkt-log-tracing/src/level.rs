@@ -1,10 +1,6 @@
-//! Log levels, their checks, and pure rollover and age-pruning rules.
-//! kkt-logs-os carries these plans out on the log file on disk.
-
-mod policy;
-pub use policy::{Pruning, Rotation, prune_due, pruning, rotation, should_roll};
-
-use std::time::Duration;
+//! The log level setting: how much is logged ([`LogLevel`]), the levels
+//! used when nothing says, and the check that keeps the libraries' level
+//! from logging secrets.
 
 /// How much is logged: the named level and everything more severe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -75,50 +71,8 @@ pub fn check_dependency_log_level(level: LogLevel) -> Result<(), SettingError> {
     }
 }
 
-/// Smallest allowed [`LogPolicy::max_bytes`].
-const MIN_LOG_FILE_BYTES: u64 = 64 * 1024;
-
-/// How a log file the server writes itself (`--log-file`) is kept bounded.
-/// When the file would grow past `max_bytes`, it is renamed `<file>.1`, the
-/// older ones move up to `<file>.<rotated_files>`, and the oldest is
-/// deleted. Rolled files older than `max_age` are deleted too.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct LogPolicy {
-    pub max_bytes: u64,
-    pub rotated_files: usize,
-    pub max_age: Duration,
-}
-
-impl LogPolicy {
-    /// At most about 60 MB: the current file and five rolled ones of 10 MB,
-    /// none rolled more than 30 days ago.
-    pub const DEFAULT: LogPolicy = LogPolicy {
-        max_bytes: 10 * 1024 * 1024,
-        rotated_files: 5,
-        max_age: Duration::from_secs(30 * 24 * 60 * 60),
-    };
-
-    /// Checks that the policy bounds the log. The server refuses to start
-    /// with one that fails.
-    pub fn check(&self) -> Result<(), SettingError> {
-        if self.max_bytes < MIN_LOG_FILE_BYTES {
-            return Err(SettingError::new(
-                "log_max_bytes",
-                format!("must be at least {MIN_LOG_FILE_BYTES}"),
-            ));
-        }
-        if self.rotated_files == 0 {
-            return Err(SettingError::new("log_rotated_files", "must be at least 1"));
-        }
-        if self.max_age < Duration::from_secs(60 * 60) {
-            return Err(SettingError::new("log_max_age", "must be at least an hour"));
-        }
-        Ok(())
-    }
-}
-
-/// A log setting the server refuses to start with: the setting's name and
-/// why.
+/// A log level setting the server refuses to start with: the setting's
+/// name and why.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[error("{name} {rule}")]
 pub struct SettingError {
@@ -138,37 +92,6 @@ impl SettingError {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_default_log_policy_passes_and_bad_ones_are_named() {
-        assert_eq!(LogPolicy::DEFAULT.check(), Ok(()));
-        let cases = [
-            (
-                LogPolicy {
-                    max_bytes: MIN_LOG_FILE_BYTES - 1,
-                    ..LogPolicy::DEFAULT
-                },
-                "log_max_bytes",
-            ),
-            (
-                LogPolicy {
-                    rotated_files: 0,
-                    ..LogPolicy::DEFAULT
-                },
-                "log_rotated_files",
-            ),
-            (
-                LogPolicy {
-                    max_age: Duration::from_secs(59 * 60),
-                    ..LogPolicy::DEFAULT
-                },
-                "log_max_age",
-            ),
-        ];
-        for (policy, name) in cases {
-            assert_eq!(policy.check().map_err(|e| e.name), Err(name));
-        }
-    }
 
     #[test]
     fn log_levels_parse_by_name_and_refuse_others() {

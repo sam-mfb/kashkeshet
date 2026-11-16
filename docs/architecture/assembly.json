@@ -350,7 +350,7 @@
     },
     {
      "impl": "kkt-clock-system::SystemClock",
-     "crate": "kkt-logs-os",
+     "crate": "kkt-rolling-file",
      "to": [
       {
        "at": "open_log_file",

@@ -174,7 +174,7 @@ entry below says which one applies.
 
 ### kkt-log — keep
 
-1. Declares `Log`, with levels and fields. kkt-logs-os' `TracingLog`
+1. Declares `Log`, with levels and fields. kkt-log-tracing's `TracingLog`
    implements it; `CapturedLog` is the stand-in. Consumers: kkt-mcp,
    kkt-web, kkt-server and kkt-web-preview.
 2. `CapturedLog` is used by kkt-mcp, kkt-web, kkt-server and

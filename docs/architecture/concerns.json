@@ -400,17 +400,11 @@
    "must_not": "Wait for the browser; repeat the link in a message.",
    "kind": "effect"
   },
-  "kkt-logs": {
-   "layer": "foundations",
-   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans; kkt-logs-os carries them out on the log file.",
-   "kind": "logic",
-   "must_not": "Read a real clock itself; start a logging library."
-  },
   "kkt-log-tracing": {
    "layer": "foundations",
    "kind": "effect",
-   "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given.",
-   "must_not": "Open, roll over or prune log files; choose log levels' defaults."
+   "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given; the log level setting it starts with: LogLevel (name, parse), DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL and check_dependency_log_level, with its own SettingError (from kkt-logs, deleted, ARCHITECTURE.md 4.2.2).",
+   "must_not": "Open, roll over or prune log files."
   },
   "kkt-provenance": {
    "layer": "foundations",
@@ -442,11 +436,11 @@
    "must_not": "Let a toml or toml_edit type into its public items; know whose file it reads.",
    "kind": "logic"
   },
-  "kkt-logs-os": {
+  "kkt-rolling-file": {
    "layer": "foundations",
    "kind": "effect",
-   "concern": "The log file on disk, appended to, rolled over and pruned as kkt-logs' plans say: RotatingFile, opened by open_log_file after the policy's check, with the clock the program gives (phase 16, the reverse of 14.4's merge).",
-   "must_not": "Decide the policy or its plans; read a real clock itself; start a logging library."
+   "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). It does not implement kkt-log.",
+   "must_not": "Read a real clock itself; start a logging library; know log levels."
   },
   "kkt-server-keys-os": {
    "layer": "access",

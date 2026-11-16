@@ -1,4 +1,5 @@
-// A headless check of the map page: ticked crates and the panel's crate are
+// A headless check of the map page: groups drawn beneath their heads and
+// outlined, with every arrow ending on its own boxes; ticked crates and the panel's crate are
 // kept by name through every filter, and Reset view clears them; no box
 // moves when a filter changes; and only full-strength arrows answer the
 // pointer. It needs Playwright with Chromium; CI does not run it. From the repository's root:
@@ -66,6 +67,73 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
 
     const home = await places();
     check("nothing ticked, every arrow faint", (await p.$$eval("path.edge:not(.faint)", (x) => x.length)) === 0);
+
+    // Groups (generate.py's `groups`): each partner directly beneath its
+    // head, the group outlined, and every arrow ending on its own crates'
+    // boxes, never on another's.
+    const groups = await p.evaluate(() => {
+      const at = (name) => {
+        const n = document.querySelector(`.node[aria-label^='${name}:']`);
+        const m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(n.getAttribute("transform"));
+        return { x: +m[1], y: +m[2] };
+      };
+      const wrong = [];
+      for (const [head, partners] of Object.entries(window.KKT_GRAPH.groups)) {
+        let above = at(head);
+        for (const name of partners) {
+          const q = at(name);
+          if (q.x !== above.x || q.y <= above.y) wrong.push(name);
+          above = q;
+        }
+      }
+      return { count: Object.keys(window.KKT_GRAPH.groups).length,
+               outlines: document.querySelectorAll("rect.group").length, wrong };
+    });
+    check("each partner sits beneath its head, and each group is outlined",
+      groups.count >= 9 && groups.outlines === groups.count && groups.wrong.length === 0, groups);
+    const endsOnOwnBoxes = () => p.evaluate(() => {
+      const boxes = [...document.querySelectorAll(".node")].map((n) => {
+        const m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(n.getAttribute("transform"));
+        const r = n.querySelector("rect");
+        return { name: n.getAttribute("aria-label").split(":")[0], x: +m[1], y: +m[2], w: +r.getAttribute("width"), h: +r.getAttribute("height") };
+      });
+      const near = (b, q, pad) => q.x >= b.x - pad && q.x <= b.x + b.w + pad && q.y >= b.y - pad && q.y <= b.y + b.h + pad;
+      const bad = [];
+      for (const path of document.querySelectorAll("path.edge")) {
+        const [from, to] = path.dataset.edge.split(">");
+        const len = path.getTotalLength();
+        for (const [q, name] of [[path.getPointAtLength(0), from], [path.getPointAtLength(len), to]]) {
+          const own = boxes.find((b) => b.name === name);
+          const other = boxes.find((b) => b.name !== name && near(b, q, 1));
+          if (!own || !near(own, q, 5) || other) bad.push(`${path.dataset.edge} at ${name}`);
+        }
+      }
+      return bad;
+    });
+    const stray = await endsOnOwnBoxes();
+    check("every arrow ends on its own crates' boxes", stray.length === 0, stray.slice(0, 5));
+    // Every crate's name and subtitle fits inside its box.
+    const overflow = await p.evaluate(() => [...document.querySelectorAll(".node")].flatMap((n) => {
+      const box = n.querySelector("rect").getBBox();
+      return [...n.querySelectorAll("text")].filter((x) => {
+        const b = x.getBBox();
+        return b.x < box.x || b.x + b.width > box.x + box.width - 8;
+      }).map((x) => x.textContent);
+    }));
+    check("every label fits inside its box", overflow.length === 0, overflow);
+    // The operations layer, with its groups stacked, is narrower than the
+    // six boxes a line holds.
+    const widest = await p.evaluate(() => {
+      const ops = Object.entries(window.KKT_CONCERNS.crates).filter(([, c]) => c.layer === "operations").map(([n]) => n);
+      const rows = new Map();
+      for (const n of document.querySelectorAll(".node")) {
+        if (!ops.includes(n.getAttribute("aria-label").split(":")[0])) continue;
+        const y = /translate\(([-\d.]+),([-\d.]+)\)/.exec(n.getAttribute("transform"))[2];
+        rows.set(y, (rows.get(y) || 0) + 1);
+      }
+      return Math.max(...rows.values());
+    });
+    check("the operations layer is at most five boxes wide", widest <= 5, widest);
 
     // No box is split any more: every crate is one kind (phase 16).
     check("no crate's box is split", (await p.$$eval(".node .impl-part", (x) => x.length)) === 0);
@@ -161,6 +229,15 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     await p.click(logic);
     await same("a kind hidden", "kkt-server", panel);
     await unmoved("a kind hidden", home);
+    // A group whose head is filtered out keeps its outline around the
+    // partners still drawn.
+    const contract = "#kind-filters input[data-key='kind:contract']";
+    await p.click(contract);
+    check("a group keeps its outline when its head is hidden",
+      (await p.$$eval("rect.group[data-group='kkt-db']", (x) => x.length)) === 1 &&
+      (await p.$$eval(node("kkt-db"), (x) => x.length)) === 0, null);
+    await unmoved("a group's head hidden", home);
+    await p.click(contract);
     await p.click(logic);
     await same("the kind back", both, panel);
     await unmoved("the kind back", home);
