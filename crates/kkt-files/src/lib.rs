@@ -1,6 +1,7 @@
-//! General file access on this machine: reading and writing whole files,
-//! listing a folder's file names, making folders, renaming and removing,
-//! whether a path exists, creating a file only its owner can read and
+//! General file access on this machine: reading and writing whole files
+//! (a file that may be missing, and a write that replaces a file only once
+//! the new text is whole), listing a folder's file names, making folders,
+//! renaming and removing, whether a path exists or is a file, creating a file only its owner can read and
 //! restricting one to its owner, and absolute and canonical paths. It knows
 //! nothing of whose files these are: each program adapts [`Files`] to the
 //! contract the crate that needs files declares.
@@ -22,9 +23,29 @@ impl Files {
         fs::read_to_string(path)
     }
 
+    /// The text of the file at `path`, whole; `None` if there is no file
+    /// there.
+    pub fn read_if_present(&self, path: &Path) -> io::Result<Option<String>> {
+        match fs::read_to_string(path) {
+            Ok(text) => Ok(Some(text)),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     /// Writes `text` as the file at `path`, whole, replacing any file there.
     pub fn write(&self, path: &Path, text: &str) -> io::Result<()> {
         fs::write(path, text)
+    }
+
+    /// Writes `text` to `<path>.partial` beside the file, then renames it to
+    /// `path`, so a failed write leaves any earlier file as it was.
+    pub fn write_by_rename(&self, path: &Path, text: &str) -> io::Result<()> {
+        let mut partial = path.as_os_str().to_owned();
+        partial.push(".partial");
+        let partial = PathBuf::from(partial);
+        fs::write(&partial, text)?;
+        fs::rename(&partial, path)
     }
 
     /// The names of the files in `folder`, in no set order; folders and
@@ -63,10 +84,24 @@ impl Files {
         fs::remove_file(path)
     }
 
+    /// Removes the file at `path`; a file already missing is fine.
+    pub fn remove_if_present(&self, path: &Path) -> io::Result<()> {
+        match fs::remove_file(path) {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+            result => result,
+        }
+    }
+
     /// Whether this process can see something at `path`. A path in a folder
     /// it cannot search does not exist, to this answer.
     pub fn exists(&self, path: &Path) -> bool {
         path.exists()
+    }
+
+    /// Whether this process can see a file (not a folder) at `path`,
+    /// following links.
+    pub fn is_file(&self, path: &Path) -> bool {
+        path.is_file()
     }
 
     /// Creates a new file at `path` holding `text`, which only its owner can
@@ -133,6 +168,68 @@ mod tests {
         assert!(!Files.exists(&path));
         let err = Files.read(&path).expect_err("missing");
         assert_eq!(err.kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn a_file_that_may_be_missing_reads_as_none_when_it_is() {
+        let dir = scratch::Dir::new("files-if-present");
+        let path = dir.join("record.toml");
+        assert_eq!(Files.read_if_present(&path).expect("no error"), None);
+        Files.write(&path, "text").expect("written");
+        assert_eq!(
+            Files.read_if_present(&path).expect("read").as_deref(),
+            Some("text")
+        );
+        // Any other failure is still an error: here, a folder in its place.
+        let folder = dir.join("folder");
+        Files.create_dir_all(&folder).expect("made");
+        assert!(Files.read_if_present(&folder).is_err());
+    }
+
+    #[test]
+    fn a_write_by_rename_replaces_the_file_and_leaves_no_partial_copy() {
+        let dir = scratch::Dir::new("files-by-rename");
+        let path = dir.join("setup.toml");
+        Files.write(&path, "old").expect("written");
+        Files.write_by_rename(&path, "new").expect("replaced");
+        assert_eq!(Files.read(&path).expect("read"), "new");
+        assert_eq!(Files.file_names(&dir).expect("listed"), ["setup.toml"]);
+    }
+
+    #[test]
+    fn a_failed_write_by_rename_leaves_the_earlier_file() {
+        let dir = scratch::Dir::new("files-by-rename-fails");
+        let path = dir.join("setup.toml");
+        Files.write(&path, "old").expect("written");
+        // A folder where the partial copy goes makes the write fail.
+        Files
+            .create_dir_all(&dir.join("setup.toml.partial"))
+            .expect("made");
+        assert!(Files.write_by_rename(&path, "new").is_err());
+        assert_eq!(Files.read(&path).expect("read"), "old");
+    }
+
+    #[test]
+    fn remove_if_present_accepts_a_missing_file() {
+        let dir = scratch::Dir::new("files-remove-if-present");
+        let path = dir.join("note.toml");
+        Files.remove_if_present(&path).expect("missing is fine");
+        Files.write(&path, "x").expect("written");
+        Files.remove_if_present(&path).expect("removed");
+        assert!(!Files.exists(&path));
+        // Any other failure is still an error: here, a folder in its place.
+        Files.create_dir_all(&path).expect("made");
+        assert!(Files.remove_if_present(&path).is_err());
+    }
+
+    #[test]
+    fn is_file_is_true_for_files_only() {
+        let dir = scratch::Dir::new("files-is-file");
+        let file = dir.join("kkt");
+        Files.write(&file, "").expect("written");
+        assert!(Files.is_file(&file));
+        assert!(!Files.is_file(&dir));
+        assert!(!Files.is_file(&dir.join("missing")));
     }
 
     #[test]

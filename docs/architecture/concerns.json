@@ -169,11 +169,6 @@
    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
    "kind": "logic"
   },
-  "kkt-setup-os": {
-   "layer": "operations",
-   "concern": "Setup's record and unfinished note, data folder, program paths and PATH checks on this machine.",
-   "kind": "effect"
-  },
   "kkt-service": {
    "layer": "operations",
    "concern": "The project's contract for running kkt as a service of the user's login (`Service`: install, check it started, start, stop, status, logs, add a key, uninstall), with the values it takes and gives and its errors; `Unsupported` for a system with no service manager kkt works with; the plan of what the service runs, from the settings it needs, and the bind check, both on plain values; its testing Memory stand-in.",
@@ -306,12 +301,12 @@
   },
   "kkt-machine": {
    "layer": "foundations",
-   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values, and `Machine`, the contract for reading them and this process's ID, with its stand-in `testing::FixedMachine`. The crates that place files on the machine take these facts; none reads them.",
+   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values, and `Machine`, the contract for reading them, this process's ID, this program's path and the folders `$PATH` names, with its stand-in `testing::FixedMachine`. The crates that place files on the machine take these facts; none reads them.",
    "kind": "contract"
   },
   "kkt-machine-os": {
    "layer": "foundations",
-   "concern": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID. The program asks once and passes the values on.",
+   "concern": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID, this program's path and the folders `$PATH` names. The program asks once and passes the values on.",
    "kind": "effect"
   },
   "kkt-shutdown": {
@@ -327,7 +322,7 @@
   "kkt-files": {
    "layer": "foundations",
    "kind": "effect",
-   "concern": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a private file and restricting one to its owner, and absolute and canonical paths. Each program adapts it to the contract the crate that needs files declares."
+   "concern": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a private file and restricting one to its owner, and absolute and canonical paths. Also a file that may be missing (`read_if_present`), a write that replaces a file only once the new text is whole (`write_by_rename`), a removal where a missing file is fine (`remove_if_present`), and whether a path is a file (`is_file`). Each program adapts it to the contract the crate that needs files declares, or calls it from its own adapters."
   },
   "kkt-listen": {
    "layer": "foundations",

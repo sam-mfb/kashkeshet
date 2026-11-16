@@ -73,6 +73,11 @@ pub trait Machine {
     fn platform(&self) -> Platform;
     /// This process's ID, as the operating system numbers it.
     fn process_id(&self) -> u32;
+    /// This program's absolute path, with links followed. The error is the
+    /// operating system's.
+    fn program_path(&self) -> std::io::Result<PathBuf>;
+    /// The folders `$PATH` names, in order; none when it is unset.
+    fn path_dirs(&self) -> Vec<PathBuf>;
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -88,10 +93,25 @@ mod tests {
             env: env(Some("/config"), None),
             platform: Platform::MacOs,
             process_id: 42,
+            program_path: Some(PathBuf::from("/bin/kkt")),
+            path_dirs: vec![PathBuf::from("/bin")],
         };
         assert_eq!(machine.env(), env(Some("/config"), None));
         assert_eq!(machine.platform(), Platform::MacOs);
         assert_eq!(machine.process_id(), 42);
+        assert_eq!(
+            machine.program_path().expect("a path"),
+            PathBuf::from("/bin/kkt")
+        );
+        assert_eq!(machine.path_dirs(), [PathBuf::from("/bin")]);
+        let lost = testing::FixedMachine {
+            program_path: None,
+            ..machine
+        };
+        assert_eq!(
+            lost.program_path().expect_err("no path").kind(),
+            std::io::ErrorKind::NotFound
+        );
     }
 
     fn env(config: Option<&str>, data: Option<&str>) -> Env {

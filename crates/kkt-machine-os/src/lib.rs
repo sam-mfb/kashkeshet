@@ -1,6 +1,7 @@
 //! The machine's facts as this process sees them: [`OsMachine`] implements
 //! kkt-machine's `Machine`, reading the environment, naming the platform
-//! this program was built for, and giving this process's ID. The program
+//! this program was built for, and giving this process's ID, this
+//! program's path and the folders `$PATH` names. The program
 //! asks once and passes the values on.
 
 use kkt_machine::{Env, Machine, Platform};
@@ -29,6 +30,16 @@ impl Machine for OsMachine {
 
     fn process_id(&self) -> u32 {
         std::process::id()
+    }
+
+    fn program_path(&self) -> std::io::Result<PathBuf> {
+        std::env::current_exe().and_then(|p| p.canonicalize())
+    }
+
+    fn path_dirs(&self) -> Vec<PathBuf> {
+        std::env::var_os("PATH")
+            .map(|path| std::env::split_paths(&path).collect())
+            .unwrap_or_default()
     }
 }
 

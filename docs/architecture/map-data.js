@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "b5824136",
+ "commit": "bf94f903",
  "crates": [
   {
    "bins": [
@@ -539,19 +539,17 @@ window.KKT_GRAPH = {
      "path": "machine::settings::server_settings"
     },
     {
-     "doc": "This program's paths, supplied by the native setup provider.",
+     "doc": "This program's path, as this machine gives it, and how kkt words a failure to find it.",
      "kind": "mod",
      "path": "process"
     },
     {
-     "doc": "",
-     "from": "kkt_setup_os::kkt_path",
+     "doc": "This program's absolute path, for client configurations that run it.",
      "kind": "fn",
      "path": "process::kkt_path"
     },
     {
-     "doc": "",
-     "from": "kkt_setup_os::program_path",
+     "doc": "This program's absolute path, with links followed.",
      "kind": "fn",
      "path": "process::program_path"
     },
@@ -6384,7 +6382,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a file only its owner can read and restricting one to its owner, ...",
+   "crate_doc": "General file access on this machine: reading and writing whole files (a file that may be missing, and a write that replaces a file only once the new text is whole), listing a folder's file names, making folders, renaming and removing, wh...",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -6400,11 +6398,15 @@ window.KKT_GRAPH = {
       "create_private",
       "exists",
       "file_names",
+      "is_file",
       "read",
+      "read_if_present",
       "remove_file",
+      "remove_if_present",
       "rename",
       "restrict",
-      "write"
+      "write",
+      "write_by_rename"
      ],
      "path": "Files"
     }
@@ -7511,8 +7513,10 @@ window.KKT_GRAPH = {
      "kind": "trait",
      "methods": [
       "env",
+      "path_dirs",
       "platform",
-      "process_id"
+      "process_id",
+      "program_path"
      ],
      "path": "Machine"
     },
@@ -7542,7 +7546,9 @@ window.KKT_GRAPH = {
      "fields": [
       "env",
       "platform",
-      "process_id"
+      "process_id",
+      "program_path",
+      "path_dirs"
      ],
      "kind": "struct",
      "path": "testing::FixedMachine"
@@ -7561,7 +7567,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID.",
+   "crate_doc": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID, this program's path and the folders `$P...",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -7583,8 +7589,11 @@ window.KKT_GRAPH = {
    "lib": "kkt_machine_os",
    "machine_work": {
     "src/lib.rs": [
+     "env::current_exe",
+     "env::split_paths",
      "env::var_os",
-     "process::id"
+     "process::id",
+     "Path::canonicalize"
     ]
    },
    "name": "kkt-machine-os",
@@ -14641,105 +14650,6 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
-   "crate_doc": "Setup's record and unfinished note, data folder and program paths on this machine.",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "Resolves a relative path against this process's working directory.",
-     "kind": "fn",
-     "path": "absolute"
-    },
-    {
-     "doc": "Follows links and resolves the actual file path.",
-     "kind": "fn",
-     "path": "canonicalize"
-    },
-    {
-     "doc": "This program's absolute path, for client configurations that run it.",
-     "kind": "fn",
-     "path": "kkt_path"
-    },
-    {
-     "doc": "Makes the default database's parent folder.",
-     "kind": "fn",
-     "path": "make_data_folder"
-    },
-    {
-     "doc": "Whether a program is a file in the already-captured PATH folders.",
-     "kind": "fn",
-     "path": "on_path"
-    },
-    {
-     "doc": "One snapshot of PATH, shared by all client checks in a setup invocation.",
-     "kind": "fn",
-     "path": "path_dirs"
-    },
-    {
-     "doc": "This program's absolute path, with links followed.",
-     "kind": "fn",
-     "path": "program_path"
-    },
-    {
-     "doc": "Reads the setup record from the selected config folder, if present.",
-     "kind": "fn",
-     "path": "read_record"
-    },
-    {
-     "doc": "Reads the unfinished note; the caller checks whether its install is present.",
-     "kind": "fn",
-     "path": "read_unfinished"
-    },
-    {
-     "doc": "Removes the setup record; missing files retain the caller's original refusal.",
-     "kind": "fn",
-     "path": "remove_record"
-    },
-    {
-     "doc": "Removes the unfinished note, accepting an already-missing file.",
-     "kind": "fn",
-     "path": "remove_unfinished"
-    },
-    {
-     "doc": "Saves the setup record with the original write-then-rename operation.",
-     "kind": "fn",
-     "path": "write_record"
-    },
-    {
-     "doc": "Saves the unfinished note with the same write-then-rename operation.",
-     "kind": "fn",
-     "path": "write_unfinished"
-    }
-   ],
-   "lib": "kkt_setup_os",
-   "machine_work": {
-    "src/lib.rs": [
-     "env::current_exe",
-     "env::split_paths",
-     "env::var_os",
-     "fs::create_dir_all",
-     "fs::read_to_string",
-     "fs::remove_file",
-     "fs::rename",
-     "fs::write",
-     "path::absolute",
-     "Path::canonicalize",
-     "Path::is_file"
-    ]
-   },
-   "name": "kkt-setup-os",
-   "path": "crates/kkt-setup-os",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
    "contracts": [
     {
      "implementors": [
@@ -18056,6 +17966,8 @@ window.KKT_GRAPH = {
     "connection::serve_connection",
     "credential_file_check",
     "default_db",
+    "record_path",
+    "unfinished_path",
     "upgrade_backup_folder"
    ],
    "kind": "normal",
@@ -18084,6 +17996,8 @@ window.KKT_GRAPH = {
       "connection::serve_connection",
       "credential_file_check",
       "default_db",
+      "record_path",
+      "unfinished_path",
       "upgrade_backup_folder"
      ],
      "role": "uses"
@@ -18097,51 +18011,6 @@ window.KKT_GRAPH = {
     "Unrecorded"
    ],
    "to": "kkt-setup"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "absolute",
-    "canonicalize",
-    "kkt_path",
-    "make_data_folder",
-    "on_path",
-    "path_dirs",
-    "program_path",
-    "read_record",
-    "read_unfinished",
-    "remove_record",
-    "remove_unfinished",
-    "write_record",
-    "write_unfinished"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "absolute",
-      "canonicalize",
-      "kkt_path",
-      "make_data_folder",
-      "on_path",
-      "path_dirs",
-      "program_path",
-      "read_record",
-      "read_unfinished",
-      "remove_record",
-      "remove_unfinished",
-      "write_record",
-      "write_unfinished"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-setup-os"
   },
   {
    "features": [],
@@ -25653,33 +25522,6 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-setup-os",
-   "items": [
-    "Record",
-    "Unfinished",
-    "record_path",
-    "unfinished_path"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Record",
-      "Unfinished",
-      "record_path",
-      "unfinished_path"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-setup"
-  },
-  {
-   "features": [],
    "from": "kkt-shutdown-os",
    "items": [
     "Shutdown",
@@ -26722,7 +26564,7 @@ window.KKT_CONCERNS = {
    "layer": "programs"
   },
   "kkt-files": {
-   "concern": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a private file and restricting one to its owner, and absolute and canonical paths. Each program adapts it to the contract the crate that needs files declares.",
+   "concern": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a private file and restricting one to its owner, and absolute and canonical paths. Also a file that may be missing (`read_if_present`), a write that replaces a file only once the new text is whole (`write_by_rename`), a removal where a missing file is fine (`remove_if_present`), and whether a path is a file (`is_file`). Each program adapts it to the contract the crate that needs files declares, or calls it from its own adapters.",
    "kind": "effect",
    "layer": "foundations"
   },
@@ -26787,12 +26629,12 @@ window.KKT_CONCERNS = {
    "layer": "foundations"
   },
   "kkt-machine": {
-   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values, and `Machine`, the contract for reading them and this process's ID, with its stand-in `testing::FixedMachine`. The crates that place files on the machine take these facts; none reads them.",
+   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values, and `Machine`, the contract for reading them, this process's ID, this program's path and the folders `$PATH` names, with its stand-in `testing::FixedMachine`. The crates that place files on the machine take these facts; none reads them.",
    "kind": "contract",
    "layer": "foundations"
   },
   "kkt-machine-os": {
-   "concern": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID. The program asks once and passes the values on.",
+   "concern": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID, this program's path and the folders `$PATH` names. The program asks once and passes the values on.",
    "kind": "effect",
    "layer": "foundations"
   },
@@ -26879,11 +26721,6 @@ window.KKT_CONCERNS = {
   "kkt-setup": {
    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
    "kind": "logic",
-   "layer": "operations"
-  },
-  "kkt-setup-os": {
-   "concern": "Setup's record and unfinished note, data folder, program paths and PATH checks on this machine.",
-   "kind": "effect",
    "layer": "operations"
   },
   "kkt-shutdown": {
@@ -27774,9 +27611,9 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt connect",
-     "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
-     "supplier": "kkt-setup-os",
-     "supplier_item": "kkt_path",
+     "own": "ThisProgram, adapting the program's kkt_path, over kkt-machine-os' OsMachine",
+     "supplier": "kkt-machine-os",
+     "supplier_item": "OsMachine",
      "to": [
       {
        "at": "AgentParts",
@@ -27974,8 +27811,9 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
-     "supplier": "kkt-setup-os",
+     "own": "NativeSetupFiles, reading and writing setup's record and note through kkt-files' Files with kkt-setup's parse and render, and this program's path and $PATH through kkt-machine-os' OsMachine",
+     "supplier": "kkt-files",
+     "supplier_item": "Files",
      "to": [
       {
        "at": "OperateParts",

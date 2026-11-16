@@ -60,7 +60,6 @@ members = [
     "crates/kkt-service-launchd",
     "crates/kkt-service-systemd",
     "crates/kkt-setup",
-    "crates/kkt-setup-os",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
     "crates/kkt-terminal",
@@ -129,7 +128,6 @@ default-members = [
     "crates/kkt-service-launchd",
     "crates/kkt-service-systemd",
     "crates/kkt-setup",
-    "crates/kkt-setup-os",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
     "crates/kkt-terminal",
@@ -256,7 +254,6 @@ kkt-service = { path = "crates/kkt-service" }
 kkt-service-launchd = { path = "crates/kkt-service-launchd" }
 kkt-service-systemd = { path = "crates/kkt-service-systemd" }
 kkt-setup = { path = "crates/kkt-setup" }
-kkt-setup-os = { path = "crates/kkt-setup-os" }
 kkt-shutdown = { path = "crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "crates/kkt-shutdown-os" }
 kkt-terminal = { path = "crates/kkt-terminal" }

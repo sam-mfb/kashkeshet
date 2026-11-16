@@ -87,6 +87,16 @@ Message numbers are given only where they help to find a discussion in
   `StopSignals` implements. Making one still listens first, so a failure to
   listen is reported before the server starts. Only programs call either
   trait.
+- **kkt-setup-os dissolved** (approved by Sam on 2026-11-16, msgs 3516
+  and 3527). Its file work was general file access, so it uses kkt-files.
+  kkt-files gained a read where a missing file is None, a write by rename,
+  and a removal where a missing file is fine. The program's adapter calls
+  kkt-setup's parse and render, and words each failure as before. The
+  program's path and `$PATH` are facts about this machine and joined
+  kkt-machine's `Machine`. `kkt_path` is only `program_path` with kkt's
+  wording, which belongs to the program, so it stayed there. The `on_path`
+  loop is one line over `is_file` in the program's adapter, the one place
+  that asks. kkt-setup did not change.
 - **Layers say where a crate sits**: programs, assembly, surfaces, access,
   core, data, operations, clients, foundations and dev-only. kkt-search sits
   in foundations, as pure text the data crates build on.
