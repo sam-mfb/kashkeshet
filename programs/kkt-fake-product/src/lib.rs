@@ -25,7 +25,7 @@ use kkt_names::AdminName;
 use kkt_rules::{Db, NewServerRun, Startup};
 use kkt_server::{AppConfig, Parts};
 use kkt_shutdown::Shutdown;
-use kkt_terminal_os::Terminal;
+use kkt_terminal::Terminal;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -175,7 +175,7 @@ pub struct Settings {
     /// What the rules enforce and fill in.
     pub rules: kkt_rules::Settings,
     /// How large a response may be.
-    pub fmt: kkt_mcp_formatter::Settings,
+    pub fmt: kkt_result_format::Settings,
     /// How much the web page shows at once, and how long a sign-in lasts.
     pub web: kkt_web::Settings,
     /// How the MCP endpoints' event streams keep in touch with clients.
@@ -188,7 +188,7 @@ impl Settings {
     /// Every part's defaults.
     pub const DEFAULT: Settings = Settings {
         rules: kkt_rules::Settings::DEFAULT,
-        fmt: kkt_mcp_formatter::Settings::DEFAULT,
+        fmt: kkt_result_format::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
         mcp: kkt_mcp::Settings::DEFAULT,
         events: kkt_events::Settings::DEFAULT,

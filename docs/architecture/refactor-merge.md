@@ -90,7 +90,9 @@ added kkt-toml and the eight crates phase 16 split out, for 71. After
 phase 16, kkt-logs went: its log levels joined kkt-log-tracing, and its
 file rules joined kkt-logs-os, renamed kkt-rolling-file, for 70. Phase 16's second follow-up made one
 general file crate, kkt-files, of three, and moved kkt-service-os' one
-function into kkt-listen, for 67.
+function into kkt-listen, for 67. Then
+kkt-server-keys became a contract crate, which kkt-server-keys-os
+implements, and the two were renamed kkt-keys and kkt-keys-os.
 
 ## Final scorecard
 
@@ -146,8 +148,8 @@ on for a while, #501 turned them off again, and #541 turned them on for
 good, after phases 10 to 14 had landed without them. If a macOS run fails,
 look first at the code the refactor touched that decides by platform:
 
-- `crates/kkt-machine-os/src/lib.rs`: `platform()` (`OsMachine::platform`
-  until 13.8) says whether
+- `crates/kkt-machine-os/src/lib.rs`: `OsMachine::platform` (a free
+  `platform()` from 13.8 until phase 16's third follow-up) says whether
   this build is macOS or follows XDG. It replaces `Platform::CURRENT` in
   kkt-settings' `paths.rs`, which is gone. Every path built from `Platform`
   (the config folder, the data folder, the default database) rests on it.

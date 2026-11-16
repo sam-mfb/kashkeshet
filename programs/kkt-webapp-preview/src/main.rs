@@ -4,7 +4,7 @@
 //! clock, randomness and stop signals.
 //!
 //! ```text
-//! cargo run -p kkt-web-preview -- --bind 127.0.0.1:7421 --seed 7 --rate 60 --page-messages 30
+//! cargo run -p kkt-webapp-preview -- --bind 127.0.0.1:7421 --seed 7 --rate 60 --page-messages 30
 //! ```
 //!
 //! The same seed gives the same world and the same feed. Pass
@@ -18,11 +18,13 @@ use kkt_clock_system::SystemClock;
 use kkt_entropy::SeededEntropy;
 use kkt_entropy_os::OsEntropy;
 use kkt_hosts::AllowedHosts;
+use kkt_keys::KeyFiles;
+use kkt_keys_os::OsKeyFiles;
 use kkt_log::{Level, Log};
 use kkt_log_tracing::LogLevel;
 use kkt_log_tracing::TracingLog;
-use kkt_server_keys_os::KeyFiles;
 use kkt_shutdown::Shutdown;
+use kkt_shutdown::Signals;
 use kkt_shutdown_os::StopSignals;
 use kkt_web::{PageLimits, Sessions};
 use settings::{PREVIEW_BIND, PREVIEW_SEED};
@@ -114,7 +116,7 @@ async fn run(args: Args, log: &TracingLog) -> Result<(), String> {
     let clock = Arc::new(SystemClock);
     let gate = match &args.access_key_file {
         Some(path) => {
-            let text = KeyFiles::read(path).map_err(|e| e.to_string())?;
+            let text = OsKeyFiles.read_key(path).map_err(|e| e.to_string())?;
             PreviewGate::with_key(&text).map_err(|e| invalid(e.into()))?
         }
         None => PreviewGate::open(),

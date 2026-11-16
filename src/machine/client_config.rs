@@ -4,6 +4,8 @@
 use kkt_client_command::Claude;
 use kkt_client_config::{ClientCommand, Host};
 use kkt_files::Files;
+use kkt_machine::Machine;
+use kkt_machine_os::OsMachine;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -39,7 +41,7 @@ impl Host for ClientHost {
         Files.canonicalize(path)
     }
     fn process_id(&self) -> u32 {
-        kkt_machine_os::process_id()
+        OsMachine.process_id()
     }
 }
 

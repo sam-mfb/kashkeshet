@@ -1,4 +1,6 @@
-// A headless check of the map page: groups drawn beneath their heads and
+// A headless check of the map page: arrow heads on the crate that depends,
+// none overlapping, and delivery lines leaving at points of their own;
+// groups drawn beneath their heads and
 // outlined, with every arrow ending on its own boxes; ticked crates and the panel's crate are
 // kept by name through every filter, and Reset view clears them; no box
 // moves when a filter changes; and only full-strength arrows answer the
@@ -110,6 +112,49 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       }
       return bad;
     });
+    // Heads (msg 3550): every head is on the crate that depends on the
+    // other, an implementation arrow's on the implementer; and no two heads
+    // overlap.
+    const heads = await p.evaluate(() => {
+      const boxOf = (name) => {
+        const n = document.querySelector(`.node[aria-label^='${name}:']`);
+        const m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(n.getAttribute("transform"));
+        const r = n.querySelector("rect");
+        return { x: +m[1], y: +m[2], w: +r.getAttribute("width"), h: +r.getAttribute("height") };
+      };
+      const onEdge = (b, q) => q.x >= b.x - 1.5 && q.x <= b.x + b.w + 1.5 && q.y >= b.y - 1.5 && q.y <= b.y + b.h + 1.5 &&
+        (Math.abs(q.x - b.x) < 1.5 || Math.abs(q.x - b.x - b.w) < 1.5 || Math.abs(q.y - b.y) < 1.5 || Math.abs(q.y - b.y - b.h) < 1.5);
+      const wrong = [];
+      const centres = [];
+      let implementing = 0;
+      for (const path of document.querySelectorAll("path.edge[marker-start]")) {
+        const [from] = path.dataset.edge.split(">");
+        const tip = path.getPointAtLength(0);
+        if (path.dataset.head !== from || !onEdge(boxOf(from), tip)) wrong.push(path.dataset.edge);
+        if (path.classList.contains("role-implements")) implementing++;
+        // The head reaches about 7 pixels back along the arrow from its tip.
+        const back = path.getPointAtLength(Math.min(3.5, path.getTotalLength()));
+        centres.push({ edge: path.dataset.edge, x: back.x, y: back.y });
+      }
+      const overlapping = [];
+      for (let i = 0; i < centres.length; i++) {
+        for (let j = i + 1; j < centres.length; j++) {
+          if (Math.hypot(centres[i].x - centres[j].x, centres[i].y - centres[j].y) < 7) overlapping.push(`${centres[i].edge} / ${centres[j].edge}`);
+        }
+      }
+      const markers = [...document.querySelectorAll("path.edge[marker-end]")].length;
+      return { count: centres.length, implementing, markers, wrong, overlapping };
+    });
+    check("every head is on the crate that depends, an implementation arrow's on the implementer",
+      heads.count > 0 && heads.implementing > 0 && heads.markers === 0 && heads.wrong.length === 0, heads.wrong.slice(0, 5));
+    check("no two arrow heads overlap", heads.overlapping.length === 0, heads.overlapping.slice(0, 5));
+    // Inside a group the arrow points down, from the head crate to each
+    // partner.
+    const down = await p.evaluate(() => {
+      const path = document.querySelector("path.edge[data-edge='kkt-db-sqlite>kkt-db>normal']");
+      return path && { head: path.dataset.head, tip: path.getPointAtLength(0).y, tail: path.getPointAtLength(path.getTotalLength()).y };
+    });
+    check("inside a group the arrow points down to the partner", down && down.head === "kkt-db-sqlite" && down.tip > down.tail, down);
     const stray = await endsOnOwnBoxes();
     check("every arrow ends on its own crates' boxes", stray.length === 0, stray.slice(0, 5));
     // Every crate's name and subtitle fits inside its box.
@@ -160,6 +205,124 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("a ticked implementation's delivery line is drawn clear of the arrows", clear.drawn && clear.near === 0, clear);
     await p.click(`${node(mcp)} .pick-hit`, { force: true });
 
+    // A program's delivery lines leave it at points of their own.
+    await p.click(`${node("kashkeshet")} .pick-hit`, { force: true });
+    const shared = await p.evaluate(() => {
+      const starts = [...document.querySelectorAll("path.delivery[data-from='kashkeshet']")].map((x) => x.getPointAtLength(0));
+      const close = [];
+      for (let i = 0; i < starts.length; i++) {
+        for (let j = i + 1; j < starts.length; j++) {
+          if (Math.hypot(starts[i].x - starts[j].x, starts[i].y - starts[j].y) < 3) close.push([i, j]);
+        }
+      }
+      return { lines: starts.length, close: close.length };
+    });
+    check("a program's delivery lines leave it at points of their own", shared.lines > 1 && shared.close === 0, shared);
+    await p.click(`${node("kashkeshet")} .pick-hit`, { force: true });
+
+    // A point on a drawn path, in screen terms, where nothing covers it.
+    const spot = (sel) => p.evaluate((s) => {
+      const svgEl = document.getElementById("graph");
+      for (const h of document.querySelectorAll(s)) {
+        const len = h.getTotalLength();
+        for (const f of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.15, 0.85, 0.1, 0.9]) {
+          const pt = svgEl.createSVGPoint();
+          const q = h.getPointAtLength(len * f);
+          pt.x = q.x; pt.y = q.y;
+          const sc = pt.matrixTransform(svgEl.getScreenCTM());
+          const top = document.elementFromPoint(sc.x, sc.y);
+          if (top && (top === svgEl || top.classList.contains("band") || top === h)) return { x: sc.x, y: sc.y, top: top.getAttribute("class") };
+        }
+      }
+      return null;
+    }, sel);
+
+    // An injection's whole route (msg 3574): ticking kkt-watch draws
+    // kashkeshet to kkt-agent-commands to kkt-watch, and the crates that
+    // supply what kashkeshet injects, with every hop's label saying what it
+    // carries, never "passed on" alone.
+    const routeOf = async (name) => {
+      await p.click(`${node(name)} .pick-hit`, { force: true });
+      const got = await p.evaluate(() => ({
+        lines: [...document.querySelectorAll("path.delivery")].map((x) => `${x.dataset.from}>${x.dataset.to}`),
+        labels: Object.fromEntries([...document.querySelectorAll("text.delivery-label")]
+          .map((x) => [`${x.dataset.from}>${x.dataset.to}`, x.textContent])),
+      }));
+      await p.click(`${node(name)} .pick-hit`, { force: true });
+      return got;
+    };
+    const watch = await routeOf("kkt-watch");
+    check("a ticked receiver's routes run back to the program and the suppliers",
+      ["kashkeshet>kkt-agent-commands", "kkt-agent-commands>kkt-watch", "kkt-agent-client-mcp>kashkeshet"]
+        .every((l) => watch.lines.includes(l)), watch.lines);
+    check("no hop's label is only \"passed on\"",
+      Object.values(watch.labels).every((l) => !/passed on/.test(l)) && /\(/.test(watch.labels["kkt-agent-commands>kkt-watch"] || ""),
+      watch.labels);
+    const forward = await routeOf("kashkeshet");
+    check("a ticked injector's routes run on to the final receiver", forward.lines.includes("kkt-agent-commands>kkt-watch"), forward.lines);
+    const supplier = await routeOf("kkt-agent-client-mcp");
+    check("a ticked supplier's routes run on to the final receiver",
+      supplier.lines.includes("kkt-agent-client-mcp>kashkeshet") && supplier.lines.includes("kkt-agent-commands>kkt-watch"), supplier.lines);
+
+    // An adapter is not an implementation (msg 3574): a composition's own
+    // type meeting another crate's trait is "adapted by", drawn apart from
+    // the green arrows; its tooltip says whether it is an adapter or the
+    // injector's own work.
+    const adapts = await p.evaluate(() => {
+      const kind = (n) => (window.KKT_CONCERNS.crates[n] || {}).kind;
+      const edges = [...document.querySelectorAll("path.edge")];
+      return {
+        greenFromComposition: edges.filter((x) => x.classList.contains("role-implements") && kind(x.dataset.edge.split(">")[0]) === "composition")
+          .map((x) => x.dataset.edge),
+        watch: edges.some((x) => x.dataset.edge === "kashkeshet>kkt-watch>normal" && x.classList.contains("role-adapts")),
+        sqlite: edges.some((x) => x.dataset.edge === "kkt-db-sqlite>kkt-db>normal" && x.classList.contains("role-implements")),
+      };
+    });
+    check("no composition's arrow is green, kashkeshet adapts for kkt-watch, kkt-db-sqlite implements kkt-db",
+      adapts.greenFromComposition.length === 0 && adapts.watch && adapts.sqlite, adapts);
+    const tipOf = async (edge, tick) => {
+      await p.click(`${node(tick)} .pick-hit`, { force: true });
+      const at = await spot(`path.edge-hit[data-edge='${edge}']`);
+      if (at) await p.mouse.move(at.x, at.y);
+      const text = at && await p.isVisible("#tip") ? await p.textContent("#tip") : "";
+      await p.mouse.move(5, 5);
+      await p.click(`${node(tick)} .pick-hit`, { force: true });
+      return text;
+    };
+    // Its colour is its own: apart from the injection lines' amber and the
+    // "built by" arrows' (msg 3577).
+    await p.click(`${node("kkt-watch")} .pick-hit`, { force: true });
+    const colours = await p.evaluate(() => {
+      const style = (sel) => { const x = document.querySelector(sel); return x && getComputedStyle(x); };
+      const [a, w, l] = [style("path.edge.role-adapts"), style("path.edge.role-wires"), style("path.delivery")];
+      return { adapts: a && a.stroke, wires: w && w.stroke, lines: l && l.stroke,
+               adaptsDash: a && a.strokeDasharray, linesDash: l && l.strokeDasharray };
+    });
+    check("an adapting arrow's colour differs from the injection lines' and the built-by arrows', and its dash from the lines'",
+      colours.adapts && colours.wires && colours.lines && colours.adapts !== colours.wires && colours.adapts !== colours.lines &&
+      colours.adaptsDash !== colours.linesDash, colours);
+    // A route's label covers no box, sits in no gap next to one and in no
+    // group's outline, unless it has a backing to read on.
+    const covered = await p.evaluate(() => {
+      // Each box with a few pixels around it, and each group's outline: a
+      // label in the narrow gap beside a box reads as the box's.
+      const grow = (r, d) => ({ left: r.left - d, right: r.right + d, top: r.top - d, bottom: r.bottom + d });
+      const boxes = [...document.querySelectorAll(".node > rect")].map((r) => grow(r.getBoundingClientRect(), 3))
+        .concat([...document.querySelectorAll("rect.group")].map((r) => r.getBoundingClientRect()));
+      const backs = [...document.querySelectorAll("rect.delivery-label-back")].map((r) => r.getBoundingClientRect());
+      const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      return [...document.querySelectorAll("text.delivery-label")].filter((l) => {
+        const r = l.getBoundingClientRect();
+        return boxes.some((b) => hit(r, b)) && !backs.some((b) => b.left <= r.left + 1 && b.right >= r.right - 1);
+      }).map((l) => l.textContent);
+    });
+    check("no route label sits bare on a box", covered.length === 0, covered);
+    await p.click(`${node("kkt-watch")} .pick-hit`, { force: true });
+    const ownTip = await tipOf("kkt-operate>kkt-setup>normal", "kkt-operate");
+    check("an adapting arrow names the injector's own work as such", /adapted by: [^]*its own work/.test(ownTip), ownTip.slice(0, 300));
+    const gateTip = await tipOf("kkt-server>kkt-web>normal", "kkt-server");
+    check("an adapting arrow names the crate its adapter is over", /adapter over kkt-admission/.test(gateTip), gateTip.slice(0, 300));
+
     // Injections follow the rule (msg 3343): the program injects nothing of
     // kkt-diagnostics' own into it; kkt-operate passes on the prober it was
     // given; and the program's own work is labelled as such.
@@ -172,6 +335,28 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     const labels = await p.$$eval("text.delivery-label", (xs) => xs.map((x) => x.textContent));
     check("the program's own work is named as such", labels.some((l) => l.includes("its own work")), labels);
     await p.click(`${node("kkt-operate")} .pick-hit`, { force: true });
+
+    // The panel (msg 3582): no "Must not" and no notes on where things come
+    // from; each list is a section with a count that opens and closes,
+    // short ones open and long ones closed, and the viewer's choice kept.
+    await p.click(`${node("kkt-watch")} > rect`);
+    const quiet = await p.$eval("#panel", (x) => x.textContent);
+    check("the panel says no \"Must not\" and nothing on where things come from",
+      !/Must not/.test(quiet) && !/generated from|hand-written|Cargo's/.test(quiet), quiet.slice(0, 200));
+    const sectionState = () => p.$$eval("#panel details.section", (xs) => Object.fromEntries(xs.map((x) => [x.dataset.section, x.open])));
+    const before = await sectionState();
+    check("sections have counts; short ones start open", before.includes === true &&
+      (await p.$$eval("#panel details.section .count", (xs) => xs.every((x) => /^\(\d+\)$/.test(x.textContent)))), before);
+    await p.click("#panel details[data-section='includes'] > summary");
+    await p.click(`${node("kkt-hosts")} > rect`);
+    await p.click(`${node("kkt-watch")} > rect`);
+    check("a closed section stays closed for the next crate", (await sectionState()).includes === false, await sectionState());
+    await p.click("#panel details[data-section='includes'] > summary");
+    check("and opens again", (await sectionState()).includes === true);
+    await p.click(`${node("kashkeshet")} > rect`);
+    const long = await sectionState();
+    // Sections the viewer has not touched: kashkeshet implements dozens.
+    check("a long list starts closed", long.implements === false && long.items === false, long);
 
     // Clicking a box shows it in the panel and highlights nothing.
     await p.click(`${node("kkt-hosts")} > rect`);
@@ -197,21 +382,6 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     });
     check("faded arrows take no pointer", pointer.faint.length > 0 && pointer.faint.every((e) => e === "none"), pointer.faint.slice(0, 3));
     check("highlighted arrows take the pointer", pointer.full.length > 0 && pointer.full.every((e) => e !== "none"), pointer.full.slice(0, 3));
-    const spot = (sel) => p.evaluate((s) => {
-      const svgEl = document.getElementById("graph");
-      for (const h of document.querySelectorAll(s)) {
-        const len = h.getTotalLength();
-        for (const f of [0.5, 0.4, 0.6, 0.3, 0.7]) {
-          const pt = svgEl.createSVGPoint();
-          const q = h.getPointAtLength(len * f);
-          pt.x = q.x; pt.y = q.y;
-          const sc = pt.matrixTransform(svgEl.getScreenCTM());
-          const top = document.elementFromPoint(sc.x, sc.y);
-          if (top && (top === svgEl || top.classList.contains("band") || top === h)) return { x: sc.x, y: sc.y, top: top.getAttribute("class") };
-        }
-      }
-      return null;
-    }, sel);
     await p.mouse.move(5, 5);
     const full = await spot("path.edge-hit:not(.faint)");
     if (full) await p.mouse.move(full.x, full.y);

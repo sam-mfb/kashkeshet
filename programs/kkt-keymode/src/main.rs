@@ -27,15 +27,17 @@ use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_events::Events;
 use kkt_identity_keymode::KeyMode;
+use kkt_keys::AccessKey;
+use kkt_keys::{KeyFiles as _, KeyText, SelectedKeys};
+use kkt_keys_os::OsKeyFiles;
 use kkt_log_tracing::LogLevel;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
-use kkt_server_keys::AccessKey;
-use kkt_server_keys::KeyText;
 use kkt_shutdown::Shutdown;
+use kkt_shutdown::Signals;
 use kkt_shutdown_os::StopSignals;
-use kkt_terminal_os::Terminal;
+use kkt_terminal::Terminal;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -129,11 +131,11 @@ async fn run(args: &[String]) -> Result<(), String> {
         web_admission,
         admin_key,
         admin_name,
-    } = server_keys::check(&mut KeyFiles(kkt_server_keys_os::KeyFiles::new(
-        key_path(&access_key),
-        key_path(&web_key),
-        admin_key.as_deref(),
-    )))
+    } = server_keys::check(&mut KeyFiles(SelectedKeys {
+        access: key_path(&access_key),
+        web: key_path(&web_key),
+        admin: admin_key.as_deref(),
+    }))
     .map_err(refusal)?;
     let config = AppConfig {
         admission,
@@ -238,7 +240,7 @@ struct Settings {
     bind: SocketAddr,
     allow_any_bind: bool,
     rules: kkt_rules::Settings,
-    formatter: kkt_mcp_formatter::Settings,
+    formatter: kkt_result_format::Settings,
     web: kkt_web::Settings,
     backups: kkt_backup::Settings,
     allow_origins: Vec<String>,
@@ -289,14 +291,11 @@ fn settings(args: &Args) -> Result<Settings, String> {
     let (web_key, admin_key) = match &access_key {
         AccessKey::None => (AccessKey::None, None),
         AccessKey::File(path) | AccessKey::Default(path) => {
-            let web = kkt_server_keys::web_key_path(path);
+            let web = kkt_keys::web_key_path(path);
             if &web == path {
                 return Err(invalid("access_key_file", "must not name the web key file"));
             }
-            (
-                AccessKey::Default(web),
-                kkt_server_keys::admin_key_path(path),
-            )
+            (AccessKey::Default(web), kkt_keys::admin_key_path(path))
         }
     };
     let defaults = kkt_rules::Settings::DEFAULT;
@@ -332,10 +331,10 @@ fn settings(args: &Args) -> Result<Settings, String> {
             max_memory_chars: config.max_memory_chars.unwrap_or(defaults.max_memory_chars),
             ..defaults
         },
-        formatter: kkt_mcp_formatter::Settings {
+        formatter: kkt_result_format::Settings {
             max_response_bytes: config
                 .max_response_bytes
-                .unwrap_or(kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes),
+                .unwrap_or(kkt_result_format::Settings::DEFAULT.max_response_bytes),
         },
         web: kkt_web::Settings::DEFAULT,
         backups: kkt_backup::Settings {
@@ -397,22 +396,24 @@ fn key_path(key: &AccessKey) -> Option<&Path> {
     }
 }
 
-/// Adapts native key texts, preserving this program's refusal wording.
-struct KeyFiles<'a>(kkt_server_keys_os::KeyFiles<'a>);
+/// Adapts the key files on disk, preserving this program's refusal wording.
+struct KeyFiles<'a>(SelectedKeys<'a>);
 impl KeyTexts for KeyFiles<'_> {
     type Error = String;
     fn access(&mut self) -> Result<Option<KeyText>, String> {
-        self.0.access().map_err(|e| e.to_string())
+        OsKeyFiles.read_access(&self.0).map_err(|e| e.to_string())
     }
     // This program makes no key: the selected web key must already exist.
     fn web(&mut self) -> Result<Option<KeyText>, String> {
-        self.0.web().map_err(|e| e.to_string())
+        OsKeyFiles.read_web(&self.0).map_err(|e| e.to_string())
     }
     // A missing admin key turns the admin endpoint off.
     fn admin(&mut self) -> Result<Option<KeyText>, String> {
-        self.0.admin().map_err(|e| e.to_string())
+        OsKeyFiles.read_admin(&self.0).map_err(|e| e.to_string())
     }
     fn admin_names(&mut self) -> Result<Option<String>, String> {
-        self.0.admin_names().map_err(|e| e.to_string())
+        OsKeyFiles
+            .read_admin_names(&self.0)
+            .map_err(|e| e.to_string())
     }
 }

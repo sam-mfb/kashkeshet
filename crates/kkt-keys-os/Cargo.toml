@@ -1,6 +1,6 @@
 [package]
-name = "kkt-server-keys-os"
-description = "kkt's server key files on disk"
+name = "kkt-keys-os"
+description = "Private key files on disk: kkt-keys' KeyFiles over the operating system's files"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,6 +8,6 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-server-keys = { path = "../kkt-server-keys" }
+kkt-keys = { path = "../kkt-keys" }
 
 [features]

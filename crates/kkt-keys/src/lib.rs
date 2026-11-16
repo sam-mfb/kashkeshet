@@ -1,34 +1,38 @@
-//! The server's keys: what a key must be, how a new one is made, which
-//! access key a server uses, the names, mode and default place of the files
-//! that hold them, and the admin agent's name tied to the admin key. Who a
-//! key lets in is kkt-admission's.
+//! The server's keys, as a contract: what a key must be and how long a new
+//! one is and what it is drawn from; which access key a server uses; the
+//! names, mode and default place of the files that hold keys; the admin
+//! agent's name tied to the admin key; and [`KeyFiles`], reading and
+//! writing private key files, with the reads and writes made of those
+//! steps. Who a key lets in is kkt-admission's.
 //!
-//! The key files on disk are kkt-server-keys-os'.
+//! kkt-keys-os implements [`KeyFiles`] on the files on disk.
 
 mod admin_name;
-#[cfg(feature = "testing")]
+mod files;
+mod place;
+#[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
 pub use admin_name::{admin_name_line, admin_name_written, bound_in, bound_to};
+pub use files::{KeyFiles, ReadError, SelectedKeys};
+pub use place::{
+    ACCESS_KEY_FILE_MODE, ACCESS_KEY_FILE_NAME, ADMIN_KEY_FILE_NAME, ADMIN_NAME_FILE_SUFFIX,
+    WEB_KEY_FILE_NAME, access_key_file, admin_key_path, admin_name_path, web_key_path,
+};
 
-use kkt_entropy::Entropy;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-/// Characters new access keys are drawn from: lowercase ASCII letters and
+/// The characters a new key is drawn from: lowercase ASCII letters and
 /// digits, as kkt-names drew them before. Keep it so, so new keys look like
-/// the ones existing installs hold.
-const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+/// the ones existing installs hold. Draw a key with kkt-entropy's
+/// `random_chars(NEW_KEY_ALPHABET, NEW_KEY_CHARS)`; it passes
+/// [`check_access_key`].
+pub const NEW_KEY_ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
 /// A key file's text, and where it came from, such as the file's path.
 pub struct KeyText {
     pub text: String,
     pub source: String,
-}
-
-/// A new random key, such as `kkt key create` writes. It passes
-/// [`check_access_key`].
-pub fn generate(entropy: &dyn Entropy) -> String {
-    entropy.random_chars(RANDOM_CHARS, NEW_ACCESS_KEY_CHARS)
 }
 
 /// A key setting the server refuses to start with: the setting's name and
@@ -62,53 +66,10 @@ pub enum AccessKey {
 
 /// Shortest access key, in bytes. 32 random hex digits carry 128 bits.
 const MIN_ACCESS_KEY_BYTES: usize = 32;
-/// Characters in a key made by `kkt key create`, from the 36-character
-/// alphabet: about 258 bits.
-const NEW_ACCESS_KEY_CHARS: usize = 50;
-const _: () = assert!(NEW_ACCESS_KEY_CHARS >= MIN_ACCESS_KEY_BYTES);
-/// Unix permissions of a key file `kkt key create` writes: only the owner
-/// may read or write it.
-pub const ACCESS_KEY_FILE_MODE: u32 = 0o600;
-/// Where `kkt key create` writes a key, in the config directory.
-pub const ACCESS_KEY_FILE_NAME: &str = "access-key";
-/// The operator login key, beside the access key.
-pub const WEB_KEY_FILE_NAME: &str = "web-key";
-/// The admin agent's key for `/mcp-admin`, beside the access key. Only made
-/// when the operator asks; without it, `/mcp-admin` is off.
-pub const ADMIN_KEY_FILE_NAME: &str = "admin-key";
-/// Added to an admin key file's name for the file of its admin agent's name
-/// (`admin-key.name` beside `admin-key`): written with the key by `kkt key
-/// create --admin --name`, read with it by `kkt serve`. The file holds a
-/// hash of the key too, so the name belongs to that key alone. Without it,
-/// or for another key, the admin key may only read.
-pub const ADMIN_NAME_FILE_SUFFIX: &str = ".name";
-
-/// Where `kkt key create` writes a key when no `--path` is given: the
-/// access key file in kkt's config directory, `config_dir`.
-pub fn access_key_file(config_dir: &Path) -> PathBuf {
-    config_dir.join(ACCESS_KEY_FILE_NAME)
-}
-
-/// The operator web key always lives beside the server's access key.
-pub fn web_key_path(access_key: &Path) -> PathBuf {
-    access_key.with_file_name(WEB_KEY_FILE_NAME)
-}
-
-/// The admin key lives beside the server's access key, unless that place
-/// is already used by the access key (which older versions allowed).
-pub fn admin_key_path(access_key: &Path) -> Option<PathBuf> {
-    let admin = access_key.with_file_name(ADMIN_KEY_FILE_NAME);
-    (admin != access_key).then_some(admin)
-}
-
-/// The admin agent's name, if the admin key has one, lives beside the admin
-/// key, in a file of its own: each key file has its own name file.
-pub fn admin_name_path(admin_key: &Path) -> PathBuf {
-    let mut name = admin_key.file_name().unwrap_or_default().to_os_string();
-    name.push(ADMIN_NAME_FILE_SUFFIX);
-    admin_key.with_file_name(name)
-}
-
+/// Characters in a new key, such as `kkt key create` makes, from
+/// [`NEW_KEY_ALPHABET`]'s 36 characters: about 258 bits.
+pub const NEW_KEY_CHARS: usize = 50;
+const _: () = assert!(NEW_KEY_CHARS >= MIN_ACCESS_KEY_BYTES);
 /// Checks an access key, as read from `--access-key-file` without
 /// surrounding whitespace. It must be at least [`MIN_ACCESS_KEY_BYTES`] long
 /// and only printable ASCII with no spaces, so it can be sent in an HTTP
@@ -135,6 +96,7 @@ pub fn check_access_key(key: &str) -> Result<(), SettingError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn the_access_key_goes_in_the_config_directory() {
@@ -183,12 +145,13 @@ mod tests {
     }
 
     #[test]
-    fn generated_keys_are_accepted_and_differ() {
+    fn new_keys_drawn_as_the_contract_says_are_accepted_and_differ() {
+        use kkt_entropy::Entropy;
         use kkt_entropy::testing::SeqEntropy;
         let entropy = SeqEntropy::new(3);
-        let first = generate(&entropy);
-        let second = generate(&entropy);
-        assert_eq!(first.len(), NEW_ACCESS_KEY_CHARS);
+        let first = entropy.random_chars(NEW_KEY_ALPHABET, NEW_KEY_CHARS);
+        let second = entropy.random_chars(NEW_KEY_ALPHABET, NEW_KEY_CHARS);
+        assert_eq!(first.len(), NEW_KEY_CHARS);
         assert_ne!(first, second);
         assert_eq!(check_access_key(&first), Ok(()));
     }
@@ -196,6 +159,6 @@ mod tests {
     #[test]
     fn new_keys_are_drawn_from_lowercase_letters_and_digits() {
         let expected: Vec<u8> = (b'a'..=b'z').chain(b'0'..=b'9').collect();
-        assert_eq!(RANDOM_CHARS, expected.as_slice());
+        assert_eq!(NEW_KEY_ALPHABET, expected.as_slice());
     }
 }

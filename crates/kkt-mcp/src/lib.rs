@@ -24,7 +24,7 @@ use kkt_api_agent::{
 };
 use kkt_identity::Identify;
 use kkt_log::{Field, Level, Log};
-use kkt_mcp_formatter::{Format, Formatter};
+use kkt_result_format::{Format, Formatter};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{
     CallToolResult, DiscoverResult, Implementation, InitializeRequestParams, InitializeResult,

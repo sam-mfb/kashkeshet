@@ -166,7 +166,7 @@ pub async fn upgrade<D: ServiceDefaults>(
             ))?;
             local_backup(parts, &folder, None, None)?;
             if let Some(key) = &service.new_web_key {
-                new_key_file(parts.key_files, key, false)?;
+                new_key_file(parts.key_files, parts.entropy, key, false)?;
                 parts.output.output(format_args!(
                     "Created a new web key at {}. Read it with `kkt key show --web`.\n",
                     key.display()
@@ -532,7 +532,7 @@ mod tests {
         ) -> Result<kkt_setup::connection::ServeConnection<()>, String> {
             self.refused("connection.serve")
         }
-        fn make_default_key(&self, _: &kkt_server_keys::AccessKey) -> Result<(), String> {
+        fn make_default_key(&self, _: &kkt_keys::AccessKey) -> Result<(), String> {
             self.refused("connection.make_default_key")
         }
         fn check_key(&self, _: &Path, _: &()) -> Result<(), String> {
@@ -555,7 +555,7 @@ mod tests {
         }
     }
 
-    impl crate::KeyFiles for Untouched {
+    impl kkt_keys::KeyFiles for Untouched {
         fn read(&self, _: &Path) -> std::io::Result<String> {
             self.asked("key_files.read")
         }
@@ -582,14 +582,26 @@ mod tests {
         fn remove(&self, _: &Path) -> std::io::Result<()> {
             self.asked("key_files.remove")
         }
-        fn new_key(&self, _: &Path, _: bool) -> Result<String, String> {
+        fn new_key(
+            &self,
+            _: &Path,
+            _: bool,
+            _: &mut dyn FnMut() -> String,
+        ) -> Result<String, String> {
             self.refused("key_files.new_key")
+        }
+        fn make_default_key(
+            &self,
+            _: &kkt_keys::AccessKey,
+            _: &mut dyn FnMut() -> String,
+        ) -> Result<Option<PathBuf>, String> {
+            self.refused("key_files.make_default_key")
         }
         fn write_key(&self, _: &Path, _: &str, _: bool) -> Result<(), String> {
             self.refused("key_files.write_key")
         }
-        fn write_admin_name(&self, _: &Path, _: Option<&str>) -> Result<(), String> {
-            self.refused("key_files.write_admin_name")
+        fn write_admin_name(&self, _: &Path, _: Option<&str>) -> std::io::Result<()> {
+            self.asked("key_files.write_admin_name")
         }
     }
 
@@ -765,6 +777,7 @@ mod tests {
             service_defaults: &untouched,
             setup_files: &record,
             key_files: &untouched,
+            entropy: &kkt_entropy::testing::SeqEntropy::new(0),
             database: &untouched,
             backups: &untouched,
             output: &said,

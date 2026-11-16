@@ -30,12 +30,13 @@ Where each part of the map comes from:
   name is kept apart, as the arrow's test-only items. This reads names, not
   types: an item used only through a method call, a trait's methods or a
   derive does not show.
-- Contracts, slots and the role of each arrow (implements, uses, wires):
+- Contracts, slots and the role of each arrow (implements, adapts, uses,
+  wires; adapts where the implementer is a composition crate):
   rustdoc's JSON again. Trait impls come from a second build with private
   items, so an impl by a private type counts; the page names such a type
   only as "a type of its own". Slots are public parameters and fields
   typed as a workspace trait, or as a type that holds one. See the README.
-- Each crate's concern, its layer, its kind and what it must not do:
+- Each crate's concern, its layer and its kind:
   written by hand in `concerns.json`, from CLAUDE.md and the crates' own
   docs. `kinds.py` checks each kind against what the map shows of the
   crate, and the mismatches are reported on the page, not corrected.
@@ -756,7 +757,7 @@ def main():
         sys.exit(f"concerns.json gives no kind, or one kinds.py does not know, to: {', '.join(no_kind)}")
 
     package_of_lib = {lib: name for name, lib in lib_names.items()}
-    add_contracts(crates, edges, items_of, contracts_raw, package_of_lib)
+    add_contracts(crates, edges, items_of, contracts_raw, package_of_lib, kind_of)
     assembly = json.loads((HERE / "assembly.json").read_text())
     check_assembly(assembly, items_of, packages, {c["name"]: c["slots"] for c in crates})
 
@@ -804,13 +805,17 @@ def render(commit, crates, edges, concerns, assembly, kind_mismatches, rule_brea
     )
 
 
-ROLE_ORDER = ["implements", "uses", "wires"]
+ROLE_ORDER = ["implements", "adapts", "uses", "wires"]
 
 
-def add_contracts(crates, edges, items_of, raw, package_of_lib):
+def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
     """Adds to each crate the contracts it defines and implements and the
     slots it takes, and to each arrow its roles. Everything here comes from
-    rustdoc's JSON (`raw`), matched to the public items by name."""
+    rustdoc's JSON (`raw`), matched to the public items by name. A
+    composition crate's own type that meets another crate's trait is an
+    adapter it injects, not an implementation of a contract (Sam, msg
+    3574): its arrow's role is "adapts", by the implementer's kind in
+    `kind_of`."""
     by_name = {c["name"]: c for c in crates}
 
     def public(package, name, kinds):
@@ -957,7 +962,8 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
         roles = []
         implemented = [i for i in implementations if i["crate"] == e["from"] and i["trait_crate"] == e["to"]]
         if implemented and e["kind"] == "normal":
-            roles.append({"role": "implements", "detail": [
+            role = "adapts" if kind_of.get(e["from"]) == "composition" else "implements"
+            roles.append({"role": role, "detail": [
                 f"{i['type'] or 'a type of its own'} implements {i['trait']}" for i in implemented]})
         traits_implemented = {i["trait"] for i in implemented}
         wiring, other = [], []
@@ -998,9 +1004,15 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
 
 def check_assembly(assembly, items_of, packages, slots_of):
     """Fails if assembly.json names a program, an item, a supplier or a slot
-    that is not there, or records as an injection a value of the receiving
-    crate's own type."""
+    that is not there, records as an injection a value of the receiving
+    crate's own type, or passes something on without saying, in "from",
+    which of the injector's slots a program filled with it."""
     problems = []
+
+    def filled(injector, slot):
+        """Whether some program's wiring fills this slot of the injector."""
+        return any(w["crate"] == injector and any(t["at"] == slot["at"] and t["param"] == slot["param"] for t in w["to"])
+                   for flow in assembly["programs"].values() for w in flow.get("wiring", []))
     # The programs' wiring, and that of a shared crate that assembles
     # (kkt-server and the two assemblies, under "injectors").
     for program, flow in list(assembly["programs"].items()) + list(assembly.get("injectors", {}).items()):
@@ -1027,6 +1039,17 @@ def check_assembly(assembly, items_of, packages, slots_of):
                 if not any(s["at"] == slot["at"] and s["name"] == slot["param"]
                            for s in slots_of.get(wire["crate"], [])):
                     problems.append(f"{program}: no slot {slot['at']} ({slot['param']}) in {wire['crate']}")
+            # What an injector passes on names the slots of its own that
+            # fed it, so a path is joined on slots, never on the wording.
+            if wire.get("passes_on"):
+                if not wire.get("from"):
+                    problems.append(f"{program}: passing on {wire['passes_on']} into {wire['crate']} says no \"from\"")
+                for slot in wire.get("from", []):
+                    if not any(s["at"] == slot["at"] and s["name"] == slot["param"] for s in slots_of.get(program, [])):
+                        problems.append(f"{program}: \"from\" names no slot {slot['at']} ({slot['param']}) of {program}")
+                    elif not filled(program, slot):
+                        problems.append(f"{program}: no program fills {slot['at']} ({slot['param']}), "
+                                        f"which \"from\" names for {wire['passes_on']}")
     for program, flow in assembly["programs"].items():
         if program not in packages:
             problems.append(f"no package {program}")
