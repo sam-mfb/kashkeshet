@@ -188,20 +188,21 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 }
 
 /* Edge roles */
-:root { --implements: #1f8a70; --uses: #8a8a93; --wires: #c27c0e; }
+:root { --implements: #1f8a70; --uses: #8a8a93; --wires: #c27c0e; --adapts: #8f8a00; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; }
+  :root:not([data-theme="light"]) { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; --adapts: #e3e15a; }
 }
-:root[data-theme="dark"] { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; }
+:root[data-theme="dark"] { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; --adapts: #e3e15a; }
 .edge.role-uses { stroke: var(--uses); }
 .edge.role-implements { stroke: var(--implements); stroke-width: 1.6; }
 .edge.role-wires { stroke: var(--wires); }
-/* An adapter a program or composition injects: drawn like the injection
-   lines, amber and dotted, with an open round head. */
-.edge.role-adapts { stroke: var(--wires); stroke-dasharray: 1.5 3; stroke-linecap: round; }
-.head-adapts { fill: var(--bg); stroke: var(--wires); stroke-width: 1.2; }
-.role-key.role-adapts { border-top: 3px dotted var(--wires); }
-.role-badge.role-adapts { background: none; border: 1px dotted var(--wires); color: var(--wires); }
+/* An adapter a program or composition injects: dotted like the injection
+   lines, in a yellow of its own (Sam, msg 3577), apart from their amber and
+   the amber "built by" arrows, with an open round head. */
+.edge.role-adapts { stroke: var(--adapts); stroke-dasharray: 1.5 3; stroke-linecap: round; }
+.head-adapts { fill: var(--bg); stroke: var(--adapts); stroke-width: 1.2; }
+.role-key.role-adapts { border-top: 3px dotted var(--adapts); }
+.role-badge.role-adapts { background: none; border: 1px dotted var(--adapts); color: var(--adapts); }
 .edge.focus { opacity: .95; stroke-width: 2; }
 .edge.role-implements.focus { stroke-width: 2.4; }
 .head-uses { fill: var(--uses); }
@@ -279,12 +280,12 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .role-text-implements { color: var(--implements-text, var(--implements)); }
 .role-text-uses { color: var(--uses-text, var(--fg)); }
 .role-text-wires { color: var(--wires-text, var(--wires)); }
-.role-text-adapts { color: var(--wires-text, var(--wires)); }
+.role-text-adapts { color: var(--adapts); }
 .chip.role-text { border-left: 3px solid currentColor; }
 .chip.role-second-implements { text-decoration: underline 2px var(--implements); text-underline-offset: 3px; }
 .chip.role-second-uses { text-decoration: underline 2px var(--uses); text-underline-offset: 3px; }
 .chip.role-second-wires { text-decoration: underline 2px var(--wires); text-underline-offset: 3px; }
-.chip.role-second-adapts { text-decoration: underline dotted 2px var(--wires); text-underline-offset: 3px; }
+.chip.role-second-adapts { text-decoration: underline dotted 2px var(--adapts); text-underline-offset: 3px; }
 /* Darker text shades of the role colours, for contrast on light chips. */
 :root { --implements-text: #17705b; --wires-text: #8f5a00; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --implements-text: #4fd1a8; --wires-text: #f0b54a; } }
@@ -301,12 +302,13 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
    dash and an italic label. */
 .delivery.own-work { stroke-dasharray: 6 3; }
 .delivery-label.own-work { font-style: italic; }
+.delivery-label-back { fill: var(--bg); stroke: var(--wires); stroke-width: .8; opacity: .95; pointer-events: none; }
 .deliveries-words { margin-top: 2px; }
 /* Each chip's left mark is its role's arrow colour, whatever its text colour. */
 .chip.role-text-implements { border-left-color: var(--implements); }
 .chip.role-text-uses { border-left-color: var(--uses); }
 .chip.role-text-wires { border-left-color: var(--wires); }
-.chip.role-text-adapts { border-left: 3px dotted var(--wires); }
+.chip.role-text-adapts { border-left: 3px dotted var(--adapts); }
 /* The Crates and Arrows menus: a button in the header opens a list of
    checkboxes under it. On a phone the list opens in the header's flow. */
 .menu { position: relative; }

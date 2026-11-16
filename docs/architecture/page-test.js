@@ -289,6 +289,32 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       await p.click(`${node(tick)} .pick-hit`, { force: true });
       return text;
     };
+    // Its colour is its own: apart from the injection lines' amber and the
+    // "built by" arrows' (msg 3577).
+    await p.click(`${node("kkt-watch")} .pick-hit`, { force: true });
+    const colours = await p.evaluate(() => {
+      const stroke = (sel) => { const x = document.querySelector(sel); return x && getComputedStyle(x).stroke; };
+      return { adapts: stroke("path.edge.role-adapts"), wires: stroke("path.edge.role-wires"), lines: stroke("path.delivery") };
+    });
+    check("an adapting arrow's colour differs from the injection lines' and the built-by arrows'",
+      colours.adapts && colours.wires && colours.lines && colours.adapts !== colours.wires && colours.adapts !== colours.lines, colours);
+    // A route's label covers no box, sits in no gap next to one and in no
+    // group's outline, unless it has a backing to read on.
+    const covered = await p.evaluate(() => {
+      // Each box with a few pixels around it, and each group's outline: a
+      // label in the narrow gap beside a box reads as the box's.
+      const grow = (r, d) => ({ left: r.left - d, right: r.right + d, top: r.top - d, bottom: r.bottom + d });
+      const boxes = [...document.querySelectorAll(".node > rect")].map((r) => grow(r.getBoundingClientRect(), 3))
+        .concat([...document.querySelectorAll("rect.group")].map((r) => r.getBoundingClientRect()));
+      const backs = [...document.querySelectorAll("rect.delivery-label-back")].map((r) => r.getBoundingClientRect());
+      const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      return [...document.querySelectorAll("text.delivery-label")].filter((l) => {
+        const r = l.getBoundingClientRect();
+        return boxes.some((b) => hit(r, b)) && !backs.some((b) => b.left <= r.left + 1 && b.right >= r.right - 1);
+      }).map((l) => l.textContent);
+    });
+    check("no route label sits bare on a box", covered.length === 0, covered);
+    await p.click(`${node("kkt-watch")} .pick-hit`, { force: true });
     const ownTip = await tipOf("kkt-operate>kkt-setup>normal", "kkt-operate");
     check("an adapting arrow names the injector's own work as such", /adapted by: [^]*its own work/.test(ownTip), ownTip.slice(0, 300));
     const gateTip = await tipOf("kkt-server>kkt-web>normal", "kkt-server");

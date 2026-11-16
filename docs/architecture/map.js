@@ -310,7 +310,7 @@
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
       el("span", { class: "key-item", title: "Generated: a crate that implements a contract of exactly one crate in its own layer is drawn beneath it" },
         el("span", { class: "group-key" }), "Group: a crate, with the crates beneath it that implement its contract"),
-      el("span", { class: "muted" }, "Arrows run from the crate that is depended on to the crate that depends on it: from what is used, built, implemented or adapted to what uses, builds, implements or adapts it. Adapted by (amber, dotted, open round head): a program or other composition has a type of its own that meets the tail crate's trait, and injects it; an adapter, not an implementation of a contract. Their ends are spread along each side of a box; where a side has too many to keep apart, several share one point and one head, the arrows of one role together. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, for the highlighted crates: the whole route of each thing injected, from the crate that supplies it, through each crate that passes it on, to where it ends; each hop is labelled with what it carries and who supplies it (hover for the route; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Arrows run from the crate that is depended on to the crate that depends on it: from what is used, built, implemented or adapted to what uses, builds, implements or adapts it. Adapted by (yellow, dotted, open round head): a program or other composition has a type of its own that meets the tail crate's trait, and injects it; an adapter, not an implementation of a contract. Their ends are spread along each side of a box; where a side has too many to keep apart, several share one point and one head, the arrows of one role together. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, for the highlighted crates: the whole route of each thing injected, from the crate that supplies it, through each crate that passes it on, to where it ends; each hop is labelled with what it carries and who supplies it (hover for the route; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -963,8 +963,17 @@
     }
     // Labels keep off the boxes as well as off each other, so no crate's
     // name is covered.
+    // A label keeps LABEL_CLEAR off every box, and out of every group's
+    // outline, so none sits in the narrow gap between two boxes and reads
+    // as the box's.
+    const LABEL_CLEAR = 5;
     const placed = [...view.nodes.keys()].map((n) => view.position.get(n)).filter(Boolean)
-      .map((q) => ({ x: q.x, y: q.y, w: BOX_W, h: BOX_H }));
+      .map((q) => ({ x: q.x - LABEL_CLEAR, y: q.y - LABEL_CLEAR, w: BOX_W + 2 * LABEL_CLEAR, h: BOX_H + 2 * LABEL_CLEAR }))
+      .concat(view.groups.map((unit) => {
+        const q = view.position.get(unit[0]);
+        return { x: q.x - GROUP_PAD, y: q.y - GROUP_PAD, w: BOX_W + 2 * GROUP_PAD,
+          h: unit.length * BOX_H + (unit.length - 1) * STACK_GAP + 2 * GROUP_PAD };
+      }));
     const overlaps = (r) => placed.some((q) => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h);
     // In the spaces between the arrows' ends, so a line between a program
     // and the crate just below it does not lie on the arrows leaving the
@@ -991,28 +1000,31 @@
       label.addEventListener("mousemove", tip);
       label.addEventListener("mouseleave", hideTip);
       labelLayer.append(label);
-      // Along the line, then nudged up or down, the first spot where the
-      // label overlaps no other; failing that, the middle.
+      // On its own line: the stretch nearest the middle where the label
+      // covers no box and no other label, trying the whole length, just
+      // above the line, then just below. Where every stretch crosses a box,
+      // the label sits mid-line on a backing of the page's colour, so it
+      // reads over the box.
       const len = path.getTotalLength();
       const spots = [];
-      for (const f of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.15, 0.85]) {
-        for (const dy of [0, -13, 13, -26, 26, -39, 39, -52, 52]) spots.push([f, dy]);
+      for (let k = 0; k <= 9; k++) {
+        for (const f of k ? [0.5 - k * 0.05, 0.5 + k * 0.05] : [0.5]) {
+          for (const dy of [0, 15]) spots.push([f, dy]);
+        }
       }
-      let done = false;
-      for (const [f, dy] of spots) {
+      const at = (f, dy) => {
         const pt = path.getPointAtLength(len * f);
         label.setAttribute("x", pt.x + 4);
         label.setAttribute("y", pt.y - 3 + dy);
         const box = label.getBBox();
-        const r = { x: box.x - 2, y: box.y - 1, w: box.width + 4, h: box.height + 2 };
-        if (!overlaps(r)) { placed.push(r); done = true; break; }
-      }
-      if (!done) {
-        const pt = path.getPointAtLength(len / 2);
-        label.setAttribute("x", pt.x + 4);
-        label.setAttribute("y", pt.y - 3);
-        const box = label.getBBox();
-        placed.push({ x: box.x - 2, y: box.y - 1, w: box.width + 4, h: box.height + 2 });
+        return { x: box.x - 2, y: box.y - 1, w: box.width + 4, h: box.height + 2 };
+      };
+      const free = spots.find(([f, dy]) => !overlaps(at(f, dy)));
+      const r = free ? at(...free) : at(0.5, 0);
+      placed.push(r);
+      if (!free) {
+        const back = svg("rect", { class: "delivery-label-back", x: r.x, y: r.y, width: r.w, height: r.h, rx: 3 });
+        labelLayer.insertBefore(back, label);
       }
     }
   }
@@ -1481,7 +1493,7 @@
     return [
       el("h2", {}, "The workspace"),
       el("p", {}, `${graph.crates.length} packages and ${normal} dependencies between them that their code uses. `,
-        "Arrows are drawn by their role. A grey arrow runs from a crate to a crate that uses its items, and an amber one to a crate that builds its implementations to wire into a slot: from what is included to what includes it. A green arrow runs from a contract to a crate that implements it, since the implementer needs the contract to know what to build. A dotted amber arrow runs from a crate to a program or other composition with a type of its own that meets that crate's trait: an adapter it injects, not an implementation. Every arrow's head is on the crate that depends on the other. The panel's lists keep Cargo's sense: a crate includes what it depends on. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
+        "Arrows are drawn by their role. A grey arrow runs from a crate to a crate that uses its items, and an amber one to a crate that builds its implementations to wire into a slot: from what is included to what includes it. A green arrow runs from a contract to a crate that implements it, since the implementer needs the contract to know what to build. A dotted yellow arrow runs from a crate to a program or other composition with a type of its own that meets that crate's trait: an adapter it injects, not an implementation. Every arrow's head is on the crate that depends on the other. The panel's lists keep Cargo's sense: a crate includes what it depends on. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
       el("ul", { class: "overview" }, concerns.layers.map((layer) =>
         el("li", {}, el("strong", {}, `${layer.title} (${counts.get(layer.id) || 0}). `), prose(layer.about)))),
       kindChecks(graph.kind_mismatches),
