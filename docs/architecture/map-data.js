@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "8a9d68e",
+ "commit": "d611571",
  "crates": [
   {
    "bins": [
@@ -13019,7 +13019,6 @@ window.KKT_GRAPH = {
    "crate_doc": "The server's keys: what a key must be, how a new one is made, which access key a server uses, the names, mode and default place of the files that hold them, and the admin agent's name tied to the admin key.",
    "dev_only": false,
    "features": {
-    "real": [],
     "testing": []
    },
    "holders": [],
@@ -13056,27 +13055,6 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "The server's selected access, web and admin key files.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "access",
-      "admin",
-      "admin_names",
-      "create_dir_all",
-      "exists",
-      "is_file",
-      "keep_staged",
-      "new",
-      "read",
-      "read_optional",
-      "remove",
-      "try_exists",
-      "web"
-     ],
-     "path": "KeyFiles"
-    },
-    {
      "doc": "A key file's text, and where it came from, such as the file's path.",
      "fields": [
       "text",
@@ -13084,16 +13062,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "KeyText"
-    },
-    {
-     "doc": "A failed key-file read, retaining its path and underlying I/O error.",
-     "feature": "real",
-     "fields": [
-      "path",
-      "error"
-     ],
-     "kind": "struct",
-     "path": "ReadError"
     },
     {
      "doc": "A key setting the server refuses to start with: the setting's name and why.",
@@ -13158,18 +13126,6 @@ window.KKT_GRAPH = {
      "path": "generate"
     },
     {
-     "doc": "Writes a missing default key, drawing a key only after making its folder.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "make_default_key"
-    },
-    {
-     "doc": "Creates a new private key file, making its folder before drawing the key.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "new_key_file"
-    },
-    {
      "doc": "What tests outside kkt-server-keys need to know about the keys.",
      "feature": "testing",
      "kind": "mod",
@@ -13185,43 +13141,14 @@ window.KKT_GRAPH = {
      "doc": "The operator web key always lives beside the server's access key.",
      "kind": "fn",
      "path": "web_key_path"
-    },
-    {
-     "doc": "Writes already-bound admin-name text beside the key, or removes the old name file.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "write_admin_name"
-    },
-    {
-     "doc": "Writes `key` to `path`, readable and writable only by its owner.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "write_key_file"
     }
    ],
    "lib": "kkt_server_keys",
-   "machine_work": {
-    "src/files.rs": [
-     "fs::OpenOptions::new",
-     "fs::Permissions::from_mode",
-     "fs::create_dir_all",
-     "fs::read_to_string",
-     "fs::remove_file",
-     "fs::rename",
-     "fs::write",
-     "os::unix::fs::OpenOptionsExt",
-     "os::unix::fs::PermissionsExt",
-     "Path::exists",
-     "Path::is_file",
-     "Path::try_exists"
-    ]
-   },
+   "machine_work": {},
    "name": "kkt-server-keys",
    "optional_third_party": {},
    "path": "crates/kkt-server-keys",
-   "real_files": [
-    "src/files.rs"
-   ],
+   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -13240,6 +13167,100 @@ window.KKT_GRAPH = {
    "third_party": [
     "thiserror"
    ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "The server's key files on disk, as kkt-server-keys names and places them: reading their texts, private key writes, admin-name writes and staged-key moves.",
+   "dev_only": false,
+   "features": {
+    "real": []
+   },
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "The server's selected access, web and admin key files.",
+     "feature": "real",
+     "kind": "struct",
+     "methods": [
+      "access",
+      "admin",
+      "admin_names",
+      "create_dir_all",
+      "exists",
+      "is_file",
+      "keep_staged",
+      "new",
+      "read",
+      "read_optional",
+      "remove",
+      "try_exists",
+      "web"
+     ],
+     "path": "KeyFiles"
+    },
+    {
+     "doc": "A failed key-file read, retaining its path and underlying I/O error.",
+     "feature": "real",
+     "fields": [
+      "path",
+      "error"
+     ],
+     "kind": "struct",
+     "path": "ReadError"
+    },
+    {
+     "doc": "Writes a missing default key, drawing a key only after making its folder.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "make_default_key"
+    },
+    {
+     "doc": "Creates a new private key file, making its folder before drawing the key.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "new_key_file"
+    },
+    {
+     "doc": "Writes already-bound admin-name text beside the key, or removes the old name file.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "write_admin_name"
+    },
+    {
+     "doc": "Writes `key` to `path`, readable and writable only by its owner.",
+     "feature": "real",
+     "kind": "fn",
+     "path": "write_key_file"
+    }
+   ],
+   "lib": "kkt_server_keys_os",
+   "machine_work": {
+    "src/lib.rs": [
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::write",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "Path::exists",
+     "Path::is_file",
+     "Path::try_exists"
+    ]
+   },
+   "name": "kkt-server-keys-os",
+   "optional_third_party": {},
+   "path": "crates/kkt-server-keys-os",
+   "real_files": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
   },
   {
    "bins": [],
@@ -18041,25 +18062,17 @@ window.KKT_GRAPH = {
    "to": "kkt-server"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "AccessKey",
-    "KeyFiles",
     "KeyText",
-    "ReadError",
     "SettingError",
     "access_key_file",
     "admin_key_path",
     "admin_name_path",
     "generate",
-    "make_default_key",
-    "new_key_file",
-    "web_key_path",
-    "write_admin_name",
-    "write_key_file"
+    "web_key_path"
    ],
    "kind": "normal",
    "optional": false,
@@ -18068,19 +18081,13 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AccessKey",
-      "KeyFiles",
       "KeyText",
-      "ReadError",
       "SettingError",
       "access_key_file",
       "admin_key_path",
       "admin_name_path",
       "generate",
-      "make_default_key",
-      "new_key_file",
-      "web_key_path",
-      "write_admin_name",
-      "write_key_file"
+      "web_key_path"
      ],
      "role": "uses"
     }
@@ -18090,6 +18097,39 @@ window.KKT_GRAPH = {
     "bound_to"
    ],
    "to": "kkt-server-keys"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "KeyFiles",
+    "ReadError",
+    "make_default_key",
+    "new_key_file",
+    "write_admin_name",
+    "write_key_file"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "KeyFiles",
+      "ReadError",
+      "make_default_key",
+      "new_key_file",
+      "write_admin_name",
+      "write_key_file"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-server-keys-os"
   },
   {
    "features": [
@@ -22243,13 +22283,10 @@ window.KKT_GRAPH = {
    "to": "kkt-server"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-keymode",
    "items": [
     "AccessKey",
-    "KeyFiles",
     "KeyText",
     "admin_key_path",
     "web_key_path"
@@ -22261,7 +22298,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AccessKey",
-      "KeyFiles",
       "KeyText",
       "admin_key_path",
       "web_key_path"
@@ -22272,6 +22308,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-server-keys"
+  },
+  {
+   "features": [
+    "real"
+   ],
+   "from": "kkt-keymode",
+   "items": [
+    "KeyFiles"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "KeyFiles"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-server-keys-os"
   },
   {
    "features": [
@@ -25462,6 +25521,33 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-server-keys-os",
+   "items": [
+    "ACCESS_KEY_FILE_MODE",
+    "AccessKey",
+    "KeyText",
+    "admin_name_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ACCESS_KEY_FILE_MODE",
+      "AccessKey",
+      "KeyText",
+      "admin_name_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-server-keys"
+  },
+  {
+   "features": [],
    "from": "kkt-server-listen",
    "items": [
     "App"
@@ -26986,6 +27072,23 @@ window.KKT_GRAPH = {
    "to": "kkt-server"
   },
   {
+   "features": [],
+   "from": "kkt-web-preview",
+   "items": [],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-server-keys"
+  },
+  {
    "features": [
     "real"
    ],
@@ -27006,7 +27109,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-server-keys"
+   "to": "kkt-server-keys-os"
   },
   {
    "features": [
@@ -27437,10 +27540,16 @@ window.KKT_CONCERNS = {
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in."
   },
   "kkt-server-keys": {
-   "concern": "The server's keys: what a valid key is and how a new one is made, which access key a server uses, the key files' names, mode and places, and the admin name file's binding to its key and the advice about it; behind real, the key files on disk: texts, private key writes, admin-name writes and staged-key moves.",
-   "kind": "logic and effect",
+   "concern": "The server's keys: what a valid key is and how a new one is made, which access key a server uses, the key files' names, mode and places, and the admin name file's binding to its key and the advice about it. The key files on disk are kkt-server-keys-os'.",
+   "kind": "logic",
    "layer": "access",
-   "must_not": "Decide who a key lets in; choose a randomness provider; word each program's key refusals."
+   "must_not": "Decide who a key lets in; choose a randomness provider; word each program's key refusals; touch the key files."
+  },
+  "kkt-server-keys-os": {
+   "concern": "The server's key files on disk, as kkt-server-keys names and places them: KeyFiles (reading the access, web and admin keys and the admin name file), ReadError, and private key writes (new_key_file, write_key_file, make_default_key), admin-name writes and staged-key moves (phase 16, the reverse of 14.5's merge of kkt-admission-os).",
+   "kind": "effect",
+   "layer": "access",
+   "must_not": "Decide what a valid key is, who a key lets in, or where key files go; draw randomness itself."
   },
   "kkt-server-listen": {
    "concern": "Binding the server's assembled App to its socket and serving it.",
@@ -28096,8 +28205,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-admission",
      "note": "kkt serve",
-     "own": "ServerKeyFiles, adapting kkt-server-keys::KeyFiles",
-     "supplier": "kkt-server-keys",
+     "own": "ServerKeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles",
      "to": [
       {
@@ -28229,8 +28338,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and watch",
-     "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
-     "supplier": "kkt-server-keys",
+     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles",
      "to": [
       {
@@ -28466,8 +28575,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeKeyFiles, forwarding key files to kkt-server-keys and generation to kkt-entropy-os",
-     "supplier": "kkt-server-keys",
+     "own": "NativeKeyFiles, forwarding key files to kkt-server-keys-os and generation to kkt-entropy-os",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles",
      "to": [
       {
@@ -28820,8 +28929,8 @@ window.KKT_ASSEMBLY = {
    "wiring": [
     {
      "crate": "kkt-admission",
-     "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
-     "supplier": "kkt-server-keys",
+     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles",
      "to": [
       {
@@ -28932,12 +29041,12 @@ window.KKT_ASSEMBLY = {
     {
      "items": [
       "kkt-api-sim::PreviewGate",
-      "kkt-server-keys::KeyFiles",
+      "kkt-server-keys-os::KeyFiles",
       "kkt-web::Sessions",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy"
      ],
-     "text": "PreviewGate, with the access key read through kkt-server-keys, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+     "text": "PreviewGate, with the access key read through kkt-server-keys-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
      "title": "Gate"
     },
     {

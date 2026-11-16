@@ -1,8 +1,11 @@
-//! The server's key files: reading texts, private key writes and staged
-//! key moves. Callers supply key generation and adapt reads to
+//! The server's key files on disk, as kkt-server-keys names and places
+//! them: reading their texts, private key writes, admin-name writes and
+//! staged-key moves. Callers supply key generation and adapt reads to
 //! kkt-admission's KeyTexts.
 
-use crate::{AccessKey, KeyText};
+#![cfg(feature = "real")]
+
+use kkt_server_keys::{AccessKey, KeyText};
 use std::fmt;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -69,7 +72,7 @@ impl<'a> KeyFiles<'a> {
     /// The name text beside the selected admin key, if its file exists.
     pub fn admin_names(&self) -> Result<Option<String>, ReadError> {
         match self.admin {
-            Some(path) => Self::read_optional(&crate::admin_name_path(path)),
+            Some(path) => Self::read_optional(&kkt_server_keys::admin_name_path(path)),
             None => Ok(None),
         }
     }
@@ -153,7 +156,7 @@ pub fn new_key_file(
 /// Writes already-bound admin-name text beside the key, or removes the old
 /// name file. The caller retains its own success and failure wording.
 pub fn write_admin_name(path: &Path, bound: Option<&str>) -> io::Result<()> {
-    let names = crate::admin_name_path(path);
+    let names = kkt_server_keys::admin_name_path(path);
     match bound {
         Some(text) => std::fs::write(names, text),
         None => match KeyFiles::remove(&names) {
@@ -176,7 +179,7 @@ pub fn write_key_file(path: &Path, key: &str, force: bool) -> Result<(), String>
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(crate::ACCESS_KEY_FILE_MODE);
+        options.mode(kkt_server_keys::ACCESS_KEY_FILE_MODE);
     }
     let mut file = options.open(path).map_err(|e| match e.kind() {
         std::io::ErrorKind::AlreadyExists => format!(
@@ -190,8 +193,10 @@ pub fn write_key_file(path: &Path, key: &str, force: bool) -> Result<(), String>
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        file.set_permissions(std::fs::Permissions::from_mode(crate::ACCESS_KEY_FILE_MODE))
-            .map_err(|e| format!("could not restrict {}: {e}", path.display()))?;
+        file.set_permissions(std::fs::Permissions::from_mode(
+            kkt_server_keys::ACCESS_KEY_FILE_MODE,
+        ))
+        .map_err(|e| format!("could not restrict {}: {e}", path.display()))?;
     }
     writeln!(file, "{key}").map_err(|e| format!("could not write {}: {e}", path.display()))
 }

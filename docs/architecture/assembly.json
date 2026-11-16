@@ -138,7 +138,7 @@
    ],
    "wiring": [
     {
-     "own": "ServerKeyFiles, adapting kkt-server-keys::KeyFiles",
+     "own": "ServerKeyFiles, adapting kkt-server-keys-os::KeyFiles",
      "crate": "kkt-admission",
      "to": [
       {
@@ -147,7 +147,7 @@
       }
      ],
      "note": "kkt serve",
-     "supplier": "kkt-server-keys",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles"
     },
     {
@@ -271,7 +271,7 @@
      "supplier_item": "CredentialFile"
     },
     {
-     "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
+     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -280,7 +280,7 @@
       }
      ],
      "note": "kkt register, reclaim and watch",
-     "supplier": "kkt-server-keys",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles"
     },
     {
@@ -509,7 +509,7 @@
      "supplier": "kkt-setup-os"
     },
     {
-     "own": "NativeKeyFiles, forwarding key files to kkt-server-keys and generation to kkt-entropy-os",
+     "own": "NativeKeyFiles, forwarding key files to kkt-server-keys-os and generation to kkt-entropy-os",
      "crate": "kkt-operate",
      "to": [
       {
@@ -517,7 +517,7 @@
        "param": "key_files"
       }
      ],
-     "supplier": "kkt-server-keys",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles"
     },
     {
@@ -724,7 +724,7 @@
    ],
    "wiring": [
     {
-     "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
+     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
      "crate": "kkt-admission",
      "to": [
       {
@@ -732,7 +732,7 @@
        "param": "texts"
       }
      ],
-     "supplier": "kkt-server-keys",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles"
     },
     {
@@ -977,10 +977,10 @@
     },
     {
      "title": "Gate",
-     "text": "PreviewGate, with the access key read through kkt-server-keys, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+     "text": "PreviewGate, with the access key read through kkt-server-keys-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
      "items": [
       "kkt-api-sim::PreviewGate",
-      "kkt-server-keys::KeyFiles",
+      "kkt-server-keys-os::KeyFiles",
       "kkt-web::Sessions",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy"
