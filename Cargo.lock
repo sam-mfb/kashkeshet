@@ -1069,8 +1069,6 @@ dependencies = [
  "kkt-lane-files",
  "kkt-lane-files-os",
  "kkt-log-tracing",
- "kkt-logs",
- "kkt-logs-os",
  "kkt-machine",
  "kkt-machine-os",
  "kkt-mcp",
@@ -1080,6 +1078,7 @@ dependencies = [
  "kkt-probe",
  "kkt-provenance",
  "kkt-remote-access-tailscale",
+ "kkt-rolling-file",
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
@@ -1442,7 +1441,6 @@ dependencies = [
  "kkt-hosts",
  "kkt-identity-keymode",
  "kkt-log-tracing",
- "kkt-logs",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-names",
@@ -1480,26 +1478,9 @@ name = "kkt-log-tracing"
 version = "0.10.0"
 dependencies = [
  "kkt-log",
- "kkt-logs",
+ "thiserror",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "kkt-logs"
-version = "0.10.0"
-dependencies = [
- "kkt-clock",
- "thiserror",
-]
-
-[[package]]
-name = "kkt-logs-os"
-version = "0.10.0"
-dependencies = [
- "kkt-clock",
- "kkt-logs",
- "kkt-scratch",
 ]
 
 [[package]]
@@ -1617,6 +1598,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-rolling-file"
+version = "0.10.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-scratch",
+ "thiserror",
+]
+
+[[package]]
 name = "kkt-rules"
 version = "0.10.0"
 dependencies = [
@@ -1662,7 +1652,6 @@ dependencies = [
  "kkt-identity",
  "kkt-identity-keymode",
  "kkt-log",
- "kkt-logs",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-names",
@@ -1847,7 +1836,6 @@ dependencies = [
  "kkt-hosts",
  "kkt-log",
  "kkt-log-tracing",
- "kkt-logs",
  "kkt-server",
  "kkt-server-keys",
  "kkt-server-keys-os",

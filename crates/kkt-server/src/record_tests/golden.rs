@@ -12,8 +12,8 @@ use std::time::Duration;
 struct Case {
     allow_any_bind: bool,
     limits: FixtureLimits,
-    log_level: LogLevel,
-    dependency_log_level: LogLevel,
+    log_level: &'static str,
+    dependency_log_level: &'static str,
     origins: &'static [&'static str],
     hosts: &'static [&'static str],
     config_file: Option<&'static str>,
@@ -30,8 +30,8 @@ struct Case {
 const PLAIN: Case = Case {
     allow_any_bind: false,
     limits: FixtureLimits::DEFAULT,
-    log_level: LogLevel::Info,
-    dependency_log_level: LogLevel::Warn,
+    log_level: "info",
+    dependency_log_level: "warn",
     origins: &[],
     hosts: &[],
     config_file: None,
@@ -221,8 +221,8 @@ fn a_server_with_every_setting_given_records_them_all() {
             },
             ..FixtureLimits::DEFAULT
         },
-        log_level: LogLevel::Debug,
-        dependency_log_level: LogLevel::Error,
+        log_level: "debug",
+        dependency_log_level: "error",
         origins: &["http://b.example", "http://a.example"],
         hosts: &["b.example", "a.example"],
         config_file: Some("/home/sam/.config/kkt/config.toml"),

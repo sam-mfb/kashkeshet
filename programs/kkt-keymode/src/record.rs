@@ -1,7 +1,8 @@
 //! The program's run-record values. Owners word their own settings;
 //! kkt-server orders these plain lines with its own settings' lines.
+//! kkt-keymode writes no log file, so it records none.
 
-use kkt_logs::{LogLevel, LogPolicy};
+use kkt_log_tracing::LogLevel;
 use kkt_provenance::ServerRun;
 use kkt_server::ServerSettings;
 
@@ -17,8 +18,6 @@ pub(crate) struct RecordedSettings<'a> {
     pub web_key_file: Option<String>,
     pub admin_key_file: Option<String>,
     pub admin_name: Option<String>,
-    pub log_file: Option<String>,
-    pub log_policy: LogPolicy,
 }
 
 impl RecordedSettings<'_> {
@@ -35,8 +34,6 @@ impl RecordedSettings<'_> {
             web_key_file,
             admin_key_file,
             admin_name,
-            log_file,
-            log_policy,
         } = self;
         let mut lines = rules.record_lines();
         lines.extend(backup.record_lines());
@@ -55,19 +52,6 @@ impl RecordedSettings<'_> {
         if let Some(file) = admin_key_file {
             lines.push(line("admin_key_file", file));
             lines.extend(admin_name.iter().map(|name| line("admin_name", name)));
-        }
-        if let Some(file) = log_file {
-            let LogPolicy {
-                max_bytes,
-                rotated_files,
-                max_age,
-            } = log_policy;
-            lines.extend([
-                line("log_file", file),
-                line("log_max_bytes", max_bytes),
-                line("log_rotated_files", rotated_files),
-                line("log_max_age_ms", max_age.as_millis()),
-            ]);
         }
         server.record_lines(lines)
     }

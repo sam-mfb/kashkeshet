@@ -100,14 +100,20 @@ The shared crates are reorganized so that every dependency is injected and each 
   `kkt_container::LoginLink` and kkt-terminal-os' `BrowserLink` keep only
   `show` and `open_requested`; `kkt_container_docker::Docker` is now built
   with `Docker::new(browser)`. Messages are unchanged.
-- **Effects in `-os` crates.** What touches the machine moves into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os`, `kkt-shutdown-os` (`StopSignals`, from kkt-shutdown, which keeps `Shutdown`), `kkt-backup-os` (`write` and `prune`; kkt-backup keeps the layouts), `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`), `kkt-logs-os` (`RotatingFile` and `open_log_file`; kkt-logs keeps the levels and the policy's plans) and `kkt-server-keys-os` (the key files on disk; kkt-server-keys keeps what a key is and where its files go).
-- **Logs.** `kkt-logs-os` keeps only the log file: `RotatingFile`, with
-  `open_log_file(path, policy, clock)`, which checks the
-  policy and opens the file, as `init_logging` did. Its `TracingLog`,
-  `init_logging` and `init_stderr_logging` are now `kkt-log-tracing`'s.
-  kkt-logs is logic alone. `init_logging` takes the writer to
-  log to (`None` for stdout) in place of a path, a policy and a clock.
-  Messages are unchanged.
+- **Effects in `-os` crates.** What touches the machine moves into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os`, `kkt-shutdown-os` (`StopSignals`, from kkt-shutdown, which keeps `Shutdown`), `kkt-backup-os` (`write` and `prune`; kkt-backup keeps the layouts), `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`), `kkt-rolling-file` (`RotatingFile`, `open_log_file` and `LogPolicy`; see Logs) and `kkt-server-keys-os` (the key files on disk; kkt-server-keys keeps what a key is and where its files go).
+- **Logs.** `kkt-logs` is gone, and so is the name `kkt-logs-os`. The log
+  file is now `kkt-rolling-file`: `RotatingFile`, with
+  `open_log_file(path, policy, clock)`, which checks the policy and opens
+  the file, as `init_logging` did, and `LogPolicy` with its `DEFAULT`.
+  `TracingLog`, `init_logging` and `init_stderr_logging` are now
+  `kkt-log-tracing`'s, and so is the log level setting: `LogLevel` (`ALL`,
+  `name`, `parse`), `DEFAULT_LOG_LEVEL`, `DEFAULT_DEPENDENCY_LOG_LEVEL`,
+  `check_dependency_log_level` and the `SettingError` they return. Import
+  these from the two crates in place of kkt-logs. kkt-logs' plans
+  (`should_roll`, `prune_due`, `rotation`, `pruning`, `Rotation`,
+  `Pruning`) and `LogPolicy::check` are now private to kkt-rolling-file.
+  `init_logging` takes the writer to log to (`None` for stdout) in place
+  of a path, a policy and a clock. Messages are unchanged.
 - **Server keys.** `kkt-admission` held two concerns; the server's keys
   are now `kkt-server-keys`, and `kkt-admission-os`'s key files are now
   `kkt-server-keys-os`. kkt-admission depends on kkt-server-keys, never the

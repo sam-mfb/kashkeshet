@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "d41b3a5",
+ "commit": "cb7acec",
  "crates": [
   {
    "bins": [
@@ -6944,7 +6944,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "kkt-log's `Log` contract over `tracing`: `TracingLog` sends structured events to the tracing subscriber, and `init_logging` and `init_stderr_logging` start that subscriber, to stdout, stderr or a writer the program gives, such as kkt-log...",
+   "crate_doc": "kkt-log's `Log` contract over `tracing`: `TracingLog` sends structured events to the tracing subscriber, and `init_logging` and `init_stderr_logging` start that subscriber, to stdout, stderr or a writer the program gives, such as a rolli...",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -6956,53 +6956,6 @@ window.KKT_GRAPH = {
      "type": "TracingLog"
     }
    ],
-   "items": [
-    {
-     "doc": "Sends structured events to the active tracing subscriber, retaining the caller's target, level, message and named fields.",
-     "kind": "struct",
-     "path": "TracingLog"
-    },
-    {
-     "doc": "Sends the log to stdout, or to `log_file`, such as the log file kkt-logs-os opens.",
-     "kind": "fn",
-     "path": "init_logging"
-    },
-    {
-     "doc": "Sends the log to stderr: kkt's own lines at `own` (see `own_log_filter`).",
-     "kind": "fn",
-     "path": "init_stderr_logging"
-    }
-   ],
-   "lib": "kkt_log_tracing",
-   "machine_work": {
-    "src/lib.rs": [
-     "io::IsTerminal",
-     "io::stderr",
-     "io::stdout"
-    ],
-    "src/record.rs": [
-     "Path::metadata"
-    ]
-   },
-   "name": "kkt-log-tracing",
-   "path": "crates/kkt-log-tracing",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": [
-    "tracing",
-    "tracing-subscriber"
-   ]
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "Log levels, their checks, and pure rollover and age-pruning rules.",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
    "items": [
     {
      "doc": "The level logged for the libraries kkt uses (`dependency_log_level`) when nothing says.",
@@ -7031,39 +6984,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "How a log file the server writes itself (`--log-file`) is kept bounded.",
-     "fields": [
-      "max_bytes",
-      "rotated_files",
-      "max_age"
-     ],
-     "kind": "struct",
-     "methods": [
-      "check"
-     ],
-     "path": "LogPolicy"
-    },
-    {
-     "doc": "Which rolled files to inspect and when a file is too old.",
-     "kind": "struct",
-     "methods": [
-      "expired",
-      "paths"
-     ],
-     "path": "Pruning"
-    },
-    {
-     "doc": "The filesystem steps for one rollover, in their existing order.",
-     "fields": [
-      "oldest",
-      "shifts",
-      "first"
-     ],
-     "kind": "struct",
-     "path": "Rotation"
-    },
-    {
-     "doc": "A log setting the server refuses to start with: the setting's name and why.",
+     "doc": "A log level setting the server refuses to start with: the setting's name and why.",
      "fields": [
       "name",
       "rule"
@@ -7075,109 +6996,47 @@ window.KKT_GRAPH = {
      "path": "SettingError"
     },
     {
+     "doc": "Sends structured events to the active tracing subscriber, retaining the caller's target, level, message and named fields.",
+     "kind": "struct",
+     "path": "TracingLog"
+    },
+    {
      "doc": "Checks `dependency_log_level`.",
      "kind": "fn",
      "path": "check_dependency_log_level"
     },
     {
-     "doc": "Whether age pruning is due on this write.",
+     "doc": "Sends the log to stdout, or to `log_file`, such as a rolling log file the program opens.",
      "kind": "fn",
-     "path": "prune_due"
+     "path": "init_logging"
     },
     {
-     "doc": "The rolled files and age cutoff to inspect at `now`.",
+     "doc": "Sends the log to stderr: kkt's own lines at `own` (see `own_log_filter`).",
      "kind": "fn",
-     "path": "pruning"
-    },
-    {
-     "doc": "The removal and reverse rename order for one rollover.",
-     "kind": "fn",
-     "path": "rotation"
-    },
-    {
-     "doc": "Whether the next whole write needs a rollover.",
-     "kind": "fn",
-     "path": "should_roll"
+     "path": "init_stderr_logging"
     }
    ],
-   "lib": "kkt_logs",
-   "machine_work": {},
-   "name": "kkt-logs",
-   "path": "crates/kkt-logs",
+   "lib": "kkt_log_tracing",
+   "machine_work": {
+    "src/lib.rs": [
+     "io::IsTerminal",
+     "io::stderr",
+     "io::stdout"
+    ],
+    "src/record.rs": [
+     "Path::metadata"
+    ]
+   },
+   "name": "kkt-log-tracing",
+   "path": "crates/kkt-log-tracing",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
    "third_party": [
-    "thiserror"
+    "thiserror",
+    "tracing",
+    "tracing-subscriber"
    ]
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "The log file on disk: appended to, rolled over and pruned as kkt-logs' policy plans say (`RotatingFile`, opened by `open_log_file` after the policy's check).",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "The log file at `path`, appended to, and rolled over by its policy.",
-     "kind": "struct",
-     "methods": [
-      "open"
-     ],
-     "path": "RotatingFile"
-    },
-    {
-     "doc": "Opens the log file at `path` for `RotatingFile::open`, after checking `policy`.",
-     "kind": "fn",
-     "path": "open_log_file"
-    }
-   ],
-   "lib": "kkt_logs_os",
-   "machine_work": {
-    "src/lib.rs": [
-     "fs",
-     "fs::File",
-     "fs::OpenOptions",
-     "fs::OpenOptions::new",
-     "fs::create_dir_all",
-     "fs::metadata",
-     "fs::remove_file",
-     "fs::rename",
-     "Path::metadata"
-    ]
-   },
-   "name": "kkt-logs-os",
-   "path": "crates/kkt-logs-os",
-   "released_program": false,
-   "slots": [
-    {
-     "at": "RotatingFile::open",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    },
-    {
-     "at": "open_log_file",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    }
-   ],
-   "testing_third_party": [],
-   "third_party": []
   },
   {
    "bins": [],
@@ -11250,6 +11109,86 @@ window.KKT_GRAPH = {
    "third_party": [
     "serde",
     "serde_json"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "A file on disk that rolls over at a size and prunes old copies by age (`RotatingFile`, opened by `open_log_file` after checking its `LogPolicy`).",
+   "dev_only": false,
+   "features": {},
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "How a log file the server writes itself (`--log-file`) is kept bounded.",
+     "fields": [
+      "max_bytes",
+      "rotated_files",
+      "max_age"
+     ],
+     "kind": "struct",
+     "path": "LogPolicy"
+    },
+    {
+     "doc": "The log file at `path`, appended to, and rolled over by its policy.",
+     "kind": "struct",
+     "methods": [
+      "open"
+     ],
+     "path": "RotatingFile"
+    },
+    {
+     "doc": "Opens the log file at `path` for `RotatingFile::open`, after checking `policy`.",
+     "kind": "fn",
+     "path": "open_log_file"
+    }
+   ],
+   "lib": "kkt_rolling_file",
+   "machine_work": {
+    "src/lib.rs": [
+     "fs",
+     "fs::File",
+     "fs::OpenOptions",
+     "fs::OpenOptions::new",
+     "fs::create_dir_all",
+     "fs::metadata",
+     "fs::remove_file",
+     "fs::rename",
+     "Path::metadata"
+    ]
+   },
+   "name": "kkt-rolling-file",
+   "path": "crates/kkt-rolling-file",
+   "released_program": false,
+   "slots": [
+    {
+     "at": "RotatingFile::open",
+     "kind": "param",
+     "name": "clock",
+     "traits": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      }
+     ]
+    },
+    {
+     "at": "open_log_file",
+     "kind": "param",
+     "name": "clock",
+     "traits": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      }
+     ]
+    }
+   ],
+   "testing_third_party": [],
+   "third_party": [
+    "thiserror"
    ]
   },
   {
@@ -17205,7 +17144,12 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "DEFAULT_DEPENDENCY_LOG_LEVEL",
+    "DEFAULT_LOG_LEVEL",
+    "LogLevel",
+    "SettingError",
     "TracingLog",
+    "check_dependency_log_level",
     "init_logging",
     "init_stderr_logging"
    ],
@@ -17215,6 +17159,11 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "DEFAULT_DEPENDENCY_LOG_LEVEL",
+      "DEFAULT_LOG_LEVEL",
+      "LogLevel",
+      "SettingError",
+      "check_dependency_log_level",
       "init_logging",
       "init_stderr_logging"
      ],
@@ -17230,58 +17179,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-log-tracing"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "DEFAULT_DEPENDENCY_LOG_LEVEL",
-    "DEFAULT_LOG_LEVEL",
-    "LogLevel",
-    "LogPolicy",
-    "SettingError",
-    "check_dependency_log_level"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "DEFAULT_DEPENDENCY_LOG_LEVEL",
-      "DEFAULT_LOG_LEVEL",
-      "LogLevel",
-      "LogPolicy",
-      "SettingError",
-      "check_dependency_log_level"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-logs"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "open_log_file"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "open_log_file"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-logs-os"
   },
   {
    "features": [],
@@ -17583,6 +17480,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-remote-access-tailscale"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "LogPolicy",
+    "open_log_file"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "LogPolicy",
+      "open_log_file"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-rolling-file"
   },
   {
    "features": [],
@@ -21609,12 +21529,23 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
+    "DEFAULT_DEPENDENCY_LOG_LEVEL",
+    "DEFAULT_LOG_LEVEL",
+    "LogLevel",
     "TracingLog"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
+    {
+     "detail": [
+      "DEFAULT_DEPENDENCY_LOG_LEVEL",
+      "DEFAULT_LOG_LEVEL",
+      "LogLevel"
+     ],
+     "role": "uses"
+    },
     {
      "detail": [
       "TracingLog"
@@ -21625,33 +21556,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-log-tracing"
-  },
-  {
-   "features": [],
-   "from": "kkt-keymode",
-   "items": [
-    "DEFAULT_DEPENDENCY_LOG_LEVEL",
-    "DEFAULT_LOG_LEVEL",
-    "LogLevel",
-    "LogPolicy"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "DEFAULT_DEPENDENCY_LOG_LEVEL",
-      "DEFAULT_LOG_LEVEL",
-      "LogLevel",
-      "LogPolicy"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-logs"
   },
   {
    "features": [],
@@ -21995,179 +21899,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-log"
-  },
-  {
-   "features": [],
-   "from": "kkt-log-tracing",
-   "items": [
-    "LogLevel"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "LogLevel"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-logs"
-  },
-  {
-   "features": [],
-   "from": "kkt-logs",
-   "items": [
-    "OutOfRange",
-    "Span",
-    "Time"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "OutOfRange",
-      "Span",
-      "Time"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-logs",
-   "items": [],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-logs-os",
-   "items": [
-    "Clock",
-    "OutOfRange",
-    "Time"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Clock",
-      "OutOfRange",
-      "Time"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Span",
-    "testing::FixedClock"
-   ],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-logs-os",
-   "items": [
-    "LogPolicy",
-    "prune_due",
-    "pruning",
-    "rotation",
-    "should_roll"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "LogPolicy",
-      "prune_due",
-      "pruning",
-      "rotation",
-      "should_roll"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-logs"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-logs-os",
-   "items": [
-    "Span",
-    "testing::FixedClock"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Span"
-     ],
-     "role": "uses"
-    },
-    {
-     "detail": [
-      "testing::FixedClock"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-logs-os",
-   "items": [
-    "Dir"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Dir"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-scratch"
   },
   {
    "features": [],
@@ -23667,6 +23398,86 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-rolling-file",
+   "items": [
+    "Clock",
+    "OutOfRange",
+    "Span",
+    "Time"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock",
+      "OutOfRange",
+      "Span",
+      "Time"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "testing::FixedClock"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-rolling-file",
+   "items": [
+    "Span",
+    "testing::FixedClock"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Span"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::FixedClock"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-rolling-file",
+   "items": [
+    "Dir"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Dir"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-scratch"
+  },
+  {
+   "features": [],
    "from": "kkt-rules",
    "items": [
     "Admin",
@@ -24771,29 +24582,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-log"
-  },
-  {
-   "features": [],
-   "from": "kkt-server",
-   "items": [
-    "LogLevel",
-    "LogPolicy"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "LogLevel",
-      "LogPolicy"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-logs"
   },
   {
    "features": [
@@ -26520,6 +26308,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-web-preview",
    "items": [
+    "LogLevel",
     "TracingLog",
     "init_stderr_logging"
    ],
@@ -26529,6 +26318,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "LogLevel",
       "init_stderr_logging"
      ],
      "role": "uses"
@@ -26543,27 +26333,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-log-tracing"
-  },
-  {
-   "features": [],
-   "from": "kkt-web-preview",
-   "items": [
-    "LogLevel"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "LogLevel"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-logs"
   },
   {
    "features": [],
@@ -26948,22 +26717,10 @@ window.KKT_CONCERNS = {
    "must_not": "Know a logging library or perform I/O."
   },
   "kkt-log-tracing": {
-   "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given.",
+   "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given; the log level setting it starts with: LogLevel (name, parse), DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL and check_dependency_log_level, with its own SettingError (from kkt-logs, deleted, ARCHITECTURE.md 4.2.2).",
    "kind": "effect",
    "layer": "foundations",
-   "must_not": "Open, roll over or prune log files; choose log levels' defaults."
-  },
-  "kkt-logs": {
-   "concern": "Log levels, policy checks, rollover and age-pruning rules, as pure plans; kkt-logs-os carries them out on the log file.",
-   "kind": "logic",
-   "layer": "foundations",
-   "must_not": "Read a real clock itself; start a logging library."
-  },
-  "kkt-logs-os": {
-   "concern": "The log file on disk, appended to, rolled over and pruned as kkt-logs' plans say: RotatingFile, opened by open_log_file after the policy's check, with the clock the program gives (phase 16, the reverse of 14.4's merge).",
-   "kind": "effect",
-   "layer": "foundations",
-   "must_not": "Decide the policy or its plans; read a real clock itself; start a logging library."
+   "must_not": "Open, roll over or prune log files."
   },
   "kkt-machine": {
    "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
@@ -27023,6 +26780,12 @@ window.KKT_CONCERNS = {
    "kind": "effect",
    "layer": "operations",
    "must_not": "Change login, DNS preferences, unrelated sharing, config or the service."
+  },
+  "kkt-rolling-file": {
+   "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). It does not implement kkt-log.",
+   "kind": "effect",
+   "layer": "foundations",
+   "must_not": "Read a real clock itself; start a logging library; know log levels."
   },
   "kkt-rules": {
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm; and starting them for a server run (`start`), which records the run first.",
@@ -27911,7 +27674,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-logs-os",
+     "crate": "kkt-rolling-file",
      "impl": "kkt-clock-system::SystemClock",
      "note": "kkt serve --log-file",
      "to": [
