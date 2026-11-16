@@ -35,7 +35,7 @@ async fn sleep_by_wall_clock(now: impl Fn() -> Time, deadline: Time, step: std::
         }
         #[expect(
             clippy::disallowed_methods,
-            reason = "the system clock's sleep is the one place kkt waits in real time"
+            reason = "the system clock's sleep is where a program using it waits in real time"
         )]
         tokio::time::sleep(remaining.min(step)).await;
     }
@@ -44,7 +44,7 @@ async fn sleep_by_wall_clock(now: impl Fn() -> Time, deadline: Time, step: std::
 /// The one place kkt reads the machine's wall clock.
 #[expect(
     clippy::disallowed_methods,
-    reason = "the system clock is the one place kkt reads real time"
+    reason = "the system clock is where a program using it reads real time"
 )]
 fn system_now() -> Time {
     Time::from(std::time::SystemTime::now())

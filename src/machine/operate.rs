@@ -73,7 +73,7 @@ impl<'a, D> NativeOperate<'a, D> {
             login_link: &self.login_link,
             service: self.service.as_ref(),
             try_bind: &kkt_listen::try_bind,
-            remote: &kkt_remote_access_tailscale::Tailscale,
+            remote: &REMOTE_ACCESS,
             clients: &super::client_config::ClientHost,
             client_command: &super::client_config::ClaudeCommand,
             prober: &self.prober,
@@ -320,6 +320,11 @@ fn write_whole(path: &Path, text: &str) -> Result<(), String> {
 type CopyDatabase = fn(&Path, &Path) -> Result<(), String>;
 static BACKUPS: kkt_backup_os::OsBackups<CopyDatabase> =
     kkt_backup_os::OsBackups::new(super::database::copy);
+
+/// Sharing the server over Tailscale; a refusal tells the person to rerun
+/// `kkt setup` once they have fixed what it names.
+static REMOTE_ACCESS: kkt_remote_access_tailscale::Tailscale =
+    kkt_remote_access_tailscale::Tailscale::new("`kkt setup`");
 
 struct NativeDatabases;
 impl Databases for NativeDatabases {

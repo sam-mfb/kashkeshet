@@ -1,6 +1,5 @@
-//! The log level setting: how much is logged ([`LogLevel`]), the levels
-//! used when nothing says, and the check that keeps the libraries' level
-//! from logging secrets.
+//! The log level setting: how much is logged ([`LogLevel`]), read from
+//! its name, and the levels used when nothing says.
 
 /// How much is logged: the named level and everything more severe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -47,32 +46,14 @@ impl LogLevel {
     }
 }
 
-/// The level logged for kkt's own code (`log_level`) when nothing says.
+/// The level logged for the program's own code when nothing says.
 pub const DEFAULT_LOG_LEVEL: LogLevel = LogLevel::Info;
-/// The level logged for the libraries kkt uses (`dependency_log_level`)
-/// when nothing says. Above info, because the MCP library logs several
-/// lines for every request.
+/// The level logged for the libraries a program uses when nothing says:
+/// above info, since libraries log a great deal at info.
 pub const DEFAULT_DEPENDENCY_LOG_LEVEL: LogLevel = LogLevel::Warn;
 
-/// Checks `dependency_log_level`. At debug and trace the MCP library logs
-/// whole requests and replies, tokens and recovery codes included, and logs
-/// must never hold those; so those levels are refused.
-pub fn check_dependency_log_level(level: LogLevel) -> Result<(), SettingError> {
-    match level {
-        LogLevel::Error | LogLevel::Warn | LogLevel::Info => Ok(()),
-        LogLevel::Debug | LogLevel::Trace => Err(SettingError::new(
-            "dependency_log_level",
-            format!(
-                "must be error, warn or info, not {}: at debug and trace the MCP library \
-                 logs request contents, including tokens",
-                level.name()
-            ),
-        )),
-    }
-}
-
-/// A log level setting the server refuses to start with: the setting's
-/// name and why.
+/// A log level setting refused: the setting's name, as the caller gave it,
+/// and why.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[error("{name} {rule}")]
 pub struct SettingError {
@@ -102,16 +83,5 @@ mod tests {
         let err = LogLevel::parse("dependency_log_level", "verbose").expect_err("unknown");
         assert_eq!(err.name, "dependency_log_level");
         assert!(LogLevel::parse("log_level", "INFO").is_err());
-    }
-
-    #[test]
-    fn dependency_levels_that_would_log_secrets_are_refused() {
-        for level in [LogLevel::Error, LogLevel::Warn, LogLevel::Info] {
-            assert_eq!(check_dependency_log_level(level), Ok(()));
-        }
-        for level in [LogLevel::Debug, LogLevel::Trace] {
-            let err = check_dependency_log_level(level).expect_err("refused");
-            assert_eq!(err.name, "dependency_log_level");
-        }
     }
 }

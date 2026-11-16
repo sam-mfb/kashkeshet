@@ -16,8 +16,12 @@ pub struct FixedMachine {
 }
 
 impl Machine for FixedMachine {
-    fn env(&self) -> Env {
-        self.env.clone()
+    /// Its `env`, with only the named folders asked for.
+    fn env(&self, named: &[&str]) -> Env {
+        let mut env = self.env.clone();
+        env.named
+            .retain(|variable, _| named.contains(&variable.as_str()));
+        env
     }
     fn platform(&self) -> Platform {
         self.platform

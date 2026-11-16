@@ -2241,6 +2241,68 @@ kkt-build-j, reviewed by kkt-review-i:
   and the `on_path` loop stay in the program.
 - kkt-setup does not change. kkt-setup-os is deleted.
 
+### After phase 16: the platform layer (Sam, 2026-11-16)
+
+**Sam's decision** (msg 3597, K4, from sage-cardinal). The Foundations
+and Operations layers blurred, and both mixed crates that only make sense
+for kkt with crates that would make sense anywhere. One test separates
+them: a crate is general if it knows nothing of kkt. In one pull request,
+with no Rust change:
+- the `foundations` layer becomes `platform`, general crates only: a
+  platform crate depends on no crate outside the platform layer;
+- kkt-terminal, kkt-browser, kkt-remote-access,
+  kkt-remote-access-tailscale, kkt-lane-commit and kkt-client-command move
+  into it from operations;
+- kkt-names moves to core (handles and channel IDs are the core's
+  vocabulary), and kkt-provenance to operations;
+- operations is what is specific to running kkt on a machine;
+- a check, check 8 of check-crates.sh and a rule in `kinds.rule_breaks`:
+  a platform crate's [dependencies] are all platform crates.
+
+**What it did, against this decision.** Done as decided. kkt-provenance
+went to operations, not assembly: only assemblies (kkt-server, kkt-operate)
+and programs use it, but it composes nothing; it is the record of what
+produced a server run, which is specific to running kkt. The new check
+found nothing beyond the moves listed.
+
+### After phase 16: platform crates say nothing of kkt (Sam, 2026-11-16)
+
+**Sam's decision** (msgs 3615 and 3617, K5, from sage-cardinal). A
+platform crate is general in what it says as well as in what it depends
+on. kkt's words leave the platform crates, with no rename and no change to
+any text a person sees: kkt-lane-commit speaks of a folder;
+kkt-client-command and kkt-remote-access-tailscale take kkt's server
+name, flag and command as arguments; kkt-rolling-file returns its
+refusals as values the caller words; kkt-log-tracing takes the program's
+own targets, and `check_dependency_log_level`, kkt's policy, moves to the
+`kkt` program's settings; kkt-machine's `Env` carries the folders the
+program names (`Env::named`), with kkt-client-config naming its two;
+kkt-terminal's `BrowserLink` is described as what it is; kkt-entropy's
+`SameHandleEntropy` is renamed. A CI check
+(`.github/scripts/check-platform-words.py`) fails when a platform crate's
+code outside its tests says `kkt` or `kashkeshet` in a string or a public
+item's name.
+
+**What it did, against this decision.** Done as decided. The check also
+found, beyond the list, seven Tailscale refusals telling a person to rerun
+`kkt setup` and Claude's "retry --write", now arguments (msg 3617), and
+two lint reasons and a tracing callsite name, reworded.
+
+### After phase 16: three renames (Sam, 2026-11-16)
+
+**Sam's decision** (msgs 3623 and 3626, K6, from sage-cardinal). In one
+pull request, purely mechanical, after K5: kkt-lane-commit becomes
+kkt-revision (it reports which revision of a version-controlled folder is
+checked out, with no "lane" and no tool in its name); kkt-client-config
+becomes kkt-llm-agent-config and kkt-client-command kkt-llm-agent-command,
+since "client" alone was confused with kkt as a client of its own server
+(kkt-agent-client, the clients layer). Directory, package and every live
+mention; history keeps the old names.
+
+**What it did, against this decision.** Done as decided. kkt-revision had
+no public item that said "lane" after K5. No release script, workflow or
+dist setting named the three crates.
+
 ## Order at a glance
 
 ```

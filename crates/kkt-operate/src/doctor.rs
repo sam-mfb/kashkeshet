@@ -5,8 +5,8 @@
 use crate::keys::{KeyKind, local_operator_key, local_web_key};
 use crate::record::{read_setup, read_unfinished, read_unrecorded, unfinished_mode};
 pub(crate) use checks::server_fix_text as server_fix;
-use kkt_client_config as clients;
 use kkt_diagnostics as diagnostics;
+use kkt_llm_agent_config as clients;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_setup as setup;

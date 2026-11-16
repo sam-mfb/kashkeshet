@@ -46,6 +46,14 @@ const MUSE_PROGRAM: &str = "muse";
 #[cfg(test)]
 mod fake;
 
+/// The variable naming Claude Code's config folder.
+const CLAUDE_CONFIG_DIR: &str = "CLAUDE_CONFIG_DIR";
+/// The variable naming Codex's home folder.
+const CODEX_HOME: &str = "CODEX_HOME";
+/// The environment variables naming the clients' own folders, which the
+/// program asks the environment for (kkt-machine's `Env::named`).
+pub const ENV_FOLDERS: [&str; 2] = [CLAUDE_CONFIG_DIR, CODEX_HOME];
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Client {
     ClaudeCode,
@@ -112,8 +120,8 @@ impl Client {
     /// when it is set, otherwise HOME.
     pub fn source(self, env: &Env) -> &'static str {
         match self {
-            Self::ClaudeCode if env.claude_config_dir.is_some() => "CLAUDE_CONFIG_DIR",
-            Self::Codex if env.codex_home.is_some() => "CODEX_HOME",
+            Self::ClaudeCode if env.named(CLAUDE_CONFIG_DIR).is_some() => CLAUDE_CONFIG_DIR,
+            Self::Codex if env.named(CODEX_HOME).is_some() => CODEX_HOME,
             Self::OpenCode | Self::MuseCode if env.absolute_xdg_config_home().is_some() => {
                 "XDG_CONFIG_HOME"
             }
@@ -187,11 +195,11 @@ pub(crate) fn claude_config_dir(
     let selected = directory(parent).map_err(|e| unresolved(e.to_string()))?;
     // Only the selected directory must resolve: an inherited profile or HOME
     // that cannot be resolved is not the selected one.
-    let selects = |path: &PathBuf| directory(path).is_ok_and(|dir| dir == selected);
-    if setup.env.claude_config_dir.as_ref().is_some_and(selects) {
+    let selects = |path: &Path| directory(path).is_ok_and(|dir| dir == selected);
+    if setup.env.named(CLAUDE_CONFIG_DIR).is_some_and(selects) {
         return Ok(Some(selected));
     }
-    if setup.env.home.as_ref().is_some_and(selects) {
+    if setup.env.home.as_deref().is_some_and(selects) {
         return Ok(None);
     }
     Ok(Some(selected))

@@ -501,6 +501,24 @@ code at f66b0ab:
   (`OsBackups`), given the program's database copy. kkt-operate's
   `BackupWriter` goes.
 
+- **The platform layer** (Sam, 2026-11-16, msg 3597). A crate is general
+  if it knows nothing of kkt. Such crates are the `platform` layer (the
+  old `foundations`, less kkt-names and kkt-provenance, plus the
+  terminal, browser, remote access, lane commit and client command
+  crates), and a platform crate depends in code only on platform crates:
+  check-crates.sh's check 8 and `kinds.rule_breaks` hold it. kkt-names is
+  core's; kkt-provenance is operations'.
+
+- **Platform crates say nothing of kkt** (Sam, 2026-11-16, msgs 3615 and
+  3617). kkt's names, settings, commands and messages are the caller's:
+  passed in as arguments, or worded by the caller from the values a
+  platform crate returns. `check-platform-words.py` holds it in CI.
+
+- **Three renames** (Sam, 2026-11-16, msgs 3623 and 3626).
+  kkt-lane-commit is kkt-revision; kkt-client-config and
+  kkt-client-command are kkt-llm-agent-config and kkt-llm-agent-command:
+  "client" alone was confused with kkt as a client of its own server.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.

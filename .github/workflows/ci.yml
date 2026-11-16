@@ -72,6 +72,11 @@ jobs:
       - name: Check each crate
         run: bash .github/scripts/check-crates.sh
 
+      # A platform crate knows nothing of kkt: no string or public name in
+      # its code outside tests says kkt or kashkeshet.
+      - name: Platform crates name nothing of kkt
+        run: python3 .github/scripts/check-platform-words.py
+
       - name: Build tests
         run: cargo test --workspace --locked --no-run
 

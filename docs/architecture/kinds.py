@@ -139,13 +139,19 @@ def check(crates, edges, kind_of, mixed_allowed):
     return mismatches, violations
 
 
-def rule_breaks(crates, edges, kind_of):
-    """Where the code breaks the rules that rest on the kinds: only programs
-    depend on an effect crate, in code or in tests (phase 16); only
-    programs depend on a composition crate in code (phase 16's follow-up); a crate
-    implements another crate's trait only if that crate is a contract, or
-    the implementer is a program, a composition or test support; and no
-    crate is mixed. Sorted text, one line per break."""
+# The layer of general crates, which know nothing of kkt (Sam, 2026-11-16).
+PLATFORM = "platform"
+
+
+def rule_breaks(crates, edges, kind_of, layer_of):
+    """Where the code breaks the rules that rest on the kinds and layers:
+    only programs depend on an effect crate, in code or in tests (phase
+    16); only programs depend on a composition crate in code (phase 16's
+    follow-up); a crate implements another crate's trait only if that
+    crate is a contract, or the implementer is a program, a composition or
+    test support; no crate is mixed; and a platform crate depends in code
+    only on platform crates, since a general crate cannot rest on one that
+    knows kkt. Sorted text, one line per break."""
     programs = {c["name"] for c in crates if c["bins"]}
     allowed = programs | {n for n, k in kind_of.items() if k == "composition"}
     breaks = [f"{e['from']} depends on the effect crate {e['to']}" + (" in its tests" if e["kind"] == "dev" else "")
@@ -154,6 +160,10 @@ def rule_breaks(crates, edges, kind_of):
     breaks += [f"{e['from']} depends on the composition crate {e['to']}"
                for e in edges
                if kind_of.get(e["to"]) == "composition" and e["kind"] == "normal" and e["from"] not in programs]
+    breaks += [f"{e['from']} is a platform crate but depends on {e['to']}, which is in the {layer_of.get(e['to'])} layer"
+               for e in edges
+               if e["kind"] == "normal" and layer_of.get(e["from"]) == PLATFORM
+               and layer_of.get(e["to"]) != PLATFORM]
     for c in crates:
         for r in c["implements"]:
             if r["trait_crate"] == c["name"] or c["name"] in allowed or kind_of.get(c["name"]) == "test support":

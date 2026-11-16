@@ -1,16 +1,17 @@
-//! The terminal's part of the Tailscale login: showing the link, and
-//! offering to open it in a browser when Enter is pressed. Opening it is
-//! kkt-browser's; the program adapts this to the container's login-link
-//! contract.
+//! Showing a link at the terminal, and waiting for Enter as a request to
+//! open it in a browser. It opens nothing itself: a caller asks
+//! [`BrowserLink::open_requested`] and opens the link its own way.
 
 use crate::Terminal;
 use std::io;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// At a terminal, shows the link and offers to open it when Enter is pressed.
-/// Away from a terminal, such as in a script or for an agent, it only prints
-/// the link. It never opens a browser itself.
+/// A link shown at the terminal, with a wait for Enter: at a terminal, it
+/// shows the link and offers to open it when Enter is pressed; away from
+/// one, such as in a script, it only prints the link. It never opens a
+/// browser itself. The words it shows are those of a Tailscale login, its
+/// one use today.
 pub struct BrowserLink {
     pressed: Arc<AtomicBool>,
 }
@@ -37,8 +38,8 @@ impl BrowserLink {
         Terminal.output(format_args!(
             "Press Enter to open it in your browser (or open it yourself).\n"
         ));
-        // A key press is waited for on its own thread, so that setup goes on
-        // watching for the login meanwhile. If the person logs in another
+        // A key press is waited for on its own thread, so that the caller
+        // goes on with its work meanwhile. If the person logs in another
         // way, this thread is left waiting; it reads nothing else.
         let pressed = Arc::clone(&self.pressed);
         std::thread::spawn(move || {

@@ -29,6 +29,9 @@ impl Runner for Fake {
     }
 }
 
+/// The words kkt's program gives.
+const KKT: Claude = Claude::new("kkt", "--write");
+
 fn succeeds() -> io::Result<Ran> {
     Ok(Ran {
         success: true,
@@ -39,9 +42,9 @@ fn succeeds() -> io::Result<Ran> {
 #[test]
 fn removing_and_adding_ask_claude_mcp_at_user_scope_under_kkt() {
     let fake = Fake::new(succeeds);
-    remove_server(&fake, None).expect("removed");
+    remove_server(&fake, &KKT, None).expect("removed");
     let dir = Path::new("/profiles/work");
-    add_server(&fake, r#"{"type":"http"}"#, Some(dir)).expect("added");
+    add_server(&fake, &KKT, r#"{"type":"http"}"#, Some(dir)).expect("added");
     assert_eq!(
         *fake.runs.borrow(),
         [
@@ -79,7 +82,7 @@ fn a_failed_run_says_only_its_status() {
         })
     });
     assert_eq!(
-        remove_server(&fake, None),
+        remove_server(&fake, &KKT, None),
         Err("claude mcp failed with exit status: 1".to_string())
     );
 }
@@ -88,12 +91,28 @@ fn a_failed_run_says_only_its_status() {
 fn a_missing_claude_says_how_to_get_it_and_other_failures_say_why() {
     let missing = Fake::new(|| Err(io::Error::from(io::ErrorKind::NotFound)));
     assert_eq!(
-        add_server(&missing, "{}", None),
+        add_server(&missing, &KKT, "{}", None),
         Err("claude was not found on PATH; install Claude Code, then retry --write".to_string())
     );
     let denied = Fake::new(|| Err(io::Error::new(io::ErrorKind::PermissionDenied, "denied")));
     assert_eq!(
-        add_server(&denied, "{}", None),
+        add_server(&denied, &KKT, "{}", None),
         Err("could not run claude: denied".to_string())
+    );
+}
+
+#[test]
+fn the_server_name_and_the_retry_advice_are_the_callers() {
+    let other = Claude::new("tools", "--apply");
+    let fake = Fake::new(succeeds);
+    remove_server(&fake, &other, None).expect("removed");
+    assert_eq!(
+        fake.runs.borrow()[0].0,
+        ["mcp", "remove", "--scope", "user", "tools"]
+    );
+    let missing = Fake::new(|| Err(io::Error::from(io::ErrorKind::NotFound)));
+    assert_eq!(
+        add_server(&missing, &other, "{}", None),
+        Err("claude was not found on PATH; install Claude Code, then retry --apply".to_string())
     );
 }

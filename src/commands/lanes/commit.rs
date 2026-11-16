@@ -1,7 +1,7 @@
 //! Adapts the machine's git to the lane folder's commit contract.
 
-use kkt_lane_commit::Git;
 use kkt_lane_files::LaneCommit;
+use kkt_revision::Git;
 use std::io;
 use std::path::Path;
 

@@ -3,7 +3,7 @@
 use super::*;
 use futures::FutureExt;
 use kkt_clock::testing::FixedClock;
-use kkt_entropy::testing::{SameHandleEntropy, SeqEntropy};
+use kkt_entropy::testing::{FirstOfLongListsEntropy, SeqEntropy};
 use kkt_events::Notice;
 use std::time::Duration;
 
@@ -17,7 +17,7 @@ async fn registration_uses_the_selected_pack() {
                 name_pack: kkt_names::NamePack::find(pack).unwrap(),
                 ..Settings::DEFAULT
             },
-            Arc::new(SameHandleEntropy(SeqEntropy::new(42))),
+            Arc::new(FirstOfLongListsEntropy(SeqEntropy::new(42))),
         )
         .await;
         let reg = w.rules.register().await.unwrap();
@@ -29,7 +29,7 @@ async fn registration_uses_the_selected_pack() {
 async fn changing_packs_keeps_existing_handles_and_credentials() {
     let mut w = world_with(
         Settings::DEFAULT,
-        Arc::new(SameHandleEntropy(SeqEntropy::new(42))),
+        Arc::new(FirstOfLongListsEntropy(SeqEntropy::new(42))),
     )
     .await;
     let original = w.rules.register().await.unwrap();
@@ -571,7 +571,7 @@ async fn the_operator_is_not_an_agent_and_no_agent_can_become_it() {
     // Registering, even when every name draw is the same, never gives it.
     let w = world_with(
         Settings::DEFAULT,
-        Arc::new(SameHandleEntropy(SeqEntropy::new(5))),
+        Arc::new(FirstOfLongListsEntropy(SeqEntropy::new(5))),
     )
     .await;
     for _ in 0..5 {

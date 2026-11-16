@@ -465,8 +465,8 @@
      "supplier_item": "Files"
     },
     {
-     "own": "LaneGit, adapting kkt-lane-commit's Git to kkt-lane-files' LaneCommit",
-     "supplier": "kkt-lane-commit",
+     "own": "LaneGit, adapting kkt-revision's Git to kkt-lane-files' LaneCommit",
+     "supplier": "kkt-revision",
      "supplier_item": "Git",
      "crate": "kkt-operate",
      "to": [
@@ -614,8 +614,8 @@
      "supplier_item": "Files"
     },
     {
-     "own": "ClaudeCommand, adapting kkt-client-command's Claude to kkt-client-config's ClientCommand",
-     "supplier": "kkt-client-command",
+     "own": "ClaudeCommand, adapting kkt-llm-agent-command's Claude to kkt-llm-agent-config's ClientCommand",
+     "supplier": "kkt-llm-agent-command",
      "crate": "kkt-operate",
      "to": [
       {
@@ -627,8 +627,8 @@
      "supplier_item": "Claude"
     },
     {
-     "own": "ClaudeCommand, adapting kkt-client-command's Claude to kkt-client-config's ClientCommand",
-     "supplier": "kkt-client-command",
+     "own": "ClaudeCommand, adapting kkt-llm-agent-command's Claude to kkt-llm-agent-config's ClientCommand",
+     "supplier": "kkt-llm-agent-command",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -1322,7 +1322,7 @@
      ]
     },
     {
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "to": [
       {
        "at": "configure",
@@ -1375,7 +1375,7 @@
     },
     {
      "passes_on": "the client command the program gave AgentParts",
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "to": [
       {
        "at": "configure",
@@ -1488,7 +1488,7 @@
     },
     {
      "passes_on": "the client configs' host the program gave OperateParts",
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "to": [
       {
        "at": "configure",
@@ -1563,7 +1563,7 @@
     },
     {
      "passes_on": "the client command the program gave OperateParts",
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "to": [
       {
        "at": "configure",

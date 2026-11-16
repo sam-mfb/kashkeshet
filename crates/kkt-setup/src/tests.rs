@@ -222,8 +222,7 @@ fn data_env(home: Option<&str>, data: Option<&str>) -> Env {
         home: home.map(PathBuf::from),
         xdg_config_home: None,
         xdg_data_home: data.map(PathBuf::from),
-        claude_config_dir: None,
-        codex_home: None,
+        named: Default::default(),
     }
 }
 
@@ -323,7 +322,7 @@ fn an_unfinished_setup_reads_back_as_written() {
         purpose: Purpose::Docker,
         tailscale: true,
         allow_hosts: vec!["host.docker.internal".into()],
-        clients: vec![kkt_client_config::Client::Codex],
+        clients: vec![kkt_llm_agent_config::Client::Codex],
         tailscale_login: Some(TailscaleLogin {
             hostname: "kkt-work".into(),
             auth_key_file: Some("/home/sam/tailscale-key".into()),
@@ -386,7 +385,7 @@ fn bad_unfinished_setups_are_refused_naming_the_file_and_the_problem() {
 
 mod flow {
     use super::super::*;
-    use kkt_client_config::Client;
+    use kkt_llm_agent_config::Client;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::path::{Path, PathBuf};

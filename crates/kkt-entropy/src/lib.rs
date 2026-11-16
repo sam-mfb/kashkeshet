@@ -45,18 +45,18 @@ pub mod testing {
         }
     }
 
-    /// How many characters kkt's IDs and tokens are drawn from: lowercase
-    /// ASCII letters and digits.
-    const ID_CHARS: usize = 36;
+    /// The size of an alphabet of lowercase ASCII letters and digits.
+    const ALPHANUMERIC: usize = 36;
 
-    /// Picks the first word for every handle, so every handle clashes, but
-    /// draws IDs and tokens normally. Handle words come from lists longer than
-    /// the ID alphabet, which is how the two kinds of draw are told apart.
-    pub struct SameHandleEntropy(pub SeqEntropy);
+    /// Picks the first choice whenever there are more than 36 to choose
+    /// from, and draws from its sequence otherwise. So every pick from a
+    /// long list, such as a list of words, is the same, while characters
+    /// drawn from a lowercase alphanumeric alphabet still vary.
+    pub struct FirstOfLongListsEntropy(pub SeqEntropy);
 
-    impl Entropy for SameHandleEntropy {
+    impl Entropy for FirstOfLongListsEntropy {
         fn below(&self, n: usize) -> usize {
-            if n > ID_CHARS { 0 } else { self.0.below(n) }
+            if n > ALPHANUMERIC { 0 } else { self.0.below(n) }
         }
     }
 }
@@ -94,7 +94,7 @@ impl Entropy for SeededEntropy {
 mod tests {
     use super::Entropy;
     use super::SeededEntropy;
-    use super::testing::{SameHandleEntropy, SeqEntropy};
+    use super::testing::{FirstOfLongListsEntropy, SeqEntropy};
 
     #[test]
     fn seeded_entropy_repeats_from_its_seed() {
@@ -118,10 +118,10 @@ mod tests {
     }
 
     #[test]
-    fn same_handle_entropy_picks_the_first_word_but_draws_ids_normally() {
-        let same = SameHandleEntropy(SeqEntropy::new(5));
+    fn long_lists_get_their_first_choice_and_short_ones_vary() {
+        let first = FirstOfLongListsEntropy(SeqEntropy::new(5));
         let plain = SeqEntropy::new(5);
-        assert_eq!(same.below(100), 0);
-        assert_eq!(same.below(36), plain.below(36));
+        assert_eq!(first.below(100), 0);
+        assert_eq!(first.below(36), plain.below(36));
     }
 }

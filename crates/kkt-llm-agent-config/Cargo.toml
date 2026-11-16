@@ -1,5 +1,5 @@
 [package]
-name = "kkt-client-config"
+name = "kkt-llm-agent-config"
 description = "kkt's entries in the MCP configs of agent clients"
 version.workspace = true
 edition.workspace = true

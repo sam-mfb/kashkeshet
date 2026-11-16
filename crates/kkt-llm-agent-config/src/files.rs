@@ -55,11 +55,11 @@ impl Client {
                 .ok_or("set HOME to find the client's config")
         };
         Ok(match self {
-            Self::ClaudeCode => match &env.claude_config_dir {
+            Self::ClaudeCode => match env.named(crate::CLAUDE_CONFIG_DIR) {
                 Some(dir) => dir.join(CLAUDE_CONFIG),
                 None => home()?.join(CLAUDE_CONFIG),
             },
-            Self::Codex => match &env.codex_home {
+            Self::Codex => match env.named(crate::CODEX_HOME) {
                 Some(dir) => dir.join(CODEX_CONFIG),
                 None => home()?.join(CODEX_HOME_DEFAULT).join(CODEX_CONFIG),
             },
