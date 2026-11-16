@@ -1,6 +1,6 @@
 #!/bin/bash
 # Build a throwaway crate outside the workspace that depends on kashkeshet's
-# shared crates (kkt-api-agent, kkt-rules, kkt-server and kkt-server-listen)
+# shared crates (kkt-api-agent, kkt-rules, kkt-server and kkt-listen)
 # the way kkt-pro will: by git, at one commit. It fails when a shared crate
 # cannot be used from outside the workspace, for example when it reaches a
 # file or a setting that only exists inside it.
@@ -49,8 +49,8 @@ kkt-rules = { git = "$url", rev = "$rev" }
 # (kkt-provenance, kkt-mcp, kkt-names): the likeliest to break outside the
 # workspace.
 kkt-server = { git = "$url", rev = "$rev" }
-# Socket binding lives in its own effect crate.
-kkt-server-listen = { git = "$url", rev = "$rev" }
+# Binding an address and serving the router kkt-server builds.
+kkt-listen = { git = "$url", rev = "$rev" }
 TOML
 cat > "$dir/src/lib.rs" <<'RUST'
 //! Uses kashkeshet's shared crates from outside its workspace.
@@ -84,7 +84,15 @@ pub fn checked() -> Result<kkt_server::CheckedSettings, kkt_server::SettingError
     kkt_server::ServerSettings::DEFAULT.check([])
 }
 
+/// The assembled server's router, bound by kkt-listen without naming axum.
+pub async fn bind(
+    app: kkt_server::App,
+    address: std::net::SocketAddr,
+) -> std::io::Result<kkt_listen::Listening> {
+    kkt_listen::listen(app.into_router(), address).await
+}
+
 RUST
 cd "$dir"
 cargo build
-echo "build-outside-crate: built against kkt-api-agent, kkt-rules, kkt-server and kkt-server-listen at $rev"
+echo "build-outside-crate: built against kkt-api-agent, kkt-rules, kkt-server and kkt-listen at $rev"

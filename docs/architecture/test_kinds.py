@@ -45,6 +45,13 @@ class RuleBreaks(unittest.TestCase):
                          ["fx2 depends on the effect crate fx", "prog depends on the effect crate fx",
                           "stand-in depends on the effect crate fx in its tests"])
 
+    def test_only_programs_may_depend_on_a_composition_in_code(self):
+        crates = [crate("main", bins=["main"]), crate("prog"), crate("fx"), crate("logic")]
+        self.assertEqual(self.breaks(crates, [edge("main", "prog"), edge("logic", "prog", "dev"),
+                                              edge("logic", "prog", "build")]), [])
+        self.assertEqual(self.breaks(crates, [edge("fx", "prog"), edge("logic", "prog")]),
+                         ["fx depends on the composition crate prog", "logic depends on the composition crate prog"])
+
     def test_implementing_a_contract_is_allowed_and_a_logic_crates_trait_is_not(self):
         on_contract = {"trait_crate": "contract", "trait": "Clock", "type": "Fixed"}
         on_logic = {"trait_crate": "other-logic", "trait": "Disk", "type": None}

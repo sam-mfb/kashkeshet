@@ -46,7 +46,8 @@ computed from the code.
 The overview, shown when no crate is picked, reports two checks: the kind
 checks (below), and the rule checks, where the code breaks the rules that
 rest on the kinds (`kinds.rule_breaks`): only
-programs depend on an effect crate, in code or in tests (phase 16); and a crate implements another crate's
+programs depend on an effect crate, in code or in tests (phase 16); only
+programs depend on a composition crate in code (phase 16's follow-up); and a crate implements another crate's
 trait only if that crate is a contract, unless it is a program, a
 composition or test support; and no crate is mixed.
 

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "d41b3a5",
+ "commit": "ce60cf6",
  "crates": [
   {
    "bins": [
@@ -6192,7 +6192,7 @@ window.KKT_GRAPH = {
    ],
    "builds": [],
    "contracts": [],
-   "crate_doc": "A fake product with two swarms, for tests only: the shared crates assembled the way a product other than kkt would assemble them, with the real server (`kkt_server_listen::listen`) in the test's process.",
+   "crate_doc": "A fake product with two swarms, for tests only: the shared crates assembled the way a product other than kkt would assemble them, with the real server (`kkt_listen::listen`) in the test's process.",
    "dev_only": true,
    "features": {},
    "holders": [],
@@ -6827,6 +6827,48 @@ window.KKT_GRAPH = {
    "slots": [],
    "testing_third_party": [],
    "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Serving HTTP: binding an address, then answering on it with the router it is handed until told to stop.",
+   "dev_only": false,
+   "features": {},
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "The server bound to its address, not yet answering.",
+     "kind": "struct",
+     "methods": [
+      "address",
+      "serve_until"
+     ],
+     "path": "Listening"
+    },
+    {
+     "doc": "Binds `router` to `address`.",
+     "kind": "fn",
+     "path": "listen"
+    }
+   ],
+   "lib": "kkt_listen",
+   "machine_work": {
+    "src/lib.rs": [
+     "tokio::net::TcpListener",
+     "tokio::net::TcpListener::bind"
+    ]
+   },
+   "name": "kkt-listen",
+   "path": "crates/kkt-listen",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "axum",
+    "tokio"
+   ]
   },
   {
    "bins": [],
@@ -12418,7 +12460,7 @@ window.KKT_GRAPH = {
      "path": "AdmissionGate"
     },
     {
-     "doc": "The server, assembled by `build`, for kkt-server-listen to bind and run.",
+     "doc": "The server, assembled by `build`, for kkt-listen to bind and run.",
      "kind": "struct",
      "methods": [
       "into_router"
@@ -12488,7 +12530,7 @@ window.KKT_GRAPH = {
      "path": "SettingError"
     },
     {
-     "doc": "The server assembled from `parts` and `config`, to run with kkt-server-listen.",
+     "doc": "The server assembled from `parts` and `config`, to run with kkt-listen.",
      "kind": "fn",
      "path": "build"
     },
@@ -12964,48 +13006,6 @@ window.KKT_GRAPH = {
    "slots": [],
    "testing_third_party": [],
    "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "Running the assembled server: binding its address, then answering on it until told to stop.",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "The server bound to its address, not yet answering.",
-     "kind": "struct",
-     "methods": [
-      "address",
-      "serve_until"
-     ],
-     "path": "Listening"
-    },
-    {
-     "doc": "Binds `app` to `address`.",
-     "kind": "fn",
-     "path": "listen"
-    }
-   ],
-   "lib": "kkt_server_listen",
-   "machine_work": {
-    "src/lib.rs": [
-     "tokio::net::TcpListener",
-     "tokio::net::TcpListener::bind"
-    ]
-   },
-   "name": "kkt-server-listen",
-   "path": "crates/kkt-server-listen",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": [
-    "axum",
-    "tokio"
-   ]
   },
   {
    "bins": [],
@@ -17205,6 +17205,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "listen"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "listen"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-listen"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
     "TracingLog",
     "init_logging",
     "init_stderr_logging"
@@ -17737,27 +17758,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-server-keys-os"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "listen"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "listen"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-listen"
   },
   {
    "features": [],
@@ -20706,6 +20706,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-fake-product",
    "items": [
+    "listen"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "listen"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-listen"
+  },
+  {
+   "features": [],
+   "from": "kkt-fake-product",
+   "items": [
     "TracingLog"
    ],
    "kind": "normal",
@@ -20857,27 +20878,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-server"
-  },
-  {
-   "features": [],
-   "from": "kkt-fake-product",
-   "items": [
-    "listen"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "listen"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-listen"
   },
   {
    "features": [],
@@ -21609,6 +21609,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
+    "listen"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "listen"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-listen"
+  },
+  {
+   "features": [],
+   "from": "kkt-keymode",
+   "items": [
     "TracingLog"
    ],
    "kind": "normal",
@@ -21858,27 +21879,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-server-keys-os"
-  },
-  {
-   "features": [],
-   "from": "kkt-keymode",
-   "items": [
-    "listen"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "listen"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-listen"
   },
   {
    "features": [],
@@ -25069,308 +25069,6 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-server-listen",
-   "items": [
-    "App"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "App"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "AppConfig",
-    "Parts",
-    "ServerSettings",
-    "build"
-   ],
-   "to": "kkt-server"
-  },
-  {
-   "features": [],
-   "from": "kkt-server-listen",
-   "items": [
-    "Admission"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Admission"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-admission"
-  },
-  {
-   "features": [],
-   "from": "kkt-server-listen",
-   "items": [],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-api-agent"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-server-listen",
-   "items": [
-    "testing::FixedClock"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "wires",
-   "roles": [
-    {
-     "detail": [
-      "testing::FixedClock"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-server-listen",
-   "items": [
-    "testing::SeqEntropy"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "wires",
-   "roles": [
-    {
-     "detail": [
-      "testing::SeqEntropy"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-entropy"
-  },
-  {
-   "features": [],
-   "from": "kkt-server-listen",
-   "items": [
-    "Events",
-    "Settings"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Events",
-      "Settings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-events"
-  },
-  {
-   "features": [],
-   "from": "kkt-server-listen",
-   "items": [],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-hosts"
-  },
-  {
-   "features": [],
-   "from": "kkt-server-listen",
-   "items": [
-    "KeyMode"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "wires",
-   "roles": [
-    {
-     "detail": [
-      "KeyMode"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-identity-keymode"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-server-listen",
-   "items": [
-    "testing::CapturedLog"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "wires",
-   "roles": [
-    {
-     "detail": [
-      "testing::CapturedLog"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-log"
-  },
-  {
-   "features": [],
-   "from": "kkt-server-listen",
-   "items": [],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-mcp"
-  },
-  {
-   "features": [],
-   "from": "kkt-server-listen",
-   "items": [],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-mcp-formatter"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-server-listen",
-   "items": [
-    "testing::Memory",
-    "testing::memory"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "testing::memory"
-     ],
-     "role": "uses"
-    },
-    {
-     "detail": [
-      "testing::Memory"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-rules"
-  },
-  {
-   "features": [],
-   "from": "kkt-server-listen",
-   "items": [
-    "Shutdown"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Shutdown"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-shutdown"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-server-listen",
-   "items": [
-    "testing::start_time"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "testing::start_time"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-web"
-  },
-  {
-   "features": [],
    "from": "kkt-service",
    "items": [
     "Clock"
@@ -26497,6 +26195,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-web-preview",
    "items": [
+    "listen"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "listen"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-listen"
+  },
+  {
+   "features": [],
+   "from": "kkt-web-preview",
+   "items": [
     "Level",
     "Log"
    ],
@@ -26623,27 +26342,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-server-keys-os"
-  },
-  {
-   "features": [],
-   "from": "kkt-web-preview",
-   "items": [
-    "listen"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "listen"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-listen"
   },
   {
    "features": [],
@@ -26941,6 +26639,12 @@ window.KKT_CONCERNS = {
    "layer": "operations",
    "must_not": "Decide which lanes to import or export."
   },
+  "kkt-listen": {
+   "concern": "Serving HTTP: binding an address and answering on it with the router it is handed, until told to stop.",
+   "kind": "effect",
+   "layer": "foundations",
+   "must_not": "Know how the router it serves was built, or depend on the crates that build it."
+  },
   "kkt-log": {
    "concern": "Structured log events: their level, target, message and named values.",
    "kind": "contract",
@@ -27060,12 +26764,6 @@ window.KKT_CONCERNS = {
    "layer": "access",
    "must_not": "Decide what a valid key is, who a key lets in, or where key files go; draw randomness itself."
   },
-  "kkt-server-listen": {
-   "concern": "Binding the server's assembled App to its socket and serving it.",
-   "kind": "effect",
-   "layer": "assembly",
-   "must_not": "Decide how the server is assembled."
-  },
   "kkt-service": {
    "concern": "The project's contract for running kkt as a service of the user's login (`Service`: install, check it started, start, stop, status, logs, add a key, uninstall), with the values it takes and gives and its errors; `Unsupported` for a system with no service manager kkt works with; the plan of what the service runs, from the settings it needs, and the bind check, both on plain values; its testing Memory stand-in.",
    "kind": "contract",
@@ -27139,7 +26837,7 @@ window.KKT_CONCERNS = {
    "must_not": "Depend on the rules, the store, admission or identity: kkt-server adapts them to its gate."
   },
   "kkt-web-preview": {
-   "concern": "The web page over simulated data, for working on the page: kkt-web's page over kkt-api-sim's simulated application and stand-in gate, with the real clock, randomness and stop signals, served alone through kkt-server and kkt-server-listen. Its flags and their checks (`SettingError`). Dev-only, never released.",
+   "concern": "The web page over simulated data, for working on the page: kkt-web's page over kkt-api-sim's simulated application and stand-in gate, with the real clock, randomness and stop signals, served alone through kkt-server and kkt-listen. Its flags and their checks (`SettingError`). Dev-only, never released.",
    "kind": "composition",
    "layer": "programs",
    "must_not": "Be released."
@@ -27219,7 +26917,7 @@ window.KKT_CONCERNS = {
    "title": "Clients"
   },
   {
-   "about": "Time, randomness, names, the stop signal, limits, provenance and logs: what everything else is built on.",
+   "about": "Time, randomness, names, the stop signal, limits, provenance, logs and serving HTTP: what everything else is built on.",
    "id": "foundations",
    "title": "Foundations"
   },
@@ -27691,11 +27389,11 @@ window.KKT_ASSEMBLY = {
      "items": [
       "kkt-server::build",
       "kkt-shutdown::Shutdown",
-      "kkt-server-listen::listen",
-      "kkt-server-listen::Listening",
+      "kkt-listen::listen",
+      "kkt-listen::Listening",
       "kkt-shutdown-os::StopSignals"
      ],
-     "text": "build assembles the server from the parts and config; listen binds it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
+     "text": "build assembles the server from the parts and config; listen binds the router the program takes out of it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
      "title": "Build and run"
     }
    ],
@@ -28259,12 +27957,12 @@ window.KKT_ASSEMBLY = {
     {
      "items": [
       "kkt-server::build",
-      "kkt-server-listen::listen",
-      "kkt-server-listen::Listening",
+      "kkt-listen::listen",
+      "kkt-listen::Listening",
       "kkt-shutdown::Shutdown",
       "kkt-fake-product::Product"
      ],
-     "text": "build, then listen on a loopback port and serve until the product is stopped.",
+     "text": "build, then listen with its router on a loopback port and serve until the product is stopped.",
      "title": "Build and run"
     }
    ],
@@ -28416,11 +28114,11 @@ window.KKT_ASSEMBLY = {
     {
      "items": [
       "kkt-server::build",
-      "kkt-server-listen::listen",
-      "kkt-server-listen::Listening",
+      "kkt-listen::listen",
+      "kkt-listen::Listening",
       "kkt-shutdown-os::StopSignals"
      ],
-     "text": "build, listen, and serve_until a stop signal.",
+     "text": "build, listen on its router, and serve_until a stop signal.",
      "title": "Build and run"
     }
    ],
@@ -28560,10 +28258,10 @@ window.KKT_ASSEMBLY = {
     {
      "items": [
       "kkt-server::page",
-      "kkt-server-listen::listen",
+      "kkt-listen::listen",
       "kkt-shutdown-os::StopSignals"
      ],
-     "text": "kkt-server's page builds the page alone, and kkt-server-listen serves it until a stop signal.",
+     "text": "kkt-server's page builds the page alone, and kkt-listen serves its router until a stop signal.",
      "title": "Serve"
     }
    ],

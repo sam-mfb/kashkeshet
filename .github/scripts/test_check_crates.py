@@ -1,4 +1,4 @@
-"""check-crates.jq: which packages may depend on an effect crate, the rules for turning on another workspace package's testing feature, no `real` feature, and package names."""
+"""check-crates.jq: which packages may depend on an effect or a composition crate, the rules for turning on another workspace package's testing feature, no `real` feature, and package names."""
 
 import json
 from pathlib import Path
@@ -28,9 +28,10 @@ def exception(package, dependency):
     return {"package": package, "dependency": dependency, "reason": "a test reason"}
 
 
-def problems(*packages, effects=(), effect_exceptions=()):
+def problems(*packages, effects=(), compositions=(), effect_exceptions=()):
     result = subprocess.run(
         ["jq", "-r", "--argjson", "effects", json.dumps(list(effects)),
+         "--argjson", "compositions", json.dumps(list(compositions)),
          "--argjson", "effect_exceptions", json.dumps(list(effect_exceptions)), "-f", str(RULES)],
         input=json.dumps({"packages": list(packages)}),
         check=True, capture_output=True, text=True,
@@ -260,6 +261,39 @@ class CheckCrates(unittest.TestCase):
                     package("kkt-a", targets=targets, features={"real": [], "testing": []}),
                     package("kkt-b", features={"testing": []}),
                 ), ["kkt-a: it has a `real` feature; code that touches the machine belongs in an effect crate, not behind a feature"])
+
+    def test_only_a_program_depends_on_a_composition_crate(self):
+        self.assertEqual(problems(
+            package("kashkeshet", targets=("lib", "bin"), dependencies=[dependency("kkt-server")]),
+            package("kkt-listen", dependencies=[
+                dependency("kkt-server"),
+                dependency("kkt-server", target="cfg(unix)"),
+            ]),
+            package("kkt-server"),
+            compositions=["kkt-server"],
+        ), [
+            "kkt-listen: depends on the composition crate kkt-server in [dependencies]; "
+            "only a program (a package with a binary target) may",
+            "kkt-listen: depends on the composition crate kkt-server in [dependencies] for cfg(unix); "
+            "only a program (a package with a binary target) may",
+        ])
+
+    def test_a_crates_tests_and_build_script_may_depend_on_a_composition_crate(self):
+        self.assertEqual(problems(
+            package("kkt-a", dependencies=[
+                dependency("kkt-server", kind="dev"),
+                dependency("kkt-server", kind="build"),
+            ]),
+            package("kkt-server"),
+            compositions=["kkt-server"],
+        ), [])
+
+    def test_a_crate_may_depend_on_a_crate_that_is_not_a_composition(self):
+        self.assertEqual(problems(
+            package("kkt-a", dependencies=[dependency("kkt-b")]),
+            package("kkt-b"),
+            compositions=["kkt-server"],
+        ), [])
 
 
 if __name__ == "__main__":
