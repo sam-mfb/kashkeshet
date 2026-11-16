@@ -222,8 +222,7 @@ fn data_env(home: Option<&str>, data: Option<&str>) -> Env {
         home: home.map(PathBuf::from),
         xdg_config_home: None,
         xdg_data_home: data.map(PathBuf::from),
-        claude_config_dir: None,
-        codex_home: None,
+        named: Default::default(),
     }
 }
 

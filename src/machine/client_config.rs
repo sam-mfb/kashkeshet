@@ -2,6 +2,10 @@
 //! Claude Code's command to the logic's `ClientCommand`.
 
 use kkt_client_command::Claude;
+
+/// Claude Code's command, for kkt's server: named `kkt` in Claude Code's
+/// settings, and `--write` is what a person retries with.
+const CLAUDE: Claude = Claude::new("kkt", "--write");
 use kkt_client_config::{ClientCommand, Host};
 use kkt_files::Files;
 use std::io;
@@ -49,9 +53,9 @@ pub struct ClaudeCommand;
 
 impl ClientCommand for ClaudeCommand {
     fn remove_server(&self, config_dir: Option<&Path>) -> Result<(), String> {
-        Claude.remove_server(config_dir)
+        CLAUDE.remove_server(config_dir)
     }
     fn add_server(&self, entry: &str, config_dir: Option<&Path>) -> Result<(), String> {
-        Claude.add_server(entry, config_dir)
+        CLAUDE.add_server(entry, config_dir)
     }
 }

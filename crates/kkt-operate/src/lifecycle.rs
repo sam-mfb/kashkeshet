@@ -743,8 +743,7 @@ mod tests {
         let home = PathBuf::from("/home/k");
         let env = Env {
             home: Some(home.clone()),
-            claude_config_dir: None,
-            codex_home: None,
+            named: Default::default(),
             xdg_config_home: None,
             xdg_data_home: None,
         };

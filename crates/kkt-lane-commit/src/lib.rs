@@ -1,7 +1,5 @@
-//! The commit a lane folder is at, as the machine's git says: `Git`,
-//! which `kkt lanes import` asks so the lane versions it
-//! saves record where they came from. It declares no contract: the program
-//! adapts `Git` to the one kkt-lane-files declares.
+//! The commit a folder is at, as the machine's git says: `Git`. It
+//! declares no contract: a caller adapts `Git` to its own.
 //!
 //! `Git` runs `git -C <folder>` in the C locale and reads its answers. Only
 //! an expected absence is "no commit": the folder is in no git repository,
@@ -14,7 +12,7 @@ use std::path::Path;
 
 mod git;
 
-/// The machine's git, asked where a lane folder is.
+/// The machine's git, asked which commit a folder is at.
 pub struct Git;
 
 impl Git {

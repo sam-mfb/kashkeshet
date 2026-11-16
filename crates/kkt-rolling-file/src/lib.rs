@@ -1,11 +1,11 @@
 //! A file on disk that rolls over at a size and prunes old copies by age
 //! ([`RotatingFile`], opened by [`open_log_file`] after checking its
-//! [`LogPolicy`]). The server writes its log to one. The rules that keep
-//! it bounded are pure plans, in `policy`, carried out here. The program
-//! supplies the wall clock.
+//! [`LogPolicy`]), such as a log. The rules that keep it bounded are pure
+//! plans, in `policy`, carried out here. The caller supplies the wall clock,
+//! and words the refusals ([`OpenError`]) in its own terms.
 
 mod policy;
-pub use policy::LogPolicy;
+pub use policy::{LogPolicy, PolicyProblem, PolicyValue};
 
 use kkt_clock::{Clock, Time};
 use policy::{prune_due, pruning, rotation, should_roll};
@@ -14,21 +14,29 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-/// Opens the log file at `path` for [`RotatingFile::open`], after checking
-/// `policy`. Each refusal names the setting, as the server words it.
+/// Why [`open_log_file`] refused. Its own text is plain; a caller words
+/// the refusal in its own terms, such as the setting each value comes from.
+#[derive(Debug, thiserror::Error)]
+pub enum OpenError {
+    /// The policy does not bound the file.
+    #[error("the policy's {:?} {}", .0.value, .0.rule)]
+    Policy(PolicyProblem),
+    /// The file at `path` could not be opened, for the system's reason.
+    #[error("could not open {}: {error}", path.display())]
+    File { path: PathBuf, error: io::Error },
+}
+
+/// Opens the file at `path` for [`RotatingFile::open`], after checking
+/// `policy`.
 pub fn open_log_file(
     path: &Path,
     policy: LogPolicy,
     clock: Arc<dyn Clock>,
-) -> Result<RotatingFile, String> {
-    policy
-        .check()
-        .map_err(|e| format!("invalid setting: {e}"))?;
-    RotatingFile::open(path, policy, clock).map_err(|e| {
-        format!(
-            "invalid setting: log_file could not be opened at {}: {e}",
-            path.display()
-        )
+) -> Result<RotatingFile, OpenError> {
+    policy.check().map_err(OpenError::Policy)?;
+    RotatingFile::open(path, policy, clock).map_err(|error| OpenError::File {
+        path: path.to_owned(),
+        error,
     })
 }
 

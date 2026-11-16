@@ -101,6 +101,28 @@ The shared crates are reorganized so that every dependency is injected and each 
   `show` and `open_requested`; `kkt_container_docker::Docker` is now built
   with `Docker::new(browser)`. Messages are unchanged.
 - **Effects in `-os` crates.** What touches the machine moves into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os`, `kkt-shutdown-os` (`StopSignals`, from kkt-shutdown, which keeps `Shutdown`), `kkt-backup-os` (`write` and `prune`; kkt-backup keeps the layouts), `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`), `kkt-rolling-file` (`RotatingFile`, `open_log_file` and `LogPolicy`; see Logs) and `kkt-keys-os` (the key files on disk; kkt-keys keeps what a key is and where its files go).
+- **Platform crates say nothing of kkt.** kkt's words are now the
+  caller's:
+  - kkt-log-tracing: `init_logging(log_file, own_targets, own,
+    dependencies)` and `init_stderr_logging(own_targets, own)` take the
+    targets of the program's own code (kkt's are `["kashkeshet", "kkt"]`).
+    `check_dependency_log_level` is gone: it is kkt's policy, now in the
+    `kkt` program's settings.
+  - kkt-rolling-file: `open_log_file` returns `OpenError` (`Policy` with a
+    `PolicyProblem { value: PolicyValue, rule }`, or `File { path, error }`)
+    in place of a message; the caller words it.
+  - kkt-machine: `Env`'s `claude_config_dir` and `codex_home` are gone.
+    `Env::named` holds the folders the program asks for by variable, and
+    `kkt_machine_os::env(names)` takes them; kkt-client-config's
+    `ENV_FOLDERS` are the two it needs.
+  - kkt-client-command: `Claude::new(server_name, retry)`, both
+    `const`, replaces the unit `Claude` (kkt's are `"kkt"` and `"--write"`).
+  - kkt-remote-access-tailscale: `Tailscale::new(rerun)` replaces the unit
+    `Tailscale` (kkt's is `` "`kkt setup`" ``).
+  - kkt-entropy: `testing::SameHandleEntropy` is
+    `testing::FirstOfLongListsEntropy`, unchanged.
+
+  Every message a person sees is unchanged.
 - **Logs.** `kkt-logs` is gone, and so is the name `kkt-logs-os`. The log
   file is now `kkt-rolling-file`: `RotatingFile`, with
   `open_log_file(path, policy, clock)`, which checks the policy and opens

@@ -15,7 +15,6 @@ use kkt_clock_system::SystemClock;
 use kkt_entropy_os::OsEntropy;
 use kkt_events::Events;
 use kkt_identity_keymode::KeyMode;
-use kkt_log_tracing::check_dependency_log_level;
 use kkt_log_tracing::init_logging;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::{Build, RunSettings, ServerRun};
@@ -46,18 +45,24 @@ pub async fn run(
         Report::Traced(&sources),
     )?;
     // Before logging starts at that level, not after.
-    check_dependency_log_level(settings.dependency_log_level).map_err(|e| sources.invalid(e))?;
+    crate::machine::settings::check_dependency_log_level(settings.dependency_log_level)
+        .map_err(|e| sources.invalid(e))?;
     let log_file = settings.log_file.clone();
     // No setting changes it: every log file is kept within the default.
     let log_policy = LogPolicy::DEFAULT;
     let writer = match log_file.as_deref() {
-        Some(path) => Some(
-            Box::new(open_log_file(path, log_policy, Arc::new(SystemClock))?)
-                as Box<dyn std::io::Write + Send>,
-        ),
+        Some(path) => Some(Box::new(
+            open_log_file(path, log_policy, Arc::new(SystemClock))
+                .map_err(crate::machine::settings::log_file_refusal)?,
+        ) as Box<dyn std::io::Write + Send>),
         None => None,
     };
-    init_logging(writer, settings.log_level, settings.dependency_log_level)?;
+    init_logging(
+        writer,
+        crate::machine::settings::LOG_OWN_TARGETS,
+        settings.log_level,
+        settings.dependency_log_level,
+    )?;
     let served = serve(settings, &sources, log_policy).await;
     if let (Some(file), Err(e)) = (&log_file, &served) {
         // Someone at a terminal reads stderr, not the log file.

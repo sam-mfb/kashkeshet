@@ -1,6 +1,6 @@
-//! The process terminal: input, output, terminal detection, the terminal's
-//! half of the login link (showing it, and the Enter key) and the default
-//! behavior when a command's output pipe closes.
+//! The process terminal: input, output, terminal detection, a link shown
+//! with a wait for Enter ([`BrowserLink`]) and the default behavior when a
+//! command's output pipe closes.
 
 mod browser;
 pub use browser::BrowserLink;

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "fe3dcef",
+ "commit": "f1b4ac6",
  "crates": [
   {
    "bins": [
@@ -438,6 +438,11 @@ window.KKT_GRAPH = {
      "path": "machine::settings::Checked"
     },
     {
+     "doc": "The targets of kkt's own code, logged at kkt's own level: the library, the `kkt` binary, and every `kkt-*` crate, whose module paths start with \"kkt\" (check-crates.sh makes every crate name start with `kkt-`).",
+     "kind": "const",
+     "path": "machine::settings::LOG_OWN_TARGETS"
+    },
+    {
      "doc": "What `kkt serve` reads before applying defaults: the config file, if any, what it gives, and what the flags give.",
      "fields": [
       "config_file",
@@ -520,6 +525,11 @@ window.KKT_GRAPH = {
      "path": "machine::settings::Sources"
     },
     {
+     "doc": "Checks `dependency_log_level`.",
+     "kind": "fn",
+     "path": "machine::settings::check_dependency_log_level"
+    },
+    {
      "doc": "Runs the startup checks on `settings` and reads the files they name.",
      "kind": "fn",
      "path": "machine::settings::check_settings"
@@ -528,6 +538,11 @@ window.KKT_GRAPH = {
      "doc": "Reads the config file `kkt serve` would read, and puts it with `flags`.",
      "kind": "fn",
      "path": "machine::settings::load_serve_options"
+    },
+    {
+     "doc": "Why the log file `kkt serve` writes to could not be opened, worded with the settings it comes from.",
+     "kind": "fn",
+     "path": "machine::settings::log_file_refusal"
     },
     {
      "doc": "The config file to use (`config`, else the default one if it exists), and what it gives.",
@@ -3630,17 +3645,18 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Claude Code's own command line, `claude mcp`, for configuring kkt's server in Claude Code's settings: removing it, and adding it as Claude Code's own entry.",
+   "crate_doc": "Claude Code's own command line, `claude mcp`, for configuring one MCP server, named by the caller, in Claude Code's settings: removing it, and adding it as Claude Code's own entry.",
    "dev_only": false,
    "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
-     "doc": "Claude Code's own command.",
+     "doc": "Claude Code's own command, for one MCP server.",
      "kind": "struct",
      "methods": [
       "add_server",
+      "new",
       "remove_server"
      ],
      "path": "Claude"
@@ -3733,6 +3749,11 @@ window.KKT_GRAPH = {
       "remove_server"
      ],
      "path": "ClientCommand"
+    },
+    {
+     "doc": "The environment variables naming the clients' own folders, which the program asks the environment for (kkt-machine's `Env::named`).",
+     "kind": "const",
+     "path": "ENV_FOLDERS"
     },
     {
      "doc": "",
@@ -5884,7 +5905,7 @@ window.KKT_GRAPH = {
       },
       {
        "crate": "kkt-entropy",
-       "type": "testing::SameHandleEntropy"
+       "type": "testing::FirstOfLongListsEntropy"
       },
       {
        "crate": "kkt-entropy",
@@ -5915,7 +5936,7 @@ window.KKT_GRAPH = {
      "crate": "kkt-entropy",
      "trait": "Entropy",
      "trait_crate": "kkt-entropy",
-     "type": "testing::SameHandleEntropy"
+     "type": "testing::FirstOfLongListsEntropy"
     },
     {
      "crate": "kkt-entropy",
@@ -5950,10 +5971,10 @@ window.KKT_GRAPH = {
      "path": "testing"
     },
     {
-     "doc": "Picks the first word for every handle, so every handle clashes, but draws IDs and tokens normally.",
+     "doc": "Picks the first choice whenever there are more than 36 to choose from, and draws from its sequence otherwise.",
      "feature": "testing",
      "kind": "struct",
-     "path": "testing::SameHandleEntropy"
+     "path": "testing::FirstOfLongListsEntropy"
     },
     {
      "doc": "A predictable entropy source for tests (a simple linear congruential generator).",
@@ -6914,14 +6935,14 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The commit a lane folder is at, as the machine's git says: `Git`, which `kkt lanes import` asks so the lane versions it saves record where they came from.",
+   "crate_doc": "The commit a folder is at, as the machine's git says: `Git`.",
    "dev_only": false,
    "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
-     "doc": "The machine's git, asked where a lane folder is.",
+     "doc": "The machine's git, asked which commit a folder is at.",
      "kind": "struct",
      "methods": [
       "commit"
@@ -7315,12 +7336,12 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
-     "doc": "The level logged for the libraries kkt uses (`dependency_log_level`) when nothing says.",
+     "doc": "The level logged for the libraries a program uses when nothing says: above info, since libraries log a great deal at info.",
      "kind": "const",
      "path": "DEFAULT_DEPENDENCY_LOG_LEVEL"
     },
     {
-     "doc": "The level logged for kkt's own code (`log_level`) when nothing says.",
+     "doc": "The level logged for the program's own code when nothing says.",
      "kind": "const",
      "path": "DEFAULT_LOG_LEVEL"
     },
@@ -7341,7 +7362,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "A log level setting the server refuses to start with: the setting's name and why.",
+     "doc": "A log level setting refused: the setting's name, as the caller gave it, and why.",
      "fields": [
       "name",
       "rule"
@@ -7358,17 +7379,12 @@ window.KKT_GRAPH = {
      "path": "TracingLog"
     },
     {
-     "doc": "Checks `dependency_log_level`.",
-     "kind": "fn",
-     "path": "check_dependency_log_level"
-    },
-    {
      "doc": "Sends the log to stdout, or to `log_file`, such as a rolling log file the program opens.",
      "kind": "fn",
      "path": "init_logging"
     },
     {
-     "doc": "Sends the log to stderr: kkt's own lines at `own` (see `own_log_filter`).",
+     "doc": "Sends the log to stderr: the program's own lines, from `own_targets`, at `own` (see `own_log_filter`).",
      "kind": "fn",
      "path": "init_stderr_logging"
     }
@@ -7406,11 +7422,10 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
-     "doc": "The environment values that decide default paths, kkt's own and the clients' it configures.",
+     "doc": "The environment values that decide default paths: the home and XDG folders, and any other folders the program asked for by the variable that names them (`Env::named`).",
      "fields": [
       "home",
-      "claude_config_dir",
-      "codex_home",
+      "named",
       "xdg_config_home",
       "xdg_data_home"
      ],
@@ -7418,7 +7433,8 @@ window.KKT_GRAPH = {
      "methods": [
       "absolute_xdg_config_home",
       "absolute_xdg_data_home",
-      "config_home"
+      "config_home",
+      "named"
      ],
      "path": "Env"
     },
@@ -7457,7 +7473,7 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
-     "doc": "The environment as this process sees it: `$HOME` and the folders the environment names.",
+     "doc": "The environment as this process sees it: `$HOME`, the XDG folders, and the folders the variables in `named` name.",
      "kind": "fn",
      "path": "env"
     },
@@ -11409,7 +11425,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login: `Tailscale` implements kkt-remote-access's `RemoteAccess`.",
+   "crate_doc": "Sharing a local server over the host's existing Tailscale login: `Tailscale` implements kkt-remote-access's `RemoteAccess`.",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -11425,6 +11441,9 @@ window.KKT_GRAPH = {
     {
      "doc": "Shares this machine's server through its existing Tailscale login.",
      "kind": "struct",
+     "methods": [
+      "new"
+     ],
      "path": "Tailscale"
     }
    ],
@@ -11570,7 +11589,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "A file on disk that rolls over at a size and prunes old copies by age (`RotatingFile`, opened by `open_log_file` after checking its `LogPolicy`).",
+   "crate_doc": "A file on disk that rolls over at a size and prunes old copies by age (`RotatingFile`, opened by `open_log_file` after checking its `LogPolicy`), such as a log.",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -11587,6 +11606,34 @@ window.KKT_GRAPH = {
      "path": "LogPolicy"
     },
     {
+     "doc": "Why `open_log_file` refused.",
+     "kind": "enum",
+     "path": "OpenError",
+     "variants": [
+      "Policy",
+      "File"
+     ]
+    },
+    {
+     "doc": "A `LogPolicy` that does not bound the file: which value, and the rule it breaks, such as \"must be at least 1\".",
+     "fields": [
+      "value",
+      "rule"
+     ],
+     "kind": "struct",
+     "path": "PolicyProblem"
+    },
+    {
+     "doc": "Which value of a `LogPolicy` a problem is about.",
+     "kind": "enum",
+     "path": "PolicyValue",
+     "variants": [
+      "MaxBytes",
+      "RotatedFiles",
+      "MaxAge"
+     ]
+    },
+    {
      "doc": "The log file at `path`, appended to, and rolled over by its policy.",
      "kind": "struct",
      "methods": [
@@ -11595,7 +11642,7 @@ window.KKT_GRAPH = {
      "path": "RotatingFile"
     },
     {
-     "doc": "Opens the log file at `path` for `RotatingFile::open`, after checking `policy`.",
+     "doc": "Opens the file at `path` for `RotatingFile::open`, after checking `policy`.",
      "kind": "fn",
      "path": "open_log_file"
     }
@@ -14723,14 +14770,14 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The process terminal: input, output, terminal detection, the terminal's half of the login link (showing it, and the Enter key) and the default behavior when a command's output pipe closes.",
+   "crate_doc": "The process terminal: input, output, terminal detection, a link shown with a wait for Enter (`BrowserLink`) and the default behavior when a command's output pipe closes.",
    "dev_only": false,
    "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
-     "doc": "At a terminal, shows the link and offers to open it when Enter is pressed.",
+     "doc": "A link shown at the terminal, with a wait for Enter: at a terminal, it shows the link and offers to open it when Enter is pressed; away from one, such as in a script, it only prints the link.",
      "kind": "struct",
      "methods": [
       "new",
@@ -16820,6 +16867,7 @@ window.KKT_GRAPH = {
    "items": [
     "Client",
     "ClientCommand",
+    "ENV_FOLDERS",
     "Host"
    ],
    "kind": "normal",
@@ -16835,7 +16883,8 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "Client"
+      "Client",
+      "ENV_FOLDERS"
      ],
      "role": "uses"
     }
@@ -16869,7 +16918,8 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "Span",
-    "Time"
+    "Time",
+    "testing::FixedClock"
    ],
    "to": "kkt-clock"
   },
@@ -17374,7 +17424,6 @@ window.KKT_GRAPH = {
     "LogLevel",
     "SettingError",
     "TracingLog",
-    "check_dependency_log_level",
     "init_logging",
     "init_stderr_logging"
    ],
@@ -17388,7 +17437,6 @@ window.KKT_GRAPH = {
       "DEFAULT_LOG_LEVEL",
       "LogLevel",
       "SettingError",
-      "check_dependency_log_level",
       "init_logging",
       "init_stderr_logging"
      ],
@@ -17711,6 +17759,8 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "LogPolicy",
+    "OpenError",
+    "PolicyValue",
     "open_log_file"
    ],
    "kind": "normal",
@@ -17720,6 +17770,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "LogPolicy",
+      "OpenError",
+      "PolicyValue",
       "open_log_file"
      ],
      "role": "uses"
@@ -24024,7 +24076,7 @@ window.KKT_GRAPH = {
    "items": [
     "Entropy",
     "testing",
-    "testing::SameHandleEntropy",
+    "testing::FirstOfLongListsEntropy",
     "testing::SeqEntropy"
    ],
    "kind": "normal",
@@ -24039,7 +24091,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "testing::SameHandleEntropy",
+      "testing::FirstOfLongListsEntropy",
       "testing::SeqEntropy"
      ],
      "role": "wires"
@@ -24226,7 +24278,7 @@ window.KKT_GRAPH = {
    "from": "kkt-rules",
    "items": [
     "testing",
-    "testing::SameHandleEntropy",
+    "testing::FirstOfLongListsEntropy",
     "testing::SeqEntropy"
    ],
    "kind": "dev",
@@ -24241,7 +24293,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "testing::SameHandleEntropy",
+      "testing::FirstOfLongListsEntropy",
       "testing::SeqEntropy"
      ],
      "role": "wires"
@@ -26471,7 +26523,7 @@ window.KKT_CONCERNS = {
    "must_not": "Wait for the browser; repeat the link in a message."
   },
   "kkt-client-command": {
-   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
+   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, made with the server's name and what a person should retry with (`Claude::new`), with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
    "kind": "effect",
    "layer": "platform",
    "must_not": "Echo the command's output, which may hold credentials."
@@ -26599,10 +26651,10 @@ window.KKT_CONCERNS = {
    "must_not": "Decide what a valid key is, who a key lets in, or where key files go; draw randomness itself."
   },
   "kkt-lane-commit": {
-   "concern": "The commit a lane folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
+   "concern": "The commit a folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
    "kind": "effect",
    "layer": "platform",
-   "must_not": "Read or write the lane files."
+   "must_not": "Read or write the folder's files."
   },
   "kkt-lane-files": {
    "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from the `LaneCommit` it declares.",
@@ -26623,19 +26675,19 @@ window.KKT_CONCERNS = {
    "must_not": "Know a logging library or perform I/O."
   },
   "kkt-log-tracing": {
-   "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given; the log level setting it starts with: LogLevel (name, parse), DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL and check_dependency_log_level, with its own SettingError (from kkt-logs, deleted, ARCHITECTURE.md 4.2.2).",
+   "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given, with the program's own lines picked by the targets the program names; the log level setting it starts with: LogLevel (name, parse) with its own SettingError, and the defaults DEFAULT_LOG_LEVEL and DEFAULT_DEPENDENCY_LOG_LEVEL (from kkt-logs, deleted, ARCHITECTURE.md 4.2.2). It names no program's settings or targets.",
    "kind": "effect",
    "layer": "platform",
-   "must_not": "Open, roll over or prune log files."
+   "must_not": "Open, roll over or prune log files; name a program's settings or targets."
   },
   "kkt-machine": {
-   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
+   "concern": "Facts about the machine: `Env` (the home folder, the XDG folders and the base of per-user config they give, and any other folder the program asks for by the variable that names it, `Env::named`) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
    "kind": "contract",
    "layer": "platform",
-   "must_not": "Read the environment, or hold any of kkt's paths."
+   "must_not": "Read the environment, hold any of kkt's paths, or name a program's variables."
   },
   "kkt-machine-os": {
-   "concern": "The machine's facts as this process sees them: `env` reads the environment and `platform` gives the platform this program was built for, as kkt-machine's values, and `process_id` names this process. The program asks once and passes them on.",
+   "concern": "The machine's facts as this process sees them: `env` reads the environment (the home and XDG folders, and the variables the program names) and `platform` gives the platform this program was built for, as kkt-machine's values, and `process_id` names this process. The program asks once and passes them on.",
    "kind": "effect",
    "layer": "platform"
   },
@@ -26676,10 +26728,10 @@ window.KKT_CONCERNS = {
    "must_not": "Let tool details into the contract."
   },
   "kkt-remote-access-tailscale": {
-   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner.",
+   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login (`Tailscale`, made with the command a person should rerun once they have fixed what a refusal names); what tailscale's answers mean is tested over a private runner.",
    "kind": "effect",
    "layer": "platform",
-   "must_not": "Change login, DNS preferences, unrelated sharing, config or the service."
+   "must_not": "Change login, DNS preferences, unrelated sharing, or anything of the caller's."
   },
   "kkt-result-format": {
    "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
@@ -26688,10 +26740,10 @@ window.KKT_CONCERNS = {
    "must_not": "Decide permissions or read the database."
   },
   "kkt-rolling-file": {
-   "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). It does not implement kkt-log.",
+   "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). Its refusals are values (OpenError, PolicyProblem, PolicyValue), which the caller words in its own terms. It does not implement kkt-log.",
    "kind": "effect",
    "layer": "platform",
-   "must_not": "Read a real clock itself; start a logging library; know log levels."
+   "must_not": "Read a real clock itself; start a logging library; know log levels; name the caller's settings."
   },
   "kkt-rules": {
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm; and starting them for a server run (`start`), which records the run first.",
@@ -26760,7 +26812,7 @@ window.KKT_CONCERNS = {
    "must_not": "Let a tokio signal type out of the crate."
   },
   "kkt-terminal": {
-   "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the terminal's half of the login link: showing it, and the Enter key.",
+   "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and a link shown with a wait for Enter (BrowserLink): showing the link, and taking a press of Enter as a request to open it.",
    "kind": "effect",
    "layer": "platform",
    "must_not": "Decide setup answers or depend on setup/container logic."

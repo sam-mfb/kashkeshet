@@ -12,8 +12,7 @@ fn env() -> Env {
         home: Some(PathBuf::from(HOME)),
         xdg_config_home: None,
         xdg_data_home: None,
-        claude_config_dir: None,
-        codex_home: None,
+        named: Default::default(),
     }
 }
 
@@ -360,8 +359,14 @@ fn allowing_kkt_backs_up_a_file_it_changes() {
 fn allowing_kkt_follows_the_clients_own_variables() {
     let host = FakeHost::default();
     let env = Env {
-        claude_config_dir: Some("/profiles/work".into()),
-        codex_home: Some("/codex".into()),
+        named: [
+            (
+                "CLAUDE_CONFIG_DIR".to_string(),
+                std::path::PathBuf::from("/profiles/work"),
+            ),
+            ("CODEX_HOME".to_string(), std::path::PathBuf::from("/codex")),
+        ]
+        .into(),
         ..env()
     };
     host.put(

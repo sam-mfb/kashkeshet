@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+"""A platform crate knows nothing of kkt, in what it says as well as in what
+it depends on (Sam, 2026-11-16). This check reads the platform crates from
+docs/architecture/concerns.json, so a crate that joins the layer is covered
+without an edit here, and fails when one's Rust source outside its tests has
+`kkt` or `kashkeshet` as a word in a string literal, or in the name of a
+public item. Comments, doc comments and crate names in paths are not read.
+Tests are left out: files named tests.rs, folders named tests, and modules
+under `#[cfg(test)]`.
+
+Usage: check-platform-words.py [ROOT]   (the workspace root; default: here)
+Tested by test_check_platform_words.py.
+"""
+
+import json
+import re
+import sys
+from pathlib import Path
+
+WORD = re.compile(r"\b(kkt|kashkeshet)\b", re.IGNORECASE)
+STRING = re.compile(r'r(#*)"(.*?)"\1|"((?:[^"\\]|\\.)*)"', re.DOTALL)
+PUBLIC_NAME = re.compile(
+    r"\bpub(?:\([^)]*\))?\s+(?:const\s+fn|async\s+fn|unsafe\s+fn|fn|struct|enum|const|static|trait|type|mod)\s+(\w+)"
+)
+TEST_MODULE = re.compile(r"#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{")
+
+
+def platform_crates(root):
+    """The packages concerns.json puts in the platform layer."""
+    concerns = json.loads((root / "docs/architecture/concerns.json").read_text())
+    return sorted(name for name, crate in concerns["crates"].items() if crate["layer"] == "platform")
+
+
+def without_comments(code):
+    """`code` with its comments blanked, keeping strings and line numbers."""
+    out, i, n = [], 0, len(code)
+    while i < n:
+        string = STRING.match(code, i) if code[i] in 'r"' else None
+        if string and (code[i] == '"' or (i == 0 or not (code[i - 1].isalnum() or code[i - 1] == "_"))):
+            out.append(string.group(0))
+            i = string.end()
+        elif code.startswith("//", i):
+            end = code.find("\n", i)
+            end = n if end == -1 else end
+            i = end
+        elif code.startswith("/*", i):
+            end = code.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            out.append("\n" * code.count("\n", i, end))
+            i = end
+        elif code[i] == "'" and i + 2 < n and code[i + 2] == "'":
+            # A character literal such as '"', which must not open a string.
+            out.append(code[i:i + 3])
+            i += 3
+        elif code[i] == "'" and i + 3 < n and code[i + 1] == "\\" and code[i + 3] == "'":
+            # An escaped one, such as '\"'.
+            out.append(code[i:i + 4])
+            i += 4
+        else:
+            out.append(code[i])
+            i += 1
+    return "".join(out)
+
+
+def without_test_modules(code):
+    """`code` with each `#[cfg(test)] mod … { … }` block blanked."""
+    while True:
+        found = TEST_MODULE.search(code)
+        if not found:
+            return code
+        depth, i = 1, found.end()
+        while i < len(code) and depth:
+            depth += {"{": 1, "}": -1}.get(code[i], 0)
+            i += 1
+        code = code[:found.start()] + "\n" * code.count("\n", found.start(), i) + code[i:]
+
+
+def is_test_file(path, src):
+    relative = path.relative_to(src)
+    return path.name == "tests.rs" or "tests" in relative.parts[:-1]
+
+
+def problems_in(text, where):
+    """The kkt words in one file's code: `where:line: …` for each."""
+    code = without_test_modules(without_comments(text))
+    found = []
+    for string in STRING.finditer(code):
+        body = string.group(2) if string.group(2) is not None else string.group(3)
+        if WORD.search(body):
+            line = code.count("\n", 0, string.start()) + 1
+            found.append(f"{where}:{line}: a string names kkt: {string.group(0)[:80]}")
+    for name in PUBLIC_NAME.finditer(code):
+        if re.search(r"kkt|kashkeshet", name.group(1), re.IGNORECASE):
+            line = code.count("\n", 0, name.start()) + 1
+            found.append(f"{where}:{line}: a public item's name names kkt: {name.group(1)}")
+    return found
+
+
+def problems(root):
+    found = []
+    for crate in platform_crates(root):
+        src = root / "crates" / crate / "src"
+        for path in sorted(src.rglob("*.rs")):
+            if is_test_file(path, src):
+                continue
+            found += problems_in(path.read_text(), str(path.relative_to(root)))
+    return found
+
+
+def main():
+    root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+    found = problems(root)
+    if found:
+        print("check-platform-words: a platform crate names kkt; it must know nothing of kkt, "
+              "so the caller passes kkt's words in:", file=sys.stderr)
+        for line in found:
+            print(line, file=sys.stderr)
+        sys.exit(1)
+    print("check-platform-words: no platform crate names kkt")
+
+
+if __name__ == "__main__":
+    main()

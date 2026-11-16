@@ -485,6 +485,11 @@ code at f66b0ab:
   check-crates.sh's check 8 and `kinds.rule_breaks` hold it. kkt-names is
   core's; kkt-provenance is operations'.
 
+- **Platform crates say nothing of kkt** (Sam, 2026-11-16, msgs 3615 and
+  3617). kkt's names, settings, commands and messages are the caller's:
+  passed in as arguments, or worded by the caller from the values a
+  platform crate returns. `check-platform-words.py` holds it in CI.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.

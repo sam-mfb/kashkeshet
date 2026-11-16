@@ -363,8 +363,7 @@ mod tests {
     fn merging_into_malformed_codex_toml_names_the_parsers_reason() {
         let env = Env {
             home: None,
-            claude_config_dir: None,
-            codex_home: None,
+            named: Default::default(),
             xdg_config_home: None,
             xdg_data_home: None,
         };
@@ -392,8 +391,7 @@ mod tests {
     fn claude_preview_reports_a_non_utf8_profile_directory() {
         let env = Env {
             home: None,
-            claude_config_dir: None,
-            codex_home: None,
+            named: Default::default(),
             xdg_config_home: None,
             xdg_data_home: None,
         };

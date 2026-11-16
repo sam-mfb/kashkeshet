@@ -16,7 +16,7 @@
 use super::*;
 use futures::FutureExt;
 use kkt_clock::testing::FixedClock;
-use kkt_entropy::testing::{SameHandleEntropy, SeqEntropy};
+use kkt_entropy::testing::{FirstOfLongListsEntropy, SeqEntropy};
 use kkt_events::Notice;
 use std::future::Future;
 use std::pin::Pin;
@@ -625,7 +625,7 @@ pub(crate) async fn open_channel_in(rules: &Rules, owner: &Agent, name: &str) ->
 async fn name_clashes_get_a_number() {
     let w = world_with(
         Settings::DEFAULT,
-        Arc::new(SameHandleEntropy(SeqEntropy::new(3))),
+        Arc::new(FirstOfLongListsEntropy(SeqEntropy::new(3))),
     )
     .await;
     let a = w.rules.register().await.unwrap();
@@ -1653,7 +1653,7 @@ async fn a_new_wait_supersedes_grace_and_disconnect_clears_it() {
 async fn hiding_an_agent_revokes_it_announces_each_membership_and_keeps_its_name_reserved() {
     let w = world_with(
         Settings::DEFAULT,
-        Arc::new(SameHandleEntropy(SeqEntropy::new(5))),
+        Arc::new(FirstOfLongListsEntropy(SeqEntropy::new(5))),
     )
     .await;
     let registration = w.rules.register().await.unwrap();

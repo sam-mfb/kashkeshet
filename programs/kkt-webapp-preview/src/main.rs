@@ -64,12 +64,16 @@ struct Args {
     access_key_file: Option<PathBuf>,
 }
 
+/// The targets of kkt's own code, logged at the preview's level: the
+/// library, and every `kkt-*` crate, whose module paths start with "kkt".
+const LOG_OWN_TARGETS: &[&str] = &["kashkeshet", "kkt"];
+
 #[tokio::main]
 async fn main() -> ExitCode {
     let log = TracingLog;
     // With no log there is nowhere to say why, so the exit code says the
     // preview did not run.
-    if kkt_log_tracing::init_stderr_logging(LogLevel::Info).is_err() {
+    if kkt_log_tracing::init_stderr_logging(LOG_OWN_TARGETS, LogLevel::Info).is_err() {
         return ExitCode::FAILURE;
     }
     match run(Args::parse(), &log).await {

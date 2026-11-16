@@ -1,6 +1,6 @@
 [package]
 name = "kkt-lane-commit"
-description = "The commit a kkt lane folder is at, as the machine's git says"
+description = "The commit a folder is at, as the machine's git says"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

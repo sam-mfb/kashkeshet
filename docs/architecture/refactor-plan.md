@@ -2219,6 +2219,29 @@ and programs use it, but it composes nothing; it is the record of what
 produced a server run, which is specific to running kkt. The new check
 found nothing beyond the moves listed.
 
+### After phase 16: platform crates say nothing of kkt (Sam, 2026-11-16)
+
+**Sam's decision** (msgs 3615 and 3617, K5, from sage-cardinal). A
+platform crate is general in what it says as well as in what it depends
+on. kkt's words leave the platform crates, with no rename and no change to
+any text a person sees: kkt-lane-commit speaks of a folder;
+kkt-client-command and kkt-remote-access-tailscale take kkt's server
+name, flag and command as arguments; kkt-rolling-file returns its
+refusals as values the caller words; kkt-log-tracing takes the program's
+own targets, and `check_dependency_log_level`, kkt's policy, moves to the
+`kkt` program's settings; kkt-machine's `Env` carries the folders the
+program names (`Env::named`), with kkt-client-config naming its two;
+kkt-terminal's `BrowserLink` is described as what it is; kkt-entropy's
+`SameHandleEntropy` is renamed. A CI check
+(`.github/scripts/check-platform-words.py`) fails when a platform crate's
+code outside its tests says `kkt` or `kashkeshet` in a string or a public
+item's name.
+
+**What it did, against this decision.** Done as decided. The check also
+found, beyond the list, seven Tailscale refusals telling a person to rerun
+`kkt setup` and Claude's "retry --write", now arguments (msg 3617), and
+two lint reasons and a tracing callsite name, reworded.
+
 ## Order at a glance
 
 ```
