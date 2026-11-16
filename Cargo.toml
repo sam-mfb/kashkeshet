@@ -249,6 +249,7 @@ kkt-lane-files-os = { path = "crates/kkt-lane-files-os" }
 kkt-listen = { path = "crates/kkt-listen" }
 kkt-rolling-file = { path = "crates/kkt-rolling-file" }
 kkt-log-tracing = { path = "crates/kkt-log-tracing" }
+kkt-entropy = { path = "crates/kkt-entropy" }
 kkt-entropy-os = { path = "crates/kkt-entropy-os" }
 kkt-machine = { path = "crates/kkt-machine" }
 kkt-machine-os = { path = "crates/kkt-machine-os" }

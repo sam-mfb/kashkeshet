@@ -5,17 +5,22 @@
 use crate::machine::settings::Sources;
 use kkt_admission::server_keys::{self, KeyTexts, ServerKeys};
 use kkt_admission::{ServerKey, SharedKey};
+use kkt_entropy::Entropy;
 use kkt_entropy_os::OsEntropy;
-use kkt_server_keys::{AccessKey, KeyText};
-use kkt_server_keys_os::{KeyFiles, ReadError};
+use kkt_server_keys::{AccessKey, KeyFiles, KeyText, ReadError, SelectedKeys};
+use kkt_server_keys_os::OsKeyFiles;
 use std::path::Path;
 
 /// Makes the default key file if it is the one in use and does not exist
 /// yet, and logs where it is (never the key).
 pub(crate) fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
-    if let Some(path) =
-        kkt_server_keys_os::make_default_key(access_key, || kkt_server_keys::generate(&OsEntropy))?
-    {
+    let mut generate = || {
+        OsEntropy.random_chars(
+            kkt_server_keys::NEW_KEY_ALPHABET,
+            kkt_server_keys::NEW_KEY_CHARS,
+        )
+    };
+    if let Some(path) = OsKeyFiles.make_default_key(access_key, &mut generate)? {
         tracing::info!("created a new {kind} key at {}", path.display());
     }
     Ok(())
@@ -32,7 +37,11 @@ pub(crate) fn read_server_keys(
     admin: Option<&Path>,
     sources: &Sources,
 ) -> Result<ServerKeys, String> {
-    let mut files = ServerKeyFiles(KeyFiles::new(key_path(access), key_path(web), admin));
+    let mut files = ServerKeyFiles(SelectedKeys {
+        access: key_path(access),
+        web: key_path(web),
+        admin,
+    });
     // A name file is read only beside an admin key, so with none the name
     // refusal cannot happen; the path is then empty.
     let names = admin
@@ -58,8 +67,9 @@ fn key_path(key: &AccessKey) -> Option<&Path> {
     }
 }
 
-/// Adapts native key texts to admission, preserving the program's wording.
-struct ServerKeyFiles<'a>(KeyFiles<'a>);
+/// Adapts the key files on disk to admission, preserving the program's
+/// wording.
+struct ServerKeyFiles<'a>(SelectedKeys<'a>);
 
 fn key_read_error(setting: &str, e: ReadError) -> String {
     format!(
@@ -79,26 +89,32 @@ impl KeyTexts for ServerKeyFiles<'_> {
     type Error = String;
     // Serve makes a missing default first; service installation only reads.
     fn access(&mut self) -> Result<Option<KeyText>, String> {
-        self.0
-            .access()
+        OsKeyFiles
+            .read_access(&self.0)
             .map_err(|e| key_read_error("access_key_file", e))
     }
     fn web(&mut self) -> Result<Option<KeyText>, String> {
-        self.0.web().map_err(|e| key_read_error("web_key_file", e))
+        OsKeyFiles
+            .read_web(&self.0)
+            .map_err(|e| key_read_error("web_key_file", e))
     }
     fn admin(&mut self) -> Result<Option<KeyText>, String> {
-        self.0
-            .admin()
+        OsKeyFiles
+            .read_admin(&self.0)
             .map_err(|e| key_read_error("admin_key_file", e))
     }
     fn admin_names(&mut self) -> Result<Option<String>, String> {
-        self.0.admin_names().map_err(name_read_error)
+        OsKeyFiles
+            .read_admin_names(&self.0)
+            .map_err(name_read_error)
     }
 }
 
 /// The text of the key file at `path`, which `setting` names.
 fn read_key_text(path: &Path, setting: &str) -> Result<String, String> {
-    KeyFiles::read(path).map_err(|e| key_read_error(setting, e))
+    OsKeyFiles
+        .read_key(path)
+        .map_err(|e| key_read_error(setting, e))
 }
 
 /// The access key in the file at `path`.

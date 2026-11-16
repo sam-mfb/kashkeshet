@@ -71,9 +71,11 @@ struct KeyFiles;
 
 impl KeyText for KeyFiles {
     fn read(&self, path: &Path) -> Result<String, KeyUnread> {
-        kkt_server_keys_os::KeyFiles::read(path).map_err(|e| KeyUnread {
-            missing: e.error.kind() == std::io::ErrorKind::NotFound,
-            reason: e.error.to_string(),
+        kkt_server_keys::KeyFiles::read_key(&kkt_server_keys_os::OsKeyFiles, path).map_err(|e| {
+            KeyUnread {
+                missing: e.error.kind() == std::io::ErrorKind::NotFound,
+                reason: e.error.to_string(),
+            }
         })
     }
 }

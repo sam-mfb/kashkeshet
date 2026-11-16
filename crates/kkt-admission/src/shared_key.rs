@@ -94,8 +94,12 @@ mod tests {
 
     #[test]
     fn a_generated_key_is_a_shared_key_that_matches_it() {
+        use kkt_entropy::Entropy;
         use kkt_entropy::testing::SeqEntropy;
-        let first = kkt_server_keys::generate(&SeqEntropy::new(3));
+        let first = SeqEntropy::new(3).random_chars(
+            kkt_server_keys::NEW_KEY_ALPHABET,
+            kkt_server_keys::NEW_KEY_CHARS,
+        );
         let key =
             SharedKey::new(ServerKey::Access, &first, "file").expect("a generated key is valid");
         assert!(key.matches(first.as_bytes()));

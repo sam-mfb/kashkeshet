@@ -130,14 +130,29 @@ The shared crates are reorganized so that every dependency is injected and each 
   - `kkt_admission::server_keys::{KeyText, bound_to, bound_in,
     admin_name_line, admin_name_written}` are now `kkt_server_keys::`
     items of the same names;
-  - `kkt_admission::SharedKey::generate(entropy)` is now
-    `kkt_server_keys::generate(entropy)`;
+  - `kkt_admission::SharedKey::generate(entropy)` is gone: draw a new key
+    with kkt-entropy's `entropy.random_chars(kkt_server_keys::NEW_KEY_ALPHABET,
+    kkt_server_keys::NEW_KEY_CHARS)`, which makes the same keys;
   - `kkt_admission::testing::MIN_ACCESS_KEY_BYTES` is now
     `kkt_server_keys::testing::MIN_ACCESS_KEY_BYTES`, and kkt-admission
     has no `testing` feature;
-  - `kkt_admission_os::{KeyFiles, ReadError, make_default_key,
-    new_key_file, write_key_file, write_admin_name}` are now
-    `kkt_server_keys_os::` items of the same names.
+  - `kkt_admission_os`'s key files are now a contract,
+    `kkt_server_keys::KeyFiles`, which `kkt_server_keys_os::OsKeyFiles`
+    implements on disk; `kkt_server_keys::testing::Memory` is its
+    stand-in. `ReadError` is `kkt_server_keys::ReadError`. `KeyFiles::new(access,
+    web, admin)` and its `access`, `web`, `admin` and `admin_names` are now
+    the plain value `kkt_server_keys::SelectedKeys { access, web, admin }`
+    and the trait's `read_access`, `read_web`, `read_admin` and
+    `read_admin_names`; `KeyFiles::read` that names its file is
+    `read_key`. `make_default_key(access, generate)`,
+    `new_key_file(path, force, generate)`, `write_key_file` and
+    `write_admin_name` are the trait's `make_default_key`, `new_key`,
+    `write_key` and `write_admin_name`, the generator now a
+    `&mut dyn FnMut() -> String`.
+  - kkt-operate's own `KeyFiles` trait is gone: `OperateParts::key_files`
+    takes `&dyn kkt_server_keys::KeyFiles`, and `OperateParts` gains
+    `entropy`, which new keys are drawn from. `keys::new_key_file` takes
+    it too.
 
   Key checks, refusals, file names, file modes and how keys are written,
   read and hashed are unchanged.

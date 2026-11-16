@@ -266,7 +266,12 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                     .ready()
                     .and_then(|()| {
                         service.add_key(&admin, &|path| {
-                            let key = new_key_file(self.parts.key_files, path, false)?;
+                            let key = new_key_file(
+                                self.parts.key_files,
+                                self.parts.entropy,
+                                path,
+                                false,
+                            )?;
                             write_admin_name(self.parts.key_files, path, &key, Some(name)).map(drop)
                         })
                     })

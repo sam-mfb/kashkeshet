@@ -122,9 +122,9 @@
   },
   "kkt-server-keys": {
    "layer": "access",
-   "kind": "logic",
-   "concern": "The server's keys: what a valid key is and how a new one is made, which access key a server uses, the key files' names, mode and places, and the admin name file's binding to its key and the advice about it. The key files on disk are kkt-server-keys-os'.",
-   "must_not": "Decide who a key lets in; choose a randomness provider; word each program's key refusals; touch the key files."
+   "kind": "contract",
+   "concern": "The server's keys, as a contract: what a valid key is, and the alphabet and length a new one is drawn with (NEW_KEY_ALPHABET, NEW_KEY_CHARS); which access key a server uses; the key files' names, mode and places, in one module; the admin name file's binding to its key and the advice about it; and KeyFiles, reading and writing private key files (the server's, and the client key copies setup writes), with the reads of the server's selected keys (SelectedKeys, ReadError) and the key writes made of its steps as provided methods. testing::Memory is its stand-in. kkt-server-keys-os implements KeyFiles.",
+   "must_not": "Decide who a key lets in; draw randomness; word each program's key refusals; touch the key files."
   },
   "kkt-hosts": {
    "layer": "access",
@@ -463,7 +463,7 @@
   "kkt-server-keys-os": {
    "layer": "access",
    "kind": "effect",
-   "concern": "The server's key files on disk, as kkt-server-keys names and places them: KeyFiles (reading the access, web and admin keys and the admin name file), ReadError, and private key writes (new_key_file, write_key_file, make_default_key), admin-name writes and staged-key moves (phase 16, the reverse of 14.5's merge of kkt-admission-os).",
+   "concern": "Private key files on disk: OsKeyFiles implements kkt-server-keys' KeyFiles with the operating system's files, for the server's key files and the client key copies setup writes, as kkt-server-keys names and places them: reads, owner-only key writes, admin-name writes, staged-key moves and the file tests.",
    "must_not": "Decide what a valid key is, who a key lets in, or where key files go; draw randomness itself."
   }
  },

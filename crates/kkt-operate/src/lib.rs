@@ -103,22 +103,6 @@ pub trait SetupFiles {
     fn remove_record(&self, dir: &Path) -> Result<(), String>;
 }
 
-/// Key files, including generation of a fresh key by the chosen entropy source.
-pub trait KeyFiles {
-    fn read(&self, path: &Path) -> std::io::Result<String>;
-    fn read_optional(&self, path: &Path) -> std::io::Result<Option<String>>;
-    fn exists(&self, path: &Path) -> bool;
-    /// Whether a key file is at `path`, or why that cannot be told.
-    fn try_exists(&self, path: &Path) -> std::io::Result<bool>;
-    fn is_file(&self, path: &Path) -> bool;
-    fn create_dir_all(&self, dir: &Path) -> Result<(), String>;
-    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String>;
-    fn remove(&self, path: &Path) -> std::io::Result<()>;
-    fn new_key(&self, path: &Path, force: bool) -> Result<String, String>;
-    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String>;
-    fn write_admin_name(&self, path: &Path, bound: Option<&str>) -> Result<(), String>;
-}
-
 /// Config text read and written by setup when allowing a server host.
 pub trait ConfigText {
     fn read(&self, path: &Path) -> Result<Option<String>, String>;
@@ -167,7 +151,11 @@ pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     pub serve: &'a dyn ServeFacts,
     pub service_defaults: &'a D,
     pub setup_files: &'a dyn SetupFiles,
-    pub key_files: &'a dyn KeyFiles,
+    /// Private key files: the server's, and the client key copies setup
+    /// writes.
+    pub key_files: &'a dyn kkt_server_keys::KeyFiles,
+    /// Where new keys are drawn from.
+    pub entropy: &'a dyn kkt_entropy::Entropy,
     pub database: &'a dyn Databases,
     pub backups: &'a dyn BackupWriter,
     pub output: &'a dyn Output,

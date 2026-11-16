@@ -9,7 +9,7 @@ use kkt_setup::connection::ConnectionSource;
 use std::path::{Path, PathBuf};
 
 pub fn admin_name_line(
-    files: &dyn crate::KeyFiles,
+    files: &dyn kkt_server_keys::KeyFiles,
     path: &Path,
     key: &str,
     label: &str,
@@ -268,28 +268,36 @@ pub fn local_operator_key<D>(
 /// names nothing. With no name, such a file is removed. Returns what to tell
 /// the person.
 pub fn write_admin_name(
-    files: &dyn crate::KeyFiles,
+    files: &dyn kkt_server_keys::KeyFiles,
     path: &Path,
     key: &str,
     name: Option<&AdminName>,
 ) -> Result<String, String> {
     let bound = name.map(|name| kkt_server_keys::bound_to(name, key));
-    let written = files.write_admin_name(path, bound.as_deref());
+    let written = files
+        .write_admin_name(path, bound.as_deref())
+        .map_err(|e| e.to_string());
     kkt_server_keys::admin_name_written(path, name, written)
 }
 
 /// Makes a new random key and writes it to `path`, creating its folder if
 /// needed. Returns the key.
 pub fn new_key_file(
-    files: &dyn crate::KeyFiles,
+    files: &dyn kkt_server_keys::KeyFiles,
+    entropy: &dyn kkt_entropy::Entropy,
     path: &Path,
     force: bool,
 ) -> Result<String, String> {
-    files.new_key(path, force)
+    files.new_key(path, force, &mut || {
+        entropy.random_chars(
+            kkt_server_keys::NEW_KEY_ALPHABET,
+            kkt_server_keys::NEW_KEY_CHARS,
+        )
+    })
 }
 
 pub fn write_key_file(
-    files: &dyn crate::KeyFiles,
+    files: &dyn kkt_server_keys::KeyFiles,
     path: &Path,
     key: &str,
     force: bool,

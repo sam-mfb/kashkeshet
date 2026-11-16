@@ -111,7 +111,7 @@
       "kkt-operate::ServeFacts",
       "kkt-operate::ServiceDefaults",
       "kkt-operate::SetupFiles",
-      "kkt-operate::KeyFiles",
+      "kkt-server-keys::KeyFiles",
       "kkt-operate::Databases",
       "kkt-operate::Output",
       "kkt-setup::connection::ConnectionSource",
@@ -138,7 +138,7 @@
    ],
    "wiring": [
     {
-     "own": "ServerKeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "own": "ServerKeyFiles, adapting kkt-server-keys-os::OsKeyFiles",
      "crate": "kkt-admission",
      "to": [
       {
@@ -148,18 +148,7 @@
      ],
      "note": "kkt serve",
      "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
-    },
-    {
-     "impl": "kkt-entropy-os::OsEntropy",
-     "crate": "kkt-server-keys",
-     "to": [
-      {
-       "at": "generate",
-       "param": "entropy"
-      }
-     ],
-     "note": "kkt key create, and kkt serve's first key"
+     "supplier_item": "OsKeyFiles"
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
@@ -271,7 +260,7 @@
      "supplier_item": "CredentialFile"
     },
     {
-     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "own": "KeyFiles, adapting kkt-server-keys-os::OsKeyFiles",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -281,7 +270,7 @@
      ],
      "note": "kkt register, reclaim and watch",
      "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
+     "supplier_item": "OsKeyFiles"
     },
     {
      "own": "ClientHost, adapting kkt-client-config-os's OsHost",
@@ -509,16 +498,24 @@
      "supplier": "kkt-setup-os"
     },
     {
-     "own": "NativeKeyFiles, forwarding key files to kkt-server-keys-os and generation to kkt-entropy-os",
+     "impl": "kkt-server-keys-os::OsKeyFiles",
      "crate": "kkt-operate",
      "to": [
       {
        "at": "OperateParts",
        "param": "key_files"
       }
-     ],
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "entropy"
+      }
+     ]
     },
     {
      "own": "NativeDatabases, opening this program's database",
@@ -724,7 +721,7 @@
    ],
    "wiring": [
     {
-     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "own": "KeyFiles, adapting kkt-server-keys-os::OsKeyFiles",
      "crate": "kkt-admission",
      "to": [
       {
@@ -733,7 +730,7 @@
       }
      ],
      "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
+     "supplier_item": "OsKeyFiles"
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
@@ -977,10 +974,10 @@
     },
     {
      "title": "Gate",
-     "text": "PreviewGate, with the access key read through kkt-server-keys-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+     "text": "PreviewGate, with the access key read through kkt-server-keys-os' OsKeyFiles, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
      "items": [
       "kkt-api-sim::PreviewGate",
-      "kkt-server-keys-os::KeyFiles",
+      "kkt-server-keys-os::OsKeyFiles",
       "kkt-web::Sessions",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy"

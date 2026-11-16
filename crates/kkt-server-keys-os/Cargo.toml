@@ -1,6 +1,6 @@
 [package]
 name = "kkt-server-keys-os"
-description = "kkt's server key files on disk"
+description = "Private key files on disk: kkt-server-keys' KeyFiles over the operating system's files"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

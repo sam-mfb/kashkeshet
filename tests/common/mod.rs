@@ -20,6 +20,7 @@ use kashkeshet::machine::settings::ServeOptions;
 use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
+use kkt_entropy::Entropy;
 use kkt_entropy_os::OsEntropy;
 use kkt_identity_keymode::KeyMode;
 use kkt_log_tracing::LogLevel;
@@ -343,10 +344,12 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
             toml.push_str(&format!("access_key_file = {}\n", quoted(&access_path)));
             options.access_key_file = Some(access_path.clone());
             // `kkt serve` makes a web key when there is none.
-            let web = config
-                .web_key
-                .clone()
-                .unwrap_or_else(|| kkt_server_keys::generate(&OsEntropy));
+            let web = config.web_key.clone().unwrap_or_else(|| {
+                OsEntropy.random_chars(
+                    kkt_server_keys::NEW_KEY_ALPHABET,
+                    kkt_server_keys::NEW_KEY_CHARS,
+                )
+            });
             write(&kkt_server_keys::web_key_path(&access_path), &web);
             if let Some(admin) = &config.admin_key {
                 let admin_path =

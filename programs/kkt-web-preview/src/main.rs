@@ -21,7 +21,8 @@ use kkt_hosts::AllowedHosts;
 use kkt_log::{Level, Log};
 use kkt_log_tracing::LogLevel;
 use kkt_log_tracing::TracingLog;
-use kkt_server_keys_os::KeyFiles;
+use kkt_server_keys::KeyFiles;
+use kkt_server_keys_os::OsKeyFiles;
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use kkt_web::{PageLimits, Sessions};
@@ -114,7 +115,7 @@ async fn run(args: Args, log: &TracingLog) -> Result<(), String> {
     let clock = Arc::new(SystemClock);
     let gate = match &args.access_key_file {
         Some(path) => {
-            let text = KeyFiles::read(path).map_err(|e| e.to_string())?;
+            let text = OsKeyFiles.read_key(path).map_err(|e| e.to_string())?;
             PreviewGate::with_key(&text).map_err(|e| invalid(e.into()))?
         }
         None => PreviewGate::open(),
