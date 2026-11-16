@@ -50,7 +50,7 @@ kkt-rules = { git = "$url", rev = "$rev" }
 # workspace.
 kkt-server = { git = "$url", rev = "$rev" }
 # Socket binding lives in its own effect crate.
-kkt-server-listen = { git = "$url", rev = "$rev", features = ["real"] }
+kkt-server-listen = { git = "$url", rev = "$rev" }
 TOML
 cat > "$dir/src/lib.rs" <<'RUST'
 //! Uses kashkeshet's shared crates from outside its workspace.

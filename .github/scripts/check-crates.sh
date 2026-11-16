@@ -1,8 +1,8 @@
 #!/bin/bash
-# Check each package in the workspace on its own, and the rules for its
-# `real` and `testing` features (CLAUDE.md, "Where code lives"). The package list and
-# manifests come from `cargo metadata`, so a new package is never missed. No
-# package is exempt.
+# Check each package in the workspace on its own, which packages may depend
+# on an effect crate, and the rules for the `testing` feature (CLAUDE.md,
+# "Where code lives"). The package list and manifests come from
+# `cargo metadata`, so a new package is never missed. No package is exempt.
 #
 # 1. Each package builds alone (`cargo check -p`), with `--all-targets`, and
 #    once more with each of its own features turned on. With only `-p`,
@@ -13,17 +13,14 @@
 #    their dev-dependencies ask for, so with test targets in the build a
 #    library that uses a gated item without asking for the feature in
 #    [dependencies] still passes. Without them it fails.
-# 2. Only programs turn on another workspace package's `real`. A package
-#    with a binary target may do so in [dependencies]; a package with an
-#    example target may do so in [dev-dependencies], for its examples. Tests
-#    SHOULD NOT turn on `real`: a test that must is a documented exception,
-#    listed with its reason in real-exceptions.json beside this script, and
-#    may then do so in [dev-dependencies] (Sam, 2026-11-12). Any other way,
-#    including through a feature of the package's own, fails, and so does a
-#    listed exception that no longer applies.
-#    A library's `default` feature also may not reach its own `real` or
-#    `testing`, or a workspace dependency's, directly or through its other
-#    features at any depth.
+# 2. Only programs depend on an effect crate (a crate concerns.json marks
+#    "effect"), in [dependencies], [dev-dependencies] or
+#    [build-dependencies]. A program is a package with a binary target. Its
+#    tests count too: an effect crate a program names only in
+#    [dev-dependencies], not in [dependencies] or [build-dependencies], is
+#    one only its tests use. Anything else that must is a documented
+#    exception, listed with its reason in effect-exceptions.json beside this
+#    script; a listed exception that no longer applies fails (phase 16).
 # 3. No package turns on another workspace package's `testing` outside
 #    [dev-dependencies], with two exceptions. A package's own `testing`
 #    feature may turn on a workspace dependency's `testing`: it is itself on
@@ -31,53 +28,36 @@
 #    (a binary target and `[package.metadata.kkt] dev-only = true`) may turn
 #    on `testing` in [dependencies]: dev tooling counts as test code, and
 #    check-release-packages.sh keeps it out of every release (the plan's
-#    "What needs Sam", item 4).
+#    "What needs Sam", item 4). A library's `default` feature also may not
+#    reach its own `testing`, or a workspace dependency's, directly or
+#    through its other features at any depth.
 # 4. `kkt-scratch` (test scratch folders) appears only in
 #    [dev-dependencies].
 # 5. Every package's name starts with `kkt-`, so its code logs under a
 #    `kkt_` path, which the log filter keeps at kkt's own level. A package
 #    with a binary target is a program and is not held to this.
-# 6. A crate docs/architecture/concerns.json marks as a contract has no
-#    `real` feature and no item behind one (CLAUDE.md's C5).
-#    A named tool wrapper may implement that contract directly; its own
-#    `real` feature stays in the wrapper, never in the contract (phase 12).
-#    A merged crate, kind "contract and effect" (phase 13), holds its
-#    contract and its one implementation behind `real`; this check does not
-#    apply to it. Check 2 keeps every crate but a program off its `real`,
-#    and kinds.py checks the rest.
-# 7. A merged crate has a `real` feature: kind "contract and effect" (phase
-#    13), a contract and its one implementation, or "logic and effect"
-#    (phase 14), logic and the effect that carries out its plans. Its effect
-#    is behind `real`, so a crate that depends on it without `real` gets the
-#    contract or the logic alone; check 1 builds it alone without `real`,
-#    check 2 keeps every crate but a program off its `real`, and kinds.py
-#    checks the rest.
+# 6. No package has a `real` feature, and no source names one: code that
+#    touches the machine is in an effect crate of its own, not behind a
+#    feature (phase 16, which removed phases 13 and 14's `real`).
 #
-# Checks 2 to 7 are in check-crates.jq, tested by test_check_crates.py,
-# except check 6's search of a contract crate's sources for items behind
-# `real`, which is below.
+# Checks 2 to 6 are in check-crates.jq, tested by test_check_crates.py,
+# except check 6's search of the sources, which is below.
 set -euo pipefail
 scripts=$(dirname "$0")
 
 metadata=$(cargo metadata --locked --no-deps --format-version 1)
 
 root=$(dirname "$(cargo locate-project --workspace --message-format plain)")
-contracts=$(jq -c '[.crates | to_entries[] | select(.value.kind == "contract") | .key]' \
+effects=$(jq -c '[.crates | to_entries[] | select(.value.kind == "effect") | .key]' \
     "$root/docs/architecture/concerns.json")
-merged=$(jq -c '[.crates | to_entries[]
-    | select(.value.kind == "contract and effect" or .value.kind == "logic and effect") | .key]' \
-    "$root/docs/architecture/concerns.json")
-problems=$(jq -r --argjson contracts "$contracts" --argjson merged "$merged" \
-    --argjson real_exceptions "$(cat "$scripts/real-exceptions.json")" \
+problems=$(jq -r --argjson effects "$effects" \
+    --argjson effect_exceptions "$(cat "$scripts/effect-exceptions.json")" \
     -f "$scripts/check-crates.jq" <<< "$metadata")
-# Check 6, the sources: no item behind `real` in a contract crate.
-for name in $(jq -r '.[]' <<< "$contracts"); do
-    dir=$(jq -r --arg name "$name" '.packages[] | select(.name == $name) | .manifest_path' \
-        <<< "$metadata" | xargs -r dirname)
-    if [ -n "$dir" ] && grep -rlq 'feature *= *"real"' "$dir/src"; then
-        problems+=$'\n'"$name: it is a contract crate and has an item behind \`real\`; a contract may not touch the machine"
-    fi
-done
+# Check 6, the sources: no code behind a `real` feature, anywhere in the
+# workspace.
+while read -r found; do
+    [ -n "$found" ] && problems+=$'\n'"$found: names a \`real\` feature; code that touches the machine belongs in an effect crate, not behind a feature"
+done < <(grep -rl --include='*.rs' --exclude-dir=target --exclude-dir=.git 'feature *= *"real"' "$root" || true)
 problems=$(sed '/^$/d' <<< "$problems")
 if [ -n "$problems" ]; then
     echo "check-crates: the workspace's manifests break the feature or name rules:" >&2

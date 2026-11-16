@@ -2,8 +2,6 @@
 //! half of the login link (showing it, and the Enter key) and the default
 //! behavior when a command's output pipe closes.
 
-#![cfg(feature = "real")]
-
 mod browser;
 pub use browser::BrowserLink;
 

@@ -1,4 +1,4 @@
-"""check-crates.jq: the rules for turning on another workspace package's real and testing features, and for package names."""
+"""check-crates.jq: which packages may depend on an effect crate, the rules for turning on another workspace package's testing feature, no `real` feature, and package names."""
 
 import json
 from pathlib import Path
@@ -24,84 +24,105 @@ def dependency(name, kind=None, features=(), rename=None, target=None):
 
 
 def exception(package, dependency):
-    """One entry of real-exceptions.json."""
+    """One entry of effect-exceptions.json."""
     return {"package": package, "dependency": dependency, "reason": "a test reason"}
 
 
-def problems(*packages, contracts=(), merged=(), real_exceptions=()):
+def problems(*packages, effects=(), effect_exceptions=()):
     result = subprocess.run(
-        ["jq", "-r", "--argjson", "contracts", json.dumps(list(contracts)),
-         "--argjson", "merged", json.dumps(list(merged)),
-         "--argjson", "real_exceptions", json.dumps(list(real_exceptions)), "-f", str(RULES)],
+        ["jq", "-r", "--argjson", "effects", json.dumps(list(effects)),
+         "--argjson", "effect_exceptions", json.dumps(list(effect_exceptions)), "-f", str(RULES)],
         input=json.dumps({"packages": list(packages)}),
         check=True, capture_output=True, text=True,
     )
     return result.stdout.splitlines()
 
 
+def effect_rule(package, dependency, section):
+    return (f"{package}: depends on the effect crate {dependency} in {section}; only a program "
+            "(a package with a binary target) may, unless listed in effect-exceptions.json")
+
+
 class CheckCrates(unittest.TestCase):
-    def test_programs_examples_and_dev_dependencies_may_turn_features_on(self):
+    def test_a_program_may_depend_on_an_effect_crate_in_any_section(self):
         self.assertEqual(problems(
             package("kashkeshet", targets=("lib", "bin", "test"), dependencies=[
-                dependency("kkt-a", features=["real"]),
+                dependency("kkt-os"),
+                dependency("kkt-os", kind="dev"),
+                dependency("kkt-os", kind="build"),
                 dependency("kkt-b", kind="dev", features=["testing"]),
                 dependency("kkt-scratch", kind="dev"),
-            ], features={"extra": ["kkt-a/real"]}),
-            package("kkt-a"),
-            package("kkt-b", targets=("lib", "example"), dependencies=[
-                dependency("kkt-a", kind="dev", features=["real", "testing"]),
-                dependency("kkt-scratch", kind="dev"),
             ]),
+            package("kkt-os"),
+            package("kkt-b"),
             package("kkt-scratch"),
+            effects=["kkt-os"],
         ), [])
 
-    def test_a_library_may_not_turn_on_another_packages_real(self):
+    def test_a_program_whose_tests_alone_use_an_effect_crate_needs_an_entry(self):
+        tests_only = package("kkt-product", targets=("lib", "bin"), dependencies=[dependency("kkt-os", kind="dev")])
+        self.assertEqual(problems(package("kkt-os"), tests_only, effects=["kkt-os"]),
+                         ["kkt-product: its tests depend on the effect crate kkt-os, which the program does not; "
+                          "list it in effect-exceptions.json with the reason, or do without it"])
+        self.assertEqual(problems(package("kkt-os"), tests_only, effects=["kkt-os"],
+                                  effect_exceptions=[exception("kkt-product", "kkt-os")]), [])
+
+    def test_a_program_that_depends_on_an_effect_crate_may_name_it_in_its_tests_too(self):
+        for section in [None, "build"]:
+            with self.subTest(section=section):
+                both = package("kashkeshet", targets=("lib", "bin"), dependencies=[
+                    dependency("kkt-os", kind=section), dependency("kkt-os", kind="dev", features=["testing"])])
+                self.assertEqual(problems(package("kkt-os"), both, effects=["kkt-os"]), [])
+
+    def test_nothing_but_a_program_depends_on_an_effect_crate(self):
+        # A logic, contract, composition, test-support or effect crate: the
+        # rule reads only whether the package has a binary target, so it
+        # covers an effect crate that depends on another effect crate too.
+        cases = [
+            (dependency("kkt-os"), "[dependencies]"),
+            (dependency("kkt-os", kind="dev"), "[dev-dependencies]"),
+            (dependency("kkt-os", kind="build"), "[build-dependencies]"),
+            (dependency("kkt-os", target="cfg(unix)"), "[dependencies] for cfg(unix)"),
+        ]
+        for used, section in cases:
+            for user in ["kkt-logic", "kkt-other-os"]:
+                with self.subTest(user=user, section=section):
+                    self.assertEqual(problems(
+                        package("kkt-os"),
+                        package(user, targets=("lib", "example"), dependencies=[used]),
+                        effects=["kkt-os", "kkt-other-os"],
+                    ), [effect_rule(user, "kkt-os", section)])
+
+    def test_a_crate_that_is_not_an_effect_may_be_depended_on(self):
         self.assertEqual(problems(
-            package("kkt-a"),
-            package("kkt-b", dependencies=[dependency("kkt-a", features=["real"])]),
-        ), ["kkt-b: turns on kkt-a's real in [dependencies]; only a package with a binary target may (in [dependencies]), or one with an example target (in [dev-dependencies]); tests should not, except as listed in real-exceptions.json"])
+            package("kkt-logic"),
+            package("kkt-b", dependencies=[dependency("kkt-logic"), dependency("kkt-logic", kind="dev")]),
+            effects=["kkt-os"],
+        ), [])
 
-    def test_a_listed_exception_lets_tests_turn_on_real(self):
-        tests_use = package("kkt-b", targets=("bin",), dependencies=[dependency("kkt-a", kind="dev", features=["real"])])
-        self.assertEqual(problems(package("kkt-a"), tests_use, real_exceptions=[exception("kkt-b", "kkt-a")]), [])
+    def test_a_listed_exception_lets_a_package_depend_on_an_effect_crate(self):
+        tests_use = package("kkt-b", dependencies=[dependency("kkt-os", kind="dev")])
+        self.assertEqual(problems(
+            package("kkt-os"), tests_use, effects=["kkt-os"], effect_exceptions=[exception("kkt-b", "kkt-os")],
+        ), [])
 
-    def test_an_unlisted_exception_still_fails(self):
-        tests_use = package("kkt-b", targets=("bin",), dependencies=[
-            dependency("kkt-a", kind="dev", features=["real"]),
-            dependency("kkt-c", kind="dev", features=["real"]),
-        ])
-        found = problems(package("kkt-a"), package("kkt-c"), tests_use, real_exceptions=[exception("kkt-b", "kkt-a")])
-        self.assertEqual(len(found), 1, found)
-        self.assertTrue(found[0].startswith("kkt-b: turns on kkt-c's real in [dev-dependencies];"), found[0])
-        # The list covers [dev-dependencies] only, not a library's [dependencies].
-        lib_use = package("kkt-d", dependencies=[dependency("kkt-a", features=["real"])])
-        found = problems(package("kkt-a"), lib_use, real_exceptions=[exception("kkt-d", "kkt-a")])
-        self.assertEqual(len([f for f in found if f.startswith("kkt-d: turns on kkt-a's real in [dependencies];")]), 1, found)
+    def test_an_unlisted_dependency_still_fails(self):
+        uses = package("kkt-b", dependencies=[dependency("kkt-os", kind="dev"), dependency("kkt-other-os", kind="dev")])
+        self.assertEqual(problems(
+            package("kkt-os"), package("kkt-other-os"), uses,
+            effects=["kkt-os", "kkt-other-os"], effect_exceptions=[exception("kkt-b", "kkt-os")],
+        ), [effect_rule("kkt-b", "kkt-other-os", "[dev-dependencies]")])
 
     def test_a_listed_exception_that_no_longer_applies_fails(self):
-        gone = "real-exceptions.json lists kkt-b turning on kkt-a's real in [dev-dependencies], which it no longer does; remove the entry"
-        for name, b in [
-            ("without real", package("kkt-b", targets=("bin",), dependencies=[dependency("kkt-a", kind="dev")])),
-            ("in [dependencies]", package("kkt-b", targets=("bin",), dependencies=[dependency("kkt-a", features=["real"])])),
-            ("no such dependency", package("kkt-b", targets=("bin",))),
+        gone = "effect-exceptions.json lists kkt-b depending on kkt-os, which it no longer does; remove the entry"
+        for name, packages in [
+            ("no such dependency", [package("kkt-os"), package("kkt-b")]),
+            ("no such package", [package("kkt-os")]),
         ]:
             with self.subTest(name):
-                self.assertEqual(problems(package("kkt-a"), b, real_exceptions=[exception("kkt-b", "kkt-a")]), [gone])
-        self.assertEqual(problems(package("kkt-a"), real_exceptions=[exception("kkt-b", "kkt-a")]), [gone])
-
-    def test_real_is_allowed_only_in_the_section_the_target_allows(self):
-        cases = [
-            (("lib", "example"), dependency("kkt-a", features=["real"]), "[dependencies]"),
-            (("lib",), dependency("kkt-a", kind="dev", features=["real"]), "[dev-dependencies]"),
-            (("bin",), dependency("kkt-a", kind="dev", features=["real"]), "[dev-dependencies]"),
-            (("bin", "example"), dependency("kkt-a", kind="build", features=["real"]), "[build-dependencies]"),
-            (("bin",), dependency("kkt-a", kind="build", features=["real"], target="cfg(unix)"), "[build-dependencies] for cfg(unix)"),
-        ]
-        for targets, used, section in cases:
-            with self.subTest(targets=targets, section=section):
-                found = problems(package("kkt-a"), package("kkt-b", targets=targets, dependencies=[used]))
-                self.assertEqual(len(found), 1)
-                self.assertTrue(found[0].startswith(f"kkt-b: turns on kkt-a's real in {section};"), found[0])
+                self.assertEqual(problems(
+                    *packages, effects=["kkt-os"], effect_exceptions=[exception("kkt-b", "kkt-os")],
+                ), [gone])
 
     def test_testing_only_in_dev_dependencies_even_for_programs(self):
         for kind, section in [(None, "[dependencies]"), ("build", "[build-dependencies]")]:
@@ -133,21 +154,20 @@ class CheckCrates(unittest.TestCase):
             package("kkt-b", targets=("bin",), dependencies=[dependency("kkt-scratch")]),
         ), ["kkt-b: lists kkt-scratch in [dependencies]; only [dev-dependencies] may"])
 
-    def test_own_features_that_turn_on_real_or_testing(self):
+    def test_own_features_that_turn_on_testing(self):
         self.assertEqual(problems(
             package("kkt-a"),
             package("kkt-b", dependencies=[dependency("kkt-a", rename="a")], features={
-                "real": ["a/real"],
-                "weak": ["a?/real"],
+                "stubs": ["a/testing"],
+                "weak": ["a?/testing"],
                 "fine": ["a/other", "dep:a"],
             }),
             package("kkt-c", targets=("bin",), dependencies=[dependency("kkt-a")], features={
-                "real": ["kkt-a/real"],
                 "stubs": ["kkt-a/testing"],
             }),
         ), [
-            "kkt-b: its feature real turns on a's real; only a package with a binary target may, in [dependencies]",
-            "kkt-b: its feature weak turns on a's real; only a package with a binary target may, in [dependencies]",
+            "kkt-b: its feature stubs turns on a's testing; only [dev-dependencies] may",
+            "kkt-b: its feature weak turns on a's testing; only [dev-dependencies] may",
             "kkt-c: its feature stubs turns on kkt-a's testing; only [dev-dependencies] may",
         ])
 
@@ -168,74 +188,56 @@ class CheckCrates(unittest.TestCase):
             }),
         ), ["kkt-b: its feature helpers turns on kkt-a's testing; only [dev-dependencies] may"])
 
-    def test_a_packages_own_testing_may_not_turn_on_a_dependencys_real(self):
+    def test_a_librarys_default_may_not_list_its_own_testing(self):
         self.assertEqual(problems(
-            package("kkt-a"),
-            package("kkt-b", dependencies=[dependency("kkt-a")], features={
-                "testing": ["kkt-a/real"],
+            package("kkt-b", features={"default": ["testing"], "testing": []}),
+        ), ["kkt-b: its default feature turns on its own testing; a library's default feature may not"])
+
+    def test_a_librarys_default_may_not_reach_its_own_testing_through_its_features(self):
+        self.assertEqual(problems(
+            package("kkt-b", features={
+                "default": ["extra"],
+                "extra": ["more"],
+                "more": ["testing"],
+                "testing": [],
             }),
-        ), ["kkt-b: its feature testing turns on kkt-a's real; only a package with a binary target may, in [dependencies]"])
+        ), ["kkt-b: its default feature turns on its own testing (through its feature more); a library's default feature may not"])
 
-    def test_a_librarys_default_may_not_list_its_own_real_or_testing(self):
-        for enables in ["real", "testing"]:
-            with self.subTest(enables=enables):
+    def test_a_librarys_default_may_not_forward_to_another_packages_testing(self):
+        for forward in ["a/testing", "a?/testing"]:
+            with self.subTest(forward=forward, through="default"):
                 self.assertEqual(problems(
-                    package("kkt-b", features={"default": [enables], "real": [], "testing": []}),
-                ), [f"kkt-b: its default feature turns on its own {enables}; a library's default feature may not"])
-
-    def test_a_librarys_default_may_not_reach_its_own_real_or_testing_through_its_features(self):
-        for enables in ["real", "testing"]:
-            with self.subTest(enables=enables):
+                    package("kkt-a"),
+                    package("kkt-b", dependencies=[dependency("kkt-a", rename="a")], features={"default": [forward]}),
+                ), [
+                    "kkt-b: its feature default turns on a's testing; only [dev-dependencies] may",
+                    "kkt-b: its default feature turns on a's testing; a library's default feature may not",
+                ])
+            with self.subTest(forward=forward, through="extra"):
                 self.assertEqual(problems(
-                    package("kkt-b", features={
-                        "default": ["extra"],
-                        "extra": ["more"],
-                        "more": [enables],
-                        "real": [],
-                        "testing": [],
-                    }),
-                ), [f"kkt-b: its default feature turns on its own {enables} (through its feature more); a library's default feature may not"])
+                    package("kkt-a"),
+                    package("kkt-b", dependencies=[dependency("kkt-a", rename="a")], features={"default": ["extra"], "extra": [forward]}),
+                ), [
+                    "kkt-b: its feature extra turns on a's testing; only [dev-dependencies] may",
+                    "kkt-b: its default feature turns on a's testing (through its feature extra); a library's default feature may not",
+                ])
 
-    def test_a_librarys_default_may_not_forward_to_another_packages_real_or_testing(self):
-        rule = {
-            "real": "only a package with a binary target may, in [dependencies]",
-            "testing": "only [dev-dependencies] may",
-        }
-        for enables in ["real", "testing"]:
-            for forward in [f"a/{enables}", f"a?/{enables}"]:
-                with self.subTest(forward=forward, through="default"):
-                    self.assertEqual(problems(
-                        package("kkt-a"),
-                        package("kkt-b", dependencies=[dependency("kkt-a", rename="a")], features={"default": [forward]}),
-                    ), [
-                        f"kkt-b: its feature default turns on a's {enables}; {rule[enables]}",
-                        f"kkt-b: its default feature turns on a's {enables}; a library's default feature may not",
-                    ])
-                with self.subTest(forward=forward, through="extra"):
-                    self.assertEqual(problems(
-                        package("kkt-a"),
-                        package("kkt-b", dependencies=[dependency("kkt-a", rename="a")], features={"default": ["extra"], "extra": [forward]}),
-                    ), [
-                        f"kkt-b: its feature extra turns on a's {enables}; {rule[enables]}",
-                        f"kkt-b: its default feature turns on a's {enables} (through its feature extra); a library's default feature may not",
-                    ])
-
-    def test_a_default_that_reaches_neither_real_nor_testing_passes(self):
+    def test_a_default_that_reaches_no_testing_passes(self):
         self.assertEqual(problems(
             package("kkt-a"),
             package("kkt-b", dependencies=[dependency("kkt-a", rename="a")], features={
                 "default": ["extra", "dep:a", "a/other"],
                 "extra": ["a?/other"],
-                "real": [],
                 "testing": [],
             }),
-            package("kkt-c", dependencies=[dependency("outside")], features={"default": ["outside/real", "outside?/testing"]}),
-            package("kkt-d", targets=("bin",), dependencies=[dependency("kkt-a")], features={"default": ["real", "kkt-a/real"], "real": []}),
+            package("kkt-c", dependencies=[dependency("outside")], features={"default": ["outside?/testing"]}),
+            package("kkt-d", targets=("bin",), dependencies=[dependency("kkt-a")], features={"default": ["testing"], "testing": []}),
         ), [])
 
     def test_third_party_packages_are_not_checked(self):
         self.assertEqual(problems(
-            package("kkt-b", dependencies=[dependency("outside", features=["real", "testing"])], features={"real": ["outside/real"]}),
+            package("kkt-b", dependencies=[dependency("outside", features=["testing"])]),
+            effects=["outside"],
         ), [])
 
     def test_every_package_without_a_binary_target_is_named_kkt_something(self):
@@ -251,21 +253,13 @@ class CheckCrates(unittest.TestCase):
             "preview: its name does not start with kkt-; every package without a binary target must",
         ])
 
-    def test_a_contract_crate_has_no_real_feature(self):
-        self.assertEqual(problems(
-            package("kkt-a", features={"real": []}),
-            package("kkt-b", features={"testing": []}),
-            package("kkt-c", features={"real": []}),
-            contracts=["kkt-a", "kkt-b"],
-        ), ["kkt-a: it is a contract crate and has a `real` feature; a contract may not touch the machine"])
-
-    def test_a_merged_crate_has_a_real_feature(self):
-        self.assertEqual(problems(
-            package("kkt-a", features={"real": [], "testing": []}),
-            package("kkt-b", features={"testing": []}),
-            package("kkt-c", features={}),
-            merged=["kkt-a", "kkt-b"],
-        ), ["kkt-b: it is a merged crate (contract or logic, and effect) with no `real` feature; its effect must be behind `real`"])
+    def test_no_package_has_a_real_feature(self):
+        for targets in [("lib",), ("bin",)]:
+            with self.subTest(targets=targets):
+                self.assertEqual(problems(
+                    package("kkt-a", targets=targets, features={"real": [], "testing": []}),
+                    package("kkt-b", features={"testing": []}),
+                ), ["kkt-a: it has a `real` feature; code that touches the machine belongs in an effect crate, not behind a feature"])
 
 
 if __name__ == "__main__":

@@ -8,5 +8,3 @@ repository.workspace = true
 publish = false
 
 [features]
-# The machine's files.
-real = []

@@ -2,18 +2,16 @@
 //! elsewhere. It starts the opener with the link and does not wait for it;
 //! a thread waits for it and reaps it, and a failure is kept to report once.
 //! Which opener, and how a failure is worded, are plain functions tested
-//! without `real`; starting the opener is behind `real`.
+//! without starting it.
 
 use std::sync::{Mutex, PoisonError};
 
 /// The system's opener, which the program adapts to a consumer's browser.
-#[cfg(feature = "real")]
 pub struct SystemBrowser {
     opener: String,
     failure: std::sync::Arc<Mutex<Option<String>>>,
 }
 
-#[cfg(feature = "real")]
 impl SystemBrowser {
     #[allow(clippy::new_without_default)]
     pub fn new() -> SystemBrowser {
@@ -30,7 +28,6 @@ impl SystemBrowser {
     }
 }
 
-#[cfg(feature = "real")]
 impl SystemBrowser {
     /// Starts the system opener on `url` without waiting for it to finish.
     /// Fails if it cannot be started; whether it then worked is told by

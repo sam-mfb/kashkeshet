@@ -9,8 +9,6 @@ publish = false
 
 [dependencies]
 kkt-entropy = { path = "../kkt-entropy" }
-rand = { workspace = true, optional = true }
+rand.workspace = true
 
 [features]
-# `OsEntropy`: randomness from the operating system.
-real = ["dep:rand"]

@@ -1,5 +1,4 @@
-//! What the watch asks for at a time, and how often: plain values, outside
-//! `real`.
+//! What the watch asks for at a time, and how often: plain values.
 
 use std::time::Duration;
 

@@ -8,5 +8,3 @@ repository.workspace = true
 publish = false
 
 [features]
-# `Git`: run the machine's `git`. What its answers mean is tested without it.
-real = []

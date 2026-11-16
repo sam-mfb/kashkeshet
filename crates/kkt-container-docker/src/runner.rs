@@ -1,12 +1,9 @@
 //! Private native runner for the Docker wrapper.
 
-#[cfg(any(test, feature = "real"))]
 use std::io;
 use std::path::Path;
-#[cfg(any(test, feature = "real"))]
 use std::process::Stdio;
 
-#[cfg(any(test, feature = "real"))]
 pub(super) struct OsHost;
 
 /// A raw command and the environment and directory it runs with.
@@ -26,10 +23,9 @@ struct NativeFinished {
 }
 
 /// The mode of private files written by this crate.
-#[cfg(all(unix, any(test, feature = "real")))]
+#[cfg(unix)]
 const PRIVATE_FILE_MODE: u32 = 0o600;
 
-#[cfg(any(test, feature = "real"))]
 impl OsHost {
     fn run(&self, command: &NativeCommand<'_>) -> io::Result<NativeFinished> {
         let output = process(command).stdin(Stdio::null()).output()?;
@@ -79,7 +75,6 @@ impl OsHost {
 
 /// The process for `command`: in its folder, without the variables it must
 /// not see.
-#[cfg(any(test, feature = "real"))]
 fn process(command: &NativeCommand<'_>) -> std::process::Command {
     let mut process = std::process::Command::new(command.program);
     process.args(command.args);
@@ -93,7 +88,6 @@ fn process(command: &NativeCommand<'_>) -> std::process::Command {
 }
 
 #[cfg(unix)]
-#[cfg(any(test, feature = "real"))]
 fn write(path: &Path, contents: &str, private: bool) -> io::Result<()> {
     use std::io::Write;
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
@@ -113,7 +107,6 @@ fn write(path: &Path, contents: &str, private: bool) -> io::Result<()> {
 }
 
 #[cfg(not(unix))]
-#[cfg(any(test, feature = "real"))]
 fn write(path: &Path, contents: &str, _private: bool) -> io::Result<()> {
     std::fs::write(path, contents)
 }
@@ -184,7 +177,6 @@ mod tests {
     }
 }
 
-#[cfg(any(test, feature = "real"))]
 impl super::Runner for OsHost {
     fn run(&self, command: &super::Command) -> io::Result<super::Finished> {
         OsHost.run(&native_command(command)).map(finished)
@@ -223,7 +215,6 @@ impl super::Runner for OsHost {
     }
 }
 
-#[cfg(any(test, feature = "real"))]
 fn native_command(command: &super::Command) -> NativeCommand<'_> {
     NativeCommand {
         program: command.program,
@@ -233,7 +224,6 @@ fn native_command(command: &super::Command) -> NativeCommand<'_> {
     }
 }
 
-#[cfg(any(test, feature = "real"))]
 fn finished(output: NativeFinished) -> super::Finished {
     super::Finished {
         code: output.code,

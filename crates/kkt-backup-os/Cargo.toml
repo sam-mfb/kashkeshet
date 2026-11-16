@@ -10,10 +10,6 @@ publish = false
 [dependencies]
 kkt-backup = { path = "../kkt-backup" }
 
-[features]
-# `write` and `prune`: backup filesystem effects.
-real = []
-
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-scratch = { path = "../kkt-scratch" }

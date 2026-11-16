@@ -1,5 +1,4 @@
-//! Which opener, how a failure is worded and kept, and, with `real`, the
-//! opener itself.
+//! Which opener, how a failure is worded and kept, and the opener itself.
 
 use super::*;
 use std::sync::Arc;
@@ -58,7 +57,6 @@ fn a_failure_kept_in_a_poisoned_slot_is_reported_once_with_the_poisoning_as_its_
 /// The opener itself: these run programs that already exist, never a script
 /// a test writes just before running it, since running a just-written file
 /// can fail with "Text file busy" while other threads start processes.
-#[cfg(feature = "real")]
 mod real {
     use super::*;
 

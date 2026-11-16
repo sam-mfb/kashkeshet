@@ -11,10 +11,6 @@ publish = false
 kkt-clock = { path = "../kkt-clock" }
 kkt-logs = { path = "../kkt-logs" }
 
-[features]
-# `RotatingFile` and `open_log_file`: the log file on disk.
-real = []
-
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-scratch = { path = "../kkt-scratch" }

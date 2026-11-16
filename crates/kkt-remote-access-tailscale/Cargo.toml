@@ -7,16 +7,8 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-[features]
-# Run the real `tailscale` command. What its answers mean is tested
-# without it, over a private runner.
-real = ["dep:serde", "dep:serde_json"]
-
 [dependencies]
 kkt-remote-access = { path = "../kkt-remote-access" }
-serde = { workspace = true, optional = true }
-serde_json = { workspace = true, optional = true }
-
-[dev-dependencies]
 serde.workspace = true
 serde_json.workspace = true
+

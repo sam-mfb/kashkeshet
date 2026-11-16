@@ -7,11 +7,6 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-[features]
-# Work the real service manager: its files and commands. What it decides
-# is tested without it, over a fake system.
-real = []
-
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
 kkt-service = { path = "../kkt-service" }

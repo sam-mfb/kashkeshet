@@ -8,5 +8,3 @@ repository.workspace = true
 publish = false
 
 [features]
-# `try_bind`: listening on a real address.
-real = []

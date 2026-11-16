@@ -1,7 +1,6 @@
 //! A lane folder's git commit, from the answers of the `git` commands that
 //! find it. Running a command is behind the private [`Git`] runner, so what
-//! each answer means is tested against a fake; the real runner is behind
-//! `real`.
+//! each answer means is tested against a fake.
 //!
 //! Only an expected absence is "no commit": the folder is in no git
 //! repository, the repository has no commit yet, git ignores the folder,
@@ -92,10 +91,8 @@ fn failed(args: &[&str], ran: &Ran) -> io::Error {
 }
 
 /// The machine's git.
-#[cfg(feature = "real")]
 pub(crate) struct OsGit;
 
-#[cfg(feature = "real")]
 impl Git for OsGit {
     fn run(&self, folder: &Path, args: &[&str]) -> io::Result<Ran> {
         let done = std::process::Command::new("git")

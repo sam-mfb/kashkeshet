@@ -2,7 +2,7 @@
 //! `claude mcp add-json`, at user scope, under the name `kkt`, with
 //! `CLAUDE_CONFIG_DIR` set to the profile's folder or unset for the default.
 //! The command goes through a private runner, so the arguments and the
-//! wording are tested without running it; running it is behind `real`.
+//! wording are tested without running it.
 
 mod runner;
 
@@ -17,10 +17,8 @@ const SERVER_NAME: &str = "kkt";
 /// folder, set as `CLAUDE_CONFIG_DIR`, or `None` to unset it. An error is
 /// for people, and never holds the command's output, which may hold
 /// credentials.
-#[cfg(feature = "real")]
 pub struct Claude;
 
-#[cfg(feature = "real")]
 impl Claude {
     /// Removes kkt's server from Claude Code's settings.
     pub fn remove_server(&self, config_dir: Option<&Path>) -> Result<(), String> {

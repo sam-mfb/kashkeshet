@@ -8,10 +8,10 @@ branch into `next`. Sam opens it.
 It reorganized the workspace's crates so that every dependency is
 injected and each crate is one kind: a contract (traits and plain values),
 logic with every effect injected, an effect on the machine, or the
-assembly. Phases 13 and 14 added two kinds that share a crate: a contract
-with its one implementation, and logic with the effect that carries out
-its plans. In both, the effect is behind `real`, which only programs turn
-on. It changed how the code is divided, not what kkt does. The plan is
+assembly. Phases 13 and 14 added two kinds that shared a crate, with the
+effect behind a `real` feature; phase 16 took them apart again, so every
+crate is one kind and no crate has a `real` feature. It changed how the
+code is divided, not what kkt does. The plan is
 `docs/architecture/refactor-plan.md`, the decisions behind it are in
 `decisions.md`. The page in `docs/architecture/` shows the code only.
 
@@ -63,9 +63,30 @@ with their files behind `real`, became kkt-server-keys. Only the programs
 turn on these crates' `real`, so a crate that used only the logic gained
 no access to the effect.
 
-The workspace went from 33 packages to 62. The code now matches the
-proposed map, as amended during the refactor, with no difference left
-(`decisions.md`, "After the refactor").
+Phase 15 (Sam, 2026-11-15) wrapped three more libraries: `schemars` only in
+kkt-mcp, and kkt-toml, the one crate that reads and edits TOML.
+
+Phase 16 (Sam, 2026-11-15) reversed phases 13 and 14 on purpose. Keeping a
+contract or logic apart from its effect inside one crate by a feature is a
+non-standard middle ground; crates do that job, and the compiler enforces
+them. Four crates moved to the adapter model: the consumer declares the
+contract it needs and holds its stand-in, the crate is a plain effect
+crate, and the program adapts it (kkt-client-command for kkt-client-config,
+kkt-lane-commit for kkt-lane-files, kkt-probe for kkt-diagnostics,
+kkt-browser for kkt-container-docker). Three split into a contract crate
+and a named implementation, as kkt-service always was: kkt-container and
+kkt-container-docker, kkt-remote-access and kkt-remote-access-tailscale,
+kkt-agent-client and kkt-agent-client-mcp. Five took back an `-os` crate:
+kkt-backup, kkt-logs, kkt-setup, kkt-shutdown and kkt-server-keys. Then the
+`real` feature went from every crate. check-crates.sh now fails when a
+crate other than a program depends on an effect crate, or has a `real`
+feature; kinds.py checks that a contract or logic crate touches nothing and
+an effect crate touches the machine; and the map lost its split boxes.
+
+The workspace went from 33 packages to 62 by the end of phase 14, when
+the code matched the proposed map, as amended during the refactor, with no
+difference left (`decisions.md`, "After the refactor"). Phases 15 and 16
+added kkt-toml and the eight crates phase 16 split out, for 71.
 
 ## Final scorecard
 
@@ -139,7 +160,7 @@ look first at the code the refactor touched that decides by platform:
   kkt-service-launchd's `Settings`.
 
 Code under `cfg(unix)` also moved, and runs on both systems: file modes
-(kkt-server-keys (behind `real`), kkt-backup-os,
+(kkt-server-keys-os, kkt-backup-os,
 kkt-client-config-os, kkt-container-docker, kkt-config-file-os),
 the stop signals (kkt-shutdown-os), the agent credential
 files' owner and mode checks (kkt-agent-files-os), and the closed output
@@ -236,6 +257,18 @@ not the kind of code. Split by kind alone, kkt had pairs such as kkt-backup
 and kkt-backup-os, which always change together (1.1.1's tight coupling).
 Principle 4, 1.2.3 and RUST.md should say when kinds may share a module.
 Sam is making this edit himself.
+
+### Phase 16 reverses note 6 and the note on logic and its effect
+
+Sam decided on 2026-11-15 (msg 3367) that a feature keeping a contract or
+logic apart from its effect inside one crate is a non-standard middle
+ground, and that crates do that job. Phase 16 took the merged crates apart
+and removed `real`. So note 6's one-crate shape, and the note on logic and
+its effect above, no longer describe the code: a dependency with one
+implementation is either a contract crate and a named implementation, or a
+consumer-declared contract with an adapter in the program, the cost note 6
+describes. RUST.md's rule 12, on a crate that mixes kinds behind `real`,
+no longer has a crate it applies to. Sam is revising `principles/` himself.
 
 ### Candidates to revisit (not decided)
 

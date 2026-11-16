@@ -33,19 +33,6 @@
   const reversed = (roles) => !roles.includes("implements");
   // The ends an arrow is drawn between, in the drawn direction.
   const drawnEnds = (e) => (reversed(edgeRoles(e)) ? [e.to, e.from] : [e.from, e.to]);
-  // The part of a merged crate ("contract and effect") an arrow meets: the
-  // implementation, behind `real`, for an arrow that turns `real` on or for
-  // the merged crate's own optional dependency; else the contract.
-  const MERGED = "contract and effect";
-  const isMerged = (name) => crateKind(name) === MERGED;
-  // With `role`, the part one stroke meets: an "implements" stroke meets
-  // the contract it implements, whatever else the arrow does.
-  const partAt = (e, name, role) => {
-    if (!isMerged(name)) return null;
-    if (name === e.to && role === "implements") return "contract";
-    if (name === e.to) return (e.features || []).includes("real") ? "implementation" : "contract";
-    return e.optional ? "implementation" : "contract";
-  };
   // How far apart the parallel strokes of an arrow with several roles are.
   const STROKE_GAP = 3.2;
   // How many straight pieces an offset stroke is drawn with.
@@ -53,13 +40,7 @@
   const SVG = "http://www.w3.org/2000/svg";
   const BOX_W = 156;
   const BOX_H = 42;
-  // A merged crate's box is split: the contract on the left, the
-  // implementation, behind `real`, in a strip on the right. Arrows meet the
-  // part they depend on, on whichever edge faces them.
-  const IMPL_W = 34;
-  const MARK_Y = 29;
-  // Where a delivery line meets a box: off the middle and off a merged
-  // crate's parts, where arrows meet it.
+  // Where a delivery line meets a box: off the middle, where arrows meet it.
   const DELIVERY_X = BOX_W / 4;
   const GAP_X = 18;
   const PAD_X = 16;
@@ -132,9 +113,9 @@
   // Cargo's dependency kinds, in plain words; the tooltips give Cargo's terms.
   const DEP_WORDS = { normal: "used in code", dev: "used by tests", build: "used by build scripts" };
   const DEP_CARGO = { normal: "dependencies", dev: "dev-dependencies", build: "build-dependencies" };
-  // An item that exists only with the real or testing feature is always
+  // An item that exists only with the testing feature is always
   // listed, marked with what it is there for.
-  const FEATURE_MARK = { real: "real only", testing: "tests only" };
+  const FEATURE_MARK = { testing: "tests only" };
   const featureMark = (feature) => FEATURE_MARK[feature] || `${feature} only`;
   const featureBadge = (feature) => el("span", { class: "badge feature", title: `Exists only with the ${feature} feature` }, featureMark(feature));
 
@@ -292,7 +273,7 @@
         el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
       el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
-      el("span", { class: "muted" }, "Arrows run from the crate that is used or built to the crate that uses or builds it, and from an implementer to its contract. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role; it points the implementing way when one role implements. Split box: a merged crate, its contract on the left and its implementation, behind real, on the right; the small green triangle is the implementation implementing the contract. Thin dotted amber line, for the highlighted crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Arrows run from the crate that is used or built to the crate that uses or builds it, and from an implementer to its contract. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role; it points the implementing way when one role implements. Thin dotted amber line, for the highlighted crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -394,7 +375,6 @@
         "aria-label": `${name}: ${concernOf(name).concern || ""}`,
       });
       g.append(svg("rect", { width: BOX_W, height: BOX_H }));
-      if (isMerged(name)) g.append(...implementationPart());
       const label = svg("text", { x: 9, y: 17, class: "name" });
       label.textContent = name;
       const sub = svg("text", { x: 9, y: 32, class: "sub" });
@@ -410,17 +390,6 @@
       view.nodes.set(name, g);
     }
     root.append(nodeLayer);
-    // A merged crate's name must end before the divider: a longer one is
-    // squeezed to fit, which only measuring the drawn text can tell.
-    for (const [name, g] of view.nodes) {
-      if (!isMerged(name)) continue;
-      const label = g.querySelector("text.name");
-      const room = BOX_W - IMPL_W - 9 - 3;
-      if (label.getComputedTextLength() > room) {
-        label.setAttribute("textLength", room);
-        label.setAttribute("lengthAdjust", "spacingAndGlyphs");
-      }
-    }
     // The delivery lines' slot names, above the boxes so none is hidden.
     view.deliveryLabels = svg("g", { class: "delivery-labels" });
     root.append(view.deliveryLabels);
@@ -429,51 +398,12 @@
     paint();
   }
 
-  // A merged crate's two parts, for its panel: the items of each, and
-  // which crates include each (an arrow that turns `real` on includes the
-  // implementation).
-  function mergedParts(c, users) {
-    const names = (items) => (items.length ? items.map((i, k) => [k ? ", " : "", itemRef(c.name, i.path)]) : "none");
-    const crateNames = (es) => (es.length ? es.map((e, k) => [k ? ", " : "", crateLink(e.from)]) : "none");
-    const contract = c.items.filter((i) => i.feature !== "real");
-    const implementation = c.items.filter((i) => i.feature === "real");
-    const onImplementation = users.filter((e) => partAt(e, c.name) === "implementation");
-    const onContract = users.filter((e) => partAt(e, c.name) === "contract");
-    return [
-      el("h3", { title: "A merged crate: its contract, and its one implementation behind real" }, "Its two parts"),
-      el("p", {}, el("strong", {}, `Contract (${contract.length}): `), names(contract)),
-      el("p", {}, el("strong", {}, `Implementation, behind real (${implementation.length}): `), names(implementation)),
-      el("p", {}, el("strong", {}, "Included in, the contract only: "), crateNames(onContract)),
-      el("p", {}, el("strong", {}, "Included in, turning real on: "), crateNames(onImplementation)),
-    ];
-  }
-
-  // A merged crate's implementation part: a tinted strip on the right with
-  // a divider, labelled with its feature, and a small hollow green
-  // triangle on the divider, pointing at the contract it implements.
-  function implementationPart() {
-    const x = BOX_W - IMPL_W;
-    const strip = svg("rect", { class: "impl-part", x, y: 0, width: IMPL_W, height: BOX_H });
-    const divider = svg("path", { class: "impl-divider", d: `M${x},0 L${x},${BOX_H}` });
-    // Right of the mark on the divider, with a gap.
-    const label = svg("text", { class: "sub impl-label", x: x + IMPL_W / 2 + 4, y: 32 });
-    label.textContent = "real";
-    // On the second line, below the name, which runs up to the divider.
-    const mark = svg("path", { class: "self-implements", d: `M${x + 7},${MARK_Y - 4} L${x + 1},${MARK_Y} L${x + 7},${MARK_Y + 4} z` });
-    const tip = svg("title");
-    tip.textContent = "Implementation, behind real: it implements the crate's own contract, on the left";
-    strip.append(tip);
-    return [strip, divider, label, mark];
-  }
-
   // Where an arrow meets a crate's box: the box's place, and the x of the
-  // point it meets, the middle of the box or of the merged crate's part.
-  function endAt(e, name, role) {
+  // point it meets, the middle of the box.
+  function endAt(e, name) {
     const p = view.position.get(name);
     if (!p) return null;
-    const part = partAt(e, name, role);
-    const mid = part === "implementation" ? BOX_W - IMPL_W / 2 : part === "contract" ? (BOX_W - IMPL_W) / 2 : BOX_W / 2;
-    return { ...p, mid };
+    return { ...p, mid: BOX_W / 2 };
   }
 
   // One arrowhead per role: a filled arrow for uses, a hollow triangle for
@@ -543,8 +473,7 @@
     const parts = [];
     if (c.bins.length) parts.push("program");
     else if (c.lib) parts.push("library");
-    // A merged crate's `real` is labelled in its implementation part.
-    const features = Object.keys(c.features).filter((f) => !(isMerged(c.name) && f === "real"));
+    const features = Object.keys(c.features);
     if (features.length) parts.push(features.join(", "));
     if (c.dev_only) parts.push("dev-only");
     return parts.join(" · ");
@@ -748,7 +677,7 @@
     const overlaps = (r) => placed.some((q) => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h);
     for (const line of lines.values()) {
       // A quarter of the way along each box, where no arrow meets it
-      // (arrows meet the middle, or a merged crate's parts), so a line
+      // (arrows meet the middle), so a line
       // between a program and the crate just below it does not lie on the
       // arrows leaving the program.
       const at = (name) => {
@@ -949,7 +878,6 @@
     nodes.push(el("h3", { title: "The crates it depends on" }, `Includes (${deps.length}) `, source("code")), flowList(deps, "to"));
     const users = graph.edges.filter((e) => e.to === c.name && state.kinds[e.kind]);
     nodes.push(el("h3", { title: "The crates that depend on it" }, `Included in (${users.length}) `, source("code")), flowList(users, "from"));
-    if (isMerged(c.name)) nodes.push(...mergedParts(c, users));
 
     nodes.push(...contractSections(c));
 
@@ -1220,7 +1148,7 @@
       list.length
         ? el("ul", {}, list.map((m) => el("li", {}, prose(m))))
         : el("p", { class: "muted" }, "Every kind fits what the map shows."),
-      el("p", { class: "muted" }, "Reported, not corrected: a contract that does more than compute on its own values (behaviour through an injected dependency, wiring, or an effect), a logic crate that turns on real, an effect crate with no real feature or I/O dependency, a composition other than a program with a real feature of its own."),
+      el("p", { class: "muted" }, "Reported, not corrected: a contract that does more than compute on its own values (behaviour through an injected dependency, or wiring), a contract or logic crate that touches the machine, an effect crate that touches it nowhere the map can see, and a composition that does machine work itself."),
     ];
   }
 
@@ -1230,7 +1158,7 @@
     const list = breaks || [];
     return [
       el("h3", {}, `Rule checks (${list.length} broken) `, source("checks")),
-      el("p", { class: "muted" }, "Only programs and compositions depend on an effect crate, or turn on another crate's real, in code or in tests; and a crate implements another crate's trait only if that crate is a contract, unless it is a program, a composition or test support."),
+      el("p", { class: "muted" }, "Only programs depend on an effect crate, in code or in tests; and a crate implements another crate's trait only if that crate is a contract, unless it is a program, a composition or test support."),
       list.length
         ? el("ul", {}, list.map((b) => el("li", {}, prose(b))))
         : el("p", { class: "muted" }, "No rule is broken."),
@@ -1247,7 +1175,7 @@
     return [
       el("h2", {}, "The workspace"),
       el("p", {}, `${graph.crates.length} packages and ${normal} dependencies between them that their code uses. `,
-        "Arrows are drawn by their role. A grey arrow runs from a crate to a crate that uses its items, and an amber one to a crate that builds its implementations to wire into a slot: from what is included to what includes it. A green arrow runs from a crate to the contract it implements. The panel's lists keep Cargo's sense: a crate includes what it depends on. A merged crate's box is split, its contract on the left and its implementation, behind real, on the right, and each arrow meets the part it depends on. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
+        "Arrows are drawn by their role. A grey arrow runs from a crate to a crate that uses its items, and an amber one to a crate that builds its implementations to wire into a slot: from what is included to what includes it. A green arrow runs from a crate to the contract it implements. The panel's lists keep Cargo's sense: a crate includes what it depends on. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
       el("ul", { class: "overview" }, concerns.layers.map((layer) =>
         el("li", {}, el("strong", {}, `${layer.title} (${counts.get(layer.id) || 0}). `), prose(layer.about)))),
       kindChecks(graph.kind_mismatches),

@@ -1,15 +1,12 @@
 //! Randomness from the operating system: [`OsEntropy`], kkt-entropy's
 //! [`Entropy`](kkt_entropy::Entropy) from the operating system's
-//! cryptographic generator. Behind `real`.
+//! cryptographic generator.
 
-#[cfg(feature = "real")]
 use kkt_entropy::Entropy;
 
 /// Entropy from the operating system's cryptographic generator.
-#[cfg(feature = "real")]
 pub struct OsEntropy;
 
-#[cfg(feature = "real")]
 impl Entropy for OsEntropy {
     fn below(&self, n: usize) -> usize {
         use rand::RngExt;
@@ -17,7 +14,7 @@ impl Entropy for OsEntropy {
     }
 }
 
-#[cfg(all(test, feature = "real"))]
+#[cfg(test)]
 mod tests {
     use super::OsEntropy;
     use kkt_entropy::Entropy;

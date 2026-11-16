@@ -2,16 +2,13 @@
 //! kkt-service's `Service` over the user's `gui/<uid>` domain, writing the
 //! plist and running `launchctl`, `tail` and `id`. Everything it decides is
 //! worked through a private system, so its tests use a fake and never start a
-//! real service; the real system is behind `real`.
-
-#![cfg(any(feature = "real", test))]
+//! real service.
 
 mod agent;
 mod system;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "real")]
 pub use real::Launchd;
 
 use std::time::Duration;
@@ -41,7 +38,6 @@ impl Settings {
     };
 }
 
-#[cfg(feature = "real")]
 mod real {
     use crate::agent::Agent;
     use crate::system::OsSystem;

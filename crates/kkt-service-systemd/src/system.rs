@@ -1,5 +1,5 @@
 //! The files and commands this wrapper works the service manager through,
-//! private to it: the real system behind `real` (and in its own tests), a
+//! private to it: the real system, a
 //! dry run that writes changes down, and the ways a command's failure is
 //! said. Tests replace the system with a fake and never start a service.
 
@@ -8,7 +8,6 @@ use std::cell::RefCell;
 use std::fmt;
 use std::io;
 use std::path::Path;
-#[cfg(any(test, feature = "real"))]
 use std::process::Stdio;
 
 /// The files and commands the service manager is worked through: the real
@@ -89,10 +88,8 @@ impl Finished {
 }
 
 /// The real system: files on disk and real commands.
-#[cfg(any(test, feature = "real"))]
 pub(crate) struct OsSystem;
 
-#[cfg(any(test, feature = "real"))]
 impl System for OsSystem {
     fn exists(&self, path: &Path) -> io::Result<bool> {
         path.try_exists()
@@ -147,7 +144,7 @@ pub(crate) struct DryRun<'a> {
 }
 
 impl<'a> DryRun<'a> {
-    /// A dry run that answers questions from `real`.
+    /// A dry run that answers questions from the real system it is given.
     pub(crate) fn new(real: &'a dyn System) -> DryRun<'a> {
         DryRun {
             real,

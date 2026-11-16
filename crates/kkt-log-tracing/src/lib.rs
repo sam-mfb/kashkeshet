@@ -4,8 +4,6 @@
 //! writer the program gives, such as kkt-logs-os' log file, with kkt's own
 //! lines and its libraries' at their own levels.
 
-#![cfg(any(test, feature = "real"))]
-
 mod record;
 pub use record::TracingLog;
 

@@ -11,5 +11,3 @@ publish = false
 kkt-setup = { path = "../kkt-setup" }
 
 [features]
-# Reads and writes setup files and resolves paths on this machine.
-real = []

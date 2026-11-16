@@ -1,5 +1,5 @@
-//! The commit a lane folder is at, as the machine's git says: `Git`
-//! (behind `real`), which `kkt lanes import` asks so the lane versions it
+//! The commit a lane folder is at, as the machine's git says: `Git`,
+//! which `kkt lanes import` asks so the lane versions it
 //! saves record where they came from. It declares no contract: the program
 //! adapts `Git` to the one kkt-lane-files declares.
 //!
@@ -7,21 +7,16 @@
 //! an expected absence is "no commit": the folder is in no git repository,
 //! the repository has no commit yet, git ignores the folder, or git is not
 //! installed. Any other failure is an error carrying git's own message.
-//! What the answers mean is tested over a private runner, without `real`.
+//! What the answers mean is tested over a private runner, without git.
 
-#[cfg(feature = "real")]
 use std::io;
-#[cfg(feature = "real")]
 use std::path::Path;
 
-#[cfg(any(feature = "real", test))]
 mod git;
 
 /// The machine's git, asked where a lane folder is.
-#[cfg(feature = "real")]
 pub struct Git;
 
-#[cfg(feature = "real")]
 impl Git {
     /// The commit checked out where `folder` is, with `-dirty` added when
     /// files in `folder` differ from it; `None` when `folder` is not in a

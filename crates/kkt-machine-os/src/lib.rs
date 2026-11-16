@@ -3,23 +3,18 @@
 //! for, as kkt-machine's `Env` and `Platform`. The program asks once and
 //! passes them on.
 
-#[cfg(any(test, feature = "real"))]
 use kkt_machine::{Env, Platform};
-#[cfg(any(test, feature = "real"))]
 use std::ffi::OsString;
-#[cfg(any(test, feature = "real"))]
 use std::path::PathBuf;
 
 /// The environment as this process sees it: `$HOME` and the folders the
 /// environment names.
-#[cfg(any(test, feature = "real"))]
 pub fn env() -> Env {
     env_from(|name| std::env::var_os(name))
 }
 
 /// The platform this program was built for. Only macOS and Linux are
 /// released; every system but macOS follows XDG.
-#[cfg(any(test, feature = "real"))]
 pub fn platform() -> Platform {
     if cfg!(target_os = "macos") {
         Platform::MacOs
@@ -30,7 +25,6 @@ pub fn platform() -> Platform {
 
 /// The [`Env`] the variables `var` gives make: an unset or empty variable
 /// is `None`.
-#[cfg(any(test, feature = "real"))]
 fn env_from(var: impl Fn(&str) -> Option<OsString>) -> Env {
     let path = |name: &str| var(name).filter(|v| !v.is_empty()).map(PathBuf::from);
     Env {

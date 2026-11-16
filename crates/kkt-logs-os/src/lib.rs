@@ -2,8 +2,6 @@
 //! policy plans say ([`RotatingFile`], opened by [`open_log_file`] after
 //! the policy's check). The program supplies the wall clock.
 
-#![cfg(any(test, feature = "real"))]
-
 use kkt_clock::{Clock, Time};
 use kkt_logs::{LogPolicy, prune_due, pruning, rotation, should_roll};
 use std::fs::{File, OpenOptions};

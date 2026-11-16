@@ -11,6 +11,3 @@ publish = false
 kkt-server-keys = { path = "../kkt-server-keys" }
 
 [features]
-# `KeyFiles`, `ReadError`, `make_default_key`, `new_key_file`,
-# `write_admin_name` and `write_key_file`: the key files on disk.
-real = []

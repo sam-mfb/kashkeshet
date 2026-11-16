@@ -1,8 +1,7 @@
-# Checks 2 to 7 of check-crates.sh, over `cargo metadata --no-deps` output,
-# with `$contracts`, the names of the crates concerns.json marks contract,
-# `$merged`, the names of those it marks "contract and effect" or "logic and
-# effect", and `$real_exceptions`, the documented exceptions to check 2 for tests
-# (real-exceptions.json: package, dependency, reason).
+# Checks 2 to 6 of check-crates.sh, over `cargo metadata --no-deps` output,
+# with `$effects`, the names of the crates docs/architecture/concerns.json
+# marks "effect", and `$effect_exceptions`, the documented exceptions to
+# check 2 (effect-exceptions.json: package, dependency, reason).
 # Prints one line per problem, and nothing when the manifests follow the
 # rules. No package is named here except kkt-scratch, the subject of check 4.
 
@@ -20,21 +19,19 @@ def default_reach($features):
 # the list says only what is true.
 (
     . as $root
-    | $real_exceptions[]
+    | $effect_exceptions[]
     | . as $exception
     | select(
         any($root.packages[]; .name == $exception.package
-            and any(.dependencies[]; .name == $exception.dependency
-                and .kind == "dev" and any(.features[]; . == "real")))
+            and any(.dependencies[]; .name == $exception.dependency))
         | not)
-    | "real-exceptions.json lists \($exception.package) turning on \($exception.dependency)'s real in [dev-dependencies], which it no longer does; remove the entry"
+    | "effect-exceptions.json lists \($exception.package) depending on \($exception.dependency), which it no longer does; remove the entry"
 ),
 (
 [.packages[].name] as $workspace
 | .packages[]
 | . as $package
 | any(.targets[]; any(.kind[]; . == "bin")) as $program
-| any(.targets[]; any(.kind[]; . == "example")) as $examples
 # A dev-only program: a binary never released, which counts as test code.
 | ($program and (.metadata.kkt["dev-only"] // false) == true) as $dev_program
 | [.dependencies[] | select(.name as $name | any($workspace[]; . == $name))] as $local
@@ -44,14 +41,21 @@ def default_reach($features):
     | (.kind // "normal") as $kind
     | ({normal: "[dependencies]", dev: "[dev-dependencies]", build: "[build-dependencies]"}[$kind]
         + (if .target then " for \(.target)" else "" end)) as $section
-    # Check 2: only programs turn on another package's real. Tests should
-    # not; those that do are documented exceptions, in $real_exceptions.
+    # Check 2: only programs depend on an effect crate. A program's tests
+    # count too: an effect crate it names only in [dev-dependencies], and
+    # not in [dependencies] or [build-dependencies], is one only its tests
+    # use. Anything else that must is a documented exception, in
+    # $effect_exceptions.
     | (
-        if any(.features[]; . == "real")
-            and ((($kind == "normal" and $program) or ($kind == "dev" and $examples)
-                or ($kind == "dev" and any($real_exceptions[];
-                    .package == $package.name and .dependency == $dependency.name))) | not)
-        then "\($package.name): turns on \($dependency.name)'s real in \($section); only a package with a binary target may (in [dependencies]), or one with an example target (in [dev-dependencies]); tests should not, except as listed in real-exceptions.json"
+        if any($effects[]; . == $dependency.name)
+            and (($program | not)
+                or ($kind == "dev" and (any($local[]; .name == $dependency.name and (.kind // "normal") != "dev") | not)))
+            and (any($effect_exceptions[];
+                .package == $package.name and .dependency == $dependency.name) | not)
+        then if $program
+            then "\($package.name): its tests depend on the effect crate \($dependency.name), which the program does not; list it in effect-exceptions.json with the reason, or do without it"
+            else "\($package.name): depends on the effect crate \($dependency.name) in \($section); only a program (a package with a binary target) may, unless listed in effect-exceptions.json"
+            end
         else empty end
     ),
     # Check 3: another package's testing only in [dev-dependencies], or in
@@ -70,39 +74,37 @@ def default_reach($features):
     )
 ),
 (
-    # Checks 2 and 3 for a package's own features that turn on a workspace
-    # dependency's real or testing. Anyone may turn on a package's features,
-    # so these count as outside [dev-dependencies]. The one exception: a
+    # Check 3 for a package's own features that turn on a workspace
+    # dependency's testing. Anyone may turn on a package's features, so
+    # these count as outside [dev-dependencies]. The one exception: a
     # package's own `testing` may turn on a dependency's `testing`, since
     # it is itself on only from [dev-dependencies] (Sam, 2026-11-11).
     .features
     | to_entries[]
     | .key as $feature
     | .value[]
-    | capture("^(?<dependency>[^/?]+)\\??/(?<enables>real|testing)$")
+    | capture("^(?<dependency>[^/?]+)\\??/testing$")
     | select(.dependency as $key | any($local[]; (.rename // .name) == $key))
-    | select(.enables == "testing" or ($program | not))
-    | select(($feature == "testing" and .enables == "testing") | not)
-    | "\($package.name): its feature \($feature) turns on \(.dependency)'s \(.enables); "
-        + (if .enables == "real" then "only a package with a binary target may, in [dependencies]" else "only [dev-dependencies] may" end)
+    | select($feature != "testing")
+    | "\($package.name): its feature \($feature) turns on \(.dependency)'s testing; only [dev-dependencies] may"
 ),
 (
-    # Checks 2 and 3 for a library's `default` feature, which every build of
-    # the library gets unless it asks otherwise: it may not turn on real or
-    # testing, its own or a workspace dependency's, whether it lists them
-    # itself or through its other features at any depth.
+    # Check 3 for a library's `default` feature, which every build of the
+    # library gets unless it asks otherwise: it may not turn on testing, its
+    # own or a workspace dependency's, whether it lists it itself or through
+    # its other features at any depth.
     if $program then empty else
         .features as $features
         | default_reach($features)[] as $feature
         | ($features[$feature] // [])[]
-        | if . == "real" or . == "testing"
-            then {whose: "its own", enables: .}
+        | if . == "testing"
+            then {whose: "its own"}
             else
-                capture("^(?<dependency>[^/?]+)\\??/(?<enables>real|testing)$")
+                capture("^(?<dependency>[^/?]+)\\??/testing$")
                 | select(.dependency as $key | any($local[]; (.rename // .name) == $key))
-                | {whose: "\(.dependency)'s", enables}
+                | {whose: "\(.dependency)'s"}
             end
-        | "\($package.name): its default feature turns on \(.whose) \(.enables)"
+        | "\($package.name): its default feature turns on \(.whose) testing"
             + (if $feature == "default" then "" else " (through its feature \($feature))" end)
             + "; a library's default feature may not"
     end
@@ -117,20 +119,11 @@ def default_reach($features):
     else empty end
 ),
 (
-    # Check 6: a crate docs/architecture/concerns.json marks as a contract
-    # has no `real` feature: a contract holds traits and plain values, and
-    # touches nothing (CLAUDE.md's C5). `$contracts` names them.
-    if (.name as $n | any($contracts[]; . == $n)) and (.features | has("real"))
-    then "\(.name): it is a contract crate and has a `real` feature; a contract may not touch the machine"
-    else empty end
-),
-(
-    # Check 7: a merged crate, "contract and effect" (phase 13) or "logic
-    # and effect" (phase 14), has a `real` feature: its effect is behind it,
-    # so a crate that depends on it without `real` gets the contract or the
-    # logic alone. `$merged` names them.
-    if (.name as $n | any($merged[]; . == $n)) and (.features | has("real") | not)
-    then "\(.name): it is a merged crate (contract or logic, and effect) with no `real` feature; its effect must be behind `real`"
+    # Check 6: no package has a feature named `real`. Code that touches the
+    # machine is in an effect crate of its own, not behind a feature
+    # (phase 16).
+    if .features | has("real")
+    then "\(.name): it has a `real` feature; code that touches the machine belongs in an effect crate, not behind a feature"
     else empty end
 )
 )

@@ -1,7 +1,5 @@
 //! Setup's record and unfinished note, data folder and program paths on this machine.
 
-#![cfg(feature = "real")]
-
 use kkt_setup::{Record, Unfinished};
 use std::path::{Path, PathBuf};
 

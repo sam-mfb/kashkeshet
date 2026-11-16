@@ -7,18 +7,13 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-[features]
-# `Mcp`, `Client`, `Remote`, `AdminRemote` and `Http`: they reach the server
-# over HTTP. Only programs turn it on.
-real = ["dep:reqwest", "dep:rmcp", "dep:serde_json", "dep:tokio"]
-
 [dependencies]
 futures.workspace = true
 kkt-agent-client = { path = "../kkt-agent-client" }
 kkt-clock = { path = "../kkt-clock" }
 # Written out rather than left to the program: rmcp's client transport talks
 # TLS through reqwest's `rustls` (reorganization plan, risk 4).
-reqwest = { workspace = true, optional = true, features = ["rustls", "stream"] }
-rmcp = { workspace = true, optional = true, features = ["client", "transport-streamable-http-client-reqwest"] }
-serde_json = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true }
+reqwest = { workspace = true, features = ["rustls", "stream"] }
+rmcp = { workspace = true, features = ["client", "transport-streamable-http-client-reqwest"] }
+serde_json.workspace = true
+tokio.workspace = true

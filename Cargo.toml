@@ -178,13 +178,12 @@ serde_json = "1.0.154"
 sha2 = "0.11.1"
 thiserror = "2.0.21"
 # Everything in tokio's `full` but `time`: time comes only from the injected
-# `Clock`. Among kkt's own manifests, only kkt-clock-system's `real` and kkt-web's
+# `Clock`. Among kkt's own manifests, only kkt-clock-system and kkt-web's
 # `testing` turn `time` on, and tests that need real time turn it on as a
 # dev-dependency. Other libraries turn it on too, so some kkt crates have
-# tokio's timers anyway: built alone, kkt-mcp, kkt-server and kkt-web (through
-# axum, reqwest, rmcp, hyper-util, tower and tokio-stream), and with `real`,
-# kkt-agent-client-mcp and kkt-probe (through reqwest, rmcp, hyper-util,
-# tower and tokio-stream). The compiler does not stop them from calling a
+# tokio's timers anyway: built alone, kkt-mcp, kkt-server, kkt-web,
+# kkt-agent-client-mcp and kkt-probe (through axum, reqwest, rmcp,
+# hyper-util, tower and tokio-stream). The compiler does not stop them from calling a
 # timer; clippy's disallowed-methods list (clippy.toml) does.
 tokio = { version = "1.54.1", features = ["fs", "io-std", "io-util", "macros", "net", "parking_lot", "process", "rt", "rt-multi-thread", "signal", "sync"] }
 tokio-util = "0.7.20"
@@ -220,58 +219,58 @@ clap.workspace = true
 futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }
 kkt-server-keys = { path = "crates/kkt-server-keys" }
-kkt-server-keys-os = { path = "crates/kkt-server-keys-os", features = ["real"] }
+kkt-server-keys-os = { path = "crates/kkt-server-keys-os" }
 kkt-agent-client = { path = "crates/kkt-agent-client" }
-kkt-agent-client-mcp = { path = "crates/kkt-agent-client-mcp", features = ["real"] }
+kkt-agent-client-mcp = { path = "crates/kkt-agent-client-mcp" }
 kkt-agent-commands = { path = "crates/kkt-agent-commands" }
-kkt-agent-files-os = { path = "crates/kkt-agent-files-os", features = ["real"] }
+kkt-agent-files-os = { path = "crates/kkt-agent-files-os" }
 kkt-api-agent = { path = "crates/kkt-api-agent" }
 kkt-backup = { path = "crates/kkt-backup" }
-kkt-backup-os = { path = "crates/kkt-backup-os", features = ["real"] }
-kkt-browser = { path = "crates/kkt-browser", features = ["real"] }
-kkt-client-command = { path = "crates/kkt-client-command", features = ["real"] }
+kkt-backup-os = { path = "crates/kkt-backup-os" }
+kkt-browser = { path = "crates/kkt-browser" }
+kkt-client-command = { path = "crates/kkt-client-command" }
 kkt-client-config = { path = "crates/kkt-client-config" }
-kkt-client-config-os = { path = "crates/kkt-client-config-os", features = ["real"] }
+kkt-client-config-os = { path = "crates/kkt-client-config-os" }
 kkt-clock = { path = "crates/kkt-clock" }
-kkt-clock-system = { path = "crates/kkt-clock-system", features = ["real"] }
+kkt-clock-system = { path = "crates/kkt-clock-system" }
 kkt-config-file = { path = "crates/kkt-config-file" }
-kkt-config-file-os = { path = "crates/kkt-config-file-os", features = ["real"] }
+kkt-config-file-os = { path = "crates/kkt-config-file-os" }
 kkt-container = { path = "crates/kkt-container" }
-kkt-container-docker = { path = "crates/kkt-container-docker", features = ["real"] }
+kkt-container-docker = { path = "crates/kkt-container-docker" }
 kkt-db = { path = "crates/kkt-db" }
-kkt-db-sqlite = { path = "crates/kkt-db-sqlite", features = ["real"] }
+kkt-db-sqlite = { path = "crates/kkt-db-sqlite" }
 kkt-diagnostics = { path = "crates/kkt-diagnostics" }
-kkt-probe = { path = "crates/kkt-probe", features = ["real"] }
+kkt-probe = { path = "crates/kkt-probe" }
 kkt-events = { path = "crates/kkt-events" }
 kkt-mcp-formatter = { path = "crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
-kkt-lane-commit = { path = "crates/kkt-lane-commit", features = ["real"] }
+kkt-lane-commit = { path = "crates/kkt-lane-commit" }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
-kkt-lane-files-os = { path = "crates/kkt-lane-files-os", features = ["real"] }
+kkt-lane-files-os = { path = "crates/kkt-lane-files-os" }
 kkt-logs = { path = "crates/kkt-logs" }
-kkt-logs-os = { path = "crates/kkt-logs-os", features = ["real"] }
-kkt-log-tracing = { path = "crates/kkt-log-tracing", features = ["real"] }
-kkt-entropy-os = { path = "crates/kkt-entropy-os", features = ["real"] }
+kkt-logs-os = { path = "crates/kkt-logs-os" }
+kkt-log-tracing = { path = "crates/kkt-log-tracing" }
+kkt-entropy-os = { path = "crates/kkt-entropy-os" }
 kkt-machine = { path = "crates/kkt-machine" }
-kkt-machine-os = { path = "crates/kkt-machine-os", features = ["real"] }
+kkt-machine-os = { path = "crates/kkt-machine-os" }
 kkt-mcp = { path = "crates/kkt-mcp" }
 kkt-names = { path = "crates/kkt-names" }
 kkt-operate = { path = "crates/kkt-operate" }
 kkt-provenance = { path = "crates/kkt-provenance" }
-kkt-remote-access-tailscale = { path = "crates/kkt-remote-access-tailscale", features = ["real"] }
+kkt-remote-access-tailscale = { path = "crates/kkt-remote-access-tailscale" }
 kkt-rules = { path = "crates/kkt-rules" }
 kkt-server = { path = "crates/kkt-server" }
-kkt-server-listen = { path = "crates/kkt-server-listen", features = ["real"] }
+kkt-server-listen = { path = "crates/kkt-server-listen" }
 kkt-service = { path = "crates/kkt-service" }
-kkt-service-launchd = { path = "crates/kkt-service-launchd", features = ["real"] }
-kkt-service-os = { path = "crates/kkt-service-os", features = ["real"] }
-kkt-service-systemd = { path = "crates/kkt-service-systemd", features = ["real"] }
+kkt-service-launchd = { path = "crates/kkt-service-launchd" }
+kkt-service-os = { path = "crates/kkt-service-os" }
+kkt-service-systemd = { path = "crates/kkt-service-systemd" }
 kkt-setup = { path = "crates/kkt-setup" }
-kkt-setup-os = { path = "crates/kkt-setup-os", features = ["real"] }
+kkt-setup-os = { path = "crates/kkt-setup-os" }
 kkt-shutdown = { path = "crates/kkt-shutdown" }
-kkt-shutdown-os = { path = "crates/kkt-shutdown-os", features = ["real"] }
-kkt-terminal-os = { path = "crates/kkt-terminal-os", features = ["real"] }
+kkt-shutdown-os = { path = "crates/kkt-shutdown-os" }
+kkt-terminal-os = { path = "crates/kkt-terminal-os" }
 kkt-watch = { path = "crates/kkt-watch" }
 kkt-web = { path = "crates/kkt-web" }
 tokio.workspace = true
@@ -281,7 +280,7 @@ tracing.workspace = true
 # dependencies, which they also use. `kkt-db-sqlite`'s `testing` gives
 # them `MemoryPlace`, a database in memory; `kkt-setup`'s gives them the
 # defaults setup's questions accept; every other `kkt-*` crate comes
-# with `real` through [dependencies].
+# through [dependencies].
 [dev-dependencies]
 kkt-hash = { path = "crates/kkt-hash" }
 kkt-api-admin = { path = "crates/kkt-api-admin" }

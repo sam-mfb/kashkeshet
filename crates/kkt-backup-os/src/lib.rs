@@ -1,8 +1,6 @@
 //! Writes backup layouts and removes old backup folders selected by the
 //! backup logic. Database copying is supplied by the program.
 
-#![cfg(any(test, feature = "real"))]
-
 use kkt_backup::{DATABASE_FILE, Layout};
 use std::fs::{DirBuilder, OpenOptions};
 use std::io::Write;

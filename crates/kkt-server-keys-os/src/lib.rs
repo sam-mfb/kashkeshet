@@ -3,8 +3,6 @@
 //! staged-key moves. Callers supply key generation and adapt reads to
 //! kkt-admission's KeyTexts.
 
-#![cfg(feature = "real")]
-
 use kkt_server_keys::{AccessKey, KeyText};
 use std::fmt;
 use std::io::{self, Write};

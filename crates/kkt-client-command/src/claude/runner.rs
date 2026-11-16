@@ -17,10 +17,8 @@ pub(super) struct Ran {
     pub status: String,
 }
 
-#[cfg(feature = "real")]
 pub(super) struct OsRunner;
 
-#[cfg(feature = "real")]
 impl Runner for OsRunner {
     fn run(&self, args: &[&str], config_dir: Option<&Path>) -> io::Result<Ran> {
         let mut command = std::process::Command::new("claude");

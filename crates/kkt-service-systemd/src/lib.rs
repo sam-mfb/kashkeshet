@@ -2,19 +2,15 @@
 //! kkt-service's `Service` with the user's systemd, writing the unit file
 //! and running `systemctl` and `journalctl`. Everything it decides is
 //! worked through a private system, so its tests use a fake and never start a
-//! real service; the real system is behind `real`.
-
-#![cfg(any(feature = "real", test))]
+//! real service.
 
 mod system;
 #[cfg(test)]
 mod tests;
 mod unit;
 
-#[cfg(feature = "real")]
 pub use real::Systemd;
 
-#[cfg(feature = "real")]
 mod real {
     use crate::system::OsSystem;
     use crate::unit::Unit;
