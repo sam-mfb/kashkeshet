@@ -6,14 +6,15 @@ use crate::machine::settings::Sources;
 use kkt_admission::server_keys::{self, KeyTexts, ServerKeys};
 use kkt_admission::{ServerKey, SharedKey};
 use kkt_entropy_os::OsEntropy;
-use kkt_server_keys::{AccessKey, KeyFiles, KeyText, ReadError};
+use kkt_server_keys::{AccessKey, KeyText};
+use kkt_server_keys_os::{KeyFiles, ReadError};
 use std::path::Path;
 
 /// Makes the default key file if it is the one in use and does not exist
 /// yet, and logs where it is (never the key).
 pub(crate) fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
     if let Some(path) =
-        kkt_server_keys::make_default_key(access_key, || kkt_server_keys::generate(&OsEntropy))?
+        kkt_server_keys_os::make_default_key(access_key, || kkt_server_keys::generate(&OsEntropy))?
     {
         tracing::info!("created a new {kind} key at {}", path.display());
     }

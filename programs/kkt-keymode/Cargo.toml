@@ -25,6 +25,7 @@ kkt-log-tracing = { path = "../../crates/kkt-log-tracing" }
 kkt-admission = { path = "../../crates/kkt-admission" }
 kkt-api-agent = { path = "../../crates/kkt-api-agent" }
 kkt-server-keys = { path = "../../crates/kkt-server-keys" }
+kkt-server-keys-os = { path = "../../crates/kkt-server-keys-os" }
 kkt-clock = { path = "../../crates/kkt-clock" }
 kkt-clock-system = { path = "../../crates/kkt-clock-system" }
 kkt-config-file = { path = "../../crates/kkt-config-file" }

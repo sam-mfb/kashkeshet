@@ -1084,6 +1084,7 @@ dependencies = [
  "kkt-scratch",
  "kkt-server",
  "kkt-server-keys",
+ "kkt-server-keys-os",
  "kkt-server-listen",
  "kkt-service",
  "kkt-service-launchd",
@@ -1449,6 +1450,7 @@ dependencies = [
  "kkt-rules",
  "kkt-server",
  "kkt-server-keys",
+ "kkt-server-keys-os",
  "kkt-server-listen",
  "kkt-shutdown",
  "kkt-shutdown-os",
@@ -1685,6 +1687,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-server-keys-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-server-keys",
+]
+
+[[package]]
 name = "kkt-server-listen"
 version = "0.10.0"
 dependencies = [
@@ -1841,6 +1850,7 @@ dependencies = [
  "kkt-logs",
  "kkt-server",
  "kkt-server-keys",
+ "kkt-server-keys-os",
  "kkt-server-listen",
  "kkt-shutdown",
  "kkt-shutdown-os",

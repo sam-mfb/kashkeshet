@@ -100,7 +100,7 @@ The shared crates are reorganized so that every dependency is injected and each 
   `kkt_container::LoginLink` and kkt-terminal-os' `BrowserLink` keep only
   `show` and `open_requested`; `kkt_container_docker::Docker` is now built
   with `Docker::new(browser)`. Messages are unchanged.
-- **Effects in `-os` crates.** What touches the machine moves into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os`, `kkt-shutdown-os` (`StopSignals`, from kkt-shutdown, which keeps `Shutdown`), `kkt-backup-os` (`write` and `prune`; kkt-backup keeps the layouts), `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`) and `kkt-logs-os` (`RotatingFile` and `open_log_file`; kkt-logs keeps the levels and the policy's plans).
+- **Effects in `-os` crates.** What touches the machine moves into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os`, `kkt-shutdown-os` (`StopSignals`, from kkt-shutdown, which keeps `Shutdown`), `kkt-backup-os` (`write` and `prune`; kkt-backup keeps the layouts), `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`), `kkt-logs-os` (`RotatingFile` and `open_log_file`; kkt-logs keeps the levels and the policy's plans) and `kkt-server-keys-os` (the key files on disk; kkt-server-keys keeps what a key is and where its files go).
 - **Logs.** `kkt-logs-os` keeps only the log file: `RotatingFile`, with
   `open_log_file(path, policy, clock)`, which checks the
   policy and opens the file, as `init_logging` did. Its `TracingLog`,
@@ -109,8 +109,8 @@ The shared crates are reorganized so that every dependency is injected and each 
   log to (`None` for stdout) in place of a path, a policy and a clock.
   Messages are unchanged.
 - **Server keys.** `kkt-admission` held two concerns; the server's keys
-  are now `kkt-server-keys`, and `kkt-admission-os` is merged into it
-  (behind `real`). kkt-admission depends on kkt-server-keys, never the
+  are now `kkt-server-keys`, and `kkt-admission-os`'s key files are now
+  `kkt-server-keys-os`. kkt-admission depends on kkt-server-keys, never the
   reverse, and keeps who is let in: `Admission`, `AdminAdmission`, `Mode`,
   `Open`, `SharedKey`, `AnyBearer`, `BearerToken`, `Credentials`,
   `Decision`, `Principal`, `ServerKey`, `Refusal`, `WebAdmission`,
@@ -131,7 +131,7 @@ The shared crates are reorganized so that every dependency is injected and each 
     has no `testing` feature;
   - `kkt_admission_os::{KeyFiles, ReadError, make_default_key,
     new_key_file, write_key_file, write_admin_name}` are now
-    `kkt_server_keys::` items of the same names, behind `real`.
+    `kkt_server_keys_os::` items of the same names.
 
   Key checks, refusals, file names, file modes and how keys are written,
   read and hashed are unchanged.

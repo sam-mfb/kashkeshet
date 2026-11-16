@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "8a9d68e",
+ "commit": "d41b3a5",
  "crates": [
   {
    "bins": [
@@ -583,9 +583,7 @@ window.KKT_GRAPH = {
    "lib": "kashkeshet",
    "machine_work": {},
    "name": "kashkeshet",
-   "optional_third_party": {},
    "path": ".",
-   "real_files": [],
    "released_program": true,
    "slots": [
     {
@@ -863,9 +861,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_admission",
    "machine_work": {},
    "name": "kkt-admission",
-   "optional_third_party": {},
    "path": "crates/kkt-admission",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -1110,9 +1106,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_agent_client",
    "machine_work": {},
    "name": "kkt-agent-client",
-   "optional_third_party": {},
    "path": "crates/kkt-agent-client",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -1126,14 +1120,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "kkt-agent-client over MCP, through rmcp and reqwest: `Mcp` implements its `Servers`, and `Client`, `Remote` and `AdminRemote` its `Avatars` and `Watched`.",
    "dev_only": false,
-   "features": {
-    "real": [
-     "dep:reqwest",
-     "dep:rmcp",
-     "dep:serde_json",
-     "dep:tokio"
-    ]
-   },
+   "features": {},
    "holders": [
     {
      "holds": [
@@ -1174,7 +1161,6 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "Message and channel reads over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "new"
@@ -1183,7 +1169,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The server at `url`, reached with the access key `key` (if it needs one), with no agent credentials held in the transport.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "describe_key",
@@ -1196,7 +1181,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "GET and POST requests with redirects disabled and TCP_NODELAY enabled.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "get",
@@ -1207,7 +1191,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A response whose HTTP library and streaming body stay private.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "bytes_stream",
@@ -1220,13 +1203,11 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "kkt's servers over MCP: what the program injects as kkt-agent-client's `Servers`.",
-     "feature": "real",
      "kind": "struct",
      "path": "Mcp"
     },
     {
      "doc": "",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "from_client",
@@ -1247,31 +1228,11 @@ window.KKT_GRAPH = {
    "lib": "kkt_agent_client_mcp",
    "machine_work": {},
    "name": "kkt-agent-client-mcp",
-   "optional_third_party": {
-    "reqwest": [
-     "real"
-    ],
-    "rmcp": [
-     "real"
-    ],
-    "serde_json": [
-     "real"
-    ],
-    "tokio": [
-     "real"
-    ]
-   },
    "path": "crates/kkt-agent-client-mcp",
-   "real_files": [
-    "src/client.rs",
-    "src/client/http.rs",
-    "src/client/watching.rs"
-   ],
    "released_program": false,
    "slots": [
     {
      "at": "AdminRemote::new",
-     "feature": "real",
      "kind": "param",
      "name": "clock",
      "traits": [
@@ -1536,9 +1497,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_agent_commands",
    "machine_work": {},
    "name": "kkt-agent-commands",
-   "optional_third_party": {},
    "path": "crates/kkt-agent-commands",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -1897,23 +1856,17 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Agent credentials and watch state on disk: the token and recovery-code files `kkt register` and `kkt reclaim` write, the token file `kkt watch` reads, and its state file.",
    "dev_only": false,
-   "features": {
-    "real": [
-     "dep:libc"
-    ]
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "The caller's rule over the path and named file/caller facts.",
-     "feature": "real",
      "kind": "type",
      "path": "CredentialCheck"
     },
     {
      "doc": "Reserve destinations before changing an avatar on the server.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "create",
@@ -1923,7 +1876,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The inspected file and the caller whose access is checked.",
-     "feature": "real",
      "fields": [
       "owner",
       "mode",
@@ -1934,7 +1886,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "One process's exclusive hold on a file that it alone may write, such as `kkt watch`'s state file.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "take"
@@ -1943,7 +1894,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Why a `FileLock` was not taken.",
-     "feature": "real",
      "kind": "enum",
      "path": "LockRefused",
      "variants": [
@@ -1953,7 +1903,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A checked permission change, with caller-supplied advice and warning.",
-     "feature": "real",
      "fields": [
       "mode",
       "advice",
@@ -1964,7 +1913,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "`kkt watch --state-file`: the highest message ID seen, as text.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "claim",
@@ -1975,19 +1923,16 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Applies the caller's credential-file rule to this opened handle.",
-     "feature": "real",
      "kind": "fn",
      "path": "make_private"
     },
     {
      "doc": "Reads from the same opened file whose owner and mode the caller checks.",
-     "feature": "real",
      "kind": "fn",
      "path": "read_secret"
     },
     {
      "doc": "The agent's token: from a private file, or else from the environment.",
-     "feature": "real",
      "kind": "fn",
      "path": "watch_token"
     }
@@ -2015,13 +1960,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-agent-files-os",
-   "optional_third_party": {
-    "libc": [
-     "real"
-    ]
-   },
    "path": "crates/kkt-agent-files-os",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -2115,9 +2054,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_api_admin",
    "machine_work": {},
    "name": "kkt-api-admin",
-   "optional_third_party": {},
    "path": "crates/kkt-api-admin",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -2878,9 +2815,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_api_agent",
    "machine_work": {},
    "name": "kkt-api-agent",
-   "optional_third_party": {},
    "path": "crates/kkt-api-agent",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3282,9 +3217,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_api_operator",
    "machine_work": {},
    "name": "kkt-api-operator",
-   "optional_third_party": {},
    "path": "crates/kkt-api-operator",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3473,9 +3406,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_api_sim",
    "machine_work": {},
    "name": "kkt-api-sim",
-   "optional_third_party": {},
    "path": "crates/kkt-api-sim",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -3603,9 +3534,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_backup",
    "machine_work": {},
    "name": "kkt-backup",
-   "optional_third_party": {},
    "path": "crates/kkt-backup",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3619,21 +3548,17 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Writes backup layouts and removes old backup folders selected by the backup logic.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "Lists the folder, asks the backup logic which names are old, and removes only those.",
-     "feature": "real",
      "kind": "fn",
      "path": "prune"
     },
     {
      "doc": "Writes under a private partial name, then renames when complete.",
-     "feature": "real",
      "kind": "fn",
      "path": "write"
     }
@@ -3659,9 +3584,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-backup-os",
-   "optional_third_party": {},
    "path": "crates/kkt-backup-os",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3671,17 +3594,14 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Opening a link in the person's browser with the system's own opener: `SystemBrowser` (behind `real`), which starts opening a link now and says later, once, if that failed.",
+   "crate_doc": "Opening a link in the person's browser with the system's own opener: `SystemBrowser`, which starts opening a link now and says later, once, if that failed.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "The system's opener, which the program adapts to a consumer's browser.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "new",
@@ -3700,11 +3620,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-browser",
-   "optional_third_party": {},
    "path": "crates/kkt-browser",
-   "real_files": [
-    "src/system.rs"
-   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3716,15 +3632,12 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Claude Code's own command line, `claude mcp`, for configuring kkt's server in Claude Code's settings: removing it, and adding it as Claude Code's own entry.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "Claude Code's own command.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "add_server",
@@ -3740,12 +3653,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-client-command",
-   "optional_third_party": {},
    "path": "crates/kkt-client-command",
-   "real_files": [
-    "src/claude.rs",
-    "src/claude/runner.rs"
-   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3911,9 +3819,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_client_config",
    "machine_work": {},
    "name": "kkt-client-config",
-   "optional_third_party": {},
    "path": "crates/kkt-client-config",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -4006,15 +3912,12 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "The machine's client-config files, as plain OsHost methods adapted by the program to the client-config logic.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "The real machine.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "absolute",
@@ -4052,9 +3955,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-client-config-os",
-   "optional_third_party": {},
    "path": "crates/kkt-client-config-os",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4183,9 +4084,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_clock",
    "machine_work": {},
    "name": "kkt-clock",
-   "optional_third_party": {},
    "path": "crates/kkt-clock",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4201,11 +4100,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "The system clock and its wall-clock sleep, implementing the shared `kkt_clock::Clock` contract.",
    "dev_only": false,
-   "features": {
-    "real": [
-     "tokio/time"
-    ]
-   },
+   "features": {},
    "holders": [],
    "implements": [
     {
@@ -4218,7 +4113,6 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "The real system clock.",
-     "feature": "real",
      "kind": "struct",
      "path": "SystemClock"
     }
@@ -4226,13 +4120,12 @@ window.KKT_GRAPH = {
    "lib": "kkt_clock_system",
    "machine_work": {
     "src/lib.rs": [
-     "time::SystemTime::now"
+     "time::SystemTime::now",
+     "tokio::time::sleep"
     ]
    },
    "name": "kkt-clock-system",
-   "optional_third_party": {},
    "path": "crates/kkt-clock-system",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4322,9 +4215,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_config_file",
    "machine_work": {},
    "name": "kkt-config-file",
-   "optional_third_party": {},
    "path": "crates/kkt-config-file",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4338,9 +4229,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "The config file and the instructions file on disk: reading and writing them whole.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
@@ -4364,31 +4253,26 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The config file's text at `path`; `None` if there is no file there.",
-     "feature": "real",
      "kind": "fn",
      "path": "read"
     },
     {
      "doc": "The default config file's text, if one can be seen at `path`: `None` when `Path::exists` says there is none, which includes a file in a folder that cannot be searched.",
-     "feature": "real",
      "kind": "fn",
      "path": "read_default"
     },
     {
      "doc": "The instructions file's text at `path`, which must be there.",
-     "feature": "real",
      "kind": "fn",
      "path": "read_instructions"
     },
     {
      "doc": "The config file's text at `path`, which must be there: a file someone named, for whom a missing file is an error like any other.",
-     "feature": "real",
      "kind": "fn",
      "path": "read_named"
     },
     {
      "doc": "Writes `text` as the config file at `path`, whole, making the folder it goes in first if there is none.",
-     "feature": "real",
      "kind": "fn",
      "path": "write"
     }
@@ -4403,9 +4287,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-config-file-os",
-   "optional_third_party": {},
    "path": "crates/kkt-config-file-os",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4639,9 +4521,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_container",
    "machine_work": {},
    "name": "kkt-container",
-   "optional_third_party": {},
    "path": "crates/kkt-container",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4665,14 +4545,7 @@ window.KKT_GRAPH = {
    ],
    "crate_doc": "kkt-container over Docker and Compose: `Docker` implements its `Container`.",
    "dev_only": false,
-   "features": {
-    "real": [
-     "dep:kkt-config-file",
-     "dep:kkt-machine",
-     "dep:serde_json",
-     "dep:thiserror"
-    ]
-   },
+   "features": {},
    "holders": [
     {
      "holds": [
@@ -4695,7 +4568,6 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "The person's browser.",
-     "feature": "real",
      "kind": "trait",
      "methods": [
       "open",
@@ -4705,7 +4577,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Docker and Compose implement the container contract directly.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "new"
@@ -4738,23 +4609,11 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-container-docker",
-   "optional_third_party": {
-    "serde_json": [
-     "real"
-    ],
-    "thiserror": [
-     "real"
-    ]
-   },
    "path": "crates/kkt-container-docker",
-   "real_files": [
-    "src/runner.rs"
-   ],
    "released_program": false,
    "slots": [
     {
      "at": "Docker::new",
-     "feature": "real",
      "kind": "param",
      "name": "browser",
      "traits": [
@@ -5486,15 +5345,9 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_db",
-   "machine_work": {
-    "src/testing/conformance.rs": [
-     "thread::sleep"
-    ]
-   },
+   "machine_work": {},
    "name": "kkt-db",
-   "optional_third_party": {},
    "path": "crates/kkt-db",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -5525,7 +5378,6 @@ window.KKT_GRAPH = {
    "crate_doc": "kkt's database contract (`kkt_db`) over SQLite: the only crate that knows SQLite.",
    "dev_only": false,
    "features": {
-    "real": [],
     "testing": []
    },
    "holders": [],
@@ -5552,7 +5404,6 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "Why creating a new database file did not succeed.",
-     "feature": "real",
      "kind": "enum",
      "path": "CreateError",
      "variants": [
@@ -5587,7 +5438,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "A database file.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "adopting",
@@ -5602,7 +5452,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Writes a copy of the database file at `from` to the new file `to` with SQLite's online backup, so the copy is consistent even while a server writes to `from`.",
-     "feature": "real",
      "kind": "fn",
      "path": "copy_database"
     }
@@ -5614,9 +5463,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-db-sqlite",
-   "optional_third_party": {},
    "path": "crates/kkt-db-sqlite",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -5892,9 +5739,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_diagnostics",
    "machine_work": {},
    "name": "kkt-diagnostics",
-   "optional_third_party": {},
    "path": "crates/kkt-diagnostics",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -6119,9 +5964,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_entropy",
    "machine_work": {},
    "name": "kkt-entropy",
-   "optional_third_party": {},
    "path": "crates/kkt-entropy",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6133,11 +5976,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Randomness from the operating system: `OsEntropy`, kkt-entropy's `Entropy` from the operating system's cryptographic generator.",
    "dev_only": false,
-   "features": {
-    "real": [
-     "dep:rand"
-    ]
-   },
+   "features": {},
    "holders": [],
    "implements": [
     {
@@ -6150,7 +5989,6 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "Entropy from the operating system's cryptographic generator.",
-     "feature": "real",
      "kind": "struct",
      "path": "OsEntropy"
     }
@@ -6158,13 +5996,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_entropy_os",
    "machine_work": {},
    "name": "kkt-entropy-os",
-   "optional_third_party": {
-    "rand": [
-     "real"
-    ]
-   },
    "path": "crates/kkt-entropy-os",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6344,9 +6176,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_events",
    "machine_work": {},
    "name": "kkt-events",
-   "optional_third_party": {},
    "path": "crates/kkt-events",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6436,9 +6266,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_fake_product",
    "machine_work": {},
    "name": "kkt-fake-product",
-   "optional_third_party": {},
    "path": "programs/kkt-fake-product",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -6506,9 +6334,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_hash",
    "machine_work": {},
    "name": "kkt-hash",
-   "optional_third_party": {},
    "path": "crates/kkt-hash",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6574,9 +6400,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_hosts",
    "machine_work": {},
    "name": "kkt-hosts",
-   "optional_third_party": {},
    "path": "crates/kkt-hosts",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6664,9 +6488,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_identity",
    "machine_work": {},
    "name": "kkt-identity",
-   "optional_third_party": {},
    "path": "crates/kkt-identity",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6702,9 +6524,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_identity_keymode",
    "machine_work": {},
    "name": "kkt-identity-keymode",
-   "optional_third_party": {},
    "path": "crates/kkt-identity-keymode",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6732,9 +6552,7 @@ window.KKT_GRAPH = {
    "lib": null,
    "machine_work": {},
    "name": "kkt-keymode",
-   "optional_third_party": {},
    "path": "programs/kkt-keymode",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6746,17 +6564,14 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The commit a lane folder is at, as the machine's git says: `Git` (behind `real`), which `kkt lanes import` asks so the lane versions it saves record where they came from.",
+   "crate_doc": "The commit a lane folder is at, as the machine's git says: `Git`, which `kkt lanes import` asks so the lane versions it saves record where they came from.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "The machine's git, asked where a lane folder is.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "commit"
@@ -6771,11 +6586,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-lane-commit",
-   "optional_third_party": {},
    "path": "crates/kkt-lane-commit",
-   "real_files": [
-    "src/git.rs"
-   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6936,9 +6747,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_lane_files",
    "machine_work": {},
    "name": "kkt-lane-files",
-   "optional_third_party": {},
    "path": "crates/kkt-lane-files",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -6984,15 +6793,12 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "The machine's files for lane folders, as plain `OsDisk` methods.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "The machine's files.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "absolute",
@@ -7016,9 +6822,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-lane-files-os",
-   "optional_third_party": {},
    "path": "crates/kkt-lane-files-os",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7130,9 +6934,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_log",
    "machine_work": {},
    "name": "kkt-log",
-   "optional_third_party": {},
    "path": "crates/kkt-log",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7144,12 +6946,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "kkt-log's `Log` contract over `tracing`: `TracingLog` sends structured events to the tracing subscriber, and `init_logging` and `init_stderr_logging` start that subscriber, to stdout, stderr or a writer the program gives, such as kkt-log...",
    "dev_only": false,
-   "features": {
-    "real": [
-     "dep:tracing",
-     "dep:tracing-subscriber"
-    ]
-   },
+   "features": {},
    "holders": [],
    "implements": [
     {
@@ -7162,19 +6959,16 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "Sends structured events to the active tracing subscriber, retaining the caller's target, level, message and named fields.",
-     "feature": "real",
      "kind": "struct",
      "path": "TracingLog"
     },
     {
      "doc": "Sends the log to stdout, or to `log_file`, such as the log file kkt-logs-os opens.",
-     "feature": "real",
      "kind": "fn",
      "path": "init_logging"
     },
     {
      "doc": "Sends the log to stderr: kkt's own lines at `own` (see `own_log_filter`).",
-     "feature": "real",
      "kind": "fn",
      "path": "init_stderr_logging"
     }
@@ -7191,16 +6985,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-log-tracing",
-   "optional_third_party": {
-    "tracing": [
-     "real"
-    ],
-    "tracing-subscriber": [
-     "real"
-    ]
-   },
    "path": "crates/kkt-log-tracing",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7318,9 +7103,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_logs",
    "machine_work": {},
    "name": "kkt-logs",
-   "optional_third_party": {},
    "path": "crates/kkt-logs",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7334,15 +7117,12 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "The log file on disk: appended to, rolled over and pruned as kkt-logs' policy plans say (`RotatingFile`, opened by `open_log_file` after the policy's check).",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "The log file at `path`, appended to, and rolled over by its policy.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "open"
@@ -7351,7 +7131,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Opens the log file at `path` for `RotatingFile::open`, after checking `policy`.",
-     "feature": "real",
      "kind": "fn",
      "path": "open_log_file"
     }
@@ -7371,14 +7150,11 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-logs-os",
-   "optional_third_party": {},
    "path": "crates/kkt-logs-os",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
      "at": "RotatingFile::open",
-     "feature": "real",
      "kind": "param",
      "name": "clock",
      "traits": [
@@ -7390,7 +7166,6 @@ window.KKT_GRAPH = {
     },
     {
      "at": "open_log_file",
-     "feature": "real",
      "kind": "param",
      "name": "clock",
      "traits": [
@@ -7449,9 +7224,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_machine",
    "machine_work": {},
    "name": "kkt-machine",
-   "optional_third_party": {},
    "path": "crates/kkt-machine",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7463,21 +7236,17 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "The machine's facts as this process sees them: `env` reads the environment, and `platform` gives the platform this program was built for, as kkt-machine's `Env` and `Platform`.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "The environment as this process sees it: `$HOME` and the folders the environment names.",
-     "feature": "real",
      "kind": "fn",
      "path": "env"
     },
     {
      "doc": "The platform this program was built for.",
-     "feature": "real",
      "kind": "fn",
      "path": "platform"
     }
@@ -7489,9 +7258,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-machine-os",
-   "optional_third_party": {},
    "path": "crates/kkt-machine-os",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7572,9 +7339,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_mcp",
    "machine_work": {},
    "name": "kkt-mcp",
-   "optional_third_party": {},
    "path": "crates/kkt-mcp",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -7791,9 +7556,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_mcp_formatter",
    "machine_work": {},
    "name": "kkt-mcp-formatter",
-   "optional_third_party": {},
    "path": "crates/kkt-mcp-formatter",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -7937,9 +7700,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_names",
    "machine_work": {},
    "name": "kkt-names",
-   "optional_third_party": {},
    "path": "crates/kkt-names",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -8656,9 +8417,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_operate",
    "machine_work": {},
    "name": "kkt-operate",
-   "optional_third_party": {},
    "path": "crates/kkt-operate",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -11256,14 +11015,9 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Probing a kkt server over HTTP and reading its key files, with reqwest, whose types stay inside this crate: `HttpProber` (behind `real`), with the `Settings` the program chooses.",
+   "crate_doc": "Probing a kkt server over HTTP and reading its key files, with reqwest, whose types stay inside this crate: `HttpProber`, with the `Settings` the program chooses.",
    "dev_only": false,
-   "features": {
-    "real": [
-     "dep:reqwest",
-     "dep:serde_json"
-    ]
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
@@ -11289,7 +11043,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Reads key files and probes servers over HTTP, as its settings say.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "key_file",
@@ -11321,18 +11074,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-probe",
-   "optional_third_party": {
-    "reqwest": [
-     "real"
-    ],
-    "serde_json": [
-     "real"
-    ]
-   },
    "path": "crates/kkt-probe",
-   "real_files": [
-    "src/http.rs"
-   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11387,9 +11129,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_provenance",
    "machine_work": {},
    "name": "kkt-provenance",
-   "optional_third_party": {},
    "path": "crates/kkt-provenance",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11466,9 +11206,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_remote_access",
    "machine_work": {},
    "name": "kkt-remote-access",
-   "optional_third_party": {},
    "path": "crates/kkt-remote-access",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11480,12 +11218,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Sharing a service-mode server over the host's existing Tailscale login: `Tailscale` implements kkt-remote-access's `RemoteAccess`.",
    "dev_only": false,
-   "features": {
-    "real": [
-     "dep:serde",
-     "dep:serde_json"
-    ]
-   },
+   "features": {},
    "holders": [],
    "implements": [
     {
@@ -11498,7 +11231,6 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "Shares this machine's server through its existing Tailscale login.",
-     "feature": "real",
      "kind": "struct",
      "path": "Tailscale"
     }
@@ -11511,16 +11243,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-remote-access-tailscale",
-   "optional_third_party": {
-    "serde": [
-     "real"
-    ],
-    "serde_json": [
-     "real"
-    ]
-   },
    "path": "crates/kkt-remote-access-tailscale",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -12136,9 +11859,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_rules",
    "machine_work": {},
    "name": "kkt-rules",
-   "optional_third_party": {},
    "path": "crates/kkt-rules",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -12580,9 +12301,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-scratch",
-   "optional_third_party": {},
    "path": "crates/kkt-scratch",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -12632,9 +12351,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_search",
    "machine_work": {},
    "name": "kkt-search",
-   "optional_third_party": {},
    "path": "crates/kkt-search",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -12784,9 +12501,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_server",
    "machine_work": {},
    "name": "kkt-server",
-   "optional_third_party": {},
    "path": "crates/kkt-server",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -13019,7 +12734,6 @@ window.KKT_GRAPH = {
    "crate_doc": "The server's keys: what a key must be, how a new one is made, which access key a server uses, the names, mode and default place of the files that hold them, and the admin agent's name tied to the admin key.",
    "dev_only": false,
    "features": {
-    "real": [],
     "testing": []
    },
    "holders": [],
@@ -13056,27 +12770,6 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "The server's selected access, web and admin key files.",
-     "feature": "real",
-     "kind": "struct",
-     "methods": [
-      "access",
-      "admin",
-      "admin_names",
-      "create_dir_all",
-      "exists",
-      "is_file",
-      "keep_staged",
-      "new",
-      "read",
-      "read_optional",
-      "remove",
-      "try_exists",
-      "web"
-     ],
-     "path": "KeyFiles"
-    },
-    {
      "doc": "A key file's text, and where it came from, such as the file's path.",
      "fields": [
       "text",
@@ -13084,16 +12777,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "KeyText"
-    },
-    {
-     "doc": "A failed key-file read, retaining its path and underlying I/O error.",
-     "feature": "real",
-     "fields": [
-      "path",
-      "error"
-     ],
-     "kind": "struct",
-     "path": "ReadError"
     },
     {
      "doc": "A key setting the server refuses to start with: the setting's name and why.",
@@ -13158,18 +12841,6 @@ window.KKT_GRAPH = {
      "path": "generate"
     },
     {
-     "doc": "Writes a missing default key, drawing a key only after making its folder.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "make_default_key"
-    },
-    {
-     "doc": "Creates a new private key file, making its folder before drawing the key.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "new_key_file"
-    },
-    {
      "doc": "What tests outside kkt-server-keys need to know about the keys.",
      "feature": "testing",
      "kind": "mod",
@@ -13185,43 +12856,12 @@ window.KKT_GRAPH = {
      "doc": "The operator web key always lives beside the server's access key.",
      "kind": "fn",
      "path": "web_key_path"
-    },
-    {
-     "doc": "Writes already-bound admin-name text beside the key, or removes the old name file.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "write_admin_name"
-    },
-    {
-     "doc": "Writes `key` to `path`, readable and writable only by its owner.",
-     "feature": "real",
-     "kind": "fn",
-     "path": "write_key_file"
     }
    ],
    "lib": "kkt_server_keys",
-   "machine_work": {
-    "src/files.rs": [
-     "fs::OpenOptions::new",
-     "fs::Permissions::from_mode",
-     "fs::create_dir_all",
-     "fs::read_to_string",
-     "fs::remove_file",
-     "fs::rename",
-     "fs::write",
-     "os::unix::fs::OpenOptionsExt",
-     "os::unix::fs::PermissionsExt",
-     "Path::exists",
-     "Path::is_file",
-     "Path::try_exists"
-    ]
-   },
+   "machine_work": {},
    "name": "kkt-server-keys",
-   "optional_third_party": {},
    "path": "crates/kkt-server-keys",
-   "real_files": [
-    "src/files.rs"
-   ],
    "released_program": false,
    "slots": [
     {
@@ -13245,17 +12885,98 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
+   "crate_doc": "The server's key files on disk, as kkt-server-keys names and places them: reading their texts, private key writes, admin-name writes and staged-key moves.",
+   "dev_only": false,
+   "features": {},
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "The server's selected access, web and admin key files.",
+     "kind": "struct",
+     "methods": [
+      "access",
+      "admin",
+      "admin_names",
+      "create_dir_all",
+      "exists",
+      "is_file",
+      "keep_staged",
+      "new",
+      "read",
+      "read_optional",
+      "remove",
+      "try_exists",
+      "web"
+     ],
+     "path": "KeyFiles"
+    },
+    {
+     "doc": "A failed key-file read, retaining its path and underlying I/O error.",
+     "fields": [
+      "path",
+      "error"
+     ],
+     "kind": "struct",
+     "path": "ReadError"
+    },
+    {
+     "doc": "Writes a missing default key, drawing a key only after making its folder.",
+     "kind": "fn",
+     "path": "make_default_key"
+    },
+    {
+     "doc": "Creates a new private key file, making its folder before drawing the key.",
+     "kind": "fn",
+     "path": "new_key_file"
+    },
+    {
+     "doc": "Writes already-bound admin-name text beside the key, or removes the old name file.",
+     "kind": "fn",
+     "path": "write_admin_name"
+    },
+    {
+     "doc": "Writes `key` to `path`, readable and writable only by its owner.",
+     "kind": "fn",
+     "path": "write_key_file"
+    }
+   ],
+   "lib": "kkt_server_keys_os",
+   "machine_work": {
+    "src/lib.rs": [
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::write",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "Path::exists",
+     "Path::is_file",
+     "Path::try_exists"
+    ]
+   },
+   "name": "kkt-server-keys-os",
+   "path": "crates/kkt-server-keys-os",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
    "crate_doc": "Running the assembled server: binding its address, then answering on it until told to stop.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "The server bound to its address, not yet answering.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "address",
@@ -13265,17 +12986,19 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Binds `app` to `address`.",
-     "feature": "real",
      "kind": "fn",
      "path": "listen"
     }
    ],
    "lib": "kkt_server_listen",
-   "machine_work": {},
+   "machine_work": {
+    "src/lib.rs": [
+     "tokio::net::TcpListener",
+     "tokio::net::TcpListener::bind"
+    ]
+   },
    "name": "kkt-server-listen",
-   "optional_third_party": {},
    "path": "crates/kkt-server-listen",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -13502,9 +13225,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_service",
    "machine_work": {},
    "name": "kkt-service",
-   "optional_third_party": {},
    "path": "crates/kkt-service",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -13518,9 +13239,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "kkt's service as a launchd user agent on macOS: `Launchd` implements kkt-service's `Service` over the user's `gui/<uid>` domain, writing the plist and running `launchctl`, `tail` and `id`.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [
     {
@@ -13533,7 +13252,6 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "The launchd user agent of the user whose home folder it is given, waiting for launchd as `settings` say.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "new"
@@ -13542,7 +13260,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "How long installing the service again waits for launchd to let the new one load.",
-     "feature": "real",
      "fields": [
       "removal_wait",
       "reload_retry"
@@ -13565,9 +13282,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-service-launchd",
-   "optional_third_party": {},
    "path": "crates/kkt-service-launchd",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -13579,15 +13294,12 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Whether the service's server could listen on its address, tried on this machine: `try_bind` listens and lets the address go at once.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "Listens on the address and lets it go at once, as the service bind check requires.",
-     "feature": "real",
      "kind": "fn",
      "path": "try_bind"
     }
@@ -13599,9 +13311,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-service-os",
-   "optional_third_party": {},
    "path": "crates/kkt-service-os",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -13613,9 +13323,7 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "kkt's service as a systemd user unit on Linux: `Systemd` implements kkt-service's `Service` with the user's systemd, writing the unit file and running `systemctl` and `journalctl`.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [
     {
@@ -13628,7 +13336,6 @@ window.KKT_GRAPH = {
    "items": [
     {
      "doc": "The systemd user unit of the user whose config base (`$XDG_CONFIG_HOME`, or `~/.config`) it is given.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "new"
@@ -13650,9 +13357,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-service-systemd",
-   "optional_third_party": {},
    "path": "crates/kkt-service-systemd",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -14659,9 +14364,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_setup",
    "machine_work": {},
    "name": "kkt-setup",
-   "optional_third_party": {},
    "path": "crates/kkt-setup",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -14765,87 +14468,72 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "Setup's record and unfinished note, data folder and program paths on this machine.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "Resolves a relative path against this process's working directory.",
-     "feature": "real",
      "kind": "fn",
      "path": "absolute"
     },
     {
      "doc": "Follows links and resolves the actual file path.",
-     "feature": "real",
      "kind": "fn",
      "path": "canonicalize"
     },
     {
      "doc": "This program's absolute path, for client configurations that run it.",
-     "feature": "real",
      "kind": "fn",
      "path": "kkt_path"
     },
     {
      "doc": "Makes the default database's parent folder.",
-     "feature": "real",
      "kind": "fn",
      "path": "make_data_folder"
     },
     {
      "doc": "Whether a program is a file in the already-captured PATH folders.",
-     "feature": "real",
      "kind": "fn",
      "path": "on_path"
     },
     {
      "doc": "One snapshot of PATH, shared by all client checks in a setup invocation.",
-     "feature": "real",
      "kind": "fn",
      "path": "path_dirs"
     },
     {
      "doc": "This program's absolute path, with links followed.",
-     "feature": "real",
      "kind": "fn",
      "path": "program_path"
     },
     {
      "doc": "Reads the setup record from the selected config folder, if present.",
-     "feature": "real",
      "kind": "fn",
      "path": "read_record"
     },
     {
      "doc": "Reads the unfinished note; the caller checks whether its install is present.",
-     "feature": "real",
      "kind": "fn",
      "path": "read_unfinished"
     },
     {
      "doc": "Removes the setup record; missing files retain the caller's original refusal.",
-     "feature": "real",
      "kind": "fn",
      "path": "remove_record"
     },
     {
      "doc": "Removes the unfinished note, accepting an already-missing file.",
-     "feature": "real",
      "kind": "fn",
      "path": "remove_unfinished"
     },
     {
      "doc": "Saves the setup record with the original write-then-rename operation.",
-     "feature": "real",
      "kind": "fn",
      "path": "write_record"
     },
     {
      "doc": "Saves the unfinished note with the same write-then-rename operation.",
-     "feature": "real",
      "kind": "fn",
      "path": "write_unfinished"
     }
@@ -14867,9 +14555,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-setup-os",
-   "optional_third_party": {},
    "path": "crates/kkt-setup-os",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -14901,9 +14587,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_shutdown",
    "machine_work": {},
    "name": "kkt-shutdown",
-   "optional_third_party": {},
    "path": "crates/kkt-shutdown",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -14917,15 +14601,12 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "The operating system's stop signals.",
    "dev_only": false,
-   "features": {
-    "real": []
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "OS stop signals, installed before the server announces it is ready.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "listen",
@@ -14935,11 +14616,17 @@ window.KKT_GRAPH = {
     }
    ],
    "lib": "kkt_shutdown_os",
-   "machine_work": {},
+   "machine_work": {
+    "src/lib.rs": [
+     "tokio::signal::ctrl_c",
+     "tokio::signal::unix::Signal",
+     "tokio::signal::unix::SignalKind::interrupt",
+     "tokio::signal::unix::SignalKind::terminate",
+     "tokio::signal::unix::signal"
+    ]
+   },
    "name": "kkt-shutdown-os",
-   "optional_third_party": {},
    "path": "crates/kkt-shutdown-os",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -14953,17 +14640,12 @@ window.KKT_GRAPH = {
    "contracts": [],
    "crate_doc": "The process terminal: input, output, terminal detection, the terminal's half of the login link (showing it, and the Enter key) and the default behavior when a command's output pipe closes.",
    "dev_only": false,
-   "features": {
-    "real": [
-     "dep:libc"
-    ]
-   },
+   "features": {},
    "holders": [],
    "implements": [],
    "items": [
     {
      "doc": "At a terminal, shows the link and offers to open it when Enter is pressed.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "new",
@@ -14974,7 +14656,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "The process's standard output and standard error.",
-     "feature": "real",
      "kind": "struct",
      "methods": [
       "errors",
@@ -14989,7 +14670,6 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Lets a closed standard output, as with `kkt status | head`, end the command the way it ends other Unix commands (SIGPIPE), where Rust would otherwise panic at the next print.",
-     "feature": "real",
      "kind": "fn",
      "path": "end_on_closed_output"
     }
@@ -15008,13 +14688,7 @@ window.KKT_GRAPH = {
     ]
    },
    "name": "kkt-terminal-os",
-   "optional_third_party": {
-    "libc": [
-     "real"
-    ]
-   },
    "path": "crates/kkt-terminal-os",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -15162,9 +14836,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_toml",
    "machine_work": {},
    "name": "kkt-toml",
-   "optional_third_party": {},
    "path": "crates/kkt-toml",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -15270,9 +14942,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_watch",
    "machine_work": {},
    "name": "kkt-watch",
-   "optional_third_party": {},
    "path": "crates/kkt-watch",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -15795,9 +15465,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_web",
    "machine_work": {},
    "name": "kkt-web",
-   "optional_third_party": {},
    "path": "crates/kkt-web",
-   "real_files": [],
    "released_program": false,
    "slots": [
     {
@@ -16754,9 +16422,7 @@ window.KKT_GRAPH = {
    "lib": null,
    "machine_work": {},
    "name": "kkt-web-preview",
-   "optional_third_party": {},
    "path": "programs/kkt-web-preview",
-   "real_files": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -16833,9 +16499,7 @@ window.KKT_GRAPH = {
    "to": "kkt-agent-client"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Mcp"
@@ -16914,9 +16578,7 @@ window.KKT_GRAPH = {
    "to": "kkt-agent-commands"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "CredentialFile",
@@ -17003,9 +16665,7 @@ window.KKT_GRAPH = {
    "to": "kkt-backup"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "prune",
@@ -17028,9 +16688,7 @@ window.KKT_GRAPH = {
    "to": "kkt-backup-os"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "SystemBrowser"
@@ -17051,9 +16709,7 @@ window.KKT_GRAPH = {
    "to": "kkt-browser"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Claude"
@@ -17109,9 +16765,7 @@ window.KKT_GRAPH = {
    "to": "kkt-client-config"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "OsHost"
@@ -17156,9 +16810,7 @@ window.KKT_GRAPH = {
    "to": "kkt-clock"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "SystemClock"
@@ -17206,9 +16858,7 @@ window.KKT_GRAPH = {
    "to": "kkt-config-file"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "ReadError",
@@ -17269,9 +16919,7 @@ window.KKT_GRAPH = {
    "to": "kkt-container"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Browser",
@@ -17320,9 +16968,7 @@ window.KKT_GRAPH = {
    "to": "kkt-db"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Options",
@@ -17399,9 +17045,7 @@ window.KKT_GRAPH = {
    "to": "kkt-diagnostics"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "OsEntropy"
@@ -17493,9 +17137,7 @@ window.KKT_GRAPH = {
    "to": "kkt-identity-keymode"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Git"
@@ -17539,9 +17181,7 @@ window.KKT_GRAPH = {
    "to": "kkt-lane-files"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "OsDisk"
@@ -17562,9 +17202,7 @@ window.KKT_GRAPH = {
    "to": "kkt-lane-files-os"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "TracingLog",
@@ -17625,9 +17263,7 @@ window.KKT_GRAPH = {
    "to": "kkt-logs"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "open_log_file"
@@ -17671,9 +17307,7 @@ window.KKT_GRAPH = {
    "to": "kkt-machine"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "env",
@@ -17878,9 +17512,7 @@ window.KKT_GRAPH = {
    "to": "kkt-operate"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "FileRead",
@@ -17932,9 +17564,7 @@ window.KKT_GRAPH = {
    "to": "kkt-provenance"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Tailscale"
@@ -18041,25 +17671,17 @@ window.KKT_GRAPH = {
    "to": "kkt-server"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "AccessKey",
-    "KeyFiles",
     "KeyText",
-    "ReadError",
     "SettingError",
     "access_key_file",
     "admin_key_path",
     "admin_name_path",
     "generate",
-    "make_default_key",
-    "new_key_file",
-    "web_key_path",
-    "write_admin_name",
-    "write_key_file"
+    "web_key_path"
    ],
    "kind": "normal",
    "optional": false,
@@ -18068,19 +17690,13 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AccessKey",
-      "KeyFiles",
       "KeyText",
-      "ReadError",
       "SettingError",
       "access_key_file",
       "admin_key_path",
       "admin_name_path",
       "generate",
-      "make_default_key",
-      "new_key_file",
-      "web_key_path",
-      "write_admin_name",
-      "write_key_file"
+      "web_key_path"
      ],
      "role": "uses"
     }
@@ -18092,9 +17708,38 @@ window.KKT_GRAPH = {
    "to": "kkt-server-keys"
   },
   {
-   "features": [
-    "real"
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "KeyFiles",
+    "ReadError",
+    "make_default_key",
+    "new_key_file",
+    "write_admin_name",
+    "write_key_file"
    ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "KeyFiles",
+      "ReadError",
+      "make_default_key",
+      "new_key_file",
+      "write_admin_name",
+      "write_key_file"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-server-keys-os"
+  },
+  {
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "listen"
@@ -18149,9 +17794,7 @@ window.KKT_GRAPH = {
    "to": "kkt-service"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Launchd",
@@ -18173,9 +17816,7 @@ window.KKT_GRAPH = {
    "to": "kkt-service-launchd"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "try_bind"
@@ -18196,9 +17837,7 @@ window.KKT_GRAPH = {
    "to": "kkt-service-os"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "Systemd"
@@ -18278,9 +17917,7 @@ window.KKT_GRAPH = {
    "to": "kkt-setup"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "absolute",
@@ -18346,9 +17983,7 @@ window.KKT_GRAPH = {
    "to": "kkt-shutdown"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "StopSignals"
@@ -18369,9 +18004,7 @@ window.KKT_GRAPH = {
    "to": "kkt-shutdown-os"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kashkeshet",
    "items": [
     "BrowserLink",
@@ -20218,7 +19851,7 @@ window.KKT_GRAPH = {
     "config_file"
    ],
    "kind": "normal",
-   "optional": true,
+   "optional": false,
    "role": "uses",
    "roles": [
     {
@@ -20300,7 +19933,7 @@ window.KKT_GRAPH = {
     "XDG_CONFIG_HOME_DEFAULT"
    ],
    "kind": "normal",
-   "optional": true,
+   "optional": false,
    "role": "uses",
    "roles": [
     {
@@ -20369,44 +20002,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-container-docker",
-   "items": [
-    "parse_file"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "parse_file"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-config-file"
-  },
-  {
-   "features": [],
-   "from": "kkt-container-docker",
-   "items": [],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-machine"
   },
   {
    "features": [],
@@ -20927,9 +20522,7 @@ window.KKT_GRAPH = {
    "to": "kkt-clock"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-fake-product",
    "items": [
     "SystemClock"
@@ -20950,9 +20543,7 @@ window.KKT_GRAPH = {
    "to": "kkt-clock-system"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-fake-product",
    "items": [
     "CreateError",
@@ -21000,9 +20591,7 @@ window.KKT_GRAPH = {
    "to": "kkt-entropy"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-fake-product",
    "items": [
     "OsEntropy"
@@ -21114,9 +20703,7 @@ window.KKT_GRAPH = {
    "to": "kkt-identity-keymode"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-fake-product",
    "items": [
     "TracingLog"
@@ -21272,9 +20859,7 @@ window.KKT_GRAPH = {
    "to": "kkt-server"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-fake-product",
    "items": [
     "listen"
@@ -21316,9 +20901,7 @@ window.KKT_GRAPH = {
    "to": "kkt-shutdown"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-fake-product",
    "items": [
     "StopSignals"
@@ -21339,9 +20922,7 @@ window.KKT_GRAPH = {
    "to": "kkt-shutdown-os"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-fake-product",
    "items": [
     "Terminal"
@@ -21383,9 +20964,7 @@ window.KKT_GRAPH = {
    "to": "kkt-web"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-fake-product",
    "items": [
     "Http",
@@ -21849,9 +21428,7 @@ window.KKT_GRAPH = {
    "to": "kkt-clock"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-keymode",
    "items": [
     "SystemClock"
@@ -21893,9 +21470,7 @@ window.KKT_GRAPH = {
    "to": "kkt-config-file"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-keymode",
    "items": [
     "read_instructions",
@@ -21918,9 +21493,7 @@ window.KKT_GRAPH = {
    "to": "kkt-config-file-os"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-keymode",
    "items": [
     "Options",
@@ -21943,9 +21516,7 @@ window.KKT_GRAPH = {
    "to": "kkt-db-sqlite"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-keymode",
    "items": [
     "OsEntropy"
@@ -22035,9 +21606,7 @@ window.KKT_GRAPH = {
    "to": "kkt-identity-keymode"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-keymode",
    "items": [
     "TracingLog"
@@ -22243,13 +21812,10 @@ window.KKT_GRAPH = {
    "to": "kkt-server"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-keymode",
    "items": [
     "AccessKey",
-    "KeyFiles",
     "KeyText",
     "admin_key_path",
     "web_key_path"
@@ -22261,7 +21827,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AccessKey",
-      "KeyFiles",
       "KeyText",
       "admin_key_path",
       "web_key_path"
@@ -22274,9 +21839,28 @@ window.KKT_GRAPH = {
    "to": "kkt-server-keys"
   },
   {
-   "features": [
-    "real"
+   "features": [],
+   "from": "kkt-keymode",
+   "items": [
+    "KeyFiles"
    ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "KeyFiles"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-server-keys-os"
+  },
+  {
+   "features": [],
    "from": "kkt-keymode",
    "items": [
     "listen"
@@ -22318,9 +21902,7 @@ window.KKT_GRAPH = {
    "to": "kkt-shutdown"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-keymode",
    "items": [
     "StopSignals"
@@ -22341,9 +21923,7 @@ window.KKT_GRAPH = {
    "to": "kkt-shutdown-os"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-keymode",
    "items": [
     "Terminal"
@@ -25462,6 +25042,33 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-server-keys-os",
+   "items": [
+    "ACCESS_KEY_FILE_MODE",
+    "AccessKey",
+    "KeyText",
+    "admin_name_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ACCESS_KEY_FILE_MODE",
+      "AccessKey",
+      "KeyText",
+      "admin_name_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-server-keys"
+  },
+  {
+   "features": [],
    "from": "kkt-server-listen",
    "items": [
     "App"
@@ -26801,9 +26408,7 @@ window.KKT_GRAPH = {
    "to": "kkt-api-sim"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-web-preview",
    "items": [
     "SystemClock"
@@ -26847,9 +26452,7 @@ window.KKT_GRAPH = {
    "to": "kkt-entropy"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-web-preview",
    "items": [
     "OsEntropy"
@@ -26914,9 +26517,7 @@ window.KKT_GRAPH = {
    "to": "kkt-log"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-web-preview",
    "items": [
     "TracingLog",
@@ -26986,9 +26587,24 @@ window.KKT_GRAPH = {
    "to": "kkt-server"
   },
   {
-   "features": [
-    "real"
+   "features": [],
+   "from": "kkt-web-preview",
+   "items": [],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [],
+     "role": "uses"
+    }
    ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-server-keys"
+  },
+  {
+   "features": [],
    "from": "kkt-web-preview",
    "items": [
     "KeyFiles"
@@ -27006,12 +26622,10 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-server-keys"
+   "to": "kkt-server-keys-os"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-web-preview",
    "items": [
     "listen"
@@ -27053,9 +26667,7 @@ window.KKT_GRAPH = {
    "to": "kkt-shutdown"
   },
   {
-   "features": [
-    "real"
-   ],
+   "features": [],
    "from": "kkt-web-preview",
    "items": [
     "StopSignals"
@@ -27133,7 +26745,7 @@ window.KKT_CONCERNS = {
    "must_not": "Name a transport, a protocol library or its errors."
   },
   "kkt-agent-client-mcp": {
-   "concern": "Implements kkt-agent-client over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), with plain Http requests for a program's test client, behind real; what the watch asks for at a time (Settings), as plain values.",
+   "concern": "Implements kkt-agent-client over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), with plain Http requests for a program's test client; what the watch asks for at a time (Settings), as plain values.",
    "kind": "effect",
    "layer": "clients",
    "must_not": "Let an rmcp or reqwest type out of the crate."
@@ -27142,7 +26754,7 @@ window.KKT_CONCERNS = {
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
    "kind": "composition",
    "layer": "assembly",
-   "must_not": "Depend on an `-os` crate, on a contract's implementation, turn on another crate's `real`, or depend on another assembly; touch the machine except through `AgentParts`."
+   "must_not": "Depend on an effect crate (an `-os` crate or a contract's implementation) or on another assembly; touch the machine except through `AgentParts`."
   },
   "kkt-agent-files-os": {
    "concern": "Agent credential files and kkt watch's state files on this machine: reserving and saving a token or recovery code, reading a token file under the caller's credential-file rule, file locks, claiming a state file.",
@@ -27184,13 +26796,13 @@ window.KKT_CONCERNS = {
    "must_not": "Choose backup names, contents, modes or retention."
   },
   "kkt-browser": {
-   "concern": "Opening a link in the person's browser with the system's own opener (open on macOS, xdg-open elsewhere): SystemBrowser (behind real), with its own methods: starting the opener, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without real. It declares no contract: the program adapts SystemBrowser to kkt-container-docker's Browser (phase 16).",
+   "concern": "Opening a link in the person's browser with the system's own opener (open on macOS, xdg-open elsewhere): SystemBrowser, with its own methods: starting the opener, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without starting it. It declares no contract: the program adapts SystemBrowser to kkt-container-docker's Browser (phase 16).",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Wait for the browser; repeat the link in a message."
   },
   "kkt-client-command": {
-   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude` (behind real), with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
+   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Echo the command's output, which may hold credentials."
@@ -27238,7 +26850,7 @@ window.KKT_CONCERNS = {
    "must_not": "Let Docker details into the contract; decide setup answers or remember the setup record."
   },
   "kkt-container-docker": {
-   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands, behind real; what they do is tested over a private runner and a fake host. A sharing setup's login link opens in the Browser it declares, which the program supplies.",
+   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands; what they do is tested over a private runner and a fake host. A sharing setup's login link opens in the Browser it declares, which the program supplies.",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Decide setup answers or remember the setup record."
@@ -27312,7 +26924,7 @@ window.KKT_CONCERNS = {
    "must_not": "Be released, or share code with the `kkt` program."
   },
   "kkt-lane-commit": {
-   "concern": "The commit a lane folder is at, as the machine's git says: `Git` (behind real), with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
+   "concern": "The commit a lane folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Read or write the lane files."
@@ -27389,7 +27001,7 @@ window.KKT_CONCERNS = {
    "must_not": "Choose native implementations, depend on an effect or another assembly, or parse command-line flags."
   },
   "kkt-probe": {
-   "concern": "Probing a kkt server over HTTP and reading its key files: `HttpProber` (behind real), with its own methods and the prober's `Settings`: the probe with reqwest, MCP's initialize handshake read from its answer, key files read from disk, and what it finds worded as its own records (`Finding`, `FileRead`). It declares no contract: the program adapts `HttpProber` to kkt-diagnostics' Prober (phase 16).",
+   "concern": "Probing a kkt server over HTTP and reading its key files: `HttpProber`, with its own methods and the prober's `Settings`: the probe with reqwest, MCP's initialize handshake read from its answer, key files read from disk, and what it finds worded as its own records (`Finding`, `FileRead`). It declares no contract: the program adapts `HttpProber` to kkt-diagnostics' Prober (phase 16).",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them."
@@ -27407,7 +27019,7 @@ window.KKT_CONCERNS = {
    "must_not": "Let tool details into the contract."
   },
   "kkt-remote-access-tailscale": {
-   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner, and the real command is behind real.",
+   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner.",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Change login, DNS preferences, unrelated sharing, config or the service."
@@ -27437,10 +27049,16 @@ window.KKT_CONCERNS = {
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in."
   },
   "kkt-server-keys": {
-   "concern": "The server's keys: what a valid key is and how a new one is made, which access key a server uses, the key files' names, mode and places, and the admin name file's binding to its key and the advice about it; behind real, the key files on disk: texts, private key writes, admin-name writes and staged-key moves.",
-   "kind": "logic and effect",
+   "concern": "The server's keys: what a valid key is and how a new one is made, which access key a server uses, the key files' names, mode and places, and the admin name file's binding to its key and the advice about it. The key files on disk are kkt-server-keys-os'.",
+   "kind": "logic",
    "layer": "access",
-   "must_not": "Decide who a key lets in; choose a randomness provider; word each program's key refusals."
+   "must_not": "Decide who a key lets in; choose a randomness provider; word each program's key refusals; touch the key files."
+  },
+  "kkt-server-keys-os": {
+   "concern": "The server's key files on disk, as kkt-server-keys names and places them: KeyFiles (reading the access, web and admin keys and the admin name file), ReadError, and private key writes (new_key_file, write_key_file, make_default_key), admin-name writes and staged-key moves (phase 16, the reverse of 14.5's merge of kkt-admission-os).",
+   "kind": "effect",
+   "layer": "access",
+   "must_not": "Decide what a valid key is, who a key lets in, or where key files go; draw randomness itself."
   },
   "kkt-server-listen": {
    "concern": "Binding the server's assembled App to its socket and serving it.",
@@ -27455,7 +27073,7 @@ window.KKT_CONCERNS = {
    "must_not": "Know a service manager, its commands or file formats; touch the machine."
   },
   "kkt-service-launchd": {
-   "concern": "Implements Service as a launchd user agent on macOS: the plist, launchctl's commands and answers, the log file and the retries while launchd removes an old service, tested against a private system; the real files and commands are behind real.",
+   "concern": "Implements Service as a launchd user agent on macOS: the plist, launchctl's commands and answers, the log file and the retries while launchd removes an old service, tested against a private system.",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Decide what the service runs or check the server's settings."
@@ -27467,7 +27085,7 @@ window.KKT_CONCERNS = {
    "must_not": "Decide what the answer means, or work a service manager."
   },
   "kkt-service-systemd": {
-   "concern": "Implements Service as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system; the real files and commands are behind real.",
+   "concern": "Implements Service as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system.",
    "kind": "effect",
    "layer": "operations",
    "must_not": "Decide what the service runs or check the server's settings."
@@ -27534,19 +27152,9 @@ window.KKT_CONCERNS = {
    "title": "contract"
   },
   {
-   "about": "A contract in the open and its one implementation behind real, which only programs turn on (phase 13). A crate that depends on it without real depends on the contract alone.",
-   "id": "contract and effect",
-   "title": "contract and effect"
-  },
-  {
    "about": "Behaviour, with every effect injected. Protocol translation counts as logic.",
    "id": "logic",
    "title": "logic"
-  },
-  {
-   "about": "Logic in the open and the effect that only carries out its plans behind real, which only programs turn on, so the logic builds and tests without the effect (phase 14). A crate that depends on it without real depends on the logic alone.",
-   "id": "logic and effect",
-   "title": "logic and effect"
   },
   {
    "about": "Touches the operating system, disk, network, real time or real randomness directly.",
@@ -28096,8 +27704,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-admission",
      "note": "kkt serve",
-     "own": "ServerKeyFiles, adapting kkt-server-keys::KeyFiles",
-     "supplier": "kkt-server-keys",
+     "own": "ServerKeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles",
      "to": [
       {
@@ -28229,8 +27837,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and watch",
-     "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
-     "supplier": "kkt-server-keys",
+     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles",
      "to": [
       {
@@ -28466,8 +28074,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeKeyFiles, forwarding key files to kkt-server-keys and generation to kkt-entropy-os",
-     "supplier": "kkt-server-keys",
+     "own": "NativeKeyFiles, forwarding key files to kkt-server-keys-os and generation to kkt-entropy-os",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles",
      "to": [
       {
@@ -28820,8 +28428,8 @@ window.KKT_ASSEMBLY = {
    "wiring": [
     {
      "crate": "kkt-admission",
-     "own": "KeyFiles, adapting kkt-server-keys::KeyFiles",
-     "supplier": "kkt-server-keys",
+     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "supplier": "kkt-server-keys-os",
      "supplier_item": "KeyFiles",
      "to": [
       {
@@ -28932,12 +28540,12 @@ window.KKT_ASSEMBLY = {
     {
      "items": [
       "kkt-api-sim::PreviewGate",
-      "kkt-server-keys::KeyFiles",
+      "kkt-server-keys-os::KeyFiles",
       "kkt-web::Sessions",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy"
      ],
-     "text": "PreviewGate, with the access key read through kkt-server-keys, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+     "text": "PreviewGate, with the access key read through kkt-server-keys-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
      "title": "Gate"
     },
     {

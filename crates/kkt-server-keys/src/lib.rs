@@ -3,18 +3,13 @@
 //! that hold them, and the admin agent's name tied to the admin key. Who a
 //! key lets in is kkt-admission's.
 //!
-//! Behind `real`, the key files on disk: reading their texts, private key
-//! writes, admin-name writes and staged-key moves.
+//! The key files on disk are kkt-server-keys-os'.
 
 mod admin_name;
-mod files;
 #[cfg(feature = "testing")]
 pub mod testing;
 
 pub use admin_name::{admin_name_line, admin_name_written, bound_in, bound_to};
-pub use files::{
-    KeyFiles, ReadError, make_default_key, new_key_file, write_admin_name, write_key_file,
-};
 
 use kkt_entropy::Entropy;
 use std::path::{Path, PathBuf};
