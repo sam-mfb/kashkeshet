@@ -220,6 +220,80 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("a program's delivery lines leave it at points of their own", shared.lines > 1 && shared.close === 0, shared);
     await p.click(`${node("kashkeshet")} .pick-hit`, { force: true });
 
+    // A point on a drawn path, in screen terms, where nothing covers it.
+    const spot = (sel) => p.evaluate((s) => {
+      const svgEl = document.getElementById("graph");
+      for (const h of document.querySelectorAll(s)) {
+        const len = h.getTotalLength();
+        for (const f of [0.5, 0.4, 0.6, 0.3, 0.7]) {
+          const pt = svgEl.createSVGPoint();
+          const q = h.getPointAtLength(len * f);
+          pt.x = q.x; pt.y = q.y;
+          const sc = pt.matrixTransform(svgEl.getScreenCTM());
+          const top = document.elementFromPoint(sc.x, sc.y);
+          if (top && (top === svgEl || top.classList.contains("band") || top === h)) return { x: sc.x, y: sc.y, top: top.getAttribute("class") };
+        }
+      }
+      return null;
+    }, sel);
+
+    // An injection's whole route (msg 3574): ticking kkt-watch draws
+    // kashkeshet to kkt-agent-commands to kkt-watch, and the crates that
+    // supply what kashkeshet injects, with every hop's label saying what it
+    // carries, never "passed on" alone.
+    const routeOf = async (name) => {
+      await p.click(`${node(name)} .pick-hit`, { force: true });
+      const got = await p.evaluate(() => ({
+        lines: [...document.querySelectorAll("path.delivery")].map((x) => `${x.dataset.from}>${x.dataset.to}`),
+        labels: Object.fromEntries([...document.querySelectorAll("text.delivery-label")]
+          .map((x) => [`${x.dataset.from}>${x.dataset.to}`, x.textContent])),
+      }));
+      await p.click(`${node(name)} .pick-hit`, { force: true });
+      return got;
+    };
+    const watch = await routeOf("kkt-watch");
+    check("a ticked receiver's routes run back to the program and the suppliers",
+      ["kashkeshet>kkt-agent-commands", "kkt-agent-commands>kkt-watch", "kkt-agent-client-mcp>kashkeshet"]
+        .every((l) => watch.lines.includes(l)), watch.lines);
+    check("no hop's label is only \"passed on\"",
+      Object.values(watch.labels).every((l) => !/passed on/.test(l)) && /\(/.test(watch.labels["kkt-agent-commands>kkt-watch"] || ""),
+      watch.labels);
+    const forward = await routeOf("kashkeshet");
+    check("a ticked injector's routes run on to the final receiver", forward.lines.includes("kkt-agent-commands>kkt-watch"), forward.lines);
+    const supplier = await routeOf("kkt-agent-client-mcp");
+    check("a ticked supplier's routes run on to the final receiver",
+      supplier.lines.includes("kkt-agent-client-mcp>kashkeshet") && supplier.lines.includes("kkt-agent-commands>kkt-watch"), supplier.lines);
+
+    // An adapter is not an implementation (msg 3574): a composition's own
+    // type meeting another crate's trait is "adapted by", drawn apart from
+    // the green arrows; its tooltip says whether it is an adapter or the
+    // injector's own work.
+    const adapts = await p.evaluate(() => {
+      const kind = (n) => (window.KKT_CONCERNS.crates[n] || {}).kind;
+      const edges = [...document.querySelectorAll("path.edge")];
+      return {
+        greenFromComposition: edges.filter((x) => x.classList.contains("role-implements") && kind(x.dataset.edge.split(">")[0]) === "composition")
+          .map((x) => x.dataset.edge),
+        watch: edges.some((x) => x.dataset.edge === "kashkeshet>kkt-watch>normal" && x.classList.contains("role-adapts")),
+        sqlite: edges.some((x) => x.dataset.edge === "kkt-db-sqlite>kkt-db>normal" && x.classList.contains("role-implements")),
+      };
+    });
+    check("no composition's arrow is green, kashkeshet adapts for kkt-watch, kkt-db-sqlite implements kkt-db",
+      adapts.greenFromComposition.length === 0 && adapts.watch && adapts.sqlite, adapts);
+    const tipOf = async (edge, tick) => {
+      await p.click(`${node(tick)} .pick-hit`, { force: true });
+      const at = await spot(`path.edge-hit[data-edge='${edge}']`);
+      if (at) await p.mouse.move(at.x, at.y);
+      const text = at && await p.isVisible("#tip") ? await p.textContent("#tip") : "";
+      await p.mouse.move(5, 5);
+      await p.click(`${node(tick)} .pick-hit`, { force: true });
+      return text;
+    };
+    const ownTip = await tipOf("kkt-operate>kkt-setup>normal", "kkt-operate");
+    check("an adapting arrow names the injector's own work as such", /adapted by: [^]*its own work/.test(ownTip), ownTip.slice(0, 300));
+    const gateTip = await tipOf("kkt-server>kkt-web>normal", "kkt-server");
+    check("an adapting arrow names the crate its adapter is over", /adapter over kkt-admission/.test(gateTip), gateTip.slice(0, 300));
+
     // Injections follow the rule (msg 3343): the program injects nothing of
     // kkt-diagnostics' own into it; kkt-operate passes on the prober it was
     // given; and the program's own work is labelled as such.
@@ -257,21 +331,6 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     });
     check("faded arrows take no pointer", pointer.faint.length > 0 && pointer.faint.every((e) => e === "none"), pointer.faint.slice(0, 3));
     check("highlighted arrows take the pointer", pointer.full.length > 0 && pointer.full.every((e) => e !== "none"), pointer.full.slice(0, 3));
-    const spot = (sel) => p.evaluate((s) => {
-      const svgEl = document.getElementById("graph");
-      for (const h of document.querySelectorAll(s)) {
-        const len = h.getTotalLength();
-        for (const f of [0.5, 0.4, 0.6, 0.3, 0.7]) {
-          const pt = svgEl.createSVGPoint();
-          const q = h.getPointAtLength(len * f);
-          pt.x = q.x; pt.y = q.y;
-          const sc = pt.matrixTransform(svgEl.getScreenCTM());
-          const top = document.elementFromPoint(sc.x, sc.y);
-          if (top && (top === svgEl || top.classList.contains("band") || top === h)) return { x: sc.x, y: sc.y, top: top.getAttribute("class") };
-        }
-      }
-      return null;
-    }, sel);
     await p.mouse.move(5, 5);
     const full = await spot("path.edge-hit:not(.faint)");
     if (full) await p.mouse.move(full.x, full.y);

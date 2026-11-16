@@ -196,6 +196,12 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .edge.role-uses { stroke: var(--uses); }
 .edge.role-implements { stroke: var(--implements); stroke-width: 1.6; }
 .edge.role-wires { stroke: var(--wires); }
+/* An adapter a program or composition injects: drawn like the injection
+   lines, amber and dotted, with an open round head. */
+.edge.role-adapts { stroke: var(--wires); stroke-dasharray: 1.5 3; stroke-linecap: round; }
+.head-adapts { fill: var(--bg); stroke: var(--wires); stroke-width: 1.2; }
+.role-key.role-adapts { border-top: 3px dotted var(--wires); }
+.role-badge.role-adapts { background: none; border: 1px dotted var(--wires); color: var(--wires); }
 .edge.focus { opacity: .95; stroke-width: 2; }
 .edge.role-implements.focus { stroke-width: 2.4; }
 .head-uses { fill: var(--uses); }
@@ -273,10 +279,12 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .role-text-implements { color: var(--implements-text, var(--implements)); }
 .role-text-uses { color: var(--uses-text, var(--fg)); }
 .role-text-wires { color: var(--wires-text, var(--wires)); }
+.role-text-adapts { color: var(--wires-text, var(--wires)); }
 .chip.role-text { border-left: 3px solid currentColor; }
 .chip.role-second-implements { text-decoration: underline 2px var(--implements); text-underline-offset: 3px; }
 .chip.role-second-uses { text-decoration: underline 2px var(--uses); text-underline-offset: 3px; }
 .chip.role-second-wires { text-decoration: underline 2px var(--wires); text-underline-offset: 3px; }
+.chip.role-second-adapts { text-decoration: underline dotted 2px var(--wires); text-underline-offset: 3px; }
 /* Darker text shades of the role colours, for contrast on light chips. */
 :root { --implements-text: #17705b; --wires-text: #8f5a00; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --implements-text: #4fd1a8; --wires-text: #f0b54a; } }
@@ -298,6 +306,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .chip.role-text-implements { border-left-color: var(--implements); }
 .chip.role-text-uses { border-left-color: var(--uses); }
 .chip.role-text-wires { border-left-color: var(--wires); }
+.chip.role-text-adapts { border-left: 3px dotted var(--wires); }
 /* The Crates and Arrows menus: a button in the header opens a list of
    checkboxes under it. On a phone the list opens in the header's flow. */
 .menu { position: relative; }

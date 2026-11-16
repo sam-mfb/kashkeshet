@@ -17,13 +17,15 @@
   // always the crate that depends on `to`.
   const ROLES = {
     implements: "implemented by",
+    adapts: "adapted by",
     uses: "used by",
     wires: "built by",
   };
   // The short words, for the filters and the tooltip.
-  const ROLE_SHORT = { implements: "implemented by", uses: "used by", wires: "built by" };
+  const ROLE_SHORT = { implements: "implemented by", adapts: "adapted by", uses: "used by", wires: "built by" };
   const ROLE_ABOUT = {
     implements: "the crate at the arrow's head implements a trait the crate at its tail defines",
+    adapts: "the crate at the arrow's head, a program or other composition, has a type of its own that meets a trait the crate at its tail declares, and injects it: an adapter over another crate's work, or its own work. Not an implementation of a contract (Sam, msg 3574)",
     uses: "the crate at the arrow's head calls or reads items of the crate at its tail",
     wires: "the crate at the arrow's head builds implementations or holders from the crate at its tail, to hand on",
   };
@@ -308,7 +310,7 @@
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
       el("span", { class: "key-item", title: "Generated: a crate that implements a contract of exactly one crate in its own layer is drawn beneath it" },
         el("span", { class: "group-key" }), "Group: a crate, with the crates beneath it that implement its contract"),
-      el("span", { class: "muted" }, "Arrows run from the crate that is depended on to the crate that depends on it: from what is used, built or implemented to what uses, builds or implements it. Their ends are spread along each side of a box; where a side has too many to keep apart, several share one point and one head, the arrows of one role together. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, for the highlighted crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Arrows run from the crate that is depended on to the crate that depends on it: from what is used, built, implemented or adapted to what uses, builds, implements or adapts it. Adapted by (amber, dotted, open round head): a program or other composition has a type of its own that meets the tail crate's trait, and injects it; an adapter, not an implementation of a contract. Their ends are spread along each side of a box; where a side has too many to keep apart, several share one point and one head, the arrows of one role together. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, for the highlighted crates: the whole route of each thing injected, from the crate that supplies it, through each crate that passes it on, to where it ends; each hop is labelled with what it carries and who supplies it (hover for the route; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -401,7 +403,7 @@
         edgeLayer.append(path);
         view.edgeNodes.push({ edge: e, path });
       });
-      const hit = svg("path", { d: edgePath(a, b), class: "edge-hit" });
+      const hit = svg("path", { d: edgePath(a, b), class: "edge-hit", "data-edge": `${e.from}>${e.to}>${e.kind}` });
       hit.addEventListener("mousemove", (ev) => {
         showTip(ev, e);
       });
@@ -526,7 +528,7 @@
   // the program's eye, which sit on the right-hand corners.
   const MARGIN = { top: 16, bottom: 16, left: 9, right: 9 };
   const faceLength = (face) => (face === "top" || face === "bottom" ? BOX_W : BOX_H);
-  const ROLE_ORDER = ["uses", "wires", "implements"];
+  const ROLE_ORDER = ["uses", "wires", "implements", "adapts"];
 
   // `ends`: [{ order, run }]; gives each its place along the face (0 to
   // 1) and whether it leads its run, in `t` and `lead`.
@@ -653,6 +655,7 @@
     const shapes = {
       uses: ["M0,0 L8,4 L0,8 z", "head-uses"],
       implements: ["M0.5,0.5 L8,4 L0.5,7.5 z", "head-implements"],
+      adapts: ["M0.5,4 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0 z", "head-adapts"],
       wires: ["M0,0 L8,4 L0,8", "head-wires"],
     };
     for (const [role, [d, cls]] of Object.entries(shapes)) {
@@ -828,11 +831,55 @@
           const own = w.supplier === program;
           out.push({ ...at, how: own ? "own" : "adapts", builder: w.supplier, item: w.own, supplierItem: w.supplier_item });
         } else if (w.passes_on) {
-          out.push({ ...at, how: "passed", builder: null, item: w.passes_on });
+          out.push({ ...at, how: "passed", builder: null, item: w.passes_on, from: w.from || [] });
         }
       }
     }
     return out;
+  }
+
+  // ---- Routes: an injected thing from where it began to where it ends ----
+  // A route is a list of hops (deliveries), each into the crate the next
+  // hop leaves from. It starts with something an injector built, adapted
+  // or made itself, and goes on through every injector that passes it on.
+  // A hop that passes something on is joined to the hops that filled the
+  // slots its `from` names (assembly.json, checked by generate.py), never
+  // by its wording.
+  let routeCache = null;
+  function routes() {
+    if (routeCache) return routeCache;
+    const hops = deliveries();
+    const fills = (h, injector, slot) => h.receiver === injector && h.slots.some((t) => t.at === slot.at && t.param === slot.param);
+    const feeders = (h) => hops.filter((f) => h.from.some((slot) => fills(f, h.program, slot)));
+    const chains = (h, seen) => {
+      if (h.how !== "passed") return [[h]];
+      if (seen.has(h)) return [];
+      const next = new Set(seen).add(h);
+      return feeders(h).flatMap((f) => chains(f, next)).map((c) => [...c, h]);
+    };
+    routeCache = hops.flatMap((h) => chains(h, new Set()));
+    return routeCache;
+  }
+  // What a route carries, in a few words: the thing and who supplies it.
+  const typeName = (text) => String(text).split(",")[0].trim();
+  function carried(route) {
+    const o = route[0];
+    if (o.how === "injects") return `${o.item.split("::").pop()} (${o.builder})`;
+    if (o.how === "adapts") return `${typeName(o.item)} (over ${o.builder})`;
+    return `${typeName(o.item)} (its own work)`;
+  }
+  const ownWork = (route) => route[0].how === "own" || (route[0].how === "injects" && route[0].builder === route[0].program);
+  // The route in words, hop by hop, with the slots it fills.
+  function routeWords(route) {
+    const o = route[0];
+    const begin = {
+      injects: () => [`${o.program} injects `, roleItem(o.item.split("::").pop(), ["wires"], `from ${o.builder}`), ` from ${o.builder}`],
+      adapts: () => [`${o.program}'s adapter ${typeName(o.item)}, over ${o.builder}${o.supplierItem ? `'s ${o.supplierItem}` : ""}`],
+      own: () => [`${o.program}'s own work, ${typeName(o.item)}`],
+      passed: () => [o.item],
+    }[o.how]();
+    const into = (h) => `${h.receiver} (${h.slots.map((t) => `${t.at}: ${t.param}`).join(", ")})`;
+    return el("div", { class: "delivery-words" }, begin, route.map((h, i) => [i ? `; ${h.program} passes it on to ` : " → ", into(h)]));
   }
 
   // The contracts a slot takes, as "crate::Trait".
@@ -892,16 +939,27 @@
     while (labelLayer.firstChild) labelLayer.removeChild(labelLayer.firstChild);
     if (state.hiddenRoles.has("wires") || !state.kinds.normal) return;
     const focus = state.checked;
-    const shown = focus.size
-      ? deliveries().filter((d) => focus.has(d.program) || focus.has(d.builder) || focus.has(d.receiver)) : [];
-    // One line per injector and receiver, carrying every injection between
-    // them.
+    // Every route a ticked crate is on: as the crate that supplies what
+    // it carries, as an injector or as a receiver. The whole route is
+    // drawn, through crates that are not ticked, from the crate that
+    // supplies what it carries to where it ends.
+    const touches = (r) => (r[0].builder && focus.has(r[0].builder)) ||
+      r.some((h) => focus.has(h.program) || focus.has(h.receiver));
+    const shown = focus.size ? routes().filter(touches) : [];
+    // One line per pair of crates, carrying every route between them: the
+    // supplier into the injector that uses its work, then each hop.
     const lines = new Map();
-    for (const d of shown) {
-      if (d.program === d.receiver || !visibleCrate(d.program) || !visibleCrate(d.receiver)) continue;
-      const key = `${d.program}>${d.receiver}`;
-      if (!lines.has(key)) lines.set(key, { program: d.program, receiver: d.receiver, all: [] });
-      lines.get(key).all.push(d);
+    const add = (from, to, route, step) => {
+      if (from === to || !visibleCrate(from) || !visibleCrate(to)) return;
+      const key = `${from}>${to}`;
+      if (!lines.has(key)) lines.set(key, { program: from, receiver: to, routes: [], supply: step === "supply" });
+      const line = lines.get(key);
+      if (!line.routes.includes(route)) line.routes.push(route);
+      if (step !== "supply") line.supply = false;
+    };
+    for (const r of shown) {
+      if (r[0].builder && r[0].builder !== r[0].program) add(r[0].builder, r[0].program, r, "supply");
+      for (const h of r) add(h.program, h.receiver, r, "hop");
     }
     // Labels keep off the boxes as well as off each other, so no crate's
     // name is covered.
@@ -917,17 +975,19 @@
       path.addEventListener("mousemove", tip);
       path.addEventListener("mouseleave", hideTip);
       layer.append(path);
-      // Labelled with the crates whose implementations do the work; the
-      // injector's own work and what it passes on are named as such.
-      // The injector's own work comes first, so a shortened label keeps it.
-      const suppliers = [
-        ...(line.all.some((d) => d.how === "own") ? ["its own work"] : []),
-        ...[...new Set(line.all.filter((d) => d.how === "injects" || d.how === "adapts").map((d) => d.builder))].sort(),
-        ...(line.all.some((d) => d.how === "passed") ? ["passed on"] : []),
-      ];
-      if (line.all.every((d) => d.how === "own")) path.classList.add("own-work");
-      const label = svg("text", { class: "delivery-label" + (line.all.every((d) => d.how === "own") ? " own-work" : "") });
-      label.textContent = shortLabel(suppliers);
+      // Labelled at every hop with what it carries and who supplies it, so
+      // nothing is only "passed on"; a supplier's line names the items the
+      // injector takes from it. The injector's own work comes first, so a
+      // shortened label keeps it.
+      const own = line.routes.filter(ownWork).map(carried);
+      const words = line.supply
+        ? line.routes.map((r) => r[0].supplierItem || r[0].item.split("::").pop())
+        : [...own, ...line.routes.filter((r) => !ownWork(r)).map(carried)];
+      const allOwn = !line.supply && line.routes.every(ownWork);
+      if (allOwn) path.classList.add("own-work");
+      if (line.supply) path.classList.add("supply");
+      const label = svg("text", { class: "delivery-label" + (allOwn ? " own-work" : ""), "data-from": line.program, "data-to": line.receiver });
+      label.textContent = shortLabel([...new Set(words)]);
       label.addEventListener("mousemove", tip);
       label.addEventListener("mouseleave", hideTip);
       labelLayer.append(label);
@@ -962,8 +1022,10 @@
     const tip = $("tip");
     tip.replaceChildren(...[
       el("strong", {}, `${line.program} ⋯ ${line.receiver}`),
-      el("div", { class: "muted" }, `what ${line.program} injects (not a dependency)`),
-      line.all.map(deliveryWords),
+      el("div", { class: "muted" }, line.supply
+        ? `${line.receiver} injects ${line.program}'s work (not a dependency)`
+        : `what ${line.program} injects (not a dependency), and where it goes`),
+      line.routes.map(routeWords),
     ].flat().filter(Boolean));
     tip.hidden = false;
     const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
@@ -984,7 +1046,7 @@
       return by;
     }
     for (const r of e.roles) {
-      const names = r.role === "implements"
+      const names = r.role === "implements" || r.role === "adapts"
         ? r.detail.map((d) => d.split(" implements ").pop())
         : r.detail;
       for (const n of names) if (!by.get(r.role).includes(n)) by.get(r.role).push(n);
@@ -1018,7 +1080,7 @@
       el("div", { class: "muted" }, DEP_WORDS[e.kind] || e.kind),
       [...by].filter(([, names]) => names.length).map(([role, names]) => el("div", { class: "tip-role" },
         el("span", { class: `role-key role-${role}` }), " ", el("strong", { class: `role-text-${role}` }, `${ROLE_SHORT[role]}: `),
-        el("span", { class: `role-text-${role}` }, shown(names)))),
+        el("span", { class: `role-text-${role}` }, role === "adapts" ? adapterWords(e) : shown(names)))),
       [...by].every(([, names]) => !names.length) ? el("div", { class: "empty" }, "no items named") : null,
       (e.test_items || []).length ? el("div", { class: "muted" }, `tests only: ${list(e.test_items)}`) : null,
       arrowDeliveries(e).map(deliveryWords),
@@ -1030,6 +1092,24 @@
     tip.style.top = `${Math.max(8, y)}px`;
   }
   function hideTip() { $("tip").hidden = true; }
+
+  // What each adapting type is, for an "adapted by" arrow from a trait's
+  // crate to the program or composition that meets it: an adapter over
+  // another crate's work, or the injector's own work with no other crate
+  // behind it, read from the routes that bring it to a slot taking that
+  // trait.
+  function adapterWords(e) {
+    const role = e.roles.find((r) => r.role === "adapts");
+    return role.detail.map((d, i) => {
+      const [type, trait] = d.split(" implements ");
+      const meets = (h) => h.slots.some((t) => slotTraits(h.receiver, t).includes(`${e.to}::${trait}`));
+      const route = routes().find((r) => r[0].program === e.from && r.some(meets));
+      const what = !route ? `${type}, an adapter,`
+        : ownWork(route) ? `its own work, ${type},`
+        : `${type}, an adapter over ${route[0].builder},`;
+      return [i ? "; " : "", `${what} meets ${trait}`];
+    });
+  }
 
   function edgeLabel(e) {
     const parts = [`${DEP_WORDS[e.kind] || e.kind} (Cargo's ${DEP_CARGO[e.kind] || e.kind})`];
@@ -1191,7 +1271,8 @@
         const by = flowsByRole(e);
         // The traits it implements are listed too, though the arrow's items
         // may not name them.
-        const listed = e.items.concat(by.get("implements").filter((t) => !e.items.includes(t)));
+        const traits = by.get("implements").concat(by.get("adapts"));
+        const listed = e.items.concat(traits.filter((t) => !e.items.includes(t)));
         const shown = listed;
         return el("li", {},
           el("button", { class: "crate-link", type: "button", onclick: () => select(e[end]) }, e[end]),
@@ -1400,7 +1481,7 @@
     return [
       el("h2", {}, "The workspace"),
       el("p", {}, `${graph.crates.length} packages and ${normal} dependencies between them that their code uses. `,
-        "Arrows are drawn by their role. A grey arrow runs from a crate to a crate that uses its items, and an amber one to a crate that builds its implementations to wire into a slot: from what is included to what includes it. A green arrow runs from a contract to a crate that implements it, since the implementer needs the contract to know what to build. Every arrow's head is on the crate that depends on the other. The panel's lists keep Cargo's sense: a crate includes what it depends on. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
+        "Arrows are drawn by their role. A grey arrow runs from a crate to a crate that uses its items, and an amber one to a crate that builds its implementations to wire into a slot: from what is included to what includes it. A green arrow runs from a contract to a crate that implements it, since the implementer needs the contract to know what to build. A dotted amber arrow runs from a crate to a program or other composition with a type of its own that meets that crate's trait: an adapter it injects, not an implementation. Every arrow's head is on the crate that depends on the other. The panel's lists keep Cargo's sense: a crate includes what it depends on. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
       el("ul", { class: "overview" }, concerns.layers.map((layer) =>
         el("li", {}, el("strong", {}, `${layer.title} (${counts.get(layer.id) || 0}). `), prose(layer.about)))),
       kindChecks(graph.kind_mismatches),
