@@ -266,7 +266,7 @@ as `{max_limit}`. After an intended change, run
   setting.
 - Rules return `RuleError` with a fixed code from `crates/kkt-api-agent/src/error.rs`.
   `unwrap` and `expect` are for tests only.
-- Logging happens only in side-effect and composition code (RUST.md 10). A
+- Logging happens only in side-effect and composition code (ARCHITECTURE.md 4.2.1). A
   logic crate that must log takes the shared log contract (`kkt-log`) as an
   injected dependency; it does not use `tracing` itself.
 - The program does no I/O itself (ARCHITECTURE.md 4.3.3). Files, the
