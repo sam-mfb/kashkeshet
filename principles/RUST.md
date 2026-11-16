@@ -23,9 +23,3 @@ This document says what [ARCHITECTURE.md](ARCHITECTURE.md) and [CODING.md](CODIN
 10. `cargo test`, `cargo clippy --all-targets -- -D warnings`, and `cargo fmt --check` MUST be clean before every commit and in CI.
 
 11. Unit tests sit beside the code they test. Integration tests live in `tests/`. A test of real components together is a named suite of its own that says what it is for, not an exception made inside another crate's tests.
-
-12. A crate may mix kinds in two cases. In both, the kinds are kept apart by a `real` feature that only programs turn on.
-
-12.1 A contract and its only implementation may share a crate. The implementation is behind `real`.
-
-12.2 A logic crate may hold the effect that carries out its plans. The effect is behind `real`.

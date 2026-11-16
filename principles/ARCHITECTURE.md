@@ -62,8 +62,6 @@ These principles are not an exhaustive list of best practices or responsible cod
 
 2.3.2 Modules that implement external contracts SHOULD be named accordingly, e.g., `vpn` and `vpn-tailscale`, where `vpn-tailscale` indicates it is an implementation of the `vpn` contract.
 
-2.3.2.1 If the contract and the implementation exist together in one module (see 3.2.1.2) a single module named `vpn` MAY be used.
-
 2.4 Contracts SHOULD NOT break with new released versions.
 
 2.4.1 New behaviors SHOULD be added to the system rather than replace old behavior.
@@ -95,8 +93,6 @@ These principles are not an exhaustive list of best practices or responsible cod
 3.2.1 In a shared contract model, both the target module and its dependency share a contract. The target module depends on the contract; the dependency implements the contract.
 
 3.2.1.1 For example, `app` might depend on a `vpn` module's contract that describes remote access functionality and `vpn-tailscale` implements that contract. In this way `app` remains unaware of the details of `vpn-tailscale`'s implementation and is indifferent as to changes that do not affect the `vpn` contract.
-
-3.2.1.2 A shared contract need not be provided by its own module. Whether it is provided by a contract module or mixed with its implementation is governed by 4.4.
 
 3.2.2 In an adapter model, the target module and its dependency do not explicitly share types. The target module declares what contract it needs; the dependency declares what contract it provides; adapter code adapts the one to the other.
 
@@ -160,6 +156,8 @@ These principles are not an exhaustive list of best practices or responsible cod
 
 3.8.3 Contract code MUST NOT provide effects, implementation-specific methods, or configured values.
 
+3.9 Only a composition module MAY depend directly on an effect module or on another composition module.
+
 ## Kinds
 
 4. A module's kind SHOULD be one, and only one, of the following: (1) logic, (2) effects, (3) composition, (4) contract.
@@ -173,6 +171,8 @@ These principles are not an exhaustive list of best practices or responsible cod
 4.2.1 The following things are examples of effects: throwing errors, reading time, obtaining randomness, logging.
 
 4.2.1.1 Returning an error is not an effect.
+
+4.2.2 Effect modules MAY include logic that is properly the concern of the effect.
 
 4.3 Composition unites logic and effects modules together.
 
@@ -190,11 +190,9 @@ These principles are not an exhaustive list of best practices or responsible cod
 
 4.3.4.3 Complex adapter logic SHOULD be provided via a separate logic module.
 
-4.4 Modules MAY mix kinds if that is idiomatic in the target language and the language keeps the kinds separate within the module.
+4.4 A contract module provides the contract in the shared contract model (see 3.2.1).
 
-4.4.1 Kinds are separate if a consumer can reach a contract without reaching its implementation, and logic can be built and tested without its effects.
-
-4.4.2 The question of whether mixing kinds is appropriate MUST be discussed with a human before it is done, and that decision MUST be recorded in a language-specific principle file.
+4.4.1 Contract modules MAY include logic as permitted by 3.8.
 
 ## Errors
 

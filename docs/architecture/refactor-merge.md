@@ -267,8 +267,8 @@ and removed `real`. So note 6's one-crate shape, and the note on logic and
 its effect above, no longer describe the code: a dependency with one
 implementation is either a contract crate and a named implementation, or a
 consumer-declared contract with an adapter in the program, the cost note 6
-describes. RUST.md's rule 12, on a crate that mixes kinds behind `real`,
-no longer has a crate it applies to. Sam is revising `principles/` himself.
+describes. Sam revised `principles/` to match on 2026-11-16: ARCHITECTURE.md
+no longer allows mixed kinds, and RUST.md's rule 12 is gone.
 
 ### Candidates to revisit (not decided)
 
