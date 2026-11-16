@@ -161,7 +161,7 @@ fn the_default_key_is_made_only_when_it_is_the_default_and_missing() {
 
 #[test]
 fn the_admin_name_file_is_written_beside_its_key_or_removed() {
-    let files = Memory::new();
+    let files = Memory::new().with_dir("/k");
     let key = Path::new("/k/admin-key");
     files.write_admin_name(key, Some("bound")).expect("written");
     assert_eq!(
@@ -176,4 +176,24 @@ fn the_admin_name_file_is_written_beside_its_key_or_removed() {
     files
         .write_admin_name(key, None)
         .expect("a missing one is fine");
+}
+
+#[test]
+fn the_stand_in_like_the_disk_writes_only_in_a_folder_that_was_made() {
+    let files = Memory::new();
+    let path = Path::new("/k/access-key");
+    let refused = files.write_key(path, "key", false).expect_err("no folder");
+    assert!(
+        refused.starts_with("could not write /k/access-key"),
+        "{refused}"
+    );
+    assert!(
+        files
+            .write_admin_name(Path::new("/k/admin-key"), Some("n"))
+            .is_err()
+    );
+    assert!(!files.exists(Path::new("/k")));
+    files.create_dir_all(Path::new("/k")).expect("made");
+    files.write_key(path, "key", false).expect("written");
+    assert!(files.exists(Path::new("/k")));
 }

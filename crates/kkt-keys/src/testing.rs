@@ -12,8 +12,9 @@ use std::path::{Path, PathBuf};
 pub const MIN_ACCESS_KEY_BYTES: usize = crate::MIN_ACCESS_KEY_BYTES;
 
 /// Key files in memory, for tests: each file's text and mode, the folders
-/// made, and a failure on cue. A path is a file only once written; a
-/// folder exists once made or once a file is written in it.
+/// made, and a failure on cue. As on disk, a file can be written only in a
+/// folder that was made (with `create_dir_all`, or by `with_file`); a
+/// folder exists once made, and a path is a file only once written.
 #[derive(Default)]
 pub struct Memory {
     files: RefCell<BTreeMap<PathBuf, File>>,
@@ -34,15 +35,27 @@ impl Memory {
         Memory::default()
     }
 
-    /// Puts a file at `path`, as if it were already there.
+    /// Puts a file at `path`, and its folder, as if they were already
+    /// there.
     pub fn with_file(self, path: impl Into<PathBuf>, text: &str) -> Memory {
+        let path = path.into();
+        if let Some(dir) = path.parent() {
+            self.make_dirs(dir);
+        }
         self.files.borrow_mut().insert(
-            path.into(),
+            path,
             File {
                 text: text.to_owned(),
                 mode: None,
             },
         );
+        self
+    }
+
+    /// Puts the folder `dir` and its parents, as if they were already
+    /// there.
+    pub fn with_dir(self, dir: impl Into<PathBuf>) -> Memory {
+        self.make_dirs(&dir.into());
         self
     }
 
@@ -68,6 +81,23 @@ impl Memory {
             Err(io::Error::new(io::ErrorKind::PermissionDenied, "refused"))
         } else {
             Ok(())
+        }
+    }
+
+    fn make_dirs(&self, dir: &Path) {
+        let mut dirs = self.dirs.borrow_mut();
+        for ancestor in dir.ancestors().filter(|d| !d.as_os_str().is_empty()) {
+            dirs.insert(ancestor.to_owned());
+        }
+    }
+
+    /// Refuses a file whose folder was never made, as the system does.
+    fn in_made_folder(&self, path: &Path) -> io::Result<()> {
+        match path.parent().filter(|d| !d.as_os_str().is_empty()) {
+            Some(dir) if !self.dirs.borrow().contains(dir) => {
+                Err(io::Error::new(io::ErrorKind::NotFound, "no such folder"))
+            }
+            _ => Ok(()),
         }
     }
 
@@ -108,10 +138,7 @@ impl KeyFiles for Memory {
     fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
         self.check(dir)
             .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
-        let mut dirs = self.dirs.borrow_mut();
-        for ancestor in dir.ancestors().filter(|d| !d.as_os_str().is_empty()) {
-            dirs.insert(ancestor.to_owned());
-        }
+        self.make_dirs(dir);
         Ok(())
     }
 
@@ -122,8 +149,9 @@ impl KeyFiles for Memory {
                 .remove(staged)
                 .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such file"))
         });
-        let file =
-            moved.map_err(|e| format!("could not move the key to {}: {e}", path.display()))?;
+        let file = moved
+            .and_then(|file| self.in_made_folder(path).map(|()| file))
+            .map_err(|e| format!("could not move the key to {}: {e}", path.display()))?;
         self.files.borrow_mut().insert(path.to_owned(), file);
         Ok(())
     }
@@ -139,6 +167,7 @@ impl KeyFiles for Memory {
 
     fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String> {
         self.check(path)
+            .and_then(|()| self.in_made_folder(path))
             .map_err(|e| format!("could not write {}: {e}", path.display()))?;
         if !force && self.files.borrow().contains_key(path) {
             return Err(format!(
@@ -155,6 +184,7 @@ impl KeyFiles for Memory {
         self.check(&names)?;
         match bound {
             Some(text) => {
+                self.in_made_folder(&names)?;
                 self.put(&names, text, None);
                 Ok(())
             }

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "0e28cc9",
+ "commit": "8cadc2c",
  "crates": [
   {
    "bins": [
@@ -6767,6 +6767,7 @@ window.KKT_GRAPH = {
       "file",
       "has_dir",
       "new",
+      "with_dir",
       "with_file"
      ],
      "path": "testing::Memory"
