@@ -34,7 +34,7 @@ kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite" }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os" }
 kkt-events = { path = "../../crates/kkt-events" }
 kkt-files = { path = "../../crates/kkt-files" }
-kkt-mcp-formatter = { path = "../../crates/kkt-mcp-formatter" }
+kkt-result-format = { path = "../../crates/kkt-result-format" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
 kkt-mcp = { path = "../../crates/kkt-mcp" }
@@ -45,5 +45,5 @@ kkt-server = { path = "../../crates/kkt-server" }
 kkt-shutdown = { path = "../../crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os" }
 kkt-web = { path = "../../crates/kkt-web" }
-kkt-terminal-os = { path = "../../crates/kkt-terminal-os" }
+kkt-terminal = { path = "../../crates/kkt-terminal" }
 tokio.workspace = true

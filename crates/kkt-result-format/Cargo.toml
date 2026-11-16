@@ -1,5 +1,5 @@
 [package]
-name = "kkt-mcp-formatter"
+name = "kkt-result-format"
 description = "The MCP tools' results turned into text or JSON, within the response size cap"
 version.workspace = true
 edition.workspace = true

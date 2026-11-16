@@ -3,7 +3,7 @@
 //! which the program adapts to the Docker crate's `Browser`.
 
 use kkt_container::LoginLink;
-use kkt_terminal_os::BrowserLink;
+use kkt_terminal::BrowserLink;
 
 /// The terminal's login link supplied to Docker setup.
 pub struct TerminalLink(BrowserLink);

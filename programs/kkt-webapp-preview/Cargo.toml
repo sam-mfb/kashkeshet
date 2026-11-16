@@ -1,5 +1,5 @@
 [package]
-name = "kkt-web-preview"
+name = "kkt-webapp-preview"
 description = "The web page over simulated data, for working on the page; for development only, never released"
 version.workspace = true
 edition.workspace = true
@@ -8,7 +8,7 @@ repository.workspace = true
 publish = false
 
 [[bin]]
-name = "kkt-web-preview"
+name = "kkt-webapp-preview"
 path = "src/main.rs"
 
 # Never in a release: dist builds only the `kkt` program, and

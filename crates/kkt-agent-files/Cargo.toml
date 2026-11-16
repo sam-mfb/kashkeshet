@@ -1,5 +1,5 @@
 [package]
-name = "kkt-agent-files-os"
+name = "kkt-agent-files"
 description = "Agent credential files and kkt watch's state files on this machine"
 version.workspace = true
 edition.workspace = true

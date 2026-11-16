@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "0257441",
+ "commit": "ba63d45d",
  "crates": [
   {
    "bins": [
@@ -1937,7 +1937,7 @@ window.KKT_GRAPH = {
      "path": "watch_token"
     }
    ],
-   "lib": "kkt_agent_files_os",
+   "lib": "kkt_agent_files",
    "machine_work": {
     "src/lib.rs": [
      "env::var",
@@ -1959,8 +1959,8 @@ window.KKT_GRAPH = {
      "Path::metadata"
     ]
    },
-   "name": "kkt-agent-files-os",
-   "path": "crates/kkt-agent-files-os",
+   "name": "kkt-agent-files",
+   "path": "crates/kkt-agent-files",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7579,7 +7579,7 @@ window.KKT_GRAPH = {
      "at": "endpoint",
      "holds": [
       {
-       "crate": "kkt-mcp-formatter",
+       "crate": "kkt-result-format",
        "traits": [
         {
          "crate": "kkt-clock",
@@ -7619,7 +7619,7 @@ window.KKT_GRAPH = {
      "at": "mcp_admin::endpoint",
      "holds": [
       {
-       "crate": "kkt-mcp-formatter",
+       "crate": "kkt-result-format",
        "traits": [
         {
          "crate": "kkt-clock",
@@ -7676,127 +7676,6 @@ window.KKT_GRAPH = {
     "serde_json",
     "tokio",
     "tokio-util"
-   ]
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "The MCP tools' results, turned into small responses: plain-text lines by default, JSON on request.",
-   "dev_only": false,
-   "features": {},
-   "holders": [
-    {
-     "holds": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ],
-     "type": "Formatter"
-    }
-   ],
-   "implements": [],
-   "items": [
-    {
-     "doc": "How a response is written.",
-     "kind": "enum",
-     "path": "Format",
-     "variants": [
-      "Text",
-      "Json"
-     ]
-    },
-    {
-     "doc": "",
-     "kind": "struct",
-     "methods": [
-      "activity",
-      "admin_agent",
-      "admin_channel",
-      "admin_channels",
-      "admin_waited",
-      "agents",
-      "channel",
-      "channels",
-      "description",
-      "error",
-      "lane",
-      "lane_taking",
-      "lanes",
-      "members",
-      "memory_entry",
-      "memory_list",
-      "memory_saved",
-      "message",
-      "new",
-      "note",
-      "ok",
-      "read",
-      "reclaimed",
-      "registration",
-      "search",
-      "sent",
-      "server_announcement",
-      "stale_agents",
-      "stale_hidden",
-      "takeable_lanes",
-      "waited",
-      "whoami",
-      "with_server_announcement"
-     ],
-     "path": "Formatter"
-    },
-    {
-     "doc": "Smallest allowed `max_response_bytes`.",
-     "kind": "const",
-     "path": "MIN_RESPONSE_BYTES"
-    },
-    {
-     "doc": "An invalid formatter setting and the owner's check that found it.",
-     "fields": [
-      "name",
-      "check",
-      "rule"
-     ],
-     "kind": "struct",
-     "path": "Problem"
-    },
-    {
-     "doc": "The formatter's own settings.",
-     "fields": [
-      "max_response_bytes"
-     ],
-     "kind": "struct",
-     "methods": [
-      "problems",
-      "record_lines"
-     ],
-     "path": "Settings"
-    }
-   ],
-   "lib": "kkt_mcp_formatter",
-   "machine_work": {},
-   "name": "kkt-mcp-formatter",
-   "path": "crates/kkt-mcp-formatter",
-   "released_program": false,
-   "slots": [
-    {
-     "at": "Formatter::new",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    }
-   ],
-   "testing_third_party": [],
-   "third_party": [
-    "serde_json",
-    "thiserror"
    ]
   },
   {
@@ -11570,6 +11449,127 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
+   "crate_doc": "The MCP tools' results, turned into small responses: plain-text lines by default, JSON on request.",
+   "dev_only": false,
+   "features": {},
+   "holders": [
+    {
+     "holds": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      }
+     ],
+     "type": "Formatter"
+    }
+   ],
+   "implements": [],
+   "items": [
+    {
+     "doc": "How a response is written.",
+     "kind": "enum",
+     "path": "Format",
+     "variants": [
+      "Text",
+      "Json"
+     ]
+    },
+    {
+     "doc": "",
+     "kind": "struct",
+     "methods": [
+      "activity",
+      "admin_agent",
+      "admin_channel",
+      "admin_channels",
+      "admin_waited",
+      "agents",
+      "channel",
+      "channels",
+      "description",
+      "error",
+      "lane",
+      "lane_taking",
+      "lanes",
+      "members",
+      "memory_entry",
+      "memory_list",
+      "memory_saved",
+      "message",
+      "new",
+      "note",
+      "ok",
+      "read",
+      "reclaimed",
+      "registration",
+      "search",
+      "sent",
+      "server_announcement",
+      "stale_agents",
+      "stale_hidden",
+      "takeable_lanes",
+      "waited",
+      "whoami",
+      "with_server_announcement"
+     ],
+     "path": "Formatter"
+    },
+    {
+     "doc": "Smallest allowed `max_response_bytes`.",
+     "kind": "const",
+     "path": "MIN_RESPONSE_BYTES"
+    },
+    {
+     "doc": "An invalid formatter setting and the owner's check that found it.",
+     "fields": [
+      "name",
+      "check",
+      "rule"
+     ],
+     "kind": "struct",
+     "path": "Problem"
+    },
+    {
+     "doc": "The formatter's own settings.",
+     "fields": [
+      "max_response_bytes"
+     ],
+     "kind": "struct",
+     "methods": [
+      "problems",
+      "record_lines"
+     ],
+     "path": "Settings"
+    }
+   ],
+   "lib": "kkt_result_format",
+   "machine_work": {},
+   "name": "kkt-result-format",
+   "path": "crates/kkt-result-format",
+   "released_program": false,
+   "slots": [
+    {
+     "at": "Formatter::new",
+     "kind": "param",
+     "name": "clock",
+     "traits": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      }
+     ]
+    }
+   ],
+   "testing_third_party": [],
+   "third_party": [
+    "serde_json",
+    "thiserror"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
    "crate_doc": "A file on disk that rolls over at a size and prunes old copies by age (`RotatingFile`, opened by `open_log_file` after checking its `LogPolicy`).",
    "dev_only": false,
    "features": {},
@@ -14759,7 +14759,7 @@ window.KKT_GRAPH = {
      "path": "end_on_closed_output"
     }
    ],
-   "lib": "kkt_terminal_os",
+   "lib": "kkt_terminal",
    "machine_work": {
     "src/browser.rs": [
      "io::stdin"
@@ -14772,8 +14772,8 @@ window.KKT_GRAPH = {
      "print!"
     ]
    },
-   "name": "kkt-terminal-os",
-   "path": "crates/kkt-terminal-os",
+   "name": "kkt-terminal",
+   "path": "crates/kkt-terminal",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -16494,7 +16494,7 @@ window.KKT_GRAPH = {
   },
   {
    "bins": [
-    "kkt-web-preview"
+    "kkt-webapp-preview"
    ],
    "builds": [],
    "contracts": [],
@@ -16506,8 +16506,8 @@ window.KKT_GRAPH = {
    "items": [],
    "lib": null,
    "machine_work": {},
-   "name": "kkt-web-preview",
-   "path": "programs/kkt-web-preview",
+   "name": "kkt-webapp-preview",
+   "path": "programs/kkt-webapp-preview",
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -16691,7 +16691,7 @@ window.KKT_GRAPH = {
    "test_items": [
     "make_private"
    ],
-   "to": "kkt-agent-files-os"
+   "to": "kkt-agent-files"
   },
   {
    "features": [],
@@ -17480,29 +17480,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Settings"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Settings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "MIN_RESPONSE_BYTES"
-   ],
-   "to": "kkt-mcp-formatter"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
     "AdminName",
     "NamePack",
     "PACKS"
@@ -17705,6 +17682,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-remote-access-tailscale"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "Settings"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Settings"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "MIN_RESPONSE_BYTES"
+   ],
+   "to": "kkt-result-format"
   },
   {
    "features": [],
@@ -18061,7 +18061,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-terminal-os"
+   "to": "kkt-terminal"
   },
   {
    "features": [],
@@ -18788,7 +18788,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-agent-files-os",
+   "from": "kkt-agent-files",
    "items": [
     "Dir"
    ],
@@ -20785,27 +20785,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-fake-product",
    "items": [
-    "Settings"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Settings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-mcp-formatter"
-  },
-  {
-   "features": [],
-   "from": "kkt-fake-product",
-   "items": [
     "AdminName",
     "MAX_ADMIN_NAME_CHARS"
    ],
@@ -20824,6 +20803,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-names"
+  },
+  {
+   "features": [],
+   "from": "kkt-fake-product",
+   "items": [
+    "Settings"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Settings"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-result-format"
   },
   {
    "features": [],
@@ -20956,7 +20956,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-terminal-os"
+   "to": "kkt-terminal"
   },
   {
    "features": [],
@@ -21783,27 +21783,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
-    "Settings"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Settings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-mcp-formatter"
-  },
-  {
-   "features": [],
-   "from": "kkt-keymode",
-   "items": [
     "NamePack",
     "PACKS"
    ],
@@ -21847,6 +21826,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-provenance"
+  },
+  {
+   "features": [],
+   "from": "kkt-keymode",
+   "items": [
+    "Settings"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Settings"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-result-format"
   },
   {
    "features": [],
@@ -21977,7 +21977,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-terminal-os"
+   "to": "kkt-terminal"
   },
   {
    "features": [],
@@ -22355,31 +22355,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-mcp",
    "items": [
-    "Format",
-    "Formatter"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Format",
-      "Formatter"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Settings"
-   ],
-   "to": "kkt-mcp-formatter"
-  },
-  {
-   "features": [],
-   "from": "kkt-mcp",
-   "items": [
     "MAX_HANDLE_CHARS",
     "MAX_LANE_NAME_CHARS",
     "MAX_MEMORY_NAME_CHARS"
@@ -22403,6 +22378,31 @@ window.KKT_GRAPH = {
     "MAX_ADMIN_NAME_CHARS"
    ],
    "to": "kkt-names"
+  },
+  {
+   "features": [],
+   "from": "kkt-mcp",
+   "items": [
+    "Format",
+    "Formatter"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Format",
+      "Formatter"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Settings"
+   ],
+   "to": "kkt-result-format"
   },
   {
    "features": [],
@@ -22588,231 +22588,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-toml"
-  },
-  {
-   "features": [],
-   "from": "kkt-mcp-formatter",
-   "items": [
-    "AdminChannel"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AdminChannel"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-api-admin"
-  },
-  {
-   "features": [],
-   "from": "kkt-mcp-formatter",
-   "items": [
-    "ActivityRow",
-    "AgentInfo",
-    "AgentLane",
-    "AgentView",
-    "ChannelInfo",
-    "ChannelNote",
-    "ChannelRef",
-    "HeldLane",
-    "Lane",
-    "LaneChange",
-    "LaneTaking",
-    "Members",
-    "MemoryEntry",
-    "MemoryList",
-    "MemorySaved",
-    "MemorySummary",
-    "Message",
-    "MessagePage",
-    "Page",
-    "Position",
-    "Reclaimed",
-    "RecordedClient",
-    "Registration",
-    "RuleError",
-    "SearchHit",
-    "ServerAnnouncement",
-    "WaitResult",
-    "channel_cursor"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "ActivityRow",
-      "AgentInfo",
-      "AgentLane",
-      "AgentView",
-      "ChannelInfo",
-      "ChannelNote",
-      "ChannelRef",
-      "HeldLane",
-      "Lane",
-      "LaneChange",
-      "LaneTaking",
-      "Members",
-      "MemoryEntry",
-      "MemoryList",
-      "MemorySaved",
-      "MemorySummary",
-      "Message",
-      "MessagePage",
-      "Page",
-      "Position",
-      "Reclaimed",
-      "RecordedClient",
-      "Registration",
-      "RuleError",
-      "SearchHit",
-      "ServerAnnouncement",
-      "WaitResult",
-      "channel_cursor"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "LaneRetired",
-    "LaneVersion"
-   ],
-   "to": "kkt-api-agent"
-  },
-  {
-   "features": [],
-   "from": "kkt-mcp-formatter",
-   "items": [
-    "KeptReason",
-    "StaleAgent",
-    "StaleHidden"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "KeptReason",
-      "StaleAgent",
-      "StaleHidden"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Kept"
-   ],
-   "to": "kkt-api-operator"
-  },
-  {
-   "features": [],
-   "from": "kkt-mcp-formatter",
-   "items": [
-    "Clock",
-    "Time",
-    "from_text"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Clock",
-      "Time",
-      "from_text"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "testing::FixedClock"
-   ],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-mcp-formatter",
-   "items": [
-    "Time",
-    "testing::FixedClock"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Time"
-     ],
-     "role": "uses"
-    },
-    {
-     "detail": [
-      "testing::FixedClock"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [],
-   "from": "kkt-mcp-formatter",
-   "items": [
-    "MAX_ADMIN_NAME_CHARS"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "MAX_ADMIN_NAME_CHARS"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-mcp-formatter",
-   "items": [
-    "Settings"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Settings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-rules"
   },
   {
    "features": [],
@@ -23680,6 +23455,231 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-result-format",
+   "items": [
+    "AdminChannel"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AdminChannel"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-api-admin"
+  },
+  {
+   "features": [],
+   "from": "kkt-result-format",
+   "items": [
+    "ActivityRow",
+    "AgentInfo",
+    "AgentLane",
+    "AgentView",
+    "ChannelInfo",
+    "ChannelNote",
+    "ChannelRef",
+    "HeldLane",
+    "Lane",
+    "LaneChange",
+    "LaneTaking",
+    "Members",
+    "MemoryEntry",
+    "MemoryList",
+    "MemorySaved",
+    "MemorySummary",
+    "Message",
+    "MessagePage",
+    "Page",
+    "Position",
+    "Reclaimed",
+    "RecordedClient",
+    "Registration",
+    "RuleError",
+    "SearchHit",
+    "ServerAnnouncement",
+    "WaitResult",
+    "channel_cursor"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ActivityRow",
+      "AgentInfo",
+      "AgentLane",
+      "AgentView",
+      "ChannelInfo",
+      "ChannelNote",
+      "ChannelRef",
+      "HeldLane",
+      "Lane",
+      "LaneChange",
+      "LaneTaking",
+      "Members",
+      "MemoryEntry",
+      "MemoryList",
+      "MemorySaved",
+      "MemorySummary",
+      "Message",
+      "MessagePage",
+      "Page",
+      "Position",
+      "Reclaimed",
+      "RecordedClient",
+      "Registration",
+      "RuleError",
+      "SearchHit",
+      "ServerAnnouncement",
+      "WaitResult",
+      "channel_cursor"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "LaneRetired",
+    "LaneVersion"
+   ],
+   "to": "kkt-api-agent"
+  },
+  {
+   "features": [],
+   "from": "kkt-result-format",
+   "items": [
+    "KeptReason",
+    "StaleAgent",
+    "StaleHidden"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "KeptReason",
+      "StaleAgent",
+      "StaleHidden"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "Kept"
+   ],
+   "to": "kkt-api-operator"
+  },
+  {
+   "features": [],
+   "from": "kkt-result-format",
+   "items": [
+    "Clock",
+    "Time",
+    "from_text"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock",
+      "Time",
+      "from_text"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "testing::FixedClock"
+   ],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-result-format",
+   "items": [
+    "Time",
+    "testing::FixedClock"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Time"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::FixedClock"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-result-format",
+   "items": [
+    "MAX_ADMIN_NAME_CHARS"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "MAX_ADMIN_NAME_CHARS"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-names"
+  },
+  {
+   "features": [],
+   "from": "kkt-result-format",
+   "items": [
+    "Settings"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Settings"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-rules"
+  },
+  {
+   "features": [],
    "from": "kkt-rolling-file",
    "items": [
     "Clock",
@@ -24515,34 +24515,6 @@ window.KKT_GRAPH = {
   {
    "features": [],
    "from": "kkt-server",
-   "items": [
-    "Formatter",
-    "Settings"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Settings"
-     ],
-     "role": "uses"
-    },
-    {
-     "detail": [
-      "Formatter"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-mcp-formatter"
-  },
-  {
-   "features": [],
-   "from": "kkt-server",
    "items": [],
    "kind": "normal",
    "optional": false,
@@ -24584,6 +24556,34 @@ window.KKT_GRAPH = {
     "ServerRun"
    ],
    "to": "kkt-provenance"
+  },
+  {
+   "features": [],
+   "from": "kkt-server",
+   "items": [
+    "Formatter",
+    "Settings"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Settings"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "Formatter"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-result-format"
   },
   {
    "features": [],
@@ -26029,7 +26029,7 @@ window.KKT_GRAPH = {
    "features": [
     "testing"
    ],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "Preview",
     "PreviewGate",
@@ -26060,7 +26060,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "SystemClock"
    ],
@@ -26083,7 +26083,7 @@ window.KKT_GRAPH = {
    "features": [
     "testing"
    ],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "SeededEntropy"
    ],
@@ -26104,7 +26104,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "OsEntropy"
    ],
@@ -26125,7 +26125,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "AllowedHosts"
    ],
@@ -26146,7 +26146,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "KeyFiles"
    ],
@@ -26167,7 +26167,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "OsKeyFiles"
    ],
@@ -26188,7 +26188,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "listen"
    ],
@@ -26209,7 +26209,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "Level",
     "Log"
@@ -26232,7 +26232,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "LogLevel",
     "TracingLog",
@@ -26262,7 +26262,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "page"
    ],
@@ -26283,7 +26283,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "Shutdown"
    ],
@@ -26304,7 +26304,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "StopSignals"
    ],
@@ -26325,7 +26325,7 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-web-preview",
+   "from": "kkt-webapp-preview",
    "items": [
     "MAX_WEB_PAGE_MESSAGES",
     "PageLimits",
@@ -26425,7 +26425,7 @@ window.KKT_CONCERNS = {
    "layer": "assembly",
    "must_not": "Depend on an effect crate (an `-os` crate or a contract's implementation) or on another assembly; touch the machine except through `AgentParts`."
   },
-  "kkt-agent-files-os": {
+  "kkt-agent-files": {
    "concern": "Agent credential files and kkt watch's state files on this machine: reserving and saving a token or recovery code, reading a token file under the caller's credential-file rule, file locks, claiming a state file.",
    "kind": "effect",
    "layer": "clients",
@@ -26645,12 +26645,6 @@ window.KKT_CONCERNS = {
    "layer": "surfaces",
    "must_not": "Touch the database except through the rules, hold tool text in Rust, or decide who a caller is except through `Identify`."
   },
-  "kkt-mcp-formatter": {
-   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
-   "kind": "logic",
-   "layer": "surfaces",
-   "must_not": "Decide permissions or read the database."
-  },
   "kkt-names": {
    "concern": "Avatars' handles, channel IDs, the name packs, and the operator and admin names with their rules. It draws randomness through kkt-entropy's `Entropy`, with its own character sets.",
    "kind": "logic",
@@ -26686,6 +26680,12 @@ window.KKT_CONCERNS = {
    "kind": "effect",
    "layer": "operations",
    "must_not": "Change login, DNS preferences, unrelated sharing, config or the service."
+  },
+  "kkt-result-format": {
+   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
+   "kind": "logic",
+   "layer": "surfaces",
+   "must_not": "Decide permissions or read the database."
   },
   "kkt-rolling-file": {
    "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). It does not implement kkt-log.",
@@ -26759,7 +26759,7 @@ window.KKT_CONCERNS = {
    "layer": "foundations",
    "must_not": "Let a tokio signal type out of the crate."
   },
-  "kkt-terminal-os": {
+  "kkt-terminal": {
    "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the terminal's half of the login link: showing it, and the Enter key.",
    "kind": "effect",
    "layer": "operations",
@@ -26783,7 +26783,7 @@ window.KKT_CONCERNS = {
    "layer": "surfaces",
    "must_not": "Depend on the rules, the store, admission or identity: kkt-server adapts them to its gate."
   },
-  "kkt-web-preview": {
+  "kkt-webapp-preview": {
    "concern": "The web page over simulated data, for working on the page: kkt-web's page over kkt-api-sim's simulated application and stand-in gate, with the real clock, randomness and stop signals, served alone through kkt-server and kkt-listen. Its flags and their checks (`SettingError`). Dev-only, never released.",
    "kind": "composition",
    "layer": "programs",
@@ -27141,7 +27141,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-mcp",
-     "impl": "kkt-mcp-formatter::Formatter",
+     "impl": "kkt-result-format::Formatter",
      "to": [
       {
        "at": "endpoint",
@@ -27224,9 +27224,9 @@ window.KKT_ASSEMBLY = {
       "kkt-agent-commands::watch::run",
       "kkt-agent-commands::connect::run",
       "kkt-clock-system::SystemClock",
-      "kkt-terminal-os::Terminal"
+      "kkt-terminal::Terminal"
      ],
-     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files-os' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
      "title": "The agents' commands"
     },
     {
@@ -27460,8 +27460,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and watch",
-     "own": "CredentialFiles, applying kkt-setup's credential-file rule to kkt-agent-files-os' credential and state files",
-     "supplier": "kkt-agent-files-os",
+     "own": "CredentialFiles, applying kkt-setup's credential-file rule to kkt-agent-files' credential and state files",
+     "supplier": "kkt-agent-files",
      "supplier_item": "CredentialFile",
      "to": [
       {
@@ -27512,8 +27512,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt watch",
-     "own": "WatchOutput, adapting kkt-terminal-os::Terminal",
-     "supplier": "kkt-terminal-os",
+     "own": "WatchOutput, adapting kkt-terminal::Terminal",
+     "supplier": "kkt-terminal",
      "supplier_item": "Terminal",
      "to": [
       {
@@ -27525,8 +27525,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and connect",
-     "own": "TerminalOutput, adapting kkt-terminal-os::Terminal",
-     "supplier": "kkt-terminal-os",
+     "own": "TerminalOutput, adapting kkt-terminal::Terminal",
+     "supplier": "kkt-terminal",
      "supplier_item": "Terminal",
      "to": [
       {
@@ -27754,8 +27754,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeOutput, adapting kkt-terminal-os",
-     "supplier": "kkt-terminal-os",
+     "own": "NativeOutput, adapting kkt-terminal",
+     "supplier": "kkt-terminal",
      "supplier_item": "Terminal",
      "to": [
       {
@@ -27789,7 +27789,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "TerminalLink, adapting the terminal's half of the login link",
-     "supplier": "kkt-terminal-os",
+     "supplier": "kkt-terminal",
      "supplier_item": "BrowserLink",
      "to": [
       {
@@ -27801,7 +27801,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "TerminalLines, adapting the terminal",
-     "supplier": "kkt-terminal-os",
+     "supplier": "kkt-terminal",
      "supplier_item": "Terminal",
      "to": [
       {
@@ -28011,7 +28011,7 @@ window.KKT_ASSEMBLY = {
       "kkt-files::Files",
       "kkt-config-file::parse_file",
       "kkt-rules::Settings",
-      "kkt-mcp-formatter::Settings",
+      "kkt-result-format::Settings",
       "kkt-web::Settings",
       "kkt-backup::Settings",
       "kkt-admission::server_keys::check"
@@ -28168,7 +28168,7 @@ window.KKT_ASSEMBLY = {
     }
    ]
   },
-  "kkt-web-preview": {
+  "kkt-webapp-preview": {
    "inferred": false,
    "steps": [
     {

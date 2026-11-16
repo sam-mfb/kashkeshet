@@ -72,7 +72,7 @@
    "must_not": "Be released.",
    "kind": "composition"
   },
-  "kkt-web-preview": {
+  "kkt-webapp-preview": {
    "layer": "programs",
    "concern": "The web page over simulated data, for working on the page: kkt-web's page over kkt-api-sim's simulated application and stand-in gate, with the real clock, randomness and stop signals, served alone through kkt-server and kkt-listen. Its flags and their checks (`SettingError`). Dev-only, never released.",
    "must_not": "Be released.",
@@ -152,7 +152,7 @@
    "must_not": "Reach the database except through its storage module's `Reader` and `Writer`, or format output.",
    "kind": "logic"
   },
-  "kkt-mcp-formatter": {
+  "kkt-result-format": {
    "layer": "surfaces",
    "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
    "must_not": "Decide permissions or read the database.",
@@ -302,7 +302,7 @@
    "must_not": "Depend on an effect crate (an `-os` crate or a contract's implementation) or on another assembly; touch the machine except through `AgentParts`.",
    "kind": "composition"
   },
-  "kkt-agent-files-os": {
+  "kkt-agent-files": {
    "layer": "clients",
    "kind": "effect",
    "concern": "Agent credential files and kkt watch's state files on this machine: reserving and saving a token or recovery code, reading a token file under the caller's credential-file rule, file locks, claiming a state file.",
@@ -388,7 +388,7 @@
    "concern": "Structured log events: their level, target, message and named values.",
    "must_not": "Know a logging library or perform I/O."
   },
-  "kkt-terminal-os": {
+  "kkt-terminal": {
    "layer": "operations",
    "kind": "effect",
    "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the terminal's half of the login link: showing it, and the Enter key.",

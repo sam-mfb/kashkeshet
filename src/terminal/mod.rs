@@ -2,7 +2,7 @@
 
 pub mod browser_login;
 
-use kkt_terminal_os::Terminal;
+use kkt_terminal::Terminal;
 
 /// The terminal supplied to setup's question rules.
 pub(crate) struct TerminalLines;

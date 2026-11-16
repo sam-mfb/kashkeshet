@@ -1,5 +1,5 @@
 [package]
-name = "kkt-terminal-os"
+name = "kkt-terminal"
 description = "The process terminal: command output, errors and closed-pipe behavior"
 version.workspace = true
 edition.workspace = true
