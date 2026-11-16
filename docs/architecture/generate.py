@@ -317,8 +317,10 @@ def signatures(doc, items, ids):
             traits, types = type_refs(ty, bounds)
             takes.append({"at": owner, "name": name, "kind": "param", "traits": traits, "types": types})
         if f["sig"].get("output") is not None:
-            _, types = type_refs(f["sig"]["output"], bounds)
-            entry = {"at": owner, "types": types}
+            # The traits it gives back count too: a factory may return
+            # another crate's contract as a trait object (`-> Arc<dyn Backend>`).
+            out_traits, types = type_refs(f["sig"]["output"], bounds)
+            entry = {"at": owner, "types": types + out_traits}
             # `-> Self` (or `Result<Self, _>`) gives back the owner type.
             if '"generic": "Self"' in json.dumps(f["sig"]["output"]):
                 entry["self"] = True
@@ -808,6 +810,28 @@ def render(commit, crates, edges, concerns, assembly, kind_mismatches, rule_brea
 ROLE_ORDER = ["implements", "adapts", "uses", "wires"]
 
 
+def factory_gives(own, types, package_of_lib, public, holders, implementing):
+    """What a public function of a type in crate `own` gives back that makes
+    the type a factory: another crate's holder or implementation (a struct
+    or enum), or another crate's contract itself, as a trait object
+    (`SqlitePlace::open` gives an `Arc<dyn kkt_db::Backend>`). `types` are
+    the (library, name, kind) the function's return type names."""
+    out = []
+    for lib, name, kind in types:
+        pkg = package_of_lib.get(lib)
+        if not pkg or pkg == own:
+            continue
+        if kind == "trait":
+            path = public(pkg, name, {"trait"})
+            if path:
+                out.append({"crate": pkg, "type": path})
+            continue
+        path = public(pkg, name, {"struct", "enum"})
+        if path and ((pkg, path) in holders or (pkg, path) in implementing):
+            out.append({"crate": pkg, "type": path})
+    return out
+
+
 def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
     """Adds to each crate the contracts it defines and implements and the
     slots it takes, and to each arrow its roles. Everything here comes from
@@ -938,17 +962,14 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
             # not build it (`Db` and its `Database`).
             if (c["name"], owner_type) in holders:
                 continue
-            for lib, name, kind in entry["types"]:
-                pkg = package_of_lib.get(lib)
-                path = public(pkg, name, {"struct", "enum"}) if pkg else None
-                if pkg and pkg != c["name"] and (path and ((pkg, path) in holders or (pkg, path) in implementing)):
-                    made = factories.setdefault((c["name"], owner_type), [])
-                    if {"crate": pkg, "type": path} not in made:
-                        made.append({"crate": pkg, "type": path})
+            for gives in factory_gives(c["name"], entry["types"], package_of_lib, public, holders, implementing):
+                made = factories.setdefault((c["name"], owner_type), [])
+                if gives not in made:
+                    made.append(gives)
     for c in crates:
         del c["_gives"]
         # Its public types that build another crate's implementation or
-        # holder (`SqlitePlace` gives a `kkt_db::Database`).
+        # holder or contract (`SqlitePlace` gives a `dyn kkt_db::Backend`).
         c["builds"] = [{"type": t, "gives": made} for (pkg, t), made in sorted(factories.items())
                        if pkg == c["name"]]
         c["holders"] = [{"type": t, "holds": held} for (pkg, t), held in sorted(holders.items())
