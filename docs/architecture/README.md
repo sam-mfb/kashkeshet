@@ -122,9 +122,10 @@ Every crate is one kind: phase 16 removed the merged kinds of phases 13 and
 on the page and does not change the kind. `check-programs.py` fails CI on the
 composition check (machine work in its own code).
 
-Test code is everything under `#[cfg(test)]`, or under a condition that
-holds only for tests or the crate's own `testing` feature, which only tests
-turn on (RUST.md 6): a module, a function, a `use` or a field. What a crate
+Test code is everything under a condition that can hold only for tests or
+the crate's own `testing` feature, which only tests turn on (RUST.md 6):
+`test`, `feature = "testing"`, an `all(...)` with such a part (`all(test,
+unix)`), or an `any(...)` whose every part is such. It is a module, a function, a `use` or a field. What a crate
 names only there belongs to its test arrow ("Used by tests"), never to a
 role of its code arrow (Sam, msg 3714): kkt-web builds kkt-log's
 `CapturedLog` only for its tests, so its code arrow to kkt-log only uses. Likewise a dependency only the crate's own `testing` feature turns on

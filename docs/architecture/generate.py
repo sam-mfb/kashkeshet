@@ -414,12 +414,27 @@ def test_module_files(package_dir, files):
 
 
 def behind_testing(cfg):
-    """Whether a `#[cfg(...)]` condition holds only for tests or the crate's
-    `testing` feature: `feature = "testing"`, alone or with `test` in an
-    `any`."""
+    """Whether a `#[cfg(...)]` condition can hold only for tests or the
+    crate's own `testing` feature, which only tests turn on: `test` or
+    `feature = "testing"`; an `all(...)` with such a part (`all(test,
+    unix)`); an `any(...)` whose every part is such."""
     cfg = re.sub(r"\s+", "", cfg)
-    testing = 'feature="testing"'
-    return cfg in (testing, f"any({testing},test)", f"any(test,{testing})")
+    if cfg in ("test", 'feature="testing"'):
+        return True
+    for op in ("all", "any"):
+        if cfg.startswith(op + "(") and cfg.endswith(")"):
+            parts, depth, last = [], 0, len(op) + 1
+            for i, ch in enumerate(cfg[last:-1], start=last):
+                depth += {"(": 1, ")": -1}.get(ch, 0)
+                if ch == "," and depth == 0:
+                    parts.append(cfg[last:i])
+                    last = i + 1
+            parts.append(cfg[last:-1])
+            parts = [x for x in parts if x]
+            if not parts:
+                return False
+            return any(map(behind_testing, parts)) if op == "all" else all(map(behind_testing, parts))
+    return False
 
 
 def testing_module_files(package_dir, files):
@@ -495,7 +510,7 @@ def split_test_modules(text):
             depth += {"(": 1, ")": -1}.get(text[i], 0)
             i += 1
         cond = text[cond_start:i - 1]
-        if re.sub(r"\s+", "", cond) != "test" and not behind_testing(cond):
+        if not behind_testing(cond):
             continue
         end = item_end(text, text.index("]", i - 1) + 1)
         normal.append(text[pos:match.start()])

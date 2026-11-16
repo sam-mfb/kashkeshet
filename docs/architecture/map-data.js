@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "8597a9bd",
+ "commit": "21f81e56",
  "crates": [
   {
    "bins": [
@@ -4388,11 +4388,8 @@ window.KKT_GRAPH = {
      "env::current_dir",
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
-     "fs::canonicalize",
      "fs::create_dir_all",
-     "fs::metadata",
      "fs::read_to_string",
-     "fs::set_permissions",
      "fs::write",
      "os::unix::fs",
      "os::unix::fs::OpenOptionsExt",
@@ -20055,17 +20052,13 @@ window.KKT_GRAPH = {
   {
    "features": [],
    "from": "kkt-container-docker",
-   "items": [
-    "Dir"
-   ],
+   "items": [],
    "kind": "dev",
    "optional": false,
    "role": "uses",
    "roles": [
     {
-     "detail": [
-      "Dir"
-     ],
+     "detail": [],
      "role": "uses"
     }
    ],

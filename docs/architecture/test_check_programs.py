@@ -173,9 +173,11 @@ class StandIns(unittest.TestCase):
     or `testing` bring: a stand-in's work is test support's."""
 
     def test_the_conditions_that_hold_only_for_tests_or_testing(self):
-        for cfg in ['feature = "testing"', 'any(test, feature = "testing")', 'any(feature = "testing", test)']:
+        # A bare `test` holds only for tests too (#583): its modules were
+        # already test code, and now its single items are as well.
+        for cfg in ['test', 'feature = "testing"', 'any(test, feature = "testing")', 'any(feature = "testing", test)']:
             self.assertTrue(generate.behind_testing(cfg), cfg)
-        for cfg in ['test', 'unix', 'not(feature = "testing")', 'any(unix, feature = "testing")']:
+        for cfg in ['unix', 'not(feature = "testing")', 'any(unix, feature = "testing")']:
             self.assertFalse(generate.behind_testing(cfg), cfg)
 
     def test_modules_behind_testing_and_what_they_declare(self):
@@ -334,6 +336,17 @@ mod tests {
             self.assertIn(kept, normal)
         # The struct and the impl still close.
         self.assertEqual(normal.count("{"), normal.count("}"))
+
+    def test_a_condition_that_holds_only_under_test_is_test_code(self):
+        for cond in ("test", 'feature = "testing"', "all(test, unix)", 'all(unix, any(test, feature = "testing"))',
+                     'any(test, feature = "testing")', "any(test, all(test, windows))"):
+            self.assertTrue(generate.behind_testing(cond), cond)
+        for cond in ("unix", "not(test)", "any(test, unix)", 'feature = "real"', "all(unix, windows)", "all()", "any()"):
+            self.assertFalse(generate.behind_testing(cond), cond)
+        normal, tests = self.split("#[cfg(all(test, unix))]\nmod tests {\n    use kkt_scratch::Dir;\n}\nfn real() {}\n")
+        self.assertIn("kkt_scratch", tests)
+        self.assertNotIn("kkt_scratch", normal)
+        self.assertIn("fn real", normal)
 
     def test_other_conditions_stay_real_code(self):
         text = """#[cfg(unix)]
