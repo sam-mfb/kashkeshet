@@ -36,7 +36,7 @@ Where each part of the map comes from:
   items, so an impl by a private type counts; the page names such a type
   only as "a type of its own". Slots are public parameters and fields
   typed as a workspace trait, or as a type that holds one. See the README.
-- Each crate's concern, its layer, its kind and what it must not do:
+- Each crate's concern, its layer and its kind:
   written by hand in `concerns.json`, from CLAUDE.md and the crates' own
   docs. `kinds.py` checks each kind against what the map shows of the
   crate, and the mismatches are reported on the page, not corrected.

@@ -2,9 +2,13 @@
 
 `index.html` is an interactive map of the workspace's crates: one box per
 package, in layers, with an arrow for each dependency between crates. Open it in a browser straight from the checkout; it loads nothing from
-the network. Click a crate to show it in the panel: its concern, what it
-must not do, the public items it provides, and which of them flow along each
-arrow. Clicking highlights nothing. Tick the checkbox on a box's top corner
+the network. Click a crate to show it in the panel: its concern, the
+public items it provides, and which of them flow along each arrow. Each of
+the panel's lists is a section with a count, which the viewer opens and
+closes: short ones (five entries or fewer) start open, long ones closed,
+and an empty one is not shown. The page keeps each viewer's choice per
+section in the browser's storage, and works the same without it. The panel
+says no "must not": a crate is described by what it does (Sam, msg 3582). Clicking highlights nothing. Tick the checkbox on a box's top corner
 to light up that crate's arrows, neighbours and delivery lines; several
 ticked crates light up together, and the panel lists them with a button to
 clear them. With nothing ticked, every arrow is faded. Ticks and the panel's
@@ -46,15 +50,15 @@ its tallest group.
 It shows surfaces and flows only: public items, their documentation's
 first sentence, public fields, methods and variants, and what a feature adds
 to them. It never shows private items, private module paths or function
-bodies. A crate's "must not" appears only where CLAUDE.md states one.
+bodies.
 
 ## What the page shows
 
 The page shows the code as it is, and only that (Sam, 2026-11-15: an
 observation tool, not a planning tool). `generate.py` builds it from the
 code into `map-data.js`; regenerate it after a change to crates,
-dependencies or public items. Apart from each crate's concern, kind and
-"must not" (`concerns.json`) and the programs' assembly (`assembly.json`),
+dependencies or public items. Apart from each crate's concern and kind
+(`concerns.json`) and the programs' assembly (`assembly.json`),
 both written by hand and checked against the code, everything on it is
 computed from the code.
 
@@ -74,7 +78,7 @@ end (`refactor-plan.md`, "Final scorecard"). `refactor-plan.md` and
 | File | What it is |
 |---|---|
 | `index.html`, `map.css`, `map.js` | The page |
-| `concerns.json` | Written by hand: the layers (where in the system a crate sits), the kinds (what sort of crate it is), and each crate's layer, kind, concern and what it must not do, from CLAUDE.md and the crates' docs |
+| `concerns.json` | Written by hand: the layers (where in the system a crate sits), the kinds (what sort of crate it is), and each crate's layer, kind and concern, from CLAUDE.md and the crates' docs |
 | `groups.py` | Which crates are drawn together, under which head; `generate.py` uses it |
 | `kinds.py` | The kinds, the checks a map's kinds must pass, and the rule checks; `generate.py` and `check-programs.py` use it |
 | `page-test.js` | A headless check of the page: a ticked crate's injection routes drawn whole, back to the suppliers and on to the final receiver, with no hop labelled only "passed on"; no composition's arrow drawn as an implementation, and an adapting arrow's tooltip naming the injector's own work or the crate its adapter is over; every arrow head on the crate that depends (an implementation arrow's on the implementer), no two heads overlapping, a program's delivery lines leaving it at points of their own, each group's partners beneath their head and outlined, every label inside its box, every arrow ending on its own crates' boxes, no band wider than five boxes on any line (a band wraps at five), no switch of map and no proposal loaded, the overview's kind and rule checks, ticks and the panel's crate kept by name through every filter, Reset view clearing them, no box moving when a filter changes, and only full-strength arrows answering the pointer. Needs Playwright with Chromium; from the repository's root, once: `npm install --prefix target/tmp/page-test playwright` and `target/tmp/page-test/node_modules/.bin/playwright install chromium`; then `NODE_PATH=target/tmp/page-test/node_modules node docs/architecture/page-test.js`. CI does not run it |

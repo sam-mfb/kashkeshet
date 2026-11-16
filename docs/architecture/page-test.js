@@ -336,6 +336,28 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("the program's own work is named as such", labels.some((l) => l.includes("its own work")), labels);
     await p.click(`${node("kkt-operate")} .pick-hit`, { force: true });
 
+    // The panel (msg 3582): no "Must not" and no notes on where things come
+    // from; each list is a section with a count that opens and closes,
+    // short ones open and long ones closed, and the viewer's choice kept.
+    await p.click(`${node("kkt-watch")} > rect`);
+    const quiet = await p.$eval("#panel", (x) => x.textContent);
+    check("the panel says no \"Must not\" and nothing on where things come from",
+      !/Must not/.test(quiet) && !/generated from|hand-written|Cargo's/.test(quiet), quiet.slice(0, 200));
+    const sectionState = () => p.$$eval("#panel details.section", (xs) => Object.fromEntries(xs.map((x) => [x.dataset.section, x.open])));
+    const before = await sectionState();
+    check("sections have counts; short ones start open", before.includes === true &&
+      (await p.$$eval("#panel details.section .count", (xs) => xs.every((x) => /^\(\d+\)$/.test(x.textContent)))), before);
+    await p.click("#panel details[data-section='includes'] > summary");
+    await p.click(`${node("kkt-hosts")} > rect`);
+    await p.click(`${node("kkt-watch")} > rect`);
+    check("a closed section stays closed for the next crate", (await sectionState()).includes === false, await sectionState());
+    await p.click("#panel details[data-section='includes'] > summary");
+    check("and opens again", (await sectionState()).includes === true);
+    await p.click(`${node("kashkeshet")} > rect`);
+    const long = await sectionState();
+    // Sections the viewer has not touched: kashkeshet implements dozens.
+    check("a long list starts closed", long.implements === false && long.items === false, long);
+
     // Clicking a box shows it in the panel and highlights nothing.
     await p.click(`${node("kkt-hosts")} > rect`);
     const panel = (await read()).panel;

@@ -109,9 +109,8 @@
   const edgeRoles = (e) => (e.kind === "normal" ? e.roles.map((r) => r.role) : ["uses"]);
   const shownRoles = (e) => edgeRoles(e).filter((r) => !state.hiddenRoles.has(r));
   const visibleEdge = (e) => state.kinds[e.kind] && visibleCrate(e.from) && visibleCrate(e.to) && shownRoles(e).length > 0;
-  // Cargo's dependency kinds, in plain words; the tooltips give Cargo's terms.
+  // Cargo's dependency kinds, in plain words.
   const DEP_WORDS = { normal: "used in code", dev: "used by tests", build: "used by build scripts" };
-  const DEP_CARGO = { normal: "dependencies", dev: "dev-dependencies", build: "build-dependencies" };
   // An item that exists only with the testing feature is always
   // listed, marked with what it is there for.
   const FEATURE_MARK = { testing: "tests only" };
@@ -308,9 +307,9 @@
         el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
       el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
-      el("span", { class: "key-item", title: "Generated: a crate that implements a contract of exactly one crate in its own layer is drawn beneath it" },
+      el("span", { class: "key-item", title: "A crate that implements a contract of exactly one crate in its own layer, drawn beneath it" },
         el("span", { class: "group-key" }), "Group: a crate, with the crates beneath it that implement its contract"),
-      el("span", { class: "muted" }, "Arrows run from the crate that is depended on to the crate that depends on it: from what is used, built, implemented or adapted to what uses, builds, implements or adapts it. Adapted by (yellow, short dashes, open round head): a program or other composition has a type of its own that meets the tail crate's trait, and injects it; an adapter, not an implementation of a contract. Their ends are spread along each side of a box; where a side has too many to keep apart, several share one point and one head, the arrows of one role together. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role. Thin dotted amber line, for the highlighted crates: the whole route of each thing injected, from the crate that supplies it, through each crate that passes it on, to where it ends; each hop is labelled with what it carries and who supplies it (hover for the route; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Heads are on the crate that depends. Dashed: tests only. Dotted: build scripts only. Parallel lines: several roles. Where a side has too many arrows, several share one head. Amber dotted line, for ticked crates: an injection route, not a dependency. Thick outline: the crate in the panel. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -1089,7 +1088,7 @@
       .concat(names.length > 10 ? [`, +${names.length - 10}`] : []);
     tip.replaceChildren(...[
       el("strong", {}, `${drawnEnds(e)[0]} → ${drawnEnds(e)[1]}`),
-      el("div", { class: "muted" }, DEP_WORDS[e.kind] || e.kind),
+      e.kind === "normal" ? null : el("div", { class: "muted" }, DEP_WORDS[e.kind] || e.kind),
       [...by].filter(([, names]) => names.length).map(([role, names]) => el("div", { class: "tip-role" },
         el("span", { class: `role-key role-${role}` }), " ", el("strong", { class: `role-text-${role}` }, `${ROLE_SHORT[role]}: `),
         el("span", { class: `role-text-${role}` }, role === "adapts" ? adapterWords(e) : shown(names)))),
@@ -1124,7 +1123,7 @@
   }
 
   function edgeLabel(e) {
-    const parts = [`${DEP_WORDS[e.kind] || e.kind} (Cargo's ${DEP_CARGO[e.kind] || e.kind})`];
+    const parts = e.kind === "normal" ? [] : [DEP_WORDS[e.kind] || e.kind];
     if (e.features.length) parts.push(`turns on ${e.features.join(", ")}`);
     if (e.optional) parts.push("optional");
     if (e.target) parts.push(`only for ${e.target}`);
@@ -1182,9 +1181,8 @@
       selectionList(),
       el("div", { class: "muted mono" }, c.path),
       badges,
-      el("p", {}, prose(info.concern), " ", source("concerns")),
-      info.must_not ? el("p", { class: "must" }, el("strong", {}, "Must not: "), prose(info.must_not)) : null,
-      c.crate_doc ? el("p", { class: "muted" }, "From its docs: ", prose(c.crate_doc)) : null,
+      el("p", {}, prose(info.concern)),
+      c.crate_doc && c.crate_doc !== info.concern ? el("p", { class: "muted" }, prose(c.crate_doc)) : null,
       assembly.programs[c.name]
         ? el("p", {}, el("button", { class: "action", type: "button", onclick: () => showAssembly(c.name) },
           `Show how ${assembly.programs[c.name].title} is assembled`))
@@ -1192,21 +1190,17 @@
     ];
 
     const deps = graph.edges.filter((e) => e.from === c.name && state.kinds[e.kind]);
-    nodes.push(el("h3", { title: "The crates it depends on" }, `Includes (${deps.length}) `, source("code")), flowList(deps, "to"));
+    nodes.push(section("includes", "Includes", deps.length, () => flowList(deps, "to"), "The crates it depends on"));
     const users = graph.edges.filter((e) => e.to === c.name && state.kinds[e.kind]);
-    nodes.push(el("h3", { title: "The crates that depend on it" }, `Included in (${users.length}) `, source("code")), flowList(users, "from"));
+    nodes.push(section("included-in", "Included in", users.length, () => flowList(users, "from"), "The crates that depend on it"));
 
     nodes.push(...contractSections(c));
 
     const items = c.items;
-    nodes.push(el("h3", {}, `Provides (${items.length} public items) `, source("rustdoc")));
-    nodes.push(items.length ? itemList(items, focusItem, c) : el("p", { class: "empty" },
-      c.lib ? "No public items." : "A program: it has no library for others to use."));
-
-    if (c.third_party.length) {
-      nodes.push(el("h3", {}, "Third-party libraries it uses"),
-        el("p", { class: "mono" }, c.third_party.join(", ")));
-    }
+    // A section opens on the item search jumps to.
+    nodes.push(section("items", "Public items", items.length, () => itemList(items, focusItem, c), null, Boolean(focusItem)));
+    nodes.push(section("third-party", "Third-party libraries", c.third_party.length,
+      () => el("p", { class: "mono" }, c.third_party.join(", "))));
     panel.replaceChildren(...nodes.filter(Boolean));
     if (focusItem) {
       const target = panel.querySelector(`[data-item="${CSS.escape(focusItem)}"]`);
@@ -1216,18 +1210,31 @@
     }
   }
 
-  // A tag saying where a section's content comes from.
-  const SOURCES = {
-    rustdoc: [true, "generated from rustdoc"],
-    code: [true, "generated from cargo metadata and the code"],
-    assembly: [false, "hand-written (assembly.json)"],
-    concerns: [false, "hand-written (concerns.json)"],
-    inferred: [true, "inferred here from the generated data, by matching names"],
-    checks: [true, "computed by kinds.py from the code, with concerns.json's kinds"],
-  };
-  function source(which) {
-    const [generated, label] = SOURCES[which];
-    return el("span", { class: `source ${generated ? "generated" : "hand"}` }, label);
+  // A panel section the viewer opens and closes, with a count beside its
+  // heading. An empty section is not shown. It starts open when it is
+  // short (SECTION_OPEN_MAX entries or fewer) and closed when long; each
+  // viewer's choice is kept per section, in this browser only, and the
+  // page works the same without it. `body` is built only when shown.
+  const SECTION_OPEN_MAX = 5;
+  const SECTION_KEY = "kkt-map-section:";
+  function sectionChoice(id) {
+    try { return localStorage.getItem(SECTION_KEY + id); } catch (_) { return null; }
+  }
+  function keepSectionChoice(id, open) {
+    try { localStorage.setItem(SECTION_KEY + id, open ? "open" : "closed"); } catch (_) { /* no storage: not kept */ }
+  }
+  function section(id, title, count, body, about, forceOpen) {
+    if (!count) return null;
+    const choice = sectionChoice(id);
+    const open = forceOpen || (choice ? choice === "open" : count <= SECTION_OPEN_MAX);
+    const details = el("details", { class: "section", "data-section": id, ...(open ? { open: "" } : {}) },
+      el("summary", {}, el("h3", about ? { title: about } : {}, title, " ", el("span", { class: "count" }, `(${count})`))));
+    if (open) details.append(body());
+    details.addEventListener("toggle", () => {
+      keepSectionChoice(id, details.open);
+      if (details.open && details.children.length === 1) details.append(body());
+    });
+    return details;
   }
 
   const itemRef = (crate, path) => el("button", {
@@ -1237,43 +1244,31 @@
   // The crate's contracts: the traits it defines and who implements each,
   // the traits of other crates it implements, and its slots.
   function contractSections(c) {
-    const out = [];
-    out.push(el("h3", {}, `Contracts it defines (${c.contracts.length}) `, source("rustdoc")));
-    out.push(c.contracts.length
-      ? el("ul", { class: "flows" }, c.contracts.map((t) => el("li", {},
+    const foreign = c.implements.filter((i) => i.trait_crate !== c.name);
+    const builds = c.builds || [];
+    return [
+      section("contracts", "Contracts it defines", c.contracts.length, () => el("ul", { class: "flows" }, c.contracts.map((t) => el("li", {},
         el("code", {}, t.trait),
         el("div", { class: "chips" }, t.implementors.length
           ? t.implementors.map((i) => i.type ? itemRef(i.crate, i.type)
             : el("span", { class: "chip" }, `${i.crate}: a type of its own`))
-          : el("span", { class: "empty" }, "No public implementation in the workspace: callers bring their own, or tests do.")))))
-      : el("p", { class: "empty" }, "None: it defines no public trait."));
-
-    const foreign = c.implements.filter((i) => i.trait_crate !== c.name);
-    out.push(el("h3", {}, `Contracts it implements (${foreign.length}) `, source("rustdoc")));
-    const builds = c.builds || [];
-    out.push(foreign.length || builds.length
-      ? el("ul", { class: "flows" },
+          : el("span", { class: "empty" }, "no implementation in the workspace")))))),
+      section("implements", "Contracts it implements or builds", foreign.length + builds.length, () => el("ul", { class: "flows" },
         foreign.map((i) => el("li", {},
           i.type ? el("code", {}, i.type) : el("span", { class: "muted" }, "a type of its own (not public)"),
           " implements ", itemRef(i.trait_crate, i.trait))),
         builds.map((b) => el("li", {},
-          el("code", {}, b.type), " builds ", b.gives.map((g) => itemRef(g.crate, g.type)))))
-      : el("p", { class: "empty" }, "None of another crate's."));
-
-    out.push(el("h3", {}, `Slots it takes (${c.slots.length}) `, source("rustdoc")));
-    out.push(c.slots.length
-      ? el("ul", { class: "flows" }, c.slots.map((sl) => el("li", {},
+          el("code", {}, b.type), " builds ", b.gives.map((g) => itemRef(g.crate, g.type)))))),
+      section("slots", "Slots it takes", c.slots.length, () => el("ul", { class: "flows" }, c.slots.map((sl) => el("li", {},
         el("code", {}, `${sl.at}`), " ", el("span", { class: "muted" }, sl.kind === "field" ? "field" : "takes"), " ",
         el("code", {}, sl.name), ": ",
         sl.traits.map((t) => itemRef(t.crate, t.trait)),
         (sl.holds || []).map((h) => el("span", {}, itemRef(h.crate, h.type),
-          el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))))))
-      : el("p", { class: "empty" }, "None: nothing it takes is a contract to fill."));
-    return out;
+          el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))))))),
+    ];
   }
 
   function flowList(edges, end) {
-    if (!edges.length) return el("p", { class: "empty" }, "None, with the arrow kinds shown.");
     const items = new Map(graph.crates.map((c) => [c.name, new Map(c.items.map((i) => [i.path, i]))]));
     return el("ul", { class: "flows" }, edges
       .slice()
@@ -1297,9 +1292,7 @@
             : null,
           arrowDeliveries(e).length ? el("div", { class: "deliveries-words" }, arrowDeliveries(e).map(deliveryWords)) : null,
           shown.length ? null
-            : el("div", { class: "empty" }, e.kind === "normal"
-              ? "No item is named in the code. It may be used only through another crate's types, or in tests."
-              : "No item is named in the code; it may be here for the features it turns on."),
+            : el("div", { class: "empty" }, "no item named"),
         );
       }));
   }
@@ -1423,15 +1416,13 @@
       el("div", { class: "dialog-head" },
         el("h2", {}, `How ${flow.title} is assembled`),
         el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
-      el("p", { class: "muted" }, "The flow and what the program passes to which slot are written by hand, from the code; every item and slot they name is checked to exist when the map is generated. Where pairs are shown below them, folded, they are inferred by matching names."),
-      el("h3", {}, "The flow ", source("assembly")),
+      el("h3", {}, "The flow"),
       stepList(flow.steps),
-      flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
-      el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
-      el("p", { class: "muted" }, "Read from the program's code by hand: every implementation the program passes to a slot of the shared crates, for the server and each of its commands. When the map is generated, every implementation and slot named here is checked to exist."),
+      flow.also ? [el("h3", {}, "Also"), stepList(flow.also)] : null,
+      el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length})`),
       el("ul", { class: "flows" }, (flow.wiring || []).map((w) => el("li", {},
         w.impl ? ref(w.impl) : el("span", { class: "chip" }, `${program}: ${w.own || w.passes_on}`),
-        w.own && w.supplier === program ? el("span", { class: "muted" }, " (its own work, not another crate's implementation)") : null,
+        w.own && w.supplier === program ? el("span", { class: "muted" }, " (its own work)") : null,
         w.own && w.supplier !== program ? [el("span", { class: "muted" }, " adapting "),
           w.supplier_item ? ref(`${w.supplier}::${w.supplier_item}`) : el("span", { class: "muted" }, w.supplier)] : null,
         ` → ${w.crate}'s `,
@@ -1440,8 +1431,8 @@
         w.through_adapter ? el("div", { class: "muted" }, "through the program's adapter to ", w.through_adapter.join(" and ")) : null,
         w.note ? el("div", { class: "muted" }, w.note) : null))),
       flow.inferred === false ? null : el("details", { class: "inferred" },
-        el("summary", {}, `Pairs inferred by matching names (${pairs.length}) `, source("inferred")),
-        el("p", { class: "muted" }, "Each pair is a guess from names: the program builds the implementation (or has its own), names the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there; the list above is what the code passes."),
+        el("summary", {}, `Pairs guessed from names (${pairs.length})`),
+        el("p", { class: "muted" }, "What fits a slot by its types, not what the code passes there."),
       pairs.length
         ? el("ul", { class: "flows" }, pairs.map((f) => el("li", {},
           f.pick.type ? itemRefAt(f.pick.crate, f.pick.type, dialog)
@@ -1462,11 +1453,10 @@
   function kindChecks(mismatches) {
     const list = mismatches || [];
     return [
-      el("h3", {}, `Kind checks (${list.length} to look at) `, source("checks")),
+      el("h3", {}, `Kind checks (${list.length} to look at)`),
       list.length
         ? el("ul", {}, list.map((m) => el("li", {}, prose(m))))
         : el("p", { class: "muted" }, "Every kind fits what the map shows."),
-      el("p", { class: "muted" }, "Reported, not corrected: a contract that does more than compute on its own values (behaviour through an injected dependency, or wiring), a contract or logic crate that touches the machine, an effect crate that touches it nowhere the map can see, and a composition that does machine work itself."),
     ];
   }
 
@@ -1475,8 +1465,7 @@
   function ruleChecks(breaks) {
     const list = breaks || [];
     return [
-      el("h3", {}, `Rule checks (${list.length} broken) `, source("checks")),
-      el("p", { class: "muted" }, "Only programs depend on an effect crate, in code or in tests; only programs depend on a composition crate in code; and a crate implements another crate's trait only if that crate is a contract, unless it is a program, a composition or test support."),
+      el("h3", {}, `Rule checks (${list.length} broken)`),
       list.length
         ? el("ul", {}, list.map((b) => el("li", {}, prose(b))))
         : el("p", { class: "muted" }, "No rule is broken."),
@@ -1492,19 +1481,12 @@
     const normal = graph.edges.filter((e) => e.kind === "normal").length;
     return [
       el("h2", {}, "The workspace"),
-      el("p", {}, `${graph.crates.length} packages and ${normal} dependencies between them that their code uses. `,
-        "Arrows are drawn by their role. A grey arrow runs from a crate to a crate that uses its items, and an amber one to a crate that builds its implementations to wire into a slot: from what is included to what includes it. A green arrow runs from a contract to a crate that implements it, since the implementer needs the contract to know what to build. A dashed yellow arrow runs from a crate to a program or other composition with a type of its own that meets that crate's trait: an adapter it injects, not an implementation. Every arrow's head is on the crate that depends on the other. The panel's lists keep Cargo's sense: a crate includes what it depends on. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
+      el("p", {}, `${graph.crates.length} packages; ${normal} dependencies in code. Pick a crate for its concern, contracts, slots and public items, and what flows along each arrow.`),
       el("ul", { class: "overview" }, concerns.layers.map((layer) =>
         el("li", {}, el("strong", {}, `${layer.title} (${counts.get(layer.id) || 0}). `), prose(layer.about)))),
       kindChecks(graph.kind_mismatches),
       ruleChecks(graph.rule_breaks),
-      el("h3", {}, "Where this comes from"),
-      el("p", { class: "muted" },
-        "Crates and arrows: ", el("code", {}, "cargo metadata"), ". Public items: rustdoc's JSON of each library, with each feature on in turn. ",
-        "What flows along an arrow: the paths each crate's code names in the other, matched to its public items. ",
-        "Contracts, slots and arrow roles: rustdoc's JSON (trait impls, including private types' impls, named only as \"a type of its own\"; public signatures). ",
-        "Concerns, layers, kinds and the programs' assembly flows: written by hand; kinds.py checks each kind against the map, and the rules that rest on the kinds against the code. Each section on the page says which. Regenerate with ",
-        el("code", {}, "python3 docs/architecture/generate.py"), "."),
+      el("p", { class: "muted" }, "Regenerate with ", el("code", {}, "python3 docs/architecture/generate.py"), "; the README says where each part comes from."),
     ];
   }
 
@@ -1574,7 +1556,7 @@
 
   // ---- Controls ----
 
-  $("meta").textContent = `Generated from the code at commit ${graph.commit}.`;
+  $("meta").textContent = `At commit ${graph.commit}.`;
 
   $("search").addEventListener("input", (ev) => {
     state.query = ev.target.value.trim().toLowerCase();
