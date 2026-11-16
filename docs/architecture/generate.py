@@ -414,12 +414,27 @@ def test_module_files(package_dir, files):
 
 
 def behind_testing(cfg):
-    """Whether a `#[cfg(...)]` condition holds only for tests or the crate's
-    `testing` feature: `feature = "testing"`, alone or with `test` in an
-    `any`."""
+    """Whether a `#[cfg(...)]` condition can hold only for tests or the
+    crate's own `testing` feature, which only tests turn on: `test` or
+    `feature = "testing"`; an `all(...)` with such a part (`all(test,
+    unix)`); an `any(...)` whose every part is such."""
     cfg = re.sub(r"\s+", "", cfg)
-    testing = 'feature="testing"'
-    return cfg in (testing, f"any({testing},test)", f"any(test,{testing})")
+    if cfg in ("test", 'feature="testing"'):
+        return True
+    for op in ("all", "any"):
+        if cfg.startswith(op + "(") and cfg.endswith(")"):
+            parts, depth, last = [], 0, len(op) + 1
+            for i, ch in enumerate(cfg[last:-1], start=last):
+                depth += {"(": 1, ")": -1}.get(ch, 0)
+                if ch == "," and depth == 0:
+                    parts.append(cfg[last:i])
+                    last = i + 1
+            parts.append(cfg[last:-1])
+            parts = [x for x in parts if x]
+            if not parts:
+                return False
+            return any(map(behind_testing, parts)) if op == "all" else all(map(behind_testing, parts))
+    return False
 
 
 def testing_module_files(package_dir, files):
@@ -478,24 +493,63 @@ def file_kind(package_dir, path, test_files):
 
 
 def split_test_modules(text):
-    """`text` without its `#[cfg(test)]` modules, and those modules' text."""
+    """`text` without its test code, and that code's text. Test code is
+    every item under `#[cfg(test)]`, or under a condition that holds only
+    for tests or the crate's own `testing` feature (`behind_testing`),
+    which only tests turn on (RUST.md 6): a module, a function, a `use`, a
+    field. What a crate names only there belongs to its test arrow, never
+    to a role of its code arrow (Sam, msg 3714)."""
     normal, tests = [], []
     pos = 0
-    for match in re.finditer(r"#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{", text):
+    for match in re.finditer(r"#\[cfg\(", text):
         if match.start() < pos:
             continue
-        depth, i = 1, match.end()
+        cond_start = match.end()
+        depth, i = 1, cond_start
         while i < len(text) and depth:
-            if text[i] == "{":
-                depth += 1
-            elif text[i] == "}":
-                depth -= 1
+            depth += {"(": 1, ")": -1}.get(text[i], 0)
             i += 1
+        cond = text[cond_start:i - 1]
+        if not behind_testing(cond):
+            continue
+        end = item_end(text, text.index("]", i - 1) + 1)
         normal.append(text[pos:match.start()])
-        tests.append(text[match.start():i])
-        pos = i
+        tests.append(text[match.start():end])
+        pos = end
     normal.append(text[pos:])
     return "".join(normal), "".join(tests)
+
+
+def item_end(text, i):
+    """Where the item that starts at `i` (after its `#[cfg]`) ends: past
+    any further attributes, at its `;` or its field's `,`, or past its
+    closing brace; or before the brace that closes what holds it."""
+    depth = 0
+    while i < len(text):
+        ch = text[i]
+        if ch == "#" and depth == 0 and text.startswith("#[", i):
+            i = text.index("]", i) + 1
+            continue
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        elif ch == "<" and depth >= 0:
+            depth += 1
+        elif ch == ">" and text[i - 1] not in "-=" and depth > 0:
+            depth -= 1
+        elif ch == "{" and depth == 0:
+            braces, i = 1, i + 1
+            while i < len(text) and braces:
+                braces += {"{": 1, "}": -1}.get(text[i], 0)
+                i += 1
+            return i
+        elif ch == "}" and depth == 0:
+            return i
+        elif ch in ";," and depth == 0:
+            return i + 1
+        i += 1
+    return i
 
 
 def strip_comments(text):
@@ -657,13 +711,7 @@ def main():
         # code's, never a release's: it is recorded apart, so it does not
         # make the package an I/O crate (kinds.py).
         def testing_only(d):
-            if not d.get("optional"):
-                return False
-            key = d.get("rename") or d["name"]
-            on_by = [f for f, wants in p["features"].items()
-                     if any(w == f"dep:{key}" or w == key or w.startswith(f"{key}/")
-                            or w.startswith(f"{key}?/") for w in wants)]
-            return bool(on_by) and all(f == "testing" for f in on_by)
+            return testing_only_dependency(p["features"], d)
         normal_third_party = [d for d in p["dependencies"]
                               if d["name"] not in packages and d["kind"] is None]
         third_party = sorted({d["name"] for d in normal_third_party if not testing_only(d)})
@@ -697,6 +745,10 @@ def main():
         for path in files:
             text = strip_comments(path.read_text())
             kind = file_kind(package_dir, path, test_files)
+            # A module only tests or the crate's own `testing` feature
+            # bring is test code, all of it.
+            if kind == "normal" and path in stand_ins:
+                kind = "dev"
             if kind == "normal":
                 text, tests = split_test_modules(text)
                 texts["dev"] += tests
@@ -705,11 +757,23 @@ def main():
                     machine_work[str(path.relative_to(package_dir))] = work
             texts[kind] += text
         crate_of_name[name]["machine_work"] = machine_work
-        normal_deps = {d["name"] for d in p["dependencies"] if d["kind"] is None}
+        # A workspace dependency only the package's own `testing` feature
+        # turns on is a test dependency: it is drawn as a test arrow only,
+        # with no code arrow (Sam, msg 3716).
+        def kind_of_dep(d):
+            if d["kind"] is None and testing_only_dependency(p["features"], d):
+                return "dev"
+            return d["kind"] or "normal"
+        normal_deps = {d["name"] for d in p["dependencies"] if kind_of_dep(d) == "normal"}
+        seen = set()
         for dep in p["dependencies"]:
             if dep["name"] not in packages:
                 continue
-            kind = dep["kind"] or "normal"
+            kind = kind_of_dep(dep)
+            # The same crate as a dev-dependency too gives one test arrow.
+            if (dep["name"], kind) in seen:
+                continue
+            seen.add((dep["name"], kind))
             # A dev-dependency can only be used in test code, wherever that
             # sits (a `#[cfg(test)]` item outside a test module, too); its
             # arrow takes every use, unless the same crate is also a normal
@@ -808,6 +872,20 @@ def render(commit, crates, edges, concerns, assembly, kind_mismatches, rule_brea
 
 
 ROLE_ORDER = ["implements", "adapts", "uses", "wires"]
+
+
+def testing_only_dependency(features, dep):
+    """Whether a normal dependency is one only the package's own `testing`
+    feature turns on: optional, and enabled by `testing` and no other
+    feature. Only tests turn `testing` on (RUST.md 6), so it is a test
+    dependency: kkt-db's kkt-search, kept for its stand-ins."""
+    if not dep.get("optional"):
+        return False
+    key = dep.get("rename") or dep["name"]
+    on_by = [f for f, wants in features.items()
+             if any(w == f"dep:{key}" or w == key or w.startswith(f"{key}/")
+                    or w.startswith(f"{key}?/") for w in wants)]
+    return bool(on_by) and all(f == "testing" for f in on_by)
 
 
 def factory_gives(own, types, package_of_lib, public, holders, implementing):

@@ -308,6 +308,22 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("the supplier's hop is the arrow's one built-by stroke, solid, lit and labelled, and every dotted line starts at an injector",
       solid.lit && solid.fromIt === 0 && solid.notInjector.length === 0 && solid.label.some((l) => /TracingLog/.test(l)), solid);
 
+    // What a crate builds only for its tests is on its test arrow, never a
+    // role of its code arrow (msg 3714): kkt-web builds kkt-log's
+    // CapturedLog only behind `testing`.
+    await onBox("kkt-log", ".pick-hit");
+    const builtInCode = () => p.$$eval("path.edge[data-edge='kkt-web>kkt-log>normal'].role-wires", (x) => x.length);
+    const testArrow = () => p.$$eval("path.edge[data-edge='kkt-web>kkt-log>dev']", (x) => x.length);
+    const codeOnly = { wires: await builtInCode(), tests: await testArrow() };
+    await p.click("#arrows-button");
+    await p.click("#show-dev");
+    const withTests = { wires: await builtInCode(), tests: await testArrow() };
+    await p.click("#show-dev");
+    await p.keyboard.press("Escape");
+    await onBox("kkt-log", ".pick-hit");
+    check("a test-only build is on the test arrow, not a built-by stroke of the code arrow",
+      codeOnly.wires === 0 && codeOnly.tests === 0 && withTests.wires === 0 && withTests.tests > 0, { codeOnly, withTests });
+
     // An adapter's hop (msg 3706): kashkeshet wraps kkt-terminal's Terminal
     // in WatchOutput, so with kkt-watch ticked the arrow's used-by stroke is
     // the hop, lit in its own colour, not amber, and labelled.

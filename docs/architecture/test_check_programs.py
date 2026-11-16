@@ -173,9 +173,11 @@ class StandIns(unittest.TestCase):
     or `testing` bring: a stand-in's work is test support's."""
 
     def test_the_conditions_that_hold_only_for_tests_or_testing(self):
-        for cfg in ['feature = "testing"', 'any(test, feature = "testing")', 'any(feature = "testing", test)']:
+        # A bare `test` holds only for tests too (#583): its modules were
+        # already test code, and now its single items are as well.
+        for cfg in ['test', 'feature = "testing"', 'any(test, feature = "testing")', 'any(feature = "testing", test)']:
             self.assertTrue(generate.behind_testing(cfg), cfg)
-        for cfg in ['test', 'unix', 'not(feature = "testing")', 'any(unix, feature = "testing")']:
+        for cfg in ['unix', 'not(feature = "testing")', 'any(unix, feature = "testing")']:
             self.assertFalse(generate.behind_testing(cfg), cfg)
 
     def test_modules_behind_testing_and_what_they_declare(self):
@@ -293,6 +295,91 @@ class AssemblyWiring(unittest.TestCase):
     def test_an_entry_is_exactly_one_kind_of_injection(self):
         self.assertIn("needs one of impl, own or passes_on",
                       self.check([{"crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]}]))
+
+
+class TestCodeSplit(unittest.TestCase):
+    """generate.py's split of a file into its real code and its test code:
+    anything under #[cfg(test)] or the crate's own `testing` feature is test
+    code (msg 3714)."""
+
+    def split(self, text):
+        return generate.split_test_modules(text)
+
+    def test_testing_items_of_every_shape_go_to_the_tests(self):
+        text = """use kkt_log::{Log, Level};
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
+#[cfg(feature = "testing")]
+pub use store::testing;
+pub struct Db {
+    backend: Backend,
+    #[cfg(any(test, feature = "testing"))]
+    faults: Option<kkt_db::testing::FaultyBackend>,
+}
+impl Db {
+    #[cfg(any(test, feature = "testing"))]
+    pub fn recent(&self) -> Result<Vec<Message>, Error> {
+        kkt_log::testing::CapturedLog::new()
+    }
+    pub fn real(&self) -> Level { Level::Info }
+}
+#[cfg(test)]
+mod tests {
+    use kkt_clock::testing::FixedClock;
+}
+"""
+        normal, tests = self.split(text)
+        for gone in ("pub mod testing", "pub use store::testing", "FaultyBackend", "CapturedLog", "FixedClock"):
+            self.assertNotIn(gone, normal)
+            self.assertIn(gone, tests)
+        for kept in ("use kkt_log::{Log, Level};", "backend: Backend,", "pub fn real(&self) -> Level { Level::Info }", "pub struct Db {"):
+            self.assertIn(kept, normal)
+        # The struct and the impl still close.
+        self.assertEqual(normal.count("{"), normal.count("}"))
+
+    def test_a_condition_that_holds_only_under_test_is_test_code(self):
+        for cond in ("test", 'feature = "testing"', "all(test, unix)", 'all(unix, any(test, feature = "testing"))',
+                     'any(test, feature = "testing")', "any(test, all(test, windows))"):
+            self.assertTrue(generate.behind_testing(cond), cond)
+        for cond in ("unix", "not(test)", "any(test, unix)", 'feature = "real"', "all(unix, windows)", "all()", "any()"):
+            self.assertFalse(generate.behind_testing(cond), cond)
+        normal, tests = self.split("#[cfg(all(test, unix))]\nmod tests {\n    use kkt_scratch::Dir;\n}\nfn real() {}\n")
+        self.assertIn("kkt_scratch", tests)
+        self.assertNotIn("kkt_scratch", normal)
+        self.assertIn("fn real", normal)
+
+    def test_other_conditions_stay_real_code(self):
+        text = """#[cfg(unix)]
+fn on_unix() { std::fs::read("x"); }
+#[cfg(feature = "real")]
+mod real;
+"""
+        normal, tests = self.split(text)
+        self.assertEqual(tests, "")
+        self.assertIn("on_unix", normal)
+        self.assertIn("mod real;", normal)
+
+
+class TestingOnlyDependency(unittest.TestCase):
+    """A normal dependency that only the package's own `testing` feature
+    turns on is a test dependency (msg 3716)."""
+
+    FEATURES = {"testing": ["dep:kkt-search", "dep:rusqlite", "kkt-clock/testing"], "real": ["dep:tokio"],
+                "both": ["dep:kkt-names"], "more": ["dep:kkt-names"]}
+
+    def only(self, dep):
+        return generate.testing_only_dependency(self.FEATURES, dep)
+
+    def test_optional_and_turned_on_only_by_testing(self):
+        self.assertTrue(self.only({"name": "kkt-search", "optional": True}))
+
+    def test_not_optional_is_real_code(self):
+        # kkt-clock is a plain dependency whose own testing feature is asked for.
+        self.assertFalse(self.only({"name": "kkt-clock", "optional": False}))
+
+    def test_turned_on_by_another_feature_is_real_code(self):
+        self.assertFalse(self.only({"name": "tokio", "optional": True}))
+        self.assertFalse(self.only({"name": "kkt-names", "optional": True}))
 
 
 class FactoryGives(unittest.TestCase):
