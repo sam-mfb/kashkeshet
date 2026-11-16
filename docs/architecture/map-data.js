@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "be57d61d",
+ "commit": "8597a9bd",
  "crates": [
   {
    "bins": [
@@ -20076,34 +20076,13 @@ window.KKT_GRAPH = {
   {
    "features": [],
    "from": "kkt-db",
-   "items": [],
-   "kind": "normal",
-   "optional": true,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "excerpt",
-    "matches",
-    "terms"
-   ],
-   "to": "kkt-search"
-  },
-  {
-   "features": [],
-   "from": "kkt-db",
    "items": [
     "excerpt",
     "matches",
     "terms"
    ],
    "kind": "dev",
-   "optional": false,
+   "optional": true,
    "role": "uses",
    "roles": [
     {

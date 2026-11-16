@@ -347,6 +347,28 @@ mod real;
         self.assertIn("mod real;", normal)
 
 
+class TestingOnlyDependency(unittest.TestCase):
+    """A normal dependency that only the package's own `testing` feature
+    turns on is a test dependency (msg 3716)."""
+
+    FEATURES = {"testing": ["dep:kkt-search", "dep:rusqlite", "kkt-clock/testing"], "real": ["dep:tokio"],
+                "both": ["dep:kkt-names"], "more": ["dep:kkt-names"]}
+
+    def only(self, dep):
+        return generate.testing_only_dependency(self.FEATURES, dep)
+
+    def test_optional_and_turned_on_only_by_testing(self):
+        self.assertTrue(self.only({"name": "kkt-search", "optional": True}))
+
+    def test_not_optional_is_real_code(self):
+        # kkt-clock is a plain dependency whose own testing feature is asked for.
+        self.assertFalse(self.only({"name": "kkt-clock", "optional": False}))
+
+    def test_turned_on_by_another_feature_is_real_code(self):
+        self.assertFalse(self.only({"name": "tokio", "optional": True}))
+        self.assertFalse(self.only({"name": "kkt-names", "optional": True}))
+
+
 class FactoryGives(unittest.TestCase):
     """generate.py's rule for what makes a type a factory: a public function
     that gives back another crate's holder, implementation or contract."""

@@ -696,13 +696,7 @@ def main():
         # code's, never a release's: it is recorded apart, so it does not
         # make the package an I/O crate (kinds.py).
         def testing_only(d):
-            if not d.get("optional"):
-                return False
-            key = d.get("rename") or d["name"]
-            on_by = [f for f, wants in p["features"].items()
-                     if any(w == f"dep:{key}" or w == key or w.startswith(f"{key}/")
-                            or w.startswith(f"{key}?/") for w in wants)]
-            return bool(on_by) and all(f == "testing" for f in on_by)
+            return testing_only_dependency(p["features"], d)
         normal_third_party = [d for d in p["dependencies"]
                               if d["name"] not in packages and d["kind"] is None]
         third_party = sorted({d["name"] for d in normal_third_party if not testing_only(d)})
@@ -748,11 +742,23 @@ def main():
                     machine_work[str(path.relative_to(package_dir))] = work
             texts[kind] += text
         crate_of_name[name]["machine_work"] = machine_work
-        normal_deps = {d["name"] for d in p["dependencies"] if d["kind"] is None}
+        # A workspace dependency only the package's own `testing` feature
+        # turns on is a test dependency: it is drawn as a test arrow only,
+        # with no code arrow (Sam, msg 3716).
+        def kind_of_dep(d):
+            if d["kind"] is None and testing_only_dependency(p["features"], d):
+                return "dev"
+            return d["kind"] or "normal"
+        normal_deps = {d["name"] for d in p["dependencies"] if kind_of_dep(d) == "normal"}
+        seen = set()
         for dep in p["dependencies"]:
             if dep["name"] not in packages:
                 continue
-            kind = dep["kind"] or "normal"
+            kind = kind_of_dep(dep)
+            # The same crate as a dev-dependency too gives one test arrow.
+            if (dep["name"], kind) in seen:
+                continue
+            seen.add((dep["name"], kind))
             # A dev-dependency can only be used in test code, wherever that
             # sits (a `#[cfg(test)]` item outside a test module, too); its
             # arrow takes every use, unless the same crate is also a normal
@@ -851,6 +857,20 @@ def render(commit, crates, edges, concerns, assembly, kind_mismatches, rule_brea
 
 
 ROLE_ORDER = ["implements", "adapts", "uses", "wires"]
+
+
+def testing_only_dependency(features, dep):
+    """Whether a normal dependency is one only the package's own `testing`
+    feature turns on: optional, and enabled by `testing` and no other
+    feature. Only tests turn `testing` on (RUST.md 6), so it is a test
+    dependency: kkt-db's kkt-search, kept for its stand-ins."""
+    if not dep.get("optional"):
+        return False
+    key = dep.get("rename") or dep["name"]
+    on_by = [f for f, wants in features.items()
+             if any(w == f"dep:{key}" or w == key or w.startswith(f"{key}/")
+                    or w.startswith(f"{key}?/") for w in wants)]
+    return bool(on_by) and all(f == "testing" for f in on_by)
 
 
 def factory_gives(own, types, package_of_lib, public, holders, implementing):
