@@ -171,6 +171,20 @@ mod tests {
     #[test]
     fn a_failure_on_cue_fails_both_operations() {
         let backups = Memory::new().failing("disk full");
+        let contents = Contents {
+            database: Path::new("/d/kashkeshet.db"),
+            config: None,
+            access_key: None,
+            web_key: None,
+            admin_key: None,
+            admin_name: None,
+        };
+        let layout = layout(at("2026-11-16T10:00:00Z"), "1.0.0", &contents);
+        assert_eq!(
+            backups.write(Path::new("/b"), &layout),
+            Err("disk full".to_owned())
+        );
+        assert!(backups.names(Path::new("/b")).is_empty());
         assert_eq!(
             backups.prune(Path::new("/b"), 1),
             Err("disk full".to_owned())
