@@ -25,13 +25,13 @@ use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_events::Events;
 use kkt_identity_keymode::KeyMode;
+use kkt_keys::AccessKey;
+use kkt_keys::{KeyFiles as _, KeyText, SelectedKeys};
+use kkt_keys_os::OsKeyFiles;
 use kkt_log_tracing::LogLevel;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
-use kkt_server_keys::AccessKey;
-use kkt_server_keys::{KeyFiles as _, KeyText, SelectedKeys};
-use kkt_server_keys_os::OsKeyFiles;
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use kkt_terminal_os::Terminal;
@@ -288,14 +288,11 @@ fn settings(args: &Args) -> Result<Settings, String> {
     let (web_key, admin_key) = match &access_key {
         AccessKey::None => (AccessKey::None, None),
         AccessKey::File(path) | AccessKey::Default(path) => {
-            let web = kkt_server_keys::web_key_path(path);
+            let web = kkt_keys::web_key_path(path);
             if &web == path {
                 return Err(invalid("access_key_file", "must not name the web key file"));
             }
-            (
-                AccessKey::Default(web),
-                kkt_server_keys::admin_key_path(path),
-            )
+            (AccessKey::Default(web), kkt_keys::admin_key_path(path))
         }
     };
     let defaults = kkt_rules::Settings::DEFAULT;

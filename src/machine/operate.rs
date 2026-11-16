@@ -4,9 +4,9 @@
 
 use super::connection::ConnectionReads;
 use super::settings::{self, DefaultDb, Report, ServeArgs, ServeOptions};
+use kkt_keys::AccessKey;
 use kkt_machine::{Env, Platform};
 use kkt_operate::{BackupWriter, Config, Databases, OperateParts, Output, ServeFacts, SetupFiles};
-use kkt_server_keys::AccessKey;
 use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -84,7 +84,7 @@ impl<'a, D> NativeOperate<'a, D> {
             serve: &self.serve,
             service_defaults: &self.service_defaults,
             setup_files: &NativeSetupFiles,
-            key_files: &kkt_server_keys_os::OsKeyFiles,
+            key_files: &kkt_keys_os::OsKeyFiles,
             entropy: &kkt_entropy_os::OsEntropy,
             database: &NativeDatabases,
             backups: &NativeBackups,

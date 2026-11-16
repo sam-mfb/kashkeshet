@@ -8,11 +8,11 @@ use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
 use kkt_config_file::Config;
 use kkt_config_file_os as config_file_os;
+use kkt_keys::AccessKey;
 use kkt_log_tracing::LogLevel;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_server::{AppConfig, CheckedSettings};
-use kkt_server_keys::AccessKey;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -102,7 +102,7 @@ pub(crate) fn resolve(
 /// default, in kkt's config directory. `None` without a home.
 pub(crate) fn default_access_key(env: &Env) -> Option<PathBuf> {
     kkt_config_file::config_dir(env.config_home().as_deref())
-        .map(|dir| kkt_server_keys::access_key_file(&dir))
+        .map(|dir| kkt_keys::access_key_file(&dir))
 }
 
 /// The address `kkt serve` would listen on with the default config file.
@@ -354,7 +354,7 @@ impl BadSetting for kkt_hosts::SettingError {
     }
 }
 
-impl BadSetting for kkt_server_keys::SettingError {
+impl BadSetting for kkt_keys::SettingError {
     fn setting(&self) -> &'static str {
         self.name
     }

@@ -153,7 +153,7 @@ pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     pub setup_files: &'a dyn SetupFiles,
     /// Private key files: the server's, and the client key copies setup
     /// writes.
-    pub key_files: &'a dyn kkt_server_keys::KeyFiles,
+    pub key_files: &'a dyn kkt_keys::KeyFiles,
     /// Where new keys are drawn from.
     pub entropy: &'a dyn kkt_entropy::Entropy,
     pub database: &'a dyn Databases,

@@ -5,7 +5,7 @@
 //! writing private key files, with the reads and writes made of those
 //! steps. Who a key lets in is kkt-admission's.
 //!
-//! kkt-server-keys-os implements [`KeyFiles`] on the files on disk.
+//! kkt-keys-os implements [`KeyFiles`] on the files on disk.
 
 mod admin_name;
 mod files;

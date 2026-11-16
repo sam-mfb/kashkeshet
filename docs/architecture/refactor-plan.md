@@ -2136,6 +2136,37 @@ kkt-server's tests use neither effect crate (msg 3505). kkt-keymode's run
 record lost its log-file fields, which were always empty: it writes no
 log file, and its record is unchanged.
 
+### After phase 16: kkt-keys, a contract crate (Sam, 2026-11-16)
+
+**Sam's decision** (msgs 3506, 3511, 3513, 3515 and 3516, from
+sage-cardinal). A crate named `x-something` implements `x`'s contract,
+and nothing else is named that way. kkt-server-keys-os implemented
+nothing: it read and wrote key files in kkt-server-keys' terms, and the
+program adapted it. So kkt-server-keys becomes a contract crate
+(ARCHITECTURE.md 3.8), in one pull request with two commits:
+- kkt-server-keys declares `KeyFiles`, reading and writing private key
+  files: the server's, and the client key copies setup writes. Its stand-in
+  is `testing::Memory`. kkt-server-keys-os implements it (`OsKeyFiles`).
+  kkt-operate takes the shared trait in place of its own, and the
+  program's adapter that only forwarded goes. kkt-admission,
+  kkt-agent-commands and kkt-setup keep their own, narrower traits;
+  kkt-probe is left alone.
+- `generate` goes: callers draw a key from the alphabet and length the
+  contract gives. The key files' names, places and mode stay, in one
+  module: Sam ruled that fixed values are not "configured values" under
+  3.8.3.
+- Second commit: kkt-server-keys is renamed kkt-keys and kkt-server-keys-os
+  kkt-keys-os. They are not kkt-server's, and they cover client key copies
+  too.
+
+**What it did, against this decision.** The plan sent in step 1 had
+`SelectedKeys` with methods that take `&dyn KeyFiles`. kinds.py counts a
+public function or method that takes a trait as behaviour through a
+dependency, which a contract may not have, so `SelectedKeys` is a plain
+value and its reads are the trait's provided methods, as are the key
+writes (`new_key`, `make_default_key`). kkt-operate gained an `entropy`
+part, since the program's adapter no longer draws its keys.
+
 ## Order at a glance
 
 ```

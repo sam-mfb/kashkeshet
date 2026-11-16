@@ -532,7 +532,7 @@ mod tests {
         ) -> Result<kkt_setup::connection::ServeConnection<()>, String> {
             self.refused("connection.serve")
         }
-        fn make_default_key(&self, _: &kkt_server_keys::AccessKey) -> Result<(), String> {
+        fn make_default_key(&self, _: &kkt_keys::AccessKey) -> Result<(), String> {
             self.refused("connection.make_default_key")
         }
         fn check_key(&self, _: &Path, _: &()) -> Result<(), String> {
@@ -555,7 +555,7 @@ mod tests {
         }
     }
 
-    impl kkt_server_keys::KeyFiles for Untouched {
+    impl kkt_keys::KeyFiles for Untouched {
         fn read(&self, _: &Path) -> std::io::Result<String> {
             self.asked("key_files.read")
         }
@@ -592,7 +592,7 @@ mod tests {
         }
         fn make_default_key(
             &self,
-            _: &kkt_server_keys::AccessKey,
+            _: &kkt_keys::AccessKey,
             _: &mut dyn FnMut() -> String,
         ) -> Result<Option<PathBuf>, String> {
             self.refused("key_files.make_default_key")

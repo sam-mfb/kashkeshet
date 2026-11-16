@@ -7,19 +7,15 @@ use kkt_admission::server_keys::{self, KeyTexts, ServerKeys};
 use kkt_admission::{ServerKey, SharedKey};
 use kkt_entropy::Entropy;
 use kkt_entropy_os::OsEntropy;
-use kkt_server_keys::{AccessKey, KeyFiles, KeyText, ReadError, SelectedKeys};
-use kkt_server_keys_os::OsKeyFiles;
+use kkt_keys::{AccessKey, KeyFiles, KeyText, ReadError, SelectedKeys};
+use kkt_keys_os::OsKeyFiles;
 use std::path::Path;
 
 /// Makes the default key file if it is the one in use and does not exist
 /// yet, and logs where it is (never the key).
 pub(crate) fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
-    let mut generate = || {
-        OsEntropy.random_chars(
-            kkt_server_keys::NEW_KEY_ALPHABET,
-            kkt_server_keys::NEW_KEY_CHARS,
-        )
-    };
+    let mut generate =
+        || OsEntropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS);
     if let Some(path) = OsKeyFiles.make_default_key(access_key, &mut generate)? {
         tracing::info!("created a new {kind} key at {}", path.display());
     }
@@ -44,9 +40,7 @@ pub(crate) fn read_server_keys(
     });
     // A name file is read only beside an admin key, so with none the name
     // refusal cannot happen; the path is then empty.
-    let names = admin
-        .map(kkt_server_keys::admin_name_path)
-        .unwrap_or_default();
+    let names = admin.map(kkt_keys::admin_name_path).unwrap_or_default();
     server_keys::check(&mut files).map_err(|refusal| {
         let set_in = sources
             .set_in("access_key_file")
@@ -172,7 +166,7 @@ mod tests {
         );
         assert_eq!(
             local_operator_key(&env, TEST_PLATFORM, None, None, KeyKind::Web),
-            Ok(Some(kkt_server_keys::web_key_path(&access)))
+            Ok(Some(kkt_keys::web_key_path(&access)))
         );
     }
 

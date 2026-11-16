@@ -9,14 +9,14 @@ use kkt_setup::connection::ConnectionSource;
 use std::path::{Path, PathBuf};
 
 pub fn admin_name_line(
-    files: &dyn kkt_server_keys::KeyFiles,
+    files: &dyn kkt_keys::KeyFiles,
     path: &Path,
     key: &str,
     label: &str,
 ) -> Result<Option<String>, String> {
     let docker_host_copy =
         path.file_name() == Some(std::ffi::OsStr::new(kkt_container::ADMIN_KEY_FILE_NAME));
-    kkt_server_keys::admin_name_line(path, key, label, docker_host_copy, |names| {
+    kkt_keys::admin_name_line(path, key, label, docker_host_copy, |names| {
         files.read_optional(names).map_err(|e| {
             format!(
                 "invalid setting: the admin name could not be read from {}: {e}",
@@ -268,36 +268,33 @@ pub fn local_operator_key<D>(
 /// names nothing. With no name, such a file is removed. Returns what to tell
 /// the person.
 pub fn write_admin_name(
-    files: &dyn kkt_server_keys::KeyFiles,
+    files: &dyn kkt_keys::KeyFiles,
     path: &Path,
     key: &str,
     name: Option<&AdminName>,
 ) -> Result<String, String> {
-    let bound = name.map(|name| kkt_server_keys::bound_to(name, key));
+    let bound = name.map(|name| kkt_keys::bound_to(name, key));
     let written = files
         .write_admin_name(path, bound.as_deref())
         .map_err(|e| e.to_string());
-    kkt_server_keys::admin_name_written(path, name, written)
+    kkt_keys::admin_name_written(path, name, written)
 }
 
 /// Makes a new random key and writes it to `path`, creating its folder if
 /// needed. Returns the key.
 pub fn new_key_file(
-    files: &dyn kkt_server_keys::KeyFiles,
+    files: &dyn kkt_keys::KeyFiles,
     entropy: &dyn kkt_entropy::Entropy,
     path: &Path,
     force: bool,
 ) -> Result<String, String> {
     files.new_key(path, force, &mut || {
-        entropy.random_chars(
-            kkt_server_keys::NEW_KEY_ALPHABET,
-            kkt_server_keys::NEW_KEY_CHARS,
-        )
+        entropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS)
     })
 }
 
 pub fn write_key_file(
-    files: &dyn kkt_server_keys::KeyFiles,
+    files: &dyn kkt_keys::KeyFiles,
     path: &Path,
     key: &str,
     force: bool,

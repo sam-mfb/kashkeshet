@@ -345,20 +345,16 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
             options.access_key_file = Some(access_path.clone());
             // `kkt serve` makes a web key when there is none.
             let web = config.web_key.clone().unwrap_or_else(|| {
-                OsEntropy.random_chars(
-                    kkt_server_keys::NEW_KEY_ALPHABET,
-                    kkt_server_keys::NEW_KEY_CHARS,
-                )
+                OsEntropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS)
             });
-            write(&kkt_server_keys::web_key_path(&access_path), &web);
+            write(&kkt_keys::web_key_path(&access_path), &web);
             if let Some(admin) = &config.admin_key {
-                let admin_path =
-                    kkt_server_keys::admin_key_path(&access_path).expect("an admin key path");
+                let admin_path = kkt_keys::admin_key_path(&access_path).expect("an admin key path");
                 write(&admin_path, admin);
                 if let Some(name) = config.admin_name() {
                     write(
-                        &kkt_server_keys::admin_name_path(&admin_path),
-                        &kkt_server_keys::bound_to(&name, admin),
+                        &kkt_keys::admin_name_path(&admin_path),
+                        &kkt_keys::bound_to(&name, admin),
                     );
                 }
             }

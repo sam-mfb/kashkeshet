@@ -24,8 +24,8 @@ dev-only = true
 # are stand-ins behind `testing`: a dev-only program may turn them on
 # (check-crates.sh rule 3).
 kkt-api-sim = { path = "../../crates/kkt-api-sim", features = ["testing"] }
-kkt-server-keys = { path = "../../crates/kkt-server-keys" }
-kkt-server-keys-os = { path = "../../crates/kkt-server-keys-os" }
+kkt-keys = { path = "../../crates/kkt-keys" }
+kkt-keys-os = { path = "../../crates/kkt-keys-os" }
 kkt-clock-system = { path = "../../crates/kkt-clock-system" }
 kkt-entropy = { path = "../../crates/kkt-entropy", features = ["testing"] }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os" }

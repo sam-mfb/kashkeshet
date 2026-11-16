@@ -1,9 +1,9 @@
-//! Private key files on disk: [`OsKeyFiles`] implements kkt-server-keys'
+//! Private key files on disk: [`OsKeyFiles`] implements kkt-keys'
 //! [`KeyFiles`] contract with the operating system's files, for the
 //! server's key files and the client key copies setup writes, as
-//! kkt-server-keys names and places them. Key generation is the caller's.
+//! kkt-keys names and places them. Key generation is the caller's.
 
-use kkt_server_keys::KeyFiles;
+use kkt_keys::KeyFiles;
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -51,7 +51,7 @@ impl KeyFiles for OsKeyFiles {
         #[cfg(unix)]
         {
             use std::os::unix::fs::OpenOptionsExt;
-            options.mode(kkt_server_keys::ACCESS_KEY_FILE_MODE);
+            options.mode(kkt_keys::ACCESS_KEY_FILE_MODE);
         }
         let mut file = options.open(path).map_err(|e| match e.kind() {
             io::ErrorKind::AlreadyExists => format!(
@@ -66,7 +66,7 @@ impl KeyFiles for OsKeyFiles {
         {
             use std::os::unix::fs::PermissionsExt;
             file.set_permissions(std::fs::Permissions::from_mode(
-                kkt_server_keys::ACCESS_KEY_FILE_MODE,
+                kkt_keys::ACCESS_KEY_FILE_MODE,
             ))
             .map_err(|e| format!("could not restrict {}: {e}", path.display()))?;
         }
@@ -74,7 +74,7 @@ impl KeyFiles for OsKeyFiles {
     }
 
     fn write_admin_name(&self, admin_key: &Path, bound: Option<&str>) -> io::Result<()> {
-        let names = kkt_server_keys::admin_name_path(admin_key);
+        let names = kkt_keys::admin_name_path(admin_key);
         match bound {
             Some(text) => std::fs::write(names, text),
             None => match std::fs::remove_file(&names) {

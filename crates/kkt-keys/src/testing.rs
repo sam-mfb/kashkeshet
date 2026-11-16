@@ -1,4 +1,4 @@
-//! What tests outside kkt-server-keys need: the shortest key, and
+//! What tests outside kkt-keys need: the shortest key, and
 //! [`Memory`], key files in memory.
 
 use crate::{ACCESS_KEY_FILE_MODE, KeyFiles, admin_name_path};

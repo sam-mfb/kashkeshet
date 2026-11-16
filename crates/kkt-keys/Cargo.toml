@@ -1,5 +1,5 @@
 [package]
-name = "kkt-server-keys"
+name = "kkt-keys"
 description = "kkt's server keys, as a contract: what a key must be, reading and writing private key files, and the admin name tied to the admin key"
 version.workspace = true
 edition.workspace = true
