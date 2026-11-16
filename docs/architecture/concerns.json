@@ -116,15 +116,15 @@
   },
   "kkt-admission": {
    "layer": "access",
-   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token, and for the web page whether sign-in is needed and whom a key admits. Also the server's admission from its keys, as kkt-server-keys' rules say, and what to say when a key is refused.",
+   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token, and for the web page whether sign-in is needed and whom a key admits. Also the server's admission from its keys, as kkt-keys' rules say, and what to say when a key is refused.",
    "must_not": "Know about agent tokens or channel access; decide what a valid key is or where key files go.",
    "kind": "logic"
   },
-  "kkt-server-keys": {
+  "kkt-keys": {
    "layer": "access",
-   "kind": "logic",
-   "concern": "The server's keys: what a valid key is and how a new one is made, which access key a server uses, the key files' names, mode and places, and the admin name file's binding to its key and the advice about it. The key files on disk are kkt-server-keys-os'.",
-   "must_not": "Decide who a key lets in; choose a randomness provider; word each program's key refusals; touch the key files."
+   "kind": "contract",
+   "concern": "The server's keys, as a contract: what a valid key is, and the alphabet and length a new one is drawn with (NEW_KEY_ALPHABET, NEW_KEY_CHARS); which access key a server uses; the key files' names, mode and places, in one module; the admin name file's binding to its key and the advice about it; and KeyFiles, reading and writing private key files (the server's, and the client key copies setup writes), with the reads of the server's selected keys (SelectedKeys, ReadError) and the key writes made of its steps as provided methods. testing::Memory is its stand-in. kkt-keys-os implements KeyFiles.",
+   "must_not": "Decide who a key lets in; draw randomness; word each program's key refusals; touch the key files."
   },
   "kkt-hosts": {
    "layer": "access",
@@ -442,10 +442,10 @@
    "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). It does not implement kkt-log.",
    "must_not": "Read a real clock itself; start a logging library; know log levels."
   },
-  "kkt-server-keys-os": {
+  "kkt-keys-os": {
    "layer": "access",
    "kind": "effect",
-   "concern": "The server's key files on disk, as kkt-server-keys names and places them: KeyFiles (reading the access, web and admin keys and the admin name file), ReadError, and private key writes (new_key_file, write_key_file, make_default_key), admin-name writes and staged-key moves (phase 16, the reverse of 14.5's merge of kkt-admission-os).",
+   "concern": "Private key files on disk: OsKeyFiles implements kkt-keys' KeyFiles with the operating system's files, for the server's key files and the client key copies setup writes, as kkt-keys names and places them: reads, owner-only key writes, admin-name writes, staged-key moves and the file tests.",
    "must_not": "Decide what a valid key is, who a key lets in, or where key files go; draw randomness itself."
   }
  },

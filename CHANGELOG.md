@@ -100,7 +100,7 @@ The shared crates are reorganized so that every dependency is injected and each 
   `kkt_container::LoginLink` and kkt-terminal-os' `BrowserLink` keep only
   `show` and `open_requested`; `kkt_container_docker::Docker` is now built
   with `Docker::new(browser)`. Messages are unchanged.
-- **Effects in `-os` crates.** What touches the machine moves into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os`, `kkt-shutdown-os` (`StopSignals`, from kkt-shutdown, which keeps `Shutdown`), `kkt-backup-os` (`write` and `prune`; kkt-backup keeps the layouts), `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`), `kkt-rolling-file` (`RotatingFile`, `open_log_file` and `LogPolicy`; see Logs) and `kkt-server-keys-os` (the key files on disk; kkt-server-keys keeps what a key is and where its files go).
+- **Effects in `-os` crates.** What touches the machine moves into a crate of its own, which the program adapts to the logic's contract: `kkt-entropy-os` (`OsEntropy`), `kkt-server-listen` (`listen` and `Listening`, from kkt-server), `kkt-machine-os`, `kkt-terminal-os`, `kkt-config-file-os`, `kkt-service-os`, `kkt-client-config-os`, `kkt-lane-files-os`, `kkt-shutdown-os` (`StopSignals`, from kkt-shutdown, which keeps `Shutdown`), `kkt-backup-os` (`write` and `prune`; kkt-backup keeps the layouts), `kkt-setup-os` (setup's files on this machine: `read_record`, `read_unfinished`, `write_record`, `write_unfinished`, `remove_record`, `remove_unfinished`, `make_data_folder`, `program_path`, `kkt_path`, `path_dirs`, `on_path`, `absolute` and `canonicalize`), `kkt-rolling-file` (`RotatingFile`, `open_log_file` and `LogPolicy`; see Logs) and `kkt-keys-os` (the key files on disk; kkt-keys keeps what a key is and where its files go).
 - **Logs.** `kkt-logs` is gone, and so is the name `kkt-logs-os`. The log
   file is now `kkt-rolling-file`: `RotatingFile`, with
   `open_log_file(path, policy, clock)`, which checks the policy and opens
@@ -115,8 +115,9 @@ The shared crates are reorganized so that every dependency is injected and each 
   `init_logging` takes the writer to log to (`None` for stdout) in place
   of a path, a policy and a clock. Messages are unchanged.
 - **Server keys.** `kkt-admission` held two concerns; the server's keys
-  are now `kkt-server-keys`, and `kkt-admission-os`'s key files are now
-  `kkt-server-keys-os`. kkt-admission depends on kkt-server-keys, never the
+  are now `kkt-keys`, and `kkt-admission-os`'s key files are now
+  `kkt-keys-os`. (On `refactor` these were first named `kkt-server-keys`
+  and `kkt-server-keys-os`; rename those dependencies and paths too.) kkt-admission depends on kkt-keys, never the
   reverse, and keeps who is let in: `Admission`, `AdminAdmission`, `Mode`,
   `Open`, `SharedKey`, `AnyBearer`, `BearerToken`, `Credentials`,
   `Decision`, `Principal`, `ServerKey`, `Refusal`, `WebAdmission`,
@@ -126,18 +127,33 @@ The shared crates are reorganized so that every dependency is injected and each 
     ACCESS_KEY_FILE_MODE, ACCESS_KEY_FILE_NAME, WEB_KEY_FILE_NAME,
     ADMIN_KEY_FILE_NAME, ADMIN_NAME_FILE_SUFFIX, access_key_file,
     web_key_path, admin_key_path, admin_name_path}` are now
-    `kkt_server_keys::` items of the same names;
+    `kkt_keys::` items of the same names;
   - `kkt_admission::server_keys::{KeyText, bound_to, bound_in,
-    admin_name_line, admin_name_written}` are now `kkt_server_keys::`
+    admin_name_line, admin_name_written}` are now `kkt_keys::`
     items of the same names;
-  - `kkt_admission::SharedKey::generate(entropy)` is now
-    `kkt_server_keys::generate(entropy)`;
+  - `kkt_admission::SharedKey::generate(entropy)` is gone: draw a new key
+    with kkt-entropy's `entropy.random_chars(kkt_keys::NEW_KEY_ALPHABET,
+    kkt_keys::NEW_KEY_CHARS)`, which makes the same keys;
   - `kkt_admission::testing::MIN_ACCESS_KEY_BYTES` is now
-    `kkt_server_keys::testing::MIN_ACCESS_KEY_BYTES`, and kkt-admission
+    `kkt_keys::testing::MIN_ACCESS_KEY_BYTES`, and kkt-admission
     has no `testing` feature;
-  - `kkt_admission_os::{KeyFiles, ReadError, make_default_key,
-    new_key_file, write_key_file, write_admin_name}` are now
-    `kkt_server_keys_os::` items of the same names.
+  - `kkt_admission_os`'s key files are now a contract,
+    `kkt_keys::KeyFiles`, which `kkt_keys_os::OsKeyFiles`
+    implements on disk; `kkt_keys::testing::Memory` is its
+    stand-in. `ReadError` is `kkt_keys::ReadError`. `KeyFiles::new(access,
+    web, admin)` and its `access`, `web`, `admin` and `admin_names` are now
+    the plain value `kkt_keys::SelectedKeys { access, web, admin }`
+    and the trait's `read_access`, `read_web`, `read_admin` and
+    `read_admin_names`; `KeyFiles::read` that names its file is
+    `read_key`. `make_default_key(access, generate)`,
+    `new_key_file(path, force, generate)`, `write_key_file` and
+    `write_admin_name` are the trait's `make_default_key`, `new_key`,
+    `write_key` and `write_admin_name`, the generator now a
+    `&mut dyn FnMut() -> String`.
+  - kkt-operate's own `KeyFiles` trait is gone: `OperateParts::key_files`
+    takes `&dyn kkt_keys::KeyFiles`, and `OperateParts` gains
+    `entropy`, which new keys are drawn from. `keys::new_key_file` takes
+    it too.
 
   Key checks, refusals, file names, file modes and how keys are written,
   read and hashed are unchanged.

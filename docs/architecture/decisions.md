@@ -461,6 +461,16 @@ code at f66b0ab:
 - wiring: 102 of 102 proposed wirings exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
 
+- **kkt-keys is a contract crate** (Sam, 2026-11-16, msgs 3506 to 3516).
+  A crate named `x-something` implements `x`'s contract. kkt-server-keys
+  declares `KeyFiles`, reading and writing private key files (the
+  server's, and the client key copies setup writes), and kkt-server-keys-os
+  implements it; then both are renamed, kkt-keys and kkt-keys-os, since
+  they are not kkt-server's. Fixed values (the files' names, places and
+  mode) are not "configured values" under ARCHITECTURE.md 3.8.3 and stay
+  in the contract. Callers draw new keys themselves from the contract's
+  alphabet and length.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.

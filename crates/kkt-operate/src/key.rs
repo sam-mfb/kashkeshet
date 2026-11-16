@@ -129,7 +129,7 @@ pub fn create<D: crate::ServiceDefaults>(
             optional_key_path(parts, env, platform, path, kind)?.ok_or_else(admin_key_collision)?
         }
     };
-    let key = new_key_file(parts.key_files, &path, force)?;
+    let key = new_key_file(parts.key_files, parts.entropy, &path, force)?;
     match kind {
         KeyKind::Web => parts.output.output(format_args!(
             "Wrote a new web key to {}. Restart the server to use it and end existing web sessions.\n",

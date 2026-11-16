@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "189b0310",
+ "commit": "0257441",
  "crates": [
   {
    "bins": [
@@ -169,12 +169,6 @@ window.KKT_GRAPH = {
     {
      "crate": "kashkeshet",
      "trait": "Databases",
-     "trait_crate": "kkt-operate",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "KeyFiles",
      "trait_crate": "kkt-operate",
      "type": null
     },
@@ -813,7 +807,7 @@ window.KKT_GRAPH = {
      "path": "key_refusal"
     },
     {
-     "doc": "The server's admission from its keys: that its access, web and admin keys are well formed and differ from one another, and the admin name tied to its admin key, as kkt-server-keys' rules say, turned into who each key lets in.",
+     "doc": "The server's admission from its keys: that its access, web and admin keys are well formed and differ from one another, and the admin name tied to its admin key, as kkt-keys' rules say, turned into who each key lets in.",
      "kind": "mod",
      "path": "server_keys"
     },
@@ -6637,6 +6631,288 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kkt-keys",
+       "type": "testing::Memory"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "type": "OsKeyFiles"
+      }
+     ],
+     "trait": "KeyFiles"
+    }
+   ],
+   "crate_doc": "The server's keys, as a contract: what a key must be and how long a new one is and what it is drawn from; which access key a server uses; the names, mode and default place of the files that hold keys; the admin agent's name tied to the a...",
+   "dev_only": false,
+   "features": {
+    "testing": []
+   },
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-keys",
+     "trait": "KeyFiles",
+     "trait_crate": "kkt-keys",
+     "type": "testing::Memory"
+    }
+   ],
+   "items": [
+    {
+     "doc": "Unix permissions of a key file `kkt key create` writes: only the owner may read or write it.",
+     "kind": "const",
+     "path": "ACCESS_KEY_FILE_MODE"
+    },
+    {
+     "doc": "Where `kkt key create` writes a key, in the config directory.",
+     "kind": "const",
+     "path": "ACCESS_KEY_FILE_NAME"
+    },
+    {
+     "doc": "The admin agent's key for `/mcp-admin`, beside the access key.",
+     "kind": "const",
+     "path": "ADMIN_KEY_FILE_NAME"
+    },
+    {
+     "doc": "Added to an admin key file's name for the file of its admin agent's name (`admin-key.name` beside `admin-key`): written with the key by `kkt key create --admin --name`, read with it by `kkt serve`.",
+     "kind": "const",
+     "path": "ADMIN_NAME_FILE_SUFFIX"
+    },
+    {
+     "doc": "Which access key a server uses.",
+     "kind": "enum",
+     "path": "AccessKey",
+     "variants": [
+      "None",
+      "File",
+      "Default"
+     ]
+    },
+    {
+     "doc": "Private key files: the server's, and the client key copies setup writes.",
+     "kind": "trait",
+     "methods": [
+      "create_dir_all",
+      "exists",
+      "is_file",
+      "keep_staged",
+      "make_default_key",
+      "new_key",
+      "read",
+      "read_access",
+      "read_admin",
+      "read_admin_names",
+      "read_key",
+      "read_optional",
+      "read_web",
+      "remove",
+      "try_exists",
+      "write_admin_name",
+      "write_key"
+     ],
+     "path": "KeyFiles"
+    },
+    {
+     "doc": "A key file's text, and where it came from, such as the file's path.",
+     "fields": [
+      "text",
+      "source"
+     ],
+     "kind": "struct",
+     "path": "KeyText"
+    },
+    {
+     "doc": "The characters a new key is drawn from: lowercase ASCII letters and digits, as kkt-names drew them before.",
+     "kind": "const",
+     "path": "NEW_KEY_ALPHABET"
+    },
+    {
+     "doc": "Characters in a new key, such as `kkt key create` makes, from `NEW_KEY_ALPHABET`'s 36 characters: about 258 bits.",
+     "kind": "const",
+     "path": "NEW_KEY_CHARS"
+    },
+    {
+     "doc": "A key file that could not be read: its path and the system's reason.",
+     "fields": [
+      "path",
+      "error"
+     ],
+     "kind": "struct",
+     "path": "ReadError"
+    },
+    {
+     "doc": "The key files a server's settings name: no path means that key is off.",
+     "fields": [
+      "access",
+      "web",
+      "admin"
+     ],
+     "kind": "struct",
+     "path": "SelectedKeys"
+    },
+    {
+     "doc": "A key setting the server refuses to start with: the setting's name and why.",
+     "fields": [
+      "name",
+      "rule"
+     ],
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "SettingError"
+    },
+    {
+     "doc": "The operator login key, beside the access key.",
+     "kind": "const",
+     "path": "WEB_KEY_FILE_NAME"
+    },
+    {
+     "doc": "Where `kkt key create` writes a key when no `--path` is given: the access key file in kkt's config directory, `config_dir`.",
+     "kind": "fn",
+     "path": "access_key_file"
+    },
+    {
+     "doc": "The admin key lives beside the server's access key, unless that place is already used by the access key (which older versions allowed).",
+     "kind": "fn",
+     "path": "admin_key_path"
+    },
+    {
+     "doc": "What to say, after `label`, about the name tied to the admin key `key` in the file at `path`, if anything: a Docker setup's host copy has no name beside it, as the name is kept in the container.",
+     "kind": "fn",
+     "path": "admin_name_line"
+    },
+    {
+     "doc": "The admin agent's name, if the admin key has one, lives beside the admin key, in a file of its own: each key file has its own name file.",
+     "kind": "fn",
+     "path": "admin_name_path"
+    },
+    {
+     "doc": "The unchanged advice after the native name-file write or removal.",
+     "kind": "fn",
+     "path": "admin_name_written"
+    },
+    {
+     "doc": "The name in the name file `text` if it is tied to the admin key `key`; `None` if it is tied to another key, as when the key file was replaced without its name.",
+     "kind": "fn",
+     "path": "bound_in"
+    },
+    {
+     "doc": "The text of a name file that ties this name to the admin key `key` alone: the name, then a line with a hash of the key (never the key).",
+     "kind": "fn",
+     "path": "bound_to"
+    },
+    {
+     "doc": "Checks an access key, as read from `--access-key-file` without surrounding whitespace.",
+     "kind": "fn",
+     "path": "check_access_key"
+    },
+    {
+     "doc": "What tests outside kkt-keys need: the shortest key, and `Memory`, key files in memory.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "A file `Memory` holds.",
+     "feature": "testing",
+     "fields": [
+      "text",
+      "mode"
+     ],
+     "kind": "struct",
+     "path": "testing::File"
+    },
+    {
+     "doc": "Shortest access key, in bytes: a key this long, and otherwise valid, is one `check_access_key` accepts.",
+     "feature": "testing",
+     "kind": "const",
+     "path": "testing::MIN_ACCESS_KEY_BYTES"
+    },
+    {
+     "doc": "Key files in memory, for tests: each file's text and mode, the folders made, and a failure on cue.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "failing",
+      "file",
+      "has_dir",
+      "new",
+      "with_dir",
+      "with_file"
+     ],
+     "path": "testing::Memory"
+    },
+    {
+     "doc": "The operator web key always lives beside the server's access key.",
+     "kind": "fn",
+     "path": "web_key_path"
+    }
+   ],
+   "lib": "kkt_keys",
+   "machine_work": {},
+   "name": "kkt-keys",
+   "path": "crates/kkt-keys",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "thiserror"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "Private key files on disk: `OsKeyFiles` implements kkt-keys' `KeyFiles` contract with the operating system's files, for the server's key files and the client key copies setup writes, as kkt-keys names and places them.",
+   "dev_only": false,
+   "features": {},
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-keys-os",
+     "trait": "KeyFiles",
+     "trait_crate": "kkt-keys",
+     "type": "OsKeyFiles"
+    }
+   ],
+   "items": [
+    {
+     "doc": "The key files on this machine's disk.",
+     "kind": "struct",
+     "path": "OsKeyFiles"
+    }
+   ],
+   "lib": "kkt_keys_os",
+   "machine_work": {
+    "src/lib.rs": [
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::create_dir_all",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::write",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "Path::exists",
+     "Path::is_file",
+     "Path::try_exists"
+    ]
+   },
+   "name": "kkt-keys-os",
+   "path": "crates/kkt-keys-os",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
    "contracts": [],
    "crate_doc": "The commit a lane folder is at, as the machine's git says: `Git`, which `kkt lanes import` asks so the lane versions it saves record where they came from.",
    "dev_only": false,
@@ -7733,15 +8009,6 @@ window.KKT_GRAPH = {
        "type": null
       }
      ],
-     "trait": "KeyFiles"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": null
-      }
-     ],
      "trait": "Output"
     },
     {
@@ -7839,8 +8106,12 @@ window.KKT_GRAPH = {
        "trait": "SetupFiles"
       },
       {
-       "crate": "kkt-operate",
+       "crate": "kkt-keys",
        "trait": "KeyFiles"
+      },
+      {
+       "crate": "kkt-entropy",
+       "trait": "Entropy"
       },
       {
        "crate": "kkt-operate",
@@ -7945,24 +8216,6 @@ window.KKT_GRAPH = {
      "path": "Databases"
     },
     {
-     "doc": "Key files, including generation of a fresh key by the chosen entropy source.",
-     "kind": "trait",
-     "methods": [
-      "create_dir_all",
-      "exists",
-      "is_file",
-      "keep_staged",
-      "new_key",
-      "read",
-      "read_optional",
-      "remove",
-      "try_exists",
-      "write_admin_name",
-      "write_key"
-     ],
-     "path": "KeyFiles"
-    },
-    {
      "doc": "Implementations chosen by the program.",
      "fields": [
       "container",
@@ -7984,6 +8237,7 @@ window.KKT_GRAPH = {
       "service_defaults",
       "setup_files",
       "key_files",
+      "entropy",
       "database",
       "backups",
       "output"
@@ -8457,10 +8711,21 @@ window.KKT_GRAPH = {
     {
      "at": "OperateParts",
      "kind": "field",
+     "name": "entropy",
+     "traits": [
+      {
+       "crate": "kkt-entropy",
+       "trait": "Entropy"
+      }
+     ]
+    },
+    {
+     "at": "OperateParts",
+     "kind": "field",
      "name": "key_files",
      "traits": [
       {
-       "crate": "kkt-operate",
+       "crate": "kkt-keys",
        "trait": "KeyFiles"
       }
      ]
@@ -8653,8 +8918,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -8748,8 +9017,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -8847,8 +9120,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -8946,8 +9223,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -9045,8 +9326,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -9083,7 +9368,7 @@ window.KKT_GRAPH = {
      "name": "files",
      "traits": [
       {
-       "crate": "kkt-operate",
+       "crate": "kkt-keys",
        "trait": "KeyFiles"
       }
      ]
@@ -9155,8 +9440,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -9250,8 +9539,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -9281,10 +9574,21 @@ window.KKT_GRAPH = {
     {
      "at": "keys::new_key_file",
      "kind": "param",
+     "name": "entropy",
+     "traits": [
+      {
+       "crate": "kkt-entropy",
+       "trait": "Entropy"
+      }
+     ]
+    },
+    {
+     "at": "keys::new_key_file",
+     "kind": "param",
      "name": "files",
      "traits": [
       {
-       "crate": "kkt-operate",
+       "crate": "kkt-keys",
        "trait": "KeyFiles"
       }
      ]
@@ -9356,8 +9660,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -9455,8 +9763,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -9493,7 +9805,7 @@ window.KKT_GRAPH = {
      "name": "files",
      "traits": [
       {
-       "crate": "kkt-operate",
+       "crate": "kkt-keys",
        "trait": "KeyFiles"
       }
      ]
@@ -9504,7 +9816,7 @@ window.KKT_GRAPH = {
      "name": "files",
      "traits": [
       {
-       "crate": "kkt-operate",
+       "crate": "kkt-keys",
        "trait": "KeyFiles"
       }
      ]
@@ -9576,8 +9888,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -9671,8 +9987,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -9766,8 +10086,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -9861,8 +10185,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -9956,8 +10284,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -10051,8 +10383,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -10150,8 +10486,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -10249,8 +10589,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -10425,8 +10769,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -10524,8 +10872,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -10634,8 +10986,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -10729,8 +11085,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -10824,8 +11184,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -10923,8 +11287,12 @@ window.KKT_GRAPH = {
          "trait": "SetupFiles"
         },
         {
-         "crate": "kkt-operate",
+         "crate": "kkt-keys",
          "trait": "KeyFiles"
+        },
+        {
+         "crate": "kkt-entropy",
+         "trait": "Entropy"
         },
         {
          "crate": "kkt-operate",
@@ -12752,244 +13120,6 @@ window.KKT_GRAPH = {
     "futures",
     "thiserror"
    ]
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "The server's keys: what a key must be, how a new one is made, which access key a server uses, the names, mode and default place of the files that hold them, and the admin agent's name tied to the admin key.",
-   "dev_only": false,
-   "features": {
-    "testing": []
-   },
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "Unix permissions of a key file `kkt key create` writes: only the owner may read or write it.",
-     "kind": "const",
-     "path": "ACCESS_KEY_FILE_MODE"
-    },
-    {
-     "doc": "Where `kkt key create` writes a key, in the config directory.",
-     "kind": "const",
-     "path": "ACCESS_KEY_FILE_NAME"
-    },
-    {
-     "doc": "The admin agent's key for `/mcp-admin`, beside the access key.",
-     "kind": "const",
-     "path": "ADMIN_KEY_FILE_NAME"
-    },
-    {
-     "doc": "Added to an admin key file's name for the file of its admin agent's name (`admin-key.name` beside `admin-key`): written with the key by `kkt key create --admin --name`, read with it by `kkt serve`.",
-     "kind": "const",
-     "path": "ADMIN_NAME_FILE_SUFFIX"
-    },
-    {
-     "doc": "Which access key a server uses.",
-     "kind": "enum",
-     "path": "AccessKey",
-     "variants": [
-      "None",
-      "File",
-      "Default"
-     ]
-    },
-    {
-     "doc": "A key file's text, and where it came from, such as the file's path.",
-     "fields": [
-      "text",
-      "source"
-     ],
-     "kind": "struct",
-     "path": "KeyText"
-    },
-    {
-     "doc": "A key setting the server refuses to start with: the setting's name and why.",
-     "fields": [
-      "name",
-      "rule"
-     ],
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "SettingError"
-    },
-    {
-     "doc": "The operator login key, beside the access key.",
-     "kind": "const",
-     "path": "WEB_KEY_FILE_NAME"
-    },
-    {
-     "doc": "Where `kkt key create` writes a key when no `--path` is given: the access key file in kkt's config directory, `config_dir`.",
-     "kind": "fn",
-     "path": "access_key_file"
-    },
-    {
-     "doc": "The admin key lives beside the server's access key, unless that place is already used by the access key (which older versions allowed).",
-     "kind": "fn",
-     "path": "admin_key_path"
-    },
-    {
-     "doc": "What to say, after `label`, about the name tied to the admin key `key` in the file at `path`, if anything: a Docker setup's host copy has no name beside it, as the name is kept in the container.",
-     "kind": "fn",
-     "path": "admin_name_line"
-    },
-    {
-     "doc": "The admin agent's name, if the admin key has one, lives beside the admin key, in a file of its own: each key file has its own name file.",
-     "kind": "fn",
-     "path": "admin_name_path"
-    },
-    {
-     "doc": "The unchanged advice after the native name-file write or removal.",
-     "kind": "fn",
-     "path": "admin_name_written"
-    },
-    {
-     "doc": "The name in the name file `text` if it is tied to the admin key `key`; `None` if it is tied to another key, as when the key file was replaced without its name.",
-     "kind": "fn",
-     "path": "bound_in"
-    },
-    {
-     "doc": "The text of a name file that ties this name to the admin key `key` alone: the name, then a line with a hash of the key (never the key).",
-     "kind": "fn",
-     "path": "bound_to"
-    },
-    {
-     "doc": "Checks an access key, as read from `--access-key-file` without surrounding whitespace.",
-     "kind": "fn",
-     "path": "check_access_key"
-    },
-    {
-     "doc": "A new random key, such as `kkt key create` writes.",
-     "kind": "fn",
-     "path": "generate"
-    },
-    {
-     "doc": "What tests outside kkt-server-keys need to know about the keys.",
-     "feature": "testing",
-     "kind": "mod",
-     "path": "testing"
-    },
-    {
-     "doc": "Shortest access key, in bytes: a key this long, and otherwise valid, is one `check_access_key` accepts.",
-     "feature": "testing",
-     "kind": "const",
-     "path": "testing::MIN_ACCESS_KEY_BYTES"
-    },
-    {
-     "doc": "The operator web key always lives beside the server's access key.",
-     "kind": "fn",
-     "path": "web_key_path"
-    }
-   ],
-   "lib": "kkt_server_keys",
-   "machine_work": {},
-   "name": "kkt-server-keys",
-   "path": "crates/kkt-server-keys",
-   "released_program": false,
-   "slots": [
-    {
-     "at": "generate",
-     "kind": "param",
-     "name": "entropy",
-     "traits": [
-      {
-       "crate": "kkt-entropy",
-       "trait": "Entropy"
-      }
-     ]
-    }
-   ],
-   "testing_third_party": [],
-   "third_party": [
-    "thiserror"
-   ]
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "The server's key files on disk, as kkt-server-keys names and places them: reading their texts, private key writes, admin-name writes and staged-key moves.",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "The server's selected access, web and admin key files.",
-     "kind": "struct",
-     "methods": [
-      "access",
-      "admin",
-      "admin_names",
-      "create_dir_all",
-      "exists",
-      "is_file",
-      "keep_staged",
-      "new",
-      "read",
-      "read_optional",
-      "remove",
-      "try_exists",
-      "web"
-     ],
-     "path": "KeyFiles"
-    },
-    {
-     "doc": "A failed key-file read, retaining its path and underlying I/O error.",
-     "fields": [
-      "path",
-      "error"
-     ],
-     "kind": "struct",
-     "path": "ReadError"
-    },
-    {
-     "doc": "Writes a missing default key, drawing a key only after making its folder.",
-     "kind": "fn",
-     "path": "make_default_key"
-    },
-    {
-     "doc": "Creates a new private key file, making its folder before drawing the key.",
-     "kind": "fn",
-     "path": "new_key_file"
-    },
-    {
-     "doc": "Writes already-bound admin-name text beside the key, or removes the old name file.",
-     "kind": "fn",
-     "path": "write_admin_name"
-    },
-    {
-     "doc": "Writes `key` to `path`, readable and writable only by its owner.",
-     "kind": "fn",
-     "path": "write_key_file"
-    }
-   ],
-   "lib": "kkt_server_keys_os",
-   "machine_work": {
-    "src/lib.rs": [
-     "fs::OpenOptions::new",
-     "fs::Permissions::from_mode",
-     "fs::create_dir_all",
-     "fs::read_to_string",
-     "fs::remove_file",
-     "fs::rename",
-     "fs::write",
-     "os::unix::fs::OpenOptionsExt",
-     "os::unix::fs::PermissionsExt",
-     "Path::exists",
-     "Path::is_file",
-     "Path::try_exists"
-    ]
-   },
-   "name": "kkt-server-keys-os",
-   "path": "crates/kkt-server-keys-os",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
   },
   {
    "bins": [],
@@ -16972,6 +17102,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Entropy"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Entropy"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-entropy"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
     "OsEntropy"
    ],
    "kind": "normal",
@@ -17080,6 +17231,72 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-identity-keymode"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "AccessKey",
+    "KeyFiles",
+    "KeyText",
+    "NEW_KEY_ALPHABET",
+    "NEW_KEY_CHARS",
+    "ReadError",
+    "SelectedKeys",
+    "SettingError",
+    "access_key_file",
+    "admin_key_path",
+    "admin_name_path",
+    "web_key_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AccessKey",
+      "KeyFiles",
+      "KeyText",
+      "NEW_KEY_ALPHABET",
+      "NEW_KEY_CHARS",
+      "ReadError",
+      "SelectedKeys",
+      "SettingError",
+      "access_key_file",
+      "admin_key_path",
+      "admin_name_path",
+      "web_key_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "bound_to"
+   ],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
+    "OsKeyFiles"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "OsKeyFiles"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys-os"
   },
   {
    "features": [],
@@ -17319,7 +17536,6 @@ window.KKT_GRAPH = {
     "Config",
     "ConfigText",
     "Databases",
-    "KeyFiles",
     "OperateParts",
     "Output",
     "ServeFacts",
@@ -17364,7 +17580,6 @@ window.KKT_GRAPH = {
       "a type of its own implements CheckService",
       "a type of its own implements ConfigText",
       "a type of its own implements Databases",
-      "a type of its own implements KeyFiles",
       "a type of its own implements Output",
       "a type of its own implements ServeFacts",
       "machine::operate::ServiceArgs implements ServiceDefaults",
@@ -17599,74 +17814,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-server"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "AccessKey",
-    "KeyText",
-    "SettingError",
-    "access_key_file",
-    "admin_key_path",
-    "admin_name_path",
-    "generate",
-    "web_key_path"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AccessKey",
-      "KeyText",
-      "SettingError",
-      "access_key_file",
-      "admin_key_path",
-      "admin_name_path",
-      "generate",
-      "web_key_path"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "bound_to"
-   ],
-   "to": "kkt-server-keys"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "KeyFiles",
-    "ReadError",
-    "make_default_key",
-    "new_key_file",
-    "write_admin_name",
-    "write_key_file"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "KeyFiles",
-      "ReadError",
-      "make_default_key",
-      "new_key_file",
-      "write_admin_name",
-      "write_key_file"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-keys-os"
   },
   {
    "features": [],
@@ -18193,29 +18340,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-admission",
    "items": [
-    "AdminName",
-    "MAX_ADMIN_NAME_CHARS"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AdminName",
-      "MAX_ADMIN_NAME_CHARS"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-admission",
-   "items": [
     "KeyText",
     "SettingError",
     "bound_in",
@@ -18237,10 +18361,34 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "bound_to",
-    "generate"
+    "NEW_KEY_ALPHABET",
+    "NEW_KEY_CHARS",
+    "bound_to"
    ],
-   "to": "kkt-server-keys"
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-admission",
+   "items": [
+    "AdminName",
+    "MAX_ADMIN_NAME_CHARS"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AdminName",
+      "MAX_ADMIN_NAME_CHARS"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-names"
   },
   {
    "features": [
@@ -18248,6 +18396,7 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-admission",
    "items": [
+    "Entropy",
     "testing::SeqEntropy"
    ],
    "kind": "dev",
@@ -18635,7 +18784,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-server-keys"
+   "to": "kkt-keys"
   },
   {
    "features": [],
@@ -19085,6 +19234,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-api-sim",
    "items": [
+    "check_access_key"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "check_access_key"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-api-sim",
+   "items": [
     "CHANNEL_RANDOM_LEN",
     "MAX_CHANNEL_ID_ATTEMPTS",
     "MAX_LANE_NAME_CHARS",
@@ -19115,27 +19285,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-api-sim",
-   "items": [
-    "check_access_key"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "check_access_key"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-keys"
   },
   {
    "features": [],
@@ -19496,6 +19645,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-client-config",
    "items": [
+    "check_access_key"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "check_access_key"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-client-config",
+   "items": [
     "Env"
    ],
    "kind": "normal",
@@ -19512,27 +19682,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-machine"
-  },
-  {
-   "features": [],
-   "from": "kkt-client-config",
-   "items": [
-    "check_access_key"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "check_access_key"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-keys"
   },
   {
    "features": [],
@@ -20181,7 +20330,7 @@ window.KKT_GRAPH = {
    "test_items": [
     "testing::MIN_ACCESS_KEY_BYTES"
    ],
-   "to": "kkt-server-keys"
+   "to": "kkt-keys"
   },
   {
    "features": [
@@ -20235,7 +20384,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-server-keys"
+   "to": "kkt-keys"
   },
   {
    "features": [],
@@ -21508,6 +21657,58 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
+    "AccessKey",
+    "KeyFiles",
+    "KeyText",
+    "SelectedKeys",
+    "admin_key_path",
+    "web_key_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AccessKey",
+      "KeyFiles",
+      "KeyText",
+      "SelectedKeys",
+      "admin_key_path",
+      "web_key_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-keymode",
+   "items": [
+    "OsKeyFiles"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "OsKeyFiles"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys-os"
+  },
+  {
+   "features": [],
+   "from": "kkt-keymode",
+   "items": [
     "listen"
    ],
    "kind": "normal",
@@ -21719,54 +21920,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
-    "AccessKey",
-    "KeyText",
-    "admin_key_path",
-    "web_key_path"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AccessKey",
-      "KeyText",
-      "admin_key_path",
-      "web_key_path"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-keys"
-  },
-  {
-   "features": [],
-   "from": "kkt-keymode",
-   "items": [
-    "KeyFiles"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "KeyFiles"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-keys-os"
-  },
-  {
-   "features": [],
-   "from": "kkt-keymode",
-   "items": [
     "Shutdown"
    ],
    "kind": "normal",
@@ -21846,6 +21999,104 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-web"
+  },
+  {
+   "features": [],
+   "from": "kkt-keys",
+   "items": [
+    "sha256"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "sha256"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-hash"
+  },
+  {
+   "features": [],
+   "from": "kkt-keys",
+   "items": [
+    "AdminName",
+    "MAX_ADMIN_NAME_CHARS"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AdminName",
+      "MAX_ADMIN_NAME_CHARS"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-names"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-keys",
+   "items": [
+    "Entropy",
+    "testing::SeqEntropy"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "testing::SeqEntropy"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-entropy"
+  },
+  {
+   "features": [],
+   "from": "kkt-keys-os",
+   "items": [
+    "ACCESS_KEY_FILE_MODE",
+    "KeyFiles",
+    "admin_name_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "OsKeyFiles implements KeyFiles"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "ACCESS_KEY_FILE_MODE",
+      "admin_name_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
   },
   {
    "features": [],
@@ -22862,6 +23113,66 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operate",
    "items": [
+    "Entropy"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Entropy"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "testing::SeqEntropy"
+   ],
+   "to": "kkt-entropy"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
+    "KeyFiles",
+    "NEW_KEY_ALPHABET",
+    "NEW_KEY_CHARS",
+    "admin_key_path",
+    "admin_name_line",
+    "admin_name_written",
+    "bound_to",
+    "web_key_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "KeyFiles",
+      "NEW_KEY_ALPHABET",
+      "NEW_KEY_CHARS",
+      "admin_key_path",
+      "admin_name_line",
+      "admin_name_written",
+      "bound_to",
+      "web_key_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "AccessKey"
+   ],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-operate",
+   "items": [
     "Disk",
     "LaneCommit",
     "LaneFile",
@@ -23020,37 +23331,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-rules"
-  },
-  {
-   "features": [],
-   "from": "kkt-operate",
-   "items": [
-    "admin_key_path",
-    "admin_name_line",
-    "admin_name_written",
-    "bound_to",
-    "web_key_path"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "admin_key_path",
-      "admin_name_line",
-      "admin_name_written",
-      "bound_to",
-      "web_key_path"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "AccessKey"
-   ],
-   "to": "kkt-server-keys"
   },
   {
    "features": [],
@@ -23301,6 +23581,29 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-container"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-operate",
+   "items": [
+    "testing::SeqEntropy"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "testing::SeqEntropy"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-entropy"
   },
   {
    "features": [
@@ -24719,123 +25022,6 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-server-keys",
-   "items": [
-    "Entropy"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Entropy"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "testing::SeqEntropy"
-   ],
-   "to": "kkt-entropy"
-  },
-  {
-   "features": [],
-   "from": "kkt-server-keys",
-   "items": [
-    "sha256"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "sha256"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-hash"
-  },
-  {
-   "features": [],
-   "from": "kkt-server-keys",
-   "items": [
-    "AdminName",
-    "MAX_ADMIN_NAME_CHARS"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AdminName",
-      "MAX_ADMIN_NAME_CHARS"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-names"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-server-keys",
-   "items": [
-    "testing::SeqEntropy"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "wires",
-   "roles": [
-    {
-     "detail": [
-      "testing::SeqEntropy"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-entropy"
-  },
-  {
-   "features": [],
-   "from": "kkt-server-keys-os",
-   "items": [
-    "ACCESS_KEY_FILE_MODE",
-    "AccessKey",
-    "KeyText",
-    "admin_name_path"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "ACCESS_KEY_FILE_MODE",
-      "AccessKey",
-      "KeyText",
-      "admin_name_path"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-keys"
-  },
-  {
-   "features": [],
    "from": "kkt-service",
    "items": [
     "Clock"
@@ -24876,7 +25062,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-server-keys"
+   "to": "kkt-keys"
   },
   {
    "features": [
@@ -25198,6 +25384,37 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
+    "AccessKey",
+    "access_key_file",
+    "admin_key_path",
+    "admin_name_path",
+    "check_access_key",
+    "web_key_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AccessKey",
+      "access_key_file",
+      "admin_key_path",
+      "admin_name_path",
+      "check_access_key",
+      "web_key_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-setup",
+   "items": [
     "Env",
     "Platform"
    ],
@@ -25239,37 +25456,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-setup",
-   "items": [
-    "AccessKey",
-    "access_key_file",
-    "admin_key_path",
-    "admin_name_path",
-    "check_access_key",
-    "web_key_path"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AccessKey",
-      "access_key_file",
-      "admin_key_path",
-      "admin_name_path",
-      "check_access_key",
-      "web_key_path"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-keys"
   },
   {
    "features": [],
@@ -25962,6 +26148,48 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-web-preview",
    "items": [
+    "KeyFiles"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "KeyFiles"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-web-preview",
+   "items": [
+    "OsKeyFiles"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "OsKeyFiles"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys-os"
+  },
+  {
+   "features": [],
+   "from": "kkt-web-preview",
+   "items": [
     "listen"
    ],
    "kind": "normal",
@@ -26056,44 +26284,6 @@ window.KKT_GRAPH = {
   {
    "features": [],
    "from": "kkt-web-preview",
-   "items": [],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-keys"
-  },
-  {
-   "features": [],
-   "from": "kkt-web-preview",
-   "items": [
-    "KeyFiles"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "KeyFiles"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-server-keys-os"
-  },
-  {
-   "features": [],
-   "from": "kkt-web-preview",
    "items": [
     "Shutdown"
    ],
@@ -26184,6 +26374,9 @@ window.KKT_GRAPH = {
   "kkt-identity": [
    "kkt-identity-keymode"
   ],
+  "kkt-keys": [
+   "kkt-keys-os"
+  ],
   "kkt-log": [
    "kkt-log-tracing"
   ],
@@ -26209,7 +26402,7 @@ window.KKT_CONCERNS = {
    "title": "kkt (package kashkeshet)"
   },
   "kkt-admission": {
-   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token, and for the web page whether sign-in is needed and whom a key admits. Also the server's admission from its keys, as kkt-server-keys' rules say, and what to say when a key is refused.",
+   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token, and for the web page whether sign-in is needed and whom a key admits. Also the server's admission from its keys, as kkt-keys' rules say, and what to say when a key is refused.",
    "kind": "logic",
    "layer": "access",
    "must_not": "Know about agent tokens or channel access; decide what a valid key is or where key files go."
@@ -26393,6 +26586,18 @@ window.KKT_CONCERNS = {
    "layer": "programs",
    "must_not": "Be released, or share code with the `kkt` program."
   },
+  "kkt-keys": {
+   "concern": "The server's keys, as a contract: what a valid key is, and the alphabet and length a new one is drawn with (NEW_KEY_ALPHABET, NEW_KEY_CHARS); which access key a server uses; the key files' names, mode and places, in one module; the admin name file's binding to its key and the advice about it; and KeyFiles, reading and writing private key files (the server's, and the client key copies setup writes), with the reads of the server's selected keys (SelectedKeys, ReadError) and the key writes made of its steps as provided methods. testing::Memory is its stand-in. kkt-keys-os implements KeyFiles.",
+   "kind": "contract",
+   "layer": "access",
+   "must_not": "Decide who a key lets in; draw randomness; word each program's key refusals; touch the key files."
+  },
+  "kkt-keys-os": {
+   "concern": "Private key files on disk: OsKeyFiles implements kkt-keys' KeyFiles with the operating system's files, for the server's key files and the client key copies setup writes, as kkt-keys names and places them: reads, owner-only key writes, admin-name writes, staged-key moves and the file tests.",
+   "kind": "effect",
+   "layer": "access",
+   "must_not": "Decide what a valid key is, who a key lets in, or where key files go; draw randomness itself."
+  },
   "kkt-lane-commit": {
    "concern": "The commit a lane folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
    "kind": "effect",
@@ -26511,18 +26716,6 @@ window.KKT_CONCERNS = {
    "kind": "composition",
    "layer": "assembly",
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in."
-  },
-  "kkt-server-keys": {
-   "concern": "The server's keys: what a valid key is and how a new one is made, which access key a server uses, the key files' names, mode and places, and the admin name file's binding to its key and the advice about it. The key files on disk are kkt-server-keys-os'.",
-   "kind": "logic",
-   "layer": "access",
-   "must_not": "Decide who a key lets in; choose a randomness provider; word each program's key refusals; touch the key files."
-  },
-  "kkt-server-keys-os": {
-   "concern": "The server's key files on disk, as kkt-server-keys names and places them: KeyFiles (reading the access, web and admin keys and the admin name file), ReadError, and private key writes (new_key_file, write_key_file, make_default_key), admin-name writes and staged-key moves (phase 16, the reverse of 14.5's merge of kkt-admission-os).",
-   "kind": "effect",
-   "layer": "access",
-   "must_not": "Decide what a valid key is, who a key lets in, or where key files go; draw randomness itself."
   },
   "kkt-service": {
    "concern": "The project's contract for running kkt as a service of the user's login (`Service`: install, check it started, start, stop, status, logs, add a key, uninstall), with the values it takes and gives and its errors; `Unsupported` for a system with no service manager kkt works with; the plan of what the service runs, from the settings it needs, and the bind check, both on plain values; its testing Memory stand-in.",
@@ -27043,7 +27236,7 @@ window.KKT_ASSEMBLY = {
       "kkt-operate::ServeFacts",
       "kkt-operate::ServiceDefaults",
       "kkt-operate::SetupFiles",
-      "kkt-operate::KeyFiles",
+      "kkt-keys::KeyFiles",
       "kkt-operate::Databases",
       "kkt-operate::Output",
       "kkt-setup::connection::ConnectionSource",
@@ -27158,24 +27351,13 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-admission",
      "note": "kkt serve",
-     "own": "ServerKeyFiles, adapting kkt-server-keys-os::KeyFiles",
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles",
+     "own": "ServerKeyFiles, adapting kkt-keys-os::OsKeyFiles",
+     "supplier": "kkt-keys-os",
+     "supplier_item": "OsKeyFiles",
      "to": [
       {
        "at": "server_keys::check",
        "param": "texts"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-server-keys",
-     "impl": "kkt-entropy-os::OsEntropy",
-     "note": "kkt key create, and kkt serve's first key",
-     "to": [
-      {
-       "at": "generate",
-       "param": "entropy"
       }
      ]
     },
@@ -27291,9 +27473,9 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and watch",
-     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles",
+     "own": "KeyFiles, adapting kkt-keys-os::OsKeyFiles",
+     "supplier": "kkt-keys-os",
+     "supplier_item": "OsKeyFiles",
      "to": [
       {
        "at": "AgentParts",
@@ -27528,13 +27710,21 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeKeyFiles, forwarding key files to kkt-server-keys-os and generation to kkt-entropy-os",
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles",
+     "impl": "kkt-keys-os::OsKeyFiles",
      "to": [
       {
        "at": "OperateParts",
        "param": "key_files"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "impl": "kkt-entropy-os::OsEntropy",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "entropy"
       }
      ]
     },
@@ -27883,9 +28073,9 @@ window.KKT_ASSEMBLY = {
    "wiring": [
     {
      "crate": "kkt-admission",
-     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles",
+     "own": "KeyFiles, adapting kkt-keys-os::OsKeyFiles",
+     "supplier": "kkt-keys-os",
+     "supplier_item": "OsKeyFiles",
      "to": [
       {
        "at": "server_keys::check",
@@ -27995,12 +28185,12 @@ window.KKT_ASSEMBLY = {
     {
      "items": [
       "kkt-api-sim::PreviewGate",
-      "kkt-server-keys-os::KeyFiles",
+      "kkt-keys-os::OsKeyFiles",
       "kkt-web::Sessions",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy"
      ],
-     "text": "PreviewGate, with the access key read through kkt-server-keys-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+     "text": "PreviewGate, with the access key read through kkt-keys-os' OsKeyFiles, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
      "title": "Gate"
     },
     {

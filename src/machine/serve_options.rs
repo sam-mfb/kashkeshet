@@ -8,9 +8,9 @@
 //! Its items are public as [`crate::machine::settings`]'s.
 
 use kkt_hosts::{DEFAULT_ALLOW_ANY_BIND, DEFAULT_BIND};
+use kkt_keys::{AccessKey, admin_key_path, web_key_path};
 use kkt_log_tracing::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, LogLevel};
 use kkt_server::ServerSettings;
-use kkt_server_keys::{AccessKey, admin_key_path, web_key_path};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
