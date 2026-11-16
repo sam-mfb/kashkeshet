@@ -2093,6 +2093,23 @@ say, the row says what and why.
 | 16.3, logic and an `-os` crate | kkt-shutdown-os (#554), kkt-backup-os (#555), kkt-setup-os (#556), kkt-logs-os (#559), kkt-server-keys-os (#560) | No |
 | 16.4, no `real` | This step | Programs only may depend on an effect crate, not compositions (msg 3443); a program's tests count too when they name an effect crate the program does not depend on, so the fake product's tests keep their documented exception, now in effect-exceptions.json (msg 3474). kinds.py counts tokio's machine work, which kkt-shutdown-os and kkt-server-listen use, and leaves out machine work in modules only `testing` brings (kkt-db's conformance stand-in). An effect crate must touch the machine where the map can see it. Git dependents must drop `features = ["real"]` (option (i) of msg 3442; Sam's call) |
 
+### Phase 16's follow-up: kkt-listen (Sam, 2026-11-16)
+
+After phase 16, one crate outside the programs still depended on a
+composition: kkt-server-listen (effect) named kkt-server's `App`
+(msg 3482). One pull request, by kkt-build-j, reviewed by kkt-review-i:
+
+- `listen` takes the axum router in place of `App`, and the crate drops
+  kkt-server, in its tests too: they serve a small router of their own.
+  Each program passes `app.into_router()` across and still names no axum
+  type.
+- The crate is renamed kkt-listen, and moves from the assembly layer to
+  foundations: binding an address and serving the router it is handed.
+- check-crates.sh gains check 7: only a program depends on a composition
+  crate in [dependencies].
+- CHANGELOG.md tells crates that depend on kkt by git of the rename and
+  the new `listen`.
+
 ### After phase 16: kkt-logs goes (Sam, 2026-11-16)
 
 **Sam's decision** (msg 3501, from sage-cardinal). kkt-logs (logic) was

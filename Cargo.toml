@@ -39,6 +39,7 @@ members = [
     "crates/kkt-lane-commit",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
+    "crates/kkt-listen",
     "crates/kkt-log",
     "crates/kkt-log-tracing",
     "crates/kkt-machine",
@@ -57,7 +58,6 @@ members = [
     "crates/kkt-search",
     "crates/kkt-toml",
     "crates/kkt-server",
-    "crates/kkt-server-listen",
     "crates/kkt-service",
     "crates/kkt-service-launchd",
     "crates/kkt-service-os",
@@ -111,6 +111,7 @@ default-members = [
     "crates/kkt-lane-commit",
     "crates/kkt-lane-files",
     "crates/kkt-lane-files-os",
+    "crates/kkt-listen",
     "crates/kkt-log",
     "crates/kkt-log-tracing",
     "crates/kkt-machine",
@@ -129,7 +130,6 @@ default-members = [
     "crates/kkt-search",
     "crates/kkt-toml",
     "crates/kkt-server",
-    "crates/kkt-server-listen",
     "crates/kkt-service",
     "crates/kkt-service-launchd",
     "crates/kkt-service-os",
@@ -246,6 +246,7 @@ kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
 kkt-lane-commit = { path = "crates/kkt-lane-commit" }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-lane-files-os = { path = "crates/kkt-lane-files-os" }
+kkt-listen = { path = "crates/kkt-listen" }
 kkt-rolling-file = { path = "crates/kkt-rolling-file" }
 kkt-log-tracing = { path = "crates/kkt-log-tracing" }
 kkt-entropy-os = { path = "crates/kkt-entropy-os" }
@@ -258,7 +259,6 @@ kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access-tailscale = { path = "crates/kkt-remote-access-tailscale" }
 kkt-rules = { path = "crates/kkt-rules" }
 kkt-server = { path = "crates/kkt-server" }
-kkt-server-listen = { path = "crates/kkt-server-listen" }
 kkt-service = { path = "crates/kkt-service" }
 kkt-service-launchd = { path = "crates/kkt-service-launchd" }
 kkt-service-os = { path = "crates/kkt-service-os" }

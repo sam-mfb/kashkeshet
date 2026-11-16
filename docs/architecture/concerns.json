@@ -44,7 +44,7 @@
   {
    "id": "foundations",
    "title": "Foundations",
-   "about": "Time, randomness, names, the stop signal, limits, provenance and logs: what everything else is built on."
+   "about": "Time, randomness, names, the stop signal, limits, provenance, logs and serving HTTP: what everything else is built on."
   },
   {
    "id": "dev",
@@ -74,7 +74,7 @@
   },
   "kkt-web-preview": {
    "layer": "programs",
-   "concern": "The web page over simulated data, for working on the page: kkt-web's page over kkt-api-sim's simulated application and stand-in gate, with the real clock, randomness and stop signals, served alone through kkt-server and kkt-server-listen. Its flags and their checks (`SettingError`). Dev-only, never released.",
+   "concern": "The web page over simulated data, for working on the page: kkt-web's page over kkt-api-sim's simulated application and stand-in gate, with the real clock, randomness and stop signals, served alone through kkt-server and kkt-listen. Its flags and their checks (`SettingError`). Dev-only, never released.",
    "must_not": "Be released.",
    "kind": "composition"
   },
@@ -89,12 +89,6 @@
    "concern": "Assembling the server around the program's `Arc<dyn AdminApi>` in `Parts`: `/mcp`, `/mcp-admin` and the web page; its `ServerSettings` returns an opaque `CheckedSettings` snapshot for `Parts::new` and composes owner checks and run-record lines with the program's plain values, with `SettingError`; the public adapter from admission and identity to the web gate; the page's sessions; the web page alone over its API and gate (`page`).",
    "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in.",
    "kind": "composition"
-  },
-  "kkt-server-listen": {
-   "layer": "assembly",
-   "kind": "effect",
-   "concern": "Binding the server's assembled App to its socket and serving it.",
-   "must_not": "Decide how the server is assembled."
   },
   "kkt-mcp": {
    "layer": "surfaces",
@@ -387,6 +381,12 @@
    "concern": "The operating system's stop signals (Ctrl-C, SIGTERM), stopping the shared `Shutdown` (`StopSignals`).",
    "must_not": "Let a tokio signal type out of the crate.",
    "kind": "effect"
+  },
+  "kkt-listen": {
+   "layer": "foundations",
+   "kind": "effect",
+   "concern": "Serving HTTP: binding an address and answering on it with the router it is handed, until told to stop.",
+   "must_not": "Know how the router it serves was built, or depend on the crates that build it."
   },
   "kkt-log": {
    "layer": "foundations",

@@ -73,12 +73,12 @@
     },
     {
      "title": "Build and run",
-     "text": "build assembles the server from the parts and config; listen binds it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
+     "text": "build assembles the server from the parts and config; listen binds the router the program takes out of it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
      "items": [
       "kkt-server::build",
       "kkt-shutdown::Shutdown",
-      "kkt-server-listen::listen",
-      "kkt-server-listen::Listening",
+      "kkt-listen::listen",
+      "kkt-listen::Listening",
       "kkt-shutdown-os::StopSignals"
      ]
     }
@@ -713,11 +713,11 @@
     },
     {
      "title": "Build and run",
-     "text": "build, listen, and serve_until a stop signal.",
+     "text": "build, listen on its router, and serve_until a stop signal.",
      "items": [
       "kkt-server::build",
-      "kkt-server-listen::listen",
-      "kkt-server-listen::Listening",
+      "kkt-listen::listen",
+      "kkt-listen::Listening",
       "kkt-shutdown-os::StopSignals"
      ]
     }
@@ -860,11 +860,11 @@
     },
     {
      "title": "Build and run",
-     "text": "build, then listen on a loopback port and serve until the product is stopped.",
+     "text": "build, then listen with its router on a loopback port and serve until the product is stopped.",
      "items": [
       "kkt-server::build",
-      "kkt-server-listen::listen",
-      "kkt-server-listen::Listening",
+      "kkt-listen::listen",
+      "kkt-listen::Listening",
       "kkt-shutdown::Shutdown",
       "kkt-fake-product::Product"
      ]
@@ -997,10 +997,10 @@
     },
     {
      "title": "Serve",
-     "text": "kkt-server's page builds the page alone, and kkt-server-listen serves it until a stop signal.",
+     "text": "kkt-server's page builds the page alone, and kkt-listen serves its router until a stop signal.",
      "items": [
       "kkt-server::page",
-      "kkt-server-listen::listen",
+      "kkt-listen::listen",
       "kkt-shutdown-os::StopSignals"
      ]
     }
