@@ -35,7 +35,10 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     // (msgs 3619 and 3621). Every click on a box goes through it.
     const onBox = async (name, part) => {
       await p.$eval(node(name), (n) => n.scrollIntoView({ block: "center", inline: "center" }));
-      await p.click(`${node(name)} ${part}`, { force: true });
+      // The tick box and the eye sit on the box's edge, where an arrow's
+      // hover area can lie over them, so they need `force`. The box's body
+      // does not, and keeps Playwright's check that nothing covers it.
+      await p.click(`${node(name)} ${part}`, part === "> rect" ? {} : { force: true });
     };
     const read = () => p.evaluate(() => ({
       ticked: [...document.querySelectorAll(".node")]
