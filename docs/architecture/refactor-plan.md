@@ -231,9 +231,8 @@ adapter.
   command output, log lines) stays the same unless the step says why.
 - **A new crate comes with its paperwork:** its entry in the workspace
   `members` and `default-members`, its row in CLAUDE.md's crate table, its
-  entry in `docs/architecture/concerns.json` (layer, kind, concern, what it
-  must not do; `generate.py` stops without one), and its crate doc saying what
-  it owns.
+  entry in `docs/architecture/concerns.json` (layer, kind and concern;
+  `generate.py` stops without one), and its crate doc saying what it owns.
 - **A moved item takes its tests with it.** Tests move with the code they
   test; none is deleted to make a step pass.
 - **No compatibility re-exports across steps.** A step that moves an item

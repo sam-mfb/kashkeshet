@@ -9,30 +9,29 @@
   const concerns = window.KKT_CONCERNS;
   const assembly = window.KKT_ASSEMBLY;
   // The roles an arrow can play, worded in the direction the arrow is
-  // drawn (Sam, msg 3155): a "uses" or "wires" arrow runs from the crate
-  // that is used or built to the crate that uses or builds it, the way a
-  // part goes into what includes it; an "implements" arrow runs from the
-  // implementer to the contract. The data keeps Cargo's sense: an edge's
-  // `from` is always the crate that depends on `to`.
+  // drawn: every arrow runs from the crate that is depended on to the
+  // crate that depends on it, with its head on the dependant (Sam, msgs
+  // 3155 and 3550). A used or built crate goes into what uses or builds
+  // it; a contract goes into its implementer, which needs the contract to
+  // know what to build. The data keeps Cargo's sense: an edge's `from` is
+  // always the crate that depends on `to`.
   const ROLES = {
-    implements: "implements a contract of",
+    implements: "implemented by",
+    adapts: "adapted by",
     uses: "used by",
     wires: "built by",
   };
   // The short words, for the filters and the tooltip.
-  const ROLE_SHORT = { implements: "implements", uses: "used by", wires: "built by" };
+  const ROLE_SHORT = { implements: "implemented by", adapts: "adapted by", uses: "used by", wires: "built by" };
   const ROLE_ABOUT = {
-    implements: "the crate at the arrow's tail implements a trait the crate at its head defines",
+    implements: "the crate at the arrow's head implements a trait the crate at its tail defines",
+    adapts: "the crate at the arrow's head, a program or other composition, has a type of its own that meets a trait the crate at its tail declares, and injects it: an adapter over another crate's work, or its own work. Not an implementation of a contract (Sam, msg 3574)",
     uses: "the crate at the arrow's head calls or reads items of the crate at its tail",
     wires: "the crate at the arrow's head builds implementations or holders from the crate at its tail, to hand on",
   };
-  // Whether an arrow is drawn against Cargo's sense, from the dependency to
-  // the dependant: every arrow but one that implements (an arrow that both
-  // implements and uses keeps the implementing direction, since using the
-  // contract's records is part of implementing it).
-  const reversed = (roles) => !roles.includes("implements");
-  // The ends an arrow is drawn between, in the drawn direction.
-  const drawnEnds = (e) => (reversed(edgeRoles(e)) ? [e.to, e.from] : [e.from, e.to]);
+  // The ends an arrow is drawn between, in the drawn direction: from the
+  // dependency to the dependant.
+  const drawnEnds = (e) => [e.to, e.from];
   // How far apart the parallel strokes of an arrow with several roles are.
   const STROKE_GAP = 3.2;
   // How many straight pieces an offset stroke is drawn with.
@@ -42,8 +41,6 @@
   const BOX_H = 42;
   // Where a box's text starts; it ends as far from the right edge.
   const LABEL_X = 9;
-  // Where a delivery line meets a box: off the middle, where arrows meet it.
-  const DELIVERY_X = BOX_W / 4;
   const GAP_X = 18;
   const PAD_X = 16;
   const PAD_Y = 14;
@@ -112,9 +109,8 @@
   const edgeRoles = (e) => (e.kind === "normal" ? e.roles.map((r) => r.role) : ["uses"]);
   const shownRoles = (e) => edgeRoles(e).filter((r) => !state.hiddenRoles.has(r));
   const visibleEdge = (e) => state.kinds[e.kind] && visibleCrate(e.from) && visibleCrate(e.to) && shownRoles(e).length > 0;
-  // Cargo's dependency kinds, in plain words; the tooltips give Cargo's terms.
+  // Cargo's dependency kinds, in plain words.
   const DEP_WORDS = { normal: "used in code", dev: "used by tests", build: "used by build scripts" };
-  const DEP_CARGO = { normal: "dependencies", dev: "dev-dependencies", build: "build-dependencies" };
   // An item that exists only with the testing feature is always
   // listed, marked with what it is there for.
   const FEATURE_MARK = { testing: "tests only" };
@@ -311,9 +307,9 @@
         el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
       el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
-      el("span", { class: "key-item", title: "Generated: a crate that implements a contract of exactly one crate in its own layer is drawn beneath it" },
+      el("span", { class: "key-item", title: "A crate that implements a contract of exactly one crate in its own layer, drawn beneath it" },
         el("span", { class: "group-key" }), "Group: a crate, with the crates beneath it that implement its contract"),
-      el("span", { class: "muted" }, "Arrows run from the crate that is used or built to the crate that uses or builds it, and from an implementer to its contract. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role; it points the implementing way when one role implements. Thin dotted amber line, for the highlighted crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Heads are on the crate that depends. Dashed: tests only. Dotted: build scripts only. Parallel lines: several roles. Where a side has too many arrows, several share one head. Amber dotted line, for ticked crates: an injection route, not a dependency. Thick outline: the crate in the panel. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -384,28 +380,29 @@
     root.append(edgeLayer, hitLayer);
     view.edgeNodes = [];
     view.hitNodes = [];
-    for (const e of graph.edges) {
-      if (!visibleEdge(e)) continue;
-      const ends = endsOf(e.from, e.to, 0.5);
-      if (!ends) continue;
-      const [a, b] = ends;
+    const arrowEnds = placeArrowEnds(graph.edges.filter(visibleEdge));
+    for (const [e, [a, b]] of arrowEnds) {
       // One stroke per shown role, side by side, each in its role's colour.
       // One head, on the middle stroke, in the first role's shape: a head
       // per stroke crowds where arrows meet a box. The path runs from `from`
-      // to `to`; a reversed arrow puts its head at the start.
+      // to `to`, so the head, on `from`, is at its start. An arrow that
+      // shares its end with others leading its run has no head of its own.
+      // The stroke with the head runs through the end's point itself, so
+      // heads keep the spacing of the ends.
       const roles = shownRoles(e);
-      const head = reversed(edgeRoles(e)) ? "marker-start" : "marker-end";
+      const mid = Math.floor((roles.length - 1) / 2);
       roles.forEach((role, i) => {
         const path = svg("path", {
-          d: edgePath(a, b, (i - (roles.length - 1) / 2) * STROKE_GAP),
+          d: edgePath(a, b, (i - mid) * STROKE_GAP),
           class: `edge kind-${e.kind} role-${role}`,
           "data-edge": `${e.from}>${e.to}>${e.kind}`,
-          ...(i === Math.floor((roles.length - 1) / 2) ? { [head]: `url(#head-${roles[0]})`, "data-head": drawnEnds(e)[1] } : {}),
+          ...(i === mid
+            ? (a.lead ? { "marker-start": `url(#head-${roles[0]})`, "data-head": e.from } : { "data-shared": e.from }) : {}),
         });
         edgeLayer.append(path);
         view.edgeNodes.push({ edge: e, path });
       });
-      const hit = svg("path", { d: edgePath(a, b), class: "edge-hit" });
+      const hit = svg("path", { d: edgePath(a, b), class: "edge-hit", "data-edge": `${e.from}>${e.to}>${e.kind}` });
       hit.addEventListener("mousemove", (ev) => {
         showTip(ev, e);
       });
@@ -469,36 +466,40 @@
     paint();
   }
 
-  // Where a line between two boxes meets each of them, and which way it
-  // leaves: a point on a face, a unit direction out of the box, and how
-  // far the curve's control point lies along it. `along` is how far
-  // across a top or bottom face the line meets it (arrows meet the
-  // middle); on a side it meets as far down as 1 - along. A line meets
-  // a top or bottom face unless another box of the same group lies that
-  // way, between the face and the other end: then it meets the side
-  // toward the other end, so it never seems to end on a partner.
-  function endsOf(from, to, along) {
+  // Which face of each box a line between two boxes meets: "top" or
+  // "bottom", or "left" or "right". A line meets a top or bottom face
+  // unless another box of the same group lies that way, between the face
+  // and the other end: then it meets the side toward the other end, so it
+  // never seems to end on a partner. `arc`: both ends on one line, so the
+  // line arcs over the boxes between them.
+  function facesOf(from, to) {
     const p = view.position.get(from);
     const q = view.position.get(to);
     if (!p || !q) return null;
     const next = (a, b, step) => a.tier === b.tier && a.x === b.x && b.line === a.line + step;
     const face = (a, b) => {
-      if (b.line <= a.line) return a.stack > 0 && !next(a, b, -1) ? "side" : "top";
-      return a.stack < a.depth - 1 && !next(a, b, 1) ? "side" : "bottom";
+      const side = b.x >= a.x ? "right" : "left";
+      if (b.line <= a.line) return a.stack > 0 && !next(a, b, -1) ? side : "top";
+      return a.stack < a.depth - 1 && !next(a, b, 1) ? side : "bottom";
     };
     const fa = face(p, q);
     const fb = face(q, p);
-    const arc = p.line === q.line && fa === "top" && fb === "top";
-    const end = (a, b, f) => {
-      if (f === "side") {
-        const right = b.x >= a.x;
-        return { pt: [right ? a.x + BOX_W : a.x, a.y + (1 - along) * BOX_H], dir: [right ? 1 : -1, 0] };
-      }
-      const top = f === "top";
-      return { pt: [a.x + along * BOX_W, top ? a.y : a.y + BOX_H], dir: [0, top ? -1 : 1] };
-    };
-    const ea = end(p, q, fa);
-    const eb = end(q, p, fb);
+    return { fa, fb, arc: p.line === q.line && fa === "top" && fb === "top" };
+  }
+
+  // A point `t` of the way along a box's face (left to right, or top to
+  // bottom), and the way out of the box there.
+  function pointOn(name, face, t) {
+    const a = view.position.get(name);
+    if (face === "top") return { pt: [a.x + t * BOX_W, a.y], dir: [0, -1] };
+    if (face === "bottom") return { pt: [a.x + t * BOX_W, a.y + BOX_H], dir: [0, 1] };
+    if (face === "left") return { pt: [a.x, a.y + t * BOX_H], dir: [-1, 0] };
+    return { pt: [a.x + BOX_W, a.y + t * BOX_H], dir: [1, 0] };
+  }
+
+  // The two ends of a line, each a point on a face with its way out, and
+  // how far the curve's control point lies along it.
+  function joinEnds(ea, eb, arc) {
     const dx = Math.abs(eb.pt[0] - ea.pt[0]);
     const dy = Math.abs(eb.pt[1] - ea.pt[1]);
     const reach = (e) => {
@@ -510,6 +511,155 @@
     return [ea, eb];
   }
 
+  // ---- Spreading the ends along a face ----
+  // The lines that meet one face of a box are spread along it, in the
+  // order of where their other ends lie, so they cross as little as they
+  // can. Ends are END_GAP apart where the face has room, and never less
+  // than MIN_GAP, so no two heads touch. A face with more lines than it
+  // can hold MIN_GAP apart shares points: its lines are split into runs,
+  // the lines of a run end at one point on a shared stem, and only the
+  // first of a run is drawn with a head. Lines that end at the box (heads)
+  // and lines that leave it are kept in runs of their own, and heads by
+  // their role, so one head never stands for two roles.
+  const END_GAP = 22;
+  const MIN_GAP = 9;
+  // How far the ends keep from a face's corners: clear of the tick box and
+  // the program's eye, which sit on the right-hand corners.
+  const MARGIN = { top: 16, bottom: 16, left: 9, right: 9 };
+  const faceLength = (face) => (face === "top" || face === "bottom" ? BOX_W : BOX_H);
+  const ROLE_ORDER = ["uses", "wires", "implements", "adapts"];
+
+  // `ends`: [{ order, run }]; gives each its place along the face (0 to
+  // 1) and whether it leads its run, in `t` and `lead`.
+  function spreadOn(face, ends) {
+    const len = faceLength(face);
+    const room = len - 2 * MARGIN[face];
+    const slots = Math.max(1, Math.floor(room / MIN_GAP) + 1);
+    const at = (pos) => pos / len;
+    if (ends.length <= slots) {
+      ends.sort((a, b) => a.order - b.order);
+      const gap = ends.length > 1 ? Math.min(END_GAP, room / (ends.length - 1)) : 0;
+      const first = len / 2 - (gap * (ends.length - 1)) / 2;
+      ends.forEach((e, i) => { e.t = at(first + i * gap); e.lead = true; });
+      return;
+    }
+    // Too many: each run gets a share of the points, at least one.
+    ends.sort((a, b) => a.run - b.run || a.order - b.order);
+    const runs = [...new Set(ends.map((e) => e.run))];
+    const size = (r) => ends.filter((e) => e.run === r).length;
+    const share = new Map(runs.map((r) => [r, 1]));
+    let spare = slots - runs.length;
+    while (spare > 0) {
+      // The next point goes to the run with the most lines per point.
+      const r = runs.reduce((best, x) => (size(x) / share.get(x) > size(best) / share.get(best) ? x : best));
+      if (size(r) <= share.get(r)) break;
+      share.set(r, share.get(r) + 1);
+      spare--;
+    }
+    const used = runs.reduce((n, r) => n + share.get(r), 0);
+    const gap = Math.min(END_GAP, room / Math.max(1, used - 1));
+    const first = len / 2 - (gap * (used - 1)) / 2;
+    let point = 0;
+    for (const r of runs) {
+      const mine = ends.filter((e) => e.run === r);
+      const k = share.get(r);
+      mine.forEach((e, j) => {
+        const slot = point + Math.floor((j * k) / mine.length);
+        e.t = at(first + slot * gap);
+        e.lead = j === 0 || Math.floor(((j - 1) * k) / mine.length) !== slot - point;
+      });
+      point += k;
+    }
+  }
+
+  // Where the other end of a line lies, along the face: across it for a
+  // top or bottom face, down it for a side.
+  function orderOf(face, other) {
+    const q = view.position.get(other);
+    return face === "top" || face === "bottom" ? q.x + BOX_W / 2 + q.y / 1e4 : q.y + BOX_H / 2 + q.x / 1e4;
+  }
+
+  // Every drawn arrow's two ends: each face's arrows spread along it.
+  // Returns a map from the edge to [its end at `from`, its end at `to`],
+  // each with `lead`, and keeps each face's points for the delivery lines.
+  function placeArrowEnds(edges) {
+    const byFace = new Map();
+    const add = (name, face, end) => {
+      const key = `${name}|${face}`;
+      if (!byFace.has(key)) byFace.set(key, { name, face, ends: [] });
+      byFace.get(key).ends.push(end);
+    };
+    const placed = new Map();
+    for (const e of edges) {
+      const f = facesOf(e.from, e.to);
+      if (!f) continue;
+      // The head is on `from`, the crate that depends on the other.
+      const head = { order: orderOf(f.fa, e.to), run: 1 + ROLE_ORDER.indexOf(shownRoles(e)[0]) };
+      const tail = { order: orderOf(f.fb, e.from), run: 0 };
+      add(e.from, f.fa, head);
+      add(e.to, f.fb, tail);
+      placed.set(e, { f, head, tail });
+    }
+    for (const { face, ends } of byFace.values()) spreadOn(face, ends);
+    view.faceArrows = new Map([...byFace].map(([key, v]) => [key, v.ends.map((x) => x.t).sort((a, b) => a - b)]));
+    const out = new Map();
+    for (const [e, { f, head, tail }] of placed) {
+      const ends = joinEnds(pointOn(e.from, f.fa, head.t), pointOn(e.to, f.fb, tail.t), f.arc);
+      ends[0].lead = head.lead;
+      out.set(e, ends);
+    }
+    return out;
+  }
+
+  // The delivery lines' ends: on each face, in the spaces between the
+  // arrows' ends there, in the order of their other ends; on a face with
+  // no arrows, spread as arrows are.
+  function placeDeliveryEnds(lines) {
+    const byFace = new Map();
+    const placed = [];
+    for (const line of lines) {
+      const f = facesOf(line.program, line.receiver);
+      if (!f) continue;
+      const a = { order: orderOf(f.fa, line.receiver), run: 0, supply: line.supply };
+      const b = { order: orderOf(f.fb, line.program), run: 0, supply: line.supply };
+      for (const [name, face, end] of [[line.program, f.fa, a], [line.receiver, f.fb, b]]) {
+        const key = `${name}|${face}`;
+        if (!byFace.has(key)) byFace.set(key, { face, ends: [] });
+        byFace.get(key).ends.push(end);
+      }
+      placed.push({ line, f, a, b });
+    }
+    for (const [key, { face, ends }] of byFace) {
+      // Each point once: arrows sharing a point leave no space between them.
+      const arrows = [...new Set((view.faceArrows && view.faceArrows.get(key)) || [])];
+      if (!arrows.length) { spreadOn(face, ends); continue; }
+      const len = faceLength(face);
+      const bounds = [MARGIN[face] / len, ...arrows, 1 - MARGIN[face] / len];
+      const spaces = bounds.slice(1).map((t, i) => (t + bounds[i]) / 2);
+      // Ends spread over `slots` of the spaces, in order: one
+      // each while they fit, sharing points when they do not.
+      const spread = (list, slots) => list.forEach((e, i) => {
+        const pick = list.length >= slots.length ? Math.floor((i * slots.length) / list.length)
+          : Math.round(((i + 0.5) * slots.length) / list.length - 0.5);
+        e.t = slots[Math.min(slots.length - 1, pick)];
+      });
+      ends.sort((x, y) => x.order - y.order);
+      if (ends.length <= spaces.length) { spread(ends, spaces); continue; }
+      // Too many for a space each: the routes' hops keep a point each, and
+      // the lines from the crates that supply them share the spaces left,
+      // on shared stems, as arrows do.
+      const hops = ends.filter((e) => !e.supply);
+      const supplies = ends.filter((e) => e.supply);
+      const forHops = supplies.length ? Math.min(hops.length, spaces.length - 1) : spaces.length;
+      const taken = new Set(Array.from({ length: forHops }, (_, k) => Math.round(((k + 0.5) * spaces.length) / forHops - 0.5)));
+      spread(hops, [...taken].sort((x, y) => x - y).map((i) => spaces[i]));
+      spread(supplies, spaces.filter((_, i) => !taken.has(i)));
+    }
+    return placed.map(({ line, f, a, b }) => ({
+      line, ends: joinEnds(pointOn(line.program, f.fa, a.t), pointOn(line.receiver, f.fb, b.t), f.arc),
+    }));
+  }
+
   // One arrowhead per role: a filled arrow for uses, a hollow triangle for
   // implementing a contract (as in UML), an open arrow for wiring.
   function markers() {
@@ -517,11 +667,13 @@
     const shapes = {
       uses: ["M0,0 L8,4 L0,8 z", "head-uses"],
       implements: ["M0.5,0.5 L8,4 L0.5,7.5 z", "head-implements"],
+      adapts: ["M0.5,4 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0 z", "head-adapts"],
       wires: ["M0,0 L8,4 L0,8", "head-wires"],
     };
     for (const [role, [d, cls]] of Object.entries(shapes)) {
       const marker = svg("marker", {
-        id: `head-${role}`, viewBox: "-1 -1 10 10", refX: "7.5", refY: "4", markerWidth: "8", markerHeight: "8",
+        id: `head-${role}`, viewBox: "-1 -1 10 10", refX: "7.5", refY: "4", markerWidth: "9", markerHeight: "9",
+        markerUnits: "userSpaceOnUse",
         orient: "auto-start-reverse",
       });
       marker.append(svg("path", { d, class: cls }));
@@ -691,11 +843,55 @@
           const own = w.supplier === program;
           out.push({ ...at, how: own ? "own" : "adapts", builder: w.supplier, item: w.own, supplierItem: w.supplier_item });
         } else if (w.passes_on) {
-          out.push({ ...at, how: "passed", builder: null, item: w.passes_on });
+          out.push({ ...at, how: "passed", builder: null, item: w.passes_on, from: w.from || [] });
         }
       }
     }
     return out;
+  }
+
+  // ---- Routes: an injected thing from where it began to where it ends ----
+  // A route is a list of hops (deliveries), each into the crate the next
+  // hop leaves from. It starts with something an injector built, adapted
+  // or made itself, and goes on through every injector that passes it on.
+  // A hop that passes something on is joined to the hops that filled the
+  // slots its `from` names (assembly.json, checked by generate.py), never
+  // by its wording.
+  let routeCache = null;
+  function routes() {
+    if (routeCache) return routeCache;
+    const hops = deliveries();
+    const fills = (h, injector, slot) => h.receiver === injector && h.slots.some((t) => t.at === slot.at && t.param === slot.param);
+    const feeders = (h) => hops.filter((f) => h.from.some((slot) => fills(f, h.program, slot)));
+    const chains = (h, seen) => {
+      if (h.how !== "passed") return [[h]];
+      if (seen.has(h)) return [];
+      const next = new Set(seen).add(h);
+      return feeders(h).flatMap((f) => chains(f, next)).map((c) => [...c, h]);
+    };
+    routeCache = hops.flatMap((h) => chains(h, new Set()));
+    return routeCache;
+  }
+  // What a route carries, in a few words: the thing and who supplies it.
+  const typeName = (text) => String(text).split(",")[0].trim();
+  function carried(route) {
+    const o = route[0];
+    if (o.how === "injects") return `${o.item.split("::").pop()} (${o.builder})`;
+    if (o.how === "adapts") return `${typeName(o.item)} (over ${o.builder})`;
+    return `${typeName(o.item)} (its own work)`;
+  }
+  const ownWork = (route) => route[0].how === "own" || (route[0].how === "injects" && route[0].builder === route[0].program);
+  // The route in words, hop by hop, with the slots it fills.
+  function routeWords(route) {
+    const o = route[0];
+    const begin = {
+      injects: () => [`${o.program} injects `, roleItem(o.item.split("::").pop(), ["wires"], `from ${o.builder}`), ` from ${o.builder}`],
+      adapts: () => [`${o.program}'s adapter ${typeName(o.item)}, over ${o.builder}${o.supplierItem ? `'s ${o.supplierItem}` : ""}`],
+      own: () => [`${o.program}'s own work, ${typeName(o.item)}`],
+      passed: () => [o.item],
+    }[o.how]();
+    const into = (h) => `${h.receiver} (${h.slots.map((t) => `${t.at}: ${t.param}`).join(", ")})`;
+    return el("div", { class: "delivery-words" }, begin, route.map((h, i) => [i ? `; ${h.program} passes it on to ` : " → ", into(h)]));
   }
 
   // The contracts a slot takes, as "crate::Trait".
@@ -755,71 +951,92 @@
     while (labelLayer.firstChild) labelLayer.removeChild(labelLayer.firstChild);
     if (state.hiddenRoles.has("wires") || !state.kinds.normal) return;
     const focus = state.checked;
-    const shown = focus.size
-      ? deliveries().filter((d) => focus.has(d.program) || focus.has(d.builder) || focus.has(d.receiver)) : [];
-    // One line per injector and receiver, carrying every injection between
-    // them.
+    // Every route a ticked crate is on: as the crate that supplies what
+    // it carries, as an injector or as a receiver. The whole route is
+    // drawn, through crates that are not ticked, from the crate that
+    // supplies what it carries to where it ends.
+    const touches = (r) => (r[0].builder && focus.has(r[0].builder)) ||
+      r.some((h) => focus.has(h.program) || focus.has(h.receiver));
+    const shown = focus.size ? routes().filter(touches) : [];
+    // One line per pair of crates, carrying every route between them: the
+    // supplier into the injector that uses its work, then each hop.
     const lines = new Map();
-    for (const d of shown) {
-      if (d.program === d.receiver || !visibleCrate(d.program) || !visibleCrate(d.receiver)) continue;
-      const key = `${d.program}>${d.receiver}`;
-      if (!lines.has(key)) lines.set(key, { program: d.program, receiver: d.receiver, all: [] });
-      lines.get(key).all.push(d);
+    const add = (from, to, route, step) => {
+      if (from === to || !visibleCrate(from) || !visibleCrate(to)) return;
+      const key = `${from}>${to}`;
+      if (!lines.has(key)) lines.set(key, { program: from, receiver: to, routes: [], supply: step === "supply" });
+      const line = lines.get(key);
+      if (!line.routes.includes(route)) line.routes.push(route);
+      if (step !== "supply") line.supply = false;
+    };
+    for (const r of shown) {
+      if (r[0].builder && r[0].builder !== r[0].program) add(r[0].builder, r[0].program, r, "supply");
+      for (const h of r) add(h.program, h.receiver, r, "hop");
     }
     // Labels keep off the boxes as well as off each other, so no crate's
     // name is covered.
+    // A label keeps LABEL_CLEAR off every box, and out of every group's
+    // outline, so none sits in the narrow gap between two boxes and reads
+    // as the box's.
+    const LABEL_CLEAR = 5;
     const placed = [...view.nodes.keys()].map((n) => view.position.get(n)).filter(Boolean)
-      .map((q) => ({ x: q.x, y: q.y, w: BOX_W, h: BOX_H }));
+      .map((q) => ({ x: q.x - LABEL_CLEAR, y: q.y - LABEL_CLEAR, w: BOX_W + 2 * LABEL_CLEAR, h: BOX_H + 2 * LABEL_CLEAR }))
+      .concat(view.groups.map((unit) => {
+        const q = view.position.get(unit[0]);
+        return { x: q.x - GROUP_PAD, y: q.y - GROUP_PAD, w: BOX_W + 2 * GROUP_PAD,
+          h: unit.length * BOX_H + (unit.length - 1) * STACK_GAP + 2 * GROUP_PAD };
+      }));
     const overlaps = (r) => placed.some((q) => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h);
-    for (const line of lines.values()) {
-      // A quarter of the way along each box, where no arrow meets it
-      // (arrows meet the middle), so a line
-      // between a program and the crate just below it does not lie on the
-      // arrows leaving the program.
-      const ends = endsOf(line.program, line.receiver, DELIVERY_X / BOX_W);
-      if (!ends) continue;
-      const [a, b] = ends;
+    // In the spaces between the arrows' ends, so a line between a program
+    // and the crate just below it does not lie on the arrows leaving the
+    // program.
+    for (const { line, ends: [a, b] } of placeDeliveryEnds([...lines.values()])) {
       const tip = (ev) => showDeliveryTip(ev, line);
       const path = svg("path", { d: edgePath(a, b), class: "delivery", "data-from": line.program, "data-to": line.receiver });
       path.addEventListener("mousemove", tip);
       path.addEventListener("mouseleave", hideTip);
       layer.append(path);
-      // Labelled with the crates whose implementations do the work; the
-      // injector's own work and what it passes on are named as such.
-      // The injector's own work comes first, so a shortened label keeps it.
-      const suppliers = [
-        ...(line.all.some((d) => d.how === "own") ? ["its own work"] : []),
-        ...[...new Set(line.all.filter((d) => d.how === "injects" || d.how === "adapts").map((d) => d.builder))].sort(),
-        ...(line.all.some((d) => d.how === "passed") ? ["passed on"] : []),
-      ];
-      if (line.all.every((d) => d.how === "own")) path.classList.add("own-work");
-      const label = svg("text", { class: "delivery-label" + (line.all.every((d) => d.how === "own") ? " own-work" : "") });
-      label.textContent = shortLabel(suppliers);
+      // Labelled at every hop with what it carries and who supplies it, so
+      // nothing is only "passed on"; a supplier's line names the items the
+      // injector takes from it. The injector's own work comes first, so a
+      // shortened label keeps it.
+      const own = line.routes.filter(ownWork).map(carried);
+      const words = line.supply
+        ? line.routes.map((r) => r[0].supplierItem || r[0].item.split("::").pop())
+        : [...own, ...line.routes.filter((r) => !ownWork(r)).map(carried)];
+      const allOwn = !line.supply && line.routes.every(ownWork);
+      if (allOwn) path.classList.add("own-work");
+      if (line.supply) path.classList.add("supply");
+      const label = svg("text", { class: "delivery-label" + (allOwn ? " own-work" : ""), "data-from": line.program, "data-to": line.receiver });
+      label.textContent = shortLabel([...new Set(words)]);
       label.addEventListener("mousemove", tip);
       label.addEventListener("mouseleave", hideTip);
       labelLayer.append(label);
-      // Along the line, then nudged up or down, the first spot where the
-      // label overlaps no other; failing that, the middle.
+      // On its own line: the stretch nearest the middle where the label
+      // covers no box and no other label, trying the whole length, just
+      // above the line, then just below. Where every stretch crosses a box,
+      // the label sits mid-line on a backing of the page's colour, so it
+      // reads over the box.
       const len = path.getTotalLength();
       const spots = [];
-      for (const f of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.15, 0.85]) {
-        for (const dy of [0, -13, 13, -26, 26, -39, 39, -52, 52]) spots.push([f, dy]);
+      for (let k = 0; k <= 9; k++) {
+        for (const f of k ? [0.5 - k * 0.05, 0.5 + k * 0.05] : [0.5]) {
+          for (const dy of [0, 15]) spots.push([f, dy]);
+        }
       }
-      let done = false;
-      for (const [f, dy] of spots) {
+      const at = (f, dy) => {
         const pt = path.getPointAtLength(len * f);
         label.setAttribute("x", pt.x + 4);
         label.setAttribute("y", pt.y - 3 + dy);
         const box = label.getBBox();
-        const r = { x: box.x - 2, y: box.y - 1, w: box.width + 4, h: box.height + 2 };
-        if (!overlaps(r)) { placed.push(r); done = true; break; }
-      }
-      if (!done) {
-        const pt = path.getPointAtLength(len / 2);
-        label.setAttribute("x", pt.x + 4);
-        label.setAttribute("y", pt.y - 3);
-        const box = label.getBBox();
-        placed.push({ x: box.x - 2, y: box.y - 1, w: box.width + 4, h: box.height + 2 });
+        return { x: box.x - 2, y: box.y - 1, w: box.width + 4, h: box.height + 2 };
+      };
+      const free = spots.find(([f, dy]) => !overlaps(at(f, dy)));
+      const r = free ? at(...free) : at(0.5, 0);
+      placed.push(r);
+      if (!free) {
+        const back = svg("rect", { class: "delivery-label-back", x: r.x, y: r.y, width: r.w, height: r.h, rx: 3 });
+        labelLayer.insertBefore(back, label);
       }
     }
   }
@@ -829,8 +1046,10 @@
     const tip = $("tip");
     tip.replaceChildren(...[
       el("strong", {}, `${line.program} ⋯ ${line.receiver}`),
-      el("div", { class: "muted" }, `what ${line.program} injects (not a dependency)`),
-      line.all.map(deliveryWords),
+      el("div", { class: "muted" }, line.supply
+        ? `${line.receiver} injects ${line.program}'s work (not a dependency)`
+        : `what ${line.program} injects (not a dependency), and where it goes`),
+      line.routes.map(routeWords),
     ].flat().filter(Boolean));
     tip.hidden = false;
     const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
@@ -851,7 +1070,7 @@
       return by;
     }
     for (const r of e.roles) {
-      const names = r.role === "implements"
+      const names = r.role === "implements" || r.role === "adapts"
         ? r.detail.map((d) => d.split(" implements ").pop())
         : r.detail;
       for (const n of names) if (!by.get(r.role).includes(n)) by.get(r.role).push(n);
@@ -882,10 +1101,10 @@
       .concat(names.length > 10 ? [`, +${names.length - 10}`] : []);
     tip.replaceChildren(...[
       el("strong", {}, `${drawnEnds(e)[0]} → ${drawnEnds(e)[1]}`),
-      el("div", { class: "muted" }, DEP_WORDS[e.kind] || e.kind),
+      e.kind === "normal" ? null : el("div", { class: "muted" }, DEP_WORDS[e.kind] || e.kind),
       [...by].filter(([, names]) => names.length).map(([role, names]) => el("div", { class: "tip-role" },
         el("span", { class: `role-key role-${role}` }), " ", el("strong", { class: `role-text-${role}` }, `${ROLE_SHORT[role]}: `),
-        el("span", { class: `role-text-${role}` }, shown(names)))),
+        el("span", { class: `role-text-${role}` }, role === "adapts" ? adapterWords(e) : shown(names)))),
       [...by].every(([, names]) => !names.length) ? el("div", { class: "empty" }, "no items named") : null,
       (e.test_items || []).length ? el("div", { class: "muted" }, `tests only: ${list(e.test_items)}`) : null,
       arrowDeliveries(e).map(deliveryWords),
@@ -898,8 +1117,26 @@
   }
   function hideTip() { $("tip").hidden = true; }
 
+  // What each adapting type is, for an "adapted by" arrow from a trait's
+  // crate to the program or composition that meets it: an adapter over
+  // another crate's work, or the injector's own work with no other crate
+  // behind it, read from the routes that bring it to a slot taking that
+  // trait.
+  function adapterWords(e) {
+    const role = e.roles.find((r) => r.role === "adapts");
+    return role.detail.map((d, i) => {
+      const [type, trait] = d.split(" implements ");
+      const meets = (h) => h.slots.some((t) => slotTraits(h.receiver, t).includes(`${e.to}::${trait}`));
+      const route = routes().find((r) => r[0].program === e.from && r.some(meets));
+      const what = !route ? `${type}, an adapter,`
+        : ownWork(route) ? `its own work, ${type},`
+        : `${type}, an adapter over ${route[0].builder},`;
+      return [i ? "; " : "", `${what} meets ${trait}`];
+    });
+  }
+
   function edgeLabel(e) {
-    const parts = [`${DEP_WORDS[e.kind] || e.kind} (Cargo's ${DEP_CARGO[e.kind] || e.kind})`];
+    const parts = e.kind === "normal" ? [] : [DEP_WORDS[e.kind] || e.kind];
     if (e.features.length) parts.push(`turns on ${e.features.join(", ")}`);
     if (e.optional) parts.push("optional");
     if (e.target) parts.push(`only for ${e.target}`);
@@ -957,9 +1194,8 @@
       selectionList(),
       el("div", { class: "muted mono" }, c.path),
       badges,
-      el("p", {}, prose(info.concern), " ", source("concerns")),
-      info.must_not ? el("p", { class: "must" }, el("strong", {}, "Must not: "), prose(info.must_not)) : null,
-      c.crate_doc ? el("p", { class: "muted" }, "From its docs: ", prose(c.crate_doc)) : null,
+      el("p", {}, prose(info.concern)),
+      c.crate_doc && c.crate_doc !== info.concern ? el("p", { class: "muted" }, prose(c.crate_doc)) : null,
       assembly.programs[c.name]
         ? el("p", {}, el("button", { class: "action", type: "button", onclick: () => showAssembly(c.name) },
           `Show how ${assembly.programs[c.name].title} is assembled`))
@@ -967,21 +1203,17 @@
     ];
 
     const deps = graph.edges.filter((e) => e.from === c.name && state.kinds[e.kind]);
-    nodes.push(el("h3", { title: "The crates it depends on" }, `Includes (${deps.length}) `, source("code")), flowList(deps, "to"));
+    nodes.push(section("includes", "Includes", deps.length, () => flowList(deps, "to"), "The crates it depends on"));
     const users = graph.edges.filter((e) => e.to === c.name && state.kinds[e.kind]);
-    nodes.push(el("h3", { title: "The crates that depend on it" }, `Included in (${users.length}) `, source("code")), flowList(users, "from"));
+    nodes.push(section("included-in", "Included in", users.length, () => flowList(users, "from"), "The crates that depend on it"));
 
     nodes.push(...contractSections(c));
 
     const items = c.items;
-    nodes.push(el("h3", {}, `Provides (${items.length} public items) `, source("rustdoc")));
-    nodes.push(items.length ? itemList(items, focusItem, c) : el("p", { class: "empty" },
-      c.lib ? "No public items." : "A program: it has no library for others to use."));
-
-    if (c.third_party.length) {
-      nodes.push(el("h3", {}, "Third-party libraries it uses"),
-        el("p", { class: "mono" }, c.third_party.join(", ")));
-    }
+    // A section opens on the item search jumps to.
+    nodes.push(section("items", "Public items", items.length, () => itemList(items, focusItem, c), null, Boolean(focusItem)));
+    nodes.push(section("third-party", "Third-party libraries", c.third_party.length,
+      () => el("p", { class: "mono" }, c.third_party.join(", "))));
     panel.replaceChildren(...nodes.filter(Boolean));
     if (focusItem) {
       const target = panel.querySelector(`[data-item="${CSS.escape(focusItem)}"]`);
@@ -991,18 +1223,31 @@
     }
   }
 
-  // A tag saying where a section's content comes from.
-  const SOURCES = {
-    rustdoc: [true, "generated from rustdoc"],
-    code: [true, "generated from cargo metadata and the code"],
-    assembly: [false, "hand-written (assembly.json)"],
-    concerns: [false, "hand-written (concerns.json)"],
-    inferred: [true, "inferred here from the generated data, by matching names"],
-    checks: [true, "computed by kinds.py from the code, with concerns.json's kinds"],
-  };
-  function source(which) {
-    const [generated, label] = SOURCES[which];
-    return el("span", { class: `source ${generated ? "generated" : "hand"}` }, label);
+  // A panel section the viewer opens and closes, with a count beside its
+  // heading. An empty section is not shown. It starts open when it is
+  // short (SECTION_OPEN_MAX entries or fewer) and closed when long; each
+  // viewer's choice is kept per section, in this browser only, and the
+  // page works the same without it. `body` is built only when shown.
+  const SECTION_OPEN_MAX = 5;
+  const SECTION_KEY = "kkt-map-section:";
+  function sectionChoice(id) {
+    try { return localStorage.getItem(SECTION_KEY + id); } catch (_) { return null; }
+  }
+  function keepSectionChoice(id, open) {
+    try { localStorage.setItem(SECTION_KEY + id, open ? "open" : "closed"); } catch (_) { /* no storage: not kept */ }
+  }
+  function section(id, title, count, body, about, forceOpen) {
+    if (!count) return null;
+    const choice = sectionChoice(id);
+    const open = forceOpen || (choice ? choice === "open" : count <= SECTION_OPEN_MAX);
+    const details = el("details", { class: "section", "data-section": id, ...(open ? { open: "" } : {}) },
+      el("summary", {}, el("h3", about ? { title: about } : {}, title, " ", el("span", { class: "count" }, `(${count})`))));
+    if (open) details.append(body());
+    details.addEventListener("toggle", () => {
+      keepSectionChoice(id, details.open);
+      if (details.open && details.children.length === 1) details.append(body());
+    });
+    return details;
   }
 
   const itemRef = (crate, path) => el("button", {
@@ -1012,43 +1257,31 @@
   // The crate's contracts: the traits it defines and who implements each,
   // the traits of other crates it implements, and its slots.
   function contractSections(c) {
-    const out = [];
-    out.push(el("h3", {}, `Contracts it defines (${c.contracts.length}) `, source("rustdoc")));
-    out.push(c.contracts.length
-      ? el("ul", { class: "flows" }, c.contracts.map((t) => el("li", {},
+    const foreign = c.implements.filter((i) => i.trait_crate !== c.name);
+    const builds = c.builds || [];
+    return [
+      section("contracts", "Contracts it defines", c.contracts.length, () => el("ul", { class: "flows" }, c.contracts.map((t) => el("li", {},
         el("code", {}, t.trait),
         el("div", { class: "chips" }, t.implementors.length
           ? t.implementors.map((i) => i.type ? itemRef(i.crate, i.type)
             : el("span", { class: "chip" }, `${i.crate}: a type of its own`))
-          : el("span", { class: "empty" }, "No public implementation in the workspace: callers bring their own, or tests do.")))))
-      : el("p", { class: "empty" }, "None: it defines no public trait."));
-
-    const foreign = c.implements.filter((i) => i.trait_crate !== c.name);
-    out.push(el("h3", {}, `Contracts it implements (${foreign.length}) `, source("rustdoc")));
-    const builds = c.builds || [];
-    out.push(foreign.length || builds.length
-      ? el("ul", { class: "flows" },
+          : el("span", { class: "empty" }, "no implementation in the workspace")))))),
+      section("implements", "Contracts it implements or builds", foreign.length + builds.length, () => el("ul", { class: "flows" },
         foreign.map((i) => el("li", {},
           i.type ? el("code", {}, i.type) : el("span", { class: "muted" }, "a type of its own (not public)"),
           " implements ", itemRef(i.trait_crate, i.trait))),
         builds.map((b) => el("li", {},
-          el("code", {}, b.type), " builds ", b.gives.map((g) => itemRef(g.crate, g.type)))))
-      : el("p", { class: "empty" }, "None of another crate's."));
-
-    out.push(el("h3", {}, `Slots it takes (${c.slots.length}) `, source("rustdoc")));
-    out.push(c.slots.length
-      ? el("ul", { class: "flows" }, c.slots.map((sl) => el("li", {},
+          el("code", {}, b.type), " builds ", b.gives.map((g) => itemRef(g.crate, g.type)))))),
+      section("slots", "Slots it takes", c.slots.length, () => el("ul", { class: "flows" }, c.slots.map((sl) => el("li", {},
         el("code", {}, `${sl.at}`), " ", el("span", { class: "muted" }, sl.kind === "field" ? "field" : "takes"), " ",
         el("code", {}, sl.name), ": ",
         sl.traits.map((t) => itemRef(t.crate, t.trait)),
         (sl.holds || []).map((h) => el("span", {}, itemRef(h.crate, h.type),
-          el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))))))
-      : el("p", { class: "empty" }, "None: nothing it takes is a contract to fill."));
-    return out;
+          el("span", { class: "muted" }, ` (holds ${h.traits.map((t) => `${t.crate}::${t.trait}`).join(", ")})`))))))),
+    ];
   }
 
   function flowList(edges, end) {
-    if (!edges.length) return el("p", { class: "empty" }, "None, with the arrow kinds shown.");
     const items = new Map(graph.crates.map((c) => [c.name, new Map(c.items.map((i) => [i.path, i]))]));
     return el("ul", { class: "flows" }, edges
       .slice()
@@ -1058,7 +1291,8 @@
         const by = flowsByRole(e);
         // The traits it implements are listed too, though the arrow's items
         // may not name them.
-        const listed = e.items.concat(by.get("implements").filter((t) => !e.items.includes(t)));
+        const traits = by.get("implements").concat(by.get("adapts"));
+        const listed = e.items.concat(traits.filter((t) => !e.items.includes(t)));
         const shown = listed;
         return el("li", {},
           el("button", { class: "crate-link", type: "button", onclick: () => select(e[end]) }, e[end]),
@@ -1071,9 +1305,7 @@
             : null,
           arrowDeliveries(e).length ? el("div", { class: "deliveries-words" }, arrowDeliveries(e).map(deliveryWords)) : null,
           shown.length ? null
-            : el("div", { class: "empty" }, e.kind === "normal"
-              ? "No item is named in the code. It may be used only through another crate's types, or in tests."
-              : "No item is named in the code; it may be here for the features it turns on."),
+            : el("div", { class: "empty" }, "no item named"),
         );
       }));
   }
@@ -1197,15 +1429,13 @@
       el("div", { class: "dialog-head" },
         el("h2", {}, `How ${flow.title} is assembled`),
         el("button", { class: "action", type: "button", onclick: () => dialog.close() }, "Close")),
-      el("p", { class: "muted" }, "The flow and what the program passes to which slot are written by hand, from the code; every item and slot they name is checked to exist when the map is generated. Where pairs are shown below them, folded, they are inferred by matching names."),
-      el("h3", {}, "The flow ", source("assembly")),
+      el("h3", {}, "The flow"),
       stepList(flow.steps),
-      flow.also ? [el("h3", {}, "Also ", source("assembly")), stepList(flow.also)] : null,
-      el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length}) `, source("assembly")),
-      el("p", { class: "muted" }, "Read from the program's code by hand: every implementation the program passes to a slot of the shared crates, for the server and each of its commands. When the map is generated, every implementation and slot named here is checked to exist."),
+      flow.also ? [el("h3", {}, "Also"), stepList(flow.also)] : null,
+      el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length})`),
       el("ul", { class: "flows" }, (flow.wiring || []).map((w) => el("li", {},
         w.impl ? ref(w.impl) : el("span", { class: "chip" }, `${program}: ${w.own || w.passes_on}`),
-        w.own && w.supplier === program ? el("span", { class: "muted" }, " (its own work, not another crate's implementation)") : null,
+        w.own && w.supplier === program ? el("span", { class: "muted" }, " (its own work)") : null,
         w.own && w.supplier !== program ? [el("span", { class: "muted" }, " adapting "),
           w.supplier_item ? ref(`${w.supplier}::${w.supplier_item}`) : el("span", { class: "muted" }, w.supplier)] : null,
         ` → ${w.crate}'s `,
@@ -1214,8 +1444,8 @@
         w.through_adapter ? el("div", { class: "muted" }, "through the program's adapter to ", w.through_adapter.join(" and ")) : null,
         w.note ? el("div", { class: "muted" }, w.note) : null))),
       flow.inferred === false ? null : el("details", { class: "inferred" },
-        el("summary", {}, `Pairs inferred by matching names (${pairs.length}) `, source("inferred")),
-        el("p", { class: "muted" }, "Each pair is a guess from names: the program builds the implementation (or has its own), names the slot's owner, and the slot takes the contract the implementation has, or holds what it builds. It says what fits, not that the code passes that value there; the list above is what the code passes."),
+        el("summary", {}, `Pairs guessed from names (${pairs.length})`),
+        el("p", { class: "muted" }, "What fits a slot by its types, not what the code passes there."),
       pairs.length
         ? el("ul", { class: "flows" }, pairs.map((f) => el("li", {},
           f.pick.type ? itemRefAt(f.pick.crate, f.pick.type, dialog)
@@ -1236,11 +1466,10 @@
   function kindChecks(mismatches) {
     const list = mismatches || [];
     return [
-      el("h3", {}, `Kind checks (${list.length} to look at) `, source("checks")),
+      el("h3", {}, `Kind checks (${list.length} to look at)`),
       list.length
         ? el("ul", {}, list.map((m) => el("li", {}, prose(m))))
         : el("p", { class: "muted" }, "Every kind fits what the map shows."),
-      el("p", { class: "muted" }, "Reported, not corrected: a contract that does more than compute on its own values (behaviour through an injected dependency, or wiring), a contract or logic crate that touches the machine, an effect crate that touches it nowhere the map can see, and a composition that does machine work itself."),
     ];
   }
 
@@ -1249,8 +1478,7 @@
   function ruleChecks(breaks) {
     const list = breaks || [];
     return [
-      el("h3", {}, `Rule checks (${list.length} broken) `, source("checks")),
-      el("p", { class: "muted" }, "Only programs depend on an effect crate, in code or in tests; only programs depend on a composition crate in code; and a crate implements another crate's trait only if that crate is a contract, unless it is a program, a composition or test support."),
+      el("h3", {}, `Rule checks (${list.length} broken)`),
       list.length
         ? el("ul", {}, list.map((b) => el("li", {}, prose(b))))
         : el("p", { class: "muted" }, "No rule is broken."),
@@ -1266,19 +1494,12 @@
     const normal = graph.edges.filter((e) => e.kind === "normal").length;
     return [
       el("h2", {}, "The workspace"),
-      el("p", {}, `${graph.crates.length} packages and ${normal} dependencies between them that their code uses. `,
-        "Arrows are drawn by their role. A grey arrow runs from a crate to a crate that uses its items, and an amber one to a crate that builds its implementations to wire into a slot: from what is included to what includes it. A green arrow runs from a crate to the contract it implements. The panel's lists keep Cargo's sense: a crate includes what it depends on. Pick a crate to see its concern, its contracts and slots, the public items it provides, and which items flow along each arrow; a program's panel opens how it is assembled."),
+      el("p", {}, `${graph.crates.length} packages; ${normal} dependencies in code. Pick a crate for its concern, contracts, slots and public items, and what flows along each arrow.`),
       el("ul", { class: "overview" }, concerns.layers.map((layer) =>
         el("li", {}, el("strong", {}, `${layer.title} (${counts.get(layer.id) || 0}). `), prose(layer.about)))),
       kindChecks(graph.kind_mismatches),
       ruleChecks(graph.rule_breaks),
-      el("h3", {}, "Where this comes from"),
-      el("p", { class: "muted" },
-        "Crates and arrows: ", el("code", {}, "cargo metadata"), ". Public items: rustdoc's JSON of each library, with each feature on in turn. ",
-        "What flows along an arrow: the paths each crate's code names in the other, matched to its public items. ",
-        "Contracts, slots and arrow roles: rustdoc's JSON (trait impls, including private types' impls, named only as \"a type of its own\"; public signatures). ",
-        "Concerns, layers, kinds and the programs' assembly flows: written by hand; kinds.py checks each kind against the map, and the rules that rest on the kinds against the code. Each section on the page says which. Regenerate with ",
-        el("code", {}, "python3 docs/architecture/generate.py"), "."),
+      el("p", { class: "muted" }, "Regenerate with ", el("code", {}, "python3 docs/architecture/generate.py"), "; the README says where each part comes from."),
     ];
   }
 
@@ -1348,7 +1569,7 @@
 
   // ---- Controls ----
 
-  $("meta").textContent = `Generated from the code at commit ${graph.commit}.`;
+  $("meta").textContent = `At commit ${graph.commit}.`;
 
   $("search").addEventListener("input", (ev) => {
     state.query = ev.target.value.trim().toLowerCase();

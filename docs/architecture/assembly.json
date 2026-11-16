@@ -1,5 +1,5 @@
 {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, or an impl's crate is the receiving crate. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the two assemblies, kkt-operate and kkt-agent-commands, which pass on what the program gave their parts.",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the two assemblies, kkt-operate and kkt-agent-commands, which pass on what the program gave their parts.",
  "programs": {
   "kashkeshet": {
    "title": "kkt serve",
@@ -641,6 +641,30 @@
      "supplier_item": "Claude"
     },
     {
+     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup",
+     "supplier": "kashkeshet",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "register",
+       "param": "parts"
+      },
+      {
+       "at": "reclaim",
+       "param": "parts"
+      },
+      {
+       "at": "watch::run",
+       "param": "parts"
+      },
+      {
+       "at": "connect::run",
+       "param": "parts"
+      }
+     ],
+     "note": "in AgentParts' connection, which each command reads"
+    },
+    {
      "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container-docker's Browser",
      "supplier": "kkt-browser",
      "supplier_item": "SystemBrowser",
@@ -1096,7 +1120,13 @@
        "param": "api"
       }
      ],
-     "passes_on": "the AdminApi the program gave Parts"
+     "passes_on": "the AdminApi the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "rules"
+      }
+     ]
     },
     {
      "crate": "kkt-web",
@@ -1122,7 +1152,13 @@
        "param": "rules"
       }
      ],
-     "passes_on": "the AdminApi the program gave Parts"
+     "passes_on": "the AdminApi the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "rules"
+      }
+     ]
     },
     {
      "impl": "kkt-result-format::Formatter",
@@ -1150,7 +1186,13 @@
        "param": "identify"
       }
      ],
-     "passes_on": "the identity the program gave Parts"
+     "passes_on": "the identity the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "identify"
+      }
+     ]
     },
     {
      "crate": "kkt-web",
@@ -1164,7 +1206,17 @@
        "param": "entropy"
       }
      ],
-     "passes_on": "the clock and entropy the program gave Parts"
+     "passes_on": "the clock and entropy the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      },
+      {
+       "at": "Parts::new",
+       "param": "entropy"
+      }
+     ]
     },
     {
      "crate": "kkt-mcp",
@@ -1178,7 +1230,13 @@
        "param": "log"
       }
      ],
-     "passes_on": "the log the program gave Parts"
+     "passes_on": "the log the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ]
     },
     {
      "crate": "kkt-web",
@@ -1188,7 +1246,13 @@
        "param": "log"
       }
      ],
-     "passes_on": "the log the program gave Parts"
+     "passes_on": "the log the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ]
     }
    ]
   },
@@ -1202,7 +1266,13 @@
        "param": "server"
       }
      ],
-     "passes_on": "the Watched the program's Servers made"
+     "passes_on": "the Watched the program's Servers made",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "servers"
+      }
+     ]
     },
     {
      "crate": "kkt-watch",
@@ -1212,7 +1282,13 @@
        "param": "clock"
       }
      ],
-     "passes_on": "the clock the program gave AgentParts"
+     "passes_on": "the clock the program gave AgentParts",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "clock"
+      }
+     ]
     },
     {
      "crate": "kkt-watch",
@@ -1222,7 +1298,13 @@
        "param": "place"
       }
      ],
-     "passes_on": "the credentials the program gave AgentParts"
+     "passes_on": "the credentials the program gave AgentParts",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "credentials"
+      }
+     ]
     },
     {
      "crate": "kkt-watch",
@@ -1232,7 +1314,13 @@
        "param": "report"
       }
      ],
-     "passes_on": "the report the program gave AgentParts"
+     "passes_on": "the report the program gave AgentParts",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "report"
+      }
+     ]
     },
     {
      "crate": "kkt-client-config",
@@ -1246,7 +1334,13 @@
        "param": "host"
       }
      ],
-     "passes_on": "the client configs' host the program gave AgentParts"
+     "passes_on": "the client configs' host the program gave AgentParts",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "clients"
+      }
+     ]
     },
     {
      "crate": "kkt-setup",
@@ -1260,7 +1354,25 @@
        "param": "source"
       }
      ],
-     "passes_on": "the connection question the program gave AgentParts"
+     "passes_on": "the connection question the program gave AgentParts",
+     "from": [
+      {
+       "at": "register",
+       "param": "parts"
+      },
+      {
+       "at": "reclaim",
+       "param": "parts"
+      },
+      {
+       "at": "watch::run",
+       "param": "parts"
+      },
+      {
+       "at": "connect::run",
+       "param": "parts"
+      }
+     ]
     },
     {
      "passes_on": "the client command the program gave AgentParts",
@@ -1271,7 +1383,13 @@
        "param": "command"
       }
      ],
-     "note": "kkt connect"
+     "note": "kkt connect",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "client_command"
+      }
+     ]
     }
    ]
   },
@@ -1286,7 +1404,13 @@
        "param": "prober"
       }
      ],
-     "note": "kkt doctor, kkt setup"
+     "note": "kkt doctor, kkt setup",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "prober"
+      }
+     ]
     },
     {
      "passes_on": "the clock the program gave OperateParts",
@@ -1297,7 +1421,13 @@
        "param": "clock"
       }
      ],
-     "note": "kkt setup, waiting for a new server"
+     "note": "kkt setup, waiting for a new server",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "clock"
+      }
+     ]
     },
     {
      "passes_on": "the clock the program gave OperateParts",
@@ -1308,7 +1438,13 @@
        "param": "clock"
       }
      ],
-     "note": "kkt agent, kkt lanes"
+     "note": "kkt agent, kkt lanes",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "clock"
+      }
+     ]
     },
     {
      "passes_on": "the lines the program gave OperateParts",
@@ -1319,7 +1455,13 @@
        "param": "lines"
       }
      ],
-     "note": "kkt setup, kkt switch"
+     "note": "kkt setup, kkt switch",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "lines"
+      }
+     ]
     },
     {
      "own": "OsSteps, setup's steps through the program's parts",
@@ -1374,7 +1516,13 @@
        "param": "host"
       }
      ],
-     "note": "kkt setup, kkt doctor"
+     "note": "kkt setup, kkt doctor",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "clients"
+      }
+     ]
     },
     {
      "passes_on": "the lane folder's disk the program gave OperateParts",
@@ -1389,7 +1537,13 @@
        "param": "disk"
       }
      ],
-     "note": "kkt lanes import and export, kkt setup --lanes"
+     "note": "kkt lanes import and export, kkt setup --lanes",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "lanes"
+      }
+     ]
     },
     {
      "passes_on": "the lane folder's commit the program gave OperateParts",
@@ -1400,7 +1554,13 @@
        "param": "commits"
       }
      ],
-     "note": "kkt lanes import and export, kkt setup --lanes"
+     "note": "kkt lanes import and export, kkt setup --lanes",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "lane_commit"
+      }
+     ]
     },
     {
      "passes_on": "the client command the program gave OperateParts",
@@ -1411,7 +1571,13 @@
        "param": "command"
       }
      ],
-     "note": "kkt setup"
+     "note": "kkt setup",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "client_command"
+      }
+     ]
     }
    ]
   }

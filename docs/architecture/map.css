@@ -155,7 +155,6 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .badges { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
 .badge { background: var(--badge); border-radius: 10px; padding: 1px 8px; font-size: 11.5px; }
 .badge.feature { border: 1px solid var(--box-line); background: none; }
-.must { border-left: 3px solid var(--in); padding-left: 8px; }
 .items { list-style: none; padding: 0; margin: 0; }
 .items li { padding: 4px 0; border-bottom: 1px solid var(--line); }
 .items li:last-child { border-bottom: 0; }
@@ -188,14 +187,21 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 }
 
 /* Edge roles */
-:root { --implements: #1f8a70; --uses: #8a8a93; --wires: #c27c0e; }
+:root { --implements: #1f8a70; --uses: #8a8a93; --wires: #c27c0e; --adapts: #8f8a00; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; }
+  :root:not([data-theme="light"]) { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; --adapts: #e3e15a; }
 }
-:root[data-theme="dark"] { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; }
+:root[data-theme="dark"] { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; --adapts: #e3e15a; }
 .edge.role-uses { stroke: var(--uses); }
 .edge.role-implements { stroke: var(--implements); stroke-width: 1.6; }
 .edge.role-wires { stroke: var(--wires); }
+/* An adapter a program or composition injects: short dashes, not the
+   injection lines' dots, in a yellow of its own (Sam, msg 3577), apart from
+   their amber and the "built by" arrows', with an open round head. */
+.edge.role-adapts { stroke: var(--adapts); stroke-dasharray: 5 3; }
+.head-adapts { fill: var(--bg); stroke: var(--adapts); stroke-width: 1.2; }
+.role-key.role-adapts { border-top: 3px dashed var(--adapts); }
+.role-badge.role-adapts { background: none; border: 1px dotted var(--adapts); color: var(--adapts-text, var(--adapts)); }
 .edge.focus { opacity: .95; stroke-width: 2; }
 .edge.role-implements.focus { stroke-width: 2.4; }
 .head-uses { fill: var(--uses); }
@@ -209,9 +215,6 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .role-badge.role-wires { background: none; border: 1px solid var(--wires); color: var(--wires); }
 .role-badge.role-uses { background: none; border: 1px solid var(--uses); }
 .tip-role { margin-top: 3px; }
-.source { font-size: 10.5px; text-transform: none; letter-spacing: 0; font-weight: 500; border-radius: 8px; padding: 0 6px; margin-left: 4px; }
-.source.generated { border: 1px solid var(--implements); color: var(--implements); }
-.source.hand { border: 1px solid var(--wires); color: var(--wires); }
 .chip-link { border: 0; color: var(--accent); cursor: pointer; font: inherit; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
 .action {
   border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 7px; padding: 5px 10px;
@@ -273,14 +276,16 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .role-text-implements { color: var(--implements-text, var(--implements)); }
 .role-text-uses { color: var(--uses-text, var(--fg)); }
 .role-text-wires { color: var(--wires-text, var(--wires)); }
+.role-text-adapts { color: var(--adapts-text, var(--adapts)); }
 .chip.role-text { border-left: 3px solid currentColor; }
 .chip.role-second-implements { text-decoration: underline 2px var(--implements); text-underline-offset: 3px; }
 .chip.role-second-uses { text-decoration: underline 2px var(--uses); text-underline-offset: 3px; }
 .chip.role-second-wires { text-decoration: underline 2px var(--wires); text-underline-offset: 3px; }
+.chip.role-second-adapts { text-decoration: underline dotted 2px var(--adapts); text-underline-offset: 3px; }
 /* Darker text shades of the role colours, for contrast on light chips. */
-:root { --implements-text: #17705b; --wires-text: #8f5a00; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --implements-text: #4fd1a8; --wires-text: #f0b54a; } }
-:root[data-theme="dark"] { --implements-text: #4fd1a8; --wires-text: #f0b54a; }
+:root { --implements-text: #17705b; --wires-text: #8f5a00; --adapts-text: #626000; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --implements-text: #4fd1a8; --wires-text: #f0b54a; --adapts-text: #e3e15a; } }
+:root[data-theme="dark"] { --implements-text: #4fd1a8; --wires-text: #f0b54a; --adapts-text: #e3e15a; }
 /* A role's row in the arrow tooltip: key, role and items on one line. */
 .tip .tip-role strong { display: inline; margin: 0; }
 .tip .tip-role .role-key { display: inline-block; vertical-align: middle; }
@@ -293,11 +298,13 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
    dash and an italic label. */
 .delivery.own-work { stroke-dasharray: 6 3; }
 .delivery-label.own-work { font-style: italic; }
+.delivery-label-back { fill: var(--bg); stroke: var(--wires); stroke-width: .8; opacity: .95; pointer-events: none; }
 .deliveries-words { margin-top: 2px; }
 /* Each chip's left mark is its role's arrow colour, whatever its text colour. */
 .chip.role-text-implements { border-left-color: var(--implements); }
 .chip.role-text-uses { border-left-color: var(--uses); }
 .chip.role-text-wires { border-left-color: var(--wires); }
+.chip.role-text-adapts { border-left: 3px dotted var(--adapts); }
 /* The Crates and Arrows menus: a button in the header opens a list of
    checkboxes under it. On a phone the list opens in the header's flow. */
 .menu { position: relative; }
@@ -371,3 +378,8 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .node.program-off { opacity: .28; }
 .selection-list { margin: 6px 0 10px; font-size: 13px; }
 .clear-selection { font: inherit; font-size: 12px; padding: 2px 10px; margin-left: 4px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); cursor: pointer; }
+
+/* A panel section: its heading is the toggle, with an arrow and a count. */
+.section > summary { cursor: pointer; list-style: revert; margin: 14px 0 4px; }
+.section > summary h3 { display: inline; margin: 0; }
+.section .count { font-weight: 500; color: var(--muted); }
