@@ -201,7 +201,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .edge.role-adapts { stroke: var(--adapts); stroke-dasharray: 5 3; }
 .head-adapts { fill: var(--bg); stroke: var(--adapts); stroke-width: 1.2; }
 .role-key.role-adapts { border-top: 3px dashed var(--adapts); }
-.role-badge.role-adapts { background: none; border: 1px dotted var(--adapts); color: var(--adapts); }
+.role-badge.role-adapts { background: none; border: 1px dotted var(--adapts); color: var(--adapts-text, var(--adapts)); }
 .edge.focus { opacity: .95; stroke-width: 2; }
 .edge.role-implements.focus { stroke-width: 2.4; }
 .head-uses { fill: var(--uses); }
@@ -276,16 +276,16 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .role-text-implements { color: var(--implements-text, var(--implements)); }
 .role-text-uses { color: var(--uses-text, var(--fg)); }
 .role-text-wires { color: var(--wires-text, var(--wires)); }
-.role-text-adapts { color: var(--adapts); }
+.role-text-adapts { color: var(--adapts-text, var(--adapts)); }
 .chip.role-text { border-left: 3px solid currentColor; }
 .chip.role-second-implements { text-decoration: underline 2px var(--implements); text-underline-offset: 3px; }
 .chip.role-second-uses { text-decoration: underline 2px var(--uses); text-underline-offset: 3px; }
 .chip.role-second-wires { text-decoration: underline 2px var(--wires); text-underline-offset: 3px; }
 .chip.role-second-adapts { text-decoration: underline dotted 2px var(--adapts); text-underline-offset: 3px; }
 /* Darker text shades of the role colours, for contrast on light chips. */
-:root { --implements-text: #17705b; --wires-text: #8f5a00; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --implements-text: #4fd1a8; --wires-text: #f0b54a; } }
-:root[data-theme="dark"] { --implements-text: #4fd1a8; --wires-text: #f0b54a; }
+:root { --implements-text: #17705b; --wires-text: #8f5a00; --adapts-text: #626000; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --implements-text: #4fd1a8; --wires-text: #f0b54a; --adapts-text: #e3e15a; } }
+:root[data-theme="dark"] { --implements-text: #4fd1a8; --wires-text: #f0b54a; --adapts-text: #e3e15a; }
 /* A role's row in the arrow tooltip: key, role and items on one line. */
 .tip .tip-role strong { display: inline; margin: 0; }
 .tip .tip-role .role-key { display: inline-block; vertical-align: middle; }
