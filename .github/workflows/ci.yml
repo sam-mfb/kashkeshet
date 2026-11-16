@@ -66,7 +66,8 @@ jobs:
         run: bash .github/scripts/check-release-packages.sh
 
       # Each package builds alone and with each of its features, only
-      # programs depend on an effect crate, no crate has a `real` feature,
+      # programs depend on an effect crate or (in [dependencies]) on a
+      # composition crate, no crate has a `real` feature,
       # and the manifests follow the rules for `testing`.
       - name: Check each crate
         run: bash .github/scripts/check-crates.sh
@@ -102,7 +103,7 @@ jobs:
 
   # kkt-pro will depend on the shared crates by git. A crate outside the
   # workspace, depending that way on kkt-api-agent, kkt-rules, kkt-server and
-  # kkt-server-listen at this commit, must build. Cargo fetches the commit from this repository, so a
+  # kkt-listen at this commit, must build. Cargo fetches the commit from this repository, so a
   # pull request from a fork, whose commit is not on one of its branches, may
   # not be found here.
   outside-crate:

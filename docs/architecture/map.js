@@ -1249,7 +1249,7 @@
     const list = breaks || [];
     return [
       el("h3", {}, `Rule checks (${list.length} broken) `, source("checks")),
-      el("p", { class: "muted" }, "Only programs depend on an effect crate, in code or in tests; and a crate implements another crate's trait only if that crate is a contract, unless it is a program, a composition or test support."),
+      el("p", { class: "muted" }, "Only programs depend on an effect crate, in code or in tests; only programs depend on a composition crate in code; and a crate implements another crate's trait only if that crate is a contract, unless it is a program, a composition or test support."),
       list.length
         ? el("ul", {}, list.map((b) => el("li", {}, prose(b))))
         : el("p", { class: "muted" }, "No rule is broken."),
