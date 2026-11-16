@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "230de776",
+ "commit": "fe649cfb",
  "crates": [
   {
    "bins": [
@@ -5171,7 +5171,26 @@ window.KKT_GRAPH = {
   },
   {
    "bins": [],
-   "builds": [],
+   "builds": [
+    {
+     "gives": [
+      {
+       "crate": "kkt-db",
+       "type": "Backend"
+      }
+     ],
+     "type": "MemoryPlace"
+    },
+    {
+     "gives": [
+      {
+       "crate": "kkt-db",
+       "type": "Backend"
+      }
+     ],
+     "type": "SqlitePlace"
+    }
+   ],
    "contracts": [],
    "crate_doc": "kkt's database contract (`kkt_db`) over SQLite: the only crate that knows SQLite.",
    "dev_only": false,
@@ -17088,11 +17107,15 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Options",
-      "SqlitePlace",
       "copy_database"
      ],
      "role": "uses"
+    },
+    {
+     "detail": [
+      "SqlitePlace"
+     ],
+     "role": "wires"
     }
    ],
    "target": null,
@@ -18223,10 +18246,15 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "MANAGED",
-      "MemoryPlace"
+      "MANAGED"
      ],
      "role": "uses"
+    },
+    {
+     "detail": [
+      "MemoryPlace"
+     ],
+     "role": "wires"
     }
    ],
    "target": null,
@@ -20582,11 +20610,15 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "CreateError",
-      "Options",
-      "SqlitePlace"
+      "CreateError"
      ],
      "role": "uses"
+    },
+    {
+     "detail": [
+      "SqlitePlace"
+     ],
+     "role": "wires"
     }
    ],
    "target": null,
@@ -21540,14 +21572,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
     {
      "detail": [
-      "Options",
       "SqlitePlace"
      ],
-     "role": "uses"
+     "role": "wires"
     }
    ],
    "target": null,

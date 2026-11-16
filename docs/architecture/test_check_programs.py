@@ -295,5 +295,30 @@ class AssemblyWiring(unittest.TestCase):
                       self.check([{"crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]}]))
 
 
+class FactoryGives(unittest.TestCase):
+    """generate.py's rule for what makes a type a factory: a public function
+    that gives back another crate's holder, implementation or contract."""
+
+    LIBS = {"kkt_db": "kkt-db", "kkt_db_sqlite": "kkt-db-sqlite", "kkt_rules": "kkt-rules"}
+    PUBLIC = {("kkt-db", "Backend", "trait"): "Backend", ("kkt-db", "Value", "struct"): "Value",
+              ("kkt-rules", "Db", "struct"): "Db"}
+
+    def gives(self, types, holders=(), implementing=()):
+        def public(pkg, name, kinds):
+            return next((p for (c, n, k), p in self.PUBLIC.items() if c == pkg and n == name and k in kinds), None)
+        return generate.factory_gives("kkt-db-sqlite", types, self.LIBS, public, set(holders), set(implementing))
+
+    def test_another_crates_contract_as_a_trait_object_makes_a_factory(self):
+        # SqlitePlace::open gives an Arc<dyn kkt_db::Backend>: the rule missed it.
+        self.assertEqual(self.gives([("kkt_db", "Backend", "trait")]), [{"crate": "kkt-db", "type": "Backend"}])
+
+    def test_another_crates_holder_makes_a_factory(self):
+        self.assertEqual(self.gives([("kkt_rules", "Db", "struct")], holders={("kkt-rules", "Db")}),
+                         [{"crate": "kkt-rules", "type": "Db"}])
+
+    def test_a_plain_value_or_its_own_type_does_not(self):
+        self.assertEqual(self.gives([("kkt_db", "Value", "struct"), ("kkt_db_sqlite", "SqlitePlace", "struct")]), [])
+
+
 if __name__ == "__main__":
     unittest.main()

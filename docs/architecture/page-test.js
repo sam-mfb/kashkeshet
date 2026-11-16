@@ -308,6 +308,24 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("the supplier's hop is the arrow's one built-by stroke, solid, lit and labelled, and every dotted line starts at an injector",
       solid.lit && solid.fromIt === 0 && solid.notInjector.length === 0 && solid.label.some((l) => /TracingLog/.test(l)), solid);
 
+    // An adapter's hop (msg 3706): kashkeshet wraps kkt-terminal's Terminal
+    // in WatchOutput, so with kkt-watch ticked the arrow's used-by stroke is
+    // the hop, lit in its own colour, not amber, and labelled.
+    await onBox("kkt-watch", ".pick-hit");
+    const adapter = await p.evaluate(() => {
+      const strokes = [...document.querySelectorAll("path.edge[data-edge='kashkeshet>kkt-terminal>normal']")];
+      const hop = strokes.filter((x) => x.classList.contains("route-hop"));
+      const amber = document.querySelector("path.edge.role-wires");
+      return {
+        one: hop.length === 1 && hop[0].classList.contains("role-uses"),
+        own: hop.length === 1 && (!amber || getComputedStyle(hop[0]).stroke !== getComputedStyle(amber).stroke),
+        label: [...document.querySelectorAll("text.delivery-label.supply")].map((x) => x.textContent).find((l) => /wrapped by WatchOutput/.test(l)) || null,
+      };
+    });
+    await onBox("kkt-watch", ".pick-hit");
+    check("an adapter's hop is its used-by stroke, lit in its own colour and labelled with what it wraps",
+      adapter.one && adapter.own && Boolean(adapter.label), adapter);
+
     // An adapter is not an implementation (msg 3574): a composition's own
     // type meeting another crate's trait is "adapted by", drawn apart from
     // the green arrows; its tooltip says whether it is an adapter or the
