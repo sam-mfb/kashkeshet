@@ -34,7 +34,7 @@
   {
    "id": "operations",
    "title": "Operations",
-   "about": "Settings, setup, services, Docker, Tailscale, client configs, diagnostics, backups and lane files: running kkt on a machine."
+   "about": "What is specific to running kkt on a machine: setup, settings, services, Docker, client configs, diagnostics, backups, lane files and the record of a server run."
   },
   {
    "id": "clients",
@@ -42,9 +42,9 @@
    "about": "kkt as a client of a server: the shared MCP client and `kkt watch`."
   },
   {
-   "id": "foundations",
-   "title": "Foundations",
-   "about": "Time, randomness, names, the stop signal, limits, provenance, logs, files and serving HTTP: what everything else is built on."
+   "id": "platform",
+   "title": "Platform",
+   "about": "General crates that know nothing of kkt and would make sense in any program: time, randomness, logs, files, HTTP serving, the terminal, the browser, remote access, git and more. The test: a platform crate depends on no crate outside the platform layer."
   },
   {
    "id": "dev",
@@ -169,11 +169,6 @@
    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
    "kind": "logic"
   },
-  "kkt-setup-os": {
-   "layer": "operations",
-   "concern": "Setup's record and unfinished note, data folder, program paths and PATH checks on this machine.",
-   "kind": "effect"
-  },
   "kkt-service": {
    "layer": "operations",
    "concern": "The project's contract for running kkt as a service of the user's login (`Service`: install, check it started, start, stop, status, logs, add a key, uninstall), with the values it takes and gives and its errors; `Unsupported` for a system with no service manager kkt works with; the plan of what the service runs, from the settings it needs, and the bind check, both on plain values; its testing Memory stand-in.",
@@ -200,23 +195,23 @@
    "kind": "effect"
   },
   "kkt-remote-access": {
-   "layer": "operations",
+   "layer": "platform",
    "concern": "The remote-sharing contract (RemoteAccess, Node) and its stand-in.",
    "kind": "contract"
   },
   "kkt-remote-access-tailscale": {
-   "layer": "operations",
-   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner.",
+   "layer": "platform",
+   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login (`Tailscale`, made with the command a person should rerun once they have fixed what a refusal names); what tailscale's answers mean is tested over a private runner.",
    "kind": "effect"
   },
-  "kkt-client-config": {
+  "kkt-llm-agent-config": {
    "layer": "operations",
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through the ClientCommand it declares, with its testing Recorder, and its file restored if that fails.",
    "kind": "logic"
   },
-  "kkt-client-command": {
-   "layer": "operations",
-   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
+  "kkt-llm-agent-command": {
+   "layer": "platform",
+   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, made with the server's name and what a person should retry with (`Claude::new`), with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-llm-agent-config's ClientCommand (phase 16).",
    "kind": "effect"
   },
   "kkt-diagnostics": {
@@ -231,12 +226,12 @@
   },
   "kkt-backup": {
    "layer": "operations",
-   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
-   "kind": "logic"
+   "concern": "Backups, as a contract: backup folders' names, contents, file modes and pruning choices (Layout, Contents, FileCopy, layout, name, old_names), with its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`); and Backups, writing a layout into a folder and pruning old backups there, with testing::Memory as its stand-in. kkt-backup-os implements Backups.",
+   "kind": "contract"
   },
   "kkt-backup-os": {
    "layer": "operations",
-   "concern": "Writing immutable backup layouts and removing old folders selected by the backup logic (`write`, `prune`).",
+   "concern": "Backups on disk: OsBackups implements kkt-backup's Backups with the operating system's files, writing kkt-backup's layouts and removing the old folders it picks; it is given the program's database copy.",
    "kind": "effect"
   },
   "kkt-lane-files": {
@@ -244,9 +239,9 @@
    "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from the `LaneCommit` it declares.",
    "kind": "logic"
   },
-  "kkt-lane-commit": {
-   "layer": "operations",
-   "concern": "The commit a lane folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
+  "kkt-revision": {
+   "layer": "platform",
+   "concern": "The commit a folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
    "kind": "effect"
   },
   "kkt-agent-client": {
@@ -275,87 +270,87 @@
    "kind": "logic"
   },
   "kkt-search": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule, with its word table), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given. Pure text: it knows no database.",
    "kind": "logic"
   },
   "kkt-hash": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "Hashing: `sha256`, the SHA-256 digest of some bytes. The one crate that uses sha2; its users call it.",
    "kind": "logic"
   },
   "kkt-clock": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "Time: the Clock contract, Time and Span values, time formatting and FixedClock behind testing. The real clock is in kkt-clock-system.",
    "kind": "contract"
   },
   "kkt-names": {
-   "layer": "foundations",
+   "layer": "core",
    "concern": "Avatars' handles, channel IDs, the name packs, and the operator and admin names with their rules. It draws randomness through kkt-entropy's `Entropy`, with its own character sets.",
    "kind": "logic"
   },
   "kkt-entropy": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "The randomness contract `Entropy`, with `random_chars` as a provided method that takes the alphabet to draw from, and its test doubles behind `testing`.",
    "kind": "contract"
   },
   "kkt-entropy-os": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "Randomness from the operating system: `OsEntropy`, which implements kkt-entropy's `Entropy` directly, a shared contract.",
    "kind": "effect"
   },
   "kkt-machine": {
-   "layer": "foundations",
-   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values, and `Machine`, the contract for reading them and this process's ID, with its stand-in `testing::FixedMachine`. The crates that place files on the machine take these facts; none reads them.",
+   "layer": "platform",
+   "concern": "Facts about the machine: `Env` (the home folder, the XDG folders and the base of per-user config they give, and any other folder the program asks for by the variable that names it, `Env::named`) and `Platform`, as plain values, and `Machine`, the contract for reading them (the environment's folders by the variables the program names), this process's ID, this program's path and the folders `$PATH` names, with its stand-in `testing::FixedMachine`. The crates that place files on the machine take these facts; none reads them.",
    "kind": "contract"
   },
   "kkt-machine-os": {
-   "layer": "foundations",
-   "concern": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID. The program asks once and passes the values on.",
+   "layer": "platform",
+   "concern": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment (the home and XDG folders, and the variables the program names), naming the platform this program was built for, and giving this process's ID, this program's path and the folders `$PATH` names. The program asks once and passes the values on.",
    "kind": "effect"
   },
   "kkt-shutdown": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value; and `Signals`, the contract for a source of stop signals, which stops a `Shutdown` and says which `Signal` came, with its stand-in `testing::OnCue`.",
    "kind": "contract"
   },
   "kkt-shutdown-os": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "The operating system's stop signals (Ctrl-C, SIGTERM): `StopSignals` implements kkt-shutdown's `Signals`, listening when it is made and stopping the shared `Shutdown` when one comes.",
    "kind": "effect"
   },
   "kkt-files": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "effect",
-   "concern": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a private file and restricting one to its owner, and absolute and canonical paths. Each program adapts it to the contract the crate that needs files declares."
+   "concern": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a private file and restricting one to its owner, and absolute and canonical paths. Also a file that may be missing (`read_if_present`), a write that replaces a file only once the new text is whole (`write_by_rename`), a removal where a missing file is fine (`remove_if_present`), and whether a path is a file (`is_file`). Each program adapts it to the contract the crate that needs files declares, or calls it from its own adapters."
   },
   "kkt-listen": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "effect",
    "concern": "Serving HTTP: binding an address and answering on it with the router it is handed, until told to stop; and trying whether an address could be listened on (`try_bind`), letting it go at once."
   },
   "kkt-log": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "contract",
    "concern": "Structured log events: their level, target, message and named values."
   },
   "kkt-terminal": {
-   "layer": "operations",
+   "layer": "platform",
    "kind": "effect",
-   "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the terminal's half of the login link: showing it, and the Enter key."
+   "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and a link shown with a wait for Enter (BrowserLink): showing the link, and taking a press of Enter as a request to open it."
   },
   "kkt-browser": {
-   "layer": "operations",
+   "layer": "platform",
    "concern": "Opening a link in the person's browser with the system's own opener (open on macOS, xdg-open elsewhere): SystemBrowser, with its own methods: starting the opener, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without starting it. It declares no contract: the program adapts SystemBrowser to kkt-container-docker's Browser (phase 16).",
    "kind": "effect"
   },
   "kkt-log-tracing": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "effect",
-   "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given; the log level setting it starts with: LogLevel (name, parse), DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL and check_dependency_log_level, with its own SettingError (from kkt-logs, deleted, ARCHITECTURE.md 4.2.2)."
+   "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given, with the program's own lines picked by the targets the program names; the log level setting it starts with: LogLevel (name, parse) with its own SettingError, and the defaults DEFAULT_LOG_LEVEL and DEFAULT_DEPENDENCY_LOG_LEVEL (from kkt-logs, deleted, ARCHITECTURE.md 4.2.2). It names no program's settings or targets."
   },
   "kkt-provenance": {
-   "layer": "foundations",
+   "layer": "operations",
    "concern": "What produced a server run: the build, its git commit, and the settings that shape the run, as lines of a name and a value that the program words.",
    "kind": "logic"
   },
@@ -370,19 +365,19 @@
    "kind": "test support"
   },
   "kkt-clock-system": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "effect",
    "concern": "The real wall clock and its sleep: SystemClock implements the shared Clock contract."
   },
   "kkt-toml": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "TOML text, in kkt's terms: parsing it into a tree of values (`parse`, `Table`, `Value`), reading a typed record from it and writing one back (`read`, `write`), and editing a document with its comments and layout kept (`Document`, `TableMut`, `ListMut`, `Found`, `IfMissing`, `EditError`). Its errors are its own and say where in the text the problem is (`ParseError`, `Place`, `WriteError`). The one crate that uses toml and toml_edit (phase 15); its users depend on it directly.",
    "kind": "logic"
   },
   "kkt-rolling-file": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "effect",
-   "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). It does not implement kkt-log."
+   "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). Its refusals are values (OpenError, PolicyProblem, PolicyValue), which the caller words in its own terms. It does not implement kkt-log."
   },
   "kkt-keys-os": {
    "layer": "access",

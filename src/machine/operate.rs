@@ -4,9 +4,11 @@
 
 use super::connection::ConnectionReads;
 use super::settings::{self, DefaultDb, Report, ServeArgs, ServeOptions};
+use kkt_files::Files;
 use kkt_keys::AccessKey;
-use kkt_machine::{Env, Platform};
-use kkt_operate::{BackupWriter, Config, Databases, OperateParts, Output, ServeFacts, SetupFiles};
+use kkt_machine::{Env, Machine, Platform};
+use kkt_machine_os::OsMachine;
+use kkt_operate::{Config, Databases, OperateParts, Output, ServeFacts, SetupFiles};
 use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -71,7 +73,7 @@ impl<'a, D> NativeOperate<'a, D> {
             login_link: &self.login_link,
             service: self.service.as_ref(),
             try_bind: &kkt_listen::try_bind,
-            remote: &kkt_remote_access_tailscale::Tailscale,
+            remote: &REMOTE_ACCESS,
             clients: &super::client_config::ClientHost,
             client_command: &super::client_config::ClaudeCommand,
             prober: &self.prober,
@@ -87,7 +89,7 @@ impl<'a, D> NativeOperate<'a, D> {
             key_files: &kkt_keys_os::OsKeyFiles,
             entropy: &kkt_entropy_os::OsEntropy,
             database: &NativeDatabases,
-            backups: &NativeBackups,
+            backups: &BACKUPS,
             output: &NativeOutput,
         }
     }
@@ -235,49 +237,94 @@ impl kkt_operate::CheckService for ServiceCheck<'_> {
     }
 }
 
+/// Setup's record and unfinished note on this machine's files, and this
+/// program's path and `$PATH`, with setup's wording of what went wrong.
 pub(crate) struct NativeSetupFiles;
 impl SetupFiles for NativeSetupFiles {
     fn read_record(&self, dir: &Path) -> Result<Option<kkt_setup::Record>, String> {
-        kkt_setup_os::read_record(dir)
+        let path = kkt_setup::record_path(dir);
+        read_if_present(&path)?
+            .map(|text| kkt_setup::Record::parse(&text, &path))
+            .transpose()
     }
     fn read_unfinished(&self, dir: &Path) -> Result<Option<kkt_setup::Unfinished>, String> {
-        kkt_setup_os::read_unfinished(dir)
+        let path = kkt_setup::unfinished_path(dir);
+        read_if_present(&path)?
+            .map(|text| kkt_setup::Unfinished::parse(&text, &path))
+            .transpose()
     }
     fn write_record(&self, dir: &Path, record: &kkt_setup::Record) -> Result<(), String> {
-        kkt_setup_os::write_record(dir, record)
+        write_whole(&kkt_setup::record_path(dir), &record.render()?)
     }
     fn write_unfinished(
         &self,
         dir: &Path,
         unfinished: &kkt_setup::Unfinished,
     ) -> Result<(), String> {
-        kkt_setup_os::write_unfinished(dir, unfinished)
+        write_whole(&kkt_setup::unfinished_path(dir), &unfinished.render()?)
     }
     fn remove_unfinished(&self, dir: &Path) -> Result<(), String> {
-        kkt_setup_os::remove_unfinished(dir)
+        let path = kkt_setup::unfinished_path(dir);
+        Files
+            .remove_if_present(&path)
+            .map_err(|e| format!("could not remove {}: {e}", path.display()))
     }
     fn kkt_path(&self) -> Result<PathBuf, String> {
-        kkt_setup_os::kkt_path()
+        crate::process::kkt_path()
     }
     fn path_dirs(&self) -> Vec<PathBuf> {
-        kkt_setup_os::path_dirs()
+        OsMachine.path_dirs()
     }
     fn on_path(&self, dirs: &[PathBuf], program: &str) -> bool {
-        kkt_setup_os::on_path(dirs, program)
+        dirs.iter().any(|dir| Files.is_file(&dir.join(program)))
     }
     fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
-        kkt_setup_os::absolute(path)
+        Files.absolute(path)
     }
     fn program_path(&self) -> std::io::Result<PathBuf> {
-        kkt_setup_os::program_path()
+        crate::process::program_path()
     }
     fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
-        kkt_setup_os::canonicalize(path)
+        Files.canonicalize(path)
     }
     fn remove_record(&self, dir: &Path) -> Result<(), String> {
-        kkt_setup_os::remove_record(dir)
+        let path = kkt_setup::record_path(dir);
+        Files
+            .remove_file(&path)
+            .map_err(|e| format!("could not remove {}: {e}", path.display()))
     }
 }
+
+/// The text of the file at `path`, if there is one.
+fn read_if_present(path: &Path) -> Result<Option<String>, String> {
+    Files
+        .read_if_present(path)
+        .map_err(|e| format!("could not read {}: {e}", path.display()))
+}
+
+/// Writes `text` at `path` whole, making its folder first; a failure leaves
+/// any earlier file as it was.
+fn write_whole(path: &Path, text: &str) -> Result<(), String> {
+    if let Some(dir) = path.parent() {
+        Files
+            .create_dir_all(dir)
+            .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
+    }
+    Files
+        .write_by_rename(path, text)
+        .map_err(|e| format!("could not write {}: {e}", path.display()))
+}
+
+/// Backups on the machine's disk, the database copied with SQLite's online
+/// backup.
+type CopyDatabase = fn(&Path, &Path) -> Result<(), String>;
+static BACKUPS: kkt_backup_os::OsBackups<CopyDatabase> =
+    kkt_backup_os::OsBackups::new(super::database::copy);
+
+/// Sharing the server over Tailscale; a refusal tells the person to rerun
+/// `kkt setup` once they have fixed what it names.
+static REMOTE_ACCESS: kkt_remote_access_tailscale::Tailscale =
+    kkt_remote_access_tailscale::Tailscale::new("`kkt setup`");
 
 struct NativeDatabases;
 impl Databases for NativeDatabases {
@@ -308,14 +355,5 @@ impl kkt_operate::ConfigText for NativeConfigText {
     fn write(&self, path: &Path, text: &str) -> Result<(), String> {
         kkt_config_file::files::write(&super::config_disk::ConfigDisk, path, text)
             .map_err(|e| e.to_string())
-    }
-}
-
-/// Backups written to the machine's files, the database copied with
-/// SQLite's online backup.
-pub(crate) struct NativeBackups;
-impl BackupWriter for NativeBackups {
-    fn write(&self, folder: &Path, layout: &kkt_backup::Layout<'_>) -> Result<PathBuf, String> {
-        kkt_backup_os::write(folder, layout, super::database::copy)
     }
 }

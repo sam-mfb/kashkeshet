@@ -8,6 +8,6 @@ repository.workspace = true
 publish = false
 
 [features]
-# `testing`: the predictable stand-ins `SeqEntropy`, `SameHandleEntropy` and
+# `testing`: the predictable stand-ins `SeqEntropy`, `FirstOfLongListsEntropy` and
 # `SeededEntropy`.
 testing = []

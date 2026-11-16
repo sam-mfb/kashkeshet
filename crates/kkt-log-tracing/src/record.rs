@@ -56,7 +56,7 @@ fn new_site(key: &SiteKey) -> &'static Site {
     }));
     let names = Box::leak(key.fields.clone().into_boxed_slice());
     let metadata = Box::leak(Box::new(Metadata::new(
-        "kkt log event",
+        "log event",
         key.target,
         trace_level(key.level),
         None,

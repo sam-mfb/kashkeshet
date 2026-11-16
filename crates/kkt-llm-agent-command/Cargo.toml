@@ -1,5 +1,5 @@
 [package]
-name = "kkt-client-command"
+name = "kkt-llm-agent-command"
 description = "Claude Code's own command line, for configuring kkt's server in its settings"
 version.workspace = true
 edition.workspace = true

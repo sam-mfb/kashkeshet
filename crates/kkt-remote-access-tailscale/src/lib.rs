@@ -1,16 +1,16 @@
-//! Sharing a service-mode server over the host's existing Tailscale login:
+//! Sharing a local server over the host's existing Tailscale login:
 //! `Tailscale` implements kkt-remote-access's `RemoteAccess`. Commands go
 //! through a private runner, so what their answers mean is tested against a
-//! fake and never reaches a tailnet. It
-//! never changes login, DNS preferences, kkt's config, or its service. It
-//! owns only the HTTPS root proxy it installs.
+//! fake and never reaches a tailnet. It never changes the login, DNS
+//! preferences, or anything of the caller's. It owns only the HTTPS root
+//! proxy it installs.
 
 use serde::Deserialize;
 use serde_json::Value;
 use serde_json::error::Category;
 use std::net::SocketAddr;
 
-/// The host Tailscale Serve listener used by service-mode setup.
+/// The HTTPS port Tailscale Serve listens on for this node.
 const TAILSCALE_HTTPS_PORT: u16 = 443;
 
 mod runner;
@@ -18,20 +18,36 @@ use kkt_remote_access::Node;
 use runner::{Output, Runner};
 
 /// Shares this machine's server through its existing Tailscale login.
-pub struct Tailscale;
+pub struct Tailscale {
+    /// The command a person should rerun once they have fixed what a
+    /// refusal says, as the refusal words it, such as "`app setup`".
+    rerun: &'static str,
+}
+
+impl Tailscale {
+    /// `rerun` is the command a person should rerun after fixing what a
+    /// refusal names; the refusals tell them to.
+    pub const fn new(rerun: &'static str) -> Tailscale {
+        Tailscale { rerun }
+    }
+
+    fn runner(&self) -> runner::OsRunner {
+        runner::OsRunner { rerun: self.rerun }
+    }
+}
 
 impl kkt_remote_access::RemoteAccess for Tailscale {
     fn prepare(&self) -> Result<Node, String> {
-        prepare(&runner::OsRunner)
+        prepare(&self.runner(), self.rerun)
     }
     fn serve(&self, bind: SocketAddr) -> Result<(), String> {
-        serve(&runner::OsRunner, bind)
+        serve(&self.runner(), bind, self.rerun)
     }
     fn served(&self, bind: SocketAddr) -> Result<Option<Node>, String> {
-        served(&runner::OsRunner, bind)
+        served(&self.runner(), bind)
     }
     fn stop(&self, bind: SocketAddr) -> Result<(), String> {
-        stop(&runner::OsRunner, bind)
+        stop(&self.runner(), bind, self.rerun)
     }
 }
 
@@ -52,36 +68,38 @@ struct Own {
 }
 
 /// Check the existing login and HTTPS setting; never runs `tailscale up`.
-fn prepare(host: &dyn Runner) -> Result<Node, String> {
-    node(host, true)
+fn prepare(host: &dyn Runner, rerun: &str) -> Result<Node, String> {
+    node(host, true, rerun)
 }
 
-fn node(host: &dyn Runner, https: bool) -> Result<Node, String> {
+fn node(host: &dyn Runner, https: bool, rerun: &str) -> Result<Node, String> {
     let output = host.run(&["status".into(), "--json".into()])?;
     // Tailscale may exit nonzero while logged out but still return status JSON.
     let status: Status = serde_json::from_str(&output.stdout).map_err(|e| {
         format!(
-            "could not read Tailscale status; start Tailscale and log in, then rerun `kkt setup` \
+            "could not read Tailscale status; start Tailscale and log in, then rerun {rerun} \
              (its output could not be read: {})",
             json_cause(&e)
         )
     })?;
     if status.backend_state != "Running" {
         return Err(format!(
-            "Tailscale is {}; open Tailscale and log in (or run `tailscale up`), then rerun `kkt setup`",
+            "Tailscale is {}; open Tailscale and log in (or run `tailscale up`), then rerun {rerun}",
             status.backend_state
         ));
     }
     if !output.success {
         return Err(format!(
-            "Tailscale status failed; check `tailscale status` before rerunning `kkt setup`{}",
+            "Tailscale status failed; check `tailscale status` before rerunning {rerun}{}",
             said(&output)
         ));
     }
     let dns_name = status.own.map(|own| own.dns_name).unwrap_or_default();
     let dns_name = dns_name.trim_end_matches('.');
     if !valid_dns(dns_name) {
-        return Err("Tailscale did not report a valid node DNS name; enable MagicDNS in https://login.tailscale.com/admin/dns and rerun `kkt setup`".into());
+        return Err(format!(
+            "Tailscale did not report a valid node DNS name; enable MagicDNS in https://login.tailscale.com/admin/dns and rerun {rerun}"
+        ));
     }
     if https
         && !status
@@ -90,7 +108,9 @@ fn node(host: &dyn Runner, https: bool) -> Result<Node, String> {
             .iter()
             .any(|domain| domain.trim_end_matches('.').eq_ignore_ascii_case(dns_name))
     {
-        return Err("Tailscale HTTPS certificates are not enabled for this node; open https://login.tailscale.com/admin/dns, enable MagicDNS, then under HTTPS Certificates select Enable HTTPS and accept the certificate transparency notice. Rerun `kkt setup` afterwards".into());
+        return Err(format!(
+            "Tailscale HTTPS certificates are not enabled for this node; open https://login.tailscale.com/admin/dns, enable MagicDNS, then under HTTPS Certificates select Enable HTTPS and accept the certificate transparency notice. Rerun {rerun} afterwards"
+        ));
     }
     Ok(Node {
         dns_name: dns_name.to_string(),
@@ -179,9 +199,9 @@ fn changed(host: &dyn Runner, args: &[String]) -> Result<(), String> {
 
 /// Install a persistent HTTPS root proxy. Refuse to replace a different root
 /// handler, raw TCP listener, or Funnel exposure on this port.
-fn serve(host: &dyn Runner, bind: SocketAddr) -> Result<(), String> {
+fn serve(host: &dyn Runner, bind: SocketAddr, rerun: &str) -> Result<(), String> {
     let target = target(bind)?;
-    let node = prepare(host)?;
+    let node = prepare(host, rerun)?;
     let config = config(host)?;
     if let Some(handler) = root(&config, &node)
         && handler.get("Proxy").and_then(Value::as_str) != Some(&target)
@@ -257,9 +277,9 @@ fn served(host: &dyn Runner, bind: SocketAddr) -> Result<Option<Node>, String> {
 
 /// Remove the matching root proxy, preserving other paths, ports and login.
 /// A changed root handler is left alone and reported to the caller.
-fn stop(host: &dyn Runner, bind: SocketAddr) -> Result<(), String> {
+fn stop(host: &dyn Runner, bind: SocketAddr, rerun: &str) -> Result<(), String> {
     let target = target(bind)?;
-    let node = node(host, false)?;
+    let node = node(host, false, rerun)?;
     let config = config(host)?;
     let Some(handler) = root(&config, &node) else {
         return Ok(());

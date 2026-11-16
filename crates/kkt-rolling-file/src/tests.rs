@@ -140,9 +140,15 @@ fn a_write_larger_than_the_limit_lands_whole() {
 fn a_log_file_is_opened_only_with_a_policy_that_bounds_it() {
     let (_dir, clock, path) = setup("open-policy");
     let refused = open_log_file(&path, POLICY, clock).err().expect("refused");
+    let OpenError::Policy(problem) = refused else {
+        panic!("refused for its policy: {refused:?}");
+    };
     assert_eq!(
-        refused,
-        "invalid setting: log_max_bytes must be at least 65536"
+        problem,
+        PolicyProblem {
+            value: PolicyValue::MaxBytes,
+            rule: "must be at least 65536".into()
+        }
     );
     assert!(!path.exists());
 }
@@ -156,11 +162,10 @@ fn a_log_file_that_cannot_be_opened_is_refused_naming_its_path() {
     let refused = open_log_file(&path, LogPolicy::DEFAULT, clock)
         .err()
         .expect("refused");
-    let start = format!(
-        "invalid setting: log_file could not be opened at {}: ",
-        path.display()
-    );
-    assert!(refused.starts_with(&start), "{refused}");
+    let OpenError::File { path: named, .. } = refused else {
+        panic!("refused for its file: {refused:?}");
+    };
+    assert_eq!(named, path);
 }
 
 #[test]

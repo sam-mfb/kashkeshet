@@ -17,6 +17,48 @@ use kkt_server::{AppConfig, CheckedSettings};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
+/// The targets of kkt's own code, logged at kkt's own level: the library,
+/// the `kkt` binary, and every `kkt-*` crate, whose module paths start with
+/// "kkt" (check-crates.sh makes every crate name start with `kkt-`).
+pub const LOG_OWN_TARGETS: &[&str] = &["kashkeshet", "kkt"];
+
+/// Checks `dependency_log_level`. At debug and trace the MCP library logs
+/// whole requests and replies, tokens and recovery codes included, and logs
+/// must never hold those; so those levels are refused.
+pub fn check_dependency_log_level(level: LogLevel) -> Result<(), kkt_log_tracing::SettingError> {
+    match level {
+        LogLevel::Error | LogLevel::Warn | LogLevel::Info => Ok(()),
+        LogLevel::Debug | LogLevel::Trace => Err(kkt_log_tracing::SettingError::new(
+            "dependency_log_level",
+            format!(
+                "must be error, warn or info, not {}: at debug and trace the MCP library \
+                 logs request contents, including tokens",
+                level.name()
+            ),
+        )),
+    }
+}
+
+/// Why the log file `kkt serve` writes to could not be opened, worded with
+/// the settings it comes from.
+pub fn log_file_refusal(refusal: kkt_rolling_file::OpenError) -> String {
+    use kkt_rolling_file::{OpenError, PolicyValue};
+    match refusal {
+        OpenError::Policy(problem) => {
+            let setting = match problem.value {
+                PolicyValue::MaxBytes => "log_max_bytes",
+                PolicyValue::RotatedFiles => "log_rotated_files",
+                PolicyValue::MaxAge => "log_max_age",
+            };
+            format!("invalid setting: {setting} {}", problem.rule)
+        }
+        OpenError::File { path, error } => format!(
+            "invalid setting: log_file could not be opened at {}: {error}",
+            path.display()
+        ),
+    }
+}
+
 /// Reads the arguments a service file gives `kkt` as a `kkt serve` command:
 /// the config file it names and the settings it gives. The command line is
 /// `cli`'s, so `cli` supplies it ([`cli::serve_args`]).
@@ -72,7 +114,9 @@ pub(crate) fn database(
         DefaultDb::Made(without_home) => {
             let db = found.ok_or_else(|| without_home.to_string())?;
             if let Some(dir) = db.parent() {
-                kkt_setup_os::make_data_folder(dir)?;
+                kkt_files::Files
+                    .create_dir_all(dir)
+                    .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
             }
             Ok(db)
         }
@@ -415,7 +459,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     if let Err(p) = kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None) {
         problems.push((p.name, "check_bind", p.rule));
     }
-    if let Err(p) = kkt_log_tracing::check_dependency_log_level(dependency_log_level) {
+    if let Err(p) = check_dependency_log_level(dependency_log_level) {
         problems.push((p.name, "check_dependency_log_level", p.rule));
     }
     let server_settings = server_settings
@@ -465,8 +509,7 @@ mod test_support {
     pub(crate) fn test_env(home: Option<&Path>) -> Env {
         Env {
             home: home.map(Path::to_path_buf),
-            claude_config_dir: None,
-            codex_home: None,
+            named: Default::default(),
             xdg_config_home: None,
             xdg_data_home: None,
         }
@@ -493,11 +536,81 @@ mod tests {
     use crate::scratch;
     use kkt_server::ServerSettings;
 
+    #[test]
+    fn dependency_levels_that_would_log_secrets_are_refused() {
+        for level in [LogLevel::Error, LogLevel::Warn, LogLevel::Info] {
+            assert_eq!(check_dependency_log_level(level), Ok(()));
+        }
+        let refused = check_dependency_log_level(LogLevel::Debug).expect_err("refused");
+        assert_eq!(
+            refused.to_string(),
+            "dependency_log_level must be error, warn or info, not debug: at debug and trace \
+             the MCP library logs request contents, including tokens"
+        );
+        let refused = check_dependency_log_level(LogLevel::Trace).expect_err("refused");
+        assert_eq!(refused.name, "dependency_log_level");
+    }
+
+    /// The log file's refusals read as they did when kkt-rolling-file
+    /// worded them itself, naming kkt's settings.
+    #[test]
+    fn a_log_file_refusal_names_the_setting_it_comes_from() {
+        use kkt_rolling_file::{LogPolicy, OpenError, open_log_file};
+        let home = scratch::Dir::new("log-file-refusal");
+        let clock = std::sync::Arc::new(kkt_clock::testing::FixedClock::new(
+            kkt_clock::Time::from_text("2026-11-16T00:00:00Z").expect("time"),
+        ));
+        let small = LogPolicy {
+            max_bytes: 1,
+            ..LogPolicy::DEFAULT
+        };
+        let refused = open_log_file(&home.join("kkt.log"), small, clock.clone())
+            .err()
+            .expect("refused");
+        assert_eq!(
+            log_file_refusal(refused),
+            "invalid setting: log_max_bytes must be at least 65536"
+        );
+        for (policy, said) in [
+            (
+                LogPolicy {
+                    rotated_files: 0,
+                    ..LogPolicy::DEFAULT
+                },
+                "invalid setting: log_rotated_files must be at least 1",
+            ),
+            (
+                LogPolicy {
+                    max_age: std::time::Duration::from_secs(60),
+                    ..LogPolicy::DEFAULT
+                },
+                "invalid setting: log_max_age must be at least an hour",
+            ),
+        ] {
+            let refused = open_log_file(&home.join("kkt.log"), policy, clock.clone())
+                .err()
+                .expect("refused");
+            assert_eq!(log_file_refusal(refused), said);
+        }
+        let blocker = home.join("not-a-folder");
+        std::fs::write(&blocker, "").expect("write");
+        let path = blocker.join("kkt.log");
+        let refused = open_log_file(&path, LogPolicy::DEFAULT, clock)
+            .err()
+            .expect("refused");
+        assert!(matches!(refused, OpenError::File { .. }));
+        let said = log_file_refusal(refused);
+        let start = format!(
+            "invalid setting: log_file could not be opened at {}: ",
+            path.display()
+        );
+        assert!(said.starts_with(&start), "{said}");
+    }
+
     fn config_path_env(home: Option<&str>, config: Option<&str>) -> Env {
         Env {
             home: home.map(PathBuf::from),
-            claude_config_dir: None,
-            codex_home: None,
+            named: Default::default(),
             xdg_config_home: config.map(PathBuf::from),
             xdg_data_home: None,
         }

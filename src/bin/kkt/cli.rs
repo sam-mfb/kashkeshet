@@ -8,8 +8,8 @@ use crate::{
 };
 use clap::{Args, Parser, Subcommand};
 use kashkeshet::machine::settings::ServeOptions;
-use kkt_client_config::Client;
 use kkt_hosts::DEFAULT_BIND;
+use kkt_llm_agent_config::Client;
 use kkt_log_tracing::LogLevel;
 use kkt_provenance::Build;
 use kkt_setup as setup;
@@ -613,7 +613,8 @@ fn clients_flag(list: Option<&str>) -> Result<Option<Vec<Client>>, String> {
 /// and use it from elsewhere.
 fn absolute_flag(path: Option<PathBuf>) -> Result<Option<PathBuf>, String> {
     match path {
-        Some(path) => kkt_setup_os::absolute(&path)
+        Some(path) => kkt_files::Files
+            .absolute(&path)
             .map(Some)
             .map_err(|e| format!("could not resolve {}: {e}", path.display())),
         None => Ok(None),

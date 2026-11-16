@@ -24,8 +24,8 @@ KIND_OF = {
 
 
 class RuleBreaks(unittest.TestCase):
-    def breaks(self, crates, edges):
-        return kinds.rule_breaks(crates, edges, KIND_OF)
+    def breaks(self, crates, edges, layer_of=None):
+        return kinds.rule_breaks(crates, edges, KIND_OF, layer_of if layer_of is not None else {})
 
     def test_a_logic_crate_on_an_effect_crate_breaks_in_code_and_in_tests(self):
         crates = [crate("logic"), crate("fx")]
@@ -60,8 +60,19 @@ class RuleBreaks(unittest.TestCase):
                   crate("stand-in", implements=[on_logic]), crate("prog", implements=[on_logic])]
         self.assertEqual(self.breaks(crates, []), ["logic's own type implements other-logic::Disk"])
 
+    def test_a_platform_crate_depends_in_code_only_on_platform_crates(self):
+        layer_of = {"logic": "platform", "other-logic": "platform", "contract": "core", "stand-in": "dev"}
+        crates = [crate("logic"), crate("other-logic"), crate("contract"), crate("stand-in")]
+        # Tests and build scripts may reach outside the layer, and a crate
+        # outside it may depend on a platform crate.
+        self.assertEqual(self.breaks(crates, [edge("logic", "other-logic"), edge("logic", "stand-in", "dev"),
+                                              edge("logic", "contract", "build"), edge("contract", "logic")],
+                                     layer_of), [])
+        self.assertEqual(self.breaks(crates, [edge("logic", "contract")], layer_of),
+                         ["logic is a platform crate but depends on contract, which is in the core layer"])
+
     def test_a_mixed_crate_breaks(self):
-        self.assertEqual(kinds.rule_breaks([crate("odd")], [], {"odd": "mixed"}),
+        self.assertEqual(kinds.rule_breaks([crate("odd")], [], {"odd": "mixed"}, {}),
                          ["odd is mixed: a contract or logic together with a real effect"])
 
 

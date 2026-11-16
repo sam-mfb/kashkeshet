@@ -13,9 +13,9 @@ use crate::record::{
     write_setup_record,
 };
 use crate::service::{self, ServiceAction, ServiceInstall};
-use kkt_client_config::{self as clients, Client, Setup};
 use kkt_diagnostics::{self as diagnostics, Inspector, point_server_fix_at};
 use kkt_lane_files as lane_files;
+use kkt_llm_agent_config::{self as clients, Client, Setup};
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_setup as setup;
@@ -410,7 +410,7 @@ fn connected_clients(env: &Env, host: &dyn clients::Host) -> Result<Vec<Client>,
 fn connect(
     env: &Env,
     host: &dyn clients::Host,
-    command: &dyn kkt_client_config::ClientCommand,
+    command: &dyn kkt_llm_agent_config::ClientCommand,
     program: &dyn crate::SetupFiles,
     client: Client,
     record: &setup::Record,

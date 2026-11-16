@@ -764,7 +764,7 @@ def main():
     mismatches, _ = kinds.check(crates, edges, kind_of, mixed_allowed=True)
     for m in mismatches:
         print(f"kind: {m}", file=sys.stderr)
-    breaks = kinds.rule_breaks(crates, edges, kind_of)
+    breaks = kinds.rule_breaks(crates, edges, kind_of, {n: c["layer"] for n, c in concerns["crates"].items()})
     for b in breaks:
         print(f"rule: {b}", file=sys.stderr)
     drawn_together = groups.groups(crates, {n: c["layer"] for n, c in concerns["crates"].items()}, kind_of)

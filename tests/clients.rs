@@ -1,7 +1,7 @@
 use kashkeshet::machine::client_config::{ClaudeCommand, ClientHost};
 use kkt_scratch as scratch;
 
-use kkt_client_config::{self as clients, Client, Setup};
+use kkt_llm_agent_config::{self as clients, Client, Setup};
 use kkt_machine::Env;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -22,8 +22,7 @@ impl Home {
     fn env(&self) -> Env {
         Env {
             home: Some(self.0.to_path_buf()),
-            claude_config_dir: None,
-            codex_home: None,
+            named: Default::default(),
             xdg_config_home: None,
             xdg_data_home: None,
         }
@@ -539,7 +538,8 @@ fn opencode_local_to_remote_conversion_removes_local_only_options() {
 fn claude_profile_path_does_not_require_home() {
     let mut env = Home::new().env();
     env.home = None;
-    env.claude_config_dir = Some(PathBuf::from("/profiles/work"));
+    env.named
+        .insert("CLAUDE_CONFIG_DIR".into(), PathBuf::from("/profiles/work"));
     assert_eq!(
         Client::ClaudeCode
             .file(&env, &ClientHost)
@@ -552,7 +552,8 @@ fn claude_profile_path_does_not_require_home() {
 fn codex_and_opencode_follow_their_own_variables() {
     let mut env = Home::new().env();
     env.home = None;
-    env.codex_home = Some(PathBuf::from("/profiles/codex"));
+    env.named
+        .insert("CODEX_HOME".into(), PathBuf::from("/profiles/codex"));
     env.xdg_config_home = Some(PathBuf::from("/profiles/xdg"));
     assert_eq!(
         Client::Codex.file(&env, &ClientHost).expect("Codex path"),
@@ -573,8 +574,12 @@ fn the_source_names_the_setting_that_chose_the_default_file() {
     for client in Client::ALL {
         assert_eq!(client.source(&env), "HOME", "{client:?}");
     }
-    env.claude_config_dir = Some(PathBuf::from("/profiles/claude"));
-    env.codex_home = Some(PathBuf::from("/profiles/codex"));
+    env.named.insert(
+        "CLAUDE_CONFIG_DIR".into(),
+        PathBuf::from("/profiles/claude"),
+    );
+    env.named
+        .insert("CODEX_HOME".into(), PathBuf::from("/profiles/codex"));
     env.xdg_config_home = Some(PathBuf::from("relative"));
     assert_eq!(Client::ClaudeCode.source(&env), "CLAUDE_CONFIG_DIR");
     assert_eq!(Client::Codex.source(&env), "CODEX_HOME");
@@ -604,7 +609,8 @@ fn claude_reports_a_selected_profile_directory_it_cannot_resolve() {
     let looped = home.0.join("loop");
     std::os::unix::fs::symlink(&looped, &looped).expect("symlink loop");
     let mut env = home.env();
-    env.claude_config_dir = Some(looped.join("profile"));
+    env.named
+        .insert("CLAUDE_CONFIG_DIR".into(), looped.join("profile"));
     let file = Client::ClaudeCode
         .file(&env, &ClientHost)
         .expect("profile path");
@@ -635,7 +641,8 @@ fn claude_explicit_config_ignores_an_inherited_profile_it_cannot_resolve() {
     let file = home.put("work/.claude.json", "{}");
     let not_a_directory = home.put("plain-file", "");
     let mut env = home.env();
-    env.claude_config_dir = Some(not_a_directory.join("profile"));
+    env.named
+        .insert("CLAUDE_CONFIG_DIR".into(), not_a_directory.join("profile"));
     env.home = Some(not_a_directory.join("home"));
     let setup = Setup {
         env: &env,

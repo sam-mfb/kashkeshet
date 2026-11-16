@@ -261,7 +261,7 @@ fn the_tools_setup_allows_are_the_snapshots_tools() {
         .map(|tool| tool["name"].as_str().expect("a name"))
         .collect();
     offered.sort_unstable();
-    let mut allowed = kkt_client_config::KKT_AGENT_TOOLS.to_vec();
+    let mut allowed = kkt_llm_agent_config::KKT_AGENT_TOOLS.to_vec();
     allowed.sort_unstable();
     assert_eq!(allowed, offered);
 }

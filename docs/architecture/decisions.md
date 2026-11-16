@@ -87,6 +87,16 @@ Message numbers are given only where they help to find a discussion in
   `StopSignals` implements. Making one still listens first, so a failure to
   listen is reported before the server starts. Only programs call either
   trait.
+- **kkt-setup-os dissolved** (approved by Sam on 2026-11-16, msgs 3516
+  and 3527). Its file work was general file access, so it uses kkt-files.
+  kkt-files gained a read where a missing file is None, a write by rename,
+  and a removal where a missing file is fine. The program's adapter calls
+  kkt-setup's parse and render, and words each failure as before. The
+  program's path and `$PATH` are facts about this machine and joined
+  kkt-machine's `Machine`. `kkt_path` is only `program_path` with kkt's
+  wording, which belongs to the program, so it stayed there. The `on_path`
+  loop is one line over `is_file` in the program's adapter, the one place
+  that asks. kkt-setup did not change.
 - **Layers say where a crate sits**: programs, assembly, surfaces, access,
   core, data, operations, clients, foundations and dev-only. kkt-search sits
   in foundations, as pure text the data crates build on.
@@ -485,6 +495,29 @@ code at f66b0ab:
   mode) are not "configured values" under ARCHITECTURE.md 3.8.3 and stay
   in the contract. Callers draw new keys themselves from the contract's
   alphabet and length.
+- **kkt-backup is a contract crate** (Sam, 2026-11-16, msg 3516). It
+  declares `Backups` (write a backup, prune old ones) beside its layouts
+  and settings, with `testing::Memory`; kkt-backup-os implements it
+  (`OsBackups`), given the program's database copy. kkt-operate's
+  `BackupWriter` goes.
+
+- **The platform layer** (Sam, 2026-11-16, msg 3597). A crate is general
+  if it knows nothing of kkt. Such crates are the `platform` layer (the
+  old `foundations`, less kkt-names and kkt-provenance, plus the
+  terminal, browser, remote access, lane commit and client command
+  crates), and a platform crate depends in code only on platform crates:
+  check-crates.sh's check 8 and `kinds.rule_breaks` hold it. kkt-names is
+  core's; kkt-provenance is operations'.
+
+- **Platform crates say nothing of kkt** (Sam, 2026-11-16, msgs 3615 and
+  3617). kkt's names, settings, commands and messages are the caller's:
+  passed in as arguments, or worded by the caller from the values a
+  platform crate returns. `check-platform-words.py` holds it in CI.
+
+- **Three renames** (Sam, 2026-11-16, msgs 3623 and 3626).
+  kkt-lane-commit is kkt-revision; kkt-client-config and
+  kkt-client-command are kkt-llm-agent-config and kkt-llm-agent-command:
+  "client" alone was confused with kkt as a client of its own server.
 
 ## Other decisions
 

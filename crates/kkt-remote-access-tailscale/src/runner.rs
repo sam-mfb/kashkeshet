@@ -10,7 +10,11 @@ pub(super) struct Output {
     pub stderr: String,
 }
 
-pub(super) struct OsRunner;
+/// Runs the machine's `tailscale`. `rerun` is the command a person should
+/// rerun once Tailscale runs, which a launch failure names.
+pub(super) struct OsRunner {
+    pub rerun: &'static str,
+}
 
 impl Runner for OsRunner {
     fn run(&self, args: &[String]) -> Result<Output, String> {
@@ -18,7 +22,7 @@ impl Runner for OsRunner {
             .args(args)
             .stdin(std::process::Stdio::null())
             .output()
-            .map_err(launch_error)?;
+            .map_err(|e| launch_error(e, self.rerun))?;
         Ok(Output {
             success: output.status.success(),
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -27,9 +31,9 @@ impl Runner for OsRunner {
     }
 }
 
-fn launch_error(error: std::io::Error) -> String {
+fn launch_error(error: std::io::Error, rerun: &str) -> String {
     format!(
-        "could not run Tailscale: {error}; install Tailscale, start it and log in, then rerun `kkt setup`"
+        "could not run Tailscale: {error}; install Tailscale, start it and log in, then rerun {rerun}"
     )
 }
 
@@ -38,10 +42,10 @@ mod tests {
     #[test]
     fn a_launch_failure_keeps_the_install_and_login_advice() {
         assert_eq!(
-            super::launch_error(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "missing executable"
-            )),
+            super::launch_error(
+                std::io::Error::new(std::io::ErrorKind::NotFound, "missing executable"),
+                "`kkt setup`"
+            ),
             "could not run Tailscale: missing executable; install Tailscale, start it and log in, then rerun `kkt setup`"
         );
     }

@@ -15,7 +15,7 @@ def crate(name, implements=(), bins=()):
 
 LAYER_OF = {"db": "data", "db-sqlite": "data", "service": "ops", "launchd": "ops", "systemd": "ops",
             "service-os": "ops", "rules": "core", "api-a": "core", "api-b": "core", "web": "surfaces",
-            "sim": "dev", "prog": "programs", "far": "foundations", "chain": "data"}
+            "sim": "dev", "prog": "programs", "far": "platform", "chain": "data"}
 KIND_OF = {"sim": "test support", "prog": "composition"}
 
 

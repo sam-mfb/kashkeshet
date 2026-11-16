@@ -55,8 +55,7 @@ pub(super) fn selected(
         home: variable("HOME"),
         xdg_config_home: variable("XDG_CONFIG_HOME"),
         xdg_data_home: variable("XDG_DATA_HOME"),
-        claude_config_dir: None,
-        codex_home: None,
+        named: Default::default(),
     };
     let explicit = flag(&args, "--config")?;
     let path = match explicit {

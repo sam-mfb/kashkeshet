@@ -1048,8 +1048,6 @@ dependencies = [
  "kkt-backup",
  "kkt-backup-os",
  "kkt-browser",
- "kkt-client-command",
- "kkt-client-config",
  "kkt-clock",
  "kkt-clock-system",
  "kkt-config-file",
@@ -1067,9 +1065,10 @@ dependencies = [
  "kkt-identity-keymode",
  "kkt-keys",
  "kkt-keys-os",
- "kkt-lane-commit",
  "kkt-lane-files",
  "kkt-listen",
+ "kkt-llm-agent-command",
+ "kkt-llm-agent-config",
  "kkt-log-tracing",
  "kkt-machine",
  "kkt-machine-os",
@@ -1080,6 +1079,7 @@ dependencies = [
  "kkt-provenance",
  "kkt-remote-access-tailscale",
  "kkt-result-format",
+ "kkt-revision",
  "kkt-rolling-file",
  "kkt-rules",
  "kkt-scratch",
@@ -1088,7 +1088,6 @@ dependencies = [
  "kkt-service-launchd",
  "kkt-service-systemd",
  "kkt-setup",
- "kkt-setup-os",
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-terminal",
@@ -1141,9 +1140,9 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-agent-client",
- "kkt-client-config",
  "kkt-clock",
  "kkt-keys",
+ "kkt-llm-agent-config",
  "kkt-machine",
  "kkt-names",
  "kkt-setup",
@@ -1222,21 +1221,6 @@ name = "kkt-browser"
 version = "0.10.0"
 dependencies = [
  "kkt-scratch",
-]
-
-[[package]]
-name = "kkt-client-command"
-version = "0.10.0"
-
-[[package]]
-name = "kkt-client-config"
-version = "0.10.0"
-dependencies = [
- "kkt-keys",
- "kkt-machine",
- "kkt-toml",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -1469,10 +1453,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kkt-lane-commit"
-version = "0.10.0"
-
-[[package]]
 name = "kkt-lane-files"
 version = "0.10.0"
 
@@ -1482,6 +1462,21 @@ version = "0.10.0"
 dependencies = [
  "axum",
  "tokio",
+]
+
+[[package]]
+name = "kkt-llm-agent-command"
+version = "0.10.0"
+
+[[package]]
+name = "kkt-llm-agent-config"
+version = "0.10.0"
+dependencies = [
+ "kkt-keys",
+ "kkt-machine",
+ "kkt-toml",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1553,7 +1548,6 @@ dependencies = [
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-backup",
- "kkt-client-config",
  "kkt-clock",
  "kkt-config-file",
  "kkt-container",
@@ -1561,6 +1555,7 @@ dependencies = [
  "kkt-entropy",
  "kkt-keys",
  "kkt-lane-files",
+ "kkt-llm-agent-config",
  "kkt-machine",
  "kkt-names",
  "kkt-provenance",
@@ -1612,6 +1607,10 @@ dependencies = [
  "serde_json",
  "thiserror",
 ]
+
+[[package]]
+name = "kkt-revision"
+version = "0.10.0"
 
 [[package]]
 name = "kkt-rolling-file"
@@ -1711,22 +1710,15 @@ dependencies = [
 name = "kkt-setup"
 version = "0.10.0"
 dependencies = [
- "kkt-client-config",
  "kkt-container",
  "kkt-hash",
  "kkt-keys",
+ "kkt-llm-agent-config",
  "kkt-machine",
  "kkt-names",
  "kkt-toml",
  "semver",
  "serde",
-]
-
-[[package]]
-name = "kkt-setup-os"
-version = "0.10.0"
-dependencies = [
- "kkt-setup",
 ]
 
 [[package]]

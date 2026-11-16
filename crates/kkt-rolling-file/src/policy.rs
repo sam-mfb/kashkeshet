@@ -28,37 +28,55 @@ impl LogPolicy {
         max_age: Duration::from_secs(30 * 24 * 60 * 60),
     };
 
-    /// Checks that the policy bounds the log. The server refuses to start
-    /// with one that fails.
-    pub(crate) fn check(&self) -> Result<(), SettingError> {
+    /// Checks that the policy bounds the file. A file is opened only with
+    /// one that passes.
+    pub(crate) fn check(&self) -> Result<(), PolicyProblem> {
         if self.max_bytes < MIN_LOG_FILE_BYTES {
-            return Err(SettingError::new(
-                "log_max_bytes",
+            return Err(PolicyProblem::new(
+                PolicyValue::MaxBytes,
                 format!("must be at least {MIN_LOG_FILE_BYTES}"),
             ));
         }
         if self.rotated_files == 0 {
-            return Err(SettingError::new("log_rotated_files", "must be at least 1"));
+            return Err(PolicyProblem::new(
+                PolicyValue::RotatedFiles,
+                "must be at least 1",
+            ));
         }
         if self.max_age < Duration::from_secs(60 * 60) {
-            return Err(SettingError::new("log_max_age", "must be at least an hour"));
+            return Err(PolicyProblem::new(
+                PolicyValue::MaxAge,
+                "must be at least an hour",
+            ));
         }
         Ok(())
     }
 }
 
-/// A policy the server refuses to start with: the setting's name and why.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("{name} {rule}")]
-pub(crate) struct SettingError {
-    pub(crate) name: &'static str,
-    pub(crate) rule: String,
+/// Which value of a [`LogPolicy`] a problem is about.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PolicyValue {
+    /// [`LogPolicy::max_bytes`].
+    MaxBytes,
+    /// [`LogPolicy::rotated_files`].
+    RotatedFiles,
+    /// [`LogPolicy::max_age`].
+    MaxAge,
 }
 
-impl SettingError {
-    fn new(name: &'static str, rule: impl Into<String>) -> SettingError {
-        SettingError {
-            name,
+/// A [`LogPolicy`] that does not bound the file: which value, and the rule
+/// it breaks, such as "must be at least 1". The caller names the value in
+/// its own terms.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PolicyProblem {
+    pub value: PolicyValue,
+    pub rule: String,
+}
+
+impl PolicyProblem {
+    fn new(value: PolicyValue, rule: impl Into<String>) -> PolicyProblem {
+        PolicyProblem {
+            value,
             rule: rule.into(),
         }
     }
@@ -155,25 +173,25 @@ mod tests {
                     max_bytes: MIN_LOG_FILE_BYTES - 1,
                     ..LogPolicy::DEFAULT
                 },
-                "log_max_bytes",
+                PolicyValue::MaxBytes,
             ),
             (
                 LogPolicy {
                     rotated_files: 0,
                     ..LogPolicy::DEFAULT
                 },
-                "log_rotated_files",
+                PolicyValue::RotatedFiles,
             ),
             (
                 LogPolicy {
                     max_age: Duration::from_secs(59 * 60),
                     ..LogPolicy::DEFAULT
                 },
-                "log_max_age",
+                PolicyValue::MaxAge,
             ),
         ];
         for (policy, name) in cases {
-            assert_eq!(policy.check().map_err(|e| e.name), Err(name));
+            assert_eq!(policy.check().map_err(|e| e.value), Err(name));
         }
     }
 

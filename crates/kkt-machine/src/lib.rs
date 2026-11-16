@@ -5,6 +5,7 @@
 //! program reads them for its process: kkt-machine-os implements it, the
 //! program asks once at start, and passes the values on.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 /// `$XDG_CONFIG_HOME` when it is not set, under the home directory.
@@ -18,19 +19,19 @@ pub enum Platform {
     Xdg,
 }
 
-/// The environment values that decide default paths, kkt's own and the
-/// clients' it configures. Unset or empty values are `None`. The XDG
-/// values count only when absolute, as the XDG base directory
+/// The environment values that decide default paths: the home and XDG
+/// folders, and any other folders the program asked for by the variable
+/// that names them ([`Env::named`]). Unset or empty values are absent. The
+/// XDG values count only when absolute, as the XDG base directory
 /// specification says: read them through [`Env::config_home`],
 /// [`Env::absolute_xdg_config_home`] and [`Env::absolute_xdg_data_home`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Env {
     /// `$HOME`.
     pub home: Option<PathBuf>,
-    /// `$CLAUDE_CONFIG_DIR`.
-    pub claude_config_dir: Option<PathBuf>,
-    /// `$CODEX_HOME`.
-    pub codex_home: Option<PathBuf>,
+    /// The other folders asked for, by the name of the variable that names
+    /// each, such as `PROGRAM_CONFIG_DIR`. Only the set ones are here.
+    pub named: BTreeMap<String, PathBuf>,
     /// `$XDG_CONFIG_HOME`.
     pub xdg_config_home: Option<PathBuf>,
     /// `$XDG_DATA_HOME`.
@@ -38,6 +39,12 @@ pub struct Env {
 }
 
 impl Env {
+    /// The folder the environment variable `variable` names, if it was
+    /// asked for and is set.
+    pub fn named(&self, variable: &str) -> Option<&Path> {
+        self.named.get(variable).map(PathBuf::as_path)
+    }
+
     /// The base of per-user config: `$XDG_CONFIG_HOME`, or `~/.config`. The
     /// same on every platform, and shared by other programs' config, such as
     /// systemd user units. `None` with neither.
@@ -66,13 +73,18 @@ fn absolute(path: &Option<PathBuf>) -> Option<&Path> {
 /// The machine's facts as one process sees them. A program asks once, at
 /// start, and passes the values down.
 pub trait Machine {
-    /// The environment's folders: `$HOME` and the folders the environment
-    /// names.
-    fn env(&self) -> Env;
+    /// The environment's folders: `$HOME`, the XDG folders, and the
+    /// folders the variables in `named` name ([`Env::named`]).
+    fn env(&self, named: &[&str]) -> Env;
     /// The platform this program was built for.
     fn platform(&self) -> Platform;
     /// This process's ID, as the operating system numbers it.
     fn process_id(&self) -> u32;
+    /// This program's absolute path, with links followed. The error is the
+    /// operating system's.
+    fn program_path(&self) -> std::io::Result<PathBuf>;
+    /// The folders `$PATH` names, in order; none when it is unset.
+    fn path_dirs(&self) -> Vec<PathBuf>;
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -83,22 +95,57 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_stand_in_gives_only_the_named_folders_asked_for() {
+        let mut given = env(None, None);
+        given.named = [
+            ("A_DIR".to_string(), PathBuf::from("/a")),
+            ("B_DIR".to_string(), PathBuf::from("/b")),
+        ]
+        .into();
+        let machine = testing::FixedMachine {
+            env: given,
+            platform: Platform::Xdg,
+            process_id: 1,
+            program_path: None,
+            path_dirs: Vec::new(),
+        };
+        let env = machine.env(&["A_DIR", "C_DIR"]);
+        assert_eq!(env.named("A_DIR"), Some(Path::new("/a")));
+        assert_eq!(env.named("B_DIR"), None);
+        assert_eq!(env.named("C_DIR"), None);
+    }
+
+    #[test]
     fn the_stand_in_gives_the_facts_it_was_given() {
         let machine = testing::FixedMachine {
             env: env(Some("/config"), None),
             platform: Platform::MacOs,
             process_id: 42,
+            program_path: Some(PathBuf::from("/bin/kkt")),
+            path_dirs: vec![PathBuf::from("/bin")],
         };
-        assert_eq!(machine.env(), env(Some("/config"), None));
+        assert_eq!(machine.env(&[]), env(Some("/config"), None));
         assert_eq!(machine.platform(), Platform::MacOs);
         assert_eq!(machine.process_id(), 42);
+        assert_eq!(
+            machine.program_path().expect("a path"),
+            PathBuf::from("/bin/kkt")
+        );
+        assert_eq!(machine.path_dirs(), [PathBuf::from("/bin")]);
+        let lost = testing::FixedMachine {
+            program_path: None,
+            ..machine
+        };
+        assert_eq!(
+            lost.program_path().expect_err("no path").kind(),
+            std::io::ErrorKind::NotFound
+        );
     }
 
     fn env(config: Option<&str>, data: Option<&str>) -> Env {
         Env {
             home: Some(PathBuf::from("/home/sam")),
-            claude_config_dir: None,
-            codex_home: None,
+            named: BTreeMap::new(),
             xdg_config_home: config.map(PathBuf::from),
             xdg_data_home: data.map(PathBuf::from),
         }

@@ -4,6 +4,9 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
+/// The command the refusals tell a person to rerun, as kkt's setup gives it.
+const RERUN: &str = "`kkt setup`";
+
 /// The address the tests serve: kkt's default.
 const DEFAULT_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7420));
 
@@ -52,7 +55,10 @@ fn proxy(target: &str) -> Value {
 #[test]
 fn prepare_keeps_the_exact_node_name_without_changing_login() {
     let host = Fake::new(vec![running()]);
-    assert_eq!(prepare(&host).unwrap().dns_name, "my-mac-1.tail123.ts.net");
+    assert_eq!(
+        prepare(&host, RERUN).unwrap().dns_name,
+        "my-mac-1.tail123.ts.net"
+    );
     assert_eq!(*host.calls.borrow(), vec![vec!["status", "--json"]]);
 }
 
@@ -75,11 +81,11 @@ fn prepare_reports_login_and_https_actions_before_any_changes() {
         ),
     ] {
         let host = Fake::new(vec![reply(value)]);
-        assert!(prepare(&host).unwrap_err().contains(expected));
+        assert!(prepare(&host, RERUN).unwrap_err().contains(expected));
         assert_eq!(host.calls.borrow().len(), 1);
     }
     let host = Fake::new(vec![Err("Tailscale is not installed".into())]);
-    assert!(prepare(&host).unwrap_err().contains("not installed"));
+    assert!(prepare(&host, RERUN).unwrap_err().contains("not installed"));
 }
 
 #[test]
@@ -89,13 +95,13 @@ fn logged_out_nonzero_status_is_still_actionable() {
         stdout: "{\"BackendState\":\"NeedsLogin\"}".into(),
         stderr: "logged out".into(),
     })]);
-    assert!(prepare(&host).unwrap_err().contains("log in"));
+    assert!(prepare(&host, RERUN).unwrap_err().contains("log in"));
 }
 
 #[test]
 fn serve_sets_persistent_https_with_the_given_loopback_port() {
     let host = Fake::new(vec![running(), reply(json!({})), reply(json!({}))]);
-    serve(&host, "127.0.0.1:7421".parse().unwrap()).unwrap();
+    serve(&host, "127.0.0.1:7421".parse().unwrap(), RERUN).unwrap();
     assert_eq!(
         host.calls.borrow()[2],
         vec!["serve", "--bg", "--https=443", "http://127.0.0.1:7421"]
@@ -109,14 +115,14 @@ fn serve_can_reapply_its_proxy_but_refuses_other_handlers_tcp_and_funnel() {
         reply(proxy("http://127.0.0.1:7420")),
         reply(json!({})),
     ]);
-    serve(&host, DEFAULT_BIND).unwrap();
+    serve(&host, DEFAULT_BIND, RERUN).unwrap();
     for config in [
         proxy("http://127.0.0.1:8888"),
         json!({"TCP":{"443":{"TCPForward":"127.0.0.1:8888"}}}),
         json!({"AllowFunnel":{"my-mac-1.tail123.ts.net:443":true}}),
     ] {
         let host = Fake::new(vec![running(), reply(config)]);
-        assert!(serve(&host, DEFAULT_BIND).is_err());
+        assert!(serve(&host, DEFAULT_BIND, RERUN).is_err());
         assert_eq!(host.calls.borrow().len(), 2, "no mutation after refusal");
     }
 }
@@ -128,16 +134,20 @@ fn stop_targets_only_its_root_handler_and_never_resets_or_logs_out() {
         reply(proxy("http://127.0.0.1:7420")),
         reply(json!({})),
     ]);
-    stop(&host, DEFAULT_BIND).unwrap();
+    stop(&host, DEFAULT_BIND, RERUN).unwrap();
     assert_eq!(
         host.calls.borrow()[2],
         vec!["serve", "--bg", "--https=443", "--set-path=/", "off"]
     );
     let host = Fake::new(vec![running(), reply(json!({}))]);
-    stop(&host, DEFAULT_BIND).unwrap();
+    stop(&host, DEFAULT_BIND, RERUN).unwrap();
     assert_eq!(host.calls.borrow().len(), 2);
     let host = Fake::new(vec![running(), reply(proxy("http://127.0.0.1:9999"))]);
-    assert!(stop(&host, DEFAULT_BIND).unwrap_err().contains("unchanged"));
+    assert!(
+        stop(&host, DEFAULT_BIND, RERUN)
+            .unwrap_err()
+            .contains("unchanged")
+    );
     assert_eq!(host.calls.borrow().len(), 2);
 }
 
@@ -148,7 +158,7 @@ fn bad_status_config_and_command_failures_do_not_succeed() {
         stdout: "not JSON".into(),
         stderr: String::new(),
     })]);
-    assert!(prepare(&host).unwrap_err().contains("status"));
+    assert!(prepare(&host, RERUN).unwrap_err().contains("status"));
     let host = Fake::new(vec![
         running(),
         Ok(Output {
@@ -157,7 +167,11 @@ fn bad_status_config_and_command_failures_do_not_succeed() {
             stderr: String::new(),
         }),
     ]);
-    assert!(serve(&host, DEFAULT_BIND).unwrap_err().contains("invalid"));
+    assert!(
+        serve(&host, DEFAULT_BIND, RERUN)
+            .unwrap_err()
+            .contains("invalid")
+    );
     let host = Fake::new(vec![
         running(),
         reply(json!({})),
@@ -168,7 +182,7 @@ fn bad_status_config_and_command_failures_do_not_succeed() {
         }),
     ]);
     assert!(
-        serve(&host, DEFAULT_BIND)
+        serve(&host, DEFAULT_BIND, RERUN)
             .unwrap_err()
             .contains("permission denied")
     );
@@ -193,7 +207,7 @@ fn failed(stderr: &str) -> Result<Output, String> {
 /// Each message keeps today's text and adds why, so a person can act on it.
 #[test]
 fn unreadable_status_says_why() {
-    let error = prepare(&Fake::new(vec![printed("{}")])).unwrap_err();
+    let error = prepare(&Fake::new(vec![printed("{}")]), RERUN).unwrap_err();
     assert!(
         error.starts_with(
             "could not read Tailscale status; start Tailscale and log in, then rerun `kkt setup`"
@@ -204,7 +218,7 @@ fn unreadable_status_says_why() {
         error.ends_with("(its output could not be read: unexpected data at line 1 column 2)"),
         "{error}"
     );
-    let error = prepare(&Fake::new(vec![printed("{\"BackendState\":")])).unwrap_err();
+    let error = prepare(&Fake::new(vec![printed("{\"BackendState\":")]), RERUN).unwrap_err();
     assert!(
         error.ends_with("(its output could not be read: unexpected end at line 1 column 16)"),
         "{error}"
@@ -222,7 +236,7 @@ fn unreadable_status_never_repeats_its_values() {
         format!("{{\"BackendState\":\"Running\",\"CertDomains\":\"{marker}\"}}"),
         format!("{{\"BackendState\":{marker}}}"),
     ] {
-        let error = prepare(&Fake::new(vec![printed(&stdout)])).unwrap_err();
+        let error = prepare(&Fake::new(vec![printed(&stdout)]), RERUN).unwrap_err();
         assert!(
             error.starts_with("could not read Tailscale status;"),
             "{error}"
@@ -239,7 +253,7 @@ fn failed_status_says_what_tailscale_said() {
         stdout: running().unwrap().stdout,
         stderr: "permission denied\n".into(),
     })]);
-    let error = prepare(&host).unwrap_err();
+    let error = prepare(&host, RERUN).unwrap_err();
     assert_eq!(
         error,
         "Tailscale status failed; check `tailscale status` before rerunning `kkt setup` \
@@ -250,7 +264,7 @@ fn failed_status_says_what_tailscale_said() {
 #[test]
 fn failed_serve_status_says_what_tailscale_said() {
     let host = Fake::new(vec![running(), failed("access denied\n")]);
-    let error = serve(&host, DEFAULT_BIND).unwrap_err();
+    let error = serve(&host, DEFAULT_BIND, RERUN).unwrap_err();
     assert_eq!(
         error,
         "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions \
@@ -258,7 +272,7 @@ fn failed_serve_status_says_what_tailscale_said() {
     );
     // With nothing on stderr, the message is today's alone.
     let host = Fake::new(vec![running(), failed("")]);
-    let error = serve(&host, DEFAULT_BIND).unwrap_err();
+    let error = serve(&host, DEFAULT_BIND, RERUN).unwrap_err();
     assert_eq!(
         error,
         "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions"
@@ -268,7 +282,7 @@ fn failed_serve_status_says_what_tailscale_said() {
 #[test]
 fn invalid_serve_config_says_why() {
     let host = Fake::new(vec![running(), printed("bad config")]);
-    let error = serve(&host, DEFAULT_BIND).unwrap_err();
+    let error = serve(&host, DEFAULT_BIND, RERUN).unwrap_err();
     assert_eq!(
         error,
         "Tailscale Serve returned invalid configuration JSON: syntax error at line 1 column 1"
@@ -283,8 +297,8 @@ fn invalid_serve_config_says_why() {
 #[test]
 fn non_loopback_and_ephemeral_bind_are_refused_before_running_commands() {
     let host = Fake::new(vec![]);
-    assert!(serve(&host, "0.0.0.0:7420".parse().unwrap()).is_err());
-    assert!(stop(&host, "127.0.0.1:0".parse().unwrap()).is_err());
+    assert!(serve(&host, "0.0.0.0:7420".parse().unwrap(), RERUN).is_err());
+    assert!(stop(&host, "127.0.0.1:0".parse().unwrap(), RERUN).is_err());
     assert!(host.calls.borrow().is_empty());
 }
 
@@ -339,4 +353,11 @@ fn served_says_when_serves_settings_cannot_be_read() {
     let error = served(&Fake::new(vec![failed]), DEFAULT_BIND).unwrap_err();
     assert!(error.contains("local tailscaled"), "{error}");
     assert!(served(&Fake::new(vec![invalid]), DEFAULT_BIND).is_err());
+}
+
+#[test]
+fn the_refusals_name_the_command_their_caller_gives() {
+    let error = prepare(&Fake::new(vec![printed("{}")]), "`other init`").unwrap_err();
+    assert!(error.contains("rerun `other init`"), "{error}");
+    assert!(!error.contains("kkt"), "{error}");
 }

@@ -104,8 +104,8 @@ pub fn allow_kkt(client: Client, env: &Env, host: &dyn Host) -> Result<String, S
     let source = client.source(env);
     let changes = match client {
         Client::ClaudeCode => {
-            let dir = match &env.claude_config_dir {
-                Some(dir) => dir.clone(),
+            let dir = match env.named(crate::CLAUDE_CONFIG_DIR) {
+                Some(dir) => dir.to_path_buf(),
                 None => home(env)?.join(CLAUDE_HOME_DEFAULT),
             };
             vec![apply(host, &dir.join(CLAUDE_SETTINGS), source, |text| {

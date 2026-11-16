@@ -135,7 +135,7 @@
       "kkt-operate::lifecycle::uninstall",
       "kkt-operate::lifecycle::backup",
       "kkt-operate::record::check_setup",
-      "kkt-operate::BackupWriter"
+      "kkt-backup::Backups"
      ]
     }
    ],
@@ -289,7 +289,7 @@
      "supplier_item": "Files"
     },
     {
-     "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
+     "own": "ThisProgram, adapting the program's kkt_path, over kkt-machine-os' OsMachine",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -298,8 +298,8 @@
       }
      ],
      "note": "kkt connect",
-     "supplier": "kkt-setup-os",
-     "supplier_item": "kkt_path"
+     "supplier": "kkt-machine-os",
+     "supplier_item": "OsMachine"
     },
     {
      "own": "WatchOutput, adapting kkt-terminal::Terminal",
@@ -465,8 +465,8 @@
      "supplier_item": "Files"
     },
     {
-     "own": "LaneGit, adapting kkt-lane-commit's Git to kkt-lane-files' LaneCommit",
-     "supplier": "kkt-lane-commit",
+     "own": "LaneGit, adapting kkt-revision's Git to kkt-lane-files' LaneCommit",
+     "supplier": "kkt-revision",
      "supplier_item": "Git",
      "crate": "kkt-operate",
      "to": [
@@ -490,7 +490,7 @@
      "note": "the program's own work, not another crate's implementation"
     },
     {
-     "own": "NativeSetupFiles, forwarding setup records and paths to kkt-setup-os",
+     "own": "NativeSetupFiles, reading and writing setup's record and note through kkt-files' Files with kkt-setup's parse and render, and this program's path and $PATH through kkt-machine-os' OsMachine",
      "crate": "kkt-operate",
      "to": [
       {
@@ -498,7 +498,8 @@
        "param": "setup_files"
       }
      ],
-     "supplier": "kkt-setup-os"
+     "supplier": "kkt-files",
+     "supplier_item": "Files"
     },
     {
      "impl": "kkt-keys-os::OsKeyFiles",
@@ -533,16 +534,14 @@
      "supplier_item": "SqlitePlace"
     },
     {
-     "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os' write, with this program's database copy",
+     "impl": "kkt-backup-os::OsBackups",
      "crate": "kkt-operate",
      "to": [
       {
        "at": "OperateParts",
        "param": "backups"
       }
-     ],
-     "supplier": "kkt-backup-os",
-     "supplier_item": "write"
+     ]
     },
     {
      "own": "NativeOutput, adapting kkt-terminal",
@@ -615,8 +614,8 @@
      "supplier_item": "Files"
     },
     {
-     "own": "ClaudeCommand, adapting kkt-client-command's Claude to kkt-client-config's ClientCommand",
-     "supplier": "kkt-client-command",
+     "own": "ClaudeCommand, adapting kkt-llm-agent-command's Claude to kkt-llm-agent-config's ClientCommand",
+     "supplier": "kkt-llm-agent-command",
      "crate": "kkt-operate",
      "to": [
       {
@@ -628,8 +627,8 @@
      "supplier_item": "Claude"
     },
     {
-     "own": "ClaudeCommand, adapting kkt-client-command's Claude to kkt-client-config's ClientCommand",
-     "supplier": "kkt-client-command",
+     "own": "ClaudeCommand, adapting kkt-llm-agent-command's Claude to kkt-llm-agent-config's ClientCommand",
+     "supplier": "kkt-llm-agent-command",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -1323,7 +1322,7 @@
      ]
     },
     {
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "to": [
       {
        "at": "configure",
@@ -1376,7 +1375,7 @@
     },
     {
      "passes_on": "the client command the program gave AgentParts",
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "to": [
       {
        "at": "configure",
@@ -1489,7 +1488,7 @@
     },
     {
      "passes_on": "the client configs' host the program gave OperateParts",
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "to": [
       {
        "at": "configure",
@@ -1564,7 +1563,7 @@
     },
     {
      "passes_on": "the client command the program gave OperateParts",
-     "crate": "kkt-client-config",
+     "crate": "kkt-llm-agent-config",
      "to": [
       {
        "at": "configure",
