@@ -163,15 +163,21 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     // Injections follow the rule (msg 3343): the program injects nothing of
     // kkt-diagnostics' own into it; kkt-operate passes on the prober it was
     // given; and the program's own work is labelled as such.
-    await p.click(`${node("kkt-diagnostics")} .pick-hit`, { force: true });
+    // Each tick is scrolled to the middle of the view first: a forced click
+    // on a box left under the sticky header would land on the header.
+    const tick = async (name) => {
+      await p.$eval(`${node(name)} .pick-hit`, (e) => e.scrollIntoView({ block: "center" }));
+      await p.click(`${node(name)} .pick-hit`, { force: true });
+    };
+    await tick("kkt-diagnostics");
     const lines = await p.$$eval("path.delivery", (paths) => paths.map((x) => `${x.dataset.from}>${x.dataset.to}`));
     check("no injection of a crate's own type, and the assembly passes on what it was given",
       !lines.includes("kashkeshet>kkt-diagnostics") && lines.includes("kkt-operate>kkt-diagnostics"), lines);
-    await p.click(`${node("kkt-diagnostics")} .pick-hit`, { force: true });
-    await p.click(`${node("kkt-operate")} .pick-hit`, { force: true });
+    await tick("kkt-diagnostics");
+    await tick("kkt-operate");
     const labels = await p.$$eval("text.delivery-label", (xs) => xs.map((x) => x.textContent));
     check("the program's own work is named as such", labels.some((l) => l.includes("its own work")), labels);
-    await p.click(`${node("kkt-operate")} .pick-hit`, { force: true });
+    await tick("kkt-operate");
 
     // Clicking a box shows it in the panel and highlights nothing.
     await p.click(`${node("kkt-hosts")} > rect`);
