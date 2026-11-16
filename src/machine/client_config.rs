@@ -8,6 +8,8 @@ use kkt_llm_agent_command::Claude;
 const CLAUDE: Claude = Claude::new("kkt", "--write");
 use kkt_files::Files;
 use kkt_llm_agent_config::{ClientCommand, Host};
+use kkt_machine::Machine;
+use kkt_machine_os::OsMachine;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -43,7 +45,7 @@ impl Host for ClientHost {
         Files.canonicalize(path)
     }
     fn process_id(&self) -> u32 {
-        kkt_machine_os::process_id()
+        OsMachine.process_id()
     }
 }
 

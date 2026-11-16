@@ -1,8 +1,9 @@
 //! Facts about the machine kkt runs on: the folders its environment names
 //! ([`Env`]) and its platform ([`Platform`]), as plain values. The crates
 //! that place files on the machine take these facts and build their own
-//! paths from them; none reads the environment itself. kkt-machine-os reads
-//! them for this process, and the program passes them on.
+//! paths from them; none reads the environment itself. [`Machine`] is how a
+//! program reads them for its process: kkt-machine-os implements it, the
+//! program asks once at start, and passes the values on.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -69,9 +70,77 @@ fn absolute(path: &Option<PathBuf>) -> Option<&Path> {
     path.as_deref().filter(|p| p.is_absolute())
 }
 
+/// The machine's facts as one process sees them. A program asks once, at
+/// start, and passes the values down.
+pub trait Machine {
+    /// The environment's folders: `$HOME`, the XDG folders, and the
+    /// folders the variables in `named` name ([`Env::named`]).
+    fn env(&self, named: &[&str]) -> Env;
+    /// The platform this program was built for.
+    fn platform(&self) -> Platform;
+    /// This process's ID, as the operating system numbers it.
+    fn process_id(&self) -> u32;
+    /// This program's absolute path, with links followed. The error is the
+    /// operating system's.
+    fn program_path(&self) -> std::io::Result<PathBuf>;
+    /// The folders `$PATH` names, in order; none when it is unset.
+    fn path_dirs(&self) -> Vec<PathBuf>;
+}
+
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_stand_in_gives_only_the_named_folders_asked_for() {
+        let mut given = env(None, None);
+        given.named = [
+            ("A_DIR".to_string(), PathBuf::from("/a")),
+            ("B_DIR".to_string(), PathBuf::from("/b")),
+        ]
+        .into();
+        let machine = testing::FixedMachine {
+            env: given,
+            platform: Platform::Xdg,
+            process_id: 1,
+            program_path: None,
+            path_dirs: Vec::new(),
+        };
+        let env = machine.env(&["A_DIR", "C_DIR"]);
+        assert_eq!(env.named("A_DIR"), Some(Path::new("/a")));
+        assert_eq!(env.named("B_DIR"), None);
+        assert_eq!(env.named("C_DIR"), None);
+    }
+
+    #[test]
+    fn the_stand_in_gives_the_facts_it_was_given() {
+        let machine = testing::FixedMachine {
+            env: env(Some("/config"), None),
+            platform: Platform::MacOs,
+            process_id: 42,
+            program_path: Some(PathBuf::from("/bin/kkt")),
+            path_dirs: vec![PathBuf::from("/bin")],
+        };
+        assert_eq!(machine.env(&[]), env(Some("/config"), None));
+        assert_eq!(machine.platform(), Platform::MacOs);
+        assert_eq!(machine.process_id(), 42);
+        assert_eq!(
+            machine.program_path().expect("a path"),
+            PathBuf::from("/bin/kkt")
+        );
+        assert_eq!(machine.path_dirs(), [PathBuf::from("/bin")]);
+        let lost = testing::FixedMachine {
+            program_path: None,
+            ..machine
+        };
+        assert_eq!(
+            lost.program_path().expect_err("no path").kind(),
+            std::io::ErrorKind::NotFound
+        );
+    }
 
     fn env(config: Option<&str>, data: Option<&str>) -> Env {
         Env {

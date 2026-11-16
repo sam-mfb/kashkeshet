@@ -1,31 +1,46 @@
-//! The machine's facts as this process sees them: [`env`] reads the
-//! environment, [`platform`] gives the platform this program was built
-//! for, as kkt-machine's `Env` and `Platform`, and [`process_id`] names this
-//! process. The program asks once and passes them on.
+//! The machine's facts as this process sees them: [`OsMachine`] implements
+//! kkt-machine's `Machine`, reading the environment, naming the platform
+//! this program was built for, and giving this process's ID, this
+//! program's path and the folders `$PATH` names. The program
+//! asks once and passes the values on.
 
-use kkt_machine::{Env, Platform};
+use kkt_machine::{Env, Machine, Platform};
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-/// The environment as this process sees it: `$HOME`, the XDG folders, and
-/// the folders the variables in `named` name.
-pub fn env(named: &[&str]) -> Env {
-    env_from(named, |name| std::env::var_os(name))
-}
+/// This process on this machine.
+pub struct OsMachine;
 
-/// The platform this program was built for. Only macOS and Linux are
-/// released; every system but macOS follows XDG.
-pub fn platform() -> Platform {
-    if cfg!(target_os = "macos") {
-        Platform::MacOs
-    } else {
-        Platform::Xdg
+impl Machine for OsMachine {
+    /// The environment as this process sees it: `$HOME`, the XDG folders,
+    /// and the folders the variables in `named` name.
+    fn env(&self, named: &[&str]) -> Env {
+        env_from(named, |name| std::env::var_os(name))
     }
-}
 
-/// This process's ID, as the operating system numbers it.
-pub fn process_id() -> u32 {
-    std::process::id()
+    /// The platform this program was built for. Only macOS and Linux are
+    /// released; every system but macOS follows XDG.
+    fn platform(&self) -> Platform {
+        if cfg!(target_os = "macos") {
+            Platform::MacOs
+        } else {
+            Platform::Xdg
+        }
+    }
+
+    fn process_id(&self) -> u32 {
+        std::process::id()
+    }
+
+    fn program_path(&self) -> std::io::Result<PathBuf> {
+        std::env::current_exe().and_then(|p| p.canonicalize())
+    }
+
+    fn path_dirs(&self) -> Vec<PathBuf> {
+        std::env::var_os("PATH")
+            .map(|path| std::env::split_paths(&path).collect())
+            .unwrap_or_default()
+    }
 }
 
 /// The [`Env`] the variables `var` gives make, with the folders `named`

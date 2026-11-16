@@ -231,9 +231,8 @@ adapter.
   command output, log lines) stays the same unless the step says why.
 - **A new crate comes with its paperwork:** its entry in the workspace
   `members` and `default-members`, its row in CLAUDE.md's crate table, its
-  entry in `docs/architecture/concerns.json` (layer, kind, concern, what it
-  must not do; `generate.py` stops without one), and its crate doc saying what
-  it owns.
+  entry in `docs/architecture/concerns.json` (layer, kind and concern;
+  `generate.py` stops without one), and its crate doc saying what it owns.
 - **A moved item takes its tests with it.** Tests move with the code they
   test; none is deleted to make a step pass.
 - **No compatibility re-exports across steps.** A step that moves an item
@@ -2194,6 +2193,53 @@ kkt-mcp-formatter to kkt-result-format, kkt-web-preview to
 kkt-webapp-preview, kkt-terminal-os to kkt-terminal and
 kkt-agent-files-os to kkt-agent-files. CHANGELOG.md tells crates that
 depend on kkt by git.
+
+### Phase 16's third follow-up: the machine and the stop signals (Sam, 2026-11-16)
+
+A crate named `x-something` implements `x`'s contract (msg 3507). One pull
+request, by kkt-build-j, reviewed by kkt-review-i:
+
+- kkt-machine declares `Machine` (`env`, `platform`, `process_id`), with a
+  `testing` stand-in. kkt-machine-os' `OsMachine` implements it, and its
+  free functions go.
+- kkt-shutdown becomes a contract crate. `Shutdown` is unchanged, and it
+  declares `Signals` (`stop_on_signal`, which returns the `Signal` that
+  came), with a `testing` stand-in. kkt-shutdown-os' `StopSignals`
+  implements it and still listens when it is made.
+- Only the programs call either trait.
+
+### After phase 16: kkt-backup, a contract crate (Sam, 2026-11-16)
+
+**Sam's decision** (msg 3516, K3, from sage-cardinal). A crate named
+`x-something` implements `x`'s contract. kkt-backup-os implemented
+nothing: its `write` and `prune` were free functions, and the program
+adapted `write` to kkt-operate's `BackupWriter`. So kkt-backup becomes a
+contract crate (ARCHITECTURE.md 3.8), in one pull request: its values
+(`Layout`, `Contents`, `Settings`, `FileCopy`) and the pure functions on
+them stay, and it declares `Backups`, with two operations, write a backup
+and prune old ones, and a `testing` stand-in. kkt-backup-os implements it
+on a struct given the database copy. kkt-operate takes the shared trait
+in place of `BackupWriter`, and the program's adapter goes. Fixed values
+(defaults, bounds, names, modes) are not "configured values" under 3.8.3.
+
+**What it did, against this decision.** Done as decided. The struct is
+`OsBackups`, generic over the copy function; `new` is a `const fn`, so
+kkt's program keeps one in a static for the operator's parts. `kkt serve`'s
+backup before an upgrade writes and prunes through it too.
+
+### Phase 16's fourth follow-up: kkt-setup-os dissolved (Sam, 2026-11-16)
+
+J3 in msg 3516, with the plan agreed in msg 3527. One pull request, by
+kkt-build-j, reviewed by kkt-review-i:
+
+- The setup record and unfinished note go through kkt-files, which gains
+  `read_if_present`, `write_by_rename`, `remove_if_present` and `is_file`.
+  The program's adapter calls kkt-setup's parse and render, with each
+  message worded as before.
+- `make_data_folder`, `absolute` and `canonicalize` use kkt-files.
+- `program_path` and `path_dirs` join kkt-machine's `Machine`. `kkt_path`
+  and the `on_path` loop stay in the program.
+- kkt-setup does not change. kkt-setup-os is deleted.
 
 ### After phase 16: the platform layer (Sam, 2026-11-16)
 

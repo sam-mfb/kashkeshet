@@ -78,6 +78,25 @@ Message numbers are given only where they help to find a discussion in
   kkt-terminal-os became kkt-terminal and kkt-agent-files-os became
   kkt-agent-files: none implements a contract of the crate its old name
   began with.
+- **kkt-machine and kkt-shutdown declare contracts** (approved by Sam on
+  2026-11-16, msg 3507), by the same rule: kkt-machine-os and
+  kkt-shutdown-os implemented nothing. Now kkt-machine declares `Machine` (the environment,
+  the platform and this process's ID), which kkt-machine-os' `OsMachine`
+  implements. kkt-shutdown, now a contract crate, keeps `Shutdown` as it
+  was, for readability, and declares `Signals`, which kkt-shutdown-os'
+  `StopSignals` implements. Making one still listens first, so a failure to
+  listen is reported before the server starts. Only programs call either
+  trait.
+- **kkt-setup-os dissolved** (approved by Sam on 2026-11-16, msgs 3516
+  and 3527). Its file work was general file access, so it uses kkt-files.
+  kkt-files gained a read where a missing file is None, a write by rename,
+  and a removal where a missing file is fine. The program's adapter calls
+  kkt-setup's parse and render, and words each failure as before. The
+  program's path and `$PATH` are facts about this machine and joined
+  kkt-machine's `Machine`. `kkt_path` is only `program_path` with kkt's
+  wording, which belongs to the program, so it stayed there. The `on_path`
+  loop is one line over `is_file` in the program's adapter, the one place
+  that asks. kkt-setup did not change.
 - **Layers say where a crate sits**: programs, assembly, surfaces, access,
   core, data, operations, clients, foundations and dev-only. kkt-search sits
   in foundations, as pure text the data crates build on.
@@ -476,6 +495,11 @@ code at f66b0ab:
   mode) are not "configured values" under ARCHITECTURE.md 3.8.3 and stay
   in the contract. Callers draw new keys themselves from the contract's
   alphabet and length.
+- **kkt-backup is a contract crate** (Sam, 2026-11-16, msg 3516). It
+  declares `Backups` (write a backup, prune old ones) beside its layouts
+  and settings, with `testing::Memory`; kkt-backup-os implements it
+  (`OsBackups`), given the program's database copy. kkt-operate's
+  `BackupWriter` goes.
 
 - **The platform layer** (Sam, 2026-11-16, msg 3597). A crate is general
   if it knows nothing of kkt. Such crates are the `platform` layer (the

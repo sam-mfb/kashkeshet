@@ -1,5 +1,5 @@
-use super::prune;
-use kkt_backup::{Contents, DATABASE_FILE, layout, name};
+use super::OsBackups;
+use kkt_backup::{Backups, Contents, DATABASE_FILE, layout, name};
 use kkt_clock::{Span, Time};
 use std::path::{Path, PathBuf};
 
@@ -17,9 +17,14 @@ fn write(
     at: Time,
     version: &str,
     contents: &Contents<'_>,
-    copy_database: impl FnOnce(&Path, &Path) -> Result<(), String>,
+    copy_database: impl Fn(&Path, &Path) -> Result<(), String>,
 ) -> Result<PathBuf, String> {
-    super::write(folder, &layout(at, version, contents), copy_database)
+    OsBackups::new(copy_database).write(folder, &layout(at, version, contents))
+}
+
+/// Pruning, as the program's backups do it: the database copy is not used.
+fn prune(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String> {
+    OsBackups::new(|_: &Path, _: &Path| Err("not copied".to_owned())).prune(folder, keep)
 }
 
 fn at(seconds: u32) -> Time {
