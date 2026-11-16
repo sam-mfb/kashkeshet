@@ -86,7 +86,9 @@ an effect crate touches the machine; and the map lost its split boxes.
 The workspace went from 33 packages to 62 by the end of phase 14, when
 the code matched the proposed map, as amended during the refactor, with no
 difference left (`decisions.md`, "After the refactor"). Phases 15 and 16
-added kkt-toml and the eight crates phase 16 split out, for 71.
+added kkt-toml and the eight crates phase 16 split out, for 71. After
+phase 16, kkt-logs went: its log levels joined kkt-log-tracing, and its
+file rules joined kkt-logs-os, renamed kkt-rolling-file, for 70.
 
 ## Final scorecard
 

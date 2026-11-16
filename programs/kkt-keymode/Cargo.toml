@@ -37,7 +37,6 @@ kkt-events = { path = "../../crates/kkt-events" }
 kkt-mcp-formatter = { path = "../../crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
-kkt-logs = { path = "../../crates/kkt-logs" }
 kkt-mcp = { path = "../../crates/kkt-mcp" }
 kkt-names = { path = "../../crates/kkt-names" }
 kkt-provenance = { path = "../../crates/kkt-provenance" }

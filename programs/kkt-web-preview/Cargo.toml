@@ -32,7 +32,6 @@ kkt-entropy-os = { path = "../../crates/kkt-entropy-os" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-listen = { path = "../../crates/kkt-listen" }
 kkt-log = { path = "../../crates/kkt-log" }
-kkt-logs = { path = "../../crates/kkt-logs" }
 kkt-log-tracing = { path = "../../crates/kkt-log-tracing" }
 kkt-server = { path = "../../crates/kkt-server" }
 kkt-shutdown = { path = "../../crates/kkt-shutdown" }
