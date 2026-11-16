@@ -196,12 +196,12 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .edge.role-uses { stroke: var(--uses); }
 .edge.role-implements { stroke: var(--implements); stroke-width: 1.6; }
 .edge.role-wires { stroke: var(--wires); }
-/* An adapter a program or composition injects: dotted like the injection
-   lines, in a yellow of its own (Sam, msg 3577), apart from their amber and
-   the amber "built by" arrows, with an open round head. */
-.edge.role-adapts { stroke: var(--adapts); stroke-dasharray: 1.5 3; stroke-linecap: round; }
+/* An adapter a program or composition injects: short dashes, not the
+   injection lines' dots, in a yellow of its own (Sam, msg 3577), apart from
+   their amber and the "built by" arrows', with an open round head. */
+.edge.role-adapts { stroke: var(--adapts); stroke-dasharray: 5 3; }
 .head-adapts { fill: var(--bg); stroke: var(--adapts); stroke-width: 1.2; }
-.role-key.role-adapts { border-top: 3px dotted var(--adapts); }
+.role-key.role-adapts { border-top: 3px dashed var(--adapts); }
 .role-badge.role-adapts { background: none; border: 1px dotted var(--adapts); color: var(--adapts); }
 .edge.focus { opacity: .95; stroke-width: 2; }
 .edge.role-implements.focus { stroke-width: 2.4; }

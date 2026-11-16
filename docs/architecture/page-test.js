@@ -293,11 +293,14 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     // "built by" arrows' (msg 3577).
     await p.click(`${node("kkt-watch")} .pick-hit`, { force: true });
     const colours = await p.evaluate(() => {
-      const stroke = (sel) => { const x = document.querySelector(sel); return x && getComputedStyle(x).stroke; };
-      return { adapts: stroke("path.edge.role-adapts"), wires: stroke("path.edge.role-wires"), lines: stroke("path.delivery") };
+      const style = (sel) => { const x = document.querySelector(sel); return x && getComputedStyle(x); };
+      const [a, w, l] = [style("path.edge.role-adapts"), style("path.edge.role-wires"), style("path.delivery")];
+      return { adapts: a && a.stroke, wires: w && w.stroke, lines: l && l.stroke,
+               adaptsDash: a && a.strokeDasharray, linesDash: l && l.strokeDasharray };
     });
-    check("an adapting arrow's colour differs from the injection lines' and the built-by arrows'",
-      colours.adapts && colours.wires && colours.lines && colours.adapts !== colours.wires && colours.adapts !== colours.lines, colours);
+    check("an adapting arrow's colour differs from the injection lines' and the built-by arrows', and its dash from the lines'",
+      colours.adapts && colours.wires && colours.lines && colours.adapts !== colours.wires && colours.adapts !== colours.lines &&
+      colours.adaptsDash !== colours.linesDash, colours);
     // A route's label covers no box, sits in no gap next to one and in no
     // group's outline, unless it has a backing to read on.
     const covered = await p.evaluate(() => {
