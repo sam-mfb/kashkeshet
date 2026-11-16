@@ -83,9 +83,10 @@ crate other than a program depends on an effect crate, or has a `real`
 feature; kinds.py checks that a contract or logic crate touches nothing and
 an effect crate touches the machine; and the map lost its split boxes.
 
-The workspace went from 33 packages to 62. The code now matches the
-proposed map, as amended during the refactor, with no difference left
-(`decisions.md`, "After the refactor").
+The workspace went from 33 packages to 62 by the end of phase 14, when
+the code matched the proposed map, as amended during the refactor, with no
+difference left (`decisions.md`, "After the refactor"). Phases 15 and 16
+added kkt-toml and the nine crates phase 16 split out, for 71.
 
 ## Final scorecard
 
