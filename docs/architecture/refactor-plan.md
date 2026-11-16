@@ -2209,6 +2209,20 @@ request, by kkt-build-j, reviewed by kkt-review-i:
   implements it and still listens when it is made.
 - Only the programs call either trait.
 
+### Phase 16's fourth follow-up: kkt-setup-os dissolved (Sam, 2026-11-16)
+
+J3 in msg 3516, with the plan agreed in msg 3527. One pull request, by
+kkt-build-j, reviewed by kkt-review-i:
+
+- The setup record and unfinished note go through kkt-files, which gains
+  `read_if_present`, `write_by_rename`, `remove_if_present` and `is_file`.
+  The program's adapter calls kkt-setup's parse and render, with each
+  message worded as before.
+- `make_data_folder`, `absolute` and `canonicalize` use kkt-files.
+- `program_path` and `path_dirs` join kkt-machine's `Machine`. `kkt_path`
+  and the `on_path` loop stay in the program.
+- kkt-setup does not change. kkt-setup-os is deleted.
+
 ## Order at a glance
 
 ```
