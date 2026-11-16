@@ -20,6 +20,7 @@ use kashkeshet::machine::settings::ServeOptions;
 use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
+use kkt_entropy::Entropy;
 use kkt_entropy_os::OsEntropy;
 use kkt_identity_keymode::KeyMode;
 use kkt_log_tracing::LogLevel;
@@ -77,7 +78,7 @@ pub struct TestConfig {
     /// The rules' settings.
     pub rules: kkt_rules::Settings,
     /// The formatter's settings: how long a response may be.
-    pub formatter: kkt_mcp_formatter::Settings,
+    pub formatter: kkt_result_format::Settings,
     /// How many backups an upgrade keeps.
     pub backups: kkt_backup::Settings,
     pub allowed_origins: Vec<String>,
@@ -95,7 +96,7 @@ pub fn test_config() -> TestConfig {
         admin_key: None,
         admin_name: None,
         rules: kkt_rules::Settings::DEFAULT,
-        formatter: kkt_mcp_formatter::Settings::DEFAULT,
+        formatter: kkt_result_format::Settings::DEFAULT,
         backups: kkt_backup::Settings::DEFAULT,
         allowed_origins: vec!["http://localhost:6274".into()],
         allowed_hosts: Vec::new(),
@@ -343,19 +344,17 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
             toml.push_str(&format!("access_key_file = {}\n", quoted(&access_path)));
             options.access_key_file = Some(access_path.clone());
             // `kkt serve` makes a web key when there is none.
-            let web = config
-                .web_key
-                .clone()
-                .unwrap_or_else(|| kkt_server_keys::generate(&OsEntropy));
-            write(&kkt_server_keys::web_key_path(&access_path), &web);
+            let web = config.web_key.clone().unwrap_or_else(|| {
+                OsEntropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS)
+            });
+            write(&kkt_keys::web_key_path(&access_path), &web);
             if let Some(admin) = &config.admin_key {
-                let admin_path =
-                    kkt_server_keys::admin_key_path(&access_path).expect("an admin key path");
+                let admin_path = kkt_keys::admin_key_path(&access_path).expect("an admin key path");
                 write(&admin_path, admin);
                 if let Some(name) = config.admin_name() {
                     write(
-                        &kkt_server_keys::admin_name_path(&admin_path),
-                        &kkt_server_keys::bound_to(&name, admin),
+                        &kkt_keys::admin_name_path(&admin_path),
+                        &kkt_keys::bound_to(&name, admin),
                     );
                 }
             }
@@ -387,7 +386,7 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
     options.max_response_bytes = count(
         "max_response_bytes",
         config.formatter.max_response_bytes,
-        kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes,
+        kkt_result_format::Settings::DEFAULT.max_response_bytes,
     );
     options.default_limit = count("default_limit", given.default_limit, defaults.default_limit);
     options.max_limit = count("max_limit", given.max_limit, defaults.max_limit);

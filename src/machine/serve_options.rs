@@ -1,16 +1,16 @@
 //! The `kkt serve` surface: the settings a server may be given, from one
 //! source (the command line or the config file), how a flag wins over the
 //! file and the file over the defaults, and the settings to run with. Each
-//! default is its owner's (kkt-rules, kkt-mcp-formatter, kkt-web,
+//! default is its owner's (kkt-rules, kkt-result-format, kkt-web,
 //! kkt-backup, kkt-hosts, kkt-log-tracing); settings are not a domain of their own
 //! (Sam, 2026-11-12). This part reads no files and no environment: callers
 //! pass in what the file gives and the defaults that depend on the machine.
 //! Its items are public as [`crate::machine::settings`]'s.
 
 use kkt_hosts::{DEFAULT_ALLOW_ANY_BIND, DEFAULT_BIND};
+use kkt_keys::{AccessKey, admin_key_path, web_key_path};
 use kkt_log_tracing::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, LogLevel};
 use kkt_server::ServerSettings;
-use kkt_server_keys::{AccessKey, admin_key_path, web_key_path};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
@@ -287,10 +287,10 @@ impl ServeOptions {
 /// their owners' defaults.
 pub fn server_settings(options: &ServeOptions) -> ServerSettings {
     ServerSettings {
-        formatter: kkt_mcp_formatter::Settings {
+        formatter: kkt_result_format::Settings {
             max_response_bytes: options
                 .max_response_bytes
-                .unwrap_or(kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes),
+                .unwrap_or(kkt_result_format::Settings::DEFAULT.max_response_bytes),
         },
         web: kkt_web::Settings::DEFAULT,
         mcp: kkt_mcp::Settings::DEFAULT,

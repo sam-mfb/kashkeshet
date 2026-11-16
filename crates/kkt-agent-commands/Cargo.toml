@@ -21,6 +21,6 @@ kkt-watch = { path = "../kkt-watch" }
 kkt-client-config = { path = "../kkt-client-config", features = ["testing"] }
 futures.workspace = true
 # The access key a stand-in connection question answers with.
-kkt-server-keys = { path = "../kkt-server-keys" }
+kkt-keys = { path = "../kkt-keys" }
 # A clock for the parts, which no test reads.
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }

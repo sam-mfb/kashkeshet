@@ -1,10 +1,10 @@
 //! The output format a tool call may ask for, as the tools' inputs take it.
 //! The MCP library describes each input with a JSON schema, so the choice
 //! derives one here, in the crate that wraps the library, and the call
-//! turns it into kkt-mcp-formatter's [`Format`]. The schema keeps the name
+//! turns it into kkt-result-format's [`Format`]. The schema keeps the name
 //! `Format` and the variants' descriptions the tools have always shown.
 
-use kkt_mcp_formatter::Format;
+use kkt_result_format::Format;
 use schemars::JsonSchema;
 use serde::Deserialize;
 

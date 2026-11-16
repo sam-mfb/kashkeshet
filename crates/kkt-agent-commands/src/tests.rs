@@ -6,7 +6,7 @@ use crate::agent::lane_refused;
 use futures::executor::block_on;
 use futures::future::BoxFuture;
 use kkt_agent_client::{Address, Avatars, Failure, Reclaimed, Registered, Servers, Watched};
-use kkt_server_keys::AccessKey;
+use kkt_keys::AccessKey;
 use kkt_setup::connection::{ConnectionOptions, ServeConnection};
 use std::cell::RefCell;
 use std::collections::BTreeMap;

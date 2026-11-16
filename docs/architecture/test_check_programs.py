@@ -201,10 +201,10 @@ class AssemblyWiring(unittest.TestCase):
     what an injector passes on joined to the slot a program filled."""
 
     ITEMS = {"kkt-rules": {"Db": {}, "Startup": {}}, "kkt-db-sqlite": {"SqlitePlace": {}},
-             "kkt-terminal-os": {"Terminal": {}}, "kkt": {}}
+             "kkt-terminal": {"Terminal": {}}, "kkt": {}}
     SLOTS = {"kkt-rules": [{"at": "Db::new", "name": "database"}, {"at": "Startup", "name": "db"}],
              "kkt-setup": [{"at": "ask::Prompter::new", "name": "lines"}]}
-    PACKAGES = {"kkt", "kkt-rules", "kkt-db-sqlite", "kkt-terminal-os", "kkt-setup"}
+    PACKAGES = {"kkt", "kkt-rules", "kkt-db-sqlite", "kkt-terminal", "kkt-setup"}
 
     def check(self, wiring):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": wiring}}}
@@ -219,7 +219,7 @@ class AssemblyWiring(unittest.TestCase):
     def test_another_crates_implementation_and_an_adapter_pass(self):
         self.passes([
             {"impl": "kkt-db-sqlite::SqlitePlace", "crate": "kkt-rules", "to": [{"at": "Db::new", "param": "database"}]},
-            {"own": "TerminalLines", "supplier": "kkt-terminal-os", "supplier_item": "Terminal",
+            {"own": "TerminalLines", "supplier": "kkt-terminal", "supplier_item": "Terminal",
              "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]},
             {"own": "ServeReads", "supplier": "kkt", "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]},
         ])
@@ -230,7 +230,7 @@ class AssemblyWiring(unittest.TestCase):
                                                     {"at": "OperateParts", "name": "clock"}]})
         assembly = {
             "programs": {"kkt": {"steps": [], "wiring": [
-                {"own": "TerminalLines", "supplier": "kkt-terminal-os", "crate": "kkt-operate",
+                {"own": "TerminalLines", "supplier": "kkt-terminal", "crate": "kkt-operate",
                  "to": [{"at": "OperateParts", "param": "lines"}]}]}},
             "injectors": {"kkt-operate": {"wiring": [dict(
                 {"passes_on": "the lines it was given", "crate": "kkt-setup",
@@ -263,10 +263,10 @@ class AssemblyWiring(unittest.TestCase):
 
     def test_an_adapter_needs_a_supplier_package_and_its_item(self):
         lines = [{"at": "ask::Prompter::new", "param": "lines"}]
-        self.assertIn("names no supplier package (kkt-terminal-os's Terminal)",
-                      self.check([{"own": "TerminalLines", "supplier": "kkt-terminal-os's Terminal", "crate": "kkt-setup", "to": lines}]))
-        self.assertIn("no public item Screen in the supplier kkt-terminal-os",
-                      self.check([{"own": "TerminalLines", "supplier": "kkt-terminal-os", "supplier_item": "Screen",
+        self.assertIn("names no supplier package (kkt-terminal's Terminal)",
+                      self.check([{"own": "TerminalLines", "supplier": "kkt-terminal's Terminal", "crate": "kkt-setup", "to": lines}]))
+        self.assertIn("no public item Screen in the supplier kkt-terminal",
+                      self.check([{"own": "TerminalLines", "supplier": "kkt-terminal", "supplier_item": "Screen",
                                    "crate": "kkt-setup", "to": lines}]))
 
     def test_an_entry_is_exactly_one_kind_of_injection(self):

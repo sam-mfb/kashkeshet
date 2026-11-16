@@ -69,7 +69,7 @@
    "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and a fake `Identify` mapping made-up bearers to (swarm, role). Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
    "kind": "composition"
   },
-  "kkt-web-preview": {
+  "kkt-webapp-preview": {
    "layer": "programs",
    "concern": "The web page over simulated data, for working on the page: kkt-web's page over kkt-api-sim's simulated application and stand-in gate, with the real clock, randomness and stop signals, served alone through kkt-server and kkt-listen. Its flags and their checks (`SettingError`). Dev-only, never released.",
    "kind": "composition"
@@ -106,13 +106,13 @@
   },
   "kkt-admission": {
    "layer": "access",
-   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token, and for the web page whether sign-in is needed and whom a key admits. Also the server's admission from its keys, as kkt-server-keys' rules say, and what to say when a key is refused.",
+   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token, and for the web page whether sign-in is needed and whom a key admits. Also the server's admission from its keys, as kkt-keys' rules say, and what to say when a key is refused.",
    "kind": "logic"
   },
-  "kkt-server-keys": {
+  "kkt-keys": {
    "layer": "access",
-   "kind": "logic",
-   "concern": "The server's keys: what a valid key is and how a new one is made, which access key a server uses, the key files' names, mode and places, and the admin name file's binding to its key and the advice about it. The key files on disk are kkt-server-keys-os'."
+   "kind": "contract",
+   "concern": "The server's keys, as a contract: what a valid key is, and the alphabet and length a new one is drawn with (NEW_KEY_ALPHABET, NEW_KEY_CHARS); which access key a server uses; the key files' names, mode and places, in one module; the admin name file's binding to its key and the advice about it; and KeyFiles, reading and writing private key files (the server's, and the client key copies setup writes), with the reads of the server's selected keys (SelectedKeys, ReadError) and the key writes made of its steps as provided methods. testing::Memory is its stand-in. kkt-keys-os implements KeyFiles."
   },
   "kkt-hosts": {
    "layer": "access",
@@ -139,7 +139,7 @@
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm; and starting them for a server run (`start`), which records the run first.",
    "kind": "logic"
   },
-  "kkt-mcp-formatter": {
+  "kkt-result-format": {
    "layer": "surfaces",
    "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
    "kind": "logic"
@@ -264,7 +264,7 @@
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
    "kind": "composition"
   },
-  "kkt-agent-files-os": {
+  "kkt-agent-files": {
    "layer": "clients",
    "kind": "effect",
    "concern": "Agent credential files and kkt watch's state files on this machine: reserving and saving a token or recovery code, reading a token file under the caller's credential-file rule, file locks, claiming a state file."
@@ -306,22 +306,22 @@
   },
   "kkt-machine": {
    "layer": "foundations",
-   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
+   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values, and `Machine`, the contract for reading them and this process's ID, with its stand-in `testing::FixedMachine`. The crates that place files on the machine take these facts; none reads them.",
    "kind": "contract"
   },
   "kkt-machine-os": {
    "layer": "foundations",
-   "concern": "The machine's facts as this process sees them: `env` reads the environment and `platform` gives the platform this program was built for, as kkt-machine's values, and `process_id` names this process. The program asks once and passes them on.",
+   "concern": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID. The program asks once and passes the values on.",
    "kind": "effect"
   },
   "kkt-shutdown": {
    "layer": "foundations",
-   "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value.",
-   "kind": "logic"
+   "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value; and `Signals`, the contract for a source of stop signals, which stops a `Shutdown` and says which `Signal` came, with its stand-in `testing::OnCue`.",
+   "kind": "contract"
   },
   "kkt-shutdown-os": {
    "layer": "foundations",
-   "concern": "The operating system's stop signals (Ctrl-C, SIGTERM), stopping the shared `Shutdown` (`StopSignals`).",
+   "concern": "The operating system's stop signals (Ctrl-C, SIGTERM): `StopSignals` implements kkt-shutdown's `Signals`, listening when it is made and stopping the shared `Shutdown` when one comes.",
    "kind": "effect"
   },
   "kkt-files": {
@@ -339,7 +339,7 @@
    "kind": "contract",
    "concern": "Structured log events: their level, target, message and named values."
   },
-  "kkt-terminal-os": {
+  "kkt-terminal": {
    "layer": "operations",
    "kind": "effect",
    "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the terminal's half of the login link: showing it, and the Enter key."
@@ -384,10 +384,10 @@
    "kind": "effect",
    "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). It does not implement kkt-log."
   },
-  "kkt-server-keys-os": {
+  "kkt-keys-os": {
    "layer": "access",
    "kind": "effect",
-   "concern": "The server's key files on disk, as kkt-server-keys names and places them: KeyFiles (reading the access, web and admin keys and the admin name file), ReadError, and private key writes (new_key_file, write_key_file, make_default_key), admin-name writes and staged-key moves (phase 16, the reverse of 14.5's merge of kkt-admission-os)."
+   "concern": "Private key files on disk: OsKeyFiles implements kkt-keys' KeyFiles with the operating system's files, for the server's key files and the client key copies setup writes, as kkt-keys names and places them: reads, owner-only key writes, admin-name writes, staged-key moves and the file tests."
   }
  },
  "kinds": [

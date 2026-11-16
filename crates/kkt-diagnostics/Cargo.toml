@@ -8,12 +8,12 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-server-keys = { path = "../kkt-server-keys" }
+kkt-keys = { path = "../kkt-keys" }
 kkt-clock = { path = "../kkt-clock" }
 url.workspace = true
 
 [dev-dependencies]
-kkt-server-keys = { path = "../kkt-server-keys", features = ["testing"] }
+kkt-keys = { path = "../kkt-keys", features = ["testing"] }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 
 [features]

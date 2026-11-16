@@ -16,7 +16,7 @@ use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_log::{Level, Log, testing::CapturedLog};
-use kkt_mcp_formatter::Formatter;
+use kkt_result_format::Formatter;
 use kkt_rules::OperatorWording;
 use kkt_rules::Rules;
 use kkt_shutdown::Shutdown;

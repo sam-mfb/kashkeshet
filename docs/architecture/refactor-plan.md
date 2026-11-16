@@ -2153,6 +2153,61 @@ kkt-review-i:
 - kkt-service-os' `try_bind` moves into kkt-listen; kkt-service-os is
   deleted.
 
+### After phase 16: kkt-keys, a contract crate (Sam, 2026-11-16)
+
+**Sam's decision** (msgs 3506, 3511, 3513, 3515 and 3516, from
+sage-cardinal). A crate named `x-something` implements `x`'s contract,
+and nothing else is named that way. kkt-server-keys-os implemented
+nothing: it read and wrote key files in kkt-server-keys' terms, and the
+program adapted it. So kkt-server-keys becomes a contract crate
+(ARCHITECTURE.md 3.8), in one pull request with two commits:
+- kkt-server-keys declares `KeyFiles`, reading and writing private key
+  files: the server's, and the client key copies setup writes. Its stand-in
+  is `testing::Memory`. kkt-server-keys-os implements it (`OsKeyFiles`).
+  kkt-operate takes the shared trait in place of its own, and the
+  program's adapter that only forwarded goes. kkt-admission,
+  kkt-agent-commands and kkt-setup keep their own, narrower traits;
+  kkt-probe is left alone.
+- `generate` goes: callers draw a key from the alphabet and length the
+  contract gives. The key files' names, places and mode stay, in one
+  module: Sam ruled that fixed values are not "configured values" under
+  3.8.3.
+- Second commit: kkt-server-keys is renamed kkt-keys and kkt-server-keys-os
+  kkt-keys-os. They are not kkt-server's, and they cover client key copies
+  too.
+
+**What it did, against this decision.** The plan sent in step 1 had
+`SelectedKeys` with methods that take `&dyn KeyFiles`. kinds.py counts a
+public function or method that takes a trait as behaviour through a
+dependency, which a contract may not have, so `SelectedKeys` is a plain
+value and its reads are the trait's provided methods, as are the key
+writes (`new_key`, `make_default_key`). kkt-operate gained an `entropy`
+part, since the program's adapter no longer draws its keys.
+
+### Phase 16's follow-up: four names (Sam, 2026-11-16)
+
+A crate named `x-something` implements `x`'s contract, and nothing else
+is named that way (msg 3516). One pull request, by kkt-map-i, reviewed by
+kkt-review-i, renames four crates that broke it, with no other change:
+kkt-mcp-formatter to kkt-result-format, kkt-web-preview to
+kkt-webapp-preview, kkt-terminal-os to kkt-terminal and
+kkt-agent-files-os to kkt-agent-files. CHANGELOG.md tells crates that
+depend on kkt by git.
+
+### Phase 16's third follow-up: the machine and the stop signals (Sam, 2026-11-16)
+
+A crate named `x-something` implements `x`'s contract (msg 3507). One pull
+request, by kkt-build-j, reviewed by kkt-review-i:
+
+- kkt-machine declares `Machine` (`env`, `platform`, `process_id`), with a
+  `testing` stand-in. kkt-machine-os' `OsMachine` implements it, and its
+  free functions go.
+- kkt-shutdown becomes a contract crate. `Shutdown` is unchanged, and it
+  declares `Signals` (`stop_on_signal`, which returns the `Signal` that
+  came), with a `testing` stand-in. kkt-shutdown-os' `StopSignals`
+  implements it and still listens when it is made.
+- Only the programs call either trait.
+
 ## Order at a glance
 
 ```

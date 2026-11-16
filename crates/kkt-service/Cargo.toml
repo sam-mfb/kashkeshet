@@ -13,7 +13,7 @@ testing = []
 
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
-kkt-server-keys = { path = "../kkt-server-keys" }
+kkt-keys = { path = "../kkt-keys" }
 thiserror.workspace = true
 
 [dev-dependencies]
