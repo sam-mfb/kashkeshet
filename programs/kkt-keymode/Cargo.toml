@@ -30,10 +30,10 @@ kkt-keys-os = { path = "../../crates/kkt-keys-os" }
 kkt-clock = { path = "../../crates/kkt-clock" }
 kkt-clock-system = { path = "../../crates/kkt-clock-system" }
 kkt-config-file = { path = "../../crates/kkt-config-file" }
-kkt-config-file-os = { path = "../../crates/kkt-config-file-os" }
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite" }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os" }
 kkt-events = { path = "../../crates/kkt-events" }
+kkt-files = { path = "../../crates/kkt-files" }
 kkt-mcp-formatter = { path = "../../crates/kkt-mcp-formatter" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }

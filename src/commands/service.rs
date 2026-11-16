@@ -30,8 +30,8 @@ mod tests {
     use super::*;
     use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};
     use crate::scratch;
+    use kkt_listen::try_bind;
     use kkt_service::check_bind;
-    use kkt_service_os::try_bind;
     use std::net::TcpListener;
 
     fn args(plan: &ServicePlan) -> Vec<&str> {
