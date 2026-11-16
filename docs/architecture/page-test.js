@@ -293,14 +293,19 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       const injectors = new Set([...Object.keys(window.KKT_ASSEMBLY.programs), ...Object.keys(window.KKT_ASSEMBLY.injectors || {})]);
       const strokes = [...document.querySelectorAll("path.edge[data-edge='kashkeshet>kkt-log-tracing>normal']")];
       return {
-        lit: strokes.length > 0 && strokes.every((x) => x.classList.contains("route-hop") && getComputedStyle(x).strokeDasharray === "none"),
+        // Only the "built by" stroke is the hop (msg 3704): exactly one
+        // amber stroke runs between them, solid, and the others keep their
+        // role's colour.
+        lit: strokes.filter((x) => x.classList.contains("route-hop")).length === 1 &&
+          strokes.some((x) => x.classList.contains("route-hop") && x.classList.contains("role-wires") && getComputedStyle(x).strokeDasharray === "none") &&
+          strokes.filter((x) => getComputedStyle(x).stroke === getComputedStyle(strokes.find((y) => y.classList.contains("role-wires"))).stroke).length === 1,
         fromIt: [...document.querySelectorAll("path.delivery")].filter((x) => x.dataset.from === "kkt-log-tracing" || x.dataset.to === "kkt-log-tracing").length,
         notInjector: [...document.querySelectorAll("path.delivery")].map((x) => x.dataset.from).filter((f) => !injectors.has(f)),
         label: [...document.querySelectorAll("text.delivery-label.supply")].map((x) => x.textContent),
       };
     });
     await onBox("kkt-log-tracing", ".pick-hit");
-    check("the supplier's hop is the solid arrow, lit and labelled, and every dotted line starts at an injector",
+    check("the supplier's hop is the arrow's one built-by stroke, solid, lit and labelled, and every dotted line starts at an injector",
       solid.lit && solid.fromIt === 0 && solid.notInjector.length === 0 && solid.label.some((l) => /TracingLog/.test(l)), solid);
 
     // An adapter is not an implementation (msg 3574): a composition's own
