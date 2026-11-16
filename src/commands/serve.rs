@@ -9,7 +9,8 @@ use crate::machine::settings::{
 };
 use crate::machine::settings::{ServeOptions, ServeSettings};
 use kkt_api_agent::SwarmId;
-use kkt_backup as backup;
+use kkt_backup::{self as backup, Backups};
+use kkt_backup_os::OsBackups;
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
 use kkt_entropy_os::OsEntropy;
@@ -223,7 +224,7 @@ fn write_backup(
     contents: &backup::Contents,
 ) -> Result<PathBuf, String> {
     let layout = backup::layout(clock.now(), Build::CURRENT.version, contents);
-    kkt_backup_os::write(folder, &layout, crate::machine::database::copy)
+    OsBackups::new(crate::machine::database::copy).write(folder, &layout)
 }
 
 /// Before the server upgrades the tables in `database`, backs it up beside
@@ -260,7 +261,7 @@ fn backup_before_upgrade(database: &Path, keep: usize, clock: &dyn Clock) -> Res
     );
     // The backup is made, so the upgrade is safe; an old backup left behind
     // only takes space.
-    match kkt_backup_os::prune(&folder, keep) {
+    match OsBackups::new(crate::machine::database::copy).prune(&folder, keep) {
         Ok(removed) => {
             for path in removed {
                 tracing::info!("removed the old backup {}", path.display());

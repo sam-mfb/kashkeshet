@@ -495,6 +495,11 @@ code at f66b0ab:
   mode) are not "configured values" under ARCHITECTURE.md 3.8.3 and stay
   in the contract. Callers draw new keys themselves from the contract's
   alphabet and length.
+- **kkt-backup is a contract crate** (Sam, 2026-11-16, msg 3516). It
+  declares `Backups` (write a backup, prune old ones) beside its layouts
+  and settings, with `testing::Memory`; kkt-backup-os implements it
+  (`OsBackups`), given the program's database copy. kkt-operate's
+  `BackupWriter` goes.
 
 ## Other decisions
 

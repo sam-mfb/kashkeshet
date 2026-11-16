@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "d7f955d9",
+ "commit": "bf94f903",
  "crates": [
   {
    "bins": [
@@ -146,12 +146,6 @@ window.KKT_GRAPH = {
      "crate": "kashkeshet",
      "trait": "LaneCommit",
      "trait_crate": "kkt-lane-files",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "BackupWriter",
-     "trait_crate": "kkt-operate",
      "type": null
     },
     {
@@ -3441,13 +3435,45 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
-   "crate_doc": "Backup layouts, names, file modes and pruning choices, with no file I/O.",
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kkt-backup",
+       "type": "testing::Memory"
+      },
+      {
+       "crate": "kkt-backup-os",
+       "type": "OsBackups"
+      }
+     ],
+     "trait": "Backups"
+    }
+   ],
+   "crate_doc": "Backups, as a contract: layouts, names, file modes and pruning choices, with no file I/O (the caller supplies the time and source paths), and `Backups`, writing a layout into a folder and pruning old backups there.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "testing": []
+   },
    "holders": [],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-backup",
+     "trait": "Backups",
+     "trait_crate": "kkt-backup",
+     "type": "testing::Memory"
+    }
+   ],
    "items": [
+    {
+     "doc": "Where backups are written and pruned.",
+     "kind": "trait",
+     "methods": [
+      "prune",
+      "write"
+     ],
+     "path": "Backups"
+    },
     {
      "doc": "The database and optional config and key files to include.",
      "fields": [
@@ -3527,6 +3553,36 @@ window.KKT_GRAPH = {
      "doc": "Finished backup names to remove, oldest first.",
      "kind": "fn",
      "path": "old_names"
+    },
+    {
+     "doc": "`Memory`, backups in memory, for tests.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "Backups in memory: what each folder holds, by name, and a failure on cue.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "backup",
+      "failing",
+      "names",
+      "new",
+      "with_backup"
+     ],
+     "path": "testing::Memory"
+    },
+    {
+     "doc": "A backup `Memory` holds: what its layout said to copy.",
+     "feature": "testing",
+     "fields": [
+      "database",
+      "copies",
+      "about"
+     ],
+     "kind": "struct",
+     "path": "testing::Written"
     }
    ],
    "lib": "kkt_backup",
@@ -3544,21 +3600,26 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Writes backup layouts and removes old backup folders selected by the backup logic.",
+   "crate_doc": "Backups on disk: `OsBackups` implements kkt-backup's `Backups` contract with the operating system's files, writing kkt-backup's layouts and removing the old backup folders kkt-backup picks.",
    "dev_only": false,
    "features": {},
    "holders": [],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-backup-os",
+     "trait": "Backups",
+     "trait_crate": "kkt-backup",
+     "type": "OsBackups"
+    }
+   ],
    "items": [
     {
-     "doc": "Lists the folder, asks the backup logic which names are old, and removes only those.",
-     "kind": "fn",
-     "path": "prune"
-    },
-    {
-     "doc": "Writes under a private partial name, then renames when complete.",
-     "kind": "fn",
-     "path": "write"
+     "doc": "Backups in folders on this machine's disk, the database copied by `copy_database(from, to)`.",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "OsBackups"
     }
    ],
    "lib": "kkt_backup_os",
@@ -7908,15 +7969,6 @@ window.KKT_GRAPH = {
        "type": null
       }
      ],
-     "trait": "BackupWriter"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": null
-      }
-     ],
      "trait": "CheckService"
     },
     {
@@ -8053,8 +8105,8 @@ window.KKT_GRAPH = {
        "trait": "Databases"
       },
       {
-       "crate": "kkt-operate",
-       "trait": "BackupWriter"
+       "crate": "kkt-backup",
+       "trait": "Backups"
       },
       {
        "crate": "kkt-operate",
@@ -8094,14 +8146,6 @@ window.KKT_GRAPH = {
     }
    ],
    "items": [
-    {
-     "doc": "Writes kkt-backup's layout of a backup into a folder, copying the database as the program's database chooses.",
-     "kind": "trait",
-     "methods": [
-      "write"
-     ],
-     "path": "BackupWriter"
-    },
     {
      "doc": "The program checks the plan against its whole serving surface, with its source context.",
      "kind": "trait",
@@ -8561,8 +8605,8 @@ window.KKT_GRAPH = {
      "name": "backups",
      "traits": [
       {
-       "crate": "kkt-operate",
-       "trait": "BackupWriter"
+       "crate": "kkt-backup",
+       "trait": "Backups"
       }
      ]
     },
@@ -8865,8 +8909,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -8964,8 +9008,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9067,8 +9111,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9170,8 +9214,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9273,8 +9317,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9387,8 +9431,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9486,8 +9530,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9607,8 +9651,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9710,8 +9754,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9835,8 +9879,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9934,8 +9978,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10033,8 +10077,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10132,8 +10176,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10231,8 +10275,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10330,8 +10374,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10433,8 +10477,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10536,8 +10580,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10716,8 +10760,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10819,8 +10863,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10933,8 +10977,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -11032,8 +11076,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -11131,8 +11175,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -11234,8 +11278,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -16552,13 +16596,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "a type of its own implements server_keys::KeyTexts"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -16649,7 +16693,7 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
@@ -16660,7 +16704,7 @@ window.KKT_GRAPH = {
       "a type of its own implements Output",
       "a type of its own implements Program"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -16745,8 +16789,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Backups",
     "Contents",
-    "Layout",
     "Settings",
     "layout"
    ],
@@ -16756,8 +16800,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Backups",
       "Contents",
-      "Layout",
       "Settings",
       "layout"
      ],
@@ -16772,19 +16816,17 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "prune",
-    "write"
+    "OsBackups"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
     {
      "detail": [
-      "prune",
-      "write"
+      "OsBackups"
      ],
-     "role": "uses"
+     "role": "wires"
     }
    ],
    "target": null,
@@ -16843,14 +16885,14 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "machine::client_config::ClaudeCommand implements ClientCommand",
       "machine::client_config::ClientHost implements Host"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -16932,13 +16974,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "a type of its own implements files::Disk"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -16971,14 +17013,14 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "a type of its own implements ConfigReader",
       "terminal::browser_login::TerminalLink implements LoginLink"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -17000,13 +17042,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "a type of its own implements Browser"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -17086,13 +17128,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "machine::diagnostics::Probe implements Prober"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -17347,14 +17389,14 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "a type of its own implements Disk",
       "a type of its own implements LaneCommit"
      ],
-     "role": "implements"
+     "role": "adapts"
     }
    ],
    "target": null,
@@ -17524,7 +17566,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "BackupWriter",
     "CheckService",
     "CheckedService",
     "Config",
@@ -17566,11 +17607,10 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
-      "a type of its own implements BackupWriter",
       "a type of its own implements CheckService",
       "a type of its own implements ConfigText",
       "a type of its own implements Databases",
@@ -17579,7 +17619,7 @@ window.KKT_GRAPH = {
       "machine::operate::ServiceArgs implements ServiceDefaults",
       "a type of its own implements SetupFiles"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -17932,14 +17972,14 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "a type of its own implements ask::Lines",
       "machine::connection::ConnectionReads implements connection::ConnectionSource"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -18051,14 +18091,14 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "a type of its own implements Place",
       "a type of its own implements Report"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -19504,7 +19544,8 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-backup",
    "items": [
-    "Span"
+    "Span",
+    "Time"
    ],
    "kind": "dev",
    "optional": false,
@@ -19512,7 +19553,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Span"
+      "Span",
+      "Time"
      ],
      "role": "uses"
     }
@@ -19525,14 +19567,21 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-backup-os",
    "items": [
+    "Backups",
     "DATABASE_FILE",
     "Layout",
     "old_names"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "implements",
    "roles": [
+    {
+     "detail": [
+      "OsBackups implements Backups"
+     ],
+     "role": "implements"
+    },
     {
      "detail": [
       "DATABASE_FILE",
@@ -20655,13 +20704,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "FakeIdentify implements Identify"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -21361,13 +21410,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "a type of its own implements server_keys::KeyTexts"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -21477,13 +21526,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "a type of its own implements files::Disk"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -22672,8 +22721,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operate",
    "items": [
+    "Backups",
     "Contents",
-    "Layout",
     "layout"
    ],
    "kind": "normal",
@@ -22682,15 +22731,17 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Backups",
       "Contents",
-      "Layout",
       "layout"
      ],
      "role": "uses"
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "Layout"
+   ],
    "to": "kkt-backup"
   },
   {
@@ -23219,7 +23270,7 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
@@ -23227,7 +23278,7 @@ window.KKT_GRAPH = {
       "a type of its own implements Steps",
       "a type of its own implements SwitchSteps"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -24612,13 +24663,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "implements",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
       "AdmissionGate implements Gate"
      ],
-     "role": "implements"
+     "role": "adapts"
     },
     {
      "detail": [
@@ -26332,6 +26383,9 @@ window.KKT_GRAPH = {
   "kkt-agent-client": [
    "kkt-agent-client-mcp"
   ],
+  "kkt-backup": [
+   "kkt-backup-os"
+  ],
   "kkt-clock": [
    "kkt-clock-system"
   ],
@@ -26371,44 +26425,38 @@ window.KKT_GRAPH = {
  "rule_breaks": []
 };
 window.KKT_CONCERNS = {
- "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry, with a layer that exists and a kind it knows, and that no entry names a package that is gone. layers: the rows of the map, top to bottom: where in the system a crate sits. Each crate: its layer; its kind, what sort of crate it is, checked by kinds.py; its concern in plain words; and what it must not do. A crate's must_not is given only where CLAUDE.md states one.",
+ "about": "Written by hand from CLAUDE.md and the crates' own docs. generate.py checks that every workspace package has an entry, with a layer that exists and a kind it knows, and that no entry names a package that is gone. layers: the rows of the map, top to bottom: where in the system a crate sits. Each crate: its layer; its kind, what sort of crate it is, checked by kinds.py; and its concern in plain words.",
  "crates": {
   "kashkeshet": {
    "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs. The agents' commands run in kkt-agent-commands, over the `AgentParts` it builds.",
    "kind": "composition",
    "layer": "programs",
-   "must_not": "Hold a clap type outside `cli.rs`, or let a command take one.",
    "title": "kkt (package kashkeshet)"
   },
   "kkt-admission": {
    "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token, and for the web page whether sign-in is needed and whom a key admits. Also the server's admission from its keys, as kkt-keys' rules say, and what to say when a key is refused.",
    "kind": "logic",
-   "layer": "access",
-   "must_not": "Know about agent tokens or channel access; decide what a valid key is or where key files go."
+   "layer": "access"
   },
   "kkt-agent-client": {
    "concern": "A client of kkt's server, as a contract in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records and Failure; the testing Memory stand-in.",
    "kind": "contract",
-   "layer": "clients",
-   "must_not": "Name a transport, a protocol library or its errors."
+   "layer": "clients"
   },
   "kkt-agent-client-mcp": {
    "concern": "Implements kkt-agent-client over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), with plain Http requests for a program's test client; what the watch asks for at a time (Settings), as plain values.",
    "kind": "effect",
-   "layer": "clients",
-   "must_not": "Let an rmcp or reqwest type out of the crate."
+   "layer": "clients"
   },
   "kkt-agent-commands": {
    "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
    "kind": "composition",
-   "layer": "assembly",
-   "must_not": "Depend on an effect crate (an `-os` crate or a contract's implementation) or on another assembly; touch the machine except through `AgentParts`."
+   "layer": "assembly"
   },
   "kkt-agent-files": {
    "concern": "Agent credential files and kkt watch's state files on this machine: reserving and saving a token or recovery code, reading a token file under the caller's credential-file rule, file locks, claiming a state file.",
    "kind": "effect",
-   "layer": "clients",
-   "must_not": "Choose the credential-file rule or where its warnings go."
+   "layer": "clients"
   },
   "kkt-api-admin": {
    "concern": "What /mcp-admin's administrator does: the admin reads across every channel of a swarm (Admin), creating a swarm (Swarms), AdminChannel, and AdminApi, every operation /mcp-admin uses in one swarm.",
@@ -26428,86 +26476,72 @@ window.KKT_CONCERNS = {
   "kkt-api-sim": {
    "concern": "A simulated application, for tests and the web preview: `Preview`, which implements the kkt-api crates' contracts the web page uses over a world made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, with an access key (checked by kkt-admission's check) or open. All of it is behind `testing`.",
    "kind": "test support",
-   "layer": "dev",
-   "must_not": "Be in a release, or anything but a stand-in."
+   "layer": "dev"
   },
   "kkt-backup": {
-   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
-   "kind": "logic",
-   "layer": "operations",
-   "must_not": "Read the clock or copy the database itself: the caller passes both."
+   "concern": "Backups, as a contract: backup folders' names, contents, file modes and pruning choices (Layout, Contents, FileCopy, layout, name, old_names), with its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`); and Backups, writing a layout into a folder and pruning old backups there, with testing::Memory as its stand-in. kkt-backup-os implements Backups.",
+   "kind": "contract",
+   "layer": "operations"
   },
   "kkt-backup-os": {
-   "concern": "Writing immutable backup layouts and removing old folders selected by the backup logic (`write`, `prune`).",
+   "concern": "Backups on disk: OsBackups implements kkt-backup's Backups with the operating system's files, writing kkt-backup's layouts and removing the old folders it picks; it is given the program's database copy.",
    "kind": "effect",
-   "layer": "operations",
-   "must_not": "Choose backup names, contents, modes or retention."
+   "layer": "operations"
   },
   "kkt-browser": {
    "concern": "Opening a link in the person's browser with the system's own opener (open on macOS, xdg-open elsewhere): SystemBrowser, with its own methods: starting the opener, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without starting it. It declares no contract: the program adapts SystemBrowser to kkt-container-docker's Browser (phase 16).",
    "kind": "effect",
-   "layer": "operations",
-   "must_not": "Wait for the browser; repeat the link in a message."
+   "layer": "operations"
   },
   "kkt-client-command": {
    "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
    "kind": "effect",
-   "layer": "operations",
-   "must_not": "Echo the command's output, which may hold credentials."
+   "layer": "operations"
   },
   "kkt-client-config": {
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through the ClientCommand it declares, with its testing Recorder, and its file restored if that fails.",
    "kind": "logic",
-   "layer": "operations",
-   "must_not": "Touch the machine except through `Host` and `ClientCommand`."
+   "layer": "operations"
   },
   "kkt-clock": {
    "concern": "Time: the Clock contract, Time and Span values, time formatting and FixedClock behind testing. The real clock is in kkt-clock-system.",
    "kind": "contract",
-   "layer": "foundations",
-   "must_not": "Let a chrono type into its public surface."
+   "layer": "foundations"
   },
   "kkt-clock-system": {
    "concern": "The real wall clock and its sleep: SystemClock implements the shared Clock contract.",
    "kind": "effect",
-   "layer": "foundations",
-   "must_not": "Define time values or formatting."
+   "layer": "foundations"
   },
   "kkt-config-file": {
    "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), under a supplied config-home folder; reading and writing the config and instructions files whole (`files`), over the `Disk` it declares, with what a missing file means and the wording of `ReadError` and `WriteError`.",
    "kind": "logic",
-   "layer": "operations",
-   "must_not": "Touch files except through its `Disk`, or know the settings' checks beyond each value's kind."
+   "layer": "operations"
   },
   "kkt-container": {
    "concern": "The container installation contract (Container, ConfigReader, LoginLink and their records) and its stand-in.",
    "kind": "contract",
-   "layer": "operations",
-   "must_not": "Let Docker details into the contract; decide setup answers or remember the setup record."
+   "layer": "operations"
   },
   "kkt-container-docker": {
    "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands; what they do is tested over a private runner and a fake host. A sharing setup's login link opens in the Browser it declares, which the program supplies.",
    "kind": "effect",
-   "layer": "operations",
-   "must_not": "Decide setup answers or remember the setup record."
+   "layer": "operations"
   },
   "kkt-db": {
    "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
    "kind": "contract",
-   "layer": "data",
-   "must_not": "Know a product's tables, name a database, or use a database library, except in its testing stand-in (FastPlace, on SQLite in memory)."
+   "layer": "data"
   },
   "kkt-db-sqlite": {
    "concern": "kkt-db over SQLite, the only crate that knows SQLite: it opens a SQLite database, in a file or in memory, as a kkt-db `Backend`, running its work on tokio's blocking pool, adopts a database from before kkt-db as the caller's `Legacy` describes, and copies a database for backups.",
    "kind": "effect",
-   "layer": "data",
-   "must_not": "Know a product's tables, or let a rusqlite type out of the crate."
+   "layer": "data"
   },
   "kkt-diagnostics": {
    "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server; the `Prober` it declares for the machine, with what it finds (`KeyFile`), the checks (`Check`) and its testing Memory stand-in.",
    "kind": "logic",
-   "layer": "operations",
-   "must_not": "Change anything, or touch the machine except through its `Prober`."
+   "layer": "operations"
   },
   "kkt-entropy": {
    "concern": "The randomness contract `Entropy`, with `random_chars` as a provided method that takes the alphabet to draw from, and its test doubles behind `testing`.",
@@ -26522,20 +26556,17 @@ window.KKT_CONCERNS = {
   "kkt-events": {
    "concern": "Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while it has a subscriber.",
    "kind": "logic",
-   "layer": "core",
-   "must_not": "Let a tokio type out of the crate."
+   "layer": "core"
   },
   "kkt-fake-product": {
    "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and a fake `Identify` mapping made-up bearers to (swarm, role). Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
    "kind": "composition",
-   "layer": "programs",
-   "must_not": "Be released."
+   "layer": "programs"
   },
   "kkt-files": {
    "concern": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a private file and restricting one to its owner, and absolute and canonical paths. Also a file that may be missing (`read_if_present`), a write that replaces a file only once the new text is whole (`write_by_rename`), a removal where a missing file is fine (`remove_if_present`), and whether a path is a file (`is_file`). Each program adapts it to the contract the crate that needs files declares, or calls it from its own adapters.",
    "kind": "effect",
-   "layer": "foundations",
-   "must_not": "Know whose files these are or what is in them, or depend on another kkt crate."
+   "layer": "foundations"
   },
   "kkt-hash": {
    "concern": "Hashing: `sha256`, the SHA-256 digest of some bytes. The one crate that uses sha2; its users call it.",
@@ -26550,68 +26581,57 @@ window.KKT_CONCERNS = {
   "kkt-identity": {
    "concern": "Who a caller is, as a contract: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. The one place that decides who someone is and what they may do. A stand-in, `testing::FixedIdentify`, is behind `testing`.",
    "kind": "contract",
-   "layer": "access",
-   "must_not": "Touch HTTP: each surface reads the principal off its own requests."
+   "layer": "access"
   },
   "kkt-identity-keymode": {
    "concern": "Key mode's identity: `KeyMode`, which implements kkt-identity's `Identify` directly. It decides who a caller is from the key that let it in and the avatar's token, in the one swarm a key-mode server has.",
    "kind": "logic",
-   "layer": "access",
-   "must_not": "Touch HTTP."
+   "layer": "access"
   },
   "kkt-keymode": {
    "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, to show the crates are a core and `kkt` one product on it. The HTTP-only end-to-end tests run against it in CI. Dev-only, never released.",
    "kind": "composition",
-   "layer": "programs",
-   "must_not": "Be released, or share code with the `kkt` program."
+   "layer": "programs"
   },
   "kkt-keys": {
    "concern": "The server's keys, as a contract: what a valid key is, and the alphabet and length a new one is drawn with (NEW_KEY_ALPHABET, NEW_KEY_CHARS); which access key a server uses; the key files' names, mode and places, in one module; the admin name file's binding to its key and the advice about it; and KeyFiles, reading and writing private key files (the server's, and the client key copies setup writes), with the reads of the server's selected keys (SelectedKeys, ReadError) and the key writes made of its steps as provided methods. testing::Memory is its stand-in. kkt-keys-os implements KeyFiles.",
    "kind": "contract",
-   "layer": "access",
-   "must_not": "Decide who a key lets in; draw randomness; word each program's key refusals; touch the key files."
+   "layer": "access"
   },
   "kkt-keys-os": {
    "concern": "Private key files on disk: OsKeyFiles implements kkt-keys' KeyFiles with the operating system's files, for the server's key files and the client key copies setup writes, as kkt-keys names and places them: reads, owner-only key writes, admin-name writes, staged-key moves and the file tests.",
    "kind": "effect",
-   "layer": "access",
-   "must_not": "Decide what a valid key is, who a key lets in, or where key files go; draw randomness itself."
+   "layer": "access"
   },
   "kkt-lane-commit": {
    "concern": "The commit a lane folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
    "kind": "effect",
-   "layer": "operations",
-   "must_not": "Read or write the lane files."
+   "layer": "operations"
   },
   "kkt-lane-files": {
    "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from the `LaneCommit` it declares.",
    "kind": "logic",
-   "layer": "operations",
-   "must_not": "Touch the machine except through `Disk`; know a version-control tool."
+   "layer": "operations"
   },
   "kkt-listen": {
    "concern": "Serving HTTP: binding an address and answering on it with the router it is handed, until told to stop; and trying whether an address could be listened on (`try_bind`), letting it go at once.",
    "kind": "effect",
-   "layer": "foundations",
-   "must_not": "Know how the router it serves was built, or depend on the crates that build it."
+   "layer": "foundations"
   },
   "kkt-log": {
    "concern": "Structured log events: their level, target, message and named values.",
    "kind": "contract",
-   "layer": "foundations",
-   "must_not": "Know a logging library or perform I/O."
+   "layer": "foundations"
   },
   "kkt-log-tracing": {
    "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given; the log level setting it starts with: LogLevel (name, parse), DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL and check_dependency_log_level, with its own SettingError (from kkt-logs, deleted, ARCHITECTURE.md 4.2.2).",
    "kind": "effect",
-   "layer": "foundations",
-   "must_not": "Open, roll over or prune log files."
+   "layer": "foundations"
   },
   "kkt-machine": {
    "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values, and `Machine`, the contract for reading them, this process's ID, this program's path and the folders `$PATH` names, with its stand-in `testing::FixedMachine`. The crates that place files on the machine take these facts; none reads them.",
    "kind": "contract",
-   "layer": "foundations",
-   "must_not": "Read the environment, or hold any of kkt's paths."
+   "layer": "foundations"
   },
   "kkt-machine-os": {
    "concern": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID, this program's path and the folders `$PATH` names. The program asks once and passes the values on.",
@@ -26621,146 +26641,122 @@ window.KKT_CONCERNS = {
   "kkt-mcp": {
    "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool.",
    "kind": "logic",
-   "layer": "surfaces",
-   "must_not": "Touch the database except through the rules, hold tool text in Rust, or decide who a caller is except through `Identify`."
+   "layer": "surfaces"
   },
   "kkt-names": {
    "concern": "Avatars' handles, channel IDs, the name packs, and the operator and admin names with their rules. It draws randomness through kkt-entropy's `Entropy`, with its own character sets.",
    "kind": "logic",
-   "layer": "foundations",
-   "must_not": "Draw randomness except through `Entropy`."
+   "layer": "foundations"
   },
   "kkt-operate": {
    "concern": "The operator's commands, including the install's lifecycle (status, upgrade, uninstall and backup), and this machine's setup record and key selection; effects, backup writing and lazy serving facts are supplied through OperateParts.",
    "kind": "composition",
-   "layer": "assembly",
-   "must_not": "Choose native implementations, depend on an effect or another assembly, or parse command-line flags."
+   "layer": "assembly"
   },
   "kkt-probe": {
    "concern": "Probing a kkt server over HTTP and reading its key files: `HttpProber`, with its own methods and the prober's `Settings`: the probe with reqwest, MCP's initialize handshake read from its answer, key files read from disk, and what it finds worded as its own records (`Finding`, `FileRead`). It declares no contract: the program adapts `HttpProber` to kkt-diagnostics' Prober (phase 16).",
    "kind": "effect",
-   "layer": "operations",
-   "must_not": "Let reqwest types out of the crate; choose the checks' names, timeout or protocol version: the program passes them."
+   "layer": "operations"
   },
   "kkt-provenance": {
    "concern": "What produced a server run: the build, its git commit, and the settings that shape the run, as lines of a name and a value that the program words.",
    "kind": "logic",
-   "layer": "foundations",
-   "must_not": "Store the run record: kkt-rules' `start` does."
+   "layer": "foundations"
   },
   "kkt-remote-access": {
    "concern": "The remote-sharing contract (RemoteAccess, Node) and its stand-in.",
    "kind": "contract",
-   "layer": "operations",
-   "must_not": "Let tool details into the contract."
+   "layer": "operations"
   },
   "kkt-remote-access-tailscale": {
    "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner.",
    "kind": "effect",
-   "layer": "operations",
-   "must_not": "Change login, DNS preferences, unrelated sharing, config or the service."
+   "layer": "operations"
   },
   "kkt-result-format": {
    "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
    "kind": "logic",
-   "layer": "surfaces",
-   "must_not": "Decide permissions or read the database."
+   "layer": "surfaces"
   },
   "kkt-rolling-file": {
    "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). It does not implement kkt-log.",
    "kind": "effect",
-   "layer": "foundations",
-   "must_not": "Read a real clock itself; start a logging library; know log levels."
+   "layer": "foundations"
   },
   "kkt-rules": {
    "concern": "Every permission decision and every change, for agents and the operator, each in one swarm; and starting them for a server run (`start`), which records the run first.",
    "kind": "logic",
-   "layer": "core",
-   "must_not": "Reach the database except through its storage module's `Reader` and `Writer`, or format output."
+   "layer": "core"
   },
   "kkt-scratch": {
    "concern": "Tests' scratch folders under `target/tmp`, named for the test and removed when dropped.",
    "kind": "test support",
-   "layer": "dev",
-   "must_not": "Be anything but a dev-dependency."
+   "layer": "dev"
   },
   "kkt-search": {
    "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule, with its word table), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given. Pure text: it knows no database.",
    "kind": "logic",
-   "layer": "foundations",
-   "must_not": "Know a database."
+   "layer": "foundations"
   },
   "kkt-server": {
    "concern": "Assembling the server around the program's `Arc<dyn AdminApi>` in `Parts`: `/mcp`, `/mcp-admin` and the web page; its `ServerSettings` returns an opaque `CheckedSettings` snapshot for `Parts::new` and composes owner checks and run-record lines with the program's plain values, with `SettingError`; the public adapter from admission and identity to the web gate; the page's sessions; the web page alone over its API and gate (`page`).",
    "kind": "composition",
-   "layer": "assembly",
-   "must_not": "Make decisions: it only wires parts together. It does not choose who a caller is; the program passes `Identify` and the admission modes in."
+   "layer": "assembly"
   },
   "kkt-service": {
    "concern": "The project's contract for running kkt as a service of the user's login (`Service`: install, check it started, start, stop, status, logs, add a key, uninstall), with the values it takes and gives and its errors; `Unsupported` for a system with no service manager kkt works with; the plan of what the service runs, from the settings it needs, and the bind check, both on plain values; its testing Memory stand-in.",
    "kind": "contract",
-   "layer": "operations",
-   "must_not": "Know a service manager, its commands or file formats; touch the machine."
+   "layer": "operations"
   },
   "kkt-service-launchd": {
    "concern": "Implements Service as a launchd user agent on macOS: the plist, launchctl's commands and answers, the log file and the retries while launchd removes an old service, tested against a private system.",
    "kind": "effect",
-   "layer": "operations",
-   "must_not": "Decide what the service runs or check the server's settings."
+   "layer": "operations"
   },
   "kkt-service-systemd": {
    "concern": "Implements Service as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system.",
    "kind": "effect",
-   "layer": "operations",
-   "must_not": "Decide what the service runs or check the server's settings."
+   "layer": "operations"
   },
   "kkt-setup": {
    "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
    "kind": "logic",
-   "layer": "operations",
-   "must_not": "Read files or run anything: the program carries out, or passes in, what is decided here."
+   "layer": "operations"
   },
   "kkt-shutdown": {
    "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value; and `Signals`, the contract for a source of stop signals, which stops a `Shutdown` and says which `Signal` came, with its stand-in `testing::OnCue`.",
    "kind": "contract",
-   "layer": "foundations",
-   "must_not": "Let a tokio-util type out of the crate."
+   "layer": "foundations"
   },
   "kkt-shutdown-os": {
    "concern": "The operating system's stop signals (Ctrl-C, SIGTERM): `StopSignals` implements kkt-shutdown's `Signals`, listening when it is made and stopping the shared `Shutdown` when one comes.",
    "kind": "effect",
-   "layer": "foundations",
-   "must_not": "Let a tokio signal type out of the crate."
+   "layer": "foundations"
   },
   "kkt-terminal": {
    "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the terminal's half of the login link: showing it, and the Enter key.",
    "kind": "effect",
-   "layer": "operations",
-   "must_not": "Decide setup answers or depend on setup/container logic."
+   "layer": "operations"
   },
   "kkt-toml": {
    "concern": "TOML text, in kkt's terms: parsing it into a tree of values (`parse`, `Table`, `Value`), reading a typed record from it and writing one back (`read`, `write`), and editing a document with its comments and layout kept (`Document`, `TableMut`, `ListMut`, `Found`, `IfMissing`, `EditError`). Its errors are its own and say where in the text the problem is (`ParseError`, `Place`, `WriteError`). The one crate that uses toml and toml_edit (phase 15); its users depend on it directly.",
    "kind": "logic",
-   "layer": "foundations",
-   "must_not": "Let a toml or toml_edit type into its public items; know whose file it reads."
+   "layer": "foundations"
   },
   "kkt-watch": {
    "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server (kkt-agent-client's Watched), clock, saved place and output are injected.",
    "kind": "logic",
-   "layer": "clients",
-   "must_not": "Reach the server, the time, its place or its output except through what is injected."
+   "layer": "clients"
   },
   "kkt-web": {
    "concern": "The human's pages, over the operator's operations (kkt-api-operator's `OperatorApi`) in each viewer's swarm, rendering the kkt-api crates' records. Its own contract is only `Gate`, which says who is viewing each request (a swarm and an operator) and whom a key signs in; every change is a checked form post. It keeps the limits only the page applies (`PageLimits`). It keeps its own sessions: their IDs, hashing, expiry, sign-out and form tokens; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
    "kind": "logic",
-   "layer": "surfaces",
-   "must_not": "Depend on the rules, the store, admission or identity: kkt-server adapts them to its gate."
+   "layer": "surfaces"
   },
   "kkt-webapp-preview": {
    "concern": "The web page over simulated data, for working on the page: kkt-web's page over kkt-api-sim's simulated application and stand-in gate, with the real clock, randomness and stop signals, served alone through kkt-server and kkt-listen. Its flags and their checks (`SettingError`). Dev-only, never released.",
    "kind": "composition",
-   "layer": "programs",
-   "must_not": "Be released."
+   "layer": "programs"
   }
  },
  "kinds": [
@@ -26849,12 +26845,18 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, or an impl's crate is the receiving crate. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the two assemblies, kkt-operate and kkt-agent-commands, which pass on what the program gave their parts.",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the two assemblies, kkt-operate and kkt-agent-commands, which pass on what the program gave their parts.",
  "injectors": {
   "kkt-agent-commands": {
    "wiring": [
     {
      "crate": "kkt-watch",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "servers"
+      }
+     ],
      "passes_on": "the Watched the program's Servers made",
      "to": [
       {
@@ -26865,6 +26867,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-watch",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "clock"
+      }
+     ],
      "passes_on": "the clock the program gave AgentParts",
      "to": [
       {
@@ -26875,6 +26883,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-watch",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "credentials"
+      }
+     ],
      "passes_on": "the credentials the program gave AgentParts",
      "to": [
       {
@@ -26885,6 +26899,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-watch",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "report"
+      }
+     ],
      "passes_on": "the report the program gave AgentParts",
      "to": [
       {
@@ -26895,6 +26915,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-client-config",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "clients"
+      }
+     ],
      "passes_on": "the client configs' host the program gave AgentParts",
      "to": [
       {
@@ -26909,6 +26935,24 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-setup",
+     "from": [
+      {
+       "at": "register",
+       "param": "parts"
+      },
+      {
+       "at": "reclaim",
+       "param": "parts"
+      },
+      {
+       "at": "watch::run",
+       "param": "parts"
+      },
+      {
+       "at": "connect::run",
+       "param": "parts"
+      }
+     ],
      "passes_on": "the connection question the program gave AgentParts",
      "to": [
       {
@@ -26923,6 +26967,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-client-config",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "client_command"
+      }
+     ],
      "note": "kkt connect",
      "passes_on": "the client command the program gave AgentParts",
      "to": [
@@ -26938,6 +26988,12 @@ window.KKT_ASSEMBLY = {
    "wiring": [
     {
      "crate": "kkt-diagnostics",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "prober"
+      }
+     ],
      "note": "kkt doctor, kkt setup",
      "passes_on": "the prober the program gave OperateParts",
      "to": [
@@ -26949,6 +27005,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-diagnostics",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "clock"
+      }
+     ],
      "note": "kkt setup, waiting for a new server",
      "passes_on": "the clock the program gave OperateParts",
      "to": [
@@ -26960,6 +27022,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-rules",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "clock"
+      }
+     ],
      "note": "kkt agent, kkt lanes",
      "passes_on": "the clock the program gave OperateParts",
      "to": [
@@ -26971,6 +27039,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-setup",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "lines"
+      }
+     ],
      "note": "kkt setup, kkt switch",
      "passes_on": "the lines the program gave OperateParts",
      "to": [
@@ -27006,6 +27080,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-client-config",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "clients"
+      }
+     ],
      "note": "kkt setup, kkt doctor",
      "passes_on": "the client configs' host the program gave OperateParts",
      "to": [
@@ -27037,6 +27117,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-lane-files",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "lanes"
+      }
+     ],
      "note": "kkt lanes import and export, kkt setup --lanes",
      "passes_on": "the lane folder's disk the program gave OperateParts",
      "to": [
@@ -27052,6 +27138,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-lane-files",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "lane_commit"
+      }
+     ],
      "note": "kkt lanes import and export, kkt setup --lanes",
      "passes_on": "the lane folder's commit the program gave OperateParts",
      "to": [
@@ -27063,6 +27155,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-client-config",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "client_command"
+      }
+     ],
      "note": "kkt setup",
      "passes_on": "the client command the program gave OperateParts",
      "to": [
@@ -27078,6 +27176,12 @@ window.KKT_ASSEMBLY = {
    "wiring": [
     {
      "crate": "kkt-web",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "rules"
+      }
+     ],
      "passes_on": "the AdminApi the program gave Parts",
      "to": [
       {
@@ -27100,6 +27204,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-mcp",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "rules"
+      }
+     ],
      "passes_on": "the AdminApi the program gave Parts",
      "to": [
       {
@@ -27128,6 +27238,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-mcp",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "identify"
+      }
+     ],
      "passes_on": "the identity the program gave Parts",
      "to": [
       {
@@ -27142,6 +27258,16 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-web",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      },
+      {
+       "at": "Parts::new",
+       "param": "entropy"
+      }
+     ],
      "passes_on": "the clock and entropy the program gave Parts",
      "to": [
       {
@@ -27156,6 +27282,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-mcp",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ],
      "passes_on": "the log the program gave Parts",
      "to": [
       {
@@ -27170,6 +27302,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-web",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ],
      "passes_on": "the log the program gave Parts",
      "to": [
       {
@@ -27230,7 +27368,7 @@ window.KKT_ASSEMBLY = {
       "kkt-operate::lifecycle::uninstall",
       "kkt-operate::lifecycle::backup",
       "kkt-operate::record::check_setup",
-      "kkt-operate::BackupWriter"
+      "kkt-backup::Backups"
      ],
      "text": "main.rs builds the operator's parts once, a NativeOperate with the service capability (ServeArgs), and gives every operator command its OperateParts: native containers, services, client files, probes, lane disk, clock, setup and key files, database, backups and terminal. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in operate, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
      "title": "The operator's commands"
@@ -27717,9 +27855,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os' write, with this program's database copy",
-     "supplier": "kkt-backup-os",
-     "supplier_item": "write",
+     "impl": "kkt-backup-os::OsBackups",
      "to": [
       {
        "at": "OperateParts",
@@ -27820,6 +27956,30 @@ window.KKT_ASSEMBLY = {
       {
        "at": "AgentParts",
        "param": "client_command"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-agent-commands",
+     "note": "in AgentParts' connection, which each command reads",
+     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup",
+     "supplier": "kashkeshet",
+     "to": [
+      {
+       "at": "register",
+       "param": "parts"
+      },
+      {
+       "at": "reclaim",
+       "param": "parts"
+      },
+      {
+       "at": "watch::run",
+       "param": "parts"
+      },
+      {
+       "at": "connect::run",
+       "param": "parts"
       }
      ]
     },

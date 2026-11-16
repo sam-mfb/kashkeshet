@@ -1,12 +1,30 @@
-//! Backup layouts, names, file modes and pruning choices, with no file I/O.
-//! The caller supplies the time and source paths.
+//! Backups, as a contract: layouts, names, file modes and pruning choices,
+//! with no file I/O (the caller supplies the time and source paths), and
+//! [`Backups`], writing a layout into a folder and pruning old backups
+//! there. kkt-backup-os implements [`Backups`] on disk.
 
 mod settings;
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 
 pub use settings::{Problem, Settings};
 
 use kkt_clock::Time;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+/// Where backups are written and pruned.
+pub trait Backups {
+    /// Writes `layout` into `folder`, making the folder if needed: the
+    /// database first, then the other copies, then the about file, under
+    /// the layout's partial name, renamed to its name only when complete.
+    /// Refuses if a backup of that name is already there; a failed write
+    /// leaves no partial folder. Returns the backup written.
+    fn write(&self, folder: &Path, layout: &Layout<'_>) -> Result<PathBuf, String>;
+    /// Removes the backups in `folder` that [`old_names`] picks to go,
+    /// keeping the newest `keep`. A missing folder has no backups. Returns
+    /// the backups removed, oldest first.
+    fn prune(&self, folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String>;
+}
 
 /// The database's name within a backup folder.
 pub const DATABASE_FILE: &str = "kashkeshet.db";

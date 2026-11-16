@@ -231,9 +231,8 @@ adapter.
   command output, log lines) stays the same unless the step says why.
 - **A new crate comes with its paperwork:** its entry in the workspace
   `members` and `default-members`, its row in CLAUDE.md's crate table, its
-  entry in `docs/architecture/concerns.json` (layer, kind, concern, what it
-  must not do; `generate.py` stops without one), and its crate doc saying what
-  it owns.
+  entry in `docs/architecture/concerns.json` (layer, kind and concern;
+  `generate.py` stops without one), and its crate doc saying what it owns.
 - **A moved item takes its tests with it.** Tests move with the code they
   test; none is deleted to make a step pass.
 - **No compatibility re-exports across steps.** A step that moves an item
@@ -2208,6 +2207,25 @@ request, by kkt-build-j, reviewed by kkt-review-i:
   came), with a `testing` stand-in. kkt-shutdown-os' `StopSignals`
   implements it and still listens when it is made.
 - Only the programs call either trait.
+
+### After phase 16: kkt-backup, a contract crate (Sam, 2026-11-16)
+
+**Sam's decision** (msg 3516, K3, from sage-cardinal). A crate named
+`x-something` implements `x`'s contract. kkt-backup-os implemented
+nothing: its `write` and `prune` were free functions, and the program
+adapted `write` to kkt-operate's `BackupWriter`. So kkt-backup becomes a
+contract crate (ARCHITECTURE.md 3.8), in one pull request: its values
+(`Layout`, `Contents`, `Settings`, `FileCopy`) and the pure functions on
+them stay, and it declares `Backups`, with two operations, write a backup
+and prune old ones, and a `testing` stand-in. kkt-backup-os implements it
+on a struct given the database copy. kkt-operate takes the shared trait
+in place of `BackupWriter`, and the program's adapter goes. Fixed values
+(defaults, bounds, names, modes) are not "configured values" under 3.8.3.
+
+**What it did, against this decision.** Done as decided. The struct is
+`OsBackups`, generic over the copy function; `new` is a `const fn`, so
+kkt's program keeps one in a static for the operator's parts. `kkt serve`'s
+backup before an upgrade writes and prunes through it too.
 
 ### Phase 16's fourth follow-up: kkt-setup-os dissolved (Sam, 2026-11-16)
 

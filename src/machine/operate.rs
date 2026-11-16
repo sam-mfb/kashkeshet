@@ -8,7 +8,7 @@ use kkt_files::Files;
 use kkt_keys::AccessKey;
 use kkt_machine::{Env, Machine, Platform};
 use kkt_machine_os::OsMachine;
-use kkt_operate::{BackupWriter, Config, Databases, OperateParts, Output, ServeFacts, SetupFiles};
+use kkt_operate::{Config, Databases, OperateParts, Output, ServeFacts, SetupFiles};
 use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -89,7 +89,7 @@ impl<'a, D> NativeOperate<'a, D> {
             key_files: &kkt_keys_os::OsKeyFiles,
             entropy: &kkt_entropy_os::OsEntropy,
             database: &NativeDatabases,
-            backups: &NativeBackups,
+            backups: &BACKUPS,
             output: &NativeOutput,
         }
     }
@@ -315,6 +315,12 @@ fn write_whole(path: &Path, text: &str) -> Result<(), String> {
         .map_err(|e| format!("could not write {}: {e}", path.display()))
 }
 
+/// Backups on the machine's disk, the database copied with SQLite's online
+/// backup.
+type CopyDatabase = fn(&Path, &Path) -> Result<(), String>;
+static BACKUPS: kkt_backup_os::OsBackups<CopyDatabase> =
+    kkt_backup_os::OsBackups::new(super::database::copy);
+
 struct NativeDatabases;
 impl Databases for NativeDatabases {
     fn exists(&self, path: &Path) -> bool {
@@ -344,14 +350,5 @@ impl kkt_operate::ConfigText for NativeConfigText {
     fn write(&self, path: &Path, text: &str) -> Result<(), String> {
         kkt_config_file::files::write(&super::config_disk::ConfigDisk, path, text)
             .map_err(|e| e.to_string())
-    }
-}
-
-/// Backups written to the machine's files, the database copied with
-/// SQLite's online backup.
-pub(crate) struct NativeBackups;
-impl BackupWriter for NativeBackups {
-    fn write(&self, folder: &Path, layout: &kkt_backup::Layout<'_>) -> Result<PathBuf, String> {
-        kkt_backup_os::write(folder, layout, super::database::copy)
     }
 }

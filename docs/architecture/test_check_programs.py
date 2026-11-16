@@ -196,8 +196,9 @@ class StandIns(unittest.TestCase):
 
 
 class AssemblyWiring(unittest.TestCase):
-    """generate.py's check of assembly.json's wiring: names that exist, and
-    no value of the receiving crate's own type recorded as an injection."""
+    """generate.py's check of assembly.json's wiring: names that exist, no
+    value of the receiving crate's own type recorded as an injection, and
+    what an injector passes on joined to the slot a program filled."""
 
     ITEMS = {"kkt-rules": {"Db": {}, "Startup": {}}, "kkt-db-sqlite": {"SqlitePlace": {}},
              "kkt-terminal": {"Terminal": {}}, "kkt": {}}
@@ -221,8 +222,40 @@ class AssemblyWiring(unittest.TestCase):
             {"own": "TerminalLines", "supplier": "kkt-terminal", "supplier_item": "Terminal",
              "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]},
             {"own": "ServeReads", "supplier": "kkt", "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]},
-            {"passes_on": "the lines it was given", "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]},
         ])
+
+    def run_with_injector(self, passes_on):
+        """kkt fills kkt-operate's lines; kkt-operate passes something on."""
+        slots = dict(self.SLOTS, **{"kkt-operate": [{"at": "OperateParts", "name": "lines"},
+                                                    {"at": "OperateParts", "name": "clock"}]})
+        assembly = {
+            "programs": {"kkt": {"steps": [], "wiring": [
+                {"own": "TerminalLines", "supplier": "kkt-terminal", "crate": "kkt-operate",
+                 "to": [{"at": "OperateParts", "param": "lines"}]}]}},
+            "injectors": {"kkt-operate": {"wiring": [dict(
+                {"passes_on": "the lines it was given", "crate": "kkt-setup",
+                 "to": [{"at": "ask::Prompter::new", "param": "lines"}]}, **passes_on)]}},
+        }
+        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES | {"kkt-operate"}, slots)
+
+    def test_passing_on_names_the_slot_a_program_filled(self):
+        self.run_with_injector({"from": [{"at": "OperateParts", "param": "lines"}]})
+
+    def refused(self, passes_on):
+        with self.assertRaises(SystemExit) as stop:
+            self.run_with_injector(passes_on)
+        return str(stop.exception)
+
+    def test_passing_on_without_from_is_refused(self):
+        self.assertIn('passing on the lines it was given into kkt-setup says no "from"', self.refused({}))
+
+    def test_from_must_name_a_slot_of_the_injector(self):
+        self.assertIn('"from" names no slot OperateParts (screen) of kkt-operate',
+                      self.refused({"from": [{"at": "OperateParts", "param": "screen"}]}))
+
+    def test_from_must_name_a_slot_some_program_fills(self):
+        self.assertIn("no program fills OperateParts (clock)",
+                      self.refused({"from": [{"at": "OperateParts", "param": "clock"}]}))
 
     def test_the_receiving_crates_own_type_is_refused(self):
         self.assertIn("kkt-rules::Db is kkt-rules's own type, not an injection into it",
