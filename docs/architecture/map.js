@@ -309,7 +309,7 @@
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
       el("span", { class: "key-item", title: "A crate that implements a contract of exactly one crate in its own layer, drawn beneath it" },
         el("span", { class: "group-key" }), "Group: a crate, with the crates beneath it that implement its contract"),
-      el("span", { class: "muted" }, "Heads are on the crate that depends. Dashed: tests only. Dotted: build scripts only. Parallel lines: several roles. Where a side has too many arrows, several share one head. Solid: a dependency. Dotted amber, for ticked crates: an injection, from the injector on to where it ends; the solid arrow to the crate it is built from or wraps lights as the route's first hop: its built-by stroke in amber, or else its used-by stroke in its own colour. Thick outline: the crate in the panel. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Heads are on the crate that depends. Dashed: tests only. Dotted: build scripts only. Parallel lines: several roles. Where a side has too many arrows, several share one head. Solid: a dependency. Dotted amber, for ticked crates: an injection, from the injector on to where it ends; one stroke of the solid arrow to the crate it is built from or wraps lights amber as the route's first hop. Thick outline: the crate in the panel. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -1014,13 +1014,13 @@
         labelLayer.insertBefore(back, label);
       }
     };
-    // The supplier's hop: the stroke of the injector's arrow to the
-    // supplier whose role brings the supplier's type in (Sam, msgs 3704
-    // and 3706). That is "built by" where the arrow has it, lit amber;
-    // otherwise "used by", where an adapter wraps a plain type of the
-    // supplier, lit in its own colour. No stroke is recoloured, and a hop
-    // whose stroke is filtered out is not drawn. Its label says what is
-    // built, or what is wrapped and by what.
+    // The supplier's hop: exactly one stroke of the injector's arrow to
+    // the supplier, lit amber like the rest of the route, so the route does
+    // not change colour halfway (Sam, msg 3734). It is the "built by"
+    // stroke where the arrow has one, otherwise the "used by" stroke, where
+    // an adapter wraps a plain type of the supplier. Never two strokes of
+    // one arrow, and a hop whose stroke is filtered out is not drawn. Its
+    // label says what is built, or what is wrapped and by what.
     for (const line of supplies.values()) {
       line.supply = true;
       const strokes = view.edgeNodes.filter(({ edge }) => edge.kind === "normal" && edge.from === line.receiver && edge.to === line.program);
@@ -1034,7 +1034,7 @@
         const what = r[0].supplierItem || r[0].item.split("::").pop();
         return r[0].how === "adapts" ? `${what}, wrapped by ${typeName(r[0].item)}` : what;
       });
-      labelOn(hop.path, line, words, hop.path.classList.contains("role-wires") ? " supply" : " supply uses");
+      labelOn(hop.path, line, words, " supply");
     }
     // In the spaces between the arrows' ends, so a line between a program
     // and the crate just below it does not lie on the arrows leaving the

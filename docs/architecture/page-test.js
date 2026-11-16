@@ -324,23 +324,47 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("a test-only build is on the test arrow, not a built-by stroke of the code arrow",
       codeOnly.wires === 0 && codeOnly.tests === 0 && withTests.wires === 0 && withTests.tests > 0, { codeOnly, withTests });
 
-    // An adapter's hop (msg 3706): kashkeshet wraps kkt-terminal's Terminal
-    // in WatchOutput, so with kkt-watch ticked the arrow's used-by stroke is
-    // the hop, lit in its own colour, not amber, and labelled.
-    await onBox("kkt-watch", ".pick-hit");
-    const adapter = await p.evaluate(() => {
-      const strokes = [...document.querySelectorAll("path.edge[data-edge='kashkeshet>kkt-terminal>normal']")];
-      const hop = strokes.filter((x) => x.classList.contains("route-hop"));
-      const amber = document.querySelector("path.edge.role-wires");
+    // A route is amber from its first hop on (msg 3734): exactly one
+    // stroke of the supplier's arrow lights, amber. kkt-terminal's arrow
+    // to kashkeshet only uses (WatchOutput wraps its Terminal), so its
+    // used-by stroke is the hop; kkt-log-tracing's has a built-by stroke,
+    // which is the hop, and its used-by stroke is not lit amber.
+    const hopOn = (edge) => p.evaluate(([edge]) => {
+      const amber = getComputedStyle(document.querySelector("path.edge.role-wires")).stroke;
+      const strokes = [...document.querySelectorAll(`path.edge[data-edge='${edge}']`)];
       return {
-        one: hop.length === 1 && hop[0].classList.contains("role-uses"),
-        own: hop.length === 1 && (!amber || getComputedStyle(hop[0]).stroke !== getComputedStyle(amber).stroke),
-        label: [...document.querySelectorAll("text.delivery-label.supply")].map((x) => x.textContent).find((l) => /wrapped by WatchOutput/.test(l)) || null,
+        hops: strokes.filter((x) => x.classList.contains("route-hop")).map((x) => x.getAttribute("class").match(/role-\w+/)[0]),
+        amber: strokes.filter((x) => getComputedStyle(x).stroke === amber).map((x) => x.getAttribute("class").match(/role-\w+/)[0]),
+        labels: [...document.querySelectorAll("text.delivery-label.supply")].map((x) => x.textContent),
       };
+    }, [edge]);
+    await onBox("kkt-terminal", ".pick-hit");
+    const terminal = await hopOn("kashkeshet>kkt-terminal>normal");
+    await onBox("kkt-terminal", ".pick-hit");
+    check("an adapter's hop is its used-by stroke, lit amber and labelled with what it wraps",
+      terminal.hops.join() === "role-uses" && terminal.amber.join() === "role-uses" &&
+      terminal.labels.some((l) => /Terminal, wrapped by WatchOutput/.test(l)), terminal);
+    await onBox("kkt-log-tracing", ".pick-hit");
+    const tracing = await hopOn("kashkeshet>kkt-log-tracing>normal");
+    await onBox("kkt-log-tracing", ".pick-hit");
+    check("a built-by hop lights one amber stroke only, and its used-by stroke is not amber",
+      tracing.hops.join() === "role-wires" && tracing.amber.join() === "role-wires", tracing);
+    // A hop whose stroke a filter hides is not drawn.
+    await onBox("kkt-terminal", ".pick-hit");
+    await p.click("#arrows-button");
+    await p.click('#role-filters input[data-key="role:uses"]');
+    const filtered = await hopOn("kashkeshet>kkt-terminal>normal");
+    await p.click('#role-filters input[data-key="role:uses"]');
+    await p.keyboard.press("Escape");
+    await onBox("kkt-terminal", ".pick-hit");
+    check("a hop whose stroke is filtered out is not drawn",
+      filtered.hops.length === 0 && !filtered.labels.some((l) => /Terminal, wrapped by/.test(l)), filtered);
+    // With nothing ticked, no used-by stroke is amber.
+    const resting = await p.evaluate(() => {
+      const amber = getComputedStyle(document.querySelector("path.edge.role-wires")).stroke;
+      return [...document.querySelectorAll("path.edge.role-uses")].filter((x) => getComputedStyle(x).stroke === amber).length;
     });
-    await onBox("kkt-watch", ".pick-hit");
-    check("an adapter's hop is its used-by stroke, lit in its own colour and labelled with what it wraps",
-      adapter.one && adapter.own && Boolean(adapter.label), adapter);
+    check("with nothing ticked, no used-by stroke is amber", resting === 0, resting);
 
     // An adapter is not an implementation (msg 3574): a composition's own
     // type meeting another crate's trait is "adapted by", drawn apart from
