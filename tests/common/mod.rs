@@ -259,9 +259,12 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
         server_settings,
     );
     let server = app::build(parts, config, shutdown.child());
-    let listening = kkt_server_listen::listen(server, "127.0.0.1:0".parse().expect("address"))
-        .await
-        .expect("bind");
+    let listening = kkt_listen::listen(
+        server.into_router(),
+        "127.0.0.1:0".parse().expect("address"),
+    )
+    .await
+    .expect("bind");
     let addr = listening.address().expect("addr");
     let ct = shutdown.clone();
     tokio::spawn(async move {

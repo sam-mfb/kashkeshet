@@ -1,6 +1,6 @@
 #!/bin/bash
 # Check each package in the workspace on its own, which packages may depend
-# on an effect crate, and the rules for the `testing` feature (CLAUDE.md,
+# on an effect or a composition crate, and the rules for the `testing` feature (CLAUDE.md,
 # "Where code lives"). The package list and manifests come from
 # `cargo metadata`, so a new package is never missed. No package is exempt.
 #
@@ -39,8 +39,12 @@
 # 6. No package has a `real` feature, and no source names one: code that
 #    touches the machine is in an effect crate of its own, not behind a
 #    feature (phase 16, which removed phases 13 and 14's `real`).
+# 7. Only programs depend on a composition crate (a crate concerns.json
+#    marks "composition") in [dependencies]: a composition is put together
+#    by the program that runs it, and nothing under it names it (phase 16's
+#    follow-up, which took kkt-listen off kkt-server).
 #
-# Checks 2 to 6 are in check-crates.jq, tested by test_check_crates.py,
+# Checks 2 to 7 are in check-crates.jq, tested by test_check_crates.py,
 # except check 6's search of the sources, which is below.
 set -euo pipefail
 scripts=$(dirname "$0")
@@ -50,7 +54,9 @@ metadata=$(cargo metadata --locked --no-deps --format-version 1)
 root=$(dirname "$(cargo locate-project --workspace --message-format plain)")
 effects=$(jq -c '[.crates | to_entries[] | select(.value.kind == "effect") | .key]' \
     "$root/docs/architecture/concerns.json")
-problems=$(jq -r --argjson effects "$effects" \
+compositions=$(jq -c '[.crates | to_entries[] | select(.value.kind == "composition") | .key]' \
+    "$root/docs/architecture/concerns.json")
+problems=$(jq -r --argjson effects "$effects" --argjson compositions "$compositions" \
     --argjson effect_exceptions "$(cat "$scripts/effect-exceptions.json")" \
     -f "$scripts/check-crates.jq" <<< "$metadata")
 # Check 6, the sources: no code behind a `real` feature, anywhere in the

@@ -2,10 +2,11 @@
 //! endpoint at `/mcp-admin` when there is an admin key, and the web page at
 //! `/`; or the web page alone ([`page`]). The program gives it the admin API
 //! it built for this server run.
-//! kkt-server-listen binds and runs the assembled server.
+//! kkt-listen binds and runs the assembled server.
 //!
 //! kkt-web and kkt-mcp hand their axum `Router`s to this crate, which mounts
-//! them. Its App hands the assembled router to kkt-server-listen.
+//! them. A program takes the assembled router out of its App and hands it
+//! to kkt-listen.
 //!
 //! It decides nothing about who a caller is: the program passes in
 //! [`Identify`] through [`Parts`], and the admission mode (open or keys)
@@ -120,19 +121,20 @@ impl Parts {
     }
 }
 
-/// The server, assembled by [`build`], for kkt-server-listen to bind and run.
+/// The server, assembled by [`build`], for kkt-listen to bind and run.
 pub struct App {
     pub(crate) router: Router,
 }
 
 impl App {
-    /// The assembled HTTP router, consumed by kkt-server-listen when binding.
+    /// The assembled HTTP router, which a program hands to kkt-listen to
+    /// bind and serve.
     pub fn into_router(self) -> Router {
         self.router
     }
 }
 
-/// The server assembled from `parts` and `config`, to run with kkt-server-listen.
+/// The server assembled from `parts` and `config`, to run with kkt-listen.
 /// Its MCP sessions and live page updates end when `shutdown` stops.
 pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> App {
     App {
@@ -142,7 +144,7 @@ pub fn build(parts: Parts, config: AppConfig, shutdown: Shutdown) -> App {
 
 /// The web page alone, over `api` in each viewer's swarm and behind `gate`,
 /// with no MCP endpoints, for a program that serves only the page, such as
-/// the preview over simulated data. kkt-server-listen binds and runs it as
+/// the preview over simulated data. kkt-listen binds and runs it as
 /// it does a whole server.
 pub fn page<S: web::Held>(
     api: Arc<dyn OperatorApi>,

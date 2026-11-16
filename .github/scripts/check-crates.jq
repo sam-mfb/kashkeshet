@@ -1,7 +1,8 @@
-# Checks 2 to 6 of check-crates.sh, over `cargo metadata --no-deps` output,
-# with `$effects`, the names of the crates docs/architecture/concerns.json
-# marks "effect", and `$effect_exceptions`, the documented exceptions to
-# check 2 (effect-exceptions.json: package, dependency, reason).
+# Checks 2 to 7 of check-crates.sh, over `cargo metadata --no-deps` output,
+# with `$effects` and `$compositions`, the names of the crates
+# docs/architecture/concerns.json marks "effect" and "composition", and
+# `$effect_exceptions`, the documented exceptions to check 2
+# (effect-exceptions.json: package, dependency, reason).
 # Prints one line per problem, and nothing when the manifests follow the
 # rules. No package is named here except kkt-scratch, the subject of check 4.
 
@@ -70,6 +71,15 @@ def default_reach($features):
     (
         if .name == "kkt-scratch" and $kind != "dev"
         then "\($package.name): lists kkt-scratch in \($section); only [dev-dependencies] may"
+        else empty end
+    ),
+    # Check 7: only programs depend on a composition crate in
+    # [dependencies]. A composition is put together by the program that
+    # runs it; a crate under it that named it would depend upward.
+    (
+        if $kind == "normal" and ($program | not)
+            and any($compositions[]; . == $dependency.name)
+        then "\($package.name): depends on the composition crate \($dependency.name) in \($section); only a program (a package with a binary target) may"
         else empty end
     )
 ),

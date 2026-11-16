@@ -1068,6 +1068,7 @@ dependencies = [
  "kkt-lane-commit",
  "kkt-lane-files",
  "kkt-lane-files-os",
+ "kkt-listen",
  "kkt-log-tracing",
  "kkt-logs",
  "kkt-logs-os",
@@ -1085,7 +1086,6 @@ dependencies = [
  "kkt-server",
  "kkt-server-keys",
  "kkt-server-keys-os",
- "kkt-server-listen",
  "kkt-service",
  "kkt-service-launchd",
  "kkt-service-os",
@@ -1375,13 +1375,13 @@ dependencies = [
  "kkt-hosts",
  "kkt-identity",
  "kkt-identity-keymode",
+ "kkt-listen",
  "kkt-log-tracing",
  "kkt-mcp",
  "kkt-mcp-formatter",
  "kkt-names",
  "kkt-rules",
  "kkt-server",
- "kkt-server-listen",
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-terminal-os",
@@ -1441,6 +1441,7 @@ dependencies = [
  "kkt-events",
  "kkt-hosts",
  "kkt-identity-keymode",
+ "kkt-listen",
  "kkt-log-tracing",
  "kkt-logs",
  "kkt-mcp",
@@ -1451,7 +1452,6 @@ dependencies = [
  "kkt-server",
  "kkt-server-keys",
  "kkt-server-keys-os",
- "kkt-server-listen",
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-terminal-os",
@@ -1470,6 +1470,14 @@ version = "0.10.0"
 [[package]]
 name = "kkt-lane-files-os"
 version = "0.10.0"
+
+[[package]]
+name = "kkt-listen"
+version = "0.10.0"
+dependencies = [
+ "axum",
+ "tokio",
+]
 
 [[package]]
 name = "kkt-log"
@@ -1694,28 +1702,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kkt-server-listen"
-version = "0.10.0"
-dependencies = [
- "axum",
- "kkt-admission",
- "kkt-api-agent",
- "kkt-clock",
- "kkt-entropy",
- "kkt-events",
- "kkt-hosts",
- "kkt-identity-keymode",
- "kkt-log",
- "kkt-mcp",
- "kkt-mcp-formatter",
- "kkt-rules",
- "kkt-server",
- "kkt-shutdown",
- "kkt-web",
- "tokio",
-]
-
-[[package]]
 name = "kkt-service"
 version = "0.10.0"
 dependencies = [
@@ -1845,13 +1831,13 @@ dependencies = [
  "kkt-entropy",
  "kkt-entropy-os",
  "kkt-hosts",
+ "kkt-listen",
  "kkt-log",
  "kkt-log-tracing",
  "kkt-logs",
  "kkt-server",
  "kkt-server-keys",
  "kkt-server-keys-os",
- "kkt-server-listen",
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-web",

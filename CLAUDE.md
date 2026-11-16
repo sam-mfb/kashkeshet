@@ -98,7 +98,7 @@ has none.
 | `kkt-hosts` | Which host names the server answers to; whether the server may listen on an address (`check_bind`); the default address and whether any address may be used (`DEFAULT_BIND`, `DEFAULT_ALLOW_ANY_BIND`) | | none |
 | `kkt-operate` | The operator's commands, among them the install's lifecycle (`lifecycle`: status, upgrade, uninstall and backup, writing backups through `BackupWriter`), setup record and operator key selection, with every effect and lazy serving question supplied through `OperateParts` | Choose native implementations; depend on another assembly or an effect crate; parse command-line flags | none |
 | `kkt-server` | Assembling the server from its parts, around the `Arc<dyn AdminApi>` the program gives it (`Parts`); the settings of what it builds (`ServerSettings`, with an opaque `CheckedSettings` snapshot consumed by `Parts::new`), ordering owner checks and run-record lines with the program's plain values (`SettingError`); the server's adapter to the web page's gate (public, for a product that builds its own page: `AdmissionGate` asks kkt-admission and `Identify`); building the page's `Sessions` and handing it the rules as `OperatorApi` when it mounts the page; the web page alone over any `OperatorApi` and gate (`page`), for a program that serves only the page | Make decisions: it only wires parts together. It does not choose who a caller is: the program passes `Identify` in through `Parts` and the admission modes of `/mcp`, the web page and `/mcp-admin` through `AppConfig` (`/mcp-admin`'s is an `AdminAdmission`, which has no open mode) | none |
-| `kkt-server-listen` | Binding and serving the server's assembled `App` | Decide how the server is assembled | none |
+| `kkt-listen` | Serving HTTP: binding an address (`listen`) and answering on it with the router it is handed until told to stop (`Listening`) | Know how the router it serves was built, or depend on the crates that build it | none |
 | `kkt-config-file` | The config file's format: `parse_file`, which turns its TOML into `Config`, what the file says in its own terms (log levels as the caller's check reads them); `with_allowed_host`, which adds a host to its text; `ConfigError`; where the config file is: `config_dir` and `config_file`, under a supplied config-home folder, with their names (`CONFIG_DIR`, `CONFIG_FILE_NAME`) | Read or write files; know kkt-logs or another crate's settings: each program turns a `Config` into its own settings | none |
 | `kkt-config-file-os` | The config file's bytes and the instructions file's: `read`, `read_default`, `read_named`, `read_instructions` and `write`, each whole | Know the files' format | none |
 | `kkt-provenance` | What produced a server run, and the build script that records the git commit; the run's settings come as lines of a name and a value (`RunSettings`), which the program words | Store the run record: kkt-rules' `start` does; know another crate's settings type | none |
@@ -277,7 +277,7 @@ as `{max_limit}`. After an intended change, run
   the lane versions and retirements it saves carry the newest recorded run,
   the server the database belongs to.
 - Third-party types stay inside the crates that wrap them (RUST.md 7).
-- axum is the HTTP framework of `kkt-web`, `kkt-mcp`, `kkt-server` and `kkt-server-listen` only; its types do not leave those four.
+- axum is the HTTP framework of `kkt-web`, `kkt-mcp`, `kkt-server` and `kkt-listen` only; its types do not leave those four, but for the router a program takes from kkt-server's `App` (`into_router`) and hands to kkt-listen's `listen` without naming it.
 
 **Public surface.** Make an item public only when another crate or the program needs it.
 
@@ -300,13 +300,14 @@ a sign the crate lines are wrong.
   `cargo fmt --check` before every commit. CI runs the same on Ubuntu and
   macOS, and a pull request merges only when they pass.
 - CI also builds a crate outside the workspace that depends on
-  kkt-api-agent, kkt-rules, kkt-server and kkt-server-listen, whose dependencies have
+  kkt-api-agent, kkt-rules, kkt-server and kkt-listen, whose dependencies have
   build scripts, by git at the commit under test, as kkt-pro will
   (`.github/scripts/build-outside-crate.sh`): a shared crate must build
   when used that way.
 - CI also checks the refactor's rules. check-crates.sh fails on a crate
   other than a program that depends on an effect crate (unless listed in
-  effect-exceptions.json), and on any `real` feature.
+  effect-exceptions.json), on a crate other than a program that depends on
+  a composition crate in [dependencies], and on any `real` feature.
   `docs/architecture/check-programs.py` builds the map from the code and
   fails on a kind that does not fit, a broken rule, and machine work in a
   program's own code that the refactor plan's temporary breaks do not list.

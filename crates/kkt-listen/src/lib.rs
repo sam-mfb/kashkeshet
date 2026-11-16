@@ -1,14 +1,14 @@
-//! Running the assembled server: binding its address, then answering on it
-//! until told to stop. It touches the network, so only programs depend on
-//! it. axum's server and tokio's listener stay
-//! in here; the contract is in std types only.
+//! Serving HTTP: binding an address, then answering on it with the router
+//! it is handed until told to stop. It touches the network, so only
+//! programs depend on it. It knows nothing of how the router was built.
+//! axum's server and tokio's listener stay in here; apart from the router,
+//! the contract is in std types only.
 //!
 //! Running takes two steps, [`listen`] and [`Listening::serve_until`], so a
 //! caller can report what it bound (and log) before the server answers.
 
 use axum::Router;
 use axum::serve::ListenerExt;
-use kkt_server::App;
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
@@ -20,15 +20,12 @@ pub struct Listening {
     router: Router,
 }
 
-/// Binds `app` to `address`. Port 0 asks the system to choose one;
+/// Binds `router` to `address`. Port 0 asks the system to choose one;
 /// [`Listening::address`] then names it. The error is the operating
 /// system's, for the caller to report.
-pub async fn listen(app: App, address: SocketAddr) -> io::Result<Listening> {
+pub async fn listen(router: Router, address: SocketAddr) -> io::Result<Listening> {
     let listener = TcpListener::bind(address).await?;
-    Ok(Listening {
-        listener,
-        router: app.into_router(),
-    })
+    Ok(Listening { listener, router })
 }
 
 impl Listening {
@@ -68,44 +65,13 @@ impl Listening {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kkt_admission::Admission;
-    use kkt_clock::testing::FixedClock;
-    use kkt_entropy::testing::SeqEntropy;
-    use kkt_identity_keymode::KeyMode;
-    use kkt_server::{AppConfig, Parts, build};
-    use kkt_shutdown::Shutdown;
-    use kkt_web::testing::start_time;
-    use std::sync::Arc;
+    use axum::routing::get;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpStream;
+    use tokio::sync::oneshot;
 
-    async fn app(shutdown: &Shutdown) -> App {
-        let clock = Arc::new(FixedClock::new(start_time()));
-        let entropy = Arc::new(SeqEntropy::new(1));
-        let rules = kkt_rules::testing::memory(kkt_rules::testing::Memory {
-            events: kkt_events::Events::new(kkt_events::Settings::DEFAULT)
-                .until_stopped(shutdown.clone()),
-            ..kkt_rules::testing::Memory::new(clock.clone(), entropy.clone())
-        })
-        .await
-        .expect("rules over a new database");
-        let parts = Parts::new(
-            Arc::new(rules),
-            clock,
-            entropy,
-            Arc::new(KeyMode::new(None)),
-            Arc::new(kkt_log::testing::CapturedLog::default()),
-            kkt_server::ServerSettings::DEFAULT
-                .check([])
-                .expect("default settings"),
-        );
-        let config = AppConfig {
-            admission: Admission::Open,
-            web_admission: Admission::Open,
-            admin_admission: None,
-            instructions: Some("test instructions".into()),
-        };
-        build(parts, config, shutdown.child())
+    fn router() -> Router {
+        Router::new().route("/", get(|| async { "hello" }))
     }
 
     /// The status line of a plain `GET path` to `address`.
@@ -122,23 +88,22 @@ mod tests {
 
     #[tokio::test]
     async fn listening_on_port_0_reports_the_port_bound_and_serves_there_until_stopped() {
-        let shutdown = Shutdown::new();
-        let listening = listen(
-            app(&shutdown).await,
-            "127.0.0.1:0".parse().expect("address"),
-        )
-        .await
-        .expect("listen");
+        let listening = listen(router(), "127.0.0.1:0".parse().expect("address"))
+            .await
+            .expect("listen");
         let address = listening.address().expect("address");
         assert_ne!(address.port(), 0);
-        let stop = shutdown.clone();
-        let served = tokio::spawn(
-            listening.serve_until(async move { stop.stopped().await }, |e| {
-                panic!("could not set TCP_NODELAY: {e}")
-            }),
-        );
+        let (stop, stopped) = oneshot::channel::<()>();
+        let served = tokio::spawn(listening.serve_until(
+            async move { stopped.await.expect("the test sends stop") },
+            |e| panic!("could not set TCP_NODELAY: {e}"),
+        ));
         assert_eq!(status_line(address, "/").await, "HTTP/1.1 200 OK");
-        shutdown.stop();
+        assert_eq!(
+            status_line(address, "/missing").await,
+            "HTTP/1.1 404 Not Found"
+        );
+        stop.send(()).expect("stop");
         served.await.expect("join").expect("served");
         assert!(TcpStream::connect(address).await.is_err());
     }
@@ -147,7 +112,6 @@ mod tests {
     async fn listening_on_an_address_in_use_fails() {
         let taken = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
         let address = taken.local_addr().expect("address");
-        let shutdown = Shutdown::new();
-        assert!(listen(app(&shutdown).await, address).await.is_err());
+        assert!(listen(router(), address).await.is_err());
     }
 }

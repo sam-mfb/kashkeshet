@@ -50,6 +50,16 @@ Message numbers are given only where they help to find a discussion in
   Each OS implementation moved to its own `-os` crate.
 - **kkt-server-listen may use axum.** It serves the router kkt-server builds.
   CLAUDE.md will name it with the code refactor.
+- **kkt-listen serves a router, and only programs name a composition**
+  (phase 16's follow-up, approved by Sam on 2026-11-16, msg 3482).
+  kkt-server-listen named kkt-server's `App`, so an effect crate depended on
+  a composition, which principle 3.4 does not allow. It was the only crate
+  outside the programs that depended on a composition or an effect crate.
+  Now `listen` takes the axum router, which each program takes out of its
+  `App` with `into_router` and passes across without naming the type. The
+  crate is renamed kkt-listen, since it implements nothing of kkt-server's,
+  and sits in foundations. check-crates.sh's check 7 keeps any crate but a
+  program from depending on a composition crate in [dependencies].
 - **Layers say where a crate sits**: programs, assembly, surfaces, access,
   core, data, operations, clients, foundations and dev-only. kkt-search sits
   in foundations, as pure text the data crates build on.

@@ -156,7 +156,7 @@ async fn run(args: Args, log: &TracingLog) -> Result<(), String> {
 
     let signals =
         StopSignals::listen().map_err(|e| format!("could not listen for shutdown signals: {e}"))?;
-    let listening = kkt_server_listen::listen(app, bind)
+    let listening = kkt_listen::listen(app.into_router(), bind)
         .await
         .map_err(|e| format!("could not listen on {bind}: {e}"))?;
     let bound = listening

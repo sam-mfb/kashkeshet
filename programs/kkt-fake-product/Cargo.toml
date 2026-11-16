@@ -43,7 +43,7 @@ kkt-mcp = { path = "../../crates/kkt-mcp" }
 kkt-names = { path = "../../crates/kkt-names" }
 kkt-rules = { path = "../../crates/kkt-rules" }
 kkt-server = { path = "../../crates/kkt-server" }
-kkt-server-listen = { path = "../../crates/kkt-server-listen" }
+kkt-listen = { path = "../../crates/kkt-listen" }
 kkt-shutdown = { path = "../../crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os" }
 kkt-web = { path = "../../crates/kkt-web" }
