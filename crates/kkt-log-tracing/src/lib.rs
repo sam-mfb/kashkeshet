@@ -1,13 +1,18 @@
 //! kkt-log's [`Log`](kkt_log::Log) contract over `tracing`: [`TracingLog`]
 //! sends structured events to the tracing subscriber, and [`init_logging`]
 //! and [`init_stderr_logging`] start that subscriber, to stdout, stderr or a
-//! writer the program gives, such as kkt-logs-os' log file, with kkt's own
-//! lines and its libraries' at their own levels.
+//! writer the program gives, such as a rolling log file, with kkt's own
+//! lines and its libraries' at their own levels. It also owns the log level
+//! setting: [`LogLevel`], its defaults and its check.
 
+mod level;
 mod record;
+pub use level::{
+    DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, LogLevel, SettingError,
+    check_dependency_log_level,
+};
 pub use record::TracingLog;
 
-use kkt_logs::LogLevel;
 use std::io::{IsTerminal, Write};
 use std::sync::Mutex;
 use tracing::level_filters::LevelFilter;
@@ -18,8 +23,8 @@ use tracing_subscriber::util::SubscriberInitExt;
 /// The targets of kkt's own code: the library and the `kkt` binary.
 const LOG_OWN_TARGETS: &[&str] = &["kashkeshet", "kkt"];
 
-/// Sends the log to stdout, or to `log_file`, such as the log file
-/// kkt-logs-os opens. kkt's own code logs at `own`, the libraries it uses at
+/// Sends the log to stdout, or to `log_file`, such as a rolling log file
+/// the program opens. kkt's own code logs at `own`, the libraries it uses at
 /// `dependencies`.
 pub fn init_logging(
     log_file: Option<Box<dyn Write + Send>>,

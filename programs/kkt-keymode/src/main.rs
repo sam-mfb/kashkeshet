@@ -13,24 +13,27 @@
 //! Usage: `kkt-keymode --config <file> [--bind <address>]`. It prints
 //! `bound to <address>` once it listens, and stops on SIGINT or SIGTERM.
 
+mod config_disk;
 mod record;
+use config_disk::ConfigDisk;
 use record::{RecordedSettings, new_server_run};
 
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyTexts, ServerKeys};
 use kkt_api_agent::SwarmId;
 use kkt_clock_system::SystemClock;
-use kkt_config_file_os as config_file_os;
+use kkt_config_file::files as config_files;
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_events::Events;
 use kkt_identity_keymode::KeyMode;
-use kkt_logs::{LogLevel, LogPolicy};
+use kkt_keys::AccessKey;
+use kkt_keys::{KeyFiles as _, KeyText, SelectedKeys};
+use kkt_keys_os::OsKeyFiles;
+use kkt_log_tracing::LogLevel;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
-use kkt_server_keys::AccessKey;
-use kkt_server_keys::KeyText;
 use kkt_shutdown::Shutdown;
 use kkt_shutdown_os::StopSignals;
 use kkt_terminal::Terminal;
@@ -120,18 +123,18 @@ async fn run(args: &[String]) -> Result<(), String> {
     let server_settings = server_settings.check(problems).map_err(invalid)?;
     let instructions = instructions
         .as_deref()
-        .map(|path| config_file_os::read_instructions(path).map_err(|e| e.to_string()))
+        .map(|path| config_files::read_instructions(&ConfigDisk, path).map_err(|e| e.to_string()))
         .transpose()?;
     let ServerKeys {
         admission,
         web_admission,
         admin_key,
         admin_name,
-    } = server_keys::check(&mut KeyFiles(kkt_server_keys_os::KeyFiles::new(
-        key_path(&access_key),
-        key_path(&web_key),
-        admin_key.as_deref(),
-    )))
+    } = server_keys::check(&mut KeyFiles(SelectedKeys {
+        access: key_path(&access_key),
+        web: key_path(&web_key),
+        admin: admin_key.as_deref(),
+    }))
     .map_err(refusal)?;
     let config = AppConfig {
         admission,
@@ -159,8 +162,6 @@ async fn run(args: &[String]) -> Result<(), String> {
                     .and_then(|admission| admission.key_source())
                     .map(str::to_string),
                 admin_name: admin_name.as_ref().map(|name| name.to_string()),
-                log_file: None,
-                log_policy: LogPolicy::DEFAULT,
             }
             .lines(),
             instructions: config.agent_instructions().to_string(),
@@ -255,7 +256,7 @@ struct Settings {
 /// for the rest, refused as `kkt serve` refuses them. A `~/` path is
 /// refused: there is no home folder.
 fn settings(args: &Args) -> Result<Settings, String> {
-    let text = config_file_os::read_named(&args.config).map_err(|e| e.to_string())?;
+    let text = config_files::read_named(&ConfigDisk, &args.config).map_err(|e| e.to_string())?;
     let dir = args.config.parent().unwrap_or(Path::new("."));
     let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
     let config = kkt_config_file::parse_file(&text, dir, None, level).map_err(|e| {
@@ -289,14 +290,11 @@ fn settings(args: &Args) -> Result<Settings, String> {
     let (web_key, admin_key) = match &access_key {
         AccessKey::None => (AccessKey::None, None),
         AccessKey::File(path) | AccessKey::Default(path) => {
-            let web = kkt_server_keys::web_key_path(path);
+            let web = kkt_keys::web_key_path(path);
             if &web == path {
                 return Err(invalid("access_key_file", "must not name the web key file"));
             }
-            (
-                AccessKey::Default(web),
-                kkt_server_keys::admin_key_path(path),
-            )
+            (AccessKey::Default(web), kkt_keys::admin_key_path(path))
         }
     };
     let defaults = kkt_rules::Settings::DEFAULT;
@@ -349,10 +347,12 @@ fn settings(args: &Args) -> Result<Settings, String> {
         access_key,
         web_key,
         admin_key,
-        log_level: config.log_level.unwrap_or(kkt_logs::DEFAULT_LOG_LEVEL),
+        log_level: config
+            .log_level
+            .unwrap_or(kkt_log_tracing::DEFAULT_LOG_LEVEL),
         dependency_log_level: config
             .dependency_log_level
-            .unwrap_or(kkt_logs::DEFAULT_DEPENDENCY_LOG_LEVEL),
+            .unwrap_or(kkt_log_tracing::DEFAULT_DEPENDENCY_LOG_LEVEL),
     })
 }
 
@@ -395,22 +395,24 @@ fn key_path(key: &AccessKey) -> Option<&Path> {
     }
 }
 
-/// Adapts native key texts, preserving this program's refusal wording.
-struct KeyFiles<'a>(kkt_server_keys_os::KeyFiles<'a>);
+/// Adapts the key files on disk, preserving this program's refusal wording.
+struct KeyFiles<'a>(SelectedKeys<'a>);
 impl KeyTexts for KeyFiles<'_> {
     type Error = String;
     fn access(&mut self) -> Result<Option<KeyText>, String> {
-        self.0.access().map_err(|e| e.to_string())
+        OsKeyFiles.read_access(&self.0).map_err(|e| e.to_string())
     }
     // This program makes no key: the selected web key must already exist.
     fn web(&mut self) -> Result<Option<KeyText>, String> {
-        self.0.web().map_err(|e| e.to_string())
+        OsKeyFiles.read_web(&self.0).map_err(|e| e.to_string())
     }
     // A missing admin key turns the admin endpoint off.
     fn admin(&mut self) -> Result<Option<KeyText>, String> {
-        self.0.admin().map_err(|e| e.to_string())
+        OsKeyFiles.read_admin(&self.0).map_err(|e| e.to_string())
     }
     fn admin_names(&mut self) -> Result<Option<String>, String> {
-        self.0.admin_names().map_err(|e| e.to_string())
+        OsKeyFiles
+            .read_admin_names(&self.0)
+            .map_err(|e| e.to_string())
     }
 }

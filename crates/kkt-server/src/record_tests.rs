@@ -2,9 +2,28 @@
 //! settings supplied separately and program values passed as plain lines.
 
 use crate::ServerSettings;
-use kkt_logs::{LogLevel, LogPolicy};
+use std::time::Duration;
 mod golden;
 mod program;
+
+/// The log file's policy, as the program records it: its three numbers.
+/// The program's log crates own the real policy; kkt-server sees only the
+/// plain lines, so its tests need only the values.
+#[derive(Clone, Copy, Debug)]
+struct LogPolicy {
+    max_bytes: u64,
+    rotated_files: usize,
+    max_age: Duration,
+}
+
+impl LogPolicy {
+    /// The program's default policy: 10 MB files, five rolled, 30 days.
+    const DEFAULT: LogPolicy = LogPolicy {
+        max_bytes: 10 * 1024 * 1024,
+        rotated_files: 5,
+        max_age: Duration::from_secs(30 * 24 * 60 * 60),
+    };
+}
 
 #[derive(Clone, Debug)]
 struct FixtureLimits {
@@ -27,9 +46,9 @@ struct RecordedSettings {
     pub allow_any_bind: bool,
     pub limits: FixtureLimits,
     /// How much kkt's own code logs.
-    pub log_level: LogLevel,
+    pub log_level: &'static str,
     /// How much the libraries kkt uses log.
-    pub dependency_log_level: LogLevel,
+    pub dependency_log_level: &'static str,
     /// Browser origins allowed to call `/mcp`.
     pub allowed_origins: Vec<String>,
     /// Host names allowed besides the loopback ones.
@@ -78,8 +97,8 @@ impl RecordedSettings {
 // The original tests of just the limit portion leave out allow_any_bind.
 fn limit_lines(
     limits: &FixtureLimits,
-    log_level: LogLevel,
-    dependency_log_level: LogLevel,
+    log_level: &'static str,
+    dependency_log_level: &'static str,
     allowed_origins: &[String],
     allowed_hosts: &[String],
     config_file: Option<&str>,
@@ -120,8 +139,8 @@ mod tests {
         RecordedSettings {
             allow_any_bind: false,
             limits,
-            log_level: LogLevel::Info,
-            dependency_log_level: LogLevel::Warn,
+            log_level: "info",
+            dependency_log_level: "warn",
             allowed_origins: origins.iter().map(|o| o.to_string()).collect(),
             allowed_hosts: Vec::new(),
             config_file: None,
@@ -153,8 +172,8 @@ mod tests {
     /// The text of [`limit_lines`] alone.
     fn settings_text(
         limits: &FixtureLimits,
-        log_level: LogLevel,
-        dependency_log_level: LogLevel,
+        log_level: &'static str,
+        dependency_log_level: &'static str,
         allowed_origins: &[String],
         allowed_hosts: &[String],
         config_file: Option<&str>,
@@ -179,8 +198,8 @@ mod tests {
                 "allow_any_bind=false\n{}",
                 settings_text(
                     &FixtureLimits::DEFAULT,
-                    LogLevel::Info,
-                    LogLevel::Warn,
+                    "info",
+                    "warn",
                     &[],
                     &[],
                     None,
@@ -195,8 +214,8 @@ mod tests {
         assert_eq!(
             settings_text(
                 &FixtureLimits::DEFAULT,
-                LogLevel::Info,
-                LogLevel::Warn,
+                "info",
+                "warn",
                 &["http://localhost:6274".into()],
                 &["host.docker.internal".into()],
                 None,
@@ -238,8 +257,8 @@ mod tests {
     fn origin_order_does_not_change_the_text() {
         let a = settings_text(
             &FixtureLimits::DEFAULT,
-            LogLevel::Info,
-            LogLevel::Warn,
+            "info",
+            "warn",
             &["http://b".into(), "http://a".into()],
             &[],
             None,
@@ -247,8 +266,8 @@ mod tests {
         );
         let b = settings_text(
             &FixtureLimits::DEFAULT,
-            LogLevel::Info,
-            LogLevel::Warn,
+            "info",
+            "warn",
             &["http://a".into(), "http://b".into()],
             &[],
             None,
@@ -283,8 +302,8 @@ mod tests {
     fn host_order_does_not_change_the_text() {
         let a = settings_text(
             &FixtureLimits::DEFAULT,
-            LogLevel::Info,
-            LogLevel::Warn,
+            "info",
+            "warn",
             &[],
             &["b.example".into(), "a.example".into()],
             None,
@@ -292,8 +311,8 @@ mod tests {
         );
         let b = settings_text(
             &FixtureLimits::DEFAULT,
-            LogLevel::Info,
-            LogLevel::Warn,
+            "info",
+            "warn",
             &[],
             &["a.example".into(), "b.example".into()],
             None,

@@ -126,7 +126,8 @@
   // lines of even length. A unit is one crate, or a group (generate.py's
   // `groups`): its head crate with its partners stacked directly beneath.
 
-  const PER_LINE = 6;
+  // Five at most, so no band is wider than five boxes (msg 3541).
+  const PER_LINE = 5;
   const TITLE_H = 24;
   const LINE_H = BOX_H + 30;
   // The space between the boxes of a group, where the arrow from a

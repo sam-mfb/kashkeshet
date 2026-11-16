@@ -1,6 +1,6 @@
 [package]
-name = "kkt-server-keys"
-description = "kkt's server keys: what a key must be, its files and the admin name tied to it"
+name = "kkt-keys"
+description = "kkt's server keys, as a contract: what a key must be, reading and writing private key files, and the admin name tied to the admin key"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,13 +8,13 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-entropy = { path = "../kkt-entropy" }
 kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
 thiserror.workspace = true
 
 [features]
-# `testing::MIN_ACCESS_KEY_BYTES`, the shortest key, for other crates' tests.
+# For other crates' tests: `testing::MIN_ACCESS_KEY_BYTES`, the shortest
+# key, and `testing::Memory`, key files in memory.
 testing = []
 
 [dev-dependencies]

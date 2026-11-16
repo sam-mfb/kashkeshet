@@ -2,17 +2,18 @@
 //! each setting came from, the one place they are resolved ([`resolve`]),
 //! the startup checks, and each part's own settings filled from them.
 
+use super::config_disk::ConfigDisk;
 use crate::machine::keys::read_server_keys;
 pub use crate::machine::serve_options::{BadValue, ServeOptions, ServeSettings, server_settings};
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
 use kkt_config_file::Config;
-use kkt_config_file_os as config_file_os;
-use kkt_logs::LogLevel;
+use kkt_config_file::files as config_files;
+use kkt_keys::AccessKey;
+use kkt_log_tracing::LogLevel;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_server::{AppConfig, CheckedSettings};
-use kkt_server_keys::AccessKey;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -102,7 +103,7 @@ pub(crate) fn resolve(
 /// default, in kkt's config directory. `None` without a home.
 pub(crate) fn default_access_key(env: &Env) -> Option<PathBuf> {
     kkt_config_file::config_dir(env.config_home().as_deref())
-        .map(|dir| kkt_server_keys::access_key_file(&dir))
+        .map(|dir| kkt_keys::access_key_file(&dir))
 }
 
 /// The address `kkt serve` would listen on with the default config file.
@@ -205,7 +206,7 @@ pub fn read_config(
     env: &Env,
     config: Option<PathBuf>,
 ) -> Result<(Option<PathBuf>, ServeOptions), String> {
-    let unreadable = |e: config_file_os::ReadError| {
+    let unreadable = |e: config_files::ReadError| {
         format!(
             "invalid setting: config could not be read from {}: {}",
             e.path.display(),
@@ -215,11 +216,11 @@ pub fn read_config(
     // A file named must be there; the default one is read only if it is.
     let found = match config {
         Some(path) => {
-            let text = config_file_os::read_named(&path).map_err(unreadable)?;
+            let text = config_files::read_named(&ConfigDisk, &path).map_err(unreadable)?;
             Some((path, text))
         }
         None => match kkt_config_file::config_file(env.config_home().as_deref()) {
-            Some(path) => config_file_os::read_default(&path)
+            Some(path) => config_files::read_default(&ConfigDisk, &path)
                 .map_err(unreadable)?
                 .map(|text| (path, text)),
             None => None,
@@ -237,7 +238,7 @@ pub fn read_config(
 }
 
 /// The settings in a config file's `text`, as [`ServeOptions`]: the
-/// file parsed by kkt-config-file, with kkt-logs' log levels.
+/// file parsed by kkt-config-file, with kkt-log-tracing's log levels.
 pub(crate) fn parse_config(
     text: &str,
     dir: &Path,
@@ -342,7 +343,7 @@ impl BadSetting for kkt_server::SettingError {
     }
 }
 
-impl BadSetting for kkt_logs::SettingError {
+impl BadSetting for kkt_log_tracing::SettingError {
     fn setting(&self) -> &'static str {
         self.name
     }
@@ -354,7 +355,7 @@ impl BadSetting for kkt_hosts::SettingError {
     }
 }
 
-impl BadSetting for kkt_server_keys::SettingError {
+impl BadSetting for kkt_keys::SettingError {
     fn setting(&self) -> &'static str {
         self.name
     }
@@ -414,7 +415,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     if let Err(p) = kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None) {
         problems.push((p.name, "check_bind", p.rule));
     }
-    if let Err(p) = kkt_logs::check_dependency_log_level(dependency_log_level) {
+    if let Err(p) = kkt_log_tracing::check_dependency_log_level(dependency_log_level) {
         problems.push((p.name, "check_dependency_log_level", p.rule));
     }
     let server_settings = server_settings
@@ -423,7 +424,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     // None configured: the server sends its built-in instructions.
     let instructions = instructions
         .as_ref()
-        .map(|path| config_file_os::read_instructions(path).map_err(|e| e.to_string()))
+        .map(|path| config_files::read_instructions(&ConfigDisk, path).map_err(|e| e.to_string()))
         .transpose()?;
     let ServerKeys {
         admission,
@@ -620,7 +621,7 @@ mod tests {
             parse("max_limit = \"5\"").unwrap_err().to_string(),
             "max_limit in the config file must be a whole number of zero or more, not \"5\""
         );
-        // A level that is not one, worded as kkt-logs words it.
+        // A level that is not one, worded as kkt-log-tracing words it.
         let loud = LogLevel::parse("log_level", "loud").unwrap_err();
         assert_eq!(
             parse("log_level = \"loud\"").unwrap_err().to_string(),

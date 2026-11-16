@@ -4,11 +4,9 @@
 
 use super::connection::ConnectionReads;
 use super::settings::{self, DefaultDb, Report, ServeArgs, ServeOptions};
+use kkt_keys::AccessKey;
 use kkt_machine::{Env, Platform};
-use kkt_operate::{
-    BackupWriter, Config, Databases, KeyFiles, OperateParts, Output, ServeFacts, SetupFiles,
-};
-use kkt_server_keys::AccessKey;
+use kkt_operate::{BackupWriter, Config, Databases, OperateParts, Output, ServeFacts, SetupFiles};
 use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -72,7 +70,7 @@ impl<'a, D> NativeOperate<'a, D> {
             container_configs: &settings::ContainerConfigs,
             login_link: &self.login_link,
             service: self.service.as_ref(),
-            try_bind: &kkt_service_os::try_bind,
+            try_bind: &kkt_listen::try_bind,
             remote: &kkt_remote_access_tailscale::Tailscale,
             clients: &super::client_config::ClientHost,
             client_command: &super::client_config::ClaudeCommand,
@@ -86,7 +84,8 @@ impl<'a, D> NativeOperate<'a, D> {
             serve: &self.serve,
             service_defaults: &self.service_defaults,
             setup_files: &NativeSetupFiles,
-            key_files: &NativeKeyFiles,
+            key_files: &kkt_keys_os::OsKeyFiles,
+            entropy: &kkt_entropy_os::OsEntropy,
             database: &NativeDatabases,
             backups: &NativeBackups,
             output: &NativeOutput,
@@ -280,45 +279,6 @@ impl SetupFiles for NativeSetupFiles {
     }
 }
 
-pub(crate) struct NativeKeyFiles;
-impl KeyFiles for NativeKeyFiles {
-    fn read(&self, path: &Path) -> std::io::Result<String> {
-        kkt_server_keys_os::KeyFiles::read(path).map_err(|e| e.error)
-    }
-    fn read_optional(&self, path: &Path) -> std::io::Result<Option<String>> {
-        kkt_server_keys_os::KeyFiles::read_optional(path).map_err(|e| e.error)
-    }
-    fn exists(&self, path: &Path) -> bool {
-        kkt_server_keys_os::KeyFiles::exists(path)
-    }
-    fn try_exists(&self, path: &Path) -> std::io::Result<bool> {
-        kkt_server_keys_os::KeyFiles::try_exists(path)
-    }
-    fn is_file(&self, path: &Path) -> bool {
-        kkt_server_keys_os::KeyFiles::is_file(path)
-    }
-    fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
-        kkt_server_keys_os::KeyFiles::create_dir_all(dir)
-    }
-    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String> {
-        kkt_server_keys_os::KeyFiles::keep_staged(staged, path)
-    }
-    fn remove(&self, path: &Path) -> std::io::Result<()> {
-        kkt_server_keys_os::KeyFiles::remove(path)
-    }
-    fn new_key(&self, path: &Path, force: bool) -> Result<String, String> {
-        kkt_server_keys_os::new_key_file(path, force, || {
-            kkt_server_keys::generate(&kkt_entropy_os::OsEntropy)
-        })
-    }
-    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String> {
-        kkt_server_keys_os::write_key_file(path, key, force)
-    }
-    fn write_admin_name(&self, path: &Path, bound: Option<&str>) -> Result<(), String> {
-        kkt_server_keys_os::write_admin_name(path, bound).map_err(|e| e.to_string())
-    }
-}
-
 struct NativeDatabases;
 impl Databases for NativeDatabases {
     fn exists(&self, path: &Path) -> bool {
@@ -342,10 +302,12 @@ impl Output for NativeOutput {
 struct NativeConfigText;
 impl kkt_operate::ConfigText for NativeConfigText {
     fn read(&self, path: &Path) -> Result<Option<String>, String> {
-        kkt_config_file_os::read(path).map_err(|e| e.to_string())
+        kkt_config_file::files::read(&super::config_disk::ConfigDisk, path)
+            .map_err(|e| e.to_string())
     }
     fn write(&self, path: &Path, text: &str) -> Result<(), String> {
-        kkt_config_file_os::write(path, text).map_err(|e| e.to_string())
+        kkt_config_file::files::write(&super::config_disk::ConfigDisk, path, text)
+            .map_err(|e| e.to_string())
     }
 }
 

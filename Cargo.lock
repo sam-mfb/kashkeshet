@@ -1050,28 +1050,27 @@ dependencies = [
  "kkt-browser",
  "kkt-client-command",
  "kkt-client-config",
- "kkt-client-config-os",
  "kkt-clock",
  "kkt-clock-system",
  "kkt-config-file",
- "kkt-config-file-os",
  "kkt-container",
  "kkt-container-docker",
  "kkt-db",
  "kkt-db-sqlite",
  "kkt-diagnostics",
+ "kkt-entropy",
  "kkt-entropy-os",
  "kkt-events",
+ "kkt-files",
  "kkt-hash",
  "kkt-hosts",
  "kkt-identity-keymode",
+ "kkt-keys",
+ "kkt-keys-os",
  "kkt-lane-commit",
  "kkt-lane-files",
- "kkt-lane-files-os",
  "kkt-listen",
  "kkt-log-tracing",
- "kkt-logs",
- "kkt-logs-os",
  "kkt-machine",
  "kkt-machine-os",
  "kkt-mcp",
@@ -1081,14 +1080,12 @@ dependencies = [
  "kkt-provenance",
  "kkt-remote-access-tailscale",
  "kkt-result-format",
+ "kkt-rolling-file",
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
- "kkt-server-keys",
- "kkt-server-keys-os",
  "kkt-service",
  "kkt-service-launchd",
- "kkt-service-os",
  "kkt-service-systemd",
  "kkt-setup",
  "kkt-setup-os",
@@ -1112,8 +1109,8 @@ version = "0.10.0"
 dependencies = [
  "kkt-entropy",
  "kkt-hash",
+ "kkt-keys",
  "kkt-names",
- "kkt-server-keys",
  "thiserror",
 ]
 
@@ -1146,9 +1143,9 @@ dependencies = [
  "kkt-agent-client",
  "kkt-client-config",
  "kkt-clock",
+ "kkt-keys",
  "kkt-machine",
  "kkt-names",
- "kkt-server-keys",
  "kkt-setup",
  "kkt-watch",
 ]
@@ -1196,8 +1193,8 @@ dependencies = [
  "kkt-clock",
  "kkt-entropy",
  "kkt-events",
+ "kkt-keys",
  "kkt-names",
- "kkt-server-keys",
  "kkt-shutdown",
  "kkt-web",
  "tokio",
@@ -1235,16 +1232,12 @@ version = "0.10.0"
 name = "kkt-client-config"
 version = "0.10.0"
 dependencies = [
+ "kkt-keys",
  "kkt-machine",
- "kkt-server-keys",
  "kkt-toml",
  "serde",
  "serde_json",
 ]
-
-[[package]]
-name = "kkt-client-config-os"
-version = "0.10.0"
 
 [[package]]
 name = "kkt-clock"
@@ -1270,13 +1263,6 @@ version = "0.10.0"
 dependencies = [
  "kkt-toml",
  "thiserror",
-]
-
-[[package]]
-name = "kkt-config-file-os"
-version = "0.10.0"
-dependencies = [
- "kkt-scratch",
 ]
 
 [[package]]
@@ -1331,7 +1317,7 @@ name = "kkt-diagnostics"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-server-keys",
+ "kkt-keys",
  "url",
 ]
 
@@ -1392,6 +1378,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-files"
+version = "0.10.0"
+dependencies = [
+ "kkt-scratch",
+]
+
+[[package]]
 name = "kkt-hash"
 version = "0.10.0"
 dependencies = [
@@ -1435,23 +1428,22 @@ dependencies = [
  "kkt-clock",
  "kkt-clock-system",
  "kkt-config-file",
- "kkt-config-file-os",
  "kkt-db-sqlite",
  "kkt-entropy-os",
  "kkt-events",
+ "kkt-files",
  "kkt-hosts",
  "kkt-identity-keymode",
+ "kkt-keys",
+ "kkt-keys-os",
  "kkt-listen",
  "kkt-log-tracing",
- "kkt-logs",
  "kkt-mcp",
  "kkt-names",
  "kkt-provenance",
  "kkt-result-format",
  "kkt-rules",
  "kkt-server",
- "kkt-server-keys",
- "kkt-server-keys-os",
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-terminal",
@@ -1460,15 +1452,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-keys"
+version = "0.10.0"
+dependencies = [
+ "kkt-entropy",
+ "kkt-hash",
+ "kkt-names",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-keys-os"
+version = "0.10.0"
+dependencies = [
+ "kkt-keys",
+]
+
+[[package]]
 name = "kkt-lane-commit"
 version = "0.10.0"
 
 [[package]]
 name = "kkt-lane-files"
-version = "0.10.0"
-
-[[package]]
-name = "kkt-lane-files-os"
 version = "0.10.0"
 
 [[package]]
@@ -1488,26 +1493,9 @@ name = "kkt-log-tracing"
 version = "0.10.0"
 dependencies = [
  "kkt-log",
- "kkt-logs",
+ "thiserror",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "kkt-logs"
-version = "0.10.0"
-dependencies = [
- "kkt-clock",
- "thiserror",
-]
-
-[[package]]
-name = "kkt-logs-os"
-version = "0.10.0"
-dependencies = [
- "kkt-clock",
- "kkt-logs",
- "kkt-scratch",
 ]
 
 [[package]]
@@ -1570,13 +1558,14 @@ dependencies = [
  "kkt-config-file",
  "kkt-container",
  "kkt-diagnostics",
+ "kkt-entropy",
+ "kkt-keys",
  "kkt-lane-files",
  "kkt-machine",
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
  "kkt-rules",
- "kkt-server-keys",
  "kkt-service",
  "kkt-setup",
  "tokio",
@@ -1621,6 +1610,15 @@ dependencies = [
  "kkt-names",
  "kkt-rules",
  "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-rolling-file"
+version = "0.10.0"
+dependencies = [
+ "kkt-clock",
+ "kkt-scratch",
  "thiserror",
 ]
 
@@ -1670,7 +1668,6 @@ dependencies = [
  "kkt-identity",
  "kkt-identity-keymode",
  "kkt-log",
- "kkt-logs",
  "kkt-mcp",
  "kkt-names",
  "kkt-provenance",
@@ -1685,28 +1682,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "kkt-server-keys"
-version = "0.10.0"
-dependencies = [
- "kkt-entropy",
- "kkt-hash",
- "kkt-names",
- "thiserror",
-]
-
-[[package]]
-name = "kkt-server-keys-os"
-version = "0.10.0"
-dependencies = [
- "kkt-server-keys",
-]
-
-[[package]]
 name = "kkt-service"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-server-keys",
+ "kkt-keys",
  "thiserror",
 ]
 
@@ -1717,10 +1697,6 @@ dependencies = [
  "kkt-clock",
  "kkt-service",
 ]
-
-[[package]]
-name = "kkt-service-os"
-version = "0.10.0"
 
 [[package]]
 name = "kkt-service-systemd"
@@ -1738,9 +1714,9 @@ dependencies = [
  "kkt-client-config",
  "kkt-container",
  "kkt-hash",
+ "kkt-keys",
  "kkt-machine",
  "kkt-names",
- "kkt-server-keys",
  "kkt-toml",
  "semver",
  "serde",
@@ -1831,13 +1807,12 @@ dependencies = [
  "kkt-entropy",
  "kkt-entropy-os",
  "kkt-hosts",
+ "kkt-keys",
+ "kkt-keys-os",
  "kkt-listen",
  "kkt-log",
  "kkt-log-tracing",
- "kkt-logs",
  "kkt-server",
- "kkt-server-keys",
- "kkt-server-keys-os",
  "kkt-shutdown",
  "kkt-shutdown-os",
  "kkt-web",

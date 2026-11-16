@@ -8,7 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-server-keys = { path = "../kkt-server-keys" }
+kkt-keys = { path = "../kkt-keys" }
 kkt-machine = { path = "../kkt-machine" }
 serde.workspace = true
 serde_json.workspace = true

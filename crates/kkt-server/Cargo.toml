@@ -29,7 +29,6 @@ kkt-web = { path = "../kkt-web" }
 
 [dev-dependencies]
 kkt-backup = { path = "../kkt-backup" }
-kkt-logs = { path = "../kkt-logs" }
 # The rules the tests build take an events bus.
 kkt-events = { path = "../kkt-events" }
 kkt-log = { path = "../kkt-log", features = ["testing"] }

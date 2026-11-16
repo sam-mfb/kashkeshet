@@ -60,6 +60,18 @@ Message numbers are given only where they help to find a discussion in
   crate is renamed kkt-listen, since it implements nothing of kkt-server's,
   and sits in foundations. check-crates.sh's check 7 keeps any crate but a
   program from depending on a composition crate in [dependencies].
+- **Effect crates are named for what they do** (approved by Sam on
+  2026-11-16, msg 3498). An effect crate that implements no contract is
+  named for what it does, not for one consumer. Three crates held only
+  general file access, each named for the crate that used it:
+  kkt-lane-files-os, kkt-client-config-os and kkt-config-file-os. They are
+  now one, kkt-files, in foundations, which the program adapts to each
+  consumer's contract. What was specific to the config file (what a missing
+  file means, and the errors' wording) moved into kkt-config-file, over a
+  `Disk` it declares, so kkt-files stays general. `process_id` is a fact
+  about this process, not file access, so it went to kkt-machine-os.
+  kkt-service-os held one eight-line function, `try_bind`, which went to
+  kkt-listen, beside the binding it tries.
 - **A crate named `x-something` implements `x`'s contract** (Sam,
   2026-11-16, msg 3516). Nothing else is named that way. kkt-mcp-formatter
   became kkt-result-format, kkt-web-preview became kkt-webapp-preview,
@@ -303,6 +315,21 @@ Message numbers are given only where they help to find a discussion in
   kkt-logs (logic) holds those rules and the log's settings; kkt-logs-os
   (effect) writes, renames and deletes the files as the rules say, and starts
   tracing.
+- **kkt-logs goes: each half joins its effect** (Sam, 2026-11-16, msg
+  3501). kkt-logs held two unrelated things, each used by one effect crate
+  and the programs: the log level setting, and the log file's rules.
+  ARCHITECTURE.md 4.2.2 (new that day) lets an effect crate hold logic that
+  is properly its own concern. So `LogLevel`, its two defaults and
+  `check_dependency_log_level` are kkt-log-tracing's, which starts the log
+  at those levels; `LogPolicy` and the rollover and pruning plans are the
+  log file's, and kkt-logs-os, renamed kkt-rolling-file, holds them. The
+  rename says what it is: a file that rolls at a size and prunes old copies
+  by age, which the server writes its log to; it does not implement
+  kkt-log. Each crate has its own `SettingError`, worded as before. The
+  plans stay pure and keep their unit tests, which touch no disk.
+  kkt-server's run-record tests take the log settings as plain values (a
+  level's name, the policy's three numbers), so kkt-server's tests need
+  neither effect crate (msg 3505).
 
 ## Third-party libraries
 
@@ -439,6 +466,16 @@ code at f66b0ab:
 - arrows: 248 of 248 proposed arrows exist; none missing; none extra;
 - wiring: 102 of 102 proposed wirings exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
+
+- **kkt-keys is a contract crate** (Sam, 2026-11-16, msgs 3506 to 3516).
+  A crate named `x-something` implements `x`'s contract. kkt-server-keys
+  declares `KeyFiles`, reading and writing private key files (the
+  server's, and the client key copies setup writes), and kkt-server-keys-os
+  implements it; then both are renamed, kkt-keys and kkt-keys-os, since
+  they are not kkt-server's. Fixed values (the files' names, places and
+  mode) are not "configured values" under ARCHITECTURE.md 3.8.3 and stay
+  in the contract. Callers draw new keys themselves from the contract's
+  alphabet and length.
 
 ## Other decisions
 

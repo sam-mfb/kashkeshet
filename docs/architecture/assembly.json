@@ -6,12 +6,14 @@
    "steps": [
     {
      "title": "Settings",
-     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read by kkt-config-file's files over kkt-files, which the program adapts to its Disk, and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "items": [
       "kkt-machine-os::env",
       "kkt-machine-os::platform",
       "kkt-config-file::config_file",
-      "kkt-config-file-os::read",
+      "kkt-config-file::files::read_named",
+      "kkt-config-file::files::read_default",
+      "kkt-files::Files",
       "kkt-config-file::parse_file",
       "kkt-setup::default_db",
       "kashkeshet::machine::settings::ServeOptions",
@@ -104,14 +106,14 @@
     },
     {
      "title": "The operator's commands",
-     "text": "main.rs builds the operator's parts once, a NativeOperate with the service capability (ServeArgs), and gives every operator command its OperateParts: native containers, services, client files, probes, lane disk, clock, setup and key files, database, backups and terminal. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. The native try_bind callback checks the address before installation. Setup and switch compose their steps in operate, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
+     "text": "main.rs builds the operator's parts once, a NativeOperate with the service capability (ServeArgs), and gives every operator command its OperateParts: native containers, services, client files, probes, lane disk, clock, setup and key files, database, backups and terminal. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in operate, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
      "items": [
       "kashkeshet::machine::operate::NativeOperate",
       "kkt-operate::OperateParts",
       "kkt-operate::ServeFacts",
       "kkt-operate::ServiceDefaults",
       "kkt-operate::SetupFiles",
-      "kkt-operate::KeyFiles",
+      "kkt-keys::KeyFiles",
       "kkt-operate::Databases",
       "kkt-operate::Output",
       "kkt-setup::connection::ConnectionSource",
@@ -138,7 +140,7 @@
    ],
    "wiring": [
     {
-     "own": "ServerKeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "own": "ServerKeyFiles, adapting kkt-keys-os::OsKeyFiles",
      "crate": "kkt-admission",
      "to": [
       {
@@ -147,19 +149,8 @@
       }
      ],
      "note": "kkt serve",
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
-    },
-    {
-     "impl": "kkt-entropy-os::OsEntropy",
-     "crate": "kkt-server-keys",
-     "to": [
-      {
-       "at": "generate",
-       "param": "entropy"
-      }
-     ],
-     "note": "kkt key create, and kkt serve's first key"
+     "supplier": "kkt-keys-os",
+     "supplier_item": "OsKeyFiles"
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
@@ -271,7 +262,7 @@
      "supplier_item": "CredentialFile"
     },
     {
-     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "own": "KeyFiles, adapting kkt-keys-os::OsKeyFiles",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -280,11 +271,11 @@
       }
      ],
      "note": "kkt register, reclaim and watch",
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
+     "supplier": "kkt-keys-os",
+     "supplier_item": "OsKeyFiles"
     },
     {
-     "own": "ClientHost, adapting kkt-client-config-os's OsHost",
+     "own": "ClientHost, adapting kkt-files' Files and kkt-machine-os' process_id",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -293,8 +284,8 @@
       }
      ],
      "note": "kkt connect",
-     "supplier": "kkt-client-config-os",
-     "supplier_item": "OsHost"
+     "supplier": "kkt-files",
+     "supplier_item": "Files"
     },
     {
      "own": "ThisProgram, adapting kkt-setup-os::kkt_path",
@@ -348,7 +339,7 @@
     },
     {
      "impl": "kkt-clock-system::SystemClock",
-     "crate": "kkt-logs-os",
+     "crate": "kkt-rolling-file",
      "to": [
       {
        "at": "open_log_file",
@@ -444,8 +435,8 @@
        "param": "clients"
       }
      ],
-     "supplier": "kkt-client-config-os",
-     "supplier_item": "OsHost"
+     "supplier": "kkt-files",
+     "supplier_item": "Files"
     },
     {
      "crate": "kkt-operate",
@@ -469,8 +460,8 @@
        "param": "lanes"
       }
      ],
-     "supplier": "kkt-lane-files-os",
-     "supplier_item": "OsDisk"
+     "supplier": "kkt-files",
+     "supplier_item": "Files"
     },
     {
      "own": "LaneGit, adapting kkt-lane-commit's Git to kkt-lane-files' LaneCommit",
@@ -509,16 +500,24 @@
      "supplier": "kkt-setup-os"
     },
     {
-     "own": "NativeKeyFiles, forwarding key files to kkt-server-keys-os and generation to kkt-entropy-os",
+     "impl": "kkt-keys-os::OsKeyFiles",
      "crate": "kkt-operate",
      "to": [
       {
        "at": "OperateParts",
        "param": "key_files"
       }
-     ],
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "entropy"
+      }
+     ]
     },
     {
      "own": "NativeDatabases, opening this program's database",
@@ -603,7 +602,7 @@
      "supplier_item": "Terminal"
     },
     {
-     "own": "NativeConfigText, forwarding config text reads and writes",
+     "own": "NativeConfigText, forwarding config text reads and writes to kkt-config-file's files over kkt-files",
      "crate": "kkt-operate",
      "to": [
       {
@@ -611,8 +610,8 @@
        "param": "config_file"
       }
      ],
-     "supplier": "kkt-config-file-os",
-     "supplier_item": "read"
+     "supplier": "kkt-files",
+     "supplier_item": "Files"
     },
     {
      "own": "ClaudeCommand, adapting kkt-client-command's Claude to kkt-client-config's ClientCommand",
@@ -661,9 +660,10 @@
    "steps": [
     {
      "title": "Settings",
-     "text": "The same config file as kkt serve, read through kkt-config-file-os, parsed by kkt-config-file and turned by the program into each owner's settings, with the owners' defaults for the rest, and the same key check.",
+     "text": "The same config file as kkt serve, read by kkt-config-file's files over kkt-files, parsed by kkt-config-file and turned by the program into each owner's settings, with the owners' defaults for the rest, and the same key check.",
      "items": [
-      "kkt-config-file-os::read_named",
+      "kkt-config-file::files::read_named",
+      "kkt-files::Files",
       "kkt-config-file::parse_file",
       "kkt-rules::Settings",
       "kkt-result-format::Settings",
@@ -724,7 +724,7 @@
    ],
    "wiring": [
     {
-     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "own": "KeyFiles, adapting kkt-keys-os::OsKeyFiles",
      "crate": "kkt-admission",
      "to": [
       {
@@ -732,8 +732,8 @@
        "param": "texts"
       }
      ],
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
+     "supplier": "kkt-keys-os",
+     "supplier_item": "OsKeyFiles"
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
@@ -977,10 +977,10 @@
     },
     {
      "title": "Gate",
-     "text": "PreviewGate, with the access key read through kkt-server-keys-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+     "text": "PreviewGate, with the access key read through kkt-keys-os' OsKeyFiles, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
      "items": [
       "kkt-api-sim::PreviewGate",
-      "kkt-server-keys-os::KeyFiles",
+      "kkt-keys-os::OsKeyFiles",
       "kkt-web::Sessions",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy"

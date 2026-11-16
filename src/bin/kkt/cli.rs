@@ -10,7 +10,7 @@ use clap::{Args, Parser, Subcommand};
 use kashkeshet::machine::settings::ServeOptions;
 use kkt_client_config::Client;
 use kkt_hosts::DEFAULT_BIND;
-use kkt_logs::LogLevel;
+use kkt_log_tracing::LogLevel;
 use kkt_provenance::Build;
 use kkt_setup as setup;
 use kkt_watch as watch;
