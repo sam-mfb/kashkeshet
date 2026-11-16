@@ -15,7 +15,8 @@ use kashkeshet::machine::settings::ServeOptions;
 use kkt_agent_commands::{self as agent_commands, connect, watch::WatchTask};
 use kkt_log_tracing::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
 use kkt_log_tracing::{init_logging, init_stderr_logging};
-use kkt_machine::{Env, Platform};
+use kkt_machine::{Env, Machine, Platform};
+use kkt_machine_os::OsMachine;
 use kkt_operate::agent::AgentAction;
 use kkt_operate::keys::KeyKind;
 use kkt_operate::lanes::LanesAction;
@@ -35,8 +36,8 @@ async fn main() -> std::process::ExitCode {
     if !matches!(task, Ok(Task::Serve { .. })) {
         end_on_closed_output();
     }
-    let env = kkt_machine_os::env();
-    let platform = kkt_machine_os::platform();
+    let env = OsMachine.env();
+    let platform = OsMachine.platform();
     // `serve` starts logging once its settings say where the log goes.
     let logging = match &task {
         Ok(Task::Serve { .. }) => Ok(()),

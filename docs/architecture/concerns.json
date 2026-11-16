@@ -349,24 +349,24 @@
   },
   "kkt-machine": {
    "layer": "foundations",
-   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
+   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values, and `Machine`, the contract for reading them and this process's ID, with its stand-in `testing::FixedMachine`. The crates that place files on the machine take these facts; none reads them.",
    "must_not": "Read the environment, or hold any of kkt's paths.",
    "kind": "contract"
   },
   "kkt-machine-os": {
    "layer": "foundations",
-   "concern": "The machine's facts as this process sees them: `env` reads the environment and `platform` gives the platform this program was built for, as kkt-machine's values, and `process_id` names this process. The program asks once and passes them on.",
+   "concern": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID. The program asks once and passes the values on.",
    "kind": "effect"
   },
   "kkt-shutdown": {
    "layer": "foundations",
-   "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value.",
+   "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value; and `Signals`, the contract for a source of stop signals, which stops a `Shutdown` and says which `Signal` came, with its stand-in `testing::OnCue`.",
    "must_not": "Let a tokio-util type out of the crate.",
-   "kind": "logic"
+   "kind": "contract"
   },
   "kkt-shutdown-os": {
    "layer": "foundations",
-   "concern": "The operating system's stop signals (Ctrl-C, SIGTERM), stopping the shared `Shutdown` (`StopSignals`).",
+   "concern": "The operating system's stop signals (Ctrl-C, SIGTERM): `StopSignals` implements kkt-shutdown's `Signals`, listening when it is made and stopping the shared `Shutdown` when one comes.",
    "must_not": "Let a tokio signal type out of the crate.",
    "kind": "effect"
   },

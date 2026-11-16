@@ -2154,7 +2154,20 @@ kkt-review-i:
 - kkt-service-os' `try_bind` moves into kkt-listen; kkt-service-os is
   deleted.
 
-## Order at a glance
+### Phase 16's third follow-up: the machine and the stop signals (Sam, 2026-11-16)
+
+A crate named `x-something` implements `x`'s contract (msg 3507). One pull
+request, by kkt-build-j, reviewed by kkt-review-i:
+
+- kkt-machine declares `Machine` (`env`, `platform`, `process_id`), with a
+  `testing` stand-in. kkt-machine-os' `OsMachine` implements it, and its
+  free functions go.
+- kkt-shutdown becomes a contract crate. `Shutdown` is unchanged, and it
+  declares `Signals` (`stop_on_signal`, which returns the `Signal` that
+  came), with a `testing` stand-in. kkt-shutdown-os' `StopSignals`
+  implements it and still listens when it is made.
+- Only the programs call either trait.
+
 
 ```
 0.1, 0.2

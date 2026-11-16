@@ -72,6 +72,15 @@ Message numbers are given only where they help to find a discussion in
   about this process, not file access, so it went to kkt-machine-os.
   kkt-service-os held one eight-line function, `try_bind`, which went to
   kkt-listen, beside the binding it tries.
+- **A crate named `x-something` implements `x`'s contract** (approved by
+  Sam on 2026-11-16, msg 3507). kkt-machine-os and kkt-shutdown-os
+  implemented nothing. Now kkt-machine declares `Machine` (the environment,
+  the platform and this process's ID), which kkt-machine-os' `OsMachine`
+  implements. kkt-shutdown, now a contract crate, keeps `Shutdown` as it
+  was, for readability, and declares `Signals`, which kkt-shutdown-os'
+  `StopSignals` implements. Making one still listens first, so a failure to
+  listen is reported before the server starts. Only programs call either
+  trait.
 - **Layers say where a crate sits**: programs, assembly, surfaces, access,
   core, data, operations, clients, foundations and dev-only. kkt-search sits
   in foundations, as pure text the data crates build on.
