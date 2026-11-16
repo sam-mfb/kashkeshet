@@ -72,7 +72,7 @@ impl<'a, D> NativeOperate<'a, D> {
             container_configs: &settings::ContainerConfigs,
             login_link: &self.login_link,
             service: self.service.as_ref(),
-            try_bind: &kkt_service_os::try_bind,
+            try_bind: &kkt_listen::try_bind,
             remote: &kkt_remote_access_tailscale::Tailscale,
             clients: &super::client_config::ClientHost,
             client_command: &super::client_config::ClaudeCommand,
@@ -342,10 +342,12 @@ impl Output for NativeOutput {
 struct NativeConfigText;
 impl kkt_operate::ConfigText for NativeConfigText {
     fn read(&self, path: &Path) -> Result<Option<String>, String> {
-        kkt_config_file_os::read(path).map_err(|e| e.to_string())
+        kkt_config_file::files::read(&super::config_disk::ConfigDisk, path)
+            .map_err(|e| e.to_string())
     }
     fn write(&self, path: &Path, text: &str) -> Result<(), String> {
-        kkt_config_file_os::write(path, text).map_err(|e| e.to_string())
+        kkt_config_file::files::write(&super::config_disk::ConfigDisk, path, text)
+            .map_err(|e| e.to_string())
     }
 }
 

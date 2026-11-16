@@ -86,7 +86,9 @@ an effect crate touches the machine; and the map lost its split boxes.
 The workspace went from 33 packages to 62 by the end of phase 14, when
 the code matched the proposed map, as amended during the refactor, with no
 difference left (`decisions.md`, "After the refactor"). Phases 15 and 16
-added kkt-toml and the eight crates phase 16 split out, for 71.
+added kkt-toml and the eight crates phase 16 split out, for 71. Phase 16's
+second follow-up made one general file crate, kkt-files, of three, and
+moved kkt-service-os' one function into kkt-listen, for 68.
 
 ## Final scorecard
 
@@ -160,8 +162,7 @@ look first at the code the refactor touched that decides by platform:
   kkt-service-launchd's `Settings`.
 
 Code under `cfg(unix)` also moved, and runs on both systems: file modes
-(kkt-server-keys-os, kkt-backup-os,
-kkt-client-config-os, kkt-container-docker, kkt-config-file-os),
+(kkt-server-keys-os, kkt-backup-os, kkt-files, kkt-container-docker),
 the stop signals (kkt-shutdown-os), the agent credential
 files' owner and mode checks (kkt-agent-files-os), and the closed output
 pipe (kkt-terminal-os).

@@ -2110,6 +2110,24 @@ composition: kkt-server-listen (effect) named kkt-server's `App`
 - CHANGELOG.md tells crates that depend on kkt by git of the rename and
   the new `listen`.
 
+### Phase 16's second follow-up: kkt-files (Sam, 2026-11-16)
+
+Effect crates that implement no contract are named for what they do, not
+for a consumer (msg 3498). One pull request, by kkt-build-j, reviewed by
+kkt-review-i:
+
+- kkt-files, a new effect crate in foundations, holds general file access
+  and depends on no kkt crate. It replaces kkt-lane-files-os,
+  kkt-client-config-os and kkt-config-file-os, which are deleted. The
+  program's adapters for kkt-lane-files and kkt-client-config adapt it;
+  their consumers' traits are unchanged.
+- What was specific to the config file moves into kkt-config-file
+  (`files`), over a `Disk` it declares; kkt and kkt-keymode each adapt
+  kkt-files to it (msg 3500).
+- `process_id` moves to kkt-machine-os (msg 3500).
+- kkt-service-os' `try_bind` moves into kkt-listen; kkt-service-os is
+  deleted.
+
 ## Order at a glance
 
 ```

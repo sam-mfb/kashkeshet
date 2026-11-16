@@ -1,9 +1,9 @@
-//! Adapts the machine's client-config operations to the logic's host, and
+//! Adapts the machine's files and this process's ID to the logic's host, and
 //! Claude Code's command to the logic's `ClientCommand`.
 
 use kkt_client_command::Claude;
 use kkt_client_config::{ClientCommand, Host};
-use kkt_client_config_os::OsHost;
+use kkt_files::Files;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -12,34 +12,34 @@ pub struct ClientHost;
 
 impl Host for ClientHost {
     fn read(&self, path: &Path) -> io::Result<String> {
-        OsHost.read(path)
+        Files.read(path)
     }
     fn exists(&self, path: &Path) -> bool {
-        OsHost.exists(path)
+        Files.exists(path)
     }
     fn create_private(&self, path: &Path, text: &str) -> io::Result<()> {
-        OsHost.create_private(path, text)
+        Files.create_private(path, text)
     }
     fn restrict(&self, path: &Path) -> io::Result<()> {
-        OsHost.restrict(path)
+        Files.restrict(path)
     }
     fn create_dir_all(&self, path: &Path) -> io::Result<()> {
-        OsHost.create_dir_all(path)
+        Files.create_dir_all(path)
     }
     fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
-        OsHost.rename(from, to)
+        Files.rename(from, to)
     }
     fn remove_file(&self, path: &Path) -> io::Result<()> {
-        OsHost.remove_file(path)
+        Files.remove_file(path)
     }
     fn absolute(&self, path: &Path) -> io::Result<PathBuf> {
-        OsHost.absolute(path)
+        Files.absolute(path)
     }
     fn canonicalize(&self, path: &Path) -> io::Result<PathBuf> {
-        OsHost.canonicalize(path)
+        Files.canonicalize(path)
     }
     fn process_id(&self) -> u32 {
-        OsHost.process_id()
+        kkt_machine_os::process_id()
     }
 }
 

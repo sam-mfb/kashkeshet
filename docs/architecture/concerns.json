@@ -44,7 +44,7 @@
   {
    "id": "foundations",
    "title": "Foundations",
-   "about": "Time, randomness, names, the stop signal, limits, provenance, logs and serving HTTP: what everything else is built on."
+   "about": "Time, randomness, names, the stop signal, limits, provenance, logs, files and serving HTTP: what everything else is built on."
   },
   {
    "id": "dev",
@@ -178,15 +178,9 @@
   },
   "kkt-config-file": {
    "layer": "operations",
-   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), under a supplied config-home folder.",
-   "must_not": "Read or write files, or know the settings' checks beyond each value's kind.",
+   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), under a supplied config-home folder; reading and writing the config and instructions files whole (`files`), over the `Disk` it declares, with what a missing file means and the wording of `ReadError` and `WriteError`.",
+   "must_not": "Touch files except through its `Disk`, or know the settings' checks beyond each value's kind.",
    "kind": "logic"
-  },
-  "kkt-config-file-os": {
-   "layer": "operations",
-   "concern": "The config file's bytes, and the instructions file's: reading and writing them whole, as plain functions the program calls.",
-   "must_not": "Know the files' format.",
-   "kind": "effect"
   },
   "kkt-setup": {
    "layer": "operations",
@@ -247,12 +241,6 @@
    "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through the ClientCommand it declares, with its testing Recorder, and its file restored if that fails.",
    "must_not": "Touch the machine except through `Host` and `ClientCommand`.",
    "kind": "logic"
-  },
-  "kkt-client-config-os": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "The machine's client-config files: plain OsHost methods, adapted by the program.",
-   "must_not": "Decide a client config's content."
   },
   "kkt-client-command": {
    "layer": "operations",
@@ -367,7 +355,7 @@
   },
   "kkt-machine-os": {
    "layer": "foundations",
-   "concern": "The machine's facts as this process sees them: `env` reads the environment and `platform` gives the platform this program was built for, as kkt-machine's values. The program asks once and passes them on.",
+   "concern": "The machine's facts as this process sees them: `env` reads the environment and `platform` gives the platform this program was built for, as kkt-machine's values, and `process_id` names this process. The program asks once and passes them on.",
    "kind": "effect"
   },
   "kkt-shutdown": {
@@ -382,10 +370,16 @@
    "must_not": "Let a tokio signal type out of the crate.",
    "kind": "effect"
   },
+  "kkt-files": {
+   "layer": "foundations",
+   "kind": "effect",
+   "concern": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a private file and restricting one to its owner, and absolute and canonical paths. Each program adapts it to the contract the crate that needs files declares.",
+   "must_not": "Know whose files these are or what is in them, or depend on another kkt crate."
+  },
   "kkt-listen": {
    "layer": "foundations",
    "kind": "effect",
-   "concern": "Serving HTTP: binding an address and answering on it with the router it is handed, until told to stop.",
+   "concern": "Serving HTTP: binding an address and answering on it with the router it is handed, until told to stop; and trying whether an address could be listened on (`try_bind`), letting it go at once.",
    "must_not": "Know how the router it serves was built, or depend on the crates that build it."
   },
   "kkt-log": {
@@ -436,23 +430,11 @@
    "must_not": "Be in a release, or anything but a stand-in.",
    "kind": "test support"
   },
-  "kkt-lane-files-os": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "The machine's files for lane folders: plain OsDisk methods, adapted by the program.",
-   "must_not": "Decide which lanes to import or export."
-  },
   "kkt-clock-system": {
    "layer": "foundations",
    "kind": "effect",
    "concern": "The real wall clock and its sleep: SystemClock implements the shared Clock contract.",
    "must_not": "Define time values or formatting."
-  },
-  "kkt-service-os": {
-   "layer": "operations",
-   "kind": "effect",
-   "concern": "Trying whether the service's server could listen on its address (`try_bind`), which the program passes to kkt-service's bind check.",
-   "must_not": "Decide what the answer means, or work a service manager."
   },
   "kkt-toml": {
    "layer": "foundations",

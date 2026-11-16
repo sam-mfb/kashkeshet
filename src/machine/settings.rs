@@ -2,12 +2,13 @@
 //! each setting came from, the one place they are resolved ([`resolve`]),
 //! the startup checks, and each part's own settings filled from them.
 
+use super::config_disk::ConfigDisk;
 use crate::machine::keys::read_server_keys;
 pub use crate::machine::serve_options::{BadValue, ServeOptions, ServeSettings, server_settings};
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
 use kkt_config_file::Config;
-use kkt_config_file_os as config_file_os;
+use kkt_config_file::files as config_files;
 use kkt_logs::LogLevel;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
@@ -205,7 +206,7 @@ pub fn read_config(
     env: &Env,
     config: Option<PathBuf>,
 ) -> Result<(Option<PathBuf>, ServeOptions), String> {
-    let unreadable = |e: config_file_os::ReadError| {
+    let unreadable = |e: config_files::ReadError| {
         format!(
             "invalid setting: config could not be read from {}: {}",
             e.path.display(),
@@ -215,11 +216,11 @@ pub fn read_config(
     // A file named must be there; the default one is read only if it is.
     let found = match config {
         Some(path) => {
-            let text = config_file_os::read_named(&path).map_err(unreadable)?;
+            let text = config_files::read_named(&ConfigDisk, &path).map_err(unreadable)?;
             Some((path, text))
         }
         None => match kkt_config_file::config_file(env.config_home().as_deref()) {
-            Some(path) => config_file_os::read_default(&path)
+            Some(path) => config_files::read_default(&ConfigDisk, &path)
                 .map_err(unreadable)?
                 .map(|text| (path, text)),
             None => None,
@@ -423,7 +424,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     // None configured: the server sends its built-in instructions.
     let instructions = instructions
         .as_ref()
-        .map(|path| config_file_os::read_instructions(path).map_err(|e| e.to_string()))
+        .map(|path| config_files::read_instructions(&ConfigDisk, path).map_err(|e| e.to_string()))
         .transpose()?;
     let ServerKeys {
         admission,
