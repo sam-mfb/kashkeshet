@@ -1,6 +1,7 @@
-# Checks 2 to 7 of check-crates.sh, over `cargo metadata --no-deps` output,
+# Checks 2 to 8 of check-crates.sh, over `cargo metadata --no-deps` output,
 # with `$effects` and `$compositions`, the names of the crates
-# docs/architecture/concerns.json marks "effect" and "composition", and
+# docs/architecture/concerns.json marks "effect" and "composition",
+# `$platform`, the names of the crates it puts in the platform layer, and
 # `$effect_exceptions`, the documented exceptions to check 2
 # (effect-exceptions.json: package, dependency, reason).
 # Prints one line per problem, and nothing when the manifests follow the
@@ -80,6 +81,15 @@ def default_reach($features):
         if $kind == "normal" and ($program | not)
             and any($compositions[]; . == $dependency.name)
         then "\($package.name): depends on the composition crate \($dependency.name) in \($section); only a program (a package with a binary target) may"
+        else empty end
+    ),
+    # Check 8: a platform crate depends in [dependencies] only on platform
+    # crates. A platform crate knows nothing of kkt.
+    (
+        if $kind == "normal"
+            and any($platform[]; . == $package.name)
+            and (any($platform[]; . == $dependency.name) | not)
+        then "\($package.name): is a platform crate but depends on \($dependency.name) in \($section); a platform crate depends only on platform crates"
         else empty end
     )
 ),

@@ -43,8 +43,12 @@
 #    marks "composition") in [dependencies]: a composition is put together
 #    by the program that runs it, and nothing under it names it (phase 16's
 #    follow-up, which took kkt-listen off kkt-server).
+# 8. A platform crate (one concerns.json puts in the `platform` layer)
+#    depends in [dependencies] only on other platform crates: a platform
+#    crate knows nothing of kkt, so it cannot rest on a crate that does
+#    (Sam, 2026-11-16). Its tests and build script may reach further.
 #
-# Checks 2 to 7 are in check-crates.jq, tested by test_check_crates.py,
+# Checks 2 to 8 are in check-crates.jq, tested by test_check_crates.py,
 # except check 6's search of the sources, which is below.
 set -euo pipefail
 scripts=$(dirname "$0")
@@ -56,7 +60,10 @@ effects=$(jq -c '[.crates | to_entries[] | select(.value.kind == "effect") | .ke
     "$root/docs/architecture/concerns.json")
 compositions=$(jq -c '[.crates | to_entries[] | select(.value.kind == "composition") | .key]' \
     "$root/docs/architecture/concerns.json")
+platform=$(jq -c '[.crates | to_entries[] | select(.value.layer == "platform") | .key]' \
+    "$root/docs/architecture/concerns.json")
 problems=$(jq -r --argjson effects "$effects" --argjson compositions "$compositions" \
+    --argjson platform "$platform" \
     --argjson effect_exceptions "$(cat "$scripts/effect-exceptions.json")" \
     -f "$scripts/check-crates.jq" <<< "$metadata")
 # Check 6, the sources: no code behind a `real` feature, anywhere in the

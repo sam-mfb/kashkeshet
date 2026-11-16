@@ -77,6 +77,13 @@ in that crate's unit tests. CI builds each crate on its own and checks these
 rules (`.github/scripts/check-crates.sh`). A crate with no feature listed
 has none.
 
+Platform crates: a crate that knows nothing of kkt and would make sense in
+any program (time, randomness, logs, files, HTTP serving, the terminal,
+the browser, remote access, git) is in the map's `platform` layer
+(`docs/architecture/concerns.json`), and depends in code only on other
+platform crates (Sam, 2026-11-16). A crate that needs kkt's own words,
+such as handles or the setup record, is not a platform crate.
+
 | Crate | Owns | Must not | Features |
 |---|---|---|---|
 | `kkt-rules` | Every permission decision and every change, for agents and the human; starting the rules for a server run (`start`, with `Startup` and `NewServerRun`), which records the run first; the core's data, in its storage module (`src/store/`): its questions (`Reader`) and changes (`Writer`) in kkt-db's terms, and the core's tables as kkt-db migrations (`src/store/schema.rs`) | Reach the database except through the storage module's `Reader` and `Writer`; format output; contain SQL or know a particular database (it is given a `kkt_db::Backend`) | `testing`: `testing::swarms_stay_apart_in` (the check every store must pass, on any backend); `testing::scenarios::run_all` (the rules' scenarios whose answers rest on how a database answers and that no end-to-end test asserts on the real backend, run over the backend given: the program's `tests/rules_on_sqlite.rs` runs them on kkt-db-sqlite); `testing::memory` (the rules over an in-memory database, after a test run, for other crates' tests, which set up their data through the kkt-api crates), `testing::database` (the database alone, for a program's own `start`) and `fail_next_write`; `testing::rules_on` (the rules over a database the test opened itself); and `testing::every_store_read`, every store read asked on a database with the `Probes` given, as text, for the program's test that an older release's database answers as it did. No store record, `Reader` or `Writer` can be named outside kkt-rules |
@@ -303,7 +310,9 @@ a sign the crate lines are wrong.
 - CI also checks the refactor's rules. check-crates.sh fails on a crate
   other than a program that depends on an effect crate (unless listed in
   effect-exceptions.json), on a crate other than a program that depends on
-  a composition crate in [dependencies], and on any `real` feature.
+  a composition crate in [dependencies], on a platform crate that depends
+  in [dependencies] on a crate outside the platform layer, and on any
+  `real` feature.
   `docs/architecture/check-programs.py` builds the map from the code and
   fails on a kind that does not fit, a broken rule, and machine work in a
   program's own code that the refactor plan's temporary breaks do not list.

@@ -477,6 +477,14 @@ code at f66b0ab:
   in the contract. Callers draw new keys themselves from the contract's
   alphabet and length.
 
+- **The platform layer** (Sam, 2026-11-16, msg 3597). A crate is general
+  if it knows nothing of kkt. Such crates are the `platform` layer (the
+  old `foundations`, less kkt-names and kkt-provenance, plus the
+  terminal, browser, remote access, lane commit and client command
+  crates), and a platform crate depends in code only on platform crates:
+  check-crates.sh's check 8 and `kinds.rule_breaks` hold it. kkt-names is
+  core's; kkt-provenance is operations'.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.

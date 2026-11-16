@@ -1,4 +1,4 @@
-"""check-crates.jq: which packages may depend on an effect or a composition crate, the rules for turning on another workspace package's testing feature, no `real` feature, and package names."""
+"""check-crates.jq: which packages may depend on an effect or a composition crate, what a platform crate may depend on, the rules for turning on another workspace package's testing feature, no `real` feature, and package names."""
 
 import json
 from pathlib import Path
@@ -28,10 +28,11 @@ def exception(package, dependency):
     return {"package": package, "dependency": dependency, "reason": "a test reason"}
 
 
-def problems(*packages, effects=(), compositions=(), effect_exceptions=()):
+def problems(*packages, effects=(), compositions=(), platform=(), effect_exceptions=()):
     result = subprocess.run(
         ["jq", "-r", "--argjson", "effects", json.dumps(list(effects)),
          "--argjson", "compositions", json.dumps(list(compositions)),
+         "--argjson", "platform", json.dumps(list(platform)),
          "--argjson", "effect_exceptions", json.dumps(list(effect_exceptions)), "-f", str(RULES)],
         input=json.dumps({"packages": list(packages)}),
         check=True, capture_output=True, text=True,
@@ -293,6 +294,35 @@ class CheckCrates(unittest.TestCase):
             package("kkt-a", dependencies=[dependency("kkt-b")]),
             package("kkt-b"),
             compositions=["kkt-server"],
+        ), [])
+
+    def test_a_platform_crate_depends_only_on_platform_crates(self):
+        self.assertEqual(problems(
+            package("kkt-clock"),
+            package("kkt-files", dependencies=[
+                dependency("kkt-clock"),
+                dependency("kkt-names"),
+                dependency("kkt-names", target="cfg(unix)"),
+            ]),
+            package("kkt-names"),
+            platform=["kkt-clock", "kkt-files"],
+        ), [
+            "kkt-files: is a platform crate but depends on kkt-names in [dependencies]; "
+            "a platform crate depends only on platform crates",
+            "kkt-files: is a platform crate but depends on kkt-names in [dependencies] for cfg(unix); "
+            "a platform crate depends only on platform crates",
+        ])
+
+    def test_a_platform_crates_tests_and_build_script_and_its_users_may_reach_further(self):
+        self.assertEqual(problems(
+            package("kkt-files", dependencies=[
+                dependency("kkt-scratch", kind="dev"),
+                dependency("kkt-names", kind="build"),
+            ]),
+            package("kkt-setup", dependencies=[dependency("kkt-files")]),
+            package("kkt-names"),
+            package("kkt-scratch"),
+            platform=["kkt-files"],
         ), [])
 
 

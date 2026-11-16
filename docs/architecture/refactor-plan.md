@@ -2195,6 +2195,30 @@ kkt-webapp-preview, kkt-terminal-os to kkt-terminal and
 kkt-agent-files-os to kkt-agent-files. CHANGELOG.md tells crates that
 depend on kkt by git.
 
+### After phase 16: the platform layer (Sam, 2026-11-16)
+
+**Sam's decision** (msg 3597, K4, from sage-cardinal). The Foundations
+and Operations layers blurred, and both mixed crates that only make sense
+for kkt with crates that would make sense anywhere. One test separates
+them: a crate is general if it knows nothing of kkt. In one pull request,
+with no Rust change:
+- the `foundations` layer becomes `platform`, general crates only: a
+  platform crate depends on no crate outside the platform layer;
+- kkt-terminal, kkt-browser, kkt-remote-access,
+  kkt-remote-access-tailscale, kkt-lane-commit and kkt-client-command move
+  into it from operations;
+- kkt-names moves to core (handles and channel IDs are the core's
+  vocabulary), and kkt-provenance to operations;
+- operations is what is specific to running kkt on a machine;
+- a check, check 8 of check-crates.sh and a rule in `kinds.rule_breaks`:
+  a platform crate's [dependencies] are all platform crates.
+
+**What it did, against this decision.** Done as decided. kkt-provenance
+went to operations, not assembly: only assemblies (kkt-server, kkt-operate)
+and programs use it, but it composes nothing; it is the record of what
+produced a server run, which is specific to running kkt. The new check
+found nothing beyond the moves listed.
+
 ## Order at a glance
 
 ```

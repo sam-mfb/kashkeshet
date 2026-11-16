@@ -34,7 +34,7 @@
   {
    "id": "operations",
    "title": "Operations",
-   "about": "Settings, setup, services, Docker, Tailscale, client configs, diagnostics, backups and lane files: running kkt on a machine."
+   "about": "What is specific to running kkt on a machine: setup, settings, services, Docker, client configs, diagnostics, backups, lane files and the record of a server run."
   },
   {
    "id": "clients",
@@ -42,9 +42,9 @@
    "about": "kkt as a client of a server: the shared MCP client and `kkt watch`."
   },
   {
-   "id": "foundations",
-   "title": "Foundations",
-   "about": "Time, randomness, names, the stop signal, limits, provenance, logs, files and serving HTTP: what everything else is built on."
+   "id": "platform",
+   "title": "Platform",
+   "about": "General crates that know nothing of kkt and would make sense in any program: time, randomness, logs, files, HTTP serving, the terminal, the browser, remote access, git and more. The test: a platform crate depends on no crate outside the platform layer."
   },
   {
    "id": "dev",
@@ -225,13 +225,13 @@
    "kind": "effect"
   },
   "kkt-remote-access": {
-   "layer": "operations",
+   "layer": "platform",
    "concern": "The remote-sharing contract (RemoteAccess, Node) and its stand-in.",
    "must_not": "Let tool details into the contract.",
    "kind": "contract"
   },
   "kkt-remote-access-tailscale": {
-   "layer": "operations",
+   "layer": "platform",
    "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login; what tailscale's answers mean is tested over a private runner.",
    "must_not": "Change login, DNS preferences, unrelated sharing, config or the service.",
    "kind": "effect"
@@ -243,7 +243,7 @@
    "kind": "logic"
   },
   "kkt-client-command": {
-   "layer": "operations",
+   "layer": "platform",
    "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-client-config's ClientCommand (phase 16).",
    "must_not": "Echo the command's output, which may hold credentials.",
    "kind": "effect"
@@ -279,7 +279,7 @@
    "kind": "logic"
   },
   "kkt-lane-commit": {
-   "layer": "operations",
+   "layer": "platform",
    "concern": "The commit a lane folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
    "must_not": "Read or write the lane files.",
    "kind": "effect"
@@ -315,99 +315,99 @@
    "kind": "logic"
   },
   "kkt-search": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule, with its word table), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given. Pure text: it knows no database.",
    "must_not": "Know a database.",
    "kind": "logic"
   },
   "kkt-hash": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "Hashing: `sha256`, the SHA-256 digest of some bytes. The one crate that uses sha2; its users call it.",
    "kind": "logic"
   },
   "kkt-clock": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "Time: the Clock contract, Time and Span values, time formatting and FixedClock behind testing. The real clock is in kkt-clock-system.",
    "must_not": "Let a chrono type into its public surface.",
    "kind": "contract"
   },
   "kkt-names": {
-   "layer": "foundations",
+   "layer": "core",
    "concern": "Avatars' handles, channel IDs, the name packs, and the operator and admin names with their rules. It draws randomness through kkt-entropy's `Entropy`, with its own character sets.",
    "must_not": "Draw randomness except through `Entropy`.",
    "kind": "logic"
   },
   "kkt-entropy": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "The randomness contract `Entropy`, with `random_chars` as a provided method that takes the alphabet to draw from, and its test doubles behind `testing`.",
    "kind": "contract"
   },
   "kkt-entropy-os": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "Randomness from the operating system: `OsEntropy`, which implements kkt-entropy's `Entropy` directly, a shared contract.",
    "kind": "effect"
   },
   "kkt-machine": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
    "must_not": "Read the environment, or hold any of kkt's paths.",
    "kind": "contract"
   },
   "kkt-machine-os": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "The machine's facts as this process sees them: `env` reads the environment and `platform` gives the platform this program was built for, as kkt-machine's values, and `process_id` names this process. The program asks once and passes them on.",
    "kind": "effect"
   },
   "kkt-shutdown": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value.",
    "must_not": "Let a tokio-util type out of the crate.",
    "kind": "logic"
   },
   "kkt-shutdown-os": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "The operating system's stop signals (Ctrl-C, SIGTERM), stopping the shared `Shutdown` (`StopSignals`).",
    "must_not": "Let a tokio signal type out of the crate.",
    "kind": "effect"
   },
   "kkt-files": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "effect",
    "concern": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a private file and restricting one to its owner, and absolute and canonical paths. Each program adapts it to the contract the crate that needs files declares.",
    "must_not": "Know whose files these are or what is in them, or depend on another kkt crate."
   },
   "kkt-listen": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "effect",
    "concern": "Serving HTTP: binding an address and answering on it with the router it is handed, until told to stop; and trying whether an address could be listened on (`try_bind`), letting it go at once.",
    "must_not": "Know how the router it serves was built, or depend on the crates that build it."
   },
   "kkt-log": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "contract",
    "concern": "Structured log events: their level, target, message and named values.",
    "must_not": "Know a logging library or perform I/O."
   },
   "kkt-terminal": {
-   "layer": "operations",
+   "layer": "platform",
    "kind": "effect",
    "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and the terminal's half of the login link: showing it, and the Enter key.",
    "must_not": "Decide setup answers or depend on setup/container logic."
   },
   "kkt-browser": {
-   "layer": "operations",
+   "layer": "platform",
    "concern": "Opening a link in the person's browser with the system's own opener (open on macOS, xdg-open elsewhere): SystemBrowser, with its own methods: starting the opener, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without starting it. It declares no contract: the program adapts SystemBrowser to kkt-container-docker's Browser (phase 16).",
    "must_not": "Wait for the browser; repeat the link in a message.",
    "kind": "effect"
   },
   "kkt-log-tracing": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "effect",
    "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given; the log level setting it starts with: LogLevel (name, parse), DEFAULT_LOG_LEVEL, DEFAULT_DEPENDENCY_LOG_LEVEL and check_dependency_log_level, with its own SettingError (from kkt-logs, deleted, ARCHITECTURE.md 4.2.2).",
    "must_not": "Open, roll over or prune log files."
   },
   "kkt-provenance": {
-   "layer": "foundations",
+   "layer": "operations",
    "concern": "What produced a server run: the build, its git commit, and the settings that shape the run, as lines of a name and a value that the program words.",
    "must_not": "Store the run record: kkt-rules' `start` does.",
    "kind": "logic"
@@ -425,19 +425,19 @@
    "kind": "test support"
   },
   "kkt-clock-system": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "effect",
    "concern": "The real wall clock and its sleep: SystemClock implements the shared Clock contract.",
    "must_not": "Define time values or formatting."
   },
   "kkt-toml": {
-   "layer": "foundations",
+   "layer": "platform",
    "concern": "TOML text, in kkt's terms: parsing it into a tree of values (`parse`, `Table`, `Value`), reading a typed record from it and writing one back (`read`, `write`), and editing a document with its comments and layout kept (`Document`, `TableMut`, `ListMut`, `Found`, `IfMissing`, `EditError`). Its errors are its own and say where in the text the problem is (`ParseError`, `Place`, `WriteError`). The one crate that uses toml and toml_edit (phase 15); its users depend on it directly.",
    "must_not": "Let a toml or toml_edit type into its public items; know whose file it reads.",
    "kind": "logic"
   },
   "kkt-rolling-file": {
-   "layer": "foundations",
+   "layer": "platform",
    "kind": "effect",
    "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). It does not implement kkt-log.",
    "must_not": "Read a real clock itself; start a logging library; know log levels."
