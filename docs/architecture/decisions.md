@@ -78,6 +78,15 @@ Message numbers are given only where they help to find a discussion in
   kkt-terminal-os became kkt-terminal and kkt-agent-files-os became
   kkt-agent-files: none implements a contract of the crate its old name
   began with.
+- **kkt-machine and kkt-shutdown declare contracts** (approved by Sam on
+  2026-11-16, msg 3507), by the same rule: kkt-machine-os and
+  kkt-shutdown-os implemented nothing. Now kkt-machine declares `Machine` (the environment,
+  the platform and this process's ID), which kkt-machine-os' `OsMachine`
+  implements. kkt-shutdown, now a contract crate, keeps `Shutdown` as it
+  was, for readability, and declares `Signals`, which kkt-shutdown-os'
+  `StopSignals` implements. Making one still listens first, so a failure to
+  listen is reported before the server starts. Only programs call either
+  trait.
 - **Layers say where a crate sits**: programs, assembly, surfaces, access,
   core, data, operations, clients, foundations and dev-only. kkt-search sits
   in foundations, as pure text the data crates build on.

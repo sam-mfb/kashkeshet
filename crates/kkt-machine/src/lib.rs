@@ -1,8 +1,9 @@
 //! Facts about the machine kkt runs on: the folders its environment names
 //! ([`Env`]) and its platform ([`Platform`]), as plain values. The crates
 //! that place files on the machine take these facts and build their own
-//! paths from them; none reads the environment itself. kkt-machine-os reads
-//! them for this process, and the program passes them on.
+//! paths from them; none reads the environment itself. [`Machine`] is how a
+//! program reads them for its process: kkt-machine-os implements it, the
+//! program asks once at start, and passes the values on.
 
 use std::path::{Path, PathBuf};
 
@@ -62,9 +63,36 @@ fn absolute(path: &Option<PathBuf>) -> Option<&Path> {
     path.as_deref().filter(|p| p.is_absolute())
 }
 
+/// The machine's facts as one process sees them. A program asks once, at
+/// start, and passes the values down.
+pub trait Machine {
+    /// The environment's folders: `$HOME` and the folders the environment
+    /// names.
+    fn env(&self) -> Env;
+    /// The platform this program was built for.
+    fn platform(&self) -> Platform;
+    /// This process's ID, as the operating system numbers it.
+    fn process_id(&self) -> u32;
+}
+
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_stand_in_gives_the_facts_it_was_given() {
+        let machine = testing::FixedMachine {
+            env: env(Some("/config"), None),
+            platform: Platform::MacOs,
+            process_id: 42,
+        };
+        assert_eq!(machine.env(), env(Some("/config"), None));
+        assert_eq!(machine.platform(), Platform::MacOs);
+        assert_eq!(machine.process_id(), 42);
+    }
 
     fn env(config: Option<&str>, data: Option<&str>) -> Env {
         Env {

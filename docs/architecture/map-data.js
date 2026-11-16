@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "ba63d45d",
+ "commit": "8fb3d44c",
  "crates": [
   {
    "bins": [
@@ -7398,12 +7398,35 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kkt-machine",
+       "type": "testing::FixedMachine"
+      },
+      {
+       "crate": "kkt-machine-os",
+       "type": "OsMachine"
+      }
+     ],
+     "trait": "Machine"
+    }
+   ],
    "crate_doc": "Facts about the machine kkt runs on: the folders its environment names (`Env`) and its platform (`Platform`), as plain values.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "testing": []
+   },
    "holders": [],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-machine",
+     "trait": "Machine",
+     "trait_crate": "kkt-machine",
+     "type": "testing::FixedMachine"
+    }
+   ],
    "items": [
     {
      "doc": "The environment values that decide default paths, kkt's own and the clients' it configures.",
@@ -7423,6 +7446,16 @@ window.KKT_GRAPH = {
      "path": "Env"
     },
     {
+     "doc": "The machine's facts as one process sees them.",
+     "kind": "trait",
+     "methods": [
+      "env",
+      "platform",
+      "process_id"
+     ],
+     "path": "Machine"
+    },
+    {
      "doc": "The platform, which decides where per-user data goes.",
      "kind": "enum",
      "path": "Platform",
@@ -7435,6 +7468,23 @@ window.KKT_GRAPH = {
      "doc": "`$XDG_CONFIG_HOME` when it is not set, under the home directory.",
      "kind": "const",
      "path": "XDG_CONFIG_HOME_DEFAULT"
+    },
+    {
+     "doc": "A stand-in `Machine`: the facts it is given.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "A machine whose facts are fixed when it is made.",
+     "feature": "testing",
+     "fields": [
+      "env",
+      "platform",
+      "process_id"
+     ],
+     "kind": "struct",
+     "path": "testing::FixedMachine"
     }
    ],
    "lib": "kkt_machine",
@@ -7450,26 +7500,23 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's facts as this process sees them: `env` reads the environment, `platform` gives the platform this program was built for, as kkt-machine's `Env` and `Platform`, and `process_id` names this process.",
+   "crate_doc": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID.",
    "dev_only": false,
    "features": {},
    "holders": [],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-machine-os",
+     "trait": "Machine",
+     "trait_crate": "kkt-machine",
+     "type": "OsMachine"
+    }
+   ],
    "items": [
     {
-     "doc": "The environment as this process sees it: `$HOME` and the folders the environment names.",
-     "kind": "fn",
-     "path": "env"
-    },
-    {
-     "doc": "The platform this program was built for.",
-     "kind": "fn",
-     "path": "platform"
-    },
-    {
-     "doc": "This process's ID, as the operating system numbers it.",
-     "kind": "fn",
-     "path": "process_id"
+     "doc": "This process on this machine.",
+     "kind": "struct",
+     "path": "OsMachine"
     }
    ],
    "lib": "kkt_machine_os",
@@ -14649,12 +14696,35 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
-   "crate_doc": "A signal that the server is stopping.",
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kkt-shutdown",
+       "type": "testing::OnCue"
+      },
+      {
+       "crate": "kkt-shutdown-os",
+       "type": "StopSignals"
+      }
+     ],
+     "trait": "Signals"
+    }
+   ],
+   "crate_doc": "A signal that the server is stopping (`Shutdown`), and the contract for a source of stop signals (`Signals`), which stops it when one comes.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "testing": []
+   },
    "holders": [],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-shutdown",
+     "trait": "Signals",
+     "trait_crate": "kkt-shutdown",
+     "type": "testing::OnCue"
+    }
+   ],
    "items": [
     {
      "doc": "Clones share one signal: stopping any clone stops them all.",
@@ -14667,6 +14737,39 @@ window.KKT_GRAPH = {
       "stopped"
      ],
      "path": "Shutdown"
+    },
+    {
+     "doc": "A stop signal that came.",
+     "kind": "enum",
+     "path": "Signal",
+     "variants": [
+      "Interrupt",
+      "Terminate"
+     ]
+    },
+    {
+     "doc": "A source of stop signals, already listening when it is made, so a failure to listen is reported before the server starts.",
+     "kind": "trait",
+     "methods": [
+      "stop_on_signal"
+     ],
+     "path": "Signals"
+    },
+    {
+     "doc": "A stand-in `Signals`: a signal that comes when the test says.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "Stop signals that come on cue: once `cue` is stopped, `signal` comes.",
+     "feature": "testing",
+     "fields": [
+      "cue",
+      "signal"
+     ],
+     "kind": "struct",
+     "path": "testing::OnCue"
     }
    ],
    "lib": "kkt_shutdown",
@@ -14688,14 +14791,20 @@ window.KKT_GRAPH = {
    "dev_only": false,
    "features": {},
    "holders": [],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-shutdown-os",
+     "trait": "Signals",
+     "trait_crate": "kkt-shutdown",
+     "type": "StopSignals"
+    }
+   ],
    "items": [
     {
      "doc": "OS stop signals, installed before the server announces it is ready.",
      "kind": "struct",
      "methods": [
-      "listen",
-      "stop_on_signal"
+      "listen"
      ],
      "path": "StopSignals"
     }
@@ -17410,6 +17519,7 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Env",
+    "Machine",
     "Platform"
    ],
    "kind": "normal",
@@ -17419,6 +17529,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Env",
+      "Machine",
       "Platform"
      ],
      "role": "uses"
@@ -17432,21 +17543,17 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "env",
-    "platform",
-    "process_id"
+    "OsMachine"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
     {
      "detail": [
-      "env",
-      "platform",
-      "process_id"
+      "OsMachine"
      ],
-     "role": "uses"
+     "role": "wires"
     }
    ],
    "target": null,
@@ -18000,7 +18107,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Shutdown"
+    "Shutdown",
+    "Signals"
    ],
    "kind": "normal",
    "optional": false,
@@ -18008,7 +18116,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown"
+      "Shutdown",
+      "Signals"
      ],
      "role": "uses"
     }
@@ -18025,13 +18134,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
     {
      "detail": [
       "StopSignals"
      ],
-     "role": "uses"
+     "role": "wires"
     }
    ],
    "target": null,
@@ -20899,7 +21008,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-fake-product",
    "items": [
-    "Shutdown"
+    "Shutdown",
+    "Signals"
    ],
    "kind": "normal",
    "optional": false,
@@ -20907,7 +21017,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown"
+      "Shutdown",
+      "Signals"
      ],
      "role": "uses"
     }
@@ -20924,13 +21035,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
     {
      "detail": [
       "StopSignals"
      ],
-     "role": "uses"
+     "role": "wires"
     }
    ],
    "target": null,
@@ -21920,7 +22031,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
-    "Shutdown"
+    "Shutdown",
+    "Signals"
    ],
    "kind": "normal",
    "optional": false,
@@ -21928,7 +22040,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown"
+      "Shutdown",
+      "Signals"
      ],
      "role": "uses"
     }
@@ -21945,13 +22058,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
     {
      "detail": [
       "StopSignals"
      ],
-     "role": "uses"
+     "role": "wires"
     }
    ],
    "target": null,
@@ -22135,12 +22248,19 @@ window.KKT_GRAPH = {
    "from": "kkt-machine-os",
    "items": [
     "Env",
+    "Machine",
     "Platform"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "implements",
    "roles": [
+    {
+     "detail": [
+      "OsMachine implements Machine"
+     ],
+     "role": "implements"
+    },
     {
      "detail": [
       "Env",
@@ -25511,15 +25631,24 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-shutdown-os",
    "items": [
-    "Shutdown"
+    "Shutdown",
+    "Signal",
+    "Signals"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "implements",
    "roles": [
     {
      "detail": [
-      "Shutdown"
+      "StopSignals implements Signals"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "Shutdown",
+      "Signal"
      ],
      "role": "uses"
     }
@@ -26285,7 +26414,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-webapp-preview",
    "items": [
-    "Shutdown"
+    "Shutdown",
+    "Signals"
    ],
    "kind": "normal",
    "optional": false,
@@ -26293,7 +26423,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Shutdown"
+      "Shutdown",
+      "Signals"
      ],
      "role": "uses"
     }
@@ -26310,13 +26441,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
     {
      "detail": [
       "StopSignals"
      ],
-     "role": "uses"
+     "role": "wires"
     }
    ],
    "target": null,
@@ -26380,12 +26511,18 @@ window.KKT_GRAPH = {
   "kkt-log": [
    "kkt-log-tracing"
   ],
+  "kkt-machine": [
+   "kkt-machine-os"
+  ],
   "kkt-remote-access": [
    "kkt-remote-access-tailscale"
   ],
   "kkt-service": [
    "kkt-service-launchd",
    "kkt-service-systemd"
+  ],
+  "kkt-shutdown": [
+   "kkt-shutdown-os"
   ]
  },
  "kind_mismatches": [],
@@ -26629,13 +26766,13 @@ window.KKT_CONCERNS = {
    "must_not": "Open, roll over or prune log files."
   },
   "kkt-machine": {
-   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values. The crates that place files on the machine take these facts; none reads them.",
+   "concern": "Facts about the machine: `Env` (the home folder, the folders the environment names, and the base of per-user config they give) and `Platform`, as plain values, and `Machine`, the contract for reading them and this process's ID, with its stand-in `testing::FixedMachine`. The crates that place files on the machine take these facts; none reads them.",
    "kind": "contract",
    "layer": "foundations",
    "must_not": "Read the environment, or hold any of kkt's paths."
   },
   "kkt-machine-os": {
-   "concern": "The machine's facts as this process sees them: `env` reads the environment and `platform` gives the platform this program was built for, as kkt-machine's values, and `process_id` names this process. The program asks once and passes them on.",
+   "concern": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID. The program asks once and passes the values on.",
    "kind": "effect",
    "layer": "foundations"
   },
@@ -26748,13 +26885,13 @@ window.KKT_CONCERNS = {
    "must_not": "Decide what setup does or where its files belong."
   },
   "kkt-shutdown": {
-   "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value.",
-   "kind": "logic",
+   "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value; and `Signals`, the contract for a source of stop signals, which stops a `Shutdown` and says which `Signal` came, with its stand-in `testing::OnCue`.",
+   "kind": "contract",
    "layer": "foundations",
    "must_not": "Let a tokio-util type out of the crate."
   },
   "kkt-shutdown-os": {
-   "concern": "The operating system's stop signals (Ctrl-C, SIGTERM), stopping the shared `Shutdown` (`StopSignals`).",
+   "concern": "The operating system's stop signals (Ctrl-C, SIGTERM): `StopSignals` implements kkt-shutdown's `Signals`, listening when it is made and stopping the shared `Shutdown` when one comes.",
    "kind": "effect",
    "layer": "foundations",
    "must_not": "Let a tokio signal type out of the crate."
@@ -27267,8 +27404,8 @@ window.KKT_ASSEMBLY = {
    "steps": [
     {
      "items": [
-      "kkt-machine-os::env",
-      "kkt-machine-os::platform",
+      "kkt-machine::Machine",
+      "kkt-machine-os::OsMachine",
       "kkt-config-file::config_file",
       "kkt-config-file::files::read_named",
       "kkt-config-file::files::read_default",
@@ -27283,7 +27420,7 @@ window.KKT_ASSEMBLY = {
       "kkt-admission::server_keys::check",
       "kkt-admission::server_keys::ServerKeys"
      ],
-     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read by kkt-config-file's files over kkt-files, which the program adapts to its Disk, and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os' OsMachine reads through kkt-machine's Machine; read by kkt-config-file's files over kkt-files, which the program adapts to its Disk, and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "title": "Settings"
     },
     {
@@ -27340,7 +27477,8 @@ window.KKT_ASSEMBLY = {
       "kkt-shutdown::Shutdown",
       "kkt-listen::listen",
       "kkt-listen::Listening",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown-os::StopSignals",
+      "kkt-shutdown::Signals"
      ],
      "text": "build assembles the server from the parts and config; listen binds the router the program takes out of it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
      "title": "Build and run"
@@ -28063,7 +28201,8 @@ window.KKT_ASSEMBLY = {
       "kkt-server::build",
       "kkt-listen::listen",
       "kkt-listen::Listening",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown-os::StopSignals",
+      "kkt-shutdown::Signals"
      ],
      "text": "build, listen on its router, and serve_until a stop signal.",
      "title": "Build and run"
@@ -28206,7 +28345,8 @@ window.KKT_ASSEMBLY = {
      "items": [
       "kkt-server::page",
       "kkt-listen::listen",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown-os::StopSignals",
+      "kkt-shutdown::Signals"
      ],
      "text": "kkt-server's page builds the page alone, and kkt-listen serves its router until a stop signal.",
      "title": "Serve"

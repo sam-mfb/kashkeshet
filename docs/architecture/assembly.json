@@ -6,10 +6,10 @@
    "steps": [
     {
      "title": "Settings",
-     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read by kkt-config-file's files over kkt-files, which the program adapts to its Disk, and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os' OsMachine reads through kkt-machine's Machine; read by kkt-config-file's files over kkt-files, which the program adapts to its Disk, and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "items": [
-      "kkt-machine-os::env",
-      "kkt-machine-os::platform",
+      "kkt-machine::Machine",
+      "kkt-machine-os::OsMachine",
       "kkt-config-file::config_file",
       "kkt-config-file::files::read_named",
       "kkt-config-file::files::read_default",
@@ -81,7 +81,8 @@
       "kkt-shutdown::Shutdown",
       "kkt-listen::listen",
       "kkt-listen::Listening",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown-os::StopSignals",
+      "kkt-shutdown::Signals"
      ]
     }
    ],
@@ -718,7 +719,8 @@
       "kkt-server::build",
       "kkt-listen::listen",
       "kkt-listen::Listening",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown-os::StopSignals",
+      "kkt-shutdown::Signals"
      ]
     }
    ],
@@ -1001,7 +1003,8 @@
      "items": [
       "kkt-server::page",
       "kkt-listen::listen",
-      "kkt-shutdown-os::StopSignals"
+      "kkt-shutdown-os::StopSignals",
+      "kkt-shutdown::Signals"
      ]
     }
    ],

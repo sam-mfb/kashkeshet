@@ -35,6 +35,7 @@ use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
 use kkt_shutdown::Shutdown;
+use kkt_shutdown::Signals;
 use kkt_shutdown_os::StopSignals;
 use kkt_terminal::Terminal;
 use std::net::SocketAddr;

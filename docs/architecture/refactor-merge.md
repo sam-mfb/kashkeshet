@@ -148,8 +148,8 @@ on for a while, #501 turned them off again, and #541 turned them on for
 good, after phases 10 to 14 had landed without them. If a macOS run fails,
 look first at the code the refactor touched that decides by platform:
 
-- `crates/kkt-machine-os/src/lib.rs`: `platform()` (`OsMachine::platform`
-  until 13.8) says whether
+- `crates/kkt-machine-os/src/lib.rs`: `OsMachine::platform` (a free
+  `platform()` from 13.8 until phase 16's third follow-up) says whether
   this build is macOS or follows XDG. It replaces `Platform::CURRENT` in
   kkt-settings' `paths.rs`, which is gone. Every path built from `Platform`
   (the config folder, the data folder, the default database) rests on it.

@@ -10,6 +10,7 @@ use kkt_db_sqlite::{CreateError, Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_fake_product::{Bearers, Product, Settings};
 use kkt_rules::Db;
+use kkt_shutdown::Signals;
 use kkt_shutdown_os::StopSignals;
 use kkt_terminal::Terminal;
 use std::path::PathBuf;
