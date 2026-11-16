@@ -197,3 +197,25 @@ fn the_stand_in_like_the_disk_writes_only_in_a_folder_that_was_made() {
     files.write_key(path, "key", false).expect("written");
     assert!(files.exists(Path::new("/k")));
 }
+
+#[test]
+fn a_refused_move_leaves_the_staged_key_in_place() {
+    let staged = Path::new("/k/client-key.partial");
+    let files = Memory::new().with_file(staged, "key\n");
+    let refused = files
+        .keep_staged(staged, Path::new("/other/client-key"))
+        .expect_err("no folder");
+    assert!(
+        refused.starts_with("could not move the key to /other/client-key"),
+        "{refused}"
+    );
+    assert_eq!(files.file(staged).expect("still staged").text, "key\n");
+    files
+        .keep_staged(staged, Path::new("/k/client-key"))
+        .expect("moved");
+    assert!(files.file(staged).is_none());
+    assert_eq!(
+        files.file(Path::new("/k/client-key")).expect("kept").text,
+        "key\n"
+    );
+}

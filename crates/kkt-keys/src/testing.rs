@@ -143,15 +143,19 @@ impl KeyFiles for Memory {
     }
 
     fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String> {
-        let moved = self.check(staged).and_then(|()| {
-            self.files
-                .borrow_mut()
-                .remove(staged)
-                .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such file"))
-        });
-        let file = moved
-            .and_then(|file| self.in_made_folder(path).map(|()| file))
-            .map_err(|e| format!("could not move the key to {}: {e}", path.display()))?;
+        // Checked before the staged file is taken, so a refused move leaves
+        // it where it was, as a failed rename does.
+        let moved = self
+            .check(staged)
+            .and_then(|()| self.in_made_folder(path))
+            .and_then(|()| {
+                self.files
+                    .borrow_mut()
+                    .remove(staged)
+                    .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such file"))
+            });
+        let file =
+            moved.map_err(|e| format!("could not move the key to {}: {e}", path.display()))?;
         self.files.borrow_mut().insert(path.to_owned(), file);
         Ok(())
     }
