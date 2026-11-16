@@ -23,8 +23,8 @@ use kkt_operate::lanes::LanesAction;
 use kkt_operate::service::{ServiceAction, ServiceInstall};
 use kkt_operate::setup::InstallOptions;
 use kkt_setup as setup;
-use kkt_terminal_os::Terminal;
-use kkt_terminal_os::end_on_closed_output;
+use kkt_terminal::Terminal;
+use kkt_terminal::end_on_closed_output;
 use std::path::PathBuf;
 
 #[tokio::main]

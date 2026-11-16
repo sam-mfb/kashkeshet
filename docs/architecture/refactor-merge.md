@@ -90,7 +90,9 @@ added kkt-toml and the eight crates phase 16 split out, for 71. After
 phase 16, kkt-logs went: its log levels joined kkt-log-tracing, and its
 file rules joined kkt-logs-os, renamed kkt-rolling-file, for 70. Phase 16's second follow-up made one
 general file crate, kkt-files, of three, and moved kkt-service-os' one
-function into kkt-listen, for 67.
+function into kkt-listen, for 67. Then
+kkt-server-keys became a contract crate, which kkt-server-keys-os
+implements, and the two were renamed kkt-keys and kkt-keys-os.
 
 ## Final scorecard
 

@@ -894,7 +894,7 @@ struct ServeFlags {
     allow_any_bind: bool,
     #[arg(long, help = format!(
         "Largest response, in bytes, before it is cut short [default: {}]",
-        kkt_mcp_formatter::Settings::DEFAULT.max_response_bytes
+        kkt_result_format::Settings::DEFAULT.max_response_bytes
     ))]
     max_response_bytes: Option<usize>,
     #[arg(long, help = format!(

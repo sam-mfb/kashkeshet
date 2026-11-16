@@ -72,9 +72,15 @@ Message numbers are given only where they help to find a discussion in
   about this process, not file access, so it went to kkt-machine-os.
   kkt-service-os held one eight-line function, `try_bind`, which went to
   kkt-listen, beside the binding it tries.
-- **A crate named `x-something` implements `x`'s contract** (approved by
-  Sam on 2026-11-16, msg 3507). kkt-machine-os and kkt-shutdown-os
-  implemented nothing. Now kkt-machine declares `Machine` (the environment,
+- **A crate named `x-something` implements `x`'s contract** (Sam,
+  2026-11-16, msg 3516). Nothing else is named that way. kkt-mcp-formatter
+  became kkt-result-format, kkt-web-preview became kkt-webapp-preview,
+  kkt-terminal-os became kkt-terminal and kkt-agent-files-os became
+  kkt-agent-files: none implements a contract of the crate its old name
+  began with.
+- **kkt-machine and kkt-shutdown declare contracts** (approved by Sam on
+  2026-11-16, msg 3507), by the same rule: kkt-machine-os and
+  kkt-shutdown-os implemented nothing. Now kkt-machine declares `Machine` (the environment,
   the platform and this process's ID), which kkt-machine-os' `OsMachine`
   implements. kkt-shutdown, now a contract crate, keeps `Shutdown` as it
   was, for readability, and declares `Signals`, which kkt-shutdown-os'
@@ -469,6 +475,16 @@ code at f66b0ab:
 - arrows: 248 of 248 proposed arrows exist; none missing; none extra;
 - wiring: 102 of 102 proposed wirings exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
+
+- **kkt-keys is a contract crate** (Sam, 2026-11-16, msgs 3506 to 3516).
+  A crate named `x-something` implements `x`'s contract. kkt-server-keys
+  declares `KeyFiles`, reading and writing private key files (the
+  server's, and the client key copies setup writes), and kkt-server-keys-os
+  implements it; then both are renamed, kkt-keys and kkt-keys-os, since
+  they are not kkt-server's. Fixed values (the files' names, places and
+  mode) are not "configured values" under ARCHITECTURE.md 3.8.3 and stay
+  in the contract. Callers draw new keys themselves from the contract's
+  alphabet and length.
 
 ## Other decisions
 

@@ -12,7 +12,7 @@ use kkt_fake_product::{Bearers, Product, Settings};
 use kkt_rules::Db;
 use kkt_shutdown::Signals;
 use kkt_shutdown_os::StopSignals;
-use kkt_terminal_os::Terminal;
+use kkt_terminal::Terminal;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;

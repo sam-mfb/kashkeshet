@@ -25,7 +25,7 @@ use kkt_setup as setup;
 use kkt_shutdown::Shutdown;
 use kkt_shutdown::Signals;
 use kkt_shutdown_os::StopSignals;
-use kkt_terminal_os::Terminal;
+use kkt_terminal::Terminal;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 

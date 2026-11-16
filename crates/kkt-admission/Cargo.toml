@@ -10,7 +10,7 @@ publish = false
 [dependencies]
 kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
-kkt-server-keys = { path = "../kkt-server-keys" }
+kkt-keys = { path = "../kkt-keys" }
 thiserror.workspace = true
 
 [dev-dependencies]

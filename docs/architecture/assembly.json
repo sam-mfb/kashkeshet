@@ -89,7 +89,7 @@
    "also": [
     {
      "title": "The agents' commands",
-     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files-os' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
      "items": [
       "kashkeshet::machine::agent_parts::agent_parts",
       "kkt-agent-commands::AgentParts",
@@ -102,7 +102,7 @@
       "kkt-agent-commands::watch::run",
       "kkt-agent-commands::connect::run",
       "kkt-clock-system::SystemClock",
-      "kkt-terminal-os::Terminal"
+      "kkt-terminal::Terminal"
      ]
     },
     {
@@ -114,7 +114,7 @@
       "kkt-operate::ServeFacts",
       "kkt-operate::ServiceDefaults",
       "kkt-operate::SetupFiles",
-      "kkt-operate::KeyFiles",
+      "kkt-keys::KeyFiles",
       "kkt-operate::Databases",
       "kkt-operate::Output",
       "kkt-setup::connection::ConnectionSource",
@@ -141,7 +141,7 @@
    ],
    "wiring": [
     {
-     "own": "ServerKeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "own": "ServerKeyFiles, adapting kkt-keys-os::OsKeyFiles",
      "crate": "kkt-admission",
      "to": [
       {
@@ -150,19 +150,8 @@
       }
      ],
      "note": "kkt serve",
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
-    },
-    {
-     "impl": "kkt-entropy-os::OsEntropy",
-     "crate": "kkt-server-keys",
-     "to": [
-      {
-       "at": "generate",
-       "param": "entropy"
-      }
-     ],
-     "note": "kkt key create, and kkt serve's first key"
+     "supplier": "kkt-keys-os",
+     "supplier_item": "OsKeyFiles"
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
@@ -261,7 +250,7 @@
      "impl": "kkt-agent-client-mcp::Mcp"
     },
     {
-     "own": "CredentialFiles, applying kkt-setup's credential-file rule to kkt-agent-files-os' credential and state files",
+     "own": "CredentialFiles, applying kkt-setup's credential-file rule to kkt-agent-files' credential and state files",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -270,11 +259,11 @@
       }
      ],
      "note": "kkt register, reclaim and watch",
-     "supplier": "kkt-agent-files-os",
+     "supplier": "kkt-agent-files",
      "supplier_item": "CredentialFile"
     },
     {
-     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "own": "KeyFiles, adapting kkt-keys-os::OsKeyFiles",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -283,8 +272,8 @@
       }
      ],
      "note": "kkt register, reclaim and watch",
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
+     "supplier": "kkt-keys-os",
+     "supplier_item": "OsKeyFiles"
     },
     {
      "own": "ClientHost, adapting kkt-files' Files and kkt-machine-os' process_id",
@@ -313,7 +302,7 @@
      "supplier_item": "kkt_path"
     },
     {
-     "own": "WatchOutput, adapting kkt-terminal-os::Terminal",
+     "own": "WatchOutput, adapting kkt-terminal::Terminal",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -322,11 +311,11 @@
       }
      ],
      "note": "kkt watch",
-     "supplier": "kkt-terminal-os",
+     "supplier": "kkt-terminal",
      "supplier_item": "Terminal"
     },
     {
-     "own": "TerminalOutput, adapting kkt-terminal-os::Terminal",
+     "own": "TerminalOutput, adapting kkt-terminal::Terminal",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -335,7 +324,7 @@
       }
      ],
      "note": "kkt register, reclaim and connect",
-     "supplier": "kkt-terminal-os",
+     "supplier": "kkt-terminal",
      "supplier_item": "Terminal"
     },
     {
@@ -512,16 +501,24 @@
      "supplier": "kkt-setup-os"
     },
     {
-     "own": "NativeKeyFiles, forwarding key files to kkt-server-keys-os and generation to kkt-entropy-os",
+     "impl": "kkt-keys-os::OsKeyFiles",
      "crate": "kkt-operate",
      "to": [
       {
        "at": "OperateParts",
        "param": "key_files"
       }
-     ],
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "entropy"
+      }
+     ]
     },
     {
      "own": "NativeDatabases, opening this program's database",
@@ -548,7 +545,7 @@
      "supplier_item": "write"
     },
     {
-     "own": "NativeOutput, adapting kkt-terminal-os",
+     "own": "NativeOutput, adapting kkt-terminal",
      "crate": "kkt-operate",
      "to": [
       {
@@ -556,7 +553,7 @@
        "param": "output"
       }
      ],
-     "supplier": "kkt-terminal-os",
+     "supplier": "kkt-terminal",
      "supplier_item": "Terminal"
     },
     {
@@ -590,7 +587,7 @@
        "param": "login_link"
       }
      ],
-     "supplier": "kkt-terminal-os",
+     "supplier": "kkt-terminal",
      "supplier_item": "BrowserLink"
     },
     {
@@ -602,7 +599,7 @@
        "param": "lines"
       }
      ],
-     "supplier": "kkt-terminal-os",
+     "supplier": "kkt-terminal",
      "supplier_item": "Terminal"
     },
     {
@@ -670,7 +667,7 @@
       "kkt-files::Files",
       "kkt-config-file::parse_file",
       "kkt-rules::Settings",
-      "kkt-mcp-formatter::Settings",
+      "kkt-result-format::Settings",
       "kkt-web::Settings",
       "kkt-backup::Settings",
       "kkt-admission::server_keys::check"
@@ -729,7 +726,7 @@
    ],
    "wiring": [
     {
-     "own": "KeyFiles, adapting kkt-server-keys-os::KeyFiles",
+     "own": "KeyFiles, adapting kkt-keys-os::OsKeyFiles",
      "crate": "kkt-admission",
      "to": [
       {
@@ -737,8 +734,8 @@
        "param": "texts"
       }
      ],
-     "supplier": "kkt-server-keys-os",
-     "supplier_item": "KeyFiles"
+     "supplier": "kkt-keys-os",
+     "supplier_item": "OsKeyFiles"
     },
     {
      "impl": "kkt-db-sqlite::SqlitePlace",
@@ -965,7 +962,7 @@
     }
    ]
   },
-  "kkt-web-preview": {
+  "kkt-webapp-preview": {
    "title": "the web preview",
    "inferred": false,
    "steps": [
@@ -982,10 +979,10 @@
     },
     {
      "title": "Gate",
-     "text": "PreviewGate, with the access key read through kkt-server-keys-os, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+     "text": "PreviewGate, with the access key read through kkt-keys-os' OsKeyFiles, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
      "items": [
       "kkt-api-sim::PreviewGate",
-      "kkt-server-keys-os::KeyFiles",
+      "kkt-keys-os::OsKeyFiles",
       "kkt-web::Sessions",
       "kkt-clock-system::SystemClock",
       "kkt-entropy-os::OsEntropy"
@@ -1128,7 +1125,7 @@
      "passes_on": "the AdminApi the program gave Parts"
     },
     {
-     "impl": "kkt-mcp-formatter::Formatter",
+     "impl": "kkt-result-format::Formatter",
      "crate": "kkt-mcp",
      "to": [
       {
