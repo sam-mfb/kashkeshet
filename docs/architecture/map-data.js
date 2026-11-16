@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "d805006",
+ "commit": "189b0310",
  "crates": [
   {
    "bins": [
@@ -105,6 +105,12 @@ window.KKT_GRAPH = {
      "trait": "Host",
      "trait_crate": "kkt-client-config",
      "type": "machine::client_config::ClientHost"
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "files::Disk",
+     "trait_crate": "kkt-config-file",
+     "type": null
     },
     {
      "crate": "kashkeshet",
@@ -258,7 +264,7 @@ window.KKT_GRAPH = {
      "path": "machine::agent_parts::agent_parts"
     },
     {
-     "doc": "Adapts the machine's client-config operations to the logic's host, and Claude Code's command to the logic's `ClientCommand`.",
+     "doc": "Adapts the machine's files and this process's ID to the logic's host, and Claude Code's command to the logic's `ClientCommand`.",
      "kind": "mod",
      "path": "machine::client_config"
     },
@@ -3909,61 +3915,6 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
-   "crate_doc": "The machine's client-config files, as plain OsHost methods adapted by the program to the client-config logic.",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "The real machine.",
-     "kind": "struct",
-     "methods": [
-      "absolute",
-      "canonicalize",
-      "create_dir_all",
-      "create_private",
-      "exists",
-      "process_id",
-      "read",
-      "remove_file",
-      "rename",
-      "restrict"
-     ],
-     "path": "OsHost"
-    }
-   ],
-   "lib": "kkt_client_config_os",
-   "machine_work": {
-    "src/lib.rs": [
-     "fs",
-     "fs::OpenOptions",
-     "fs::OpenOptions::new",
-     "fs::Permissions::from_mode",
-     "fs::create_dir_all",
-     "fs::read_to_string",
-     "fs::remove_file",
-     "fs::rename",
-     "fs::set_permissions",
-     "os::unix::fs::OpenOptionsExt",
-     "os::unix::fs::PermissionsExt",
-     "path::absolute",
-     "process::id",
-     "Path::canonicalize",
-     "Path::exists"
-    ]
-   },
-   "name": "kkt-client-config-os",
-   "path": "crates/kkt-client-config-os",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
    "contracts": [
     {
      "implementors": [
@@ -4137,7 +4088,21 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      },
+      {
+       "crate": "kkt-keymode",
+       "type": null
+      }
+     ],
+     "trait": "files::Disk"
+    }
+   ],
    "crate_doc": "The config file's format: TOML with one key per server setting, named as the flag is with `_` for `-`.",
    "dev_only": false,
    "features": {},
@@ -4202,6 +4167,65 @@ window.KKT_GRAPH = {
      "path": "config_file"
     },
     {
+     "doc": "Reading and writing the config file and the instructions file whole, over the `Disk` the program gives: what a missing file means for each, and the wording of what went wrong.",
+     "kind": "mod",
+     "path": "files"
+    },
+    {
+     "doc": "The files this crate reads and writes, as the program gives them.",
+     "kind": "trait",
+     "methods": [
+      "create_dir_all",
+      "exists",
+      "read",
+      "write"
+     ],
+     "path": "files::Disk"
+    },
+    {
+     "doc": "A file that could not be read: its path and why.",
+     "fields": [
+      "path",
+      "cause"
+     ],
+     "kind": "struct",
+     "path": "files::ReadError"
+    },
+    {
+     "doc": "A file that could not be written: the step that failed, its path and why.",
+     "kind": "enum",
+     "path": "files::WriteError",
+     "variants": [
+      "Folder",
+      "File"
+     ]
+    },
+    {
+     "doc": "The config file's text at `path`; `None` if there is no file there.",
+     "kind": "fn",
+     "path": "files::read"
+    },
+    {
+     "doc": "The default config file's text, if one can be seen at `path`: `None` when `Disk::exists` says there is none, which includes a file in a folder that cannot be searched.",
+     "kind": "fn",
+     "path": "files::read_default"
+    },
+    {
+     "doc": "The instructions file's text at `path`, which must be there.",
+     "kind": "fn",
+     "path": "files::read_instructions"
+    },
+    {
+     "doc": "The config file's text at `path`, which must be there: a file someone named, for whom a missing file is an error like any other.",
+     "kind": "fn",
+     "path": "files::read_named"
+    },
+    {
+     "doc": "Writes `text` as the config file at `path`, whole, making the folder it goes in first if there is none.",
+     "kind": "fn",
+     "path": "files::write"
+    },
+    {
      "doc": "The settings in a config file's `text`.",
      "kind": "fn",
      "path": "parse_file"
@@ -4217,81 +4241,67 @@ window.KKT_GRAPH = {
    "name": "kkt-config-file",
    "path": "crates/kkt-config-file",
    "released_program": false,
-   "slots": [],
+   "slots": [
+    {
+     "at": "files::read",
+     "kind": "param",
+     "name": "disk",
+     "traits": [
+      {
+       "crate": "kkt-config-file",
+       "trait": "files::Disk"
+      }
+     ]
+    },
+    {
+     "at": "files::read_default",
+     "kind": "param",
+     "name": "disk",
+     "traits": [
+      {
+       "crate": "kkt-config-file",
+       "trait": "files::Disk"
+      }
+     ]
+    },
+    {
+     "at": "files::read_instructions",
+     "kind": "param",
+     "name": "disk",
+     "traits": [
+      {
+       "crate": "kkt-config-file",
+       "trait": "files::Disk"
+      }
+     ]
+    },
+    {
+     "at": "files::read_named",
+     "kind": "param",
+     "name": "disk",
+     "traits": [
+      {
+       "crate": "kkt-config-file",
+       "trait": "files::Disk"
+      }
+     ]
+    },
+    {
+     "at": "files::write",
+     "kind": "param",
+     "name": "disk",
+     "traits": [
+      {
+       "crate": "kkt-config-file",
+       "trait": "files::Disk"
+      }
+     ]
+    }
+   ],
    "testing_third_party": [],
    "third_party": [
     "thiserror"
    ]
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "The config file and the instructions file on disk: reading and writing them whole.",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "A file that could not be read: its path and why.",
-     "fields": [
-      "path",
-      "cause"
-     ],
-     "kind": "struct",
-     "path": "ReadError"
-    },
-    {
-     "doc": "A file that could not be written: the step that failed, its path and why.",
-     "kind": "enum",
-     "path": "WriteError",
-     "variants": [
-      "Folder",
-      "File"
-     ]
-    },
-    {
-     "doc": "The config file's text at `path`; `None` if there is no file there.",
-     "kind": "fn",
-     "path": "read"
-    },
-    {
-     "doc": "The default config file's text, if one can be seen at `path`: `None` when `Path::exists` says there is none, which includes a file in a folder that cannot be searched.",
-     "kind": "fn",
-     "path": "read_default"
-    },
-    {
-     "doc": "The instructions file's text at `path`, which must be there.",
-     "kind": "fn",
-     "path": "read_instructions"
-    },
-    {
-     "doc": "The config file's text at `path`, which must be there: a file someone named, for whom a missing file is an error like any other.",
-     "kind": "fn",
-     "path": "read_named"
-    },
-    {
-     "doc": "Writes `text` as the config file at `path`, whole, making the folder it goes in first if there is none.",
-     "kind": "fn",
-     "path": "write"
-    }
-   ],
-   "lib": "kkt_config_file_os",
-   "machine_work": {
-    "src/lib.rs": [
-     "fs::create_dir_all",
-     "fs::read_to_string",
-     "fs::write",
-     "Path::exists"
-    ]
-   },
-   "name": "kkt-config-file-os",
-   "path": "crates/kkt-config-file-os",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
   },
   {
    "bins": [],
@@ -6319,6 +6329,64 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
+   "crate_doc": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a file only its owner can read and restricting one to its owner, ...",
+   "dev_only": false,
+   "features": {},
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "The machine's files.",
+     "kind": "struct",
+     "methods": [
+      "absolute",
+      "canonicalize",
+      "create_dir_all",
+      "create_private",
+      "exists",
+      "file_names",
+      "read",
+      "remove_file",
+      "rename",
+      "restrict",
+      "write"
+     ],
+     "path": "Files"
+    }
+   ],
+   "lib": "kkt_files",
+   "machine_work": {
+    "src/lib.rs": [
+     "fs",
+     "fs::OpenOptions",
+     "fs::OpenOptions::new",
+     "fs::Permissions::from_mode",
+     "fs::create_dir_all",
+     "fs::read_dir",
+     "fs::read_to_string",
+     "fs::remove_file",
+     "fs::rename",
+     "fs::set_permissions",
+     "fs::write",
+     "os::unix::fs::OpenOptionsExt",
+     "os::unix::fs::PermissionsExt",
+     "path::absolute",
+     "Path::canonicalize",
+     "Path::exists",
+     "Path::is_file"
+    ]
+   },
+   "name": "kkt-files",
+   "path": "crates/kkt-files",
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": []
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
    "crate_doc": "Hashing: `sha256`, the SHA-256 digest of some bytes.",
    "dev_only": false,
    "features": {},
@@ -6545,6 +6613,12 @@ window.KKT_GRAPH = {
      "crate": "kkt-keymode",
      "trait": "server_keys::KeyTexts",
      "trait_crate": "kkt-admission",
+     "type": null
+    },
+    {
+     "crate": "kkt-keymode",
+     "trait": "files::Disk",
+     "trait_crate": "kkt-config-file",
      "type": null
     }
    ],
@@ -6791,47 +6865,6 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's files for lane folders, as plain `OsDisk` methods.",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "The machine's files.",
-     "kind": "struct",
-     "methods": [
-      "absolute",
-      "create_dir_all",
-      "file_names",
-      "read",
-      "write"
-     ],
-     "path": "OsDisk"
-    }
-   ],
-   "lib": "kkt_lane_files_os",
-   "machine_work": {
-    "src/lib.rs": [
-     "fs::create_dir_all",
-     "fs::read_dir",
-     "fs::read_to_string",
-     "fs::write",
-     "path::absolute",
-     "Path::is_file"
-    ]
-   },
-   "name": "kkt-lane-files-os",
-   "path": "crates/kkt-lane-files-os",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
    "crate_doc": "Serving HTTP: binding an address, then answering on it with the router it is handed until told to stop.",
    "dev_only": false,
    "features": {},
@@ -6851,11 +6884,17 @@ window.KKT_GRAPH = {
      "doc": "Binds `router` to `address`.",
      "kind": "fn",
      "path": "listen"
+    },
+    {
+     "doc": "Listens on `address` and lets it go at once: whether a server could listen there now.",
+     "kind": "fn",
+     "path": "try_bind"
     }
    ],
    "lib": "kkt_listen",
    "machine_work": {
     "src/lib.rs": [
+     "net::TcpListener::bind",
      "tokio::net::TcpListener",
      "tokio::net::TcpListener::bind"
     ]
@@ -7135,7 +7174,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's facts as this process sees them: `env` reads the environment, and `platform` gives the platform this program was built for, as kkt-machine's `Env` and `Platform`.",
+   "crate_doc": "The machine's facts as this process sees them: `env` reads the environment, `platform` gives the platform this program was built for, as kkt-machine's `Env` and `Platform`, and `process_id` names this process.",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -7150,12 +7189,18 @@ window.KKT_GRAPH = {
      "doc": "The platform this program was built for.",
      "kind": "fn",
      "path": "platform"
+    },
+    {
+     "doc": "This process's ID, as the operating system numbers it.",
+     "kind": "fn",
+     "path": "process_id"
     }
    ],
    "lib": "kkt_machine_os",
    "machine_work": {
     "src/lib.rs": [
-     "env::var_os"
+     "env::var_os",
+     "process::id"
     ]
    },
    "name": "kkt-machine-os",
@@ -13231,35 +13276,6 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Whether the service's server could listen on its address, tried on this machine: `try_bind` listens and lets the address go at once.",
-   "dev_only": false,
-   "features": {},
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "Listens on the address and lets it go at once, as the service bind check requires.",
-     "kind": "fn",
-     "path": "try_bind"
-    }
-   ],
-   "lib": "kkt_service_os",
-   "machine_work": {
-    "src/lib.rs": [
-     "net::TcpListener::bind"
-    ]
-   },
-   "name": "kkt-service-os",
-   "path": "crates/kkt-service-os",
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": []
-  },
-  {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
    "crate_doc": "kkt's service as a systemd user unit on Linux: `Systemd` implements kkt-service's `Service` with the user's systemd, writing the unit file and running `systemctl` and `journalctl`.",
    "dev_only": false,
    "features": {},
@@ -16707,27 +16723,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "OsHost"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "OsHost"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-client-config-os"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
     "Clock"
    ],
    "kind": "normal",
@@ -16776,17 +16771,38 @@ window.KKT_GRAPH = {
     "Config",
     "config_dir",
     "config_file",
+    "files",
+    "files::Disk",
+    "files::ReadError",
+    "files::read",
+    "files::read_default",
+    "files::read_instructions",
+    "files::read_named",
+    "files::write",
     "parse_file"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "implements",
    "roles": [
+    {
+     "detail": [
+      "a type of its own implements files::Disk"
+     ],
+     "role": "implements"
+    },
     {
      "detail": [
       "Config",
       "config_dir",
       "config_file",
+      "files",
+      "files::ReadError",
+      "files::read",
+      "files::read_default",
+      "files::read_instructions",
+      "files::read_named",
+      "files::write",
       "parse_file"
      ],
      "role": "uses"
@@ -16795,37 +16811,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-config-file"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "ReadError",
-    "read",
-    "read_default",
-    "read_instructions",
-    "read_named",
-    "write"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "ReadError",
-      "read",
-      "read_default",
-      "read_instructions",
-      "read_named",
-      "write"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-config-file-os"
   },
   {
    "features": [],
@@ -17031,6 +17016,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Files"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Files"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-files"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
     "DEFAULT_ALLOW_ANY_BIND",
     "DEFAULT_BIND",
     "SettingError",
@@ -17123,7 +17129,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "OsDisk"
+    "listen",
+    "try_bind"
    ],
    "kind": "normal",
    "optional": false,
@@ -17131,28 +17138,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "OsDisk"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-lane-files-os"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "listen"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "listen"
+      "listen",
+      "try_bind"
      ],
      "role": "uses"
     }
@@ -17229,7 +17216,8 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "env",
-    "platform"
+    "platform",
+    "process_id"
    ],
    "kind": "normal",
    "optional": false,
@@ -17238,7 +17226,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "env",
-      "platform"
+      "platform",
+      "process_id"
      ],
      "role": "uses"
     }
@@ -17734,27 +17723,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-service-launchd"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
-    "try_bind"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "try_bind"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-service-os"
   },
   {
    "features": [],
@@ -19650,27 +19618,6 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-config-file-os",
-   "items": [
-    "Dir"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Dir"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-scratch"
-  },
-  {
-   "features": [],
    "from": "kkt-container",
    "items": [
     "Clock"
@@ -20990,6 +20937,27 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-files",
+   "items": [
+    "Dir"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Dir"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-scratch"
+  },
+  {
+   "features": [],
    "from": "kkt-identity",
    "items": [
     "Principal"
@@ -21372,14 +21340,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
+    "files",
+    "files::Disk",
+    "files::read_instructions",
+    "files::read_named",
     "parse_file"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "implements",
    "roles": [
     {
      "detail": [
+      "a type of its own implements files::Disk"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "files",
+      "files::read_instructions",
+      "files::read_named",
       "parse_file"
      ],
      "role": "uses"
@@ -21388,29 +21369,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-config-file"
-  },
-  {
-   "features": [],
-   "from": "kkt-keymode",
-   "items": [
-    "read_instructions",
-    "read_named"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "read_instructions",
-      "read_named"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-config-file-os"
   },
   {
    "features": [],
@@ -21478,6 +21436,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-events"
+  },
+  {
+   "features": [],
+   "from": "kkt-keymode",
+   "items": [
+    "Files"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Files"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-files"
   },
   {
    "features": [],
@@ -26310,12 +26289,6 @@ window.KKT_CONCERNS = {
    "layer": "operations",
    "must_not": "Touch the machine except through `Host` and `ClientCommand`."
   },
-  "kkt-client-config-os": {
-   "concern": "The machine's client-config files: plain OsHost methods, adapted by the program.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Decide a client config's content."
-  },
   "kkt-clock": {
    "concern": "Time: the Clock contract, Time and Span values, time formatting and FixedClock behind testing. The real clock is in kkt-clock-system.",
    "kind": "contract",
@@ -26329,16 +26302,10 @@ window.KKT_CONCERNS = {
    "must_not": "Define time values or formatting."
   },
   "kkt-config-file": {
-   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), under a supplied config-home folder.",
+   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), under a supplied config-home folder; reading and writing the config and instructions files whole (`files`), over the `Disk` it declares, with what a missing file means and the wording of `ReadError` and `WriteError`.",
    "kind": "logic",
    "layer": "operations",
-   "must_not": "Read or write files, or know the settings' checks beyond each value's kind."
-  },
-  "kkt-config-file-os": {
-   "concern": "The config file's bytes, and the instructions file's: reading and writing them whole, as plain functions the program calls.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Know the files' format."
+   "must_not": "Touch files except through its `Disk`, or know the settings' checks beyond each value's kind."
   },
   "kkt-container": {
    "concern": "The container installation contract (Container, ConfigReader, LoginLink and their records) and its stand-in.",
@@ -26392,6 +26359,12 @@ window.KKT_CONCERNS = {
    "layer": "programs",
    "must_not": "Be released."
   },
+  "kkt-files": {
+   "concern": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a private file and restricting one to its owner, and absolute and canonical paths. Each program adapts it to the contract the crate that needs files declares.",
+   "kind": "effect",
+   "layer": "foundations",
+   "must_not": "Know whose files these are or what is in them, or depend on another kkt crate."
+  },
   "kkt-hash": {
    "concern": "Hashing: `sha256`, the SHA-256 digest of some bytes. The one crate that uses sha2; its users call it.",
    "kind": "logic",
@@ -26432,14 +26405,8 @@ window.KKT_CONCERNS = {
    "layer": "operations",
    "must_not": "Touch the machine except through `Disk`; know a version-control tool."
   },
-  "kkt-lane-files-os": {
-   "concern": "The machine's files for lane folders: plain OsDisk methods, adapted by the program.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Decide which lanes to import or export."
-  },
   "kkt-listen": {
-   "concern": "Serving HTTP: binding an address and answering on it with the router it is handed, until told to stop.",
+   "concern": "Serving HTTP: binding an address and answering on it with the router it is handed, until told to stop; and trying whether an address could be listened on (`try_bind`), letting it go at once.",
    "kind": "effect",
    "layer": "foundations",
    "must_not": "Know how the router it serves was built, or depend on the crates that build it."
@@ -26463,7 +26430,7 @@ window.KKT_CONCERNS = {
    "must_not": "Read the environment, or hold any of kkt's paths."
   },
   "kkt-machine-os": {
-   "concern": "The machine's facts as this process sees them: `env` reads the environment and `platform` gives the platform this program was built for, as kkt-machine's values. The program asks once and passes them on.",
+   "concern": "The machine's facts as this process sees them: `env` reads the environment and `platform` gives the platform this program was built for, as kkt-machine's values, and `process_id` names this process. The program asks once and passes them on.",
    "kind": "effect",
    "layer": "foundations"
   },
@@ -26568,12 +26535,6 @@ window.KKT_CONCERNS = {
    "kind": "effect",
    "layer": "operations",
    "must_not": "Decide what the service runs or check the server's settings."
-  },
-  "kkt-service-os": {
-   "concern": "Trying whether the service's server could listen on its address (`try_bind`), which the program passes to kkt-service's bind check.",
-   "kind": "effect",
-   "layer": "operations",
-   "must_not": "Decide what the answer means, or work a service manager."
   },
   "kkt-service-systemd": {
    "concern": "Implements Service as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system.",
@@ -26710,7 +26671,7 @@ window.KKT_CONCERNS = {
    "title": "Clients"
   },
   {
-   "about": "Time, randomness, names, the stop signal, limits, provenance, logs and serving HTTP: what everything else is built on.",
+   "about": "Time, randomness, names, the stop signal, limits, provenance, logs, files and serving HTTP: what everything else is built on.",
    "id": "foundations",
    "title": "Foundations"
   },
@@ -27105,7 +27066,7 @@ window.KKT_ASSEMBLY = {
       "kkt-operate::record::check_setup",
       "kkt-operate::BackupWriter"
      ],
-     "text": "main.rs builds the operator's parts once, a NativeOperate with the service capability (ServeArgs), and gives every operator command its OperateParts: native containers, services, client files, probes, lane disk, clock, setup and key files, database, backups and terminal. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. The native try_bind callback checks the address before installation. Setup and switch compose their steps in operate, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
+     "text": "main.rs builds the operator's parts once, a NativeOperate with the service capability (ServeArgs), and gives every operator command its OperateParts: native containers, services, client files, probes, lane disk, clock, setup and key files, database, backups and terminal. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in operate, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
      "title": "The operator's commands"
     }
    ],
@@ -27116,7 +27077,9 @@ window.KKT_ASSEMBLY = {
       "kkt-machine-os::env",
       "kkt-machine-os::platform",
       "kkt-config-file::config_file",
-      "kkt-config-file-os::read",
+      "kkt-config-file::files::read_named",
+      "kkt-config-file::files::read_default",
+      "kkt-files::Files",
       "kkt-config-file::parse_file",
       "kkt-setup::default_db",
       "kashkeshet::machine::settings::ServeOptions",
@@ -27127,7 +27090,7 @@ window.KKT_ASSEMBLY = {
       "kkt-admission::server_keys::check",
       "kkt-admission::server_keys::ServerKeys"
      ],
-     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read through kkt-config-file-os and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os reads; read by kkt-config-file's files over kkt-files, which the program adapts to its Disk, and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "title": "Settings"
     },
     {
@@ -27341,9 +27304,9 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt connect",
-     "own": "ClientHost, adapting kkt-client-config-os's OsHost",
-     "supplier": "kkt-client-config-os",
-     "supplier_item": "OsHost",
+     "own": "ClientHost, adapting kkt-files' Files and kkt-machine-os' process_id",
+     "supplier": "kkt-files",
+     "supplier_item": "Files",
      "to": [
       {
        "at": "AgentParts",
@@ -27493,8 +27456,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "ClientHost",
-     "supplier": "kkt-client-config-os",
-     "supplier_item": "OsHost",
+     "supplier": "kkt-files",
+     "supplier_item": "Files",
      "to": [
       {
        "at": "OperateParts",
@@ -27518,8 +27481,8 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "own": "LaneDisk",
-     "supplier": "kkt-lane-files-os",
-     "supplier_item": "OsDisk",
+     "supplier": "kkt-files",
+     "supplier_item": "Files",
      "to": [
       {
        "at": "OperateParts",
@@ -27659,9 +27622,9 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeConfigText, forwarding config text reads and writes",
-     "supplier": "kkt-config-file-os",
-     "supplier_item": "read",
+     "own": "NativeConfigText, forwarding config text reads and writes to kkt-config-file's files over kkt-files",
+     "supplier": "kkt-files",
+     "supplier_item": "Files",
      "to": [
       {
        "at": "OperateParts",
@@ -27854,7 +27817,8 @@ window.KKT_ASSEMBLY = {
    "steps": [
     {
      "items": [
-      "kkt-config-file-os::read_named",
+      "kkt-config-file::files::read_named",
+      "kkt-files::Files",
       "kkt-config-file::parse_file",
       "kkt-rules::Settings",
       "kkt-mcp-formatter::Settings",
@@ -27862,7 +27826,7 @@ window.KKT_ASSEMBLY = {
       "kkt-backup::Settings",
       "kkt-admission::server_keys::check"
      ],
-     "text": "The same config file as kkt serve, read through kkt-config-file-os, parsed by kkt-config-file and turned by the program into each owner's settings, with the owners' defaults for the rest, and the same key check.",
+     "text": "The same config file as kkt serve, read by kkt-config-file's files over kkt-files, parsed by kkt-config-file and turned by the program into each owner's settings, with the owners' defaults for the rest, and the same key check.",
      "title": "Settings"
     },
     {

@@ -121,19 +121,20 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       }).map((x) => x.textContent);
     }));
     check("every label fits inside its box", overflow.length === 0, overflow);
-    // The operations layer, with its groups stacked, is narrower than the
-    // six boxes a line holds.
-    const widest = await p.evaluate(() => {
-      const ops = Object.entries(window.KKT_CONCERNS.crates).filter(([, c]) => c.layer === "operations").map(([n]) => n);
+    // No band is wider than five boxes on any line: a band wraps at five
+    // units, and a group's partners stack beneath its head (msg 3541).
+    const wide = await p.evaluate(() => {
+      const layer = Object.fromEntries(Object.entries(window.KKT_CONCERNS.crates).map(([n, c]) => [n, c.layer]));
       const rows = new Map();
       for (const n of document.querySelectorAll(".node")) {
-        if (!ops.includes(n.getAttribute("aria-label").split(":")[0])) continue;
+        const name = n.getAttribute("aria-label").split(":")[0];
         const y = /translate\(([-\d.]+),([-\d.]+)\)/.exec(n.getAttribute("transform"))[2];
-        rows.set(y, (rows.get(y) || 0) + 1);
+        const key = `${layer[name]} at ${y}`;
+        rows.set(key, (rows.get(key) || 0) + 1);
       }
-      return Math.max(...rows.values());
+      return [...rows].filter(([, count]) => count > 5).map(([key, count]) => `${key}: ${count}`);
     });
-    check("the operations layer is at most five boxes wide", widest <= 5, widest);
+    check("no band is wider than five boxes", wide.length === 0, wide);
 
     // No box is split any more: every crate is one kind (phase 16).
     check("no crate's box is split", (await p.$$eval(".node .impl-part", (x) => x.length)) === 0);

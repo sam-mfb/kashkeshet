@@ -6,6 +6,8 @@
 //!
 //! Running takes two steps, [`listen`] and [`Listening::serve_until`], so a
 //! caller can report what it bound (and log) before the server answers.
+//! [`try_bind`] asks only whether an address could be listened on, and
+//! lets it go at once.
 
 use axum::Router;
 use axum::serve::ListenerExt;
@@ -26,6 +28,12 @@ pub struct Listening {
 pub async fn listen(router: Router, address: SocketAddr) -> io::Result<Listening> {
     let listener = TcpListener::bind(address).await?;
     Ok(Listening { listener, router })
+}
+
+/// Listens on `address` and lets it go at once: whether a server could
+/// listen there now. The error is the operating system's.
+pub fn try_bind(address: SocketAddr) -> io::Result<()> {
+    std::net::TcpListener::bind(address).map(drop)
 }
 
 impl Listening {
@@ -106,6 +114,16 @@ mod tests {
         stop.send(()).expect("stop");
         served.await.expect("join").expect("served");
         assert!(TcpStream::connect(address).await.is_err());
+    }
+
+    #[test]
+    fn try_bind_answers_whether_an_address_is_free_and_lets_it_go() {
+        let taken = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let address = taken.local_addr().expect("address");
+        assert!(try_bind(address).is_err());
+        drop(taken);
+        try_bind(address).expect("free once let go");
+        try_bind(address).expect("try_bind let it go");
     }
 
     #[tokio::test]

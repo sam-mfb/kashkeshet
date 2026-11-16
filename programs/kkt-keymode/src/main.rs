@@ -13,14 +13,16 @@
 //! Usage: `kkt-keymode --config <file> [--bind <address>]`. It prints
 //! `bound to <address>` once it listens, and stops on SIGINT or SIGTERM.
 
+mod config_disk;
 mod record;
+use config_disk::ConfigDisk;
 use record::{RecordedSettings, new_server_run};
 
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::{self, KeyRefusal, KeyTexts, ServerKeys};
 use kkt_api_agent::SwarmId;
 use kkt_clock_system::SystemClock;
-use kkt_config_file_os as config_file_os;
+use kkt_config_file::files as config_files;
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
 use kkt_events::Events;
@@ -120,7 +122,7 @@ async fn run(args: &[String]) -> Result<(), String> {
     let server_settings = server_settings.check(problems).map_err(invalid)?;
     let instructions = instructions
         .as_deref()
-        .map(|path| config_file_os::read_instructions(path).map_err(|e| e.to_string()))
+        .map(|path| config_files::read_instructions(&ConfigDisk, path).map_err(|e| e.to_string()))
         .transpose()?;
     let ServerKeys {
         admission,
@@ -253,7 +255,7 @@ struct Settings {
 /// for the rest, refused as `kkt serve` refuses them. A `~/` path is
 /// refused: there is no home folder.
 fn settings(args: &Args) -> Result<Settings, String> {
-    let text = config_file_os::read_named(&args.config).map_err(|e| e.to_string())?;
+    let text = config_files::read_named(&ConfigDisk, &args.config).map_err(|e| e.to_string())?;
     let dir = args.config.parent().unwrap_or(Path::new("."));
     let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
     let config = kkt_config_file::parse_file(&text, dir, None, level).map_err(|e| {
