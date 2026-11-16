@@ -41,11 +41,15 @@ def default_reach($features):
     | (.kind // "normal") as $kind
     | ({normal: "[dependencies]", dev: "[dev-dependencies]", build: "[build-dependencies]"}[$kind]
         + (if .target then " for \(.target)" else "" end)) as $section
-    # Check 2: only programs depend on an effect crate, in any section.
-    # Anything else that must is a documented exception, in
+    # Check 2: only programs depend on an effect crate. A program's tests
+    # count too: an effect crate it names only in [dev-dependencies], and
+    # not in [dependencies] or [build-dependencies], is one only its tests
+    # use. Anything else that must is a documented exception, in
     # $effect_exceptions.
     | (
-        if any($effects[]; . == $dependency.name) and ($program | not)
+        if any($effects[]; . == $dependency.name)
+            and (($program | not)
+                or ($kind == "dev" and (any($local[]; .name == $dependency.name and (.kind // "normal") != "dev") | not)))
             and (any($effect_exceptions[];
                 .package == $package.name and .dependency == $dependency.name) | not)
         then "\($package.name): depends on the effect crate \($dependency.name) in \($section); only a program (a package with a binary target) may, unless listed in effect-exceptions.json"

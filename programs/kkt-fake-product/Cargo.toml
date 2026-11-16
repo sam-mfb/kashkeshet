@@ -52,8 +52,8 @@ tokio.workspace = true
 
 [dev-dependencies]
 # The tests drive the running product over HTTP with kkt-agent-client-mcp's
-# client. It is an effect crate, which only a program may depend on: the
-# fake product is one, and its tests are its own.
+# client, an effect crate the product itself does not use. Tests should not;
+# this is a documented exception (.github/scripts/effect-exceptions.json).
 kkt-agent-client-mcp = { path = "../../crates/kkt-agent-client-mcp" }
 futures.workspace = true
 serde_json.workspace = true

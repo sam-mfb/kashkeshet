@@ -59,6 +59,20 @@ class CheckCrates(unittest.TestCase):
             effects=["kkt-os"],
         ), [])
 
+    def test_a_program_whose_tests_alone_use_an_effect_crate_needs_an_entry(self):
+        tests_only = package("kkt-product", targets=("lib", "bin"), dependencies=[dependency("kkt-os", kind="dev")])
+        self.assertEqual(problems(package("kkt-os"), tests_only, effects=["kkt-os"]),
+                         [effect_rule("kkt-product", "kkt-os", "[dev-dependencies]")])
+        self.assertEqual(problems(package("kkt-os"), tests_only, effects=["kkt-os"],
+                                  effect_exceptions=[exception("kkt-product", "kkt-os")]), [])
+
+    def test_a_program_that_depends_on_an_effect_crate_may_name_it_in_its_tests_too(self):
+        for section in [None, "build"]:
+            with self.subTest(section=section):
+                both = package("kashkeshet", targets=("lib", "bin"), dependencies=[
+                    dependency("kkt-os", kind=section), dependency("kkt-os", kind="dev", features=["testing"])])
+                self.assertEqual(problems(package("kkt-os"), both, effects=["kkt-os"]), [])
+
     def test_nothing_but_a_program_depends_on_an_effect_crate(self):
         # A logic, contract, composition, test-support or effect crate: the
         # rule reads only whether the package has a binary target, so it

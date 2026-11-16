@@ -15,8 +15,10 @@
 #    [dependencies] still passes. Without them it fails.
 # 2. Only programs depend on an effect crate (a crate concerns.json marks
 #    "effect"), in [dependencies], [dev-dependencies] or
-#    [build-dependencies]. A program is a package with a binary target; its
-#    tests count as the program's. Anything else that must is a documented
+#    [build-dependencies]. A program is a package with a binary target. Its
+#    tests count too: an effect crate a program names only in
+#    [dev-dependencies], not in [dependencies] or [build-dependencies], is
+#    one only its tests use. Anything else that must is a documented
 #    exception, listed with its reason in effect-exceptions.json beside this
 #    script; a listed exception that no longer applies fails (phase 16).
 # 3. No package turns on another workspace package's `testing` outside

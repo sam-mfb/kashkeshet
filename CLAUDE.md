@@ -64,9 +64,11 @@ the contract it needs and the program adapts the effect crate to it
 (kkt-client-config's `ClientCommand`, over kkt-client-command); logic and
 the effect that carries out its plans are a logic crate and its `-os`
 crate. No crate has a `real` feature (phase 16, Sam, 2026-11-15, which
-removed phases 13 and 14's mixed kinds). A test that must depend on an
-effect crate outside a program is a documented exception, listed with its
-reason in `.github/scripts/effect-exceptions.json` (today, none). Stand-ins and other test
+removed phases 13 and 14's mixed kinds). Tests SHOULD NOT depend on an
+effect crate the program they test does not: a test that must is a
+documented exception, listed with its reason in
+`.github/scripts/effect-exceptions.json` (today, the fake product's tests,
+which drive it over HTTP with kkt-agent-client-mcp). Stand-ins and other test
 support are behind a `testing` feature, which other crates turn on only in
 their dev-dependencies (RUST.md 6); a crate's own `testing` may turn on
 its dependencies' `testing`, and a dev-only program (see "Dev-only
