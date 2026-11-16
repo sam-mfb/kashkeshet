@@ -269,6 +269,14 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("no hop's label is only \"passed on\"",
       Object.values(watch.labels).every((l) => !/passed on/.test(l)) && /\(/.test(watch.labels["kkt-agent-commands>kkt-watch"] || ""),
       watch.labels);
+    // A crate's own type is never carried out of it as an injection (msg
+    // 3694): kkt-server builds kkt-result-format's Formatter itself, and
+    // the injection is the clock that goes into it.
+    const format = await routeOf("kkt-result-format");
+    check("no route leaves kkt-result-format carrying its own type",
+      !format.lines.some((l) => l.startsWith("kkt-result-format>")) &&
+      !Object.values(format.labels).some((l) => /Formatter/.test(l)) &&
+      format.lines.includes("kkt-server>kkt-result-format"), format);
     const forward = await routeOf("kashkeshet");
     check("a ticked injector's routes run on to the final receiver", forward.lines.includes("kkt-agent-commands>kkt-watch"), forward.lines);
     const supplier = await routeOf("kkt-agent-client-mcp");

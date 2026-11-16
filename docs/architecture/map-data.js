@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "1ed8ca1f",
+ "commit": "230de776",
  "crates": [
   {
    "bins": [
@@ -27275,16 +27275,19 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-mcp",
-     "impl": "kkt-result-format::Formatter",
+     "crate": "kkt-result-format",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      }
+     ],
+     "note": "kkt-server builds the Formatter it hands kkt-mcp's endpoints; the Formatter is kkt-result-format's own type, so the injection is the clock that goes into it",
+     "passes_on": "the clock the program gave Parts",
      "to": [
       {
-       "at": "endpoint",
-       "param": "fmt"
-      },
-      {
-       "at": "mcp_admin::endpoint",
-       "param": "fmt"
+       "at": "Formatter::new",
+       "param": "clock"
       }
      ]
     },
