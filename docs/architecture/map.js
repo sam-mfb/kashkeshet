@@ -309,7 +309,7 @@
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
       el("span", { class: "key-item", title: "A crate that implements a contract of exactly one crate in its own layer, drawn beneath it" },
         el("span", { class: "group-key" }), "Group: a crate, with the crates beneath it that implement its contract"),
-      el("span", { class: "muted" }, "Heads are on the crate that depends. Dashed: tests only. Dotted: build scripts only. Parallel lines: several roles. Where a side has too many arrows, several share one head. Solid: a dependency. Dotted amber, for ticked crates: an injection, from the injector on to where it ends; the solid arrow to the crate it is built from lights amber as the route's first hop. Thick outline: the crate in the panel. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Heads are on the crate that depends. Dashed: tests only. Dotted: build scripts only. Parallel lines: several roles. Where a side has too many arrows, several share one head. Solid: a dependency. Dotted amber, for ticked crates: an injection, from the injector on to where it ends; the solid arrow's built-by stroke to the crate it is built from lights as the route's first hop. Thick outline: the crate in the panel. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -1014,17 +1014,20 @@
         labelLayer.insertBefore(back, label);
       }
     };
-    // The supplier's hop: the injector's arrow to the supplier, whatever
-    // its first role, lit amber as part of the route and labelled with
-    // what the injector builds from it. Not drawn again as a dotted line.
+    // The supplier's hop: the "built by" stroke of the injector's arrow to
+    // the supplier, lit amber as part of the route and labelled with what
+    // the injector builds from it. The arrow's other strokes keep their own
+    // role's colour (Sam, msg 3704). An arrow with no "built by" stroke
+    // gets no hop: no other role's stroke is recoloured.
     for (const line of supplies.values()) {
       line.supply = true;
-      const strokes = view.edgeNodes.filter(({ edge }) => edge.kind === "normal" && edge.from === line.receiver && edge.to === line.program);
-      if (!strokes.length) continue;
-      for (const { path } of strokes) { path.classList.remove("faint"); path.classList.add("route-hop"); }
-      for (const { edge, hit } of view.hitNodes) if (edge === strokes[0].edge) hit.classList.remove("faint");
-      const middle = strokes.find(({ path }) => path.hasAttribute("marker-start") || path.hasAttribute("data-shared")) || strokes[0];
-      labelOn(middle.path, line, line.routes.map((r) => r[0].supplierItem || r[0].item.split("::").pop()), " supply");
+      const built = view.edgeNodes.find(({ edge, path }) => edge.kind === "normal" && edge.from === line.receiver &&
+        edge.to === line.program && path.classList.contains("role-wires"));
+      if (!built) continue;
+      built.path.classList.remove("faint");
+      built.path.classList.add("route-hop");
+      for (const { edge, hit } of view.hitNodes) if (edge === built.edge) hit.classList.remove("faint");
+      labelOn(built.path, line, line.routes.map((r) => r[0].supplierItem || r[0].item.split("::").pop()), " supply");
     }
     // In the spaces between the arrows' ends, so a line between a program
     // and the crate just below it does not lie on the arrows leaving the
