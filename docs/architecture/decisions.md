@@ -60,6 +60,18 @@ Message numbers are given only where they help to find a discussion in
   crate is renamed kkt-listen, since it implements nothing of kkt-server's,
   and sits in foundations. check-crates.sh's check 7 keeps any crate but a
   program from depending on a composition crate in [dependencies].
+- **Effect crates are named for what they do** (approved by Sam on
+  2026-11-16, msg 3498). An effect crate that implements no contract is
+  named for what it does, not for one consumer. Three crates held only
+  general file access, each named for the crate that used it:
+  kkt-lane-files-os, kkt-client-config-os and kkt-config-file-os. They are
+  now one, kkt-files, in foundations, which the program adapts to each
+  consumer's contract. What was specific to the config file (what a missing
+  file means, and the errors' wording) moved into kkt-config-file, over a
+  `Disk` it declares, so kkt-files stays general. `process_id` is a fact
+  about this process, not file access, so it went to kkt-machine-os.
+  kkt-service-os held one eight-line function, `try_bind`, which went to
+  kkt-listen, beside the binding it tries.
 - **Layers say where a crate sits**: programs, assembly, surfaces, access,
   core, data, operations, clients, foundations and dev-only. kkt-search sits
   in foundations, as pure text the data crates build on.

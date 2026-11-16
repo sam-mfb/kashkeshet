@@ -5,7 +5,7 @@
 //! skipped, so a folder can hold notes beside its lanes. Everything on disk
 //! goes through [`Disk`], and the commit through [`LaneCommit`], so this
 //! part is tested against fakes. The program supplies both through
-//! adapters: the disk over kkt-lane-files-os, the commit over
+//! adapters: the disk over kkt-files, the commit over
 //! kkt-lane-commit's git.
 //!
 //! This part only reads and writes files. Whether a lane is acceptable, and

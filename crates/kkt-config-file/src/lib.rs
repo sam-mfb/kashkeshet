@@ -18,10 +18,13 @@
 //! This crate owns the file's format and where it is by default
 //! ([`config_file`], under the supplied config-home folder): parsing its text into
 //! [`Config`], what the file says in its own terms, and adding an allowed
-//! host to its text. It reads and writes no file (kkt-config-file-os
-//! does) and knows nothing of the settings' defaults or checks beyond the
-//! kind of each value: the log levels are kept as written, for the reader to
-//! check.
+//! host to its text; and reading and writing the config and instructions
+//! files whole ([`files`]), over the [`files::Disk`] the program gives: it
+//! touches no file itself. It knows nothing of the settings' defaults or
+//! checks beyond the kind of each value: the log levels are kept as written,
+//! for the reader to check.
+
+pub mod files;
 
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};

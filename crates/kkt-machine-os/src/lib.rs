@@ -1,7 +1,7 @@
 //! The machine's facts as this process sees them: [`env`] reads the
-//! environment, and [`platform`] gives the platform this program was built
-//! for, as kkt-machine's `Env` and `Platform`. The program asks once and
-//! passes them on.
+//! environment, [`platform`] gives the platform this program was built
+//! for, as kkt-machine's `Env` and `Platform`, and [`process_id`] names this
+//! process. The program asks once and passes them on.
 
 use kkt_machine::{Env, Platform};
 use std::ffi::OsString;
@@ -21,6 +21,11 @@ pub fn platform() -> Platform {
     } else {
         Platform::Xdg
     }
+}
+
+/// This process's ID, as the operating system numbers it.
+pub fn process_id() -> u32 {
+    std::process::id()
 }
 
 /// The [`Env`] the variables `var` gives make: an unset or empty variable
