@@ -29,6 +29,17 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     await p.goto(PAGE);
 
     const node = (name) => `.node[aria-label^='${name}:']`;
+    // Clicks a part of a crate's box (its tick box, its eye, or the box),
+    // first scrolling the box to the middle of the view, so a box near the
+    // top is never under the sticky header and a click never lands there
+    // (msgs 3619 and 3621). Every click on a box goes through it.
+    const onBox = async (name, part) => {
+      await p.$eval(node(name), (n) => n.scrollIntoView({ block: "center", inline: "center" }));
+      // The tick box and the eye sit on the box's edge, where an arrow's
+      // hover area can lie over them, so they need `force`. The box's body
+      // does not, and keeps Playwright's check that nothing covers it.
+      await p.click(`${node(name)} ${part}`, part === "> rect" ? {} : { force: true });
+    };
     const read = () => p.evaluate(() => ({
       ticked: [...document.querySelectorAll(".node")]
         .filter((n) => n.querySelector(".pick").getAttribute("aria-checked") === "true")
@@ -193,7 +204,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     // highlighted arrows: kashkeshet sits just above kkt-agent-commands,
     // and a line meeting the boxes where the arrows do lay hidden on them.
     const mcp = "kkt-agent-client-mcp";
-    await p.click(`${node(mcp)} .pick-hit`, { force: true });
+    await onBox(mcp, ".pick-hit");
     const clear = await p.evaluate(() => {
       const ends = (path) => [path.getPointAtLength(0), path.getPointAtLength(path.getTotalLength())];
       const line = document.querySelector("path.delivery[data-from='kashkeshet'][data-to='kkt-agent-commands']");
@@ -203,10 +214,10 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       return { drawn: true, near: near.length };
     });
     check("a ticked implementation's delivery line is drawn clear of the arrows", clear.drawn && clear.near === 0, clear);
-    await p.click(`${node(mcp)} .pick-hit`, { force: true });
+    await onBox(mcp, ".pick-hit");
 
     // A program's delivery lines leave it at points of their own.
-    await p.click(`${node("kashkeshet")} .pick-hit`, { force: true });
+    await onBox("kashkeshet", ".pick-hit");
     const shared = await p.evaluate(() => {
       const starts = [...document.querySelectorAll("path.delivery[data-from='kashkeshet']")].map((x) => x.getPointAtLength(0));
       const close = [];
@@ -218,7 +229,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       return { lines: starts.length, close: close.length };
     });
     check("a program's delivery lines leave it at points of their own", shared.lines > 1 && shared.close === 0, shared);
-    await p.click(`${node("kashkeshet")} .pick-hit`, { force: true });
+    await onBox("kashkeshet", ".pick-hit");
 
     // A point on a drawn path, in screen terms, where nothing covers it.
     const spot = (sel) => p.evaluate((s) => {
@@ -242,13 +253,13 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     // supply what kashkeshet injects, with every hop's label saying what it
     // carries, never "passed on" alone.
     const routeOf = async (name) => {
-      await p.click(`${node(name)} .pick-hit`, { force: true });
+      await onBox(name, ".pick-hit");
       const got = await p.evaluate(() => ({
         lines: [...document.querySelectorAll("path.delivery")].map((x) => `${x.dataset.from}>${x.dataset.to}`),
         labels: Object.fromEntries([...document.querySelectorAll("text.delivery-label")]
           .map((x) => [`${x.dataset.from}>${x.dataset.to}`, x.textContent])),
       }));
-      await p.click(`${node(name)} .pick-hit`, { force: true });
+      await onBox(name, ".pick-hit");
       return got;
     };
     const watch = await routeOf("kkt-watch");
@@ -281,17 +292,17 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("no composition's arrow is green, kashkeshet adapts for kkt-watch, kkt-db-sqlite implements kkt-db",
       adapts.greenFromComposition.length === 0 && adapts.watch && adapts.sqlite, adapts);
     const tipOf = async (edge, tick) => {
-      await p.click(`${node(tick)} .pick-hit`, { force: true });
+      await onBox(tick, ".pick-hit");
       const at = await spot(`path.edge-hit[data-edge='${edge}']`);
       if (at) await p.mouse.move(at.x, at.y);
       const text = at && await p.isVisible("#tip") ? await p.textContent("#tip") : "";
       await p.mouse.move(5, 5);
-      await p.click(`${node(tick)} .pick-hit`, { force: true });
+      await onBox(tick, ".pick-hit");
       return text;
     };
     // Its colour is its own: apart from the injection lines' amber and the
     // "built by" arrows' (msg 3577).
-    await p.click(`${node("kkt-watch")} .pick-hit`, { force: true });
+    await onBox("kkt-watch", ".pick-hit");
     const colours = await p.evaluate(() => {
       const style = (sel) => { const x = document.querySelector(sel); return x && getComputedStyle(x); };
       const [a, w, l] = [style("path.edge.role-adapts"), style("path.edge.role-wires"), style("path.delivery")];
@@ -317,7 +328,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       }).map((l) => l.textContent);
     });
     check("no route label sits bare on a box", covered.length === 0, covered);
-    await p.click(`${node("kkt-watch")} .pick-hit`, { force: true });
+    await onBox("kkt-watch", ".pick-hit");
     const ownTip = await tipOf("kkt-operate>kkt-setup>normal", "kkt-operate");
     check("an adapting arrow names the injector's own work as such", /adapted by: [^]*its own work/.test(ownTip), ownTip.slice(0, 300));
     const gateTip = await tipOf("kkt-server>kkt-web>normal", "kkt-server");
@@ -326,26 +337,20 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     // Injections follow the rule (msg 3343): the program injects nothing of
     // kkt-diagnostics' own into it; kkt-operate passes on the prober it was
     // given; and the program's own work is labelled as such.
-    // Each tick is scrolled to the middle of the view first: a forced click
-    // on a box left under the sticky header would land on the header.
-    const tick = async (name) => {
-      await p.$eval(`${node(name)} .pick-hit`, (e) => e.scrollIntoView({ block: "center" }));
-      await p.click(`${node(name)} .pick-hit`, { force: true });
-    };
-    await tick("kkt-diagnostics");
+    await onBox("kkt-diagnostics", ".pick-hit");
     const lines = await p.$$eval("path.delivery", (paths) => paths.map((x) => `${x.dataset.from}>${x.dataset.to}`));
     check("no injection of a crate's own type, and the assembly passes on what it was given",
       !lines.includes("kashkeshet>kkt-diagnostics") && lines.includes("kkt-operate>kkt-diagnostics"), lines);
-    await tick("kkt-diagnostics");
-    await tick("kkt-operate");
+    await onBox("kkt-diagnostics", ".pick-hit");
+    await onBox("kkt-operate", ".pick-hit");
     const labels = await p.$$eval("text.delivery-label", (xs) => xs.map((x) => x.textContent));
     check("the program's own work is named as such", labels.some((l) => l.includes("its own work")), labels);
-    await tick("kkt-operate");
+    await onBox("kkt-operate", ".pick-hit");
 
     // The panel (msg 3582): no "Must not" and no notes on where things come
     // from; each list is a section with a count that opens and closes,
     // short ones open and long ones closed, and the viewer's choice kept.
-    await p.click(`${node("kkt-watch")} > rect`);
+    await onBox("kkt-watch", "> rect");
     const quiet = await p.$eval("#panel", (x) => x.textContent);
     check("the panel says no \"Must not\" and nothing on where things come from",
       !/Must not/.test(quiet) && !/generated from|hand-written|Cargo's/.test(quiet), quiet.slice(0, 200));
@@ -354,25 +359,25 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("sections have counts; short ones start open", before.includes === true &&
       (await p.$$eval("#panel details.section .count", (xs) => xs.every((x) => /^\(\d+\)$/.test(x.textContent)))), before);
     await p.click("#panel details[data-section='includes'] > summary");
-    await p.click(`${node("kkt-hosts")} > rect`);
-    await p.click(`${node("kkt-watch")} > rect`);
+    await onBox("kkt-hosts", "> rect");
+    await onBox("kkt-watch", "> rect");
     check("a closed section stays closed for the next crate", (await sectionState()).includes === false, await sectionState());
     await p.click("#panel details[data-section='includes'] > summary");
     check("and opens again", (await sectionState()).includes === true);
-    await p.click(`${node("kashkeshet")} > rect`);
+    await onBox("kashkeshet", "> rect");
     const long = await sectionState();
     // Sections the viewer has not touched: kashkeshet implements dozens.
     check("a long list starts closed", long.implements === false && long.items === false, long);
 
     // Clicking a box shows it in the panel and highlights nothing.
-    await p.click(`${node("kkt-hosts")} > rect`);
+    await onBox("kkt-hosts", "> rect");
     const panel = (await read()).panel;
     check("click shows the panel, no highlight",
       panel === "kkt-hosts" && (await p.$$eval("path.edge.focus", (x) => x.length)) === 0);
 
     // Ticking highlights and leaves the panel alone.
-    await p.click(`${node("kkt-watch")} .pick-hit`, { force: true });
-    await p.click(`${node("kkt-server")} .pick-hit`, { force: true });
+    await onBox("kkt-watch", ".pick-hit");
+    await onBox("kkt-server", ".pick-hit");
     const both = "kkt-server,kkt-watch";
     await same("tick two", both, panel);
     check("ticked crates light up", (await p.$$eval("path.edge.focus", (x) => x.length)) > 0);
@@ -438,10 +443,10 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     await same("a layer hidden", both, panel);
     await unmoved("a layer hidden", home);
     await p.click(".band-toggle >> nth=1");
-    await p.click(`${node("kashkeshet")} .eye-hit`, { force: true });
+    await onBox("kashkeshet", ".eye-hit");
     await same("a program hidden", both, panel);
     await unmoved("a program hidden", home);
-    await p.click(`${node("kashkeshet")} .eye-hit`, { force: true });
+    await onBox("kashkeshet", ".eye-hit");
     await p.click("#crates-button");
     await p.click("#crates-none");
     await p.click("#crates-all");
