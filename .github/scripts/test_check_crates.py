@@ -62,7 +62,8 @@ class CheckCrates(unittest.TestCase):
     def test_a_program_whose_tests_alone_use_an_effect_crate_needs_an_entry(self):
         tests_only = package("kkt-product", targets=("lib", "bin"), dependencies=[dependency("kkt-os", kind="dev")])
         self.assertEqual(problems(package("kkt-os"), tests_only, effects=["kkt-os"]),
-                         [effect_rule("kkt-product", "kkt-os", "[dev-dependencies]")])
+                         ["kkt-product: its tests depend on the effect crate kkt-os, which the program does not; "
+                          "list it in effect-exceptions.json with the reason, or do without it"])
         self.assertEqual(problems(package("kkt-os"), tests_only, effects=["kkt-os"],
                                   effect_exceptions=[exception("kkt-product", "kkt-os")]), [])
 

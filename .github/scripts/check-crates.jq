@@ -52,7 +52,10 @@ def default_reach($features):
                 or ($kind == "dev" and (any($local[]; .name == $dependency.name and (.kind // "normal") != "dev") | not)))
             and (any($effect_exceptions[];
                 .package == $package.name and .dependency == $dependency.name) | not)
-        then "\($package.name): depends on the effect crate \($dependency.name) in \($section); only a program (a package with a binary target) may, unless listed in effect-exceptions.json"
+        then if $program
+            then "\($package.name): its tests depend on the effect crate \($dependency.name), which the program does not; list it in effect-exceptions.json with the reason, or do without it"
+            else "\($package.name): depends on the effect crate \($dependency.name) in \($section); only a program (a package with a binary target) may, unless listed in effect-exceptions.json"
+            end
         else empty end
     ),
     # Check 3: another package's testing only in [dev-dependencies], or in
