@@ -69,11 +69,11 @@ The shared crates are reorganized so that every dependency is injected and each 
   `Launchd::new`, and `ServiceError::ReloadFailed` holds the text launchd's
   wrapper words. `kkt_operate::service::run` no longer takes the `Env`. The
   service files, commands and messages are unchanged.
-- **Client command contract.** `kkt-llm-agent-command::ClientCommand` (remove
+- **Client command contract.** `kkt-client-command::ClientCommand` (remove
   kkt's server, add it as the client's own entry; `testing::Recorder`) is
-  how kkt-llm-agent-config changes a client through its own command.
-  Its one implementation is in the same crate: `kkt_llm_agent_command::Claude`
- , for Claude Code. `kkt_llm_agent_config::Host` and kkt-client-config-os' `OsHost`
+  how kkt-client-config changes a client through its own command.
+  Its one implementation is in the same crate: `kkt_client_command::Claude`
+ , for Claude Code. `kkt_client_config::Host` and kkt-client-config-os' `OsHost`
   lose `claude`, and `configure` takes a `&dyn ClientCommand` after the
   host. The commands run and their messages are unchanged.
 - **Probe contract.** `kkt-probe::Prober`, with `KeyFile`, `Check`
@@ -84,9 +84,9 @@ The shared crates are reorganized so that every dependency is injected and each 
   `kkt-diagnostics-os` and its `OsProber` and records, and the program's
   adapter. `OperateParts::prober` takes a `&dyn kkt_probe::Prober`. The
   checks and their messages are unchanged.
-- **Lane folder commit contract.** `kkt-revision::LaneCommit` asks the
+- **Lane folder commit contract.** `kkt-lane-commit::LaneCommit` asks the
   commit a lane folder is at, in kkt's terms, with `testing::Memory` for
-  tests, and its one implementation in the same crate: `kkt_revision::Git`
+  tests, and its one implementation in the same crate: `kkt_lane_commit::Git`
  , with git's meaning,
   which moves out of kkt-lane-files (its `git` module and
   `Git`, `Ran` and `commit` go). `kkt_lane_files::Disk` loses `git_commit`,
@@ -105,8 +105,9 @@ The shared crates are reorganized so that every dependency is injected and each 
   `kkt-client-config` is now `kkt-llm-agent-config`, and
   `kkt-client-command` is now `kkt-llm-agent-command`, with their paths
   (`kkt_revision`, `kkt_llm_agent_config`, `kkt_llm_agent_command`). Their
-  items are unchanged. Rename the dependencies and paths; the notes above
-  and below use the new names.
+  items are unchanged. Rename the dependencies and paths. Notes that say
+  where to import something from now use the new names; notes on earlier
+  steps keep the names the crates had then.
 - **Platform crates say nothing of kkt.** kkt's words are now the
   caller's:
   - kkt-log-tracing: `init_logging(log_file, own_targets, own,
