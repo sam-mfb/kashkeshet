@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "5b6e12d9",
+ "commit": "b5824136",
  "crates": [
   {
    "bins": [
@@ -146,12 +146,6 @@ window.KKT_GRAPH = {
      "crate": "kashkeshet",
      "trait": "LaneCommit",
      "trait_crate": "kkt-lane-files",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "BackupWriter",
-     "trait_crate": "kkt-operate",
      "type": null
     },
     {
@@ -3443,13 +3437,45 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
-   "crate_doc": "Backup layouts, names, file modes and pruning choices, with no file I/O.",
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kkt-backup",
+       "type": "testing::Memory"
+      },
+      {
+       "crate": "kkt-backup-os",
+       "type": "OsBackups"
+      }
+     ],
+     "trait": "Backups"
+    }
+   ],
+   "crate_doc": "Backups, as a contract: layouts, names, file modes and pruning choices, with no file I/O (the caller supplies the time and source paths), and `Backups`, writing a layout into a folder and pruning old backups there.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "testing": []
+   },
    "holders": [],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-backup",
+     "trait": "Backups",
+     "trait_crate": "kkt-backup",
+     "type": "testing::Memory"
+    }
+   ],
    "items": [
+    {
+     "doc": "Where backups are written and pruned.",
+     "kind": "trait",
+     "methods": [
+      "prune",
+      "write"
+     ],
+     "path": "Backups"
+    },
     {
      "doc": "The database and optional config and key files to include.",
      "fields": [
@@ -3529,6 +3555,36 @@ window.KKT_GRAPH = {
      "doc": "Finished backup names to remove, oldest first.",
      "kind": "fn",
      "path": "old_names"
+    },
+    {
+     "doc": "`Memory`, backups in memory, for tests.",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "Backups in memory: what each folder holds, by name, and a failure on cue.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "backup",
+      "failing",
+      "names",
+      "new",
+      "with_backup"
+     ],
+     "path": "testing::Memory"
+    },
+    {
+     "doc": "A backup `Memory` holds: what its layout said to copy.",
+     "feature": "testing",
+     "fields": [
+      "database",
+      "copies",
+      "about"
+     ],
+     "kind": "struct",
+     "path": "testing::Written"
     }
    ],
    "lib": "kkt_backup",
@@ -3546,21 +3602,26 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Writes backup layouts and removes old backup folders selected by the backup logic.",
+   "crate_doc": "Backups on disk: `OsBackups` implements kkt-backup's `Backups` contract with the operating system's files, writing kkt-backup's layouts and removing the old backup folders kkt-backup picks.",
    "dev_only": false,
    "features": {},
    "holders": [],
-   "implements": [],
+   "implements": [
+    {
+     "crate": "kkt-backup-os",
+     "trait": "Backups",
+     "trait_crate": "kkt-backup",
+     "type": "OsBackups"
+    }
+   ],
    "items": [
     {
-     "doc": "Lists the folder, asks the backup logic which names are old, and removes only those.",
-     "kind": "fn",
-     "path": "prune"
-    },
-    {
-     "doc": "Writes under a private partial name, then renames when complete.",
-     "kind": "fn",
-     "path": "write"
+     "doc": "Backups in folders on this machine's disk, the database copied by `copy_database(from, to)`.",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "OsBackups"
     }
    ],
    "lib": "kkt_backup_os",
@@ -7899,15 +7960,6 @@ window.KKT_GRAPH = {
        "type": null
       }
      ],
-     "trait": "BackupWriter"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": null
-      }
-     ],
      "trait": "CheckService"
     },
     {
@@ -8044,8 +8096,8 @@ window.KKT_GRAPH = {
        "trait": "Databases"
       },
       {
-       "crate": "kkt-operate",
-       "trait": "BackupWriter"
+       "crate": "kkt-backup",
+       "trait": "Backups"
       },
       {
        "crate": "kkt-operate",
@@ -8085,14 +8137,6 @@ window.KKT_GRAPH = {
     }
    ],
    "items": [
-    {
-     "doc": "Writes kkt-backup's layout of a backup into a folder, copying the database as the program's database chooses.",
-     "kind": "trait",
-     "methods": [
-      "write"
-     ],
-     "path": "BackupWriter"
-    },
     {
      "doc": "The program checks the plan against its whole serving surface, with its source context.",
      "kind": "trait",
@@ -8552,8 +8596,8 @@ window.KKT_GRAPH = {
      "name": "backups",
      "traits": [
       {
-       "crate": "kkt-operate",
-       "trait": "BackupWriter"
+       "crate": "kkt-backup",
+       "trait": "Backups"
       }
      ]
     },
@@ -8856,8 +8900,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -8955,8 +8999,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9058,8 +9102,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9161,8 +9205,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9264,8 +9308,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9378,8 +9422,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9477,8 +9521,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9598,8 +9642,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9701,8 +9745,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9826,8 +9870,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -9925,8 +9969,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10024,8 +10068,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10123,8 +10167,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10222,8 +10266,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10321,8 +10365,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10424,8 +10468,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10527,8 +10571,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10707,8 +10751,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10810,8 +10854,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -10924,8 +10968,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -11023,8 +11067,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -11122,8 +11166,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -11225,8 +11269,8 @@ window.KKT_GRAPH = {
          "trait": "Databases"
         },
         {
-         "crate": "kkt-operate",
-         "trait": "BackupWriter"
+         "crate": "kkt-backup",
+         "trait": "Backups"
         },
         {
          "crate": "kkt-operate",
@@ -16835,8 +16879,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Backups",
     "Contents",
-    "Layout",
     "Settings",
     "layout"
    ],
@@ -16846,8 +16890,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Backups",
       "Contents",
-      "Layout",
       "Settings",
       "layout"
      ],
@@ -16862,19 +16906,17 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "prune",
-    "write"
+    "OsBackups"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
     {
      "detail": [
-      "prune",
-      "write"
+      "OsBackups"
      ],
-     "role": "uses"
+     "role": "wires"
     }
    ],
    "target": null,
@@ -17614,7 +17656,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "BackupWriter",
     "CheckService",
     "CheckedService",
     "Config",
@@ -17660,7 +17701,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "a type of its own implements BackupWriter",
       "a type of its own implements CheckService",
       "a type of its own implements ConfigText",
       "a type of its own implements Databases",
@@ -19635,7 +19675,8 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-backup",
    "items": [
-    "Span"
+    "Span",
+    "Time"
    ],
    "kind": "dev",
    "optional": false,
@@ -19643,7 +19684,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Span"
+      "Span",
+      "Time"
      ],
      "role": "uses"
     }
@@ -19656,14 +19698,21 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-backup-os",
    "items": [
+    "Backups",
     "DATABASE_FILE",
     "Layout",
     "old_names"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "implements",
    "roles": [
+    {
+     "detail": [
+      "OsBackups implements Backups"
+     ],
+     "role": "implements"
+    },
     {
      "detail": [
       "DATABASE_FILE",
@@ -22803,8 +22852,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operate",
    "items": [
+    "Backups",
     "Contents",
-    "Layout",
     "layout"
    ],
    "kind": "normal",
@@ -22813,15 +22862,17 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Backups",
       "Contents",
-      "Layout",
       "layout"
      ],
      "role": "uses"
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "Layout"
+   ],
    "to": "kkt-backup"
   },
   {
@@ -26490,6 +26541,9 @@ window.KKT_GRAPH = {
   "kkt-agent-client": [
    "kkt-agent-client-mcp"
   ],
+  "kkt-backup": [
+   "kkt-backup-os"
+  ],
   "kkt-clock": [
    "kkt-clock-system"
   ],
@@ -26583,12 +26637,12 @@ window.KKT_CONCERNS = {
    "layer": "dev"
   },
   "kkt-backup": {
-   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
-   "kind": "logic",
+   "concern": "Backups, as a contract: backup folders' names, contents, file modes and pruning choices (Layout, Contents, FileCopy, layout, name, old_names), with its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`); and Backups, writing a layout into a folder and pruning old backups there, with testing::Memory as its stand-in. kkt-backup-os implements Backups.",
+   "kind": "contract",
    "layer": "operations"
   },
   "kkt-backup-os": {
-   "concern": "Writing immutable backup layouts and removing old folders selected by the backup logic (`write`, `prune`).",
+   "concern": "Backups on disk: OsBackups implements kkt-backup's Backups with the operating system's files, writing kkt-backup's layouts and removing the old folders it picks; it is given the program's database copy.",
    "kind": "effect",
    "layer": "operations"
   },
@@ -27477,7 +27531,7 @@ window.KKT_ASSEMBLY = {
       "kkt-operate::lifecycle::uninstall",
       "kkt-operate::lifecycle::backup",
       "kkt-operate::record::check_setup",
-      "kkt-operate::BackupWriter"
+      "kkt-backup::Backups"
      ],
      "text": "main.rs builds the operator's parts once, a NativeOperate with the service capability (ServeArgs), and gives every operator command its OperateParts: native containers, services, client files, probes, lane disk, clock, setup and key files, database, backups and terminal. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in operate, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
      "title": "The operator's commands"
@@ -27963,9 +28017,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os' write, with this program's database copy",
-     "supplier": "kkt-backup-os",
-     "supplier_item": "write",
+     "impl": "kkt-backup-os::OsBackups",
      "to": [
       {
        "at": "OperateParts",

@@ -231,12 +231,12 @@
   },
   "kkt-backup": {
    "layer": "operations",
-   "concern": "Backup folders: their names, contents, file modes, and pruning; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
-   "kind": "logic"
+   "concern": "Backups, as a contract: backup folders' names, contents, file modes and pruning choices (Layout, Contents, FileCopy, layout, name, old_names), with its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`); and Backups, writing a layout into a folder and pruning old backups there, with testing::Memory as its stand-in. kkt-backup-os implements Backups.",
+   "kind": "contract"
   },
   "kkt-backup-os": {
    "layer": "operations",
-   "concern": "Writing immutable backup layouts and removing old folders selected by the backup logic (`write`, `prune`).",
+   "concern": "Backups on disk: OsBackups implements kkt-backup's Backups with the operating system's files, writing kkt-backup's layouts and removing the old folders it picks; it is given the program's database copy.",
    "kind": "effect"
   },
   "kkt-lane-files": {
