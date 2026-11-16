@@ -1160,18 +1160,21 @@
      ]
     },
     {
-     "impl": "kkt-result-format::Formatter",
-     "crate": "kkt-mcp",
+     "crate": "kkt-result-format",
      "to": [
       {
-       "at": "endpoint",
-       "param": "fmt"
-      },
-      {
-       "at": "mcp_admin::endpoint",
-       "param": "fmt"
+       "at": "Formatter::new",
+       "param": "clock"
       }
-     ]
+     ],
+     "passes_on": "the clock the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      }
+     ],
+     "note": "kkt-server builds the Formatter it hands kkt-mcp's endpoints; the Formatter is kkt-result-format's own type, so the injection is the clock that goes into it"
     },
     {
      "crate": "kkt-mcp",

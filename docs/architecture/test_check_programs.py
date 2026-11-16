@@ -261,6 +261,27 @@ class AssemblyWiring(unittest.TestCase):
         self.assertIn("kkt-rules::Db is kkt-rules's own type, not an injection into it",
                       self.check([{"impl": "kkt-rules::Db", "crate": "kkt-rules", "to": [{"at": "Startup", "param": "db"}]}]))
 
+    def test_a_value_of_a_holder_type_the_receiver_names_is_refused(self):
+        slots = dict(self.SLOTS, **{"kkt-mcp": [
+            {"at": "endpoint", "name": "fmt", "traits": [],
+             "holds": [{"crate": "kkt-result-format", "type": "Formatter", "traits": [{"crate": "kkt-clock", "trait": "Clock"}]}]}]})
+        items = dict(self.ITEMS, **{"kkt-result-format": {"Formatter": {}}})
+        assembly = {"programs": {"kkt": {"steps": [], "wiring": [
+            {"impl": "kkt-result-format::Formatter", "crate": "kkt-mcp", "to": [{"at": "endpoint", "param": "fmt"}]}]}}}
+        with self.assertRaises(SystemExit) as stop:
+            generate.check_assembly(assembly, items, self.PACKAGES | {"kkt-mcp", "kkt-result-format"}, slots)
+        self.assertIn("kkt-result-format::Formatter is a value of a type kkt-mcp names directly", str(stop.exception))
+
+    def test_a_factory_for_the_slots_contract_passes(self):
+        slots = dict(self.SLOTS, **{"kkt-rules": [
+            {"at": "Db::new", "name": "database", "traits": [{"crate": "kkt-db", "trait": "Backend"}], "holds": []}]})
+        self.passes_with(slots, [{"impl": "kkt-db-sqlite::SqlitePlace", "crate": "kkt-rules",
+                                  "to": [{"at": "Db::new", "param": "database"}]}])
+
+    def passes_with(self, slots, wiring):
+        assembly = {"programs": {"kkt": {"steps": [], "wiring": wiring}}}
+        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, slots)
+
     def test_an_adapter_needs_a_supplier_package_and_its_item(self):
         lines = [{"at": "ask::Prompter::new", "param": "lines"}]
         self.assertIn("names no supplier package (kkt-terminal's Terminal)",

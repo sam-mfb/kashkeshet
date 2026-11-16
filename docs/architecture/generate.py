@@ -1005,7 +1005,8 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
 def check_assembly(assembly, items_of, packages, slots_of):
     """Fails if assembly.json names a program, an item, a supplier or a slot
     that is not there, records as an injection a value of the receiving
-    crate's own type, or passes something on without saying, in "from",
+    crate's own type or of a holder type it names directly, or passes
+    something on without saying, in "from",
     which of the injector's slots a program filled with it."""
     problems = []
 
@@ -1029,6 +1030,19 @@ def check_assembly(assembly, items_of, packages, slots_of):
                     problems.append(f"{program}: wiring names no public item {path} in {crate}")
                 if crate == wire["crate"]:
                     problems.append(f"{program}: {impl} is {crate}'s own type, not an injection into it")
+                # A slot that takes a concrete type holding a contract (the
+                # receiver names the type itself) is handed a value, not an
+                # injection: what goes into that value is recorded instead
+                # (Sam, msgs 3692 and 3694; as with the receiver's own type).
+                # A factory that builds a holder the slot's contract needs,
+                # such as SqlitePlace for Db::new, meets the slot's trait.
+                for slot in wire["to"]:
+                    taken = next((s for s in slots_of.get(wire["crate"], [])
+                                  if s["at"] == slot["at"] and s["name"] == slot["param"]), None)
+                    if taken and not taken.get("traits") and any(
+                            h["crate"] == crate and h["type"] == path for h in taken.get("holds", [])):
+                        problems.append(f"{program}: {impl} is a value of a type {wire['crate']} names directly "
+                                        f"({slot['at']} ({slot['param']})), not an injection: record what goes into it")
             if wire.get("own"):
                 supplier = wire.get("supplier")
                 if supplier not in packages:
