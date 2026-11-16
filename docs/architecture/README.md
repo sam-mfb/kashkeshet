@@ -28,6 +28,21 @@ off; and "Reset view" in the header puts every filter, menu and layer back
 as the page starts, clears the search, the ticks and the panel's crate,
 and keeps the map shown.
 
+Some crates are drawn as a group: a head crate on top, its partners
+stacked directly beneath it in the same layer, and a dotted outline
+around them (white in the dark theme, dark grey in the light one; the
+key shows it). A crate goes under another when it implements a contract
+of exactly one crate in its own layer, as kkt-db-sqlite does kkt-db's,
+and kkt-service-launchd and kkt-service-systemd do kkt-service's.
+Programs and test support are never grouped, and a partner is never a
+head. `groups.py` holds the rule, and nothing else decides it: no group
+is written by hand. A group keeps its outline while any of its crates is
+drawn, so a partner whose head a filter hides still shows where it
+belongs. An arrow meets a box's top or bottom unless another crate of its
+group lies that way; then it meets the box's side, so it never seems to
+end on a partner. A band wraps onto lines of even length, each as tall as
+its tallest group.
+
 It shows surfaces and flows only: public items, their documentation's
 first sentence, public fields, methods and variants, and what a feature adds
 to them. It never shows private items, private module paths or function
@@ -59,13 +74,14 @@ end (`refactor-plan.md`, "Final scorecard"). `refactor-plan.md` and
 |---|---|
 | `index.html`, `map.css`, `map.js` | The page |
 | `concerns.json` | Written by hand: the layers (where in the system a crate sits), the kinds (what sort of crate it is), and each crate's layer, kind, concern and what it must not do, from CLAUDE.md and the crates' docs |
+| `groups.py` | Which crates are drawn together, under which head; `generate.py` uses it |
 | `kinds.py` | The kinds, the checks a map's kinds must pass, and the rule checks; `generate.py` and `check-programs.py` use it |
-| `page-test.js` | A headless check of the page: no switch of map and no proposal loaded, the overview's kind and rule checks, ticks and the panel's crate kept by name through every filter, Reset view clearing them, no box moving when a filter changes, and only full-strength arrows answering the pointer. Needs Playwright with Chromium; from the repository's root, once: `npm install --prefix target/tmp/page-test playwright` and `target/tmp/page-test/node_modules/.bin/playwright install chromium`; then `NODE_PATH=target/tmp/page-test/node_modules node docs/architecture/page-test.js`. CI does not run it |
+| `page-test.js` | A headless check of the page: each group's partners beneath their head and outlined, every arrow ending on its own crates' boxes, the operations layer at most five boxes wide, no switch of map and no proposal loaded, the overview's kind and rule checks, ticks and the panel's crate kept by name through every filter, Reset view clearing them, no box moving when a filter changes, and only full-strength arrows answering the pointer. Needs Playwright with Chromium; from the repository's root, once: `npm install --prefix target/tmp/page-test playwright` and `target/tmp/page-test/node_modules/.bin/playwright install chromium`; then `NODE_PATH=target/tmp/page-test/node_modules node docs/architecture/page-test.js`. CI does not run it |
 | `assembly.json` | Written by hand: how each program (kkt, kkt-keymode, the fake product) assembles the server, step by step; every item a step names is checked against the code |
 | `generate.py` | Writes `map-data.js` from the code; its docstring says where each part comes from; with `--out FILE` it writes the map to that file instead and leaves `map-data.js` as it is |
 | `check-programs.py` | CI's check that the programs do no machine work (step 8.2), and that the kind checks and rule checks find nothing: builds the map from the code into `target/tmp` and fails on machine work in a composition crate's own code, file by file and library by library, unless the plan's "Temporary breaks" table lists it in a row such as "`kkt-keymode` does machine work in `src/main.rs`". A listed file that no longer does any also fails, so the step that moves the work out removes the row. `test_check_programs.py` tests it |
 | `map-data.js` | Generated: the crates, arrows and public items, the kind checks and the rule checks, with `concerns.json` and `assembly.json` |
-| `test_check_programs.py`, `test_kinds.py` | Tests of the scripts; CI runs them |
+| `test_check_programs.py`, `test_groups.py`, `test_kinds.py` | Tests of the scripts; CI runs them |
 | `refactor-plan.md`, `decisions.md`, `refactor-merge.md`, `contract-audit.md` | The refactor's history: its plan, the decisions behind it, the merge's description and the contract audit. `check-programs.py` reads the plan's "Temporary breaks" table |
 
 To refresh it after the code changes, run

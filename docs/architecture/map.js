@@ -120,11 +120,28 @@
   const featureBadge = (feature) => el("span", { class: "badge feature", title: `Exists only with the ${feature} feature` }, featureMark(feature));
 
   // ---- Layout: one band per layer, each band ordered to cut crossings ----
-  // A band holds up to PER_LINE crates on a line, and wraps onto more.
+  // A band holds up to PER_LINE units on a line, and wraps onto more
+  // lines of even length. A unit is one crate, or a group (generate.py's
+  // `groups`): its head crate with its partners stacked directly beneath.
 
   const PER_LINE = 6;
   const TITLE_H = 24;
   const LINE_H = BOX_H + 30;
+  // The space between the boxes of a group, where the arrow from a
+  // partner to its head runs.
+  const STACK_GAP = 20;
+  // How far a group's outline stands off its boxes.
+  const GROUP_PAD = 6;
+
+  // The groups, by head, and the head each partner goes under. A group
+  // whose crates are not all on the map is ignored.
+  const groupsOf = new Map(Object.entries(graph.groups || {})
+    .filter(([head, partners]) => crates.has(head) && partners.every((n) => crates.has(n))));
+  const headOf = new Map([...groupsOf].flatMap(([head, partners]) => partners.map((n) => [n, head])));
+  const groupOf = (name) => {
+    const head = headOf.get(name) || name;
+    return [head, ...(groupsOf.get(head) || [])];
+  };
 
   // Every box's place is worked out once, from all the crates, dev-only
   // ones included, and never again: a filter only stops drawing a crate,
@@ -139,34 +156,49 @@
     const rows = concerns.layers
       .map((layer) => ({
         layer,
-        names: Object.entries(concerns.crates)
-          .filter(([name, c]) => c.layer === layer.id && crates.has(name))
-          .map(([name]) => name),
+        units: Object.entries(concerns.crates)
+          .filter(([name, c]) => c.layer === layer.id && crates.has(name) && !headOf.has(name))
+          .map(([name]) => groupOf(name)),
       }))
-      .filter((row) => row.names.length);
+      .filter((row) => row.units.length);
     const width = PAD_X * 2 + PER_LINE * (BOX_W + GAP_X) - GAP_X;
     const position = new Map();
+    // Each box gets its `tier`, the band's line it is on, and its `line`,
+    // its level counted down the whole map: a group's crates share a tier
+    // and each has a line of its own. `stack` is its place in its group.
     const place = () => {
       let y = PAD_Y;
       let line = 0;
+      let tier = 0;
       rows.forEach((row) => {
         row.top = y;
-        const lines = Math.ceil(row.names.length / PER_LINE);
+        y += TITLE_H;
+        const lines = Math.ceil(row.units.length / PER_LINE);
+        const perLine = Math.ceil(row.units.length / lines);
         for (let l = 0; l < lines; l++) {
-          const names = row.names.slice(l * PER_LINE, (l + 1) * PER_LINE);
-          const span = names.length * (BOX_W + GAP_X) - GAP_X;
+          const units = row.units.slice(l * perLine, (l + 1) * perLine);
+          const depth = Math.max(...units.map((u) => u.length));
+          const span = units.length * (BOX_W + GAP_X) - GAP_X;
           const left = (width - span) / 2;
-          names.forEach((name, i) => {
-            position.set(name, {
-              x: left + i * (BOX_W + GAP_X),
-              y: y + TITLE_H + l * LINE_H,
-              line: line + l,
+          units.forEach((unit, i) => {
+            unit.forEach((name, k) => {
+              position.set(name, {
+                x: left + i * (BOX_W + GAP_X),
+                y: y + k * (BOX_H + STACK_GAP),
+                line: line + k,
+                tier,
+                stack: k,
+                depth: unit.length,
+              });
             });
           });
+          line += depth;
+          tier += 1;
+          y += depth * BOX_H + (depth - 1) * STACK_GAP + (LINE_H - BOX_H);
         }
-        line += lines;
-        row.height = TITLE_H + lines * LINE_H + 4;
-        y += row.height + 8;
+        y += 4;
+        row.height = y - row.top;
+        y += 8;
       });
       return y;
     };
@@ -174,21 +206,24 @@
     const normal = graph.edges.filter((e) => e.kind === "normal");
     for (let sweep = 0; sweep < 6; sweep++) {
       for (const row of rows) {
-        const centre = (name) => {
-          const own = position.get(name);
+        // A unit sits over the mean place of its crates' neighbours on
+        // other lines of the band, its own crates aside.
+        const centre = (unit) => {
+          const own = position.get(unit[0]);
           const xs = normal
-            .filter((e) => e.from === name || e.to === name)
-            .map((e) => position.get(e.from === name ? e.to : e.from))
-            .filter((p) => p && p.line !== own.line)
+            .filter((e) => unit.includes(e.from) !== unit.includes(e.to))
+            .map((e) => position.get(unit.includes(e.from) ? e.to : e.from))
+            .filter((p) => p && p.tier !== own.tier)
             .map((p) => p.x);
           return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : own.x;
         };
-        const scores = new Map(row.names.map((n) => [n, centre(n)]));
-        row.names.sort((a, b) => scores.get(a) - scores.get(b));
+        const scores = new Map(row.units.map((u) => [u, centre(u)]));
+        row.units.sort((a, b) => scores.get(a) - scores.get(b));
       }
       height = place();
     }
-    return { rows, position, width, height: height + PAD_Y };
+    const groups = [...groupsOf.keys()].map((head) => groupOf(head));
+    return { rows, position, groups, width, height: height + PAD_Y };
   }
 
   // ---- Drawing ----
@@ -273,6 +308,8 @@
         el("span", { class: `key-item kind-${kindSlug(k.id)}`, title: k.about }, el("span", { class: "kind-key" }), k.title))),
       el("span", {}, el("strong", {}, "Roles: "), Object.entries(ROLES).map(([role, words]) =>
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
+      el("span", { class: "key-item", title: "Generated: a crate that implements a contract of exactly one crate in its own layer is drawn beneath it" },
+        el("span", { class: "group-key" }), "Group: a crate, with the crates beneath it that implement its contract"),
       el("span", { class: "muted" }, "Arrows run from the crate that is used or built to the crate that uses or builds it, and from an implementer to its contract. Dashed: used by tests. Dotted: used by build scripts. Parallel lines: several roles, with one head shaped by the first role; it points the implementing way when one role implements. Thin dotted amber line, for the highlighted crates: a program, or kkt-server, injecting things into a crate, labelled with the crates that supply them (hover for each injection; not a dependency). Thick outline: the crate in the panel. Ticked corner: highlighted. Eye: a program shown or hidden. Dashed box: dev-only."));
   }
 
@@ -318,6 +355,25 @@
       view.bandToggles = (view.bandToggles || []).concat([[box, label]]);
     });
 
+    // Each group's dotted outline, under the arrows and boxes. It keeps its
+    // full size while any of its crates is drawn, so a partner whose head
+    // is filtered out still shows the group it belongs to.
+    for (const unit of view.groups) {
+      const drawn = unit.filter(drawnCrate);
+      if (!drawn.length) continue;
+      const top = view.position.get(unit[0]);
+      const off = !drawn.some(layerShown);
+      const outline = svg("rect", {
+        x: top.x - GROUP_PAD, y: top.y - GROUP_PAD, rx: 11,
+        width: BOX_W + 2 * GROUP_PAD, height: unit.length * BOX_H + (unit.length - 1) * STACK_GAP + 2 * GROUP_PAD,
+        class: "group" + (off ? " layer-off" : ""), "data-group": unit[0],
+      });
+      const tip = svg("title");
+      tip.textContent = `A group: ${unit.slice(1).join(", ")} ${unit.length > 2 ? "implement" : "implements"} a contract of ${unit[0]}, in the same layer`;
+      outline.append(tip);
+      root.append(outline);
+    }
+
     const edgeLayer = svg("g");
     const hitLayer = svg("g");
     // Arrows, then their wider hover areas, then the boxes on top, so a
@@ -327,9 +383,9 @@
     view.hitNodes = [];
     for (const e of graph.edges) {
       if (!visibleEdge(e)) continue;
-      const a = endAt(e, e.from);
-      const b = endAt(e, e.to);
-      if (!a || !b) continue;
+      const ends = endsOf(e.from, e.to, 0.5);
+      if (!ends) continue;
+      const [a, b] = ends;
       // One stroke per shown role, side by side, each in its role's colour.
       // One head, on the middle stroke, in the first role's shape: a head
       // per stroke crowds where arrows meet a box. The path runs from `from`
@@ -338,7 +394,7 @@
       const head = reversed(edgeRoles(e)) ? "marker-start" : "marker-end";
       roles.forEach((role, i) => {
         const path = svg("path", {
-          d: edgePath(endAt(e, e.from, role), endAt(e, e.to, role), (i - (roles.length - 1) / 2) * STROKE_GAP),
+          d: edgePath(a, b, (i - (roles.length - 1) / 2) * STROKE_GAP),
           class: `edge kind-${e.kind} role-${role}`,
           "data-edge": `${e.from}>${e.to}>${e.kind}`,
           ...(i === Math.floor((roles.length - 1) / 2) ? { [head]: `url(#head-${roles[0]})`, "data-head": drawnEnds(e)[1] } : {}),
@@ -398,12 +454,45 @@
     paint();
   }
 
-  // Where an arrow meets a crate's box: the box's place, and the x of the
-  // point it meets, the middle of the box.
-  function endAt(e, name) {
-    const p = view.position.get(name);
-    if (!p) return null;
-    return { ...p, mid: BOX_W / 2 };
+  // Where a line between two boxes meets each of them, and which way it
+  // leaves: a point on a face, a unit direction out of the box, and how
+  // far the curve's control point lies along it. `along` is how far
+  // across a top or bottom face the line meets it (arrows meet the
+  // middle); on a side it meets as far down as 1 - along. A line meets
+  // a top or bottom face unless another box of the same group lies that
+  // way, between the face and the other end: then it meets the side
+  // toward the other end, so it never seems to end on a partner.
+  function endsOf(from, to, along) {
+    const p = view.position.get(from);
+    const q = view.position.get(to);
+    if (!p || !q) return null;
+    const next = (a, b, step) => a.tier === b.tier && a.x === b.x && b.line === a.line + step;
+    const face = (a, b) => {
+      if (b.line <= a.line) return a.stack > 0 && !next(a, b, -1) ? "side" : "top";
+      return a.stack < a.depth - 1 && !next(a, b, 1) ? "side" : "bottom";
+    };
+    const fa = face(p, q);
+    const fb = face(q, p);
+    const arc = p.line === q.line && fa === "top" && fb === "top";
+    const end = (a, b, f) => {
+      if (f === "side") {
+        const right = b.x >= a.x;
+        return { pt: [right ? a.x + BOX_W : a.x, a.y + (1 - along) * BOX_H], dir: [right ? 1 : -1, 0] };
+      }
+      const top = f === "top";
+      return { pt: [a.x + along * BOX_W, top ? a.y : a.y + BOX_H], dir: [0, top ? -1 : 1] };
+    };
+    const ea = end(p, q, fa);
+    const eb = end(q, p, fb);
+    const dx = Math.abs(eb.pt[0] - ea.pt[0]);
+    const dy = Math.abs(eb.pt[1] - ea.pt[1]);
+    const reach = (e) => {
+      if (arc) return 30 + Math.min(40, dx / 8);
+      return e.dir[0] ? Math.max(22, dx / 2) : Math.max(12, dy / 2);
+    };
+    ea.k = reach(ea);
+    eb.k = reach(eb);
+    return [ea, eb];
   }
 
   // One arrowhead per role: a filled arrow for uses, a hollow triangle for
@@ -426,19 +515,11 @@
     return defs;
   }
 
-  // The cubic curve an arrow follows: start, two control points, end.
+  // The cubic curve a line follows: start, two control points, end, each
+  // control point out from its end along the way the line leaves it.
   function edgeCurve(a, b) {
-    const ax = a.x + (a.mid ?? BOX_W / 2);
-    const bx = b.x + (b.mid ?? BOX_W / 2);
-    if (a.line === b.line) {
-      const lift = 30 + Math.min(40, Math.abs(ax - bx) / 8);
-      return [[ax, a.y], [ax, a.y - lift], [bx, b.y - lift], [bx, b.y]];
-    }
-    const down = b.line > a.line;
-    const y1 = down ? a.y + BOX_H : a.y;
-    const y2 = down ? b.y : b.y + BOX_H;
-    const bend = (y2 - y1) / 2;
-    return [[ax, y1], [ax, y1 + bend], [bx, y2 - bend], [bx, y2]];
+    const out = (e) => [e.pt[0] + e.dir[0] * e.k, e.pt[1] + e.dir[1] * e.k];
+    return [a.pt, out(a), out(b), b.pt];
   }
 
   // The arrow's path. With `off`, the path runs parallel to the curve at
@@ -680,13 +761,9 @@
       // (arrows meet the middle), so a line
       // between a program and the crate just below it does not lie on the
       // arrows leaving the program.
-      const at = (name) => {
-        const p = view.position.get(name);
-        return p && { ...p, mid: DELIVERY_X };
-      };
-      const a = at(line.program);
-      const b = at(line.receiver);
-      if (!a || !b) continue;
+      const ends = endsOf(line.program, line.receiver, DELIVERY_X / BOX_W);
+      if (!ends) continue;
+      const [a, b] = ends;
       const tip = (ev) => showDeliveryTip(ev, line);
       const path = svg("path", { d: edgePath(a, b), class: "delivery", "data-from": line.program, "data-to": line.receiver });
       path.addEventListener("mousemove", tip);

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "d41b3a5",
+ "commit": "ce60cf6",
  "crates": [
   {
    "bins": [
@@ -26719,6 +26719,36 @@ window.KKT_GRAPH = {
    "to": "kkt-web"
   }
  ],
+ "groups": {
+  "kkt-agent-client": [
+   "kkt-agent-client-mcp"
+  ],
+  "kkt-clock": [
+   "kkt-clock-system"
+  ],
+  "kkt-container": [
+   "kkt-container-docker"
+  ],
+  "kkt-db": [
+   "kkt-db-sqlite"
+  ],
+  "kkt-entropy": [
+   "kkt-entropy-os"
+  ],
+  "kkt-identity": [
+   "kkt-identity-keymode"
+  ],
+  "kkt-log": [
+   "kkt-log-tracing"
+  ],
+  "kkt-remote-access": [
+   "kkt-remote-access-tailscale"
+  ],
+  "kkt-service": [
+   "kkt-service-launchd",
+   "kkt-service-systemd"
+  ]
+ },
  "kind_mismatches": [],
  "rule_breaks": []
 };
