@@ -2136,6 +2136,25 @@ kkt-server's tests use neither effect crate (msg 3505). kkt-keymode's run
 record lost its log-file fields, which were always empty: it writes no
 log file, and its record is unchanged.
 
+### After phase 16: kkt-backup, a contract crate (Sam, 2026-11-16)
+
+**Sam's decision** (msg 3516, K3, from sage-cardinal). A crate named
+`x-something` implements `x`'s contract. kkt-backup-os implemented
+nothing: its `write` and `prune` were free functions, and the program
+adapted `write` to kkt-operate's `BackupWriter`. So kkt-backup becomes a
+contract crate (ARCHITECTURE.md 3.8), in one pull request: its values
+(`Layout`, `Contents`, `Settings`, `FileCopy`) and the pure functions on
+them stay, and it declares `Backups`, with two operations, write a backup
+and prune old ones, and a `testing` stand-in. kkt-backup-os implements it
+on a struct given the database copy. kkt-operate takes the shared trait
+in place of `BackupWriter`, and the program's adapter goes. Fixed values
+(defaults, bounds, names, modes) are not "configured values" under 3.8.3.
+
+**What it did, against this decision.** Done as decided. The struct is
+`OsBackups`, generic over the copy function; `new` is a `const fn`, so
+kkt's program keeps one in a static for the operator's parts. `kkt serve`'s
+backup before an upgrade writes and prunes through it too.
+
 ## Order at a glance
 
 ```

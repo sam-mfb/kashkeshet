@@ -449,6 +449,12 @@ code at f66b0ab:
 - wiring: 102 of 102 proposed wirings exist; none missing; none extra;
 - rules: no kind check fails; no break of the proposal's rules.
 
+- **kkt-backup is a contract crate** (Sam, 2026-11-16, msg 3516). It
+  declares `Backups` (write a backup, prune old ones) beside its layouts
+  and settings, with `testing::Memory`; kkt-backup-os implements it
+  (`OsBackups`), given the program's database copy. kkt-operate's
+  `BackupWriter` goes.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.

@@ -635,9 +635,12 @@ mod tests {
         }
     }
 
-    impl crate::BackupWriter for Untouched {
+    impl kkt_backup::Backups for Untouched {
         fn write(&self, _: &Path, _: &backup::Layout<'_>) -> Result<PathBuf, String> {
             self.refused("backups.write")
+        }
+        fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, String> {
+            self.refused("backups.prune")
         }
     }
 

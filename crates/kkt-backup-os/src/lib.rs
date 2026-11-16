@@ -1,14 +1,44 @@
-//! Writes backup layouts and removes old backup folders selected by the
-//! backup logic. Database copying is supplied by the program.
+//! Backups on disk: [`OsBackups`] implements kkt-backup's [`Backups`]
+//! contract with the operating system's files, writing kkt-backup's layouts
+//! and removing the old backup folders kkt-backup picks. It is given the
+//! database copy, which is the program's.
 
-use kkt_backup::{DATABASE_FILE, Layout};
+use kkt_backup::{Backups, DATABASE_FILE, Layout};
 use std::fs::{DirBuilder, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+/// Backups in folders on this machine's disk, the database copied by
+/// `copy_database(from, to)`.
+pub struct OsBackups<C> {
+    copy_database: C,
+}
+
+impl<C> OsBackups<C>
+where
+    C: Fn(&Path, &Path) -> Result<(), String>,
+{
+    pub const fn new(copy_database: C) -> OsBackups<C> {
+        OsBackups { copy_database }
+    }
+}
+
+impl<C> Backups for OsBackups<C>
+where
+    C: Fn(&Path, &Path) -> Result<(), String>,
+{
+    fn write(&self, folder: &Path, layout: &Layout<'_>) -> Result<PathBuf, String> {
+        write(folder, layout, &self.copy_database)
+    }
+
+    fn prune(&self, folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String> {
+        prune(folder, keep)
+    }
+}
+
 /// Writes under a private partial name, then renames when complete.
 /// A failed fill removes the partial folder; the database copy runs first.
-pub fn write(
+fn write(
     folder: &Path,
     layout: &Layout<'_>,
     copy_database: impl FnOnce(&Path, &Path) -> Result<(), String>,
@@ -91,7 +121,7 @@ fn copy_private(from: &Path, to: &Path, mode: u32) -> Result<(), String> {
 
 /// Lists the folder, asks the backup logic which names are old, and
 /// removes only those. A missing folder has no backups.
-pub fn prune(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String> {
+fn prune(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String> {
     let entries = match std::fs::read_dir(folder) {
         Ok(entries) => entries,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),

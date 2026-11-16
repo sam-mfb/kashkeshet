@@ -132,7 +132,7 @@
       "kkt-operate::lifecycle::uninstall",
       "kkt-operate::lifecycle::backup",
       "kkt-operate::record::check_setup",
-      "kkt-operate::BackupWriter"
+      "kkt-backup::Backups"
      ]
     }
    ],
@@ -533,16 +533,14 @@
      "supplier_item": "SqlitePlace"
     },
     {
-     "own": "NativeBackups, writing kkt-backup's layouts through kkt-backup-os' write, with this program's database copy",
+     "impl": "kkt-backup-os::OsBackups",
      "crate": "kkt-operate",
      "to": [
       {
        "at": "OperateParts",
        "param": "backups"
       }
-     ],
-     "supplier": "kkt-backup-os",
-     "supplier_item": "write"
+     ]
     },
     {
      "own": "NativeOutput, adapting kkt-terminal-os",

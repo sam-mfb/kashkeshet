@@ -1,6 +1,6 @@
 [package]
 name = "kkt-backup-os"
-description = "Writing and pruning kkt's backup folders on disk"
+description = "Backups on disk: kkt-backup's Backups over the operating system's files"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

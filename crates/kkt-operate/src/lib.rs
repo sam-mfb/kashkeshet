@@ -131,12 +131,6 @@ pub trait Databases {
     fn open(&self, path: &Path) -> Result<kkt_rules::Db, String>;
 }
 
-/// Writes kkt-backup's layout of a backup into a folder, copying the
-/// database as the program's database chooses. Returns the backup written.
-pub trait BackupWriter {
-    fn write(&self, folder: &Path, layout: &kkt_backup::Layout<'_>) -> Result<PathBuf, String>;
-}
-
 /// Command output, with standard output and standard error kept separate.
 pub trait Output {
     fn output(&self, text: Arguments<'_>);
@@ -169,6 +163,6 @@ pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     pub setup_files: &'a dyn SetupFiles,
     pub key_files: &'a dyn KeyFiles,
     pub database: &'a dyn Databases,
-    pub backups: &'a dyn BackupWriter,
+    pub backups: &'a dyn kkt_backup::Backups,
     pub output: &'a dyn Output,
 }
