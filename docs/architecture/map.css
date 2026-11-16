@@ -298,6 +298,10 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
    dash and an italic label. */
 .delivery.own-work { stroke-dasharray: 6 3; }
 .delivery-label.own-work { font-style: italic; }
+/* A route's first hop, from the crate that supplies what is injected to
+   the injector, is an ordinary dependency: the arrow itself, solid, lit in
+   the "built by" amber (Sam, msg 3696). */
+.edge.route-hop { stroke: var(--wires); opacity: .95; stroke-width: 2; }
 .delivery-label-back { fill: var(--bg); stroke: var(--wires); stroke-width: .8; opacity: .95; pointer-events: none; }
 .deliveries-words { margin-top: 2px; }
 /* Each chip's left mark is its role's arrow colour, whatever its text colour. */

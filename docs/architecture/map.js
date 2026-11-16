@@ -309,7 +309,7 @@
         el("span", { class: "key-item", title: ROLE_ABOUT[role] }, el("span", { class: `role-key role-${role}` }), words))),
       el("span", { class: "key-item", title: "A crate that implements a contract of exactly one crate in its own layer, drawn beneath it" },
         el("span", { class: "group-key" }), "Group: a crate, with the crates beneath it that implement its contract"),
-      el("span", { class: "muted" }, "Heads are on the crate that depends. Dashed: tests only. Dotted: build scripts only. Parallel lines: several roles. Where a side has too many arrows, several share one head. Amber dotted line, for ticked crates: an injection route, not a dependency. Thick outline: the crate in the panel. Dashed box: dev-only."));
+      el("span", { class: "muted" }, "Heads are on the crate that depends. Dashed: tests only. Dotted: build scripts only. Parallel lines: several roles. Where a side has too many arrows, several share one head. Solid: a dependency. Dotted amber, for ticked crates: an injection, from the injector on to where it ends; the solid arrow to the crate it is built from lights amber as the route's first hop. Thick outline: the crate in the panel. Dashed box: dev-only."));
   }
 
   function draw() { keepFocus(drawNow); }
@@ -620,8 +620,8 @@
     for (const line of lines) {
       const f = facesOf(line.program, line.receiver);
       if (!f) continue;
-      const a = { order: orderOf(f.fa, line.receiver), run: 0, supply: line.supply };
-      const b = { order: orderOf(f.fb, line.program), run: 0, supply: line.supply };
+      const a = { order: orderOf(f.fa, line.receiver), run: 0 };
+      const b = { order: orderOf(f.fb, line.program), run: 0 };
       for (const [name, face, end] of [[line.program, f.fa, a], [line.receiver, f.fb, b]]) {
         const key = `${name}|${face}`;
         if (!byFace.has(key)) byFace.set(key, { face, ends: [] });
@@ -636,24 +636,14 @@
       const len = faceLength(face);
       const bounds = [MARGIN[face] / len, ...arrows, 1 - MARGIN[face] / len];
       const spaces = bounds.slice(1).map((t, i) => (t + bounds[i]) / 2);
-      // Ends spread over `slots` of the spaces, in order: one
-      // each while they fit, sharing points when they do not.
-      const spread = (list, slots) => list.forEach((e, i) => {
-        const pick = list.length >= slots.length ? Math.floor((i * slots.length) / list.length)
-          : Math.round(((i + 0.5) * slots.length) / list.length - 0.5);
-        e.t = slots[Math.min(slots.length - 1, pick)];
-      });
+      // In order: one space each while they fit, sharing points, on shared
+      // stems as arrows do, when they do not.
       ends.sort((x, y) => x.order - y.order);
-      if (ends.length <= spaces.length) { spread(ends, spaces); continue; }
-      // Too many for a space each: the routes' hops keep a point each, and
-      // the lines from the crates that supply them share the spaces left,
-      // on shared stems, as arrows do.
-      const hops = ends.filter((e) => !e.supply);
-      const supplies = ends.filter((e) => e.supply);
-      const forHops = supplies.length ? Math.min(hops.length, spaces.length - 1) : spaces.length;
-      const taken = new Set(Array.from({ length: forHops }, (_, k) => Math.round(((k + 0.5) * spaces.length) / forHops - 0.5)));
-      spread(hops, [...taken].sort((x, y) => x - y).map((i) => spaces[i]));
-      spread(supplies, spaces.filter((_, i) => !taken.has(i)));
+      ends.forEach((e, i) => {
+        const pick = ends.length >= spaces.length ? Math.floor((i * spaces.length) / ends.length)
+          : Math.round(((i + 0.5) * spaces.length) / ends.length - 0.5);
+        e.t = spaces[Math.min(spaces.length - 1, pick)];
+      });
     }
     return placed.map(({ line, f, a, b }) => ({
       line, ends: joinEnds(pointOn(line.program, f.fa, a.t), pointOn(line.receiver, f.fb, b.t), f.arc),
@@ -949,6 +939,7 @@
     const labelLayer = view.deliveryLabels || layer;
     while (layer.firstChild) layer.removeChild(layer.firstChild);
     while (labelLayer.firstChild) labelLayer.removeChild(labelLayer.firstChild);
+    for (const { path } of view.edgeNodes) path.classList.remove("route-hop");
     if (state.hiddenRoles.has("wires") || !state.kinds.normal) return;
     const focus = state.checked;
     // Every route a ticked crate is on: as the crate that supplies what
@@ -958,26 +949,28 @@
     const touches = (r) => (r[0].builder && focus.has(r[0].builder)) ||
       r.some((h) => focus.has(h.program) || focus.has(h.receiver));
     const shown = focus.size ? routes().filter(touches) : [];
-    // One line per pair of crates, carrying every route between them: the
-    // supplier into the injector that uses its work, then each hop.
+    // The supplier's part is an ordinary dependency (Sam, msg 3696): the
+    // injector names the supplier's type to build it, so the solid arrow
+    // between them is that hop, lit in amber and labelled. Dotted lines
+    // are injections: one per pair of crates from the injector on, through
+    // each crate that passes the thing on, carrying every route between
+    // them.
     const lines = new Map();
-    const add = (from, to, route, step) => {
+    const supplies = new Map();
+    const add = (map, from, to, route) => {
       if (from === to || !visibleCrate(from) || !visibleCrate(to)) return;
       const key = `${from}>${to}`;
-      if (!lines.has(key)) lines.set(key, { program: from, receiver: to, routes: [], supply: step === "supply" });
-      const line = lines.get(key);
+      if (!map.has(key)) map.set(key, { program: from, receiver: to, routes: [] });
+      const line = map.get(key);
       if (!line.routes.includes(route)) line.routes.push(route);
-      if (step !== "supply") line.supply = false;
     };
     for (const r of shown) {
-      if (r[0].builder && r[0].builder !== r[0].program) add(r[0].builder, r[0].program, r, "supply");
-      for (const h of r) add(h.program, h.receiver, r, "hop");
+      if (r[0].builder && r[0].builder !== r[0].program) add(supplies, r[0].builder, r[0].program, r);
+      for (const h of r) add(lines, h.program, h.receiver, r);
     }
-    // Labels keep off the boxes as well as off each other, so no crate's
-    // name is covered.
-    // A label keeps LABEL_CLEAR off every box, and out of every group's
+    // Labels keep LABEL_CLEAR off every box, and out of every group's
     // outline, so none sits in the narrow gap between two boxes and reads
-    // as the box's.
+    // as the box's, and off each other.
     const LABEL_CLEAR = 5;
     const placed = [...view.nodes.keys()].map((n) => view.position.get(n)).filter(Boolean)
       .map((q) => ({ x: q.x - LABEL_CLEAR, y: q.y - LABEL_CLEAR, w: BOX_W + 2 * LABEL_CLEAR, h: BOX_H + 2 * LABEL_CLEAR }))
@@ -987,36 +980,18 @@
           h: unit.length * BOX_H + (unit.length - 1) * STACK_GAP + 2 * GROUP_PAD };
       }));
     const overlaps = (r) => placed.some((q) => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h);
-    // In the spaces between the arrows' ends, so a line between a program
-    // and the crate just below it does not lie on the arrows leaving the
-    // program.
-    for (const { line, ends: [a, b] } of placeDeliveryEnds([...lines.values()])) {
+    // A label on its own line: the stretch nearest the middle where it
+    // covers no box and no other label, trying the whole length, just
+    // above the line, then just below. Where every stretch crosses a box,
+    // it sits mid-line on a backing of the page's colour, so it reads
+    // over the box.
+    const labelOn = (path, line, words, extra) => {
       const tip = (ev) => showDeliveryTip(ev, line);
-      const path = svg("path", { d: edgePath(a, b), class: "delivery", "data-from": line.program, "data-to": line.receiver });
-      path.addEventListener("mousemove", tip);
-      path.addEventListener("mouseleave", hideTip);
-      layer.append(path);
-      // Labelled at every hop with what it carries and who supplies it, so
-      // nothing is only "passed on"; a supplier's line names the items the
-      // injector takes from it. The injector's own work comes first, so a
-      // shortened label keeps it.
-      const own = line.routes.filter(ownWork).map(carried);
-      const words = line.supply
-        ? line.routes.map((r) => r[0].supplierItem || r[0].item.split("::").pop())
-        : [...own, ...line.routes.filter((r) => !ownWork(r)).map(carried)];
-      const allOwn = !line.supply && line.routes.every(ownWork);
-      if (allOwn) path.classList.add("own-work");
-      if (line.supply) path.classList.add("supply");
-      const label = svg("text", { class: "delivery-label" + (allOwn ? " own-work" : ""), "data-from": line.program, "data-to": line.receiver });
+      const label = svg("text", { class: "delivery-label" + extra, "data-from": line.program, "data-to": line.receiver });
       label.textContent = shortLabel([...new Set(words)]);
       label.addEventListener("mousemove", tip);
       label.addEventListener("mouseleave", hideTip);
       labelLayer.append(label);
-      // On its own line: the stretch nearest the middle where the label
-      // covers no box and no other label, trying the whole length, just
-      // above the line, then just below. Where every stretch crosses a box,
-      // the label sits mid-line on a backing of the page's colour, so it
-      // reads over the box.
       const len = path.getTotalLength();
       const spots = [];
       for (let k = 0; k <= 9; k++) {
@@ -1038,6 +1013,35 @@
         const back = svg("rect", { class: "delivery-label-back", x: r.x, y: r.y, width: r.w, height: r.h, rx: 3 });
         labelLayer.insertBefore(back, label);
       }
+    };
+    // The supplier's hop: the injector's arrow to the supplier, whatever
+    // its first role, lit amber as part of the route and labelled with
+    // what the injector builds from it. Not drawn again as a dotted line.
+    for (const line of supplies.values()) {
+      line.supply = true;
+      const strokes = view.edgeNodes.filter(({ edge }) => edge.kind === "normal" && edge.from === line.receiver && edge.to === line.program);
+      if (!strokes.length) continue;
+      for (const { path } of strokes) { path.classList.remove("faint"); path.classList.add("route-hop"); }
+      for (const { edge, hit } of view.hitNodes) if (edge === strokes[0].edge) hit.classList.remove("faint");
+      const middle = strokes.find(({ path }) => path.hasAttribute("marker-start") || path.hasAttribute("data-shared")) || strokes[0];
+      labelOn(middle.path, line, line.routes.map((r) => r[0].supplierItem || r[0].item.split("::").pop()), " supply");
+    }
+    // In the spaces between the arrows' ends, so a line between a program
+    // and the crate just below it does not lie on the arrows leaving the
+    // program.
+    for (const { line, ends: [a, b] } of placeDeliveryEnds([...lines.values()])) {
+      const tip = (ev) => showDeliveryTip(ev, line);
+      const path = svg("path", { d: edgePath(a, b), class: "delivery", "data-from": line.program, "data-to": line.receiver });
+      path.addEventListener("mousemove", tip);
+      path.addEventListener("mouseleave", hideTip);
+      layer.append(path);
+      // Labelled at every hop with what it carries and who supplies it, so
+      // nothing is only "passed on". The injector's own work comes first,
+      // so a shortened label keeps it.
+      const own = line.routes.filter(ownWork).map(carried);
+      const allOwn = line.routes.every(ownWork);
+      if (allOwn) path.classList.add("own-work");
+      labelOn(path, line, [...own, ...line.routes.filter((r) => !ownWork(r)).map(carried)], allOwn ? " own-work" : "");
     }
   }
 
