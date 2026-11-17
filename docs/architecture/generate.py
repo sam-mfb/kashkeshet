@@ -244,19 +244,20 @@ def crate_of(doc, crate_id):
     return doc["external_crates"].get(str(crate_id), {}).get("name")
 
 
-# Every item's full path, by (library, last segment), as rustdoc gives it:
-# how a trait from outside the workspace is named (`std::io::Write`).
-FULL_PATHS = {}
-
-
 def resolve(doc, item_id):
     """(library, last path segment, kind) of the item `item_id` names."""
     entry = doc["paths"].get(str(item_id))
     if not entry:
         return None
-    lib = crate_of(doc, entry["crate_id"])
-    FULL_PATHS.setdefault((lib, entry["path"][-1]), "::".join(entry["path"]))
-    return lib, entry["path"][-1], entry["kind"]
+    return crate_of(doc, entry["crate_id"]), entry["path"][-1], entry["kind"]
+
+
+def full_path(doc, item_id):
+    """The full path rustdoc gives the item `item_id` names (`std::io::Write`):
+    how a trait from outside the workspace is named, carried with the trait
+    itself so two traits of one name never share it."""
+    entry = doc["paths"].get(str(item_id))
+    return "::".join(entry["path"]) if entry else None
 
 
 # Traits from outside the workspace that never make a slot an injection
@@ -374,6 +375,9 @@ def signatures(doc, items, ids):
                         function(f"{path}::{method['name']}", method)
     resolve_ids = lambda xs: [r for r in (resolve(doc, x) for x in xs) if r]
     for entry in takes:
+        # Each trait's full path beside it, for traits from outside the
+        # workspace, which have no public item here to name them by.
+        entry["trait_paths"] = [(r, full_path(doc, x)) for x in entry["traits"] for r in [resolve(doc, x)] if r]
         entry["traits"] = resolve_ids(entry["traits"])
         entry["types"] = resolve_ids(entry["types"])
     for entry in gives:
@@ -385,7 +389,8 @@ def signatures(doc, items, ids):
 
 def trait_impls(doc):
     """Every impl in the crate of a trait: (trait's library, trait name, the
-    implementing type's name or None when it is not a named type)."""
+    implementing type's name or None when it is not a named type, the
+    trait's full path)."""
     found = []
     for item in doc["index"].values():
         if item.get("crate_id") != 0 or "impl" not in item["inner"]:
@@ -402,7 +407,7 @@ def trait_impls(doc):
             resolved = resolve(doc, target["resolved_path"]["id"])
             if resolved and resolved[0] == crate_of(doc, 0):
                 name = resolved[1]
-        found.append((trait[0], trait[1], name))
+        found.append((trait[0], trait[1], name, full_path(doc, impl["trait"]["id"])))
     return found
 
 
@@ -952,7 +957,7 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
     # Which traits each crate implements, and for which public type.
     implementations = []
     for package, data in raw.items():
-        for trait_lib, trait_name, type_name in data["impls"]:
+        for trait_lib, trait_name, type_name, _ in data["impls"]:
             owner = package_of_lib.get(trait_lib)
             if owner is None:
                 continue
@@ -985,8 +990,8 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
     def foreign_traits(entry):
         """The traits from outside the workspace a slot takes, apart from
         FOREIGN_PLAIN, by their full path (`std::io::Write`)."""
-        return sorted({FULL_PATHS.get((lib, name), f"{lib}::{name}") for lib, name, kind in entry["traits"]
-                       if kind == "trait" and lib and package_of_lib.get(lib) is None and name not in FOREIGN_PLAIN})
+        return sorted({full for (lib, name, kind), full in entry.get("trait_paths", [])
+                       if kind == "trait" and lib and full and package_of_lib.get(lib) is None and name not in FOREIGN_PLAIN})
 
     holders = {}
     for _ in range(3):
@@ -1059,8 +1064,7 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
     taken = {t for c in crates for slot in c["slots"] for t in slot.get("foreign", [])}
     for c in crates:
         found = []
-        for trait_lib, trait_name, type_name in raw.get(c["name"], {}).get("impls", []):
-            full = FULL_PATHS.get((trait_lib, trait_name), f"{trait_lib}::{trait_name}")
+        for trait_lib, trait_name, type_name, full in raw.get(c["name"], {}).get("impls", []):
             type_path = public(c["name"], type_name, {"struct", "enum"}) if type_name else None
             if package_of_lib.get(trait_lib) is None and full in taken and type_path:
                 if {"type": type_path, "trait": full} not in found:
@@ -1165,7 +1169,7 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
         del e["_paths"]
 
 
-def check_assembly(assembly, items_of, packages, slots_of, foreign_impls=None):
+def check_assembly(assembly, items_of, packages, slots_of, foreign_impls):
     """Fails if assembly.json names a program, an item, a supplier or a slot
     that is not there, records as an injection a value of the receiving
     crate's own type or of a holder type it names directly, injects into a
@@ -1209,7 +1213,7 @@ def check_assembly(assembly, items_of, packages, slots_of, foreign_impls=None):
                     # (rustdoc's impls), or the named item is a public
                     # function and the slot takes a function trait.
                     if taken and taken.get("foreign") and not taken.get("traits") and not taken.get("holds"):
-                        implements = {i["trait"] for i in (foreign_impls or {}).get(crate, []) if i["type"] == path}
+                        implements = {i["trait"] for i in foreign_impls.get(crate, []) if i["type"] == path}
                         is_fn = items_of.get(crate, {}).get(path, {}).get("kind") == "fn"
                         if not (implements & set(taken["foreign"]) or (is_fn and FUNCTION_TRAITS & set(taken["foreign"]))):
                             problems.append(f"{program}: cannot verify that {impl} meets {wire['crate']}'s "
