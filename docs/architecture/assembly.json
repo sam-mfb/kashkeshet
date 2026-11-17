@@ -3104,7 +3104,7 @@
    "to": "kkt-container-docker",
    "at": "Docker::scripted",
    "param": "browser",
-   "why": "only the program's tests call it, over a scripted host (tests/container_install.rs); the program builds Docker with Docker::new"
+   "why": "only the program's tests call it, over a scripted host (tests/container_install/); the program builds Docker with Docker::new"
   }
  ]
 }

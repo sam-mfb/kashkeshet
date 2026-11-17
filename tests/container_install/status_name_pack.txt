@@ -69,3 +69,11 @@ run      cwd=/data/docker  docker compose --project-directory /data/docker ps --
 run      docker inspect --format "{{json .Config}}" 0123abcd
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt test -e /config/kkt/config.toml
 result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Ok("default-pack"), sharing: false, login: None }
+
+== an entry with no = is skipped
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt test -e /home/kkt/.config/kkt/config.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Ok("default-pack"), sharing: false, login: None }

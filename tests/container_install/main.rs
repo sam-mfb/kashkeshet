@@ -17,15 +17,23 @@ use kkt_container::{
     Arg, Carry, ConfigReader, Container, ContainerConfig, Folder, InServer, Inputs, KeyCopies,
     LoginLink, Sharing,
 };
+use kkt_container_docker::Browser;
 use kkt_container_docker::testing::{Reply, Scripted};
-use kkt_container_docker::{Browser, Docker};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+
+#[path = "../container_install_subjects/mod.rs"]
+mod subjects;
+
+thread_local! {
+    /// The subject the scenario now running drives.
+    static SUBJECT: Cell<&'static str> = const { Cell::new("") };
+}
 
 const ACCESS: &str = "access0123456789abcdef0123456789abcdef0123456789";
 const WEB: &str = "web00123456789abcdef0123456789abcdef0123456789ab";
@@ -38,9 +46,9 @@ const ENV: &str = "/data/docker/.env";
 const WEB_COPY: &str = "/home/me/.config/kkt/docker-web-key";
 const LINK: &str = "https://login.tailscale.com/a/abc123";
 
-const COMPOSE: &str = include_str!("../compose.yaml");
-const COMPOSE_TAILSCALE: &str = include_str!("../compose.tailscale.yaml");
-const SERVE: &str = include_str!("../tailscale/serve.json");
+const COMPOSE: &str = include_str!("../../compose.yaml");
+const COMPOSE_TAILSCALE: &str = include_str!("../../compose.tailscale.yaml");
+const SERVE: &str = include_str!("../../tailscale/serve.json");
 
 // ---------------------------------------------------------------- the harness
 
@@ -184,7 +192,7 @@ struct Run {
     clock: Arc<FixedClock>,
     host: Scripted,
     login: Rc<Login>,
-    docker: Docker,
+    docker: Box<dyn Container>,
 }
 
 /// How the login link is used in a scenario.
@@ -216,7 +224,11 @@ impl Run {
             open_fails: asks.open_fails,
             failures: RefCell::new(asks.failures.into()),
         });
-        let docker = Docker::scripted(Box::new(OpensIn(login.clone())), host.clone());
+        let docker = subjects::subject(
+            SUBJECT.with(Cell::get),
+            Box::new(OpensIn(login.clone())),
+            host.clone(),
+        );
         Run {
             clock,
             host,
@@ -378,7 +390,10 @@ fn golden(name: &str, actual: String) {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/container_install")
         .join(format!("{name}.txt"));
-    if std::env::var_os("UPDATE_GOLDEN").is_some() {
+    // The first subject writes the file; every other one must match it.
+    if std::env::var_os("UPDATE_GOLDEN").is_some()
+        && SUBJECT.with(Cell::get) == subjects::SUBJECTS[0]
+    {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, &actual).unwrap();
         return;
@@ -405,8 +420,9 @@ fn golden(name: &str, actual: String) {
             }
         }
         panic!(
-            "{} differs from what Docker now does.\n{report}\nThe whole transcript:\n{actual}",
-            path.display()
+            "{} differs from what {} now does.\n{report}\nThe whole transcript:\n{actual}",
+            path.display(),
+            SUBJECT.with(Cell::get)
         );
     }
 }
@@ -417,7 +433,10 @@ macro_rules! pinned {
             $(
                 #[test]
                 fn $name() {
-                    super::golden(stringify!($name), $body);
+                    for subject in super::subjects::SUBJECTS {
+                        super::SUBJECT.with(|s| s.set(subject));
+                        super::golden(stringify!($name), $body);
+                    }
                 }
             )*
         }
@@ -995,6 +1014,16 @@ fn status_name_pack() -> String {
                 inspect(&SERVE_ARGS.replace(
                     "\"HOME=/home/kkt\"",
                     "\"HOME=/home/kkt\",\"XDG_CONFIG_HOME=/config\"",
+                )),
+                vec![("test -e", vec![exit(1, "", "")])],
+            ),
+        ),
+        case(
+            "an entry with no = is skipped",
+            &running(
+                inspect(&SERVE_ARGS.replace(
+                    "\"HOME=/home/kkt\"",
+                    "\"XDG_CONFIG_HOME\",\"HOME\",\"HOME=/home/kkt\"",
                 )),
                 vec![("test -e", vec![exit(1, "", "")])],
             ),

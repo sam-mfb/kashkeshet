@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "071961ca",
+ "commit": "8fbcbd35",
  "crates": [
   {
    "bins": [
@@ -30342,7 +30342,7 @@ window.KKT_ASSEMBLY = {
    "crate": "kashkeshet",
    "param": "browser",
    "to": "kkt-container-docker",
-   "why": "only the program's tests call it, over a scripted host (tests/container_install.rs); the program builds Docker with Docker::new"
+   "why": "only the program's tests call it, over a scripted host (tests/container_install/); the program builds Docker with Docker::new"
   }
  ],
  "not_passed_on": [
