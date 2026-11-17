@@ -675,6 +675,41 @@
       }
      ],
      "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener"
+    },
+    {
+     "impl": "kkt-rolling-file::RotatingFile",
+     "crate": "kkt-log-tracing",
+     "to": [
+      {
+       "at": "init_logging",
+       "param": "log_file"
+      }
+     ],
+     "note": "the server's log file, opened by open_log_file with the system clock"
+    },
+    {
+     "impl": "kkt-listen::try_bind",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "try_bind"
+      }
+     ],
+     "note": "whether the service's server could listen on its address"
+    },
+    {
+     "own": "the log-level check, a closure over LogLevel::parse",
+     "supplier": "kkt-log-tracing",
+     "supplier_item": "LogLevel",
+     "crate": "kkt-config-file",
+     "to": [
+      {
+       "at": "parse_file",
+       "param": "level"
+      }
+     ],
+     "note": "the config file's log levels, as kkt-log-tracing reads them"
     }
    ],
    "inferred": false
@@ -842,6 +877,19 @@
       }
      ],
      "note": "The MCP endpoints and web page share the program's log."
+    },
+    {
+     "own": "the log-level check, a closure over LogLevel::parse",
+     "supplier": "kkt-log-tracing",
+     "supplier_item": "LogLevel",
+     "crate": "kkt-config-file",
+     "to": [
+      {
+       "at": "parse_file",
+       "param": "level"
+      }
+     ],
+     "note": "the config file's log levels, as kkt-log-tracing reads them"
     }
    ]
   },
@@ -1580,6 +1628,23 @@
        "param": "client_command"
       }
      ]
+    },
+    {
+     "passes_on": "the bind check the program gave OperateParts",
+     "crate": "kkt-service",
+     "to": [
+      {
+       "at": "check_bind",
+       "param": "try_bind"
+      }
+     ],
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "try_bind"
+      }
+     ],
+     "note": "kkt service install"
     }
    ]
   }

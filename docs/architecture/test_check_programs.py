@@ -284,6 +284,30 @@ class AssemblyWiring(unittest.TestCase):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": wiring}}}
         generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, slots)
 
+    def foreign_check(self, impl, foreign, foreign_impls, items):
+        slots = dict(self.SLOTS, **{"kkt-log-tracing": [
+            {"at": "init_logging", "name": "log_file", "traits": [], "foreign": foreign}]})
+        assembly = {"programs": {"kkt": {"steps": [], "wiring": [
+            {"impl": impl, "crate": "kkt-log-tracing", "to": [{"at": "init_logging", "param": "log_file"}]}]}}}
+        generate.check_assembly(assembly, dict(self.ITEMS, **items), self.PACKAGES | {"kkt-log-tracing", "kkt-rolling-file"},
+                                slots, foreign_impls)
+
+    def test_a_slot_typed_as_an_outside_trait_takes_what_rustdoc_shows_meeting_it(self):
+        write = ["std::io::Write"]
+        items = {"kkt-rolling-file": {"RotatingFile": {"kind": "struct"}, "Plain": {"kind": "struct"},
+                                      "open": {"kind": "fn"}}}
+        meets = {"kkt-rolling-file": [{"type": "RotatingFile", "trait": "std::io::Write"}]}
+        self.foreign_check("kkt-rolling-file::RotatingFile", write, meets, items)
+        with self.assertRaises(SystemExit) as stop:
+            self.foreign_check("kkt-rolling-file::Plain", write, meets, items)
+        self.assertIn("cannot verify that kkt-rolling-file::Plain meets kkt-log-tracing's init_logging (log_file), "
+                      "which takes std::io::Write", str(stop.exception))
+        # A public function fills a slot that takes a function trait, and
+        # nothing else does.
+        self.foreign_check("kkt-rolling-file::open", ["core::ops::function::Fn"], {}, items)
+        with self.assertRaises(SystemExit):
+            self.foreign_check("kkt-rolling-file::open", write, {}, items)
+
     def test_an_adapter_needs_a_supplier_package_and_its_item(self):
         lines = [{"at": "ask::Prompter::new", "param": "lines"}]
         self.assertIn("names no supplier package (kkt-terminal's Terminal)",
