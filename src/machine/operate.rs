@@ -3,7 +3,9 @@
 //! `main.rs` builds one `NativeOperate` and gives each command its parts:
 //! the install's commands [`NativeOperate::install_parts`], and the
 //! operator's commands [`NativeOperate::operator_parts`], with what is
-//! installed here read through the install's parts.
+//! installed here read through the install's parts. It also picks the
+//! server whose lanes `kkt lanes` and `kkt setup --lanes` act on: the local
+//! database's or the container's, from what is installed here.
 
 use super::connection::ConnectionReads;
 use super::settings::{self, DefaultDb, Report, ServeArgs, ServeOptions};
@@ -13,6 +15,7 @@ use kkt_keys::AccessKey;
 use kkt_machine::{Env, Machine, Platform};
 use kkt_machine_os::OsMachine;
 use kkt_operator_commands::OperatorParts;
+use kkt_operator_commands::lanes::{LaneServer, LaneServers};
 use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -102,10 +105,12 @@ impl<'a, D> NativeOperate<'a, D> {
     }
 
     /// The parts, as the operator's commands take them, with `installed`,
-    /// what is installed here.
+    /// what is installed here, and `lane_servers`, the server `kkt lanes`
+    /// acts on ([`Self::lane_servers`]).
     pub fn operator_parts<'b>(
         &'b self,
         installed: &'b dyn kkt_setup::InstalledHere,
+        lane_servers: &'b dyn LaneServers,
     ) -> OperatorParts<'b> {
         OperatorParts {
             installed,
@@ -113,8 +118,7 @@ impl<'a, D> NativeOperate<'a, D> {
             paths: &NativeSetupFiles,
             key_files: &kkt_keys_os::OsKeyFiles,
             entropy: &kkt_entropy_os::OsEntropy,
-            container: &self.docker,
-            container_configs: &settings::ContainerConfigs,
+            lane_servers,
             lanes: &crate::commands::lanes::LaneDisk,
             lane_commit: &crate::commands::lanes::LaneGit,
             database: &NativeDatabases,
@@ -130,8 +134,6 @@ impl<'a, D> NativeOperate<'a, D> {
             serve: &self.serve,
             database: &NativeDatabases,
             clock: Arc::new(kkt_clock_system::SystemClock),
-            container: &self.docker,
-            container_configs: &settings::ContainerConfigs,
             lanes: &crate::commands::lanes::LaneDisk,
             lane_commit: &crate::commands::lanes::LaneGit,
             output: &NativeOutput,
@@ -139,28 +141,106 @@ impl<'a, D> NativeOperate<'a, D> {
     }
 
     /// The lane import `kkt setup --lanes` makes, over the operator's lane
-    /// commands.
+    /// helpers and [`LaneParts`](kkt_operator_commands::LaneParts), on the
+    /// server picked as for `kkt lanes`.
     pub fn setup_lanes(&self) -> SetupLanes<'_, 'a, D> {
         SetupLanes(self)
     }
+
+    /// The server `kkt lanes` acts on, picked from `installed`, what is
+    /// installed here.
+    pub fn lane_servers<'b>(
+        &'b self,
+        installed: &'b dyn kkt_setup::InstalledHere,
+    ) -> HereLanes<'b, 'a, D> {
+        HereLanes {
+            native: self,
+            installed,
+        }
+    }
+
+    /// The lanes of the server `on` names: kkt in a container, or the local
+    /// database `kkt serve` would use unless `db` names another, with the
+    /// config file `config`, else the default. Nothing is read until a lane
+    /// command asks.
+    fn lanes_on(
+        &self,
+        on: kkt_setup::LanesOn,
+        db: Option<PathBuf>,
+        config: Option<PathBuf>,
+    ) -> Box<dyn LaneServer + '_> {
+        match on {
+            kkt_setup::LanesOn::Docker(folder) => {
+                Box::new(crate::commands::lanes::ContainerLanes {
+                    container: &self.docker,
+                    configs: &settings::ContainerConfigs,
+                    paths: &NativeSetupFiles,
+                    output: &NativeOutput,
+                    folder: kkt_container::Folder(folder),
+                })
+            }
+            kkt_setup::LanesOn::Local => Box::new(kkt_operator_commands::lanes::LocalLanes::new(
+                self.lane_parts(),
+                db,
+                config,
+            )),
+        }
+    }
 }
 
-/// The install's lane import, adapted to the operator's lane commands.
+/// The server `kkt lanes` acts on: as kkt-setup's `lanes_on` says, from
+/// this machine's setup record.
+pub struct HereLanes<'n, 'a, D> {
+    native: &'n NativeOperate<'a, D>,
+    installed: &'n dyn kkt_setup::InstalledHere,
+}
+
+impl<D> LaneServers for HereLanes<'_, '_, D> {
+    fn here(
+        &self,
+        db: Option<PathBuf>,
+        config: Option<PathBuf>,
+    ) -> Result<Box<dyn LaneServer + '_>, String> {
+        let mode = self.installed.record()?.map(|record| record.mode);
+        let on = kkt_setup::lanes_on(mode.as_ref(), db.is_some() || config.is_some())?;
+        Ok(self.native.lanes_on(on, db, config))
+    }
+}
+
+/// The install's lane import, adapted to the operator's lane helpers.
 pub struct SetupLanes<'n, 'a, D>(&'n NativeOperate<'a, D>);
 
+/// Lanes go to a server on this machine only.
+const LANES_ON_THE_SERVER: &str = "lanes are imported on the server's machine";
+
 impl<D> kkt_install_commands::ImportLanes for SetupLanes<'_, '_, D> {
+    /// Against the server `kkt setup` sets up for `purpose`: the local
+    /// serve config's limit, or the Docker container's in the folder setup
+    /// uses.
     fn check(&self, folder: &Path, purpose: kkt_setup::Purpose) -> Result<usize, String> {
         let native = self.0;
-        kkt_operator_commands::lanes::check_lanes_for_setup(
-            &native.lane_parts(),
-            native.serve.env,
-            native.serve.platform,
-            folder,
-            purpose,
-        )
+        let on = match purpose {
+            kkt_setup::Purpose::Service => kkt_setup::LanesOn::Local,
+            kkt_setup::Purpose::Docker => kkt_setup::LanesOn::Docker(kkt_setup::docker_folder(
+                native.serve.env,
+                native.serve.platform,
+            )?),
+            kkt_setup::Purpose::Client => return Err(LANES_ON_THE_SERVER.into()),
+        };
+        let server = native.lanes_on(on, None, None);
+        kkt_operator_commands::lanes::check_lanes_for_setup(&native.lane_parts(), &*server, folder)
     }
+    /// Into the server `record` says this machine runs; a service runs on
+    /// the config file and database `kkt serve` finds by default.
     fn import(&self, record: &kkt_setup::Record, folder: &Path) -> Result<String, String> {
-        kkt_operator_commands::lanes::import_lanes_for_setup(&self.0.lane_parts(), record, folder)
+        let native = self.0;
+        let on = match &record.mode {
+            kkt_setup::Mode::Docker(install) => kkt_setup::LanesOn::Docker(install.folder.clone()),
+            kkt_setup::Mode::Service { .. } => kkt_setup::LanesOn::Local,
+            kkt_setup::Mode::Client => return Err(LANES_ON_THE_SERVER.into()),
+        };
+        let server = native.lanes_on(on, None, None);
+        kkt_operator_commands::lanes::import_lanes_for_setup(&native.lane_parts(), &*server, folder)
     }
 }
 

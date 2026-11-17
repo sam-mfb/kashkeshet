@@ -111,6 +111,7 @@ pub async fn status<D: ServiceDefaults>(
                     &folder,
                     parts.container_configs,
                     kkt_rules::Settings::DEFAULT.name_pack.name(),
+                    &kkt_config_file::config_file_in_home(),
                 )
                 .map_err(|e| e.to_string())?;
             for line in setup::docker_status_lines(&state, folder.path()) {
@@ -151,7 +152,7 @@ pub async fn upgrade<D: ServiceDefaults>(
                     parts.clock.as_ref(),
                     &kkt_container::Folder(folder),
                     Build::CURRENT.version,
-                    key_file.as_deref(),
+                    key_file.as_deref().map(setup::docker_key_copies).as_ref(),
                 )
                 .await
                 .map_err(|e| e.to_string())?;

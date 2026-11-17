@@ -171,7 +171,8 @@ async fn run(
     let setup_lanes = native.setup_lanes();
     let operate = native.install_parts(&setup_lanes);
     let installed = InstallReads::new(&operate, env, platform);
-    let operator = native.operator_parts(&installed);
+    let lane_servers = native.lane_servers(&installed);
+    let operator = native.operator_parts(&installed, &lane_servers);
     let mut agents = agent_parts(env, platform, serve_args);
     let done = match task {
         Task::Serve {

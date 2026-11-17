@@ -107,13 +107,18 @@
     },
     {
      "title": "The install and operator commands",
-     "text": "main.rs builds the program's parts once, a NativeOperate with the service capability (ServeArgs). From it come InstallParts for the commands that install and look after kkt (setup, switch, status, upgrade, uninstall, backup, service and doctor): native containers, services, client files, probes, clock, setup and key files, database, backups and terminal. InstallReads reads what is installed here over those parts, and the program hands it to OperatorParts, which the key, agent and lanes commands take, with the lane disk and git. Setup's lane check and import go through SetupLanes, the program's adapter of kkt-operator-commands' lane commands to the install commands' ImportLanes. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in the install commands, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
+     "text": "main.rs builds the program's parts once, a NativeOperate with the service capability (ServeArgs). From it come InstallParts for the commands that install and look after kkt (setup, switch, status, upgrade, uninstall, backup, service and doctor): native containers, services, client files, probes, clock, setup and key files, database, backups and terminal. InstallReads reads what is installed here over those parts, and the program hands it to OperatorParts, which the key, agent and lanes commands take, with the lane disk and git, and to HereLanes, which picks from it the server kkt lanes acts on (LaneServers): the program's ContainerLanes, kkt lanes run in the container over kkt-container's general operations, or kkt-operator-commands' LocalLanes, on the local database. Setup's lane check and import go through SetupLanes, the program's adapter of kkt-operator-commands' lane helpers, over LaneParts, to the install commands' ImportLanes, on a server picked the same way. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in the install commands, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
      "items": [
       "kashkeshet::machine::operate::NativeOperate",
       "kkt-install-commands::InstallParts",
       "kkt-install-commands::record::InstallReads",
       "kkt-setup::InstalledHere",
       "kkt-operator-commands::OperatorParts",
+      "kkt-operator-commands::LaneParts",
+      "kkt-operator-commands::lanes::LaneServers",
+      "kkt-operator-commands::lanes::LaneServer",
+      "kkt-operator-commands::lanes::LocalLanes",
+      "kashkeshet::machine::operate::HereLanes",
       "kkt-install-commands::ImportLanes",
       "kashkeshet::machine::operate::SetupLanes",
       "kkt-install-commands::ServeFacts",
@@ -377,19 +382,17 @@
      "note": "Direct injection of the named container implementation into the install commands."
     },
     {
+     "own": "HereLanes, picking the server kkt lanes acts on from what is installed here: ContainerLanes, kkt lanes run in the container over kkt-container-docker's Docker, or kkt-operator-commands' LocalLanes",
      "crate": "kkt-operator-commands",
      "to": [
       {
        "at": "OperatorParts",
-       "param": "container"
-      },
-      {
-       "at": "LaneParts",
-       "param": "container"
+       "param": "lane_servers"
       }
      ],
-     "impl": "kkt-container-docker::Docker",
-     "note": "Direct injection of the named container implementation into the operator commands."
+     "supplier": "kkt-container-docker",
+     "supplier_item": "Docker",
+     "note": "kkt lanes export and import"
     },
     {
      "own": "ContainerConfigs",
@@ -397,22 +400,6 @@
      "to": [
       {
        "at": "InstallParts",
-       "param": "container_configs"
-      }
-     ],
-     "supplier": "kashkeshet",
-     "note": "the program's own work"
-    },
-    {
-     "own": "ContainerConfigs",
-     "crate": "kkt-operator-commands",
-     "to": [
-      {
-       "at": "OperatorParts",
-       "param": "container_configs"
-      },
-      {
-       "at": "LaneParts",
        "param": "container_configs"
       }
      ],
@@ -800,7 +787,7 @@
      "note": "What is installed here, read by the install commands over their parts."
     },
     {
-     "own": "SetupLanes, setup's lane check and import through kkt-operator-commands' lane commands over the operator's parts",
+     "own": "SetupLanes, setup's lane check and import through kkt-operator-commands' lane helpers over LaneParts, on the server the program picks: ContainerLanes or LocalLanes",
      "crate": "kkt-install-commands",
      "to": [
       {
@@ -987,22 +974,6 @@
       {
        "at": "keys::selected_key_path",
        "param": "env"
-      },
-      {
-       "at": "lanes::check_lanes_for_setup",
-       "param": "env"
-      }
-     ],
-     "note": "asked once at start"
-    },
-    {
-     "produces": "kkt-machine::Platform",
-     "by": "kkt-machine-os::OsMachine",
-     "crate": "kkt-operator-commands",
-     "to": [
-      {
-       "at": "lanes::check_lanes_for_setup",
-       "param": "platform"
       }
      ],
      "note": "asked once at start"
@@ -1089,9 +1060,13 @@
       {
        "at": "default_db",
        "param": "env"
+      },
+      {
+       "at": "docker_folder",
+       "param": "env"
       }
      ],
-     "note": "where the default database goes"
+     "note": "where the default database goes, and the Docker folder whose lane limit kkt setup --lanes checks against"
     },
     {
      "produces": "kkt-machine::Platform",
@@ -1101,9 +1076,13 @@
       {
        "at": "default_db",
        "param": "platform"
+      },
+      {
+       "at": "docker_folder",
+       "param": "platform"
       }
      ],
-     "note": "where the default database goes"
+     "note": "where the default database goes, and the Docker folder whose lane limit kkt setup --lanes checks against"
     },
     {
      "produces": "kkt-machine::Env",
@@ -1156,6 +1135,36 @@
      ],
      "supplier": "kkt-files",
      "supplier_item": "Files"
+    },
+    {
+     "own": "ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-container-docker's Docker",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "lanes::check_lanes_for_setup",
+       "param": "server"
+      },
+      {
+       "at": "lanes::import_lanes_for_setup",
+       "param": "server"
+      }
+     ],
+     "supplier": "kkt-container-docker",
+     "supplier_item": "Docker",
+     "note": "kkt setup --lanes"
+    },
+    {
+     "own": "ContainerLanes' read of the lane limit, the container's config file read over kkt-container-docker's Docker and parsed by ContainerConfigs",
+     "crate": "kkt-setup",
+     "to": [
+      {
+       "at": "lane_reports::docker_limit",
+       "param": "read"
+      }
+     ],
+     "supplier": "kkt-container-docker",
+     "supplier_item": "Docker",
+     "note": "kkt setup --lanes, for kkt in Docker"
     }
    ],
    "inferred": false
@@ -2394,13 +2403,9 @@
       {
        "at": "read_folder",
        "param": "disk"
-      },
-      {
-       "at": "write_folder",
-       "param": "disk"
       }
      ],
-     "note": "kkt lanes import and export, and the lane import kkt setup --lanes asks for",
+     "note": "kkt lanes import",
      "from": [
       {
        "at": "OperatorParts",
@@ -2415,9 +2420,13 @@
       {
        "at": "read_folder",
        "param": "disk"
+      },
+      {
+       "at": "write_folder",
+       "param": "disk"
       }
      ],
-     "note": "the lane check and import kkt setup --lanes asks for, and kkt lanes import's helpers",
+     "note": "the lane check and import kkt setup --lanes asks for, kkt lanes import's helpers, and LocalLanes' export",
      "from": [
       {
        "at": "LaneParts",
@@ -2443,40 +2452,6 @@
       {
        "at": "LaneParts",
        "param": "lane_commit"
-      }
-     ]
-    },
-    {
-     "passes_on": "the Env the program gave each command",
-     "crate": "kkt-setup",
-     "to": [
-      {
-       "at": "docker_folder",
-       "param": "env"
-      }
-     ],
-     "note": "kkt setup --lanes",
-     "from": [
-      {
-       "at": "lanes::check_lanes_for_setup",
-       "param": "env"
-      }
-     ]
-    },
-    {
-     "passes_on": "the Platform the program gave each command",
-     "crate": "kkt-setup",
-     "to": [
-      {
-       "at": "docker_folder",
-       "param": "platform"
-      }
-     ],
-     "note": "kkt setup --lanes",
-     "from": [
-      {
-       "at": "lanes::check_lanes_for_setup",
-       "param": "platform"
       }
      ]
     },

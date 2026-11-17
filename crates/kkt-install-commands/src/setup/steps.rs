@@ -129,7 +129,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 self.parts.login_link,
                 &kkt_container::Folder(folder.clone()),
                 &inputs,
-                &key_file,
+                &setup::docker_key_copies(&key_file),
             ))
             .map_err(|e| e.to_string())?;
         let url = docker_url(options.docker_port, provisioned.node.as_ref());
@@ -246,8 +246,8 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 .block_on(self.parts.container.add_admin_key(
                     self.parts.clock.as_ref(),
                     &kkt_container::Folder(install.folder.clone()),
-                    access,
-                    name,
+                    &setup::docker_key_copies(access),
+                    name.as_str(),
                 ))
                 .map_err(|e| e.to_string()),
             setup::Mode::Service { .. } => {

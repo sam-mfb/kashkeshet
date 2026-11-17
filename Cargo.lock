@@ -1256,7 +1256,6 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-clock",
- "kkt-names",
  "tokio",
 ]
 
@@ -1266,10 +1265,8 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-clock",
- "kkt-config-file",
  "kkt-container",
  "kkt-machine",
- "kkt-names",
  "kkt-scratch",
  "serde_json",
  "thiserror",
@@ -1572,7 +1569,6 @@ dependencies = [
  "kkt-api-operator",
  "kkt-clock",
  "kkt-config-file",
- "kkt-container",
  "kkt-entropy",
  "kkt-keys",
  "kkt-lane-files",

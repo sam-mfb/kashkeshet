@@ -14,7 +14,7 @@ pub fn admin_name_line(
     label: &str,
 ) -> Result<Option<String>, String> {
     let docker_host_copy =
-        path.file_name() == Some(std::ffi::OsStr::new(kkt_container::ADMIN_KEY_FILE_NAME));
+        path.file_name() == Some(std::ffi::OsStr::new(kkt_keys::ADMIN_KEY_COPY_FILE_NAME));
     kkt_keys::admin_name_line(path, key, label, docker_host_copy, |names| {
         files.read_optional(names).map_err(|e| {
             format!(

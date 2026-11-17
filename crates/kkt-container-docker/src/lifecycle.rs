@@ -8,18 +8,20 @@ use super::{
     ConfigReader, DOCKER_BACKUPS_MOUNT, DOCKER_PENDING_TAILNET, DockerError, Folder, Runner,
     Settings,
 };
-use super::{Existing, KeyCopy, Login, State};
+use super::{Existing, KeyCopies, KeyCopy, Login, State};
 use kkt_clock::Clock;
 use std::path::{Path, PathBuf};
 
 /// `reader` parses the container's config file, for its name pack.
 /// `default_name_pack` is the name pack `kkt serve` uses when its settings
-/// name none; the caller gives it.
+/// name none, and `config_file` where its default config file is under its
+/// config home; the caller gives both.
 pub fn status(
     host: &dyn Runner,
     folder: &Folder,
     reader: &dyn ConfigReader,
     default_name_pack: &str,
+    config_file: &Path,
 ) -> Result<State, DockerError> {
     let env_path = folder.path().join(ENV_FILE);
     if !host.exists(&env_path) {
@@ -54,7 +56,7 @@ pub fn status(
     };
     let running = done.stdout.lines().any(|l| l.trim() == "kkt");
     let name_pack = if running {
-        super::name_pack::selected(host, folder, reader, default_name_pack)
+        super::name_pack::selected(host, folder, reader, default_name_pack, config_file)
     } else {
         Err("container is not running".into())
     };
@@ -260,8 +262,8 @@ pub fn backup(
 
 /// Moves kkt to `new_version`: a backup first (so a failed backup stops the
 /// upgrade), then this program's Compose files and the new version in the
-/// settings file, then the new image. Then, given the access key's host copy
-/// `key_file`, saves the keys again as setup does, so the host has the web
+/// settings file, then the new image. Then, given where the keys' host
+/// copies go (`keys`), saves the keys again as setup does, so the host has the web
 /// key a new version made, and the admin key if the server has one. kkt is
 /// running by then, so failing to save them
 /// is said, with how to get the keys, and does not fail the upgrade. It
@@ -272,7 +274,7 @@ pub async fn upgrade(
     settings: Settings,
     folder: &Folder,
     new_version: &str,
-    key_file: Option<&Path>,
+    keys: Option<&KeyCopies>,
 ) -> Result<(), DockerError> {
     let env_path = folder.path().join(ENV_FILE);
     let env = host
@@ -295,10 +297,10 @@ pub async fn upgrade(
         })?;
         return Err(error);
     }
-    let Some(key_file) = key_file else {
+    let Some(keys) = keys else {
         return Ok(());
     };
-    match save_keys(host, clock, settings, folder, key_file).await {
+    match save_keys(host, clock, settings, folder, keys).await {
         Ok(saved) => say_saved(host, &saved),
         Err(e) => host.say(&format!(
             "kkt is running, but its keys could not be saved on this machine: {e}. \

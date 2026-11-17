@@ -11,8 +11,6 @@ publish = false
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
 kkt-container = { path = "../kkt-container" }
-kkt-names = { path = "../kkt-names" }
-kkt-config-file = { path = "../kkt-config-file" }
 kkt-machine = { path = "../kkt-machine" }
 serde_json.workspace = true
 thiserror.workspace = true

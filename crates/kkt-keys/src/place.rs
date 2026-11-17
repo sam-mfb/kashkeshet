@@ -19,6 +19,16 @@ pub const ADMIN_KEY_FILE_NAME: &str = "admin-key";
 /// hash of the key too, so the name belongs to that key alone. Without it,
 /// or for another key, the admin key may only read.
 pub const ADMIN_NAME_FILE_SUFFIX: &str = ".name";
+/// A Docker setup's host copy of the web key, beside the host copy of the
+/// access key.
+pub const WEB_KEY_COPY_FILE_NAME: &str = "docker-web-key";
+/// A Docker setup's host copy of the admin key, beside the host copy of
+/// the access key.
+pub const ADMIN_KEY_COPY_FILE_NAME: &str = "docker-admin-key";
+/// The exit code of `kkt key show --admin` when the server has no admin
+/// key, so a caller, such as setup asking kkt in a container, can tell
+/// that from a failure.
+pub const NO_ADMIN_KEY_EXIT: u8 = 4;
 
 /// Where `kkt key create` writes a key when no `--path` is given: the
 /// access key file in kkt's config directory, `config_dir`.
