@@ -56,6 +56,44 @@ class ProblemsIn(unittest.TestCase):
              "f.rs:2: a public item's name names kkt: KktThing"])
 
 
+class DescriptionProblems(unittest.TestCase):
+    def found(self, crates):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "docs/architecture").mkdir(parents=True)
+            (root / "docs/architecture/concerns.json").write_text(json.dumps({"crates": crates}))
+            return check.description_problems(root)
+
+    def test_a_platform_description_that_names_kkt_or_another_kkt_crate_is_found(self):
+        self.assertEqual(self.found({"kkt-plain": {"layer": "platform", "concern": "Implements kkt-log's contract."}}),
+                         ["concerns.json: kkt-plain's description names kkt: kkt"])
+        self.assertEqual(len(self.found({"kkt-plain": {"layer": "platform", "concern": "Files for kashkeshet."}})), 1)
+
+    def test_kkt_in_another_layers_description_is_fine(self):
+        self.assertEqual(self.found({"kkt-core": {"layer": "core", "concern": "Implements kkt-db's Backend."}}), [])
+
+    def test_history_in_any_description_is_found(self):
+        for text in ["A file (was kkt-logs-os).", "Formerly two crates.", "As ARCHITECTURE.md 4.2.2 says.",
+                     "Per RUST.md 6.", "Added in #563.", "Split in phase 16."]:
+            self.assertEqual(len(self.found({"kkt-core": {"layer": "core", "concern": text}})), 1, text)
+
+    def test_the_layer_texts_keep_to_the_rules(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "docs/architecture").mkdir(parents=True)
+            (root / "docs/architecture/concerns.json").write_text(json.dumps({"crates": {}, "layers": [
+                {"id": "platform", "about": "General crates that know nothing of kkt."},
+                {"id": "core", "about": "The kkt core, split in phase 16."},
+                {"id": "data", "about": "The kkt database."}]}))
+            self.assertEqual(check.description_problems(root), [
+                "concerns.json: the platform layer's text names kkt: kkt",
+                "concerns.json: the core layer's text gives history: phase 16"])
+
+    def test_a_plain_description_passes(self):
+        self.assertEqual(self.found({"kkt-plain": {"layer": "platform", "concern": "A file that rolls over at a size."},
+                                     "kkt-core": {"layer": "core", "concern": "Every change, in one swarm."}}), [])
+
+
 class Problems(unittest.TestCase):
     def test_only_platform_crates_and_their_code_outside_tests_are_read(self):
         with tempfile.TemporaryDirectory() as tmp:
