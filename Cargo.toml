@@ -274,7 +274,7 @@ tracing.workspace = true
 [dev-dependencies]
 kkt-clock = { path = "crates/kkt-clock", features = ["testing"] }
 kkt-container = { path = "crates/kkt-container", features = ["testing"] }
-# The container install's pins (tests/container_install.rs) run Docker
+# The container install's pins (tests/container_install/) run Docker
 # over its scripted host.
 kkt-container-docker = { path = "crates/kkt-container-docker", features = ["testing"] }
 kkt-hash = { path = "crates/kkt-hash" }
