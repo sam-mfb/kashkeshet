@@ -132,7 +132,7 @@ impl ServerSettings {
     }
 }
 
-// Some names belong to the program. Naming them keeps today's single
+// Some names belong to the program. Naming them keeps one
 // ordering without making the assembly depend on their owning crates.
 const CHECK_ORDER: &[(&str, &str)] = &[
     ("bind", "check_bind"),

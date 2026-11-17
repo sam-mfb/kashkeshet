@@ -64,10 +64,8 @@ server is refused (see [Moving to a different server](#moving-to-a-different-ser
 
 ## A server set up by an older kkt, with no record
 
-Before 0.5.0, setup wrote nothing until its last step, so a setup that
-stopped after starting the server (as 0.4.1's did on the Tailscale 502 fixed
-in 0.4.2) left the server running with no setup record and no note. With
-neither, `kkt status`, `kkt doctor`, `kkt upgrade` and `kkt setup` look for a
+A setup by a kkt older than 0.5.0 that stopped after starting the server
+left the server running with no setup record and no note. With neither, `kkt status`, `kkt doctor`, `kkt upgrade` and `kkt setup` look for a
 server kkt itself installed:
 
 - Docker: the managed `docker` folder at its usual path, with its `.env` and

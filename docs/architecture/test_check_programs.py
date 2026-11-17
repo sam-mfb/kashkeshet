@@ -108,7 +108,7 @@ def edge(source, target, features=(), kind="normal"):
 
 class OneKindPerCrate(unittest.TestCase):
     """Each kind against what the map shows: a contract or logic crate
-    touches nothing, an effect crate touches the machine (phase 16)."""
+    touches nothing, an effect crate touches the machine."""
     kinds = check.kinds
 
     def mismatches(self, *crates):
@@ -153,7 +153,7 @@ class OneKindPerCrate(unittest.TestCase):
 
 class TokioWork(unittest.TestCase):
     """tokio's files, sockets, processes, signals, terminal and clock are
-    machine work, like the standard library's (phase 16)."""
+    machine work, like the standard library's."""
 
     def test_tokio_machine_work(self):
         for path in ["net::TcpListener", "signal::ctrl_c", "signal::unix::Signal", "fs::read", "process::Command",
@@ -173,8 +173,8 @@ class StandIns(unittest.TestCase):
     or `testing` bring: a stand-in's work is test support's."""
 
     def test_the_conditions_that_hold_only_for_tests_or_testing(self):
-        # A bare `test` holds only for tests too (#583): its modules were
-        # already test code, and now its single items are as well.
+        # A bare `test` holds only for tests too: its modules and its
+        # single items are test code.
         for cfg in ['test', 'feature = "testing"', 'any(test, feature = "testing")', 'any(feature = "testing", test)']:
             self.assertTrue(generate.behind_testing(cfg), cfg)
         for cfg in ['unix', 'not(feature = "testing")', 'any(unix, feature = "testing")']:
@@ -300,7 +300,7 @@ class AssemblyWiring(unittest.TestCase):
 class TestCodeSplit(unittest.TestCase):
     """generate.py's split of a file into its real code and its test code:
     anything under #[cfg(test)] or the crate's own `testing` feature is test
-    code (msg 3714)."""
+    code."""
 
     def split(self, text):
         return generate.split_test_modules(text)
@@ -362,7 +362,7 @@ mod real;
 
 class TestingOnlyDependency(unittest.TestCase):
     """A normal dependency that only the package's own `testing` feature
-    turns on is a test dependency (msg 3716)."""
+    turns on is a test dependency."""
 
     FEATURES = {"testing": ["dep:kkt-search", "dep:rusqlite", "kkt-clock/testing"], "real": ["dep:tokio"],
                 "both": ["dep:kkt-names"], "more": ["dep:kkt-names"]}

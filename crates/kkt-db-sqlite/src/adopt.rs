@@ -1,5 +1,5 @@
-//! Adopting a database made before kkt-db, whose schema an older store
-//! counted in `user_version` alone.
+//! Adopting a database whose schema is counted in `user_version` alone, as
+//! the databases of releases from before kkt-db are.
 //!
 //! In one transaction, with foreign keys checked at the end: the old
 //! triggers, indexes and full-text tables go; each declared table is
@@ -11,7 +11,7 @@
 //! database adopted at a version and one made new at that version have the
 //! same tables, indexes and triggers, byte for byte.
 //!
-//! Adopting knows no product: the caller says, in kkt-db's [`Legacy`],
+//! The caller describes the product: it says, in kkt-db's [`Legacy`],
 //! which old `user_version` numbers map to which versions and which old
 //! columns are left behind on purpose. Anything else that does not match
 //! the declarations refuses the file, unchanged.

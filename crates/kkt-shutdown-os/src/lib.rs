@@ -1,5 +1,5 @@
 //! The operating system's stop signals. [`StopSignals`] implements
-//! kkt-shutdown's `Signals`: installed before the server is ready, it stops
+//! [`Signals`](kkt_shutdown::Signals): installed before the server is ready, it stops
 //! the shared `Shutdown` value on receipt. Tokio's signal types stay inside
 //! this crate.
 

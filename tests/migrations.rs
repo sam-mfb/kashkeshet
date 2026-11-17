@@ -2,11 +2,11 @@
 //! protections; one from 0.10.0 or `next` is adopted (`v0_10_0`); an older
 //! one is refused, unchanged.
 //!
-//! Databases from before 0.10.0 are no longer upgraded directly (Sam,
-//! 2026-11-09): their owners upgrade through 0.10 first. The protections
-//! the old migrations' tests checked, that the database itself refuses a
-//! message from no avatar, a channel made by no avatar, and changes to
-//! versions that are kept for good, are checked here on a new database.
+//! A database from before 0.10.0 is not upgraded directly: its owner
+//! upgrades through 0.10 first. The database's own protections, that it
+//! refuses a message from no avatar, a channel made by no avatar, and
+//! changes to versions that are kept for good, are checked here on a new
+//! database.
 
 use kkt_scratch as scratch;
 

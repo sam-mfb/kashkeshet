@@ -1,8 +1,6 @@
 //! Serving HTTP: binding an address, then answering on it with the router
-//! it is handed until told to stop. It touches the network, so only
-//! programs depend on it. It knows nothing of how the router was built.
-//! axum's server and tokio's listener stay in here; apart from the router,
-//! the contract is in std types only.
+//! it is handed until told to stop. axum's server and tokio's listener stay
+//! in here; apart from the router, the crate's surface is in std types.
 //!
 //! Running takes two steps, [`listen`] and [`Listening::serve_until`], so a
 //! caller can report what it bound (and log) before the server answers.
@@ -48,12 +46,12 @@ impl Listening {
     /// if serving itself fails.
     ///
     /// Every connection is sent without Nagle's algorithm (`TCP_NODELAY`).
-    /// An MCP reply goes out as two writes, its headers and then its event
-    /// stream; with Nagle, the second waits for the client to acknowledge
-    /// the first, and a client delays that by about 40 ms on every call
+    /// A reply that goes out as two writes, its headers and then a
+    /// streamed body, would otherwise wait for the client to acknowledge
+    /// the first, and a client delays that by about 40 ms on every request
     /// after a connection's first. If the option cannot be set on a
-    /// connection, the connection is still served, more slowly, and
-    /// `report` is given the error to log: this crate does not log.
+    /// connection, the connection is served anyway, more slowly, and
+    /// `report` is given the error to log.
     pub async fn serve_until(
         self,
         stop: impl Future<Output = ()> + Send + 'static,

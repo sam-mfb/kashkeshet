@@ -55,7 +55,7 @@ impl Value {
 }
 
 /// Written by the library from the same value, so that it reads exactly
-/// as it always has.
+/// as the library writes it.
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         to_library(self).fmt(f)

@@ -1,6 +1,6 @@
 //! Agents that have gone quiet, and hiding them together. The human (or an
 //! admin agent) picks how long an agent must have been quiet, sees the list,
-//! and chooses which to hide; nothing here happens on its own. Each is hidden by the same rule
+//! and chooses which to hide; only then are they hidden. Each is hidden by the same rule
 //! as hiding one agent. A channel owner is never hidden this way.
 
 use super::administration::{HIDDEN, Removal, hidden_body};

@@ -1,4 +1,4 @@
-//! kkt-log's [`Log`](kkt_log::Log) contract over `tracing`: [`TracingLog`]
+//! The [`Log`](kkt_log::Log) contract over `tracing`: [`TracingLog`]
 //! sends structured events to the tracing subscriber, and [`init_logging`]
 //! and [`init_stderr_logging`] start that subscriber, to stdout, stderr or a
 //! writer the program gives, such as a rolling log file, with the program's

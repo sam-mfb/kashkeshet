@@ -251,10 +251,10 @@ async fn register_and_whoami_report_the_server_version_in_both_formats() {
     client.cancel().await.unwrap();
 }
 
-/// `register`'s parameter before the rename to `handle` is refused, with a
-/// message saying to use `handle`, and registers nothing. That holds for any
-/// value of `name`, `null` included, since the old optional parameter took
-/// `null`. Registering with no arguments still works.
+/// `register` with a `name` parameter is refused, with a message saying to
+/// use `handle`, and registers nothing. That holds for any value of `name`,
+/// `null` included, since agents written for older servers may send `null`.
+/// Registering with no arguments works.
 #[tokio::test]
 async fn register_with_the_old_name_parameter_is_refused_and_creates_no_avatar() {
     let server = start().await;

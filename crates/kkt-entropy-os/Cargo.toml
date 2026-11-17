@@ -1,6 +1,6 @@
 [package]
 name = "kkt-entropy-os"
-description = "kkt's randomness from the operating system"
+description = "Randomness from the operating system's cryptographic generator"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

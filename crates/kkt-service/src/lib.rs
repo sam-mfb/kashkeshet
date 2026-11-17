@@ -8,8 +8,8 @@
 //!
 //! [`plan`] works out what the service runs and which keys to make, from
 //! plain inputs. [`check_bind`] says whether the service's server could
-//! listen on its address, from the program's answer. Neither uses a service
-//! manager.
+//! listen on its address, from the program's answer. Both work on plain
+//! values.
 
 mod bind;
 mod plan;

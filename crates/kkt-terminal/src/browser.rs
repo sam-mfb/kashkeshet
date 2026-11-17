@@ -1,6 +1,6 @@
 //! Showing a link at the terminal, and waiting for Enter as a request to
-//! open it in a browser. It opens nothing itself: a caller asks
-//! [`BrowserLink::open_requested`] and opens the link its own way.
+//! open it in a browser. A caller asks [`BrowserLink::open_requested`] and
+//! opens the link its own way.
 
 use crate::Terminal;
 use std::io;

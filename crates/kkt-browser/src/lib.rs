@@ -1,8 +1,6 @@
 //! Opening a link in the person's browser with the system's own opener:
-//! `SystemBrowser`, which starts opening a link now and
-//! says later, once, if that failed. Starting does not wait for the
-//! browser. It declares no contract: the program adapts `SystemBrowser` to
-//! the `Browser` kkt-container-docker declares.
+//! `SystemBrowser` starts opening a link at once and says later, once, if
+//! that failed. The caller goes on while the browser starts.
 
 mod system;
 pub use system::SystemBrowser;

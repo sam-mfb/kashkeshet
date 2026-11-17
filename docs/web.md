@@ -146,6 +146,5 @@ own instructions. Each save creates a version with its save time, server run,
 and who saved it: you, or an admin agent. Earlier versions
 remain in the history and cannot be edited or deleted. Saving empty text makes
 it the current version. The limit is `max_server_announcement_chars` in
-kkt-rules' `Settings` (4000 characters by default). Up to version 0.7.0 the page was
-called Operator instructions, at `/instructions`; that address now leads to
-the new one.
+kkt-rules' `Settings` (4000 characters by default). The address
+`/instructions` leads to this page too.

@@ -1,6 +1,6 @@
 [package]
 name = "kkt-entropy"
-description = "kkt's randomness contract, Entropy, and its test doubles"
+description = "The randomness contract, Entropy, and its test doubles"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

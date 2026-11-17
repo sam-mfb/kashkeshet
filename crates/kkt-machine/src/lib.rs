@@ -1,9 +1,8 @@
-//! Facts about the machine kkt runs on: the folders its environment names
-//! ([`Env`]) and its platform ([`Platform`]), as plain values. The crates
-//! that place files on the machine take these facts and build their own
-//! paths from them; none reads the environment itself. [`Machine`] is how a
-//! program reads them for its process: kkt-machine-os implements it, the
-//! program asks once at start, and passes the values on.
+//! Facts about the machine a program runs on: the folders its environment
+//! names ([`Env`]) and its platform ([`Platform`]), as plain values, from
+//! which callers build their own paths. [`Machine`] is the contract for
+//! reading them for this process: a program asks once at start and passes
+//! the values on.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

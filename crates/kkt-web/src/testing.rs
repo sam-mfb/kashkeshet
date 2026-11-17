@@ -3,7 +3,7 @@
 //! a gate and sessions ([`Door`]) that the caller gives, and the helpers
 //! for driving the page. kkt-api-sim's tests run them over the simulated
 //! application; the server's, over the rules, are in `web_real`'s tests.
-//! Nothing here builds a clock, entropy or admission.
+//! The caller gives the clock, entropy and admission.
 
 use crate::*;
 use axum::body::Body;

@@ -1367,7 +1367,7 @@ async fn a_silent_tailscale_container_is_not_called_logged_out() {
 )]
 async fn doctor_does_not_tell_a_docker_or_client_machine_to_start_the_service() {
     // The server is not answering, as when the Tailscale machine is off the
-    // tailnet. The old fix, `kkt service start`, is wrong on these machines.
+    // tailnet. `kkt service start` is the wrong fix on these machines.
     let said = tailscale_docker_output("ts-doctor-hint", "doctor", Some(LOGIN_NEEDED)).await;
     assert!(said.contains("problem: server"), "{said}");
     assert!(!said.contains("kkt service start"), "{said}");
@@ -2404,7 +2404,7 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     // The service as `kkt service install` writes it, with a service
     // manager that says it runs. It is installed before its stand-in
     // server below starts, since install refuses an address another
-    // program has (#371); the service file names the config file, not the
+    // program has; the service file names the config file, not the
     // address, so the address set afterwards is the one it would use.
     let home = temp_home("adopt-service");
     let config = home.join(".config/kkt/config.toml");

@@ -134,10 +134,10 @@ jobs:
   # map in docs/architecture must be current. Pull requests into next and
   # pushes do not run it, so a change to public items there does not wait
   # on the map; regenerate it on next before the release.
-  # Step 8.2: the programs do no machine work themselves (the audit's F1).
-  # Builds the crate map from the code into target/tmp and fails on machine
-  # work in a composition crate's own code that the refactor plan's
-  # temporary breaks do not list. Runs on every pull request and push the
+  # The programs do no machine work themselves. Builds the crate map from
+  # the code into target/tmp and fails on machine work in a composition
+  # crate's own code that the temporary-breaks table of
+  # docs/architecture/refactor-plan.md does not list. Runs on every pull request and push the
   # workflow covers.
   programs-do-no-machine-work:
     name: The programs do no machine work beyond the plan's temporary breaks

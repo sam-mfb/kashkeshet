@@ -2,9 +2,8 @@
 //! (a file that may be missing, and a write that replaces a file only once
 //! the new text is whole), listing a folder's file names, making folders,
 //! renaming and removing, whether a path exists or is a file, creating a file only its owner can read and
-//! restricting one to its owner, and absolute and canonical paths. It knows
-//! nothing of whose files these are: each program adapts [`Files`] to the
-//! contract the crate that needs files declares.
+//! restricting one to its owner, and absolute and canonical paths. A caller
+//! adapts [`Files`] to the file contract it needs.
 
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};

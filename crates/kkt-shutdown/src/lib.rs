@@ -1,9 +1,9 @@
 //! A signal that the server is stopping ([`Shutdown`]), and the contract for
 //! a source of stop signals ([`Signals`]), which stops it when one comes.
 //!
-//! Tokio-util's cancellation token does the work, but stays inside this
-//! module: no other part sees it. Parts that need a library's own token make
-//! one and cancel it when [`Shutdown::stopped`] finishes.
+//! Tokio-util's cancellation token does the work, inside this module. Parts
+//! that need a library's own token make one and cancel it when
+//! [`Shutdown::stopped`] finishes.
 
 use std::fmt;
 use std::future::Future;

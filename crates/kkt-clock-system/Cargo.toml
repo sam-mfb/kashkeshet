@@ -1,6 +1,6 @@
 [package]
 name = "kkt-clock-system"
-description = "The system clock and wall-clock sleep for kkt's clock contract"
+description = "The system clock and wall-clock sleep, implementing the shared clock contract"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

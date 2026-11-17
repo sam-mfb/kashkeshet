@@ -1,5 +1,4 @@
-//! Hashing: [`sha256`], the SHA-256 digest of some bytes. The one crate
-//! that uses sha2; its users call it.
+//! Hashing: [`sha256`], the SHA-256 digest of some bytes, over sha2.
 
 use sha2::{Digest, Sha256};
 

@@ -8,7 +8,7 @@ kinds (`rule_breaks`). generate.py and check-programs.py use it.
 
 import re
 
-# One kind per crate (phase 16). "mixed" is a crate that is still a
+# One kind per crate. "mixed" is a crate that is still a
 # contract or logic together with a real effect: the current map only.
 KINDS = ["contract", "logic", "effect", "composition", "test support", "mixed"]
 
@@ -124,8 +124,7 @@ def check(crates, edges, kind_of, mixed_allowed):
             mismatches.append(f"{c['name']} is marked logic but touches the machine: {'; '.join(io)}")
         # An effect crate touches the machine: in its own code, or through
         # an I/O library. Named tool wrappers remain effects even though they
-        # also own their tool's decisions, tested over a private runner (Sam,
-        # phase 12).
+        # also own their tool's decisions, tested over a private runner.
         if kind == "effect" and not io:
             mismatches.append(f"{c['name']} is marked effect but touches the machine nowhere the map can see")
         if kind == "composition" and io:
@@ -139,15 +138,15 @@ def check(crates, edges, kind_of, mixed_allowed):
     return mismatches, violations
 
 
-# The layer of general crates, which know nothing of kkt (Sam, 2026-11-16).
+# The layer of general crates, which know nothing of kkt.
 PLATFORM = "platform"
 
 
 def rule_breaks(crates, edges, kind_of, layer_of):
     """Where the code breaks the rules that rest on the kinds and layers:
-    only programs depend on an effect crate, in code or in tests (phase
-    16); only programs depend on a composition crate in code (phase 16's
-    follow-up); a crate implements another crate's trait only if that
+    only programs depend on an effect crate, in code or in tests; only
+    programs depend on a composition crate in code; a crate implements
+    another crate's trait only if that
     crate is a contract, or the implementer is a program, a composition or
     test support; no crate is mixed; and a platform crate depends in code
     only on platform crates, since a general crate cannot rest on one that

@@ -1,6 +1,6 @@
 """Which crates the map draws together, as one group under a head crate.
 
-The rule (Sam, msgs 3487 and 3490): a crate that implements a contract of
+The rule: a crate that implements a contract of
 exactly one other crate in its own layer goes under that crate, as
 kkt-db-sqlite goes under kkt-db. Programs and test support are never
 grouped, and a crate that is a partner is never also a head. Nothing else

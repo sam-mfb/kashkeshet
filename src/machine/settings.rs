@@ -862,7 +862,8 @@ mod tests {
     }
 
     /// Of several bad settings, the check names one, always the same, in an
-    /// order nothing else pins: it was kkt-settings' order, and must stay.
+    /// order nothing else pins: refusals have always followed it, and it
+    /// must stay.
     /// Every setting starts bad; each run names the next, which is then
     /// fixed. `max_memory_chars` and `web_page_messages` are named twice:
     /// first for their floor, then for their bound against another setting.

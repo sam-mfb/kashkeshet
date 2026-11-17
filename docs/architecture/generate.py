@@ -496,9 +496,9 @@ def split_test_modules(text):
     """`text` without its test code, and that code's text. Test code is
     every item under `#[cfg(test)]`, or under a condition that holds only
     for tests or the crate's own `testing` feature (`behind_testing`),
-    which only tests turn on (RUST.md 6): a module, a function, a `use`, a
+    which only tests turn on: a module, a function, a `use`, a
     field. What a crate names only there belongs to its test arrow, never
-    to a role of its code arrow (Sam, msg 3714)."""
+    to a role of its code arrow."""
     normal, tests = [], []
     pos = 0
     for match in re.finditer(r"#\[cfg\(", text):
@@ -759,7 +759,7 @@ def main():
         crate_of_name[name]["machine_work"] = machine_work
         # A workspace dependency only the package's own `testing` feature
         # turns on is a test dependency: it is drawn as a test arrow only,
-        # with no code arrow (Sam, msg 3716).
+        # with no code arrow.
         def kind_of_dep(d):
             if d["kind"] is None and testing_only_dependency(p["features"], d):
                 return "dev"
@@ -877,7 +877,7 @@ ROLE_ORDER = ["implements", "adapts", "uses", "wires"]
 def testing_only_dependency(features, dep):
     """Whether a normal dependency is one only the package's own `testing`
     feature turns on: optional, and enabled by `testing` and no other
-    feature. Only tests turn `testing` on (RUST.md 6), so it is a test
+    feature. Only tests turn `testing` on, so it is a test
     dependency: kkt-db's kkt-search, kept for its stand-ins."""
     if not dep.get("optional"):
         return False
@@ -915,8 +915,8 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
     slots it takes, and to each arrow its roles. Everything here comes from
     rustdoc's JSON (`raw`), matched to the public items by name. A
     composition crate's own type that meets another crate's trait is an
-    adapter it injects, not an implementation of a contract (Sam, msg
-    3574): its arrow's role is "adapts", by the implementer's kind in
+    adapter it injects, not an implementation of a contract: its arrow's
+    role is "adapts", by the implementer's kind in
     `kind_of`."""
     by_name = {c["name"]: c for c in crates}
 
@@ -1132,7 +1132,7 @@ def check_assembly(assembly, items_of, packages, slots_of):
                 # A slot that takes a concrete type holding a contract (the
                 # receiver names the type itself) is handed a value, not an
                 # injection: what goes into that value is recorded instead
-                # (Sam, msgs 3692 and 3694; as with the receiver's own type).
+                # (as with the receiver's own type).
                 # A factory that builds a holder the slot's contract needs,
                 # such as SqlitePlace for Db::new, meets the slot's trait.
                 for slot in wire["to"]:

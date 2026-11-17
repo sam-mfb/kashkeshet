@@ -1,6 +1,6 @@
 [package]
 name = "kkt-log-tracing"
-description = "kkt-log's contract over tracing, starting its subscriber, and the log level setting"
+description = "The structured log contract over tracing, starting its subscriber, and the log level setting"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
