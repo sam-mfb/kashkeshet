@@ -814,11 +814,13 @@
   // of another crate. The injector is a program, or a shared crate that
   // does wiring of its own (kkt-server and the assemblies, under
   // "injectors"). Each is one of four (`how`):
-  // - "injects": another crate's implementation (`builder`);
-  // - "adapts": the injector's own adapter over `builder`'s implementation,
-  //   which does the work;
+  // - "injects": another crate's implementation (its one supplier);
+  // - "adapts": the injector's own adapter over the implementations of its
+  //   suppliers, one or several, which do the work;
   // - "own": the injector's own work, no other crate's implementation;
-  // - "passed": what the injector was given, passed on (no `builder`).
+  // - "passed": what the injector was given, passed on (no supplier).
+  // `suppliers` lists each crate whose work a hop starts from, with its
+  // item where there is one: { crate, item }.
   function deliveries() {
     const out = [];
     const injectors = Object.entries(assembly.programs || {}).concat(Object.entries(assembly.injectors || {}));
@@ -826,20 +828,21 @@
       for (const w of flow.wiring || []) {
         const at = { program, receiver: w.crate, slots: w.to, via: w.through_adapter || [] };
         if (w.impl) {
-          const [builder, ...rest] = w.impl.split("::");
-          out.push({ ...at, how: "injects", builder, item: rest.join("::") });
+          const [crate, ...rest] = w.impl.split("::");
+          out.push({ ...at, how: "injects", suppliers: [{ crate, item: rest.join("::") }], item: rest.join("::") });
         } else if (w.own) {
-          const own = w.supplier === program;
-          out.push({ ...at, how: own ? "own" : "adapts", builder: w.supplier, item: w.own, supplierItem: w.supplier_item });
+          const suppliers = w.suppliers.map((x) => ({ crate: x.crate, item: x.item || null }));
+          const own = suppliers.length === 1 && suppliers[0].crate === program;
+          out.push({ ...at, how: own ? "own" : "adapts", suppliers, item: w.own });
         } else if (w.passes_on) {
-          out.push({ ...at, how: "passed", builder: null, item: w.passes_on, from: w.from || [] });
+          out.push({ ...at, how: "passed", suppliers: [], item: w.passes_on, from: w.from || [] });
         } else if (w.produces && w.by) {
           // A value the injector asks an implementer it built for.
-          const [builder, ...rest] = w.by.split("::");
-          out.push({ ...at, how: "produces", builder, item: w.produces, supplierItem: rest.join("::") });
+          const [crate, ...rest] = w.by.split("::");
+          out.push({ ...at, how: "produces", suppliers: [{ crate, item: rest.join("::") }], item: w.produces });
         } else if (w.produces) {
           // A value the injector asks for of an implementer it was given.
-          out.push({ ...at, how: "produced", builder: null, item: w.produces, from: w.from || [] });
+          out.push({ ...at, how: "produced", suppliers: [], item: w.produces, from: w.from || [] });
         }
       }
     }
@@ -870,29 +873,35 @@
   }
   // What a route carries, in a few words: the thing and who supplies it.
   const typeName = (text) => String(text).split(",")[0].trim();
+  // The crates a hop's suppliers are in, other than its injector, and
+  // them in words: "kkt-files and kkt-machine-os".
+  const supplierCrates = (h) => h.suppliers.map((x) => x.crate).filter((c) => c !== h.program);
+  const andList = (names) => (names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names.join(""));
+  // Each supplier with its item: "kkt-files' Files".
+  const supplierWords = (h) => andList(h.suppliers.map((x) => (x.item ? `${x.crate}'s ${x.item}` : x.crate)));
   // At a hop after a contract's operation gave a value, what is carried is
   // that value and what produced it: "Env, from OsMachine".
   function carried(route, upto = route.length - 1) {
     const o = route[0];
     const asked = route.slice(0, upto + 1).reverse().find((h) => h.how === "produces" || h.how === "produced");
     if (asked) {
-      const source = asked.how === "produces" ? asked.supplierItem : o.how === "injects" ? o.item.split("::").pop() : typeName(o.item);
+      const source = asked.how === "produces" ? asked.suppliers[0].item : o.how === "injects" ? o.item.split("::").pop() : typeName(o.item);
       return `${asked.item.split("::").pop()}, from ${source}`;
     }
-    if (o.how === "injects") return `${o.item.split("::").pop()} (${o.builder})`;
-    if (o.how === "adapts") return `${typeName(o.item)} (over ${o.builder})`;
+    if (o.how === "injects") return `${o.item.split("::").pop()} (${o.suppliers[0].crate})`;
+    if (o.how === "adapts") return `${typeName(o.item)} (over ${andList(supplierCrates(o))})`;
     return `${typeName(o.item)} (its own work)`;
   }
-  const ownWork = (route) => route[0].how === "own" || (route[0].how === "injects" && route[0].builder === route[0].program);
+  const ownWork = (route) => route[0].how === "own" || (route[0].how === "injects" && route[0].suppliers[0].crate === route[0].program);
   // The route in words, hop by hop, with the slots it fills.
   function routeWords(route) {
     const o = route[0];
     const begin = {
-      injects: () => [`${o.program} injects `, roleItem(o.item.split("::").pop(), ["wires"], `from ${o.builder}`), ` from ${o.builder}`],
-      adapts: () => [`${o.program}'s adapter ${typeName(o.item)}, over ${o.builder}${o.supplierItem ? `'s ${o.supplierItem}` : ""}`],
+      injects: () => [`${o.program} injects `, roleItem(o.item.split("::").pop(), ["wires"], `from ${o.suppliers[0].crate}`), ` from ${o.suppliers[0].crate}`],
+      adapts: () => [`${o.program}'s adapter ${typeName(o.item)}, over ${supplierWords(o)}`],
       own: () => [`${o.program}'s own work, ${typeName(o.item)}`],
       passed: () => [o.item],
-      produces: () => [`${o.program} asks ${o.supplierItem} (${o.builder}) for ${o.item.split("::").pop()}`],
+      produces: () => [`${o.program} asks ${o.suppliers[0].item} (${o.suppliers[0].crate}) for ${o.item.split("::").pop()}`],
       produced: () => [o.item],
     }[o.how]();
     const into = (h) => `${h.receiver} (${h.slots.map((t) => `${t.at}: ${t.param}`).join(", ")})`;
@@ -917,10 +926,11 @@
       {
         passed: () => [`${d.program} passes on ${d.item} into `],
         own: () => [`${d.program} does this itself, with no other crate's implementation: ${d.item}; into `],
-        adapts: () => [`${d.program} injects its own adapter, ${d.item}; the work is ${d.builder}'s`,
-          d.supplierItem ? [" ", roleItem(d.supplierItem, ["wires"], `from ${d.builder}`)] : "", `; into `],
-        injects: () => [`${d.program} injects `, roleItem(d.item, ["wires"], `from ${d.builder}`), ` (from ${d.builder}) into `],
-        produces: () => [`${d.program} asks ${d.supplierItem} (${d.builder}) for ${d.item.split("::").pop()}, and hands it into `],
+        adapts: () => [`${d.program} injects its own adapter, ${d.item}; the work is `,
+          d.suppliers.map((x, i) => [i ? (i === d.suppliers.length - 1 ? " and " : ", ") : "", `${x.crate}'s`,
+            x.item ? [" ", roleItem(x.item, ["wires"], `from ${x.crate}`)] : ""]), `; into `],
+        injects: () => [`${d.program} injects `, roleItem(d.item, ["wires"], `from ${d.suppliers[0].crate}`), ` (from ${d.suppliers[0].crate}) into `],
+        produces: () => [`${d.program} asks ${d.suppliers[0].item} (${d.suppliers[0].crate}) for ${d.item.split("::").pop()}, and hands it into `],
         produced: () => [`${d.program} asks the implementer it was given for ${d.item.split("::").pop()}, and hands it into `],
       }[d.how](),
       // Slots that take the same contracts through the same adapter are
@@ -942,7 +952,7 @@
   // The injections a wires arrow carries: what its program builds of the
   // other crate's, and where it puts it.
   const arrowDeliveries = (e) => (e.kind === "normal" && edgeRoles(e).includes("wires")
-    ? deliveries().filter((d) => d.program === e.from && d.builder === e.to) : []);
+    ? deliveries().filter((d) => d.program === e.from && d.suppliers.some((x) => x.crate === e.to)) : []);
 
   // A label naming several supplying crates is shortened; hovering shows
   // them all.
@@ -966,7 +976,7 @@
     // it carries, as an injector or as a receiver. The whole route is
     // drawn, through crates that are not ticked, from the crate that
     // supplies what it carries to where it ends.
-    const touches = (r) => (r[0].builder && focus.has(r[0].builder)) ||
+    const touches = (r) => r[0].suppliers.some((x) => focus.has(x.crate)) ||
       r.some((h) => focus.has(h.program) || focus.has(h.receiver));
     const shown = focus.size ? routes().filter(touches) : [];
     // The supplier's part is an ordinary dependency: the
@@ -985,7 +995,7 @@
       if (!line.routes.includes(route)) line.routes.push(route);
     };
     for (const r of shown) {
-      if (r[0].builder && r[0].builder !== r[0].program) add(supplies, r[0].builder, r[0].program, r);
+      for (const c of supplierCrates(r[0])) add(supplies, c, r[0].program, r);
       for (const h of r) add(lines, h.program, h.receiver, r);
     }
     // Labels keep LABEL_CLEAR off every box, and out of every group's
@@ -1037,10 +1047,13 @@
     // Each supplied type once: "OsMachine" where it is given as it is,
     // "OsMachine, wrapped by A" where only adapters wrap it, and
     // "OsMachine; also wrapped by A" where it is both.
-    const supplyWords = (routes) => {
+    // An adapter over several crates is named on each one's hop, with
+    // that crate's item.
+    const supplyWords = (supplier, routes) => {
       const byWhat = new Map();
       for (const r of routes) {
-        const what = r[0].supplierItem || r[0].item.split("::").pop();
+        const mine = r[0].suppliers.find((x) => x.crate === supplier);
+        const what = (mine && mine.item) || r[0].item.split("::").pop();
         const seen = byWhat.get(what) || { plain: false, wrappers: [] };
         if (r[0].how !== "adapts") seen.plain = true;
         else if (!seen.wrappers.includes(typeName(r[0].item))) seen.wrappers.push(typeName(r[0].item));
@@ -1048,7 +1061,7 @@
       }
       return [...byWhat].map(([what, { plain, wrappers }]) => {
         if (!wrappers.length) return what;
-        return `${what}${plain ? "; also" : ","} wrapped by ${wrappers.join(" and ")}`;
+        return `${what}${plain ? "; also" : ","} wrapped by ${andList(wrappers)}`;
       });
     };
     // The supplier's hop: exactly one stroke of the injector's arrow to
@@ -1067,7 +1080,7 @@
       hop.path.classList.remove("faint");
       hop.path.classList.add("route-hop");
       for (const { edge, hit } of view.hitNodes) if (edge === hop.edge) hit.classList.remove("faint");
-      labelOn(hop.path, line, supplyWords(line.routes), " supply");
+      labelOn(hop.path, line, supplyWords(line.program, line.routes), " supply");
     }
     // In the spaces between the arrows' ends, so a line between a program
     // and the crate just below it does not lie on the arrows leaving the
@@ -1185,7 +1198,7 @@
       const route = routes().find((r) => r[0].program === e.from && r.some(meets));
       const what = !route ? `${type}, an adapter,`
         : ownWork(route) ? `its own work, ${type},`
-        : `${type}, an adapter over ${route[0].builder},`;
+        : `${type}, an adapter over ${andList(supplierCrates(route[0]))},`;
       return [i ? "; " : "", `${what} meets ${trait}`];
     });
   }
@@ -1360,7 +1373,7 @@
   // Where a crate's work goes: each route that begins with it, as what is
   // carried and the slot it ends in.
   function goesOf(name) {
-    return [...new Set(routes().filter((r) => r[0].builder === name && r[0].program !== name).map((r) => {
+    return [...new Set(routes().filter((r) => supplierCrates(r[0]).includes(name)).map((r) => {
       const last = r[r.length - 1];
       return `${carried(r)} → ${last.receiver}'s ${last.slots.map((t) => `${t.at} (${t.param})`).join(", ")}, by ${r[0].program}`;
     }))];
@@ -1520,9 +1533,10 @@
       el("h3", {}, `What it passes to which slot (${(flow.wiring || []).length})`),
       el("ul", { class: "flows" }, (flow.wiring || []).map((w) => el("li", {},
         w.impl ? ref(w.impl) : el("span", { class: "chip" }, `${program}: ${w.own || w.passes_on}`),
-        w.own && w.supplier === program ? el("span", { class: "muted" }, " (its own work)") : null,
-        w.own && w.supplier !== program ? [el("span", { class: "muted" }, " adapting "),
-          w.supplier_item ? ref(`${w.supplier}::${w.supplier_item}`) : el("span", { class: "muted" }, w.supplier)] : null,
+        w.own && w.suppliers.every((x) => x.crate === program) ? el("span", { class: "muted" }, " (its own work)") : null,
+        w.own && w.suppliers.some((x) => x.crate !== program) ? [el("span", { class: "muted" }, " adapting "),
+          w.suppliers.map((x, i) => [i ? el("span", { class: "muted" }, " and ") : "",
+            x.item ? ref(`${x.crate}::${x.item}`) : el("span", { class: "muted" }, x.crate)])] : null,
         ` → ${w.crate}'s `,
         el("span", { class: "chips inline" }, w.to.map((t) => el("span", {},
           itemRefAt(w.crate, t.at, dialog), " ", el("code", {}, t.param)))),
