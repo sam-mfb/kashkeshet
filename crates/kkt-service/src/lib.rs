@@ -222,6 +222,15 @@ pub enum ServiceError {
     NoHome,
     #[error("the service is not installed; run `kkt service install` first")]
     NotInstalled,
+    /// This user has no desktop login session, and the service runs in
+    /// one: as over SSH before anyone has logged in at the computer's
+    /// screen, or for a user that never logs in there.
+    #[error(
+        "kkt's service runs while you are logged in at this Mac's desktop, and this user is not \
+         logged in there now. Log in at the desktop and run the command again, or run `kkt serve` \
+         yourself instead."
+    )]
+    NoLoginSession,
     #[error("{value:?} can't go in a service file: {reason}")]
     BadValue { value: String, reason: &'static str },
     #[error("could not {action} {}: {source}", path.display())]
