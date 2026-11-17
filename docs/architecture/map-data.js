@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "c9b76e8e",
+ "commit": "071961ca",
  "crates": [
   {
    "bins": [
@@ -5099,7 +5099,11 @@ window.KKT_GRAPH = {
    ],
    "crate_doc": "kkt-container over Docker and Compose: `Docker` implements its `Container`.",
    "dev_only": false,
-   "features": {},
+   "features": {
+    "testing": [
+     "kkt-clock/testing"
+    ]
+   },
    "foreign_implements": [],
    "holders": [
     {
@@ -5132,11 +5136,55 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "Docker and Compose implement the container contract directly.",
+     "feature_methods": {
+      "testing": [
+       "scripted"
+      ]
+     },
      "kind": "struct",
      "methods": [
       "new"
      ],
      "path": "Docker"
+    },
+    {
+     "doc": "A scripted host for tests of what `Docker` does: `Scripted` answers every command from a script, keeps files and folders in memory, and writes down, in order, everything `Docker` did through it, as a transcript a test can compare with a ...",
+     "feature": "testing",
+     "kind": "mod",
+     "path": "testing"
+    },
+    {
+     "doc": "How a scripted command ended.",
+     "feature": "testing",
+     "fields": [
+      "code",
+      "stdout",
+      "stderr"
+     ],
+     "kind": "struct",
+     "methods": [
+      "exit",
+      "ok",
+      "signal"
+     ],
+     "path": "testing::Reply"
+    },
+    {
+     "doc": "A host for `Docker` (through `super::Docker::scripted`) whose commands are answered by a script.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "failing_dir",
+      "failing_write",
+      "knowing",
+      "new",
+      "note",
+      "transcript",
+      "with_dir",
+      "with_file",
+      "without_working_dir"
+     ],
+     "path": "testing::Scripted"
     }
    ],
    "lib": "kkt_container_docker",
@@ -5175,6 +5223,28 @@ window.KKT_GRAPH = {
        "trait": "Browser"
       }
      ]
+    },
+    {
+     "at": "Docker::scripted",
+     "feature": "testing",
+     "kind": "param",
+     "name": "browser",
+     "traits": [
+      {
+       "crate": "kkt-container-docker",
+       "trait": "Browser"
+      }
+     ]
+    },
+    {
+     "at": "testing::Scripted::new",
+     "feature": "testing",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "script",
+     "traits": []
     }
    ],
    "testing_third_party": [],
@@ -18917,6 +18987,7 @@ window.KKT_GRAPH = {
    "test_items": [
     "Inputs",
     "KeyCopies",
+    "Sharing",
     "testing",
     "testing::Memory",
     "testing::Run"
@@ -18948,7 +19019,11 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "testing",
+    "testing::Reply",
+    "testing::Scripted"
+   ],
    "to": "kkt-container-docker"
   },
   {
@@ -20123,10 +20198,50 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
+    "Clock",
+    "Span",
+    "Time",
+    "testing::FixedClock"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Span",
+      "Time"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::FixedClock"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "Arg",
+    "Carry",
     "ConfigReader",
+    "Container",
+    "ContainerConfig",
+    "Folder",
+    "InServer",
     "Inputs",
     "KeyCopies",
     "LoginLink",
+    "Sharing",
     "testing",
     "testing::Memory",
     "testing::Run"
@@ -20137,6 +20252,9 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Arg",
+      "Carry",
+      "Folder",
       "testing"
      ],
      "role": "uses"
@@ -20151,6 +20269,41 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-container"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kashkeshet",
+   "items": [
+    "Browser",
+    "Docker",
+    "testing",
+    "testing::Reply",
+    "testing::Scripted"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "testing",
+      "testing::Reply",
+      "testing::Scripted"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "Docker"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-container-docker"
   },
   {
    "features": [
@@ -30183,6 +30336,13 @@ window.KKT_ASSEMBLY = {
    "param": "sessions",
    "to": "kkt-server",
    "why": "it hands over a kkt-web Sessions it builds: a value of a type kkt-server names, not an injection; its clock and entropy are wired into Sessions::new"
+  },
+  {
+   "at": "Docker::scripted",
+   "crate": "kashkeshet",
+   "param": "browser",
+   "to": "kkt-container-docker",
+   "why": "only the program's tests call it, over a scripted host (tests/container_install.rs); the program builds Docker with Docker::new"
   }
  ],
  "not_passed_on": [

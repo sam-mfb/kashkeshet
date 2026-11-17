@@ -1,0 +1,35 @@
+== logged in
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+result   State { files_present: true, running: false, version: Some("0.4.0"), name_pack: Err("container is not running"), sharing: true, login: Some(LoggedIn) }
+
+== needs a login
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+result   State { files_present: true, running: false, version: Some("0.4.0"), name_pack: Err("container is not running"), sharing: true, login: Some(NeedsLogin) }
+
+== another state
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+result   State { files_present: true, running: false, version: Some("0.4.0"), name_pack: Err("container is not running"), sharing: true, login: Some(Other("Stopped")) }
+
+== an unreadable answer
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+result   State { files_present: true, running: false, version: Some("0.4.0"), name_pack: Err("container is not running"), sharing: true, login: Some(Other("an unreadable answer")) }
+
+== unreachable
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+result   State { files_present: true, running: false, version: Some("0.4.0"), name_pack: Err("container is not running"), sharing: true, login: Some(Unreachable) }
+
+== cannot be asked
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T tailscale tailscale status --json`: broken pipe

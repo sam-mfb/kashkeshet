@@ -272,7 +272,11 @@ tracing.workspace = true
 # `Memory`, installations in memory; every other `kkt-*` crate comes
 # through [dependencies].
 [dev-dependencies]
+kkt-clock = { path = "crates/kkt-clock", features = ["testing"] }
 kkt-container = { path = "crates/kkt-container", features = ["testing"] }
+# The container install's pins (tests/container_install.rs) run Docker
+# over its scripted host.
+kkt-container-docker = { path = "crates/kkt-container-docker", features = ["testing"] }
 kkt-hash = { path = "crates/kkt-hash" }
 kkt-api-admin = { path = "crates/kkt-api-admin" }
 kkt-scratch = { path = "crates/kkt-scratch" }

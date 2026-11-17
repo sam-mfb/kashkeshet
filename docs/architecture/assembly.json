@@ -3098,6 +3098,13 @@
    "at": "page",
    "param": "sessions",
    "why": "it hands over a kkt-web Sessions it builds: a value of a type kkt-server names, not an injection; its clock and entropy are wired into Sessions::new"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-container-docker",
+   "at": "Docker::scripted",
+   "param": "browser",
+   "why": "only the program's tests call it, over a scripted host (tests/container_install.rs); the program builds Docker with Docker::new"
   }
  ]
 }

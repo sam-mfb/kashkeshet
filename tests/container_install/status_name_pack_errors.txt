@@ -1,0 +1,127 @@
+== no container ID
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("could not identify the kkt container"), sharing: false, login: None }
+
+== not a container ID
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("could not identify the kkt container"), sharing: false, login: None }
+
+== the ID query fails
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("container query failed"), sharing: false, login: None }
+
+== the ID query cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("container query failed"), sharing: false, login: None }
+
+== inspect fails
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("container query failed"), sharing: false, login: None }
+
+== inspect is not JSON
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("unreadable container settings"), sharing: false, login: None }
+
+== no command
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("unreadable container command"), sharing: false, login: None }
+
+== no entrypoint
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("unreadable container entrypoint"), sharing: false, login: None }
+
+== not kkt serve
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("container does not run kkt serve directly"), sharing: false, login: None }
+
+== another program
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("container does not run kkt serve directly"), sharing: false, login: None }
+
+== two entrypoint words
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("container does not run kkt serve directly"), sharing: false, login: None }
+
+== --name-pack with no value
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("container command has a setting without a value"), sharing: false, login: None }
+
+== no environment
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("unreadable container environment"), sharing: false, login: None }
+
+== no home folder
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("container has no config path"), sharing: false, login: None }
+
+== the check for the config file fails
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt test -e /home/kkt/.config/kkt/config.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("could not check the container config"), sharing: false, login: None }
+
+== the check for the config file cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt test -e /home/kkt/.config/kkt/config.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("could not check the container config: broken pipe"), sharing: false, login: None }
+
+== the config file cannot be read
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt test -e /home/kkt/.config/kkt/config.toml
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt cat -- /home/kkt/.config/kkt/config.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("container query failed"), sharing: false, login: None }
+
+== the config file is unreadable
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt test -e /home/kkt/.config/kkt/config.toml
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt cat -- /home/kkt/.config/kkt/config.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("unreadable container config: not a setting in /home/kkt/.config/kkt (home Some(\"/home/kkt\"))"), sharing: false, login: None }

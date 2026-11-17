@@ -1,0 +1,71 @@
+== the default: no flag and no config file
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt test -e /home/kkt/.config/kkt/config.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Ok("default-pack"), sharing: false, login: None }
+
+== from the config file
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt test -e /home/kkt/.config/kkt/config.toml
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt cat -- /home/kkt/.config/kkt/config.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Ok("birds"), sharing: false, login: None }
+
+== a config file that names none
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt test -e /home/kkt/.config/kkt/config.toml
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt cat -- /home/kkt/.config/kkt/config.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Ok("default-pack"), sharing: false, login: None }
+
+== from --name-pack
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Ok("trees"), sharing: false, login: None }
+
+== from --name-pack=
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Ok("rivers"), sharing: false, login: None }
+
+== from --config, absolute
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt cat -- /etc/kkt.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Ok("stones"), sharing: false, login: None }
+
+== from --config, relative to the working folder
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt cat -- /data/conf/kkt.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Ok("stones"), sharing: false, login: None }
+
+== from --config, relative, with no working folder
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt cat -- /kkt.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Ok("stones"), sharing: false, login: None }
+
+== under XDG_CONFIG_HOME
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+run      docker inspect --format "{{json .Config}}" 0123abcd
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt test -e /config/kkt/config.toml
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Ok("default-pack"), sharing: false, login: None }

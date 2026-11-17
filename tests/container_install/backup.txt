@@ -1,0 +1,63 @@
+== in the managed folder
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+result   "/data/docker/backups/kkt-backup-20261117-120000"
+
+== to a folder typed relative
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+mkdir    /home/me/saved
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp kkt:/backups/kkt-backup-20261117-120000 /home/me/saved
+result   "/home/me/saved/kkt-backup-20261117-120000"
+
+== to an absolute folder
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+mkdir    /srv/backups
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp kkt:/backups/kkt-backup-20261117-120000 /srv/backups
+result   "/srv/backups/kkt-backup-20261117-120000"
+
+== the backup fails
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+error    `docker compose --project-directory /data/docker exec -T kkt kkt backup /backups` failed (exit 1: database is locked)
+
+== the backup cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt backup /backups`: broken pipe
+
+== the backup says something else
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+error    unexpected output from `kkt backup`: done
+
+== the backup names no folder
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+error    unexpected output from `kkt backup`: /
+
+== the current folder cannot be found
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+error    could not find the current folder: no current folder
+
+== the destination cannot be made
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+mkdir    /home/me/saved
+error    could not create /home/me/saved: not allowed
+
+== the copy out fails
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+mkdir    /home/me/saved
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp kkt:/backups/kkt-backup-20261117-120000 /home/me/saved
+error    `docker compose --project-directory /data/docker cp kkt:/backups/kkt-backup-20261117-120000 /home/me/saved` failed (exit 1: no space left)
+
+== the copy out cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+mkdir    /home/me/saved
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp kkt:/backups/kkt-backup-20261117-120000 /home/me/saved
+error    Docker is not available: could not run `docker compose --project-directory /data/docker cp kkt:/backups/kkt-backup-20261117-120000 /home/me/saved`: broken pipe

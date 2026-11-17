@@ -1,0 +1,221 @@
+== the backups folder cannot be given to kkt's user
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+error    `docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups` failed (exit 1: no such image)
+
+== kkt does not start
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+say      Starting kkt (this takes a minute if the image has to be downloaded)...
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+error    `docker compose --project-directory /data/docker up -d` failed (exit 1: port is already allocated)
+
+== kkt cannot be started
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+say      Starting kkt (this takes a minute if the image has to be downloaded)...
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+error    Docker is not available: could not run `docker compose --project-directory /data/docker up -d`: broken pipe
+
+== kkt is ended by a signal
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+say      Starting kkt (this takes a minute if the image has to be downloaded)...
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+error    `docker compose --project-directory /data/docker up -d` failed (ended by a signal: )
+
+== the managed folder cannot be made
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+error    could not create /data/docker: not allowed
+
+== the settings file cannot be written
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+error    could not write /data/docker/.env: not allowed
+
+== the key copies' folder cannot be made
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+say      Starting kkt (this takes a minute if the image has to be downloaded)...
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+mkdir    /home/me/.config/kkt
+error    could not create /home/me/.config/kkt: not allowed
+
+== a key copy cannot be written
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+say      Starting kkt (this takes a minute if the image has to be downloaded)...
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+mkdir    /home/me/.config/kkt
+mkdir    /home/me/.config/kkt-admin
+write    private /home/me/.config/kkt/docker-access-key
+  | access0123456789abcdef0123456789abcdef0123456789
+write    private /home/me/.config/kkt/docker-web-key
+error    could not write /home/me/.config/kkt/docker-web-key: not allowed
+
+== the access key cannot be asked for
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+say      Starting kkt (this takes a minute if the image has to be downloaded)...
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt key show`: broken pipe
+
+== the backups folder cannot be made
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+error    could not create /data/docker/backups: not allowed
+
+== a Compose file cannot be written
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+error    could not write /data/docker/compose.yaml: not allowed
+
+== the access key's copy cannot be written
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+say      Starting kkt (this takes a minute if the image has to be downloaded)...
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+mkdir    /home/me/.config/kkt
+mkdir    /home/me/.config/kkt-admin
+write    private /home/me/.config/kkt/docker-access-key
+error    could not write /home/me/.config/kkt/docker-access-key: not allowed
+
+== the admin key's copy cannot be written
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+say      Starting kkt (this takes a minute if the image has to be downloaded)...
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+mkdir    /home/me/.config/kkt
+mkdir    /home/me/.config/kkt-admin
+write    private /home/me/.config/kkt/docker-access-key
+  | access0123456789abcdef0123456789abcdef0123456789
+write    private /home/me/.config/kkt/docker-web-key
+  | web00123456789abcdef0123456789abcdef0123456789ab
+write    private /home/me/.config/kkt-admin/docker-admin-key
+error    could not write /home/me/.config/kkt-admin/docker-admin-key: not allowed
