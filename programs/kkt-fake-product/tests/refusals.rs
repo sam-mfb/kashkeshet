@@ -5,10 +5,10 @@
 //!
 //! Also one thing the inventory's markers cannot see, because no foreign
 //! text appears in it: a handle another swarm holds is refused as taken.
-//! That is known and kept: handles are unique per org (one org, in phase
-//! 1, holds every swarm), so the refusal says the handle exists in some
-//! swarm of the org, and nothing more. The plan lists it, with the
-//! server-wide message IDs, whose gaps count other swarms' messages.
+//! That is known and kept: handles are unique per org, and one org holds
+//! every swarm, so the refusal says the handle exists in some swarm of the
+//! org, and nothing more. Server-wide message IDs are the same: their gaps
+//! count other swarms' messages.
 
 // Shared helper: each test binary uses a different subset.
 #[allow(dead_code)]

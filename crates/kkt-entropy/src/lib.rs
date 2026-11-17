@@ -62,8 +62,8 @@ pub mod testing {
 }
 
 /// Entropy that repeats from a seed: the same seed gives the same numbers in
-/// the same order. For simulations such as the web preview; never for tokens
-/// or keys. (SplitMix64.)
+/// the same order. For simulations, and only for them: tokens and keys need
+/// real randomness. (SplitMix64.)
 #[cfg(any(test, feature = "testing"))]
 pub struct SeededEntropy(std::sync::atomic::AtomicU64);
 

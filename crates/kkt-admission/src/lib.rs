@@ -1,6 +1,6 @@
 //! Admission: whether an HTTP caller is let in to `/mcp` or the web page at
 //! all. This comes before agent tokens (`rules::auth`) and channel access
-//! (`rules::access`), and knows nothing about either.
+//! (`rules::access`).
 //!
 //! For `/mcp`, the HTTP layer turns a request into [`Credentials`], asks
 //! [`Admission::decide`], and then acts on the [`Decision`]: for a caller let

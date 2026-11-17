@@ -1,6 +1,5 @@
 //! Search as text: the words of a text, a search's terms, whether a text
-//! matches them, and an excerpt around the matches. Pure text: it knows no
-//! database.
+//! matches them, and an excerpt around the matches, as pure text logic.
 //!
 //! **Words.** A word is a run of word characters, folded: [`table`]
 //! says which characters are word characters and how each folds. It is
@@ -21,7 +20,7 @@
 //! window it is given.
 //!
 //! A database backend indexes [`words`] of the searchable text and matches
-//! terms against them; it never splits text itself.
+//! terms against them, so every text is split by these rules alone.
 
 mod table;
 

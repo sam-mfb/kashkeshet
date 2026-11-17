@@ -1,5 +1,4 @@
-//! Read-only connection diagnostics. HTTP and JSON types stay in this part.
-//! The checks and their names are here, and doctor's plan of them
+//! Read-only connection diagnostics. The checks and their names are here, and doctor's plan of them
 //! (`plan.rs`) and setup's wait for a new server (`wait.rs`). What touches
 //! the machine, reading key files and probing a server, is behind the
 //! [`Prober`] it declares, which the program supplies (adapting kkt-probe's

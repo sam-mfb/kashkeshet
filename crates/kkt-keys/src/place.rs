@@ -1,6 +1,5 @@
 //! Where the server's key files are, what they are called, and their mode.
-//! These are fixed values that installs already hold files under. They are
-//! kept together here so they can move as one if they need to.
+//! These are fixed values that installs already hold files under.
 
 use std::path::{Path, PathBuf};
 
@@ -33,7 +32,7 @@ pub fn web_key_path(access_key: &Path) -> PathBuf {
 }
 
 /// The admin key lives beside the server's access key, unless that place
-/// is already used by the access key (which older versions allowed).
+/// is already used by the access key (an install may have one there).
 pub fn admin_key_path(access_key: &Path) -> Option<PathBuf> {
     let admin = access_key.with_file_name(ADMIN_KEY_FILE_NAME);
     (admin != access_key).then_some(admin)

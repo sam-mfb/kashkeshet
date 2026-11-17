@@ -1,5 +1,5 @@
-//! A TOML text open for editing. Its words are only those kkt's callers
-//! need: find what is at a key path, open a table or a list there, and set,
+//! A TOML text open for editing, with a few operations: find what is at a
+//! key path, open a table or a list there, and set,
 //! remove or add text. Whatever is not changed keeps its comments and
 //! layout.
 //!

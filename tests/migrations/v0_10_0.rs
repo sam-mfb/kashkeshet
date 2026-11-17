@@ -344,8 +344,8 @@ fn new_shape(test: &str) -> Shape {
     shape(&path)
 }
 
-/// Sam's requirement for the baseline (2026-11-09): an upgraded 0.10.0
-/// database and a new one end up the same, table for table, index for
+/// The baseline: an upgraded 0.10.0 database and a new one end up the
+/// same, table for table, index for
 /// index and trigger for trigger, byte for byte.
 #[tokio::test]
 async fn a_v0_10_0_database_becomes_exactly_what_a_new_one_is() {

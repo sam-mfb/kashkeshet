@@ -8,8 +8,7 @@
 //! them. A program takes the assembled router out of its App and hands it
 //! to kkt-listen.
 //!
-//! It decides nothing about who a caller is: the program passes in
-//! [`Identify`] through [`Parts`], and the admission mode (open or keys)
+//! The program passes in who a caller is, [`Identify`], through [`Parts`], and the admission mode (open or keys)
 //! through [`AppConfig`]. The web page reads and changes the rules through
 //! the kkt-api crates' contracts; the gate that adapts admission and
 //! identity to kkt-web's contract ([`AdmissionGate`]) is public, for a

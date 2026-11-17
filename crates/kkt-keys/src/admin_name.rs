@@ -96,7 +96,7 @@ fn read_admin_name(
     }
 }
 
-/// The unchanged advice after the native name-file write or removal.
+/// The advice after the name file is written or removed.
 pub fn admin_name_written(
     path: &Path,
     name: Option<&AdminName>,

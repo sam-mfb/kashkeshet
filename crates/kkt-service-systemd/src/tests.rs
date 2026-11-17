@@ -302,7 +302,7 @@ fn systemd_install_writes_enables_and_restarts() {
     );
 }
 
-/// #371: a server that fails as it starts, as when its port is taken, is
+/// A server that fails as it starts, as when its port is taken, is
 /// waiting to be started again when checked. systemd's service is stopped,
 /// so it does not start and fail every few seconds, and the install fails.
 #[test]

@@ -1,6 +1,6 @@
 [package]
 name = "kkt-search"
-description = "kkt's search as text: words, terms, matching and excerpts, with no database"
+description = "Search as text: words, terms, matching and excerpts"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

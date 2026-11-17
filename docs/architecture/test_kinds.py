@@ -39,7 +39,7 @@ class RuleBreaks(unittest.TestCase):
     def test_only_programs_may_depend_on_effects(self):
         crates = [crate("main", bins=["main"]), crate("prog"), crate("fx"), crate("stand-in")]
         self.assertEqual(self.breaks(crates, [edge("main", "fx"), edge("main", "fx", "dev")]), [])
-        # A composition, test support or another effect crate may not (phase 16).
+        # A composition, test support or another effect crate may not.
         self.assertEqual(self.breaks(crates + [crate("fx2")], [edge("prog", "fx"), edge("stand-in", "fx", "dev"),
                                                                edge("fx2", "fx")]),
                          ["fx2 depends on the effect crate fx", "prog depends on the effect crate fx",
@@ -100,7 +100,8 @@ def scanned(name, kind, files):
 
 
 class KindsFromTheSources(unittest.TestCase):
-    """The two additions of phase 16, from source text to kind check."""
+    """Two kind checks, from source text to kind check: tokio's machine work
+    counts, and modules only `testing` brings do not."""
 
     def mismatches(self, crate, kind):
         found, _ = kinds.check([crate], [], {crate["name"]: kind}, mixed_allowed=False)

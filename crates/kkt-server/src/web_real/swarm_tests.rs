@@ -1,8 +1,8 @@
 //! Two swarms on one web page. A viewer that `Identify` puts in another
 //! swarm reads the same rules as key mode's viewer, in its own swarm: it must see nothing of `sw_main` on any page or in the live
 //! feed, and its forms must change nothing there. Lanes, the server
-//! announcement and server runs belong to the server, not a swarm, and are
-//! the same for both until orgs arrive (phase 2).
+//! announcement and server runs belong to the server, and are the same for
+//! both.
 
 use super::AdmissionGate;
 use kkt_admission::{Admission, Principal, WebAdmission};

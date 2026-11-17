@@ -20,15 +20,14 @@
 #    [dev-dependencies], not in [dependencies] or [build-dependencies], is
 #    one only its tests use. Anything else that must is a documented
 #    exception, listed with its reason in effect-exceptions.json beside this
-#    script; a listed exception that no longer applies fails (phase 16).
+#    script; a listed exception that no longer applies fails.
 # 3. No package turns on another workspace package's `testing` outside
 #    [dev-dependencies], with two exceptions. A package's own `testing`
 #    feature may turn on a workspace dependency's `testing`: it is itself on
-#    only from [dev-dependencies] (Sam, 2026-11-11). And a dev-only program
+#    only from [dev-dependencies]. And a dev-only program
 #    (a binary target and `[package.metadata.kkt] dev-only = true`) may turn
 #    on `testing` in [dependencies]: dev tooling counts as test code, and
-#    check-release-packages.sh keeps it out of every release (the plan's
-#    "What needs Sam", item 4). A library's `default` feature also may not
+#    check-release-packages.sh keeps it out of every release. A library's `default` feature also may not
 #    reach its own `testing`, or a workspace dependency's, directly or
 #    through its other features at any depth.
 # 4. `kkt-scratch` (test scratch folders) appears only in
@@ -38,15 +37,14 @@
 #    with a binary target is a program and is not held to this.
 # 6. No package has a `real` feature, and no source names one: code that
 #    touches the machine is in an effect crate of its own, not behind a
-#    feature (phase 16, which removed phases 13 and 14's `real`).
+#    feature.
 # 7. Only programs depend on a composition crate (a crate concerns.json
 #    marks "composition") in [dependencies]: a composition is put together
-#    by the program that runs it, and nothing under it names it (phase 16's
-#    follow-up, which took kkt-listen off kkt-server).
+#    by the program that runs it, and nothing under it names it.
 # 8. A platform crate (one concerns.json puts in the `platform` layer)
 #    depends in [dependencies] only on other platform crates: a platform
-#    crate knows nothing of kkt, so it cannot rest on a crate that does
-#    (Sam, 2026-11-16). Its tests and build script may reach further.
+#    crate knows nothing of kkt, so it cannot rest on a crate that does.
+#    Its tests and build script may reach further.
 #
 # Checks 2 to 8 are in check-crates.jq, tested by test_check_crates.py,
 # except check 6's search of the sources, which is below.

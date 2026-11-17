@@ -1,6 +1,6 @@
 //! Whether an installed service's server could listen on its address, and
-//! what to say when it could not (#371). The program tries the address;
-//! this crate opens no sockets.
+//! what to say when it could not. The program tries the address and passes
+//! in its answer.
 
 use std::io;
 use std::net::SocketAddr;
@@ -52,7 +52,7 @@ mod tests {
         BIND.parse().expect("address")
     }
 
-    /// #371: with another program listening on the address, the install
+    /// With another program listening on the address, the install
     /// is refused, naming the address and where to change it.
     #[test]
     fn an_address_in_use_is_refused_naming_the_config_file() {

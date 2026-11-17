@@ -1,7 +1,6 @@
 //! Starting the rules for a server run: the run is recorded in the
 //! database, then the rules are built with its ID, which stamps the agents,
-//! messages and other rows they make. The programs call [`start`]; recording
-//! a run is not an operation of the rules it helps build.
+//! messages and other rows they make. The programs call [`start`].
 
 use crate::store::{Db, NewServerRunRecord, StoreResult};
 use crate::{Deps, OperatorWording, Rules, Settings};

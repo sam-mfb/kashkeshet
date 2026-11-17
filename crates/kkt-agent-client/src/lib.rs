@@ -1,8 +1,7 @@
 //! A client of kkt's server, as kkt's commands use it: registering and
 //! reclaiming avatars, and watching for an agent's new messages or, with
-//! the admin key, for every channel's. A contract in kkt's terms only:
-//! nothing here names a transport or a library. `testing::Memory` is a
-//! stand-in.
+//! the admin key, for every channel's. A contract in kkt's terms, with
+//! `testing::Memory` as a stand-in.
 
 use futures::future::BoxFuture;
 use kkt_clock::Clock;

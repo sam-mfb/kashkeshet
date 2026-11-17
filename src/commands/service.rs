@@ -170,7 +170,7 @@ mod tests {
         );
     }
 
-    /// #371, with a real socket: with another program listening on the
+    /// With a real socket: with another program listening on the
     /// address, the install is refused, naming the address and where to change it, rather than
     /// installing a server that fails and is started again every few
     /// seconds.

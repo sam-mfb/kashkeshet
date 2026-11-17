@@ -1,10 +1,10 @@
 //! Which characters make up words, and how each is folded: a table of
 //! ranges, generated from SQLite FTS5's `unicode61` tokenizer with its
 //! defaults (Unicode 6.1; case folded; diacritics removed from Latin
-//! letters), so kkt's search splits words exactly as it did when FTS5
-//! split them. Each entry is `(first, last, class)`; a character in no
-//! range separates words. kkt-db-sqlite's tests check every character
-//! against FTS5 and can regenerate this file.
+//! letters), so words split exactly as FTS5 splits them. Each entry is
+//! `(first, last, class)`; a character in no range separates words. The
+//! SQLite backend's tests check every character against FTS5 and can
+//! regenerate this file.
 
 use super::Class::{self, Drop, Keep};
 

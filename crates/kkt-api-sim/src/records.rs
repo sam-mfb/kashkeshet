@@ -1,6 +1,5 @@
-//! The preview's own records of its simulated world: what kkt-web's own
-//! contract described before the page used the kkt-api crates. The preview
-//! keeps them inside, and gives the page kkt-api's records (`api`).
+//! The preview's own records of its simulated world. The preview keeps them
+//! inside, and gives the page kkt-api's records (`api`).
 
 #[derive(Clone, Debug)]
 pub enum ChannelAction {

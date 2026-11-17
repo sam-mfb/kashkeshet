@@ -1,6 +1,6 @@
 //! [`FastPlace`]: a fast stand-in database for tests, built on SQLite in
-//! memory. SQLite is the tool here, not the thing imitated: this is not
-//! kkt-db-sqlite, and shares nothing with it. Its translation of kkt-db's
+//! memory. SQLite is only the tool here: the stand-in shares no code with
+//! kkt-db-sqlite. Its translation of kkt-db's
 //! language into SQL is its own, written to say what each operation means
 //! as plainly as [`super::MemoryPlace`] does, which it follows step for
 //! step: the same checks, in the same order, giving the same errors. It is
@@ -15,8 +15,7 @@
 //! point into it, can break one; they are checked in the schema's order, as
 //! `MemoryPlace` checks every table, so the first rule broken is the same.
 //!
-//! Nothing touches the disk: the database is in memory, with its temporary
-//! tables there too.
+//! The database is in memory, with its temporary tables there too.
 
 use crate::search::{Hit, Search};
 use crate::{

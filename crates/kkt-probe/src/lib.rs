@@ -1,9 +1,8 @@
 //! Probing a kkt server over HTTP and reading its key files, with reqwest,
 //! whose types stay inside this crate: `HttpProber`, with
 //! the [`Settings`] the program chooses. It words what it finds as
-//! [`Finding`]s and [`FileRead`]s, its own records. It declares no
-//! contract: the program adapts `HttpProber` to the `Prober` kkt-diagnostics
-//! declares.
+//! [`Finding`]s and [`FileRead`]s, its own records. The program adapts
+//! `HttpProber` to the `Prober` kkt-diagnostics declares.
 
 use std::time::Duration;
 

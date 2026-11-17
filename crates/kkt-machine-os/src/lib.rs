@@ -1,5 +1,5 @@
 //! The machine's facts as this process sees them: [`OsMachine`] implements
-//! kkt-machine's `Machine`, reading the environment, naming the platform
+//! [`Machine`](kkt_machine::Machine), reading the environment, naming the platform
 //! this program was built for, and giving this process's ID, this
 //! program's path and the folders `$PATH` names. The program
 //! asks once and passes the values on.

@@ -1,5 +1,5 @@
 //! The system clock and its wall-clock sleep, implementing the shared
-//! `kkt_clock::Clock` contract. Time values and formatting stay in kkt-clock.
+//! [`Clock`](kkt_clock::Clock) contract.
 
 use futures::future::BoxFuture;
 use kkt_clock::{Clock, Time};
@@ -41,7 +41,7 @@ async fn sleep_by_wall_clock(now: impl Fn() -> Time, deadline: Time, step: std::
     }
 }
 
-/// The one place kkt reads the machine's wall clock.
+/// Reads the machine's wall clock.
 #[expect(
     clippy::disallowed_methods,
     reason = "the system clock is where a program using it reads real time"

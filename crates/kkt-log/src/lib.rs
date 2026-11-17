@@ -1,6 +1,6 @@
 //! Structured log events, independent of their destination. A caller gives
 //! its target, level, message and named values; the provider applies filters
-//! and records them. No logging library's types cross this contract.
+//! and records them. The contract is in its own types.
 
 use std::fmt;
 

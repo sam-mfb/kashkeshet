@@ -14,7 +14,7 @@ use std::time::Duration;
 pub const WEB_SESSION_ID_CHARS: usize = 32;
 
 /// Characters session IDs and form tokens are drawn from: lowercase ASCII
-/// letters and digits, as before they moved here.
+/// letters and digits.
 const RANDOM_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
 /// What a session can hold: whatever the gate says a key admits. Any type

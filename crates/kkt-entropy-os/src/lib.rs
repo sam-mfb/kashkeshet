@@ -1,5 +1,5 @@
-//! Randomness from the operating system: [`OsEntropy`], kkt-entropy's
-//! [`Entropy`](kkt_entropy::Entropy) from the operating system's
+//! Randomness from the operating system: [`OsEntropy`] implements
+//! [`Entropy`](kkt_entropy::Entropy) with the operating system's
 //! cryptographic generator.
 
 use kkt_entropy::Entropy;

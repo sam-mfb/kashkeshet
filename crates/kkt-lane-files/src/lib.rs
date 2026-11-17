@@ -8,8 +8,8 @@
 //! adapters: the disk over kkt-files, the commit over
 //! kkt-revision's git.
 //!
-//! This part only reads and writes files. Whether a lane is acceptable, and
-//! what an import changes, is for the lane rules (`rules::Operator`).
+//! It reads and writes the files. Whether a lane is acceptable, and what an
+//! import changes, are the lane rules' (`rules::Operator`).
 
 mod commit;
 mod format;

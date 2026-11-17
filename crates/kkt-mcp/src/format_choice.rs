@@ -2,7 +2,7 @@
 //! The MCP library describes each input with a JSON schema, so the choice
 //! derives one here, in the crate that wraps the library, and the call
 //! turns it into kkt-result-format's [`Format`]. The schema keeps the name
-//! `Format` and the variants' descriptions the tools have always shown.
+//! `Format` and the variants' descriptions the tools show.
 
 use kkt_result_format::Format;
 use schemars::JsonSchema;

@@ -1,6 +1,6 @@
 [package]
 name = "kkt-remote-access-tailscale"
-description = "kkt-remote-access over Tailscale"
+description = "Remote access over Tailscale"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
