@@ -1,7 +1,7 @@
 //! The operator's list and revoke commands, on the local server database.
+use crate::OperatorParts;
 use crate::lanes::existing_db;
 use kkt_rules::{CommandLine, Revoked};
-use kkt_setup::connection::ConnectionSource;
 use std::path::PathBuf;
 
 /// What `kkt agent` does.
@@ -12,8 +12,8 @@ pub enum AgentAction {
 
 /// `kkt agent`: the operator's commands, on the database `kkt serve` would
 /// use unless `--db` names another. Never creates a database.
-pub async fn run<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+pub async fn run(
+    parts: &OperatorParts<'_>,
     command: AgentAction,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
@@ -23,7 +23,7 @@ pub async fn run<D>(
         Some(_) => None,
         None => parts.serve.config(config)?.db,
     };
-    let path = existing_db(parts, db, config_db)?;
+    let path = existing_db(&parts.lane_parts(), db, config_db)?;
     let db = parts.database.open(&path)?;
     // Key mode: the one swarm, which every avatar is in.
     let operator = CommandLine::new(db, kkt_api_agent::SwarmId::main(), parts.clock.clone());

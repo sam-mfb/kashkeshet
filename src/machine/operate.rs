@@ -1,14 +1,18 @@
-//! kkt-operate's parts on this machine: the program's native providers and
-//! its serving settings, adapted to the operator's commands. `main.rs` builds
-//! one `NativeOperate` and gives every operator command its `parts`.
+//! The install's and the operator's commands' parts on this machine: the
+//! program's native providers and its serving settings, adapted to each.
+//! `main.rs` builds one `NativeOperate` and gives each command its parts:
+//! the install's commands [`NativeOperate::install_parts`], and the
+//! operator's commands [`NativeOperate::operator_parts`], with what is
+//! installed here read through the install's parts.
 
 use super::connection::ConnectionReads;
 use super::settings::{self, DefaultDb, Report, ServeArgs, ServeOptions};
 use kkt_files::Files;
+use kkt_install_commands::{Config, InstallParts, ServeFacts, SetupFiles};
 use kkt_keys::AccessKey;
 use kkt_machine::{Env, Machine, Platform};
 use kkt_machine_os::OsMachine;
-use kkt_operate::{Config, Databases, OperateParts, Output, ServeFacts, SetupFiles};
+use kkt_operator_commands::OperatorParts;
 use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -65,9 +69,13 @@ impl<'a> NativeOperate<'a> {
 }
 
 impl<'a, D> NativeOperate<'a, D> {
-    /// The parts, as kkt-operate's commands take them.
-    pub fn parts(&self) -> OperateParts<'_, ConnectionReads<'a>, D> {
-        OperateParts {
+    /// The parts, as the install's commands take them, with `import_lanes`
+    /// for the lanes `kkt setup --lanes` imports ([`Self::setup_lanes`]).
+    pub fn install_parts<'b>(
+        &'b self,
+        import_lanes: &'b dyn kkt_install_commands::ImportLanes,
+    ) -> InstallParts<'b, ConnectionReads<'a>, D> {
+        InstallParts {
             container: &self.docker,
             container_configs: &settings::ContainerConfigs,
             login_link: &self.login_link,
@@ -77,8 +85,7 @@ impl<'a, D> NativeOperate<'a, D> {
             clients: &super::client_config::ClientHost,
             client_command: &super::client_config::ClaudeCommand,
             prober: &self.prober,
-            lanes: &crate::commands::lanes::LaneDisk,
-            lane_commit: &crate::commands::lanes::LaneGit,
+            import_lanes,
             lines: &crate::terminal::TerminalLines,
             config_file: &NativeConfigText,
             connection: &self.connection,
@@ -93,11 +100,96 @@ impl<'a, D> NativeOperate<'a, D> {
             output: &NativeOutput,
         }
     }
+
+    /// The parts, as the operator's commands take them, with `installed`,
+    /// what is installed here.
+    pub fn operator_parts<'b>(
+        &'b self,
+        installed: &'b dyn kkt_setup::InstalledHere,
+    ) -> OperatorParts<'b> {
+        OperatorParts {
+            installed,
+            serve: &self.serve,
+            paths: &NativeSetupFiles,
+            key_files: &kkt_keys_os::OsKeyFiles,
+            entropy: &kkt_entropy_os::OsEntropy,
+            container: &self.docker,
+            container_configs: &settings::ContainerConfigs,
+            lanes: &crate::commands::lanes::LaneDisk,
+            lane_commit: &crate::commands::lanes::LaneGit,
+            database: &NativeDatabases,
+            clock: Arc::new(kkt_clock_system::SystemClock),
+            output: &NativeOutput,
+        }
+    }
+
+    /// The parts the operator's lane helpers take: setup's lane steps and
+    /// the program's tests of them use these alone.
+    pub fn lane_parts(&self) -> kkt_operator_commands::LaneParts<'_> {
+        kkt_operator_commands::LaneParts {
+            serve: &self.serve,
+            database: &NativeDatabases,
+            clock: Arc::new(kkt_clock_system::SystemClock),
+            container: &self.docker,
+            container_configs: &settings::ContainerConfigs,
+            lanes: &crate::commands::lanes::LaneDisk,
+            lane_commit: &crate::commands::lanes::LaneGit,
+            output: &NativeOutput,
+        }
+    }
+
+    /// The lane import `kkt setup --lanes` makes, over the operator's lane
+    /// commands.
+    pub fn setup_lanes(&self) -> SetupLanes<'_, 'a, D> {
+        SetupLanes(self)
+    }
+}
+
+/// The install's lane import, adapted to the operator's lane commands.
+pub struct SetupLanes<'n, 'a, D>(&'n NativeOperate<'a, D>);
+
+impl<D> kkt_install_commands::ImportLanes for SetupLanes<'_, '_, D> {
+    fn check(&self, folder: &Path, purpose: kkt_setup::Purpose) -> Result<usize, String> {
+        let native = self.0;
+        kkt_operator_commands::lanes::check_lanes_for_setup(
+            &native.lane_parts(),
+            native.serve.env,
+            native.serve.platform,
+            folder,
+            purpose,
+        )
+    }
+    fn import(&self, record: &kkt_setup::Record, folder: &Path) -> Result<String, String> {
+        kkt_operator_commands::lanes::import_lanes_for_setup(&self.0.lane_parts(), record, folder)
+    }
 }
 
 struct ServeReads<'a> {
     env: &'a Env,
     platform: Platform,
+}
+
+impl kkt_operator_commands::ServeConfig for ServeReads<'_> {
+    fn config(&self, file: Option<PathBuf>) -> Result<kkt_operator_commands::Config, String> {
+        let config = ServeFacts::config(self, file)?;
+        Ok(kkt_operator_commands::Config {
+            db: config.db,
+            max_lane_chars: config.max_lane_chars,
+        })
+    }
+    fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
+        ServeFacts::configured_access_key(self)
+    }
+    fn database(
+        &self,
+        given: Option<PathBuf>,
+        from_config: Option<PathBuf>,
+    ) -> Result<PathBuf, String> {
+        ServeFacts::database(self, given, from_config)
+    }
+    fn default_access_key(&self) -> Option<PathBuf> {
+        ServeFacts::default_access_key(self)
+    }
 }
 
 impl ServeFacts for ServeReads<'_> {
@@ -145,7 +237,7 @@ impl ServeFacts for ServeReads<'_> {
         &self,
         config: Option<PathBuf>,
         flags: kkt_service::ServiceSettings,
-    ) -> Result<kkt_operate::ServiceInputs<'_>, String> {
+    ) -> Result<kkt_install_commands::ServiceInputs<'_>, String> {
         let flags = ServeOptions {
             db: flags.db,
             access_key_file: flags.access_key_file,
@@ -161,7 +253,7 @@ impl ServeFacts for ServeReads<'_> {
             default_db: kkt_setup::default_db(self.env, self.platform),
             default_key: settings::default_access_key(self.env),
         };
-        Ok(kkt_operate::ServiceInputs {
+        Ok(kkt_install_commands::ServiceInputs {
             request,
             check: Box::new(ServiceCheck {
                 env: self.env,
@@ -184,7 +276,7 @@ pub struct ServiceArgs<'a> {
     serve_args: ServeArgs,
 }
 
-impl kkt_operate::ServiceDefaults for ServiceArgs<'_> {
+impl kkt_install_commands::ServiceDefaults for ServiceArgs<'_> {
     fn matches_defaults(&self, args: &[String]) -> Result<bool, String> {
         let parse = self.serve_args;
         let installed = settings::serve_settings_from_args(self.env, self.platform, parse, args)?;
@@ -207,11 +299,11 @@ struct ServiceCheck<'a> {
     loaded: settings::Loaded,
     sources: settings::Sources,
 }
-impl kkt_operate::CheckService for ServiceCheck<'_> {
+impl kkt_install_commands::CheckService for ServiceCheck<'_> {
     fn check(
         self: Box<Self>,
         plan: &kkt_service::Plan,
-    ) -> Result<kkt_operate::CheckedService, String> {
+    ) -> Result<kkt_install_commands::CheckedService, String> {
         let check = ServeOptions {
             db: plan.check.db.clone(),
             access_key_file: plan.check.access_key_file.clone(),
@@ -227,7 +319,7 @@ impl kkt_operate::CheckService for ServiceCheck<'_> {
         )?;
         resolved.web_key = plan.check_web_key.clone();
         let checked = settings::check_settings(resolved, &self.sources)?;
-        Ok(kkt_operate::CheckedService {
+        Ok(kkt_install_commands::CheckedService {
             bind: checked.bind,
             config_file: checked.config_file.or_else(|| {
                 kkt_config_file::config_file(self.env.config_home().as_deref())
@@ -295,6 +387,15 @@ impl SetupFiles for NativeSetupFiles {
     }
 }
 
+impl kkt_operator_commands::Paths for NativeSetupFiles {
+    fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
+        Files.absolute(path)
+    }
+    fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
+        Files.canonicalize(path)
+    }
+}
+
 /// The text of the file at `path`, if there is one.
 fn read_if_present(path: &Path) -> Result<Option<String>, String> {
     Files
@@ -327,7 +428,12 @@ static REMOTE_ACCESS: kkt_remote_access_tailscale::Tailscale =
     kkt_remote_access_tailscale::Tailscale::new("`kkt setup`");
 
 struct NativeDatabases;
-impl Databases for NativeDatabases {
+impl kkt_install_commands::Databases for NativeDatabases {
+    fn exists(&self, path: &Path) -> bool {
+        kkt_db_sqlite::SqlitePlace::exists(path)
+    }
+}
+impl kkt_operator_commands::Databases for NativeDatabases {
     fn exists(&self, path: &Path) -> bool {
         kkt_db_sqlite::SqlitePlace::exists(path)
     }
@@ -337,7 +443,15 @@ impl Databases for NativeDatabases {
 }
 
 pub(crate) struct NativeOutput;
-impl Output for NativeOutput {
+impl kkt_install_commands::Output for NativeOutput {
+    fn output(&self, text: Arguments<'_>) {
+        kkt_terminal::Terminal.output(text);
+    }
+    fn errors(&self, text: Arguments<'_>) {
+        kkt_terminal::Terminal.errors(text);
+    }
+}
+impl kkt_operator_commands::Output for NativeOutput {
     fn output(&self, text: Arguments<'_>) {
         kkt_terminal::Terminal.output(text);
     }
@@ -347,7 +461,7 @@ impl Output for NativeOutput {
 }
 
 struct NativeConfigText;
-impl kkt_operate::ConfigText for NativeConfigText {
+impl kkt_install_commands::ConfigText for NativeConfigText {
     fn read(&self, path: &Path) -> Result<Option<String>, String> {
         kkt_config_file::files::read(&super::config_disk::ConfigDisk, path)
             .map_err(|e| e.to_string())

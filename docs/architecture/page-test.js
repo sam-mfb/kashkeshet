@@ -297,25 +297,25 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       }, id);
     };
     // A value a contract's operation gives: the program asks OsMachine for
-    // Env and Platform and hands them down; kkt-operate passes them on.
+    // Env and Platform and hands them down; kkt-install-commands passes them on.
     // Ticking kkt-machine-os lights the program's arrow to it and draws the
     // dotted lines on, labelled with the value and what produced it; the
     // panels say where the values go and where a receiver's come from.
     const machine = await routeOf("kkt-machine-os");
-    await onBox("kkt-operate", "> rect");
+    await onBox("kkt-install-commands", "> rect");
     await openSection("slots");
     const operatePanel = await p.$eval("#panel", (x) => x.textContent);
     await onBox("kkt-machine-os", "> rect");
     await openSection("goes");
     const machinePanel = await p.$eval("#panel", (x) => x.textContent);
     check("Env and Platform are traced from OsMachine through the program to the crates that take them",
-      ["kashkeshet>kkt-operate", "kashkeshet>kkt-setup", "kashkeshet>kkt-agent-commands", "kkt-operate>kkt-setup",
+      ["kashkeshet>kkt-install-commands", "kashkeshet>kkt-setup", "kashkeshet>kkt-agent-commands", "kkt-install-commands>kkt-setup",
         "kkt-agent-commands>kkt-llm-agent-config"].every((l) => machine.lines.includes(l)) &&
       machine.hops.includes("kashkeshet>kkt-machine-os>normal") &&
-      /Env, from OsMachine/.test(machine.labels["kashkeshet>kkt-operate"] || "") &&
+      /Env, from OsMachine/.test(machine.labels["kashkeshet>kkt-install-commands"] || "") &&
       /Env, from OsMachine.* · passed on$/.test(machine.labels["kkt-agent-commands>kkt-llm-agent-config"] || "") &&
       /filled with Env, from OsMachine, by kashkeshet/.test(operatePanel) &&
-      /Env, from OsMachine → kkt-operate's/.test(machinePanel) &&
+      /Env, from OsMachine → kkt-install-commands's/.test(machinePanel) &&
       // The supply label names each supplied type once.
       machine.labels["kkt-machine-os>kashkeshet"] === "OsMachine; also wrapped by ThisProgram",
       { machine, operate: (operatePanel.match(/filled with Env[^]{0,60}/) || [""])[0], goes: (machinePanel.match(/Where its work goes[^]{0,120}/) || [""])[0] });
@@ -323,11 +323,11 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     // Shutdown it stops, and StopSignals gives back only which signal came.
     const shutdown = await routeOf("kkt-shutdown-os");
     check("ticking kkt-shutdown-os draws no dotted line", shutdown.lines.length === 0, shutdown);
-    // A value asked of an implementer the injector was given: kkt-operate
+    // A value asked of an implementer the injector was given: kkt-install-commands
     // asks the clock the program gave it for the time a backup is named for.
     const clock = await routeOf("kkt-clock-system");
-    check("the time is traced from SystemClock through kkt-operate to kkt-backup",
-      clock.lines.includes("kkt-operate>kkt-backup") && /Time, from SystemClock/.test(clock.labels["kkt-operate>kkt-backup"] || ""),
+    check("the time is traced from SystemClock through kkt-install-commands to kkt-backup",
+      clock.lines.includes("kkt-install-commands>kkt-backup") && /Time, from SystemClock/.test(clock.labels["kkt-install-commands>kkt-backup"] || ""),
       clock.labels);
 
     // A logic crate handing on what it was given: the program gives
@@ -509,23 +509,23 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     });
     check("no route label sits bare on a box", covered.length === 0, covered);
     await onBox("kkt-watch", ".pick-hit");
-    const ownTip = await tipOf("kkt-operate>kkt-setup>normal", "kkt-operate");
+    const ownTip = await tipOf("kkt-install-commands>kkt-setup>normal", "kkt-install-commands");
     check("an adapting arrow names the injector's own work as such", /adapted by: [^]*its own work/.test(ownTip), ownTip.slice(0, 300));
     const gateTip = await tipOf("kkt-server>kkt-web>normal", "kkt-server");
     check("an adapting arrow names the crate its adapter is over", /adapter over kkt-admission/.test(gateTip), gateTip.slice(0, 300));
 
     // Injections follow the rule: the program injects nothing of
-    // kkt-diagnostics' own into it; kkt-operate passes on the prober it was
+    // kkt-diagnostics' own into it; kkt-install-commands passes on the prober it was
     // given; and the program's own work is labelled as such.
     await onBox("kkt-diagnostics", ".pick-hit");
     const lines = await p.$$eval("path.delivery", (paths) => paths.map((x) => `${x.dataset.from}>${x.dataset.to}`));
     check("no injection of a crate's own type, and the assembly passes on what it was given",
-      !lines.includes("kashkeshet>kkt-diagnostics") && lines.includes("kkt-operate>kkt-diagnostics"), lines);
+      !lines.includes("kashkeshet>kkt-diagnostics") && lines.includes("kkt-install-commands>kkt-diagnostics"), lines);
     await onBox("kkt-diagnostics", ".pick-hit");
-    await onBox("kkt-operate", ".pick-hit");
+    await onBox("kkt-install-commands", ".pick-hit");
     const labels = await p.$$eval("text.delivery-label", (xs) => xs.map((x) => x.textContent));
     check("the program's own work is named as such", labels.some((l) => l.includes("its own work")), labels);
-    await onBox("kkt-operate", ".pick-hit");
+    await onBox("kkt-install-commands", ".pick-hit");
 
     // The panel: no "Must not" and no notes on where things come
     // from; each list is a section with a count that opens and closes,

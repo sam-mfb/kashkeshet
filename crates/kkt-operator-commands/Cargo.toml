@@ -1,6 +1,6 @@
 [package]
-name = "kkt-operate"
-description = "The operator commands and this machine's recorded kkt install"
+name = "kkt-operator-commands"
+description = "The operator's commands on this machine's kkt server: keys, lanes and agents"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,25 +11,13 @@ publish = false
 kkt-keys = { path = "../kkt-keys" }
 kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-api-operator = { path = "../kkt-api-operator" }
-kkt-backup = { path = "../kkt-backup" }
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-config-file = { path = "../kkt-config-file" }
 kkt-container = { path = "../kkt-container" }
-kkt-diagnostics = { path = "../kkt-diagnostics" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-lane-files = { path = "../kkt-lane-files" }
 kkt-machine = { path = "../kkt-machine" }
-kkt-names = { path = "../kkt-names" }
-kkt-provenance = { path = "../kkt-provenance" }
-kkt-remote-access = { path = "../kkt-remote-access" }
 kkt-rules = { path = "../kkt-rules" }
-kkt-service = { path = "../kkt-service" }
 kkt-setup = { path = "../kkt-setup" }
 tokio.workspace = true
-
-[dev-dependencies]
-kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
-kkt-container = { path = "../kkt-container", features = ["testing"] }
-kkt-service = { path = "../kkt-service", features = ["testing"] }
-futures.workspace = true

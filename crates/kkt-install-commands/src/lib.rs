@@ -1,11 +1,12 @@
-//! The operator's commands and this machine's install. The program supplies
+//! The commands for this machine's kkt install: `kkt setup` and `kkt
+//! switch`, `kkt status`, `kkt upgrade`, `kkt uninstall`, `kkt service`,
+//! `kkt backup` and `kkt doctor`, and the check `kkt serve` makes before it
+//! starts. It reads what is installed here ([`record::InstallReads`]), which
+//! the program also hands to the operator's commands. The program supplies
 //! every effect and answers questions about its serving settings lazily.
 
-pub mod agent;
 pub mod doctor;
-pub mod key;
 pub mod keys;
-pub mod lanes;
 pub mod lifecycle;
 pub mod record;
 pub mod service;
@@ -71,10 +72,10 @@ pub struct CheckedService {
 ///
 /// ```compile_fail,E0277
 /// use kkt_machine::{Env, Platform};
-/// use kkt_operate::OperateParts;
+/// use kkt_install_commands::InstallParts;
 /// use kkt_setup::connection::ConnectionSource;
-/// fn inspect<C: ConnectionSource>(parts: &OperateParts<'_, C>, env: &Env, platform: Platform) {
-///     let _ = kkt_operate::record::read_unrecorded(parts, env, platform);
+/// fn inspect<C: ConnectionSource>(parts: &InstallParts<'_, C>, env: &Env, platform: Platform) {
+///     let _ = kkt_install_commands::record::read_unrecorded(parts, env, platform);
 /// }
 /// ```
 pub trait ServiceDefaults {
@@ -109,10 +110,20 @@ pub trait ConfigText {
     fn write(&self, path: &Path, text: &str) -> Result<(), String>;
 }
 
-/// The local database chosen by the program, opened only after its path is checked.
+/// The local database chosen by the program.
 pub trait Databases {
     fn exists(&self, path: &Path) -> bool;
-    fn open(&self, path: &Path) -> Result<kkt_rules::Db, String>;
+}
+
+/// The lane folder `kkt setup --lanes` imports into the server it sets up.
+pub trait ImportLanes {
+    /// Reads the lane files in `folder` and checks them as an import into
+    /// the server set up for `purpose` would, changing nothing. Returns how
+    /// many lanes there are; an error names the file or lane that is wrong.
+    fn check(&self, folder: &Path, purpose: kkt_setup::Purpose) -> Result<usize, String>;
+    /// Imports the lanes in `folder` into the server `record` says this
+    /// machine runs. Returns the report to print.
+    fn import(&self, record: &kkt_setup::Record, folder: &Path) -> Result<String, String>;
 }
 
 /// Command output, with standard output and standard error kept separate.
@@ -124,7 +135,7 @@ pub trait Output {
 /// Implementations chosen by the program. Connection source context remains opaque.
 /// Commands that inspect an unrecorded service require `D: ServiceDefaults`;
 /// record/config-only commands may use `()` and cannot ask that question.
-pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
+pub struct InstallParts<'a, C: ConnectionSource, D = ()> {
     pub container: &'a dyn kkt_container::Container,
     pub container_configs: &'a dyn kkt_container::ConfigReader,
     pub login_link: &'a dyn kkt_container::LoginLink,
@@ -136,8 +147,8 @@ pub struct OperateParts<'a, C: ConnectionSource, D = ()> {
     /// change.
     pub client_command: &'a dyn kkt_llm_agent_config::ClientCommand,
     pub prober: &'a dyn kkt_diagnostics::Prober,
-    pub lanes: &'a dyn kkt_lane_files::Disk,
-    pub lane_commit: &'a dyn kkt_lane_files::LaneCommit,
+    /// Importing a lane folder into the server setup sets up.
+    pub import_lanes: &'a dyn ImportLanes,
     pub lines: &'a dyn kkt_setup::Lines,
     pub config_file: &'a dyn ConfigText,
     pub connection: &'a C,

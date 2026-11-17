@@ -2,24 +2,24 @@
 //! prints the header clients send with the access key, and `show` prints a
 //! key.
 
+use crate::OperatorParts;
 use crate::keys::{
-    KeyKind, admin_key_collision, admin_name_line, local_operator_key, new_key_file,
-    optional_key_path, runs_in_docker, selected_key_path, write_admin_name,
+    KeyKind, admin_key_collision, local_operator_key, optional_key_path, runs_in_docker,
+    selected_key_path,
 };
 use kkt_llm_agent_config as clients;
-use kkt_machine::{Env, Platform};
+use kkt_machine::Env;
 use kkt_setup as setup;
-use kkt_setup::connection::ConnectionSource;
+use kkt_setup::{admin_name_line, new_key_file, write_admin_name};
 use std::path::{Path, PathBuf};
 
-pub fn header<D: crate::ServiceDefaults>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+pub fn header(
+    parts: &OperatorParts<'_>,
     env: &Env,
-    platform: Platform,
     path: Option<PathBuf>,
     json: bool,
 ) -> Result<(), String> {
-    let path = selected_key_path(parts, env, platform, path, KeyKind::Access)?;
+    let path = selected_key_path(parts, env, path, KeyKind::Access)?;
     let text = parts
         .key_files
         .read(&path)
@@ -33,14 +33,13 @@ pub fn header<D: crate::ServiceDefaults>(
 /// Prints the selected key. A missing admin key is not an error but has its
 /// own exit code, [`kkt_container::NO_ADMIN_KEY_EXIT`], so `kkt setup` and
 /// `kkt upgrade` can tell it from a key they failed to read.
-pub fn show<D: crate::ServiceDefaults>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+pub fn show(
+    parts: &OperatorParts<'_>,
     env: &Env,
-    platform: Platform,
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<std::process::ExitCode, String> {
-    let Some(path) = optional_key_path(parts, env, platform, path, kind)? else {
+    let Some(path) = optional_key_path(parts, env, path, kind)? else {
         parts.output.errors(format_args!(
             "there is no admin key; `kkt key create --admin` makes one\n"
         ));
@@ -81,10 +80,9 @@ pub struct NewKey<'a> {
     pub name: Option<&'a str>,
 }
 
-pub fn create<D: crate::ServiceDefaults>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+pub fn create(
+    parts: &OperatorParts<'_>,
     env: &Env,
-    platform: Platform,
     new: NewKey<'_>,
     force: bool,
     show: bool,
@@ -92,8 +90,8 @@ pub fn create<D: crate::ServiceDefaults>(
     let NewKey { kind, path, name } = new;
     // Checked before anything is written, so a refused key or a bad name
     // leaves no key.
-    let in_docker = setup::create_asks_for_docker(kind, path.is_some())
-        && runs_in_docker(parts, env, platform)?;
+    let in_docker =
+        setup::create_asks_for_docker(kind, path.is_some()) && runs_in_docker(parts, env)?;
     let name = setup::create_checks(kind, in_docker, name)?;
     if kind == KeyKind::Admin
         && let Some(destination) = path.as_ref()
@@ -105,7 +103,7 @@ pub fn create<D: crate::ServiceDefaults>(
             if parts.key_files.exists(destination) && parts.key_files.exists(&access) {
                 let resolve = |path: &Path| {
                     parts
-                        .setup_files
+                        .paths
                         .canonicalize(path)
                         .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
                 };
@@ -113,7 +111,7 @@ pub fn create<D: crate::ServiceDefaults>(
             } else {
                 let resolve = |path: &Path| {
                     parts
-                        .setup_files
+                        .paths
                         .absolute(path)
                         .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
                 };
@@ -125,9 +123,7 @@ pub fn create<D: crate::ServiceDefaults>(
         KeyKind::Access => path
             .or_else(|| parts.serve.default_access_key())
             .ok_or("set HOME or pass --path")?,
-        _ => {
-            optional_key_path(parts, env, platform, path, kind)?.ok_or_else(admin_key_collision)?
-        }
+        _ => optional_key_path(parts, env, path, kind)?.ok_or_else(admin_key_collision)?,
     };
     let key = new_key_file(parts.key_files, parts.entropy, &path, force)?;
     match kind {

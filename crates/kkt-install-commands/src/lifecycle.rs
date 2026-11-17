@@ -3,12 +3,11 @@
 //! database is the program's, beside its serving code.
 
 use crate::keys::{KeyKind, admin_name_line, local_operator_key, local_web_key, new_key_file};
-use crate::lanes::existing_db;
 use crate::record::{
     docker_folder, read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
 };
 use crate::service::{self, ServiceAction, ServiceInstall, service_plan};
-use crate::{OperateParts, ServeFacts, ServiceDefaults};
+use crate::{InstallParts, ServeFacts, ServiceDefaults};
 use kkt_backup as backup;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
@@ -21,7 +20,7 @@ use std::path::{Path, PathBuf};
 /// database `kkt serve` would use (or `db`), with the config file and
 /// existing keys it would read, into `folder` or the default folder.
 pub fn backup<D>(
-    parts: &OperateParts<'_, impl ConnectionSource, D>,
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     folder: Option<&Path>,
     db: Option<PathBuf>,
@@ -46,7 +45,7 @@ pub fn backup<D>(
 /// `kkt status`: how this machine is set up, its web and admin keys, and
 /// then the service's or the Docker server's state.
 pub async fn status<D: ServiceDefaults>(
-    parts: &OperateParts<'_, impl ConnectionSource, D>,
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
 ) -> Result<(), String> {
@@ -127,7 +126,7 @@ pub async fn status<D: ServiceDefaults>(
 /// Docker server's image or the service's program, backing a service's
 /// files up first, then records the new version.
 pub async fn upgrade<D: ServiceDefaults>(
-    parts: &OperateParts<'_, impl ConnectionSource, D>,
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
     allow_downgrade: bool,
@@ -206,7 +205,7 @@ fn unrecorded_upgrade(error: ServiceError) -> String {
 /// `kkt uninstall`: stops and removes the recorded server, then removes the
 /// record, or keeps it as a client's when the machine stays one.
 pub async fn uninstall<D: ServiceDefaults>(
-    parts: &OperateParts<'_, impl ConnectionSource, D>,
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
 ) -> Result<(), String> {
@@ -255,10 +254,27 @@ fn stop_sharing(
     Ok(())
 }
 
+/// The database file `kkt serve` would use given the config file's `db`,
+/// unless `db` names another. It must exist.
+fn existing_db<D>(
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
+    db: Option<PathBuf>,
+    config_db: Option<PathBuf>,
+) -> Result<PathBuf, String> {
+    let path = parts.serve.database(db, config_db)?;
+    if !parts.database.exists(&path) {
+        return Err(format!(
+            "no database at {}; pass --db with the server's database file",
+            path.display()
+        ));
+    }
+    Ok(path)
+}
+
 /// Backs up the database `kkt serve` would use (or `db`), with the config
 /// file and existing keys it would read, into `folder`.
 fn local_backup<D>(
-    parts: &OperateParts<'_, impl ConnectionSource, D>,
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
     folder: &Path,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
@@ -503,21 +519,12 @@ mod tests {
         }
     }
 
-    impl kkt_lane_files::Disk for Untouched {
-        fn file_names(&self, _: &Path) -> std::io::Result<Vec<String>> {
-            self.asked("lanes.file_names")
+    impl crate::ImportLanes for Untouched {
+        fn check(&self, _: &Path, _: setup::Purpose) -> Result<usize, String> {
+            self.refused("import_lanes.check")
         }
-        fn read(&self, _: &Path) -> std::io::Result<String> {
-            self.asked("lanes.read")
-        }
-        fn create_dir_all(&self, _: &Path) -> std::io::Result<()> {
-            self.asked("lanes.create_dir_all")
-        }
-        fn write(&self, _: &Path, _: &str) -> std::io::Result<()> {
-            self.asked("lanes.write")
-        }
-        fn absolute(&self, _: &Path) -> std::io::Result<PathBuf> {
-            self.asked("lanes.absolute")
+        fn import(&self, _: &setup::Record, _: &Path) -> Result<String, String> {
+            self.refused("import_lanes.import")
         }
     }
 
@@ -546,12 +553,6 @@ mod tests {
     impl ServiceDefaults for Untouched {
         fn matches_defaults(&self, _: &[String]) -> Result<bool, String> {
             self.refused("service_defaults.matches_defaults")
-        }
-    }
-
-    impl kkt_lane_files::LaneCommit for Untouched {
-        fn commit(&self, _: &Path) -> std::io::Result<Option<String>> {
-            self.asked("lane_commit.commit")
         }
     }
 
@@ -641,9 +642,6 @@ mod tests {
         fn exists(&self, _: &Path) -> bool {
             self.0.borrow_mut().push("database.exists");
             false
-        }
-        fn open(&self, _: &Path) -> Result<kkt_rules::Db, String> {
-            self.refused("database.open")
         }
     }
 
@@ -759,7 +757,7 @@ mod tests {
             panic!("uninstall tried an address")
         };
         let container = kkt_container::testing::Memory::new(None, String::new());
-        let parts = OperateParts {
+        let parts = InstallParts {
             container: &container,
             container_configs: &untouched,
             service: &service,
@@ -768,8 +766,7 @@ mod tests {
             clients: &untouched,
             client_command: &untouched,
             prober: &NoProbes,
-            lanes: &untouched,
-            lane_commit: &untouched,
+            import_lanes: &untouched,
             connection: &untouched,
             clock: std::sync::Arc::new(NoClock),
             serve: &serve,

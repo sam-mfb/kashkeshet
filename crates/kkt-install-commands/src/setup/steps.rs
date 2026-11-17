@@ -4,17 +4,12 @@
 use super::InstallOptions;
 use crate::doctor::server_fix;
 use crate::keys::{admin_key_collision, new_key_file, write_admin_name, write_key_file};
-use crate::lanes::{
-    check_lanes_folder, docker_import_lanes, docker_lane_limit, local_import_lanes,
-    local_lane_limit,
-};
 use crate::record::{
     DOCKER_KEY_FILE_NAME, docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded,
     write_setup_record,
 };
 use crate::service::{self, ServiceAction, ServiceInstall};
 use kkt_diagnostics::{self as diagnostics, Inspector, point_server_fix_at};
-use kkt_lane_files as lane_files;
 use kkt_llm_agent_config::{self as clients, Client, Setup};
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
@@ -27,7 +22,7 @@ use std::path::{Path, PathBuf};
 pub(super) struct OsSteps<'a, 'p, C: ConnectionSource, D> {
     pub(super) env: &'a Env,
     pub(super) platform: Platform,
-    pub(super) parts: &'a crate::OperateParts<'p, C, D>,
+    pub(super) parts: &'a crate::InstallParts<'p, C, D>,
     pub(super) options: InstallOptions,
 }
 
@@ -287,38 +282,12 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     }
 
     fn check_lanes(&self, folder: &Path, purpose: setup::Purpose) -> Result<usize, String> {
-        let max_lane_chars = setup::setup_lane_limit(
-            purpose,
-            || local_lane_limit(self.parts),
-            || docker_lane_limit(self.parts, self.env, self.platform),
-        )?;
-        check_lanes_folder(
-            self.parts.lanes,
-            self.parts.lane_commit,
-            self.parts.output,
-            folder,
-            max_lane_chars,
-        )
+        self.parts.import_lanes.check(folder, purpose)
     }
 
     fn import_lanes(&self, record: &setup::Record, folder: &Path) -> Result<String, String> {
         // `check_lanes` warned of the skipped files before setup began.
-        let read = lane_files::read_folder(self.parts.lanes, self.parts.lane_commit, folder)?;
-        let report = match &record.mode {
-            setup::Mode::Docker(install) => docker_import_lanes(
-                self.parts.container,
-                &kkt_container::Folder(install.folder.clone()),
-                read,
-                false,
-            ),
-            // The service runs on the config file and database `kkt serve`
-            // finds by default.
-            setup::Mode::Service { .. } => tokio::runtime::Handle::current().block_on(
-                local_import_lanes(self.parts, None, None, read, false, None),
-            ),
-            setup::Mode::Client => Err("lanes are imported on the server's machine".into()),
-        }?;
-        Ok(report.trim_end().to_string())
+        self.parts.import_lanes.import(record, folder)
     }
 }
 
@@ -359,7 +328,7 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
 /// only what switching uses; it shares each step with [`OsSteps`].
 pub(super) struct OsSwitchSteps<'a, 'p, C: ConnectionSource, D> {
     pub(super) env: &'a Env,
-    pub(super) parts: &'a crate::OperateParts<'p, C, D>,
+    pub(super) parts: &'a crate::InstallParts<'p, C, D>,
 }
 
 impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> {

@@ -2,14 +2,13 @@
 //! import`, and reading a lane folder, checking it, and importing it into a
 //! local database or kkt in Docker, which `kkt setup` also uses.
 
-use crate::record::{docker_folder, read_setup};
+use crate::{LaneParts, OperatorParts};
 use kkt_api_agent::LaneSource;
 use kkt_api_operator::LaneSave;
 use kkt_lane_files as lane_files;
 use kkt_machine::{Env, Platform};
 use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome};
 use kkt_setup as setup;
-use kkt_setup::connection::ConnectionSource;
 use std::path::{Path, PathBuf};
 
 /// What `kkt lanes` does.
@@ -27,21 +26,20 @@ pub enum LanesAction {
 
 /// `kkt lanes`: on the database `kkt serve` would use unless `--db` names
 /// another, or for kkt in Docker, in its container.
-pub async fn run<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
-    env: &Env,
+pub async fn run(
+    parts: &OperatorParts<'_>,
     command: LanesAction,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    let mode = read_setup(env, parts.setup_files)?.map(|record| record.mode);
+    let mode = parts.installed.record()?.map(|record| record.mode);
     match setup::lanes_on(mode.as_ref(), db.is_some() || config.is_some())? {
         setup::LanesOn::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
             match command {
                 LanesAction::Export { folder: dest } => {
                     let dest = parts
-                        .setup_files
+                        .paths
                         .absolute(&dest)
                         .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
                     let said = parts
@@ -83,7 +81,7 @@ pub async fn run<D>(
         }
         setup::LanesOn::Local => match command {
             LanesAction::Export { folder } => {
-                let (operator, _) = local_operator(parts, db, config)?;
+                let (operator, _) = local_operator(&parts.lane_parts(), db, config)?;
                 let lanes = operator.current_lanes().await.map_err(|e| e.to_string())?;
                 let files: Vec<lane_files::LaneFile> = lanes
                     .iter()
@@ -125,8 +123,15 @@ pub async fn run<D>(
                     &folder,
                     retire_missing,
                 )?;
-                let report =
-                    local_import_lanes(parts, db, config, read, retire_missing, source).await?;
+                let report = local_import_lanes(
+                    &parts.lane_parts(),
+                    db,
+                    config,
+                    read,
+                    retire_missing,
+                    source,
+                )
+                .await?;
                 parts.output.output(format_args!("{report}"));
                 Ok(())
             }
@@ -136,8 +141,8 @@ pub async fn run<D>(
 
 /// The database file `kkt serve` would use given the config file's `db`,
 /// unless `db` names another. It must exist.
-pub fn existing_db<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+pub fn existing_db(
+    parts: &LaneParts<'_>,
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
@@ -154,8 +159,8 @@ pub fn existing_db<D>(
 /// The operator's commands on the local database `kkt serve` would use,
 /// unless `db` names another, and the server's `max_lane_chars` from the
 /// config file.
-pub fn local_operator<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+pub fn local_operator(
+    parts: &LaneParts<'_>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(CommandLine, usize), String> {
@@ -173,8 +178,8 @@ pub fn local_operator<D>(
 /// Imports the lanes `read` from a folder into the local database. The
 /// source recorded is `source` if given, else the folder and its git
 /// commit. Returns the report to print.
-pub(crate) async fn local_import_lanes<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+pub(crate) async fn local_import_lanes(
+    parts: &LaneParts<'_>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
     read: lane_files::Read,
@@ -245,9 +250,7 @@ fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
 }
 
 /// The lane limit from this machine's default serve config, else the owner's default.
-pub fn local_lane_limit<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
-) -> Result<usize, String> {
+pub fn local_lane_limit(parts: &LaneParts<'_>) -> Result<usize, String> {
     Ok(parts.serve.config(None)?.max_lane_chars)
 }
 
@@ -255,12 +258,12 @@ pub fn local_lane_limit<D>(
 /// uses: the container's own setting when the folder holds an install, and
 /// the default for a new one, whose container starts with no config file.
 /// The host's config file plays no part; the container never reads it.
-pub(crate) fn docker_lane_limit<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+pub(crate) fn docker_lane_limit(
+    parts: &LaneParts<'_>,
     env: &Env,
     platform: Platform,
 ) -> Result<usize, String> {
-    let folder = docker_folder(env, platform)?;
+    let folder = setup::docker_folder(env, platform)?;
     setup::lane_reports::docker_limit(
         parts
             .container
@@ -297,6 +300,56 @@ pub(crate) fn check_lanes_folder(
     kkt_rules::check_lane_import(&lane_saves(read.lanes), max_lane_chars)
         .map_err(|e| format!("{}: {}", read.folder.display(), e.message))?;
     Ok(count)
+}
+
+/// Reads the lane files in `folder` and checks them as an import into the
+/// server `kkt setup` sets up for `purpose` would, changing nothing: against
+/// that server's lane limit, the local serve config's or the Docker
+/// container's. Returns how many lanes there are.
+pub fn check_lanes_for_setup(
+    parts: &LaneParts<'_>,
+    env: &Env,
+    platform: Platform,
+    folder: &Path,
+    purpose: setup::Purpose,
+) -> Result<usize, String> {
+    let max_lane_chars = setup::setup_lane_limit(
+        purpose,
+        || local_lane_limit(parts),
+        || docker_lane_limit(parts, env, platform),
+    )?;
+    check_lanes_folder(
+        parts.lanes,
+        parts.lane_commit,
+        parts.output,
+        folder,
+        max_lane_chars,
+    )
+}
+
+/// Imports the lanes in `folder` into the server `record` says this machine
+/// runs, and returns the report to print. The check before setup began
+/// warned of the files the import skips.
+pub fn import_lanes_for_setup(
+    parts: &LaneParts<'_>,
+    record: &setup::Record,
+    folder: &Path,
+) -> Result<String, String> {
+    let read = lane_files::read_folder(parts.lanes, parts.lane_commit, folder)?;
+    let report = match &record.mode {
+        setup::Mode::Docker(install) => docker_import_lanes(
+            parts.container,
+            &kkt_container::Folder(install.folder.clone()),
+            read,
+            false,
+        ),
+        // The service runs on the config file and database `kkt serve`
+        // finds by default.
+        setup::Mode::Service { .. } => tokio::runtime::Handle::current()
+            .block_on(local_import_lanes(parts, None, None, read, false, None)),
+        setup::Mode::Client => Err("lanes are imported on the server's machine".into()),
+    }?;
+    Ok(report.trim_end().to_string())
 }
 
 /// Imports the lanes `read` from a folder on the host into kkt in Docker
