@@ -75,7 +75,7 @@
     },
     {
      "title": "Build and run",
-     "text": "build assembles the server from the parts and config; listen binds the router the program takes out of it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
+     "text": "build assembles the server from the parts and config; listen binds the router the program takes out of it; serve_until answers until a stop signal, and the program logs any socket option that fails to set.",
      "items": [
       "kkt-server::build",
       "kkt-shutdown::Shutdown",
@@ -246,7 +246,7 @@
        "param": "servers"
       }
      ],
-     "note": "kkt register, reclaim and watch: injected as it is, with no adapter",
+     "note": "kkt register, reclaim and watch: injected as it is",
      "impl": "kkt-agent-client-mcp::Mcp"
     },
     {
@@ -381,7 +381,7 @@
       }
      ],
      "supplier": "kashkeshet",
-     "note": "the program's own work, not another crate's implementation"
+     "note": "the program's own work"
     },
     {
      "impl": "kkt-service-launchd::Launchd",
@@ -392,7 +392,7 @@
        "param": "service"
       }
      ],
-     "note": "On macOS: the program picks the service manager by platform and injects it directly (12.3)."
+     "note": "On macOS: the program picks the service manager by platform and injects it directly."
     },
     {
      "impl": "kkt-service-systemd::Systemd",
@@ -403,7 +403,7 @@
        "param": "service"
       }
      ],
-     "note": "On Linux (12.3)."
+     "note": "On Linux."
     },
     {
      "impl": "kkt-service::Unsupported",
@@ -414,7 +414,7 @@
        "param": "service"
       }
      ],
-     "note": "On any other system (12.3)."
+     "note": "On any other system."
     },
     {
      "crate": "kkt-operate",
@@ -450,7 +450,7 @@
      "own": "Probe, adapting kkt-probe's HttpProber to kkt-diagnostics' Prober",
      "supplier": "kkt-probe",
      "supplier_item": "HttpProber",
-     "note": "The program builds HttpProber with the doctor's settings and adapts it (phase 16)."
+     "note": "The program builds HttpProber with the doctor's settings and adapts it."
     },
     {
      "own": "LaneDisk",
@@ -475,7 +475,7 @@
        "param": "lane_commit"
       }
      ],
-     "note": "The lane folder's commit, from the machine's git (phase 16)."
+     "note": "The lane folder's commit, from the machine's git."
     },
     {
      "own": "ServeReads, answering the program's serving questions lazily",
@@ -487,7 +487,7 @@
       }
      ],
      "supplier": "kashkeshet",
-     "note": "the program's own work, not another crate's implementation"
+     "note": "the program's own work"
     },
     {
      "own": "NativeSetupFiles, reading and writing setup's record and note through kkt-files' Files with kkt-setup's parse and render, and this program's path and $PATH through kkt-machine-os' OsMachine",
@@ -575,7 +575,7 @@
       }
      ],
      "supplier": "kashkeshet",
-     "note": "the program's own work, not another crate's implementation"
+     "note": "the program's own work"
     },
     {
      "own": "TerminalLink, adapting the terminal's half of the login link",
@@ -674,7 +674,7 @@
        "param": "browser"
       }
      ],
-     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener (phase 16)"
+     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener"
     }
    ],
    "inferred": false
@@ -698,7 +698,7 @@
     },
     {
      "title": "Database",
-     "text": "A SqlitePlace opens the database file with the core's tables. It adopts no database from before kkt-db.",
+     "text": "A SqlitePlace opens the database file with the core's tables.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
