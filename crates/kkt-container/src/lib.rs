@@ -11,16 +11,8 @@ pub mod testing;
 pub use config::{ConfigReader, ContainerConfig};
 use futures::future::LocalBoxFuture;
 use kkt_clock::Clock;
-use kkt_names::AdminName;
 pub use login::LoginLink;
 use std::path::{Path, PathBuf};
-
-/// The host copy of the operator key.
-pub const WEB_KEY_FILE_NAME: &str = "docker-web-key";
-/// The host copy of the admin key.
-pub const ADMIN_KEY_FILE_NAME: &str = "docker-admin-key";
-/// The exit code of a key request when no admin key exists.
-pub const NO_ADMIN_KEY_EXIT: u8 = 4;
 
 /// The folder managed for a container installation and its backups.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -119,17 +111,52 @@ pub enum KeyCopy {
     Differs,
 }
 
-/// Lane files and their original source to import into the server.
+/// Where the host keeps its copies of the installation's keys, each
+/// readable only by its owner. The caller names them.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LanesImport {
-    /// Absolute paths of the `.md` files to import.
-    pub files: Vec<PathBuf>,
-    /// The original folder on the host, recorded with the import.
-    pub source_folder: String,
-    /// The original source folder's commit, if known.
-    pub source_commit: Option<String>,
-    /// Retire installed lanes absent from this import.
-    pub retire_missing: bool,
+pub struct KeyCopies {
+    /// The access key's copy.
+    pub access: PathBuf,
+    /// The web key's copy.
+    pub web: PathBuf,
+    /// The admin key's copy, written only when the server has an admin key.
+    pub admin: PathBuf,
+}
+
+/// A run of the server's own program inside the installed container, in a
+/// new private work folder that is removed afterwards, with files carried
+/// in before the run or out after it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InServer<'a> {
+    /// The program's arguments, after its name.
+    pub args: &'a [Arg],
+    /// The start of the work folder's path in the container, such as
+    /// `/tmp/name`; the folder is made with this prefix, a dot and random
+    /// characters.
+    pub folder_prefix: &'a str,
+    /// The files carried into the work folder, or the folder it is
+    /// carried out to.
+    pub carry: Carry,
+}
+
+/// One argument of a run inside the container.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Arg {
+    /// This text, as it is.
+    Text(String),
+    /// The work folder's path in the container.
+    Folder,
+}
+
+/// What a run inside the container carries across.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Carry {
+    /// These files on the host, by absolute path, are copied into the work
+    /// folder, readable by the program, before it runs.
+    In(Vec<PathBuf>),
+    /// After the run, the work folder's contents are copied to this
+    /// absolute folder on the host, made if missing.
+    Out(PathBuf),
 }
 
 /// The network name discovered while starting the installation.
@@ -149,22 +176,26 @@ pub trait Container {
         login: &'a dyn LoginLink,
         folder: &'a Folder,
         inputs: &'a Inputs,
-        key_file: &'a Path,
+        keys: &'a KeyCopies,
     ) -> LocalBoxFuture<'a, Result<Provisioned, String>>;
-    /// Create an admin key if absent, restart the server and save its keys.
+    /// Create an admin key named `name` if absent, restart the server and
+    /// save its keys. Returns the admin key's copy.
     fn add_admin_key<'a>(
         &'a self,
         clock: &'a dyn Clock,
         folder: &'a Folder,
-        key_file: &'a Path,
-        name: &'a AdminName,
+        keys: &'a KeyCopies,
+        name: &'a str,
     ) -> LocalBoxFuture<'a, Result<PathBuf, String>>;
-    /// Inspect the installation, parsing its config with the supplied reader.
+    /// Inspect the installation, parsing its config with the supplied
+    /// reader. `config_file` is where the server's default config file is,
+    /// relative to its config home.
     fn status(
         &self,
         folder: &Folder,
         reader: &dyn ConfigReader,
         default_name_pack: &str,
+        config_file: &Path,
     ) -> Result<State, String>;
     /// Discover an existing installation; return a refusal if it is incomplete.
     fn existing(&self, folder: &Folder) -> Result<Option<Existing>, String>;
@@ -182,19 +213,16 @@ pub trait Container {
         clock: &'a dyn Clock,
         folder: &'a Folder,
         new_version: &'a str,
-        key_file: Option<&'a Path>,
+        keys: Option<&'a KeyCopies>,
     ) -> LocalBoxFuture<'a, Result<(), String>>;
-    /// Import lane files into the installed server and return its output.
-    fn import_lanes(&self, folder: &Folder, import: &LanesImport) -> Result<String, String>;
-    /// Export lanes to a folder and return the server's output.
-    fn export_lanes(&self, folder: &Folder, dest: &Path) -> Result<String, String>;
-    /// Read the installed server's lane limit, falling back to the given default.
-    fn lane_limit(
-        &self,
-        folder: &Folder,
-        reader: &dyn ConfigReader,
-        default: usize,
-    ) -> Result<usize, String>;
+    /// Run the server's own program in the installed container as `command`
+    /// says, and return what it printed.
+    fn run_in_server(&self, folder: &Folder, command: &InServer<'_>) -> Result<String, String>;
+    /// The text of the file at `relative` under the container's config
+    /// home, read in a new container on the installation's data, so the
+    /// installation need not be running; empty when there is no such file.
+    /// `relative` is plain: letters, digits, `.`, `-`, `_` and `/`.
+    fn config_home_file(&self, folder: &Folder, relative: &Path) -> Result<String, String>;
     /// Whether the managed settings path exists, including a directory or an
     /// unfinished installation. Follows symbolic links.
     fn has_settings(&self, folder: &Folder) -> bool;

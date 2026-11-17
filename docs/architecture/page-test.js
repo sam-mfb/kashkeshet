@@ -489,6 +489,12 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       adapts.greenFromComposition.length === 0 && adapts.watch && adapts.sqlite, adapts);
     const tipOf = async (edge, tick) => {
       await onBox(tick, ".pick-hit");
+      // On a narrow page the arrow may run below the fold; bring its middle
+      // into view, so a point on it can be hovered.
+      await p.evaluate((e) => {
+        const h = document.querySelector(`path.edge-hit[data-edge='${e}']`);
+        if (h) h.scrollIntoView({ block: "center", inline: "center" });
+      }, edge);
       const at = await spot(`path.edge-hit[data-edge='${edge}']`);
       if (at) await p.mouse.move(at.x, at.y);
       const text = at && await p.isVisible("#tip") ? await p.textContent("#tip") : "";

@@ -88,6 +88,7 @@ pub async fn run<D: crate::ServiceDefaults>(
                 &folder,
                 parts.container_configs,
                 kkt_rules::Settings::DEFAULT.name_pack.name(),
+                &kkt_config_file::config_file_in_home(),
             );
             let running = matches!(&state, Ok(state) if state.running);
             let tailscale_login = match &state {

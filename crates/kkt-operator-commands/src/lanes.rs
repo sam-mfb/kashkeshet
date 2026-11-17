@@ -1,15 +1,18 @@
 //! Lanes on this machine's server: `kkt lanes export` and `kkt lanes
-//! import`, and reading a lane folder, checking it, and importing it into a
-//! local database or kkt in Docker, which `kkt setup` also uses.
+//! import`, the server they act on as a contract ([`LaneServer`], which
+//! the program picks through [`LaneServers`]), its local implementation
+//! ([`LocalLanes`]), and reading a lane folder, checking it and importing
+//! it, which `kkt setup` also uses.
 
 use crate::{LaneParts, OperatorParts};
 use kkt_api_agent::LaneSource;
 use kkt_api_operator::LaneSave;
 use kkt_lane_files as lane_files;
-use kkt_machine::{Env, Platform};
-use kkt_rules::{CommandLine, ImportedLane, LaneImport, LaneOutcome};
+use kkt_rules::{CommandLine, ImportedLane, LaneOutcome};
 use kkt_setup as setup;
+use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 
 /// What `kkt lanes` does.
 pub enum LanesAction {
@@ -24,118 +27,149 @@ pub enum LanesAction {
     },
 }
 
-/// `kkt lanes`: on the database `kkt serve` would use unless `--db` names
-/// another, or for kkt in Docker, in its container.
+/// A server's lanes, as the lane commands reach them: on a database this
+/// machine opens ([`LocalLanes`]), or wherever else the program finds the
+/// server.
+pub trait LaneServer {
+    /// Writes every current lane into the folder `dest` and says what it
+    /// wrote.
+    fn export<'a>(&'a self, dest: &'a Path) -> LaneFuture<'a, ()>;
+    /// Whether this server can record `source` as where an import came
+    /// from; the refusal to print if not. Asked before the folder is read.
+    fn check_source(&self, source: Option<&LaneSource>) -> Result<(), String>;
+    /// Imports the lanes read from a folder. Returns the report to print.
+    fn import(&self, lanes: LaneImport) -> LaneFuture<'_, String>;
+    /// The longest lane text the server takes.
+    fn lane_limit(&self) -> Result<usize, String>;
+}
+
+/// What a [`LaneServer`] gives back, in time.
+pub type LaneFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, String>> + 'a>>;
+
+/// Lanes read from a folder, to import.
+pub struct LaneImport {
+    /// The folder's lanes, its skipped files and its commit.
+    pub read: lane_files::Read,
+    /// Retire the server's lanes the folder does not have.
+    pub retire_missing: bool,
+    /// Where the lanes came from, if not the folder they were read from.
+    pub source: Option<LaneSource>,
+}
+
+/// Which server `kkt lanes` acts on. The program picks it from what is
+/// installed here.
+pub trait LaneServers {
+    /// The server `kkt lanes` acts on: what this machine runs, on the
+    /// database and config file `kkt serve` would use unless `db` or
+    /// `config` names others.
+    fn here(
+        &self,
+        db: Option<PathBuf>,
+        config: Option<PathBuf>,
+    ) -> Result<Box<dyn LaneServer + '_>, String>;
+}
+
+/// `kkt lanes`: on the server [`LaneServers::here`] picks.
 pub async fn run(
     parts: &OperatorParts<'_>,
     command: LanesAction,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    let mode = parts.installed.record()?.map(|record| record.mode);
-    match setup::lanes_on(mode.as_ref(), db.is_some() || config.is_some())? {
-        setup::LanesOn::Docker(folder) => {
-            let folder = kkt_container::Folder(folder);
-            match command {
-                LanesAction::Export { folder: dest } => {
-                    let dest = parts
-                        .paths
-                        .absolute(&dest)
-                        .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
-                    let said = parts
-                        .container
-                        .export_lanes(&folder, &dest)
-                        .map_err(|e| e.to_string())?;
-                    parts.output.output(format_args!("{said}"));
-                    parts
-                        .output
-                        .errors(format_args!("Exported to {}\n", dest.display()));
-                }
-                LanesAction::Import {
-                    folder: from,
-                    retire_missing,
-                    source_folder,
-                    ..
-                } => {
-                    if source_folder.is_some() {
-                        return Err(
-                            "--source-folder is for `kkt lanes import` in the container \
-                                    itself"
-                                .into(),
-                        );
-                    }
-                    let read = read_lanes_warning(
-                        parts.lanes,
-                        parts.lane_commit,
-                        parts.output,
-                        &from,
-                        retire_missing,
-                    )?;
-                    parts.output.output(format_args!(
-                        "{}",
-                        docker_import_lanes(parts.container, &folder, read, retire_missing)?
-                    ));
-                }
-            }
-            Ok(())
-        }
-        setup::LanesOn::Local => match command {
-            LanesAction::Export { folder } => {
-                let (operator, _) = local_operator(&parts.lane_parts(), db, config)?;
-                let lanes = operator.current_lanes().await.map_err(|e| e.to_string())?;
-                let files: Vec<lane_files::LaneFile> = lanes
-                    .iter()
-                    .map(|l| lane_files::LaneFile {
-                        name: l.name.clone(),
-                        description: l.current.description.clone(),
-                        text: l.current.text.clone(),
-                    })
-                    .collect();
-                let written = lane_files::write_folder(parts.lanes, &folder, &files)?;
-                for l in &lanes {
-                    parts.output.output(format_args!(
-                        "{} (version {})\n",
-                        lane_files::file_name(&l.name),
-                        l.current.version
-                    ));
-                }
-                parts.output.errors(format_args!(
-                    "Exported {} lanes to {}\n",
-                    lanes.len(),
-                    written.display()
-                ));
-                Ok(())
-            }
-            LanesAction::Import {
+    let server = parts.lane_servers.here(db, config)?;
+    match command {
+        LanesAction::Export { folder } => server.export(&folder).await,
+        LanesAction::Import {
+            folder,
+            retire_missing,
+            source_folder,
+            source_commit,
+        } => {
+            let source = source_folder.map(|folder| LaneSource {
                 folder,
+                commit: source_commit,
+            });
+            server.check_source(source.as_ref())?;
+            let read = read_lanes_warning(
+                parts.lanes,
+                parts.lane_commit,
+                parts.output,
+                &folder,
                 retire_missing,
-                source_folder,
-                source_commit,
-            } => {
-                let source = source_folder.map(|folder| LaneSource {
-                    folder,
-                    commit: source_commit,
-                });
-                let read = read_lanes_warning(
-                    parts.lanes,
-                    parts.lane_commit,
-                    parts.output,
-                    &folder,
-                    retire_missing,
-                )?;
-                let report = local_import_lanes(
-                    &parts.lane_parts(),
-                    db,
-                    config,
+            )?;
+            let report = server
+                .import(LaneImport {
                     read,
                     retire_missing,
                     source,
-                )
+                })
                 .await?;
-                parts.output.output(format_args!("{report}"));
-                Ok(())
+            parts.output.output(format_args!("{report}"));
+            Ok(())
+        }
+    }
+}
+
+/// The lanes of the local database `kkt serve` would use, unless `db`
+/// names another, with the config file `config` names, else the default.
+pub struct LocalLanes<'a> {
+    parts: LaneParts<'a>,
+    db: Option<PathBuf>,
+    config: Option<PathBuf>,
+}
+
+impl<'a> LocalLanes<'a> {
+    /// Nothing is read until a lane command asks.
+    pub fn new(parts: LaneParts<'a>, db: Option<PathBuf>, config: Option<PathBuf>) -> Self {
+        LocalLanes { parts, db, config }
+    }
+}
+
+impl LaneServer for LocalLanes<'_> {
+    fn export<'a>(&'a self, dest: &'a Path) -> LaneFuture<'a, ()> {
+        Box::pin(async move {
+            let parts = &self.parts;
+            let (operator, _) = local_operator(parts, self.db.clone(), self.config.clone())?;
+            let lanes = operator.current_lanes().await.map_err(|e| e.to_string())?;
+            let files: Vec<lane_files::LaneFile> = lanes
+                .iter()
+                .map(|l| lane_files::LaneFile {
+                    name: l.name.clone(),
+                    description: l.current.description.clone(),
+                    text: l.current.text.clone(),
+                })
+                .collect();
+            let written = lane_files::write_folder(parts.lanes, dest, &files)?;
+            for l in &lanes {
+                parts.output.output(format_args!(
+                    "{} (version {})\n",
+                    lane_files::file_name(&l.name),
+                    l.current.version
+                ));
             }
-        },
+            parts.output.errors(format_args!(
+                "Exported {} lanes to {}\n",
+                lanes.len(),
+                written.display()
+            ));
+            Ok(())
+        })
+    }
+    fn check_source(&self, _: Option<&LaneSource>) -> Result<(), String> {
+        Ok(())
+    }
+    fn import(&self, lanes: LaneImport) -> LaneFuture<'_, String> {
+        Box::pin(local_import_lanes(
+            &self.parts,
+            self.db.clone(),
+            self.config.clone(),
+            lanes.read,
+            lanes.retire_missing,
+            lanes.source,
+        ))
+    }
+    fn lane_limit(&self) -> Result<usize, String> {
+        Ok(self.parts.serve.config(self.config.clone())?.max_lane_chars)
     }
 }
 
@@ -178,7 +212,7 @@ pub fn local_operator(
 /// Imports the lanes `read` from a folder into the local database. The
 /// source recorded is `source` if given, else the folder and its git
 /// commit. Returns the report to print.
-pub(crate) async fn local_import_lanes(
+async fn local_import_lanes(
     parts: &LaneParts<'_>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
@@ -194,7 +228,7 @@ pub(crate) async fn local_import_lanes(
     });
     let lanes = lane_saves(read.lanes);
     let done = operator
-        .import_lanes(LaneImport {
+        .import_lanes(kkt_rules::LaneImport {
             lanes,
             source: source.clone(),
             retire_missing,
@@ -254,34 +288,6 @@ pub fn local_lane_limit(parts: &LaneParts<'_>) -> Result<usize, String> {
     Ok(parts.serve.config(None)?.max_lane_chars)
 }
 
-/// The `max_lane_chars` of kkt in Docker set up in the folder `kkt setup`
-/// uses: the container's own setting when the folder holds an install, and
-/// the default for a new one, whose container starts with no config file.
-/// The host's config file plays no part; the container never reads it.
-pub(crate) fn docker_lane_limit(
-    parts: &LaneParts<'_>,
-    env: &Env,
-    platform: Platform,
-) -> Result<usize, String> {
-    let folder = setup::docker_folder(env, platform)?;
-    setup::lane_reports::docker_limit(
-        parts
-            .container
-            .has_settings(&kkt_container::Folder(folder.clone())),
-        kkt_rules::Settings::DEFAULT.max_lane_chars,
-        || {
-            parts
-                .container
-                .lane_limit(
-                    &kkt_container::Folder(folder),
-                    parts.container_configs,
-                    kkt_rules::Settings::DEFAULT.max_lane_chars,
-                )
-                .map_err(|e| e.to_string())
-        },
-    )
-}
-
 /// Reads the lane files in `folder` and checks them as `kkt lanes import`
 /// would on a server whose limit is `max_lane_chars`, changing nothing: the
 /// files' format, then each lane by the lane rules. Warns of each file it
@@ -302,22 +308,15 @@ pub(crate) fn check_lanes_folder(
     Ok(count)
 }
 
-/// Reads the lane files in `folder` and checks them as an import into the
-/// server `kkt setup` sets up for `purpose` would, changing nothing: against
-/// that server's lane limit, the local serve config's or the Docker
-/// container's. Returns how many lanes there are.
+/// Reads the lane files in `folder` and checks them as an import into
+/// `server`, the server `kkt setup` sets up, would, changing nothing:
+/// against that server's lane limit. Returns how many lanes there are.
 pub fn check_lanes_for_setup(
     parts: &LaneParts<'_>,
-    env: &Env,
-    platform: Platform,
+    server: &dyn LaneServer,
     folder: &Path,
-    purpose: setup::Purpose,
 ) -> Result<usize, String> {
-    let max_lane_chars = setup::setup_lane_limit(
-        purpose,
-        || local_lane_limit(parts),
-        || docker_lane_limit(parts, env, platform),
-    )?;
+    let max_lane_chars = server.lane_limit()?;
     check_lanes_folder(
         parts.lanes,
         parts.lane_commit,
@@ -327,50 +326,21 @@ pub fn check_lanes_for_setup(
     )
 }
 
-/// Imports the lanes in `folder` into the server `record` says this machine
-/// runs, and returns the report to print. The check before setup began
-/// warned of the files the import skips.
+/// Imports the lanes in `folder` into `server`, the server this machine's
+/// setup record says it runs, and returns the report to print. The check
+/// before setup began warned of the files the import skips.
 pub fn import_lanes_for_setup(
     parts: &LaneParts<'_>,
-    record: &setup::Record,
+    server: &dyn LaneServer,
     folder: &Path,
 ) -> Result<String, String> {
     let read = lane_files::read_folder(parts.lanes, parts.lane_commit, folder)?;
-    let report = match &record.mode {
-        setup::Mode::Docker(install) => docker_import_lanes(
-            parts.container,
-            &kkt_container::Folder(install.folder.clone()),
-            read,
-            false,
-        ),
-        // The service runs on the config file and database `kkt serve`
-        // finds by default.
-        setup::Mode::Service { .. } => tokio::runtime::Handle::current()
-            .block_on(local_import_lanes(parts, None, None, read, false, None)),
-        setup::Mode::Client => Err("lanes are imported on the server's machine".into()),
-    }?;
+    let report = tokio::runtime::Handle::current().block_on(server.import(LaneImport {
+        read,
+        retire_missing: false,
+        source: None,
+    }))?;
     Ok(report.trim_end().to_string())
-}
-
-/// Imports the lanes `read` from a folder on the host into kkt in Docker
-/// in `folder`. The files were read here first, so a mistake is named by
-/// its path on the host; [`lane_files::Read::files_to_copy`] says which go
-/// in. Returns the report to print.
-pub(crate) fn docker_import_lanes(
-    container: &dyn kkt_container::Container,
-    folder: &kkt_container::Folder,
-    read: lane_files::Read,
-    retire_missing: bool,
-) -> Result<String, String> {
-    let import = kkt_container::LanesImport {
-        files: read.files_to_copy(retire_missing),
-        source_folder: read.folder.display().to_string(),
-        source_commit: read.commit,
-        retire_missing,
-    };
-    container
-        .import_lanes(folder, &import)
-        .map_err(|e| e.to_string())
 }
 
 /// One line for each lane an import touched, then one saying where from and

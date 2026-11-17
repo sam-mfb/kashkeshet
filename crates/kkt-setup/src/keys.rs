@@ -8,8 +8,9 @@
 use super::adopt::Unrecorded;
 use super::flow::Purpose;
 use super::record::{Mode, Record, Unfinished};
-use kkt_container::{ADMIN_KEY_FILE_NAME, WEB_KEY_FILE_NAME};
+use kkt_container::KeyCopies;
 use kkt_keys::access_key_file;
+use kkt_keys::{ADMIN_KEY_COPY_FILE_NAME, WEB_KEY_COPY_FILE_NAME};
 use kkt_keys::{admin_key_path, web_key_path};
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use std::path::{Path, PathBuf};
@@ -58,8 +59,8 @@ impl KeyKind {
     pub fn docker_copy(self, access: &Path) -> PathBuf {
         match self {
             KeyKind::Access => access.to_path_buf(),
-            KeyKind::Web => access.with_file_name(WEB_KEY_FILE_NAME),
-            KeyKind::Admin => access.with_file_name(ADMIN_KEY_FILE_NAME),
+            KeyKind::Web => access.with_file_name(WEB_KEY_COPY_FILE_NAME),
+            KeyKind::Admin => access.with_file_name(ADMIN_KEY_COPY_FILE_NAME),
         }
     }
 
@@ -69,6 +70,16 @@ impl KeyKind {
     /// config's.
     pub fn looks_past_record(self) -> bool {
         self != KeyKind::Access
+    }
+}
+
+/// Where a Docker setup keeps its host copies of the keys, given the access
+/// key's copy: each beside it, as [`KeyKind::docker_copy`] names them.
+pub fn docker_key_copies(access: &Path) -> KeyCopies {
+    KeyCopies {
+        access: KeyKind::Access.docker_copy(access),
+        web: KeyKind::Web.docker_copy(access),
+        admin: KeyKind::Admin.docker_copy(access),
     }
 }
 
@@ -313,6 +324,20 @@ mod tests {
         assert_eq!(
             KeyKind::Admin.docker_copy(access),
             PathBuf::from("/keys/docker-admin-key")
+        );
+    }
+
+    /// An existing Docker install keeps its key copies where it always
+    /// has: beside the access key's, under the same names.
+    #[test]
+    fn a_docker_setups_key_copies_keep_their_names_and_places() {
+        assert_eq!(
+            docker_key_copies(Path::new("/home/sam/.config/kkt/docker-access-key")),
+            KeyCopies {
+                access: "/home/sam/.config/kkt/docker-access-key".into(),
+                web: "/home/sam/.config/kkt/docker-web-key".into(),
+                admin: "/home/sam/.config/kkt/docker-admin-key".into(),
+            }
         );
     }
 

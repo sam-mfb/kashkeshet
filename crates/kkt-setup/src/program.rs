@@ -1,5 +1,5 @@
 //! Setup's paths and wording for the program to carry out.
-use crate::{Mode, Purpose, Record};
+use crate::{Mode, Record};
 use std::path::{Path, PathBuf};
 const CLIENT_KEY_FILE_NAME: &str = "client-access-key";
 const UPGRADE_BACKUP_FOLDER: &str = "upgrade-backups";
@@ -46,18 +46,6 @@ pub fn uninstall_line(client: Option<&Record>) -> String {
         Some(client) => format!("Removed this machine's server. Data, keys, backups and client configurations were \
              kept, and this machine stays set up as a client of {}.\n", client.url),
         None => "Removed this machine's setup. Data, keys, backups and client configurations were kept.\n".into(),
-    }
-}
-
-pub fn setup_lane_limit(
-    purpose: Purpose,
-    local: impl FnOnce() -> Result<usize, String>,
-    docker: impl FnOnce() -> Result<usize, String>,
-) -> Result<usize, String> {
-    match purpose {
-        Purpose::Service => local(),
-        Purpose::Docker => docker(),
-        Purpose::Client => Err("lanes are imported on the server's machine".into()),
     }
 }
 

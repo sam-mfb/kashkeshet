@@ -13,7 +13,6 @@ testing = []
 [dependencies]
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
-kkt-names = { path = "../kkt-names" }
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
