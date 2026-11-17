@@ -2,8 +2,8 @@
 //! kkt installed here with no record.
 
 use crate::{Output, SetupFiles};
+use kkt_bare_service::ServiceError;
 use kkt_machine::{Env, Platform};
-use kkt_service::ServiceError;
 use kkt_setup as setup;
 use kkt_setup::connection::{self, ConnectionOptions, ConnectionSource};
 
@@ -165,7 +165,7 @@ pub fn read_unfinished(
     env: &Env,
     files: &dyn SetupFiles,
     container: &dyn kkt_container::Container,
-    service: &dyn kkt_service::Service,
+    service: &dyn kkt_bare_service::Service,
 ) -> Result<Option<setup::Unfinished>, String> {
     let Some(config_dir) = kkt_config_file::config_dir(env.config_home().as_deref()) else {
         return Ok(None);
@@ -204,7 +204,7 @@ pub fn read_setup(env: &Env, files: &dyn SetupFiles) -> Result<Option<setup::Rec
 pub fn check_setup(
     env: &Env,
     files: &dyn SetupFiles,
-    service: &dyn kkt_service::Service,
+    service: &dyn kkt_bare_service::Service,
     output: &dyn Output,
 ) -> Result<(), String> {
     let record = read_setup(env, files)?;

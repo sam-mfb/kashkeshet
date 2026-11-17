@@ -1,9 +1,9 @@
-//! Running the server as a background service of the user's login, as a
-//! contract: [`Service`], what kkt asks of the service manager, in kkt's
+//! Running the server directly on the machine, as a background service of
+//! the user's login, as a contract: [`Service`], what kkt asks of the service manager, in kkt's
 //! terms, with the values it takes and gives ([`Spec`], [`ServiceState`],
 //! [`Settings`]) and its errors ([`ServiceError`]). A wrapper crate named for
-//! each service manager implements it: kkt-service-launchd on macOS and
-//! kkt-service-systemd on Linux. The program picks one by platform, or
+//! each service manager implements it: kkt-bare-service-launchd on macOS and
+//! kkt-bare-service-systemd on Linux. The program picks one by platform, or
 //! [`Unsupported`] elsewhere.
 //!
 //! [`plan`] works out what the service runs and which keys to make, from

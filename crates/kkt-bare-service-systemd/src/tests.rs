@@ -1,8 +1,8 @@
 use crate::system::{Command, Finished, System};
 use crate::unit::Unit;
+use kkt_bare_service::{ServiceError, ServiceState, Settings, Spec};
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
-use kkt_service::{ServiceError, ServiceState, Settings, Spec};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::fmt;

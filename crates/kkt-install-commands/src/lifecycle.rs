@@ -9,9 +9,9 @@ use crate::record::{
 use crate::service::{self, ServiceAction, ServiceInstall, service_plan};
 use crate::{InstallParts, ServeFacts, ServiceDefaults};
 use kkt_backup as backup;
+use kkt_bare_service::ServiceError;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
-use kkt_service::ServiceError;
 use kkt_setup as setup;
 use kkt_setup::connection::ConnectionSource;
 use std::path::{Path, PathBuf};
@@ -177,7 +177,7 @@ pub async fn upgrade<D: ServiceDefaults>(
                 .service
                 .install(
                     parts.clock.as_ref(),
-                    kkt_service::Settings::DEFAULT,
+                    kkt_bare_service::Settings::DEFAULT,
                     &service.spec,
                 )
                 .await
@@ -335,7 +335,7 @@ mod tests {
 
     #[test]
     fn an_upgrade_whose_service_would_not_load_says_to_run_it_again() {
-        // As kkt-service-launchd words it.
+        // As kkt-bare-service-launchd words it.
         let error = ServiceError::ReloadFailed(
             "`launchctl bootstrap gui/501 kkt.plist` failed on each of 141 tries over 35 seconds, \
              while launchd was still removing the old service: Bootstrap failed: 5: \
@@ -396,7 +396,7 @@ mod tests {
         fn service_settings(
             &self,
             _: Option<PathBuf>,
-            _: kkt_service::ServiceSettings,
+            _: kkt_bare_service::ServiceSettings,
         ) -> Result<crate::ServiceInputs<'_>, String> {
             self.0.borrow_mut().push("service_settings");
             Err("not asked here".into())
@@ -764,7 +764,7 @@ mod tests {
         };
         let (serve, remote, untouched) =
             (Asked::default(), Tailscale::default(), Untouched::default());
-        let service = kkt_service::testing::Memory::installed(vec!["serve".into()], true);
+        let service = kkt_bare_service::testing::Memory::installed(vec!["serve".into()], true);
         let record = UnsharedRecord(RefCell::new(Vec::new()));
         let said = Said::default();
         let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> {

@@ -37,7 +37,7 @@ stacked directly beneath it in the same layer, and a dotted outline
 around them (white in the dark theme, dark grey in the light one; the
 key shows it). A crate goes under another when it implements a contract
 of exactly one crate in its own layer, as kkt-db-sqlite does kkt-db's,
-and kkt-service-launchd and kkt-service-systemd do kkt-service's.
+and kkt-bare-service-launchd and kkt-bare-service-systemd do kkt-bare-service's.
 Programs and test support are never grouped, and a partner is never a
 head. `groups.py` holds the rule, and nothing else decides it: no group
 is written by hand. A group keeps its outline while any of its crates is
@@ -150,7 +150,7 @@ Which way an arrow points: every arrow runs from the crate that is depended on t
 
 | Role | Drawn as | Means, for an arrow from A to B | Derived from |
 |---|---|---|---|
-| implemented by | green, hollow triangle | B implements a trait A defines (kkt-service-launchd's `Launchd` implements kkt-service's `Service`) | the trait impls in rustdoc's JSON, including impls by private types, which the page names only as "a type of its own" |
+| implemented by | green, hollow triangle | B implements a trait A defines (kkt-bare-service-launchd's `Launchd` implements kkt-bare-service's `Service`) | the trait impls in rustdoc's JSON, including impls by private types, which the page names only as "a type of its own" |
 | adapted by | yellow (its own colour, apart from the amber of "built by" and the injection lines), short dashes (not the injection lines' dots), open round head | B, a composition crate (a program, kkt-server or an assembly), has a type of its own that meets a trait A declares, and injects it: an adapter over another crate's work, or its own work (kashkeshet's adapters for kkt-watch's `Place` and `Report`). Not an implementation of a contract. Its tooltip says, for each type, whether it adapts another crate's work or is the injector's own, from the injection routes | the trait impls, as for "implemented by", where the implementer's kind in concerns.json is composition; computed from the kinds, not a list |
 | used by | grey, filled arrow | B calls or reads A's items | every named item that is not one of the others |
 | built by | amber, open arrow | B builds A's implementation of a contract, or a type that holds one, to hand it on (a program building `SqlitePlace` for `Db::new`) | items that implement a contract, build one (a public method returns another crate's holder, implementation or contract, as `SqlitePlace::open` gives an `Arc<dyn kkt_db::Backend>`), or hold one, which the crate builds: it calls one of the type's constructors (a public function giving back the type, such as `KeyMode::new`), or names it if it has none (`SystemClock`), or calls a free function of its crate that gives one back (`open_log_file` gives a `RotatingFile`). A type that implements a trait from outside the workspace that some public slot takes (`RotatingFile`, a `std::io::Write`) counts as an implementation. Calling another function of such a type (`KeyMode::admin_operator`) is using it. Plain settings structs and the traits the wired types implement go with the wiring |

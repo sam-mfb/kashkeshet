@@ -45,19 +45,19 @@ pub trait ServeFacts {
     fn service_settings(
         &self,
         config: Option<PathBuf>,
-        flags: kkt_service::ServiceSettings,
+        flags: kkt_bare_service::ServiceSettings,
     ) -> Result<ServiceInputs<'_>, String>;
 }
 
 /// Inputs to the service plan, plus a deferred check with opaque program context.
 pub struct ServiceInputs<'a> {
-    pub request: kkt_service::Request,
+    pub request: kkt_bare_service::Request,
     pub check: Box<dyn CheckService + 'a>,
 }
 
 /// The program checks the plan against its whole serving surface, with its source context.
 pub trait CheckService {
-    fn check(self: Box<Self>, plan: &kkt_service::Plan) -> Result<CheckedService, String>;
+    fn check(self: Box<Self>, plan: &kkt_bare_service::Plan) -> Result<CheckedService, String>;
 }
 
 /// What the service command needs after the program's settings check.
@@ -139,7 +139,7 @@ pub struct InstallParts<'a, C: ConnectionSource, D = ()> {
     pub container: &'a dyn kkt_container::Container,
     pub container_configs: &'a dyn kkt_container::ConfigReader,
     pub login_link: &'a dyn kkt_container::LoginLink,
-    pub service: &'a dyn kkt_service::Service,
+    pub service: &'a dyn kkt_bare_service::Service,
     pub try_bind: &'a dyn Fn(std::net::SocketAddr) -> std::io::Result<()>,
     pub remote: &'a dyn kkt_remote_access::RemoteAccess,
     pub clients: &'a dyn kkt_llm_agent_config::Host,

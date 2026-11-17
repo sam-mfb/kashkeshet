@@ -1,5 +1,5 @@
 use super::*;
-use kkt_service::ServiceError;
+use kkt_bare_service::ServiceError;
 use std::path::PathBuf;
 
 fn env(home: Option<&str>, xdg_config_home: Option<&str>) -> Env {

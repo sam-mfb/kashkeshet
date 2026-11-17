@@ -5,8 +5,8 @@
 //! service manager anything: the answers are the same on every machine,
 //! with or without a login session or an installed kkt. The other service
 //! commands are tested against a fake system in each service manager's
-//! wrapper (`crates/kkt-service-launchd/src/tests.rs` and
-//! `crates/kkt-service-systemd/src/tests.rs`).
+//! wrapper (`crates/kkt-bare-service-launchd/src/tests.rs` and
+//! `crates/kkt-bare-service-systemd/src/tests.rs`).
 #![cfg(any(target_os = "macos", target_os = "linux"))]
 
 #[path = "common/home.rs"]

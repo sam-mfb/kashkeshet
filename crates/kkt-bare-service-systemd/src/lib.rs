@@ -1,5 +1,6 @@
-//! kkt's service as a systemd user unit on Linux: `Systemd` implements
-//! kkt-service's `Service` with the user's systemd, writing the unit file
+//! kkt's server run directly on the machine as a systemd user unit on
+//! Linux: `Systemd` implements
+//! kkt-bare-service's `Service` with the user's systemd, writing the unit file
 //! and running `systemctl` and `journalctl`. Everything it decides is
 //! worked through a private system, so its tests use a fake and never start a
 //! real service.
@@ -14,8 +15,8 @@ pub use real::Systemd;
 mod real {
     use crate::system::OsSystem;
     use crate::unit::Unit;
+    use kkt_bare_service::{Pending, Service, ServiceError, ServiceState, Settings, Spec};
     use kkt_clock::Clock;
-    use kkt_service::{Pending, Service, ServiceError, ServiceState, Settings, Spec};
     use std::path::Path;
 
     /// The systemd user unit of the user whose config base

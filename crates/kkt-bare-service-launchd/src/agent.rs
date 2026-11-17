@@ -8,11 +8,11 @@ use crate::system::{
     Command, DryRun, System, create_dir, exists, failure_detail, read_service_file, remove_file,
     run, run_attached, run_ok, write_file,
 };
-use kkt_clock::Clock;
-use kkt_service::{
+use kkt_bare_service::{
     SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, ServiceError, ServiceState, Settings, Spec,
     path_text, plain_text,
 };
+use kkt_clock::Clock;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 

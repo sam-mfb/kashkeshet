@@ -16,6 +16,9 @@ members = [
     "crates/kkt-api-sim",
     "crates/kkt-backup",
     "crates/kkt-backup-os",
+    "crates/kkt-bare-service",
+    "crates/kkt-bare-service-launchd",
+    "crates/kkt-bare-service-systemd",
     "crates/kkt-browser",
     "crates/kkt-llm-agent-command",
     "crates/kkt-llm-agent-config",
@@ -57,9 +60,6 @@ members = [
     "crates/kkt-search",
     "crates/kkt-toml",
     "crates/kkt-server",
-    "crates/kkt-service",
-    "crates/kkt-service-launchd",
-    "crates/kkt-service-systemd",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
@@ -85,6 +85,9 @@ default-members = [
     "crates/kkt-api-sim",
     "crates/kkt-backup",
     "crates/kkt-backup-os",
+    "crates/kkt-bare-service",
+    "crates/kkt-bare-service-launchd",
+    "crates/kkt-bare-service-systemd",
     "crates/kkt-browser",
     "crates/kkt-llm-agent-command",
     "crates/kkt-llm-agent-config",
@@ -126,9 +129,6 @@ default-members = [
     "crates/kkt-search",
     "crates/kkt-toml",
     "crates/kkt-server",
-    "crates/kkt-service",
-    "crates/kkt-service-launchd",
-    "crates/kkt-service-systemd",
     "crates/kkt-setup",
     "crates/kkt-shutdown",
     "crates/kkt-shutdown-os",
@@ -219,6 +219,9 @@ kkt-agent-files = { path = "crates/kkt-agent-files" }
 kkt-api-agent = { path = "crates/kkt-api-agent" }
 kkt-backup = { path = "crates/kkt-backup" }
 kkt-backup-os = { path = "crates/kkt-backup-os" }
+kkt-bare-service = { path = "crates/kkt-bare-service" }
+kkt-bare-service-launchd = { path = "crates/kkt-bare-service-launchd" }
+kkt-bare-service-systemd = { path = "crates/kkt-bare-service-systemd" }
 kkt-browser = { path = "crates/kkt-browser" }
 kkt-llm-agent-command = { path = "crates/kkt-llm-agent-command" }
 kkt-llm-agent-config = { path = "crates/kkt-llm-agent-config" }
@@ -253,9 +256,6 @@ kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access-tailscale = { path = "crates/kkt-remote-access-tailscale" }
 kkt-rules = { path = "crates/kkt-rules" }
 kkt-server = { path = "crates/kkt-server" }
-kkt-service = { path = "crates/kkt-service" }
-kkt-service-launchd = { path = "crates/kkt-service-launchd" }
-kkt-service-systemd = { path = "crates/kkt-service-systemd" }
 kkt-setup = { path = "crates/kkt-setup" }
 kkt-shutdown = { path = "crates/kkt-shutdown" }
 kkt-shutdown-os = { path = "crates/kkt-shutdown-os" }

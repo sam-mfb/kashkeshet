@@ -1,5 +1,6 @@
-//! kkt's service as a launchd user agent on macOS: `Launchd` implements
-//! kkt-service's `Service` over the user's `gui/<uid>` domain, writing the
+//! kkt's server run directly on the machine as a launchd user agent on
+//! macOS: `Launchd` implements
+//! kkt-bare-service's `Service` over the user's `gui/<uid>` domain, writing the
 //! plist and running `launchctl`, `tail` and `id`. Everything it decides is
 //! worked through a private system, so its tests use a fake and never start a
 //! real service.
@@ -33,7 +34,7 @@ impl Settings {
     /// a margin for launchd's own work after that. Loading is tried every
     /// 250 milliseconds meanwhile.
     pub const DEFAULT: Settings = Settings {
-        removal_wait: Duration::from_secs(kkt_service::SERVICE_STOP_TIMEOUT.as_secs() + 5),
+        removal_wait: Duration::from_secs(kkt_bare_service::SERVICE_STOP_TIMEOUT.as_secs() + 5),
         reload_retry: Duration::from_millis(250),
     };
 }
@@ -41,8 +42,8 @@ impl Settings {
 mod real {
     use crate::agent::Agent;
     use crate::system::OsSystem;
+    use kkt_bare_service::{Pending, Service, ServiceError, ServiceState, Settings, Spec};
     use kkt_clock::Clock;
-    use kkt_service::{Pending, Service, ServiceError, ServiceState, Settings, Spec};
     use std::path::Path;
 
     /// The launchd user agent of the user whose home folder it is given,
