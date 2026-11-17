@@ -8,6 +8,11 @@ public item. Comments, doc comments and crate names in paths are not read.
 Tests are left out: files named tests.rs, folders named tests, and modules
 under `#[cfg(test)]`.
 
+It also reads the crate descriptions and layer texts concerns.json gives
+the map: a platform crate's description, and the platform layer's text,
+must not say kkt or kashkeshet, other crates' names included, and none may
+carry the plainest marks of history (HISTORY).
+
 Usage: check-platform-words.py [ROOT]   (the workspace root; default: here)
 Tested by test_check_platform_words.py.
 """
@@ -22,6 +27,7 @@ STRING = re.compile(r'r(#*)"(.*?)"\1|"((?:[^"\\]|\\.)*)"', re.DOTALL)
 PUBLIC_NAME = re.compile(
     r"\bpub(?:\([^)]*\))?\s+(?:const\s+fn|async\s+fn|unsafe\s+fn|fn|struct|enum|const|static|trait|type|mod)\s+(\w+)"
 )
+HISTORY = re.compile(r"\bwas kkt-|\bformerly\b|ARCHITECTURE\.md|RUST\.md|#\d+|\bphase \d+", re.IGNORECASE)
 TEST_MODULE = re.compile(r"#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{")
 
 
@@ -96,8 +102,30 @@ def problems_in(text, where):
     return found
 
 
-def problems(root):
+def description_problems(root):
+    """The crate descriptions that break the map's rules: kkt's words in a
+    platform crate's, and history in any."""
+    concerns = json.loads((root / "docs/architecture/concerns.json").read_text())
     found = []
+    for name, crate in sorted(concerns["crates"].items()):
+        text = crate.get("concern", "")
+        if crate["layer"] == "platform" and WORD.search(text):
+            found.append(f"concerns.json: {name}'s description names kkt: {WORD.search(text).group(0)}")
+        history = HISTORY.search(text)
+        if history:
+            found.append(f"concerns.json: {name}'s description gives history: {history.group(0)}")
+    # The layers' texts keep to the same rules.
+    for layer in concerns.get("layers", []):
+        text = layer.get("about", "")
+        if layer["id"] == "platform" and WORD.search(text):
+            found.append(f"concerns.json: the platform layer's text names kkt: {WORD.search(text).group(0)}")
+        if HISTORY.search(text):
+            found.append(f"concerns.json: the {layer['id']} layer's text gives history: {HISTORY.search(text).group(0)}")
+    return found
+
+
+def problems(root):
+    found = description_problems(root)
     for crate in platform_crates(root):
         src = root / "crates" / crate / "src"
         for path in sorted(src.rglob("*.rs")):
@@ -111,12 +139,13 @@ def main():
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     found = problems(root)
     if found:
-        print("check-platform-words: a platform crate names kkt; it must know nothing of kkt, "
-              "so the caller passes kkt's words in:", file=sys.stderr)
+        print("check-platform-words: a platform crate names kkt (it must know nothing of kkt, "
+              "so the caller passes kkt's words in), or a crate's map description says kkt "
+              "where it may not, or gives history:", file=sys.stderr)
         for line in found:
             print(line, file=sys.stderr)
         sys.exit(1)
-    print("check-platform-words: no platform crate names kkt")
+    print("check-platform-words: no platform crate names kkt, and the map's descriptions keep to their rules")
 
 
 if __name__ == "__main__":

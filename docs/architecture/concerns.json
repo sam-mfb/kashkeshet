@@ -44,352 +44,352 @@
   {
    "id": "platform",
    "title": "Platform",
-   "about": "General crates that know nothing of kkt and would make sense in any program: time, randomness, logs, files, HTTP serving, the terminal, the browser, remote access, git and more. The test: a platform crate depends on no crate outside the platform layer."
+   "about": "General-purpose crates for any program: time, randomness, logs, files, HTTP serving, the terminal, the browser, remote access and version control. A platform crate depends in code only on other platform crates."
   },
   {
    "id": "dev",
    "title": "Dev-only",
-   "about": "Never in a release: test scratch folders."
+   "about": "Packages for development only: test scratch folders and a simulated application."
   }
  ],
  "crates": {
   "kashkeshet": {
    "layer": "programs",
    "title": "kkt (package kashkeshet)",
-   "concern": "The `kkt` command and everything it does on a machine: its subcommands and the files and environment they read, the settings and config file, the setup record, key files, how a client reaches the server, and one module per command that takes plain inputs. The agents' commands run in kkt-agent-commands, over the `AgentParts` it builds.",
+   "concern": "The `kkt` command: its subcommands, the files and environment they read, its settings and its setup record. It builds the parts each command needs and runs it.",
    "kind": "composition"
   },
   "kkt-keymode": {
    "layer": "programs",
-   "concern": "A second program that assembles key mode again from the shared crates with none of the `kkt` program's code, to show the crates are a core and `kkt` one product on it. The HTTP-only end-to-end tests run against it in CI. Dev-only, never released.",
+   "concern": "A second program that assembles a key-mode server from the shared crates alone. For development only.",
    "kind": "composition"
   },
   "kkt-fake-product": {
    "layer": "programs",
-   "concern": "The shared crates assembled as a product other than kkt would assemble them, with two swarms and a fake `Identify` mapping made-up bearers to (swarm, role). Its tests check that nothing of one swarm reaches the other. Dev-only, never released.",
+   "concern": "The shared crates assembled as a different product, with two swarms and made-up bearers mapped to a swarm and a role. It shows that each swarm sees only its own data. For development only.",
    "kind": "composition"
   },
   "kkt-webapp-preview": {
    "layer": "programs",
-   "concern": "The web page over simulated data, for working on the page: kkt-web's page over kkt-api-sim's simulated application and stand-in gate, with the real clock, randomness and stop signals, served alone through kkt-server and kkt-listen. Its flags and their checks (`SettingError`). Dev-only, never released.",
+   "concern": "The web page served alone over simulated data, with the real clock, randomness and stop signals, for working on the page. For development only.",
    "kind": "composition"
   },
   "kkt-operate": {
    "layer": "assembly",
    "kind": "composition",
-   "concern": "The operator's commands, including the install's lifecycle (status, upgrade, uninstall and backup), and this machine's setup record and key selection; effects, backup writing and lazy serving facts are supplied through OperateParts."
+   "concern": "The operator's commands: setup, switch, status, upgrade, uninstall, backup, keys, lanes, service and doctor. It takes every effect it needs as injected parts."
   },
   "kkt-server": {
    "layer": "assembly",
-   "concern": "Assembling the server around the program's `Arc<dyn AdminApi>` in `Parts`: `/mcp`, `/mcp-admin` and the web page; its `ServerSettings` returns an opaque `CheckedSettings` snapshot for `Parts::new` and composes owner checks and run-record lines with the program's plain values, with `SettingError`; the public adapter from admission and identity to the web gate; the page's sessions; the web page alone over its API and gate (`page`).",
+   "concern": "Assembles the server from the parts a program gives it: the agent and admin MCP endpoints and the web page, with their checked settings and the page's sign-in gate.",
    "kind": "composition"
   },
   "kkt-mcp": {
    "layer": "surfaces",
-   "concern": "The agent and admin MCP tools, what the two share, their HTTP transport, and what agents are told about each tool.",
+   "concern": "The agent and admin MCP tools, their HTTP endpoints, and the text agents are given about each tool.",
    "kind": "logic"
   },
   "kkt-web": {
    "layer": "surfaces",
-   "concern": "The human's pages, over the operator's operations (kkt-api-operator's `OperatorApi`) in each viewer's swarm, rendering the kkt-api crates' records. Its own contract is only `Gate`, which says who is viewing each request (a swarm and an operator) and whom a key signs in; every change is a checked form post. It keeps the limits only the page applies (`PageLimits`). It keeps its own sessions: their IDs, hashing, expiry, sign-out and form tokens; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
+   "concern": "The operator's web pages: views and checked form posts over the operator's operations, in each viewer's swarm, with web sessions and sign-in. Its `Gate` contract says who is viewing each request.",
    "kind": "logic"
   },
   "kkt-identity": {
    "layer": "access",
-   "concern": "Who a caller is, as a contract: `Identify` turns an admitted caller's `Principal` into the swarm it acts in and its actor, or a refusal. The one place that decides who someone is and what they may do. A stand-in, `testing::FixedIdentify`, is behind `testing`.",
+   "concern": "Who a caller is, as a contract: `Identify` turns an admitted caller into the swarm it acts in and its actor, or refuses it. Each product implements it with its own idea of identity.",
    "kind": "contract"
   },
   "kkt-identity-keymode": {
    "layer": "access",
-   "concern": "Key mode's identity: `KeyMode`, which implements kkt-identity's `Identify` directly. It decides who a caller is from the key that let it in and the avatar's token, in the one swarm a key-mode server has.",
+   "concern": "Implements kkt-identity's `Identify` for key mode: the caller's key and avatar token decide who it is, in a single swarm.",
    "kind": "logic"
   },
   "kkt-admission": {
    "layer": "access",
-   "concern": "Whether an HTTP caller is let in at all, and as which `Principal`: no key, which of the server's keys, or (for another program's `Identify` to judge) any bearer token, and for the web page whether sign-in is needed and whom a key admits. Also the server's admission from its keys, as kkt-keys' rules say, and what to say when a key is refused.",
+   "concern": "Decides whether an HTTP caller is let in, and as which principal: by one of the server's keys, or by any bearer token for the product to judge. It also decides whether the web page needs sign-in and whom a key signs in.",
    "kind": "logic"
   },
   "kkt-keys": {
    "layer": "access",
    "kind": "contract",
-   "concern": "The server's keys, as a contract: what a valid key is, and the alphabet and length a new one is drawn with (NEW_KEY_ALPHABET, NEW_KEY_CHARS); which access key a server uses; the key files' names, mode and places, in one module; the admin name file's binding to its key and the advice about it; and KeyFiles, reading and writing private key files (the server's, and the client key copies setup writes), with the reads of the server's selected keys (SelectedKeys, ReadError) and the key writes made of its steps as provided methods. testing::Memory is its stand-in. kkt-keys-os implements KeyFiles."
+   "concern": "The server's keys, as a contract: what a valid key is, how a new one is drawn, where key files live, and how admin names bind to keys. `KeyFiles` reads and writes private key files, and an operating-system crate implements it."
   },
   "kkt-hosts": {
    "layer": "access",
-   "concern": "Which host names the server answers to.",
+   "concern": "Which host names the server answers to, and which addresses it may listen on.",
    "kind": "logic"
   },
   "kkt-api-agent": {
    "layer": "core",
-   "concern": "What any registered agent may do: Api and its areas (Agents, Channels, Messages, Memory, Lanes), with the Limits they enforce; and the records every level shares: the agents, channels, messages, memory and lanes the operations take and give back, the queries they take, who acts, and the errors they return.",
+   "concern": "What a registered agent may do, as a contract: `Api`, with its areas (agents, channels, messages, memory and lanes) and their limits, and the records and errors every level shares.",
    "kind": "contract"
   },
   "kkt-api-operator": {
    "layer": "core",
-   "concern": "What the human who runs the server may do, by area (Views, Changes, Lanes, Server), with the records only they use, the notices the operator hears as things happen (Notice and Notices, from Views::subscribe), and OperatorApi, every operation the operator may use in one swarm. It depends on kkt-api-agent for the shared records.",
+   "concern": "What the operator may do in one swarm, as a contract: `OperatorApi`, with its views, changes, lanes and server areas, and the notices the operator hears as things happen.",
    "kind": "contract"
   },
   "kkt-api-admin": {
    "layer": "core",
-   "concern": "What /mcp-admin's administrator does: the admin reads across every channel of a swarm (Admin), creating a swarm (Swarms), AdminChannel, and AdminApi, every operation /mcp-admin uses in one swarm.",
+   "concern": "What the admin endpoint may do in one swarm, as a contract: `AdminApi`, with reads across every channel and the creation of swarms.",
    "kind": "contract"
   },
   "kkt-rules": {
    "layer": "core",
-   "concern": "Every permission decision and every change, for agents and the operator, each in one swarm; and starting them for a server run (`start`), which records the run first.",
+   "concern": "Every permission decision and every change, for agents and the operator, each within one swarm, with the core's data and its tables. It implements the agent, operator and admin API contracts, and records each server run as it starts.",
    "kind": "logic"
   },
   "kkt-result-format": {
    "layer": "surfaces",
-   "concern": "The MCP tools' results turned into text or JSON, within the response size cap: `Formatter`, `Format`, its `Settings` and `MIN_RESPONSE_BYTES`; its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`).",
+   "concern": "Turns the MCP tools' results into plain text or JSON, within a response size limit.",
    "kind": "logic"
   },
   "kkt-events": {
    "layer": "core",
-   "concern": "Notices of new messages, agents, channels and members, and of hidden agents and channels: one bus for the server, each notice heard only in its swarm, with a buffer per swarm kept only while it has a subscriber.",
+   "concern": "A bus of notices: new messages, agents, channels and members, and hidden agents and channels. Each notice is heard only in its own swarm.",
    "kind": "logic"
   },
   "kkt-db": {
    "layer": "data",
-   "concern": "The database contract, for any database: values, tables, keys and constraints; a narrow language of questions and changes (not SQL); transactions; what a search asks for and finds; migrations as additions; the traits a backend implements.",
+   "concern": "The database contract: values, tables, keys and constraints; a small language of questions and changes; transactions, search and migrations. `Backend` is the trait a database implements.",
    "kind": "contract"
   },
   "kkt-db-sqlite": {
    "layer": "data",
-   "concern": "kkt-db over SQLite, the only crate that knows SQLite: it opens a SQLite database, in a file or in memory, as a kkt-db `Backend`, running its work on tokio's blocking pool, adopts a database from before kkt-db as the caller's `Legacy` describes, and copies a database for backups.",
+   "concern": "Implements kkt-db's `Backend` over SQLite, in a file or in memory. It also adopts a database in an older layout and copies a database.",
    "kind": "effect"
   },
   "kkt-config-file": {
    "layer": "operations",
-   "concern": "The config file's format: parsing its TOML into `Config`, what the file says in its own terms, and adding an allowed host to its text, with its own error; where the config file is (`config_dir`, `config_file`), under a supplied config-home folder; reading and writing the config and instructions files whole (`files`), over the `Disk` it declares, with what a missing file means and the wording of `ReadError` and `WriteError`.",
+   "concern": "The config file: its TOML format and what it says, where it lives, and reading and writing it and the instructions file whole, through a `Disk` it declares.",
    "kind": "logic"
   },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "`kkt setup`: what this machine is set up as, the setup record, and what follows from it: whether `kkt serve` may run here, which server this machine's clients use, and what status, upgrade, lanes, backup, key files and `kkt doctor` do; where kkt's data goes (`data_dir`, `default_db`), from kkt-machine's `Env` and `Platform`.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: whether a server may run here, which server its clients use, and what status, upgrade, lanes, backup and doctor do. It also places the data folder.",
    "kind": "logic"
   },
   "kkt-service": {
    "layer": "operations",
-   "concern": "The project's contract for running kkt as a service of the user's login (`Service`: install, check it started, start, stop, status, logs, add a key, uninstall), with the values it takes and gives and its errors; `Unsupported` for a system with no service manager kkt works with; the plan of what the service runs, from the settings it needs, and the bind check, both on plain values; its testing Memory stand-in.",
+   "concern": "Running the server as a service of the user's login, as a contract: `Service` installs, starts, stops, reports on and removes it. Each platform's service manager implements it.",
    "kind": "contract"
   },
   "kkt-service-launchd": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "Implements Service as a launchd user agent on macOS: the plist, launchctl's commands and answers, the log file and the retries while launchd removes an old service, tested against a private system."
+   "concern": "Implements kkt-service's `Service` as a launchd user agent on macOS: the plist, launchctl's commands and the service's log file."
   },
   "kkt-service-systemd": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "Implements Service as a systemd user unit on Linux: the unit file, systemctl's and journalctl's commands and answers, tested against a private system."
+   "concern": "Implements kkt-service's `Service` as a systemd user unit on Linux: the unit file, and systemctl's and journalctl's commands."
   },
   "kkt-container": {
    "layer": "operations",
-   "concern": "The container installation contract (Container, ConfigReader, LoginLink and their records) and its stand-in.",
+   "concern": "Running the server in a container, as a contract: `Container` sets up, reports on and removes a container install. A container tool implements it.",
    "kind": "contract"
   },
   "kkt-container-docker": {
    "layer": "operations",
-   "concern": "Implements kkt-container's Container with Docker and Compose: the Compose files, the managed folder and the docker commands; what they do is tested over a private runner and a fake host. A sharing setup's login link opens in the Browser it declares, which the program supplies.",
+   "concern": "Implements kkt-container's `Container` with Docker and Compose: the Compose files, the managed folder and the docker commands. It opens a sharing setup's login link through a `Browser` it declares.",
    "kind": "effect"
   },
   "kkt-remote-access": {
    "layer": "platform",
-   "concern": "The remote-sharing contract (RemoteAccess, Node) and its stand-in.",
+   "concern": "Sharing a local service with other machines, as a contract: `RemoteAccess` and its nodes. A remote-access tool implements it.",
    "kind": "contract"
   },
   "kkt-remote-access-tailscale": {
    "layer": "platform",
-   "concern": "Implements kkt-remote-access's RemoteAccess over the host's Tailscale login (`Tailscale`, made with the command a person should rerun once they have fixed what a refusal names); what tailscale's answers mean is tested over a private runner.",
+   "concern": "Implements the remote-access contract over the host's Tailscale login: tailscale's commands and what their answers mean.",
    "kind": "effect"
   },
   "kkt-llm-agent-config": {
    "layer": "operations",
-   "concern": "MCP client configs and their file formats, so `kkt connect` can add kkt to a client; a client whose settings only its own command should change is changed through the ClientCommand it declares, with its testing Recorder, and its file restored if that fails.",
+   "concern": "The MCP settings of LLM agent clients and their file formats: adding the server to a client and removing it. A client that must be changed through its own command is changed through a `ClientCommand` it declares.",
    "kind": "logic"
   },
   "kkt-llm-agent-command": {
    "layer": "platform",
-   "concern": "Claude Code's own command line, `claude mcp remove` and `add-json` at user scope, with CLAUDE_CONFIG_DIR: `Claude`, made with the server's name and what a person should retry with (`Claude::new`), with its own methods and the wording of its failures, tested over a private runner. It declares no contract: the program adapts `Claude` to kkt-llm-agent-config's ClientCommand (phase 16).",
+   "concern": "Claude Code's own command line: adding an MCP server to Claude Code's user settings and removing it, in the configuration folder it is given.",
    "kind": "effect"
   },
   "kkt-diagnostics": {
    "layer": "operations",
-   "concern": "`kkt doctor`'s checks and their plan, and setup's wait for a new server; the `Prober` it declares for the machine, with what it finds (`KeyFile`), the checks (`Check`) and its testing Memory stand-in.",
+   "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It probes through a `Prober` it declares.",
    "kind": "logic"
   },
   "kkt-probe": {
    "layer": "operations",
-   "concern": "Probing a kkt server over HTTP and reading its key files: `HttpProber`, with its own methods and the prober's `Settings`: the probe with reqwest, MCP's initialize handshake read from its answer, key files read from disk, and what it finds worded as its own records (`Finding`, `FileRead`). It declares no contract: the program adapts `HttpProber` to kkt-diagnostics' Prober (phase 16).",
+   "concern": "Probes a kkt server over HTTP, with an MCP handshake, and reads its key files from disk.",
    "kind": "effect"
   },
   "kkt-backup": {
    "layer": "operations",
-   "concern": "Backups, as a contract: backup folders' names, contents, file modes and pruning choices (Layout, Contents, FileCopy, layout, name, old_names), with its own settings, defaults, bounds (`Problem`, `Settings::problems`) and run-record lines (`Settings::record_lines`); and Backups, writing a layout into a folder and pruning old backups there, with testing::Memory as its stand-in. kkt-backup-os implements Backups.",
+   "concern": "Backups, as a contract: each backup's name, contents, file modes and retention. `Backups` writes a backup into a folder and prunes old ones, and an operating-system crate implements it.",
    "kind": "contract"
   },
   "kkt-backup-os": {
    "layer": "operations",
-   "concern": "Backups on disk: OsBackups implements kkt-backup's Backups with the operating system's files, writing kkt-backup's layouts and removing the old folders it picks; it is given the program's database copy.",
+   "concern": "Implements kkt-backup's `Backups` on disk: it writes each backup folder and removes the old ones, with the database copy it is given.",
    "kind": "effect"
   },
   "kkt-lane-files": {
    "layer": "operations",
-   "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them, with the commit the folder is at from the `LaneCommit` it declares.",
+   "concern": "Lanes as files: the `<lane>.md` format, and reading and writing a folder of them with the commit it is at, through the `Disk` and `LaneCommit` it declares.",
    "kind": "logic"
   },
   "kkt-revision": {
    "layer": "platform",
-   "concern": "The commit a folder is at, as the machine's git says: `Git`, with its own `commit` method: the commands it runs, what their answers mean (expected absences, the dirty suffix) and the wording of a failure, tested against a private runner. It declares no contract: the program adapts `Git` to kkt-lane-files' LaneCommit (phase 16).",
+   "concern": "The revision a folder is at in git, with a mark when it has uncommitted changes.",
    "kind": "effect"
   },
   "kkt-agent-client": {
    "layer": "clients",
-   "concern": "A client of kkt's server, as a contract in kkt's terms: Servers, which makes Avatars (register, reclaim, describe) and Watched (an agent's or the admin's view of the messages) for an Address; their records and Failure; the testing Memory stand-in.",
+   "concern": "A client of the server, as a contract: `Servers` makes an agent's account operations (register, reclaim, describe) and a watched view of messages for a server's address. A transport implements it.",
    "kind": "contract"
   },
   "kkt-agent-client-mcp": {
    "layer": "clients",
-   "concern": "Implements kkt-agent-client over MCP through rmcp and reqwest (Mcp, Client, Remote, AdminRemote), with plain Http requests for a program's test client; what the watch asks for at a time (Settings), as plain values.",
+   "concern": "Implements kkt-agent-client's `Servers` over MCP, and makes plain HTTP requests to the server.",
    "kind": "effect"
   },
   "kkt-agent-commands": {
    "layer": "assembly",
-   "concern": "The agents' commands: `kkt register`, `kkt reclaim`, `kkt watch` and `kkt connect`, with how a client reaches the server and the wording of what the server refuses. It takes its effects in `AgentParts`: kkt-setup's connection question, where the admin key is, the server's client, the credential files, the key files, the client configs, this program's path, the terminal and the clock.",
+   "concern": "The agents' commands: register, reclaim, watch and connect, and how a client finds the server. It takes every effect it needs as injected parts.",
    "kind": "composition"
   },
   "kkt-agent-files": {
    "layer": "clients",
    "kind": "effect",
-   "concern": "Agent credential files and kkt watch's state files on this machine: reserving and saving a token or recovery code, reading a token file under the caller's credential-file rule, file locks, claiming a state file."
+   "concern": "Agent credential files and watch state files on this machine: saving a token or recovery code privately, reading a token file under a given rule, file locks, and claiming a state file."
   },
   "kkt-watch": {
    "layer": "clients",
-   "concern": "`kkt watch`: waiting for an agent's new messages (or every channel's, as admin) and the line printed for each. The server (kkt-agent-client's Watched), clock, saved place and output are injected.",
+   "concern": "Waits for an agent's new messages, or every channel's as the admin, and prints one line for each.",
    "kind": "logic"
   },
   "kkt-search": {
    "layer": "platform",
-   "concern": "Search as text: the words of a text (FTS5 `unicode61`'s rule, with its word table), a search's terms, whether a text matches them, and an excerpt around the matches, drawn with the marks and window it is given. Pure text: it knows no database.",
+   "concern": "Text search: splitting text into words, a search's terms, whether a text matches them, and an excerpt around the matches.",
    "kind": "logic"
   },
   "kkt-hash": {
    "layer": "platform",
-   "concern": "Hashing: `sha256`, the SHA-256 digest of some bytes. The one crate that uses sha2; its users call it.",
+   "concern": "SHA-256 digests of bytes.",
    "kind": "logic"
   },
   "kkt-clock": {
    "layer": "platform",
-   "concern": "Time: the Clock contract, Time and Span values, time formatting and FixedClock behind testing. The real clock is in kkt-clock-system.",
+   "concern": "Time: the `Clock` contract, time and span values, and their text forms. A real or a fixed clock implements it.",
    "kind": "contract"
   },
   "kkt-names": {
    "layer": "core",
-   "concern": "Avatars' handles, channel IDs, the name packs, and the operator and admin names with their rules. It draws randomness through kkt-entropy's `Entropy`, with its own character sets.",
+   "concern": "Avatars' handles, channel IDs, name packs, and the operator's and admins' names, with the rules each must meet.",
    "kind": "logic"
   },
   "kkt-entropy": {
    "layer": "platform",
-   "concern": "The randomness contract `Entropy`, with `random_chars` as a provided method that takes the alphabet to draw from, and its test doubles behind `testing`.",
+   "concern": "Randomness, as a contract: `Entropy` draws characters from an alphabet the caller gives. A real or a seeded source implements it.",
    "kind": "contract"
   },
   "kkt-entropy-os": {
    "layer": "platform",
-   "concern": "Randomness from the operating system: `OsEntropy`, which implements kkt-entropy's `Entropy` directly, a shared contract.",
+   "concern": "Implements the randomness contract with the operating system's random source.",
    "kind": "effect"
   },
   "kkt-machine": {
    "layer": "platform",
-   "concern": "Facts about the machine: `Env` (the home folder, the XDG folders and the base of per-user config they give, and any other folder the program asks for by the variable that names it, `Env::named`) and `Platform`, as plain values, and `Machine`, the contract for reading them (the environment's folders by the variables the program names), this process's ID, this program's path and the folders `$PATH` names, with its stand-in `testing::FixedMachine`. The crates that place files on the machine take these facts; none reads them.",
+   "concern": "Facts about the machine, as plain values: its environment's folders and its platform. `Machine` is the contract for reading them, with this process's ID, its path and the search path.",
    "kind": "contract"
   },
   "kkt-machine-os": {
    "layer": "platform",
-   "concern": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment (the home and XDG folders, and the variables the program names), naming the platform this program was built for, and giving this process's ID, this program's path and the folders `$PATH` names. The program asks once and passes the values on.",
+   "concern": "Implements the machine-facts contract from this process's environment and platform.",
    "kind": "effect"
   },
   "kkt-shutdown": {
    "layer": "platform",
-   "concern": "The stop signal: the `Shutdown` that ends the server, a concrete in-memory value; and `Signals`, the contract for a source of stop signals, which stops a `Shutdown` and says which `Signal` came, with its stand-in `testing::OnCue`.",
+   "concern": "Stopping a server: the shared stop value, and `Signals`, the contract for a source of stop signals, which says which signal came.",
    "kind": "contract"
   },
   "kkt-shutdown-os": {
    "layer": "platform",
-   "concern": "The operating system's stop signals (Ctrl-C, SIGTERM): `StopSignals` implements kkt-shutdown's `Signals`, listening when it is made and stopping the shared `Shutdown` when one comes.",
+   "concern": "Implements the stop-signal contract with the operating system's signals, Ctrl-C and SIGTERM.",
    "kind": "effect"
   },
   "kkt-files": {
    "layer": "platform",
    "kind": "effect",
-   "concern": "General file access on this machine: reading and writing whole files, listing a folder's file names, making folders, renaming and removing, whether a path exists, creating a private file and restricting one to its owner, and absolute and canonical paths. Also a file that may be missing (`read_if_present`), a write that replaces a file only once the new text is whole (`write_by_rename`), a removal where a missing file is fine (`remove_if_present`), and whether a path is a file (`is_file`). Each program adapts it to the contract the crate that needs files declares, or calls it from its own adapters."
+   "concern": "General file access: reading and writing whole files, listing folders, making, renaming and removing files and folders, private files, and absolute and canonical paths."
   },
   "kkt-listen": {
    "layer": "platform",
    "kind": "effect",
-   "concern": "Serving HTTP: binding an address and answering on it with the router it is handed, until told to stop; and trying whether an address could be listened on (`try_bind`), letting it go at once."
+   "concern": "Serving HTTP: binding an address and answering with the router it is given until told to stop, and trying whether an address is free."
   },
   "kkt-log": {
    "layer": "platform",
    "kind": "contract",
-   "concern": "Structured log events: their level, target, message and named values."
+   "concern": "Structured log events, as a contract: a level, a target, a message and named values."
   },
   "kkt-terminal": {
    "layer": "platform",
    "kind": "effect",
-   "concern": "The terminal's input, output and terminal detection, the closed-output-pipe default, and a link shown with a wait for Enter (BrowserLink): showing the link, and taking a press of Enter as a request to open it."
+   "concern": "The terminal: reading and writing lines, telling whether output goes to a terminal, and showing a link that opens on a press of Enter."
   },
   "kkt-browser": {
    "layer": "platform",
-   "concern": "Opening a link in the person's browser with the system's own opener (open on macOS, xdg-open elsewhere): SystemBrowser, with its own methods: starting the opener, reaping it on a thread, keeping a failure to report once. The opener's choice and the wording are tested without starting it. It declares no contract: the program adapts SystemBrowser to kkt-container-docker's Browser (phase 16).",
+   "concern": "Opens a link in the person's browser with the system's own opener, and reports once if that failed.",
    "kind": "effect"
   },
   "kkt-log-tracing": {
    "layer": "platform",
    "kind": "effect",
-   "concern": "kkt-log's contract over tracing (TracingLog), and starting the tracing subscriber, to stdout, stderr or a writer it is given, with the program's own lines picked by the targets the program names; the log level setting it starts with: LogLevel (name, parse) with its own SettingError, and the defaults DEFAULT_LOG_LEVEL and DEFAULT_DEPENDENCY_LOG_LEVEL (from kkt-logs, deleted, ARCHITECTURE.md 4.2.2). It names no program's settings or targets."
+   "concern": "Implements the structured-log contract over tracing, and starts log output to standard output, standard error or a given writer, at a chosen log level."
   },
   "kkt-provenance": {
    "layer": "operations",
-   "concern": "What produced a server run: the build, its git commit, and the settings that shape the run, as lines of a name and a value that the program words.",
+   "concern": "What produced a server run: the build, its git commit and the settings that shape the run, as named lines.",
    "kind": "logic"
   },
   "kkt-scratch": {
    "layer": "dev",
-   "concern": "Tests' scratch folders under `target/tmp`, named for the test and removed when dropped.",
+   "concern": "Scratch folders for tests under `target/tmp`, removed when dropped.",
    "kind": "test support"
   },
   "kkt-api-sim": {
    "layer": "dev",
-   "concern": "A simulated application, for tests and the web preview: `Preview`, which implements the kkt-api crates' contracts the web page uses over a world made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, with an access key (checked by kkt-admission's check) or open. All of it is behind `testing`.",
+   "concern": "A simulated application over a world made from a seed: it implements the agent and operator API contracts and kkt-web's `Gate`.",
    "kind": "test support"
   },
   "kkt-clock-system": {
    "layer": "platform",
    "kind": "effect",
-   "concern": "The real wall clock and its sleep: SystemClock implements the shared Clock contract."
+   "concern": "Implements the clock contract with the real wall clock."
   },
   "kkt-toml": {
    "layer": "platform",
-   "concern": "TOML text, in kkt's terms: parsing it into a tree of values (`parse`, `Table`, `Value`), reading a typed record from it and writing one back (`read`, `write`), and editing a document with its comments and layout kept (`Document`, `TableMut`, `ListMut`, `Found`, `IfMissing`, `EditError`). Its errors are its own and say where in the text the problem is (`ParseError`, `Place`, `WriteError`). The one crate that uses toml and toml_edit (phase 15); its users depend on it directly.",
+   "concern": "TOML text: parsing it, reading and writing typed records, and editing a document with its comments and layout kept. Its errors say where in the text a problem is.",
    "kind": "logic"
   },
   "kkt-rolling-file": {
    "layer": "platform",
    "kind": "effect",
-   "concern": "A file on disk that rolls over at a size and prunes old copies by age: RotatingFile, opened by open_log_file after checking its LogPolicy, with the clock the program gives. The rules that keep it bounded are its own pure plans (should_roll, prune_due, rotation, pruning), unit-tested without the disk (was kkt-logs-os, with kkt-logs' file rules, ARCHITECTURE.md 4.2.2). Its refusals are values (OpenError, PolicyProblem, PolicyValue), which the caller words in its own terms. It does not implement kkt-log."
+   "concern": "A file that rolls over at a size and prunes old copies by age, following a policy it checks when it opens."
   },
   "kkt-keys-os": {
    "layer": "access",
    "kind": "effect",
-   "concern": "Private key files on disk: OsKeyFiles implements kkt-keys' KeyFiles with the operating system's files, for the server's key files and the client key copies setup writes, as kkt-keys names and places them: reads, owner-only key writes, admin-name writes, staged-key moves and the file tests."
+   "concern": "Implements kkt-keys' `KeyFiles` with the operating system's files: it reads key files and writes them so that only their owner can read them."
   }
  },
  "kinds": [
   {
    "id": "contract",
    "title": "contract",
-   "about": "Traits and plain values, with pure behaviour on its own value types (such as Time arithmetic, query checks and search matching), and no effect or wiring."
+   "about": "Traits and plain values, with pure behaviour on their own value types (such as time arithmetic, query checks and search matching)."
   },
   {
    "id": "logic",
@@ -404,7 +404,7 @@
   {
    "id": "composition",
    "title": "composition",
-   "about": "Wires others and decides nothing."
+   "about": "Wires other crates together."
   },
   {
    "id": "test support",
