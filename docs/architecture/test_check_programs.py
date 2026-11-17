@@ -321,6 +321,59 @@ class AssemblyWiring(unittest.TestCase):
                       self.check([{"crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]}]))
 
 
+class PassThroughs(unittest.TestCase):
+    """Where a crate may hand on a contract value it was given, and the
+    check that assembly.json wires or leaves out each."""
+
+    ENTROPY = [{"crate": "kkt-entropy", "trait": "Entropy"}]
+    CRATES = [
+        {"name": "kkt-rules", "bins": [], "slots": [{"at": "Startup", "name": "entropy", "traits": ENTROPY}]},
+        {"name": "kkt-names", "bins": [], "slots": [{"at": "channel_id", "name": "entropy", "traits": ENTROPY},
+                                                    {"at": "testing::x", "name": "entropy", "traits": ENTROPY}]},
+        {"name": "kkt", "bins": ["kkt"], "slots": []},
+    ]
+
+    def found(self, edges):
+        return generate.pass_through_candidates(self.CRATES, edges)
+
+    def test_a_crate_that_takes_a_trait_and_names_a_slot_of_it_elsewhere_is_found(self):
+        self.assertEqual(self.found([{"from": "kkt-rules", "to": "kkt-names", "kind": "normal", "items": ["channel_id"]}]),
+                         [{"crate": "kkt-rules", "to": "kkt-names", "at": "channel_id", "param": "entropy"}])
+
+    def test_unnamed_slots_programs_tests_and_testing_slots_are_not(self):
+        self.assertEqual(self.found([{"from": "kkt-rules", "to": "kkt-names", "kind": "normal", "items": []}]), [])
+        self.assertEqual(self.found([{"from": "kkt-rules", "to": "kkt-names", "kind": "dev", "items": ["channel_id"]}]), [])
+        self.assertEqual(self.found([{"from": "kkt", "to": "kkt-names", "kind": "normal", "items": ["channel_id"]}]), [])
+
+    def checked(self, assembly):
+        candidate = [{"crate": "kkt-rules", "to": "kkt-names", "at": "channel_id", "param": "entropy"}]
+        slots = {"kkt-rules": [{"at": "Startup", "name": "entropy", "traits": self.ENTROPY}],
+                 "kkt-names": [{"at": "channel_id", "name": "entropy", "traits": self.ENTROPY}]}
+        assembly = dict({"programs": {"kkt": {"steps": [], "wiring": [
+            {"impl": "kkt-entropy-os::OsEntropy", "crate": "kkt-rules", "to": [{"at": "Startup", "param": "entropy"}]}]}}},
+            **assembly)
+        generate.check_assembly(assembly, {"kkt-entropy-os": {"OsEntropy": {}}},
+                                {"kkt", "kkt-rules", "kkt-names", "kkt-entropy-os"}, slots, {}, candidate)
+
+    def test_each_place_is_wired_or_left_out_with_why(self):
+        self.checked({"injectors": {"kkt-rules": {"wiring": [
+            {"passes_on": "the entropy", "crate": "kkt-names", "to": [{"at": "channel_id", "param": "entropy"}],
+             "from": [{"at": "Startup", "param": "entropy"}]}]}}})
+        self.checked({"not_passed_on": [{"crate": "kkt-rules", "to": "kkt-names", "at": "channel_id",
+                                         "param": "entropy", "why": "it never calls channel_id"}]})
+        with self.assertRaises(SystemExit) as stop:
+            self.checked({})
+        self.assertIn("kkt-rules may hand on what it was given to kkt-names's channel_id (entropy)", str(stop.exception))
+
+    def test_a_place_left_out_needs_why_and_must_still_be_a_place(self):
+        with self.assertRaises(SystemExit) as stop:
+            self.checked({"not_passed_on": [
+                {"crate": "kkt-rules", "to": "kkt-names", "at": "channel_id", "param": "entropy"},
+                {"crate": "kkt-rules", "to": "kkt-names", "at": "agent_handle", "param": "entropy", "why": "gone"}]})
+        self.assertIn("says no why", str(stop.exception))
+        self.assertIn("agent_handle (entropy) is no longer a place", str(stop.exception))
+
+
 class TestCodeSplit(unittest.TestCase):
     """generate.py's split of a file into its real code and its test code:
     anything under #[cfg(test)] or the crate's own `testing` feature is test

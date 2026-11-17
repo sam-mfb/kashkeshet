@@ -870,6 +870,16 @@
     return `${typeName(o.item)} (its own work)`;
   }
   const ownWork = (route) => route[0].how === "own" || (route[0].how === "injects" && route[0].builder === route[0].program);
+  // When a crate hands on what it was given: once, at start-up, where every
+  // slot it fills is a field or a constructor's parameter, which keeps the
+  // value; otherwise per call.
+  function timing(hop) {
+    const slots = (crates.get(hop.receiver) || { slots: [] }).slots;
+    const kept = hop.slots.every((t) => t.at.endsWith("::new") ||
+      slots.some((s) => s.at === t.at && s.name === t.param && s.kind === "field"));
+    return kept ? "at start-up" : "per call";
+  }
+
   // The route in words, hop by hop, with the slots it fills.
   function routeWords(route) {
     const o = route[0];
@@ -880,7 +890,8 @@
       passed: () => [o.item],
     }[o.how]();
     const into = (h) => `${h.receiver} (${h.slots.map((t) => `${t.at}: ${t.param}`).join(", ")})`;
-    return el("div", { class: "delivery-words" }, begin, route.map((h, i) => [i ? `; ${h.program} passes it on to ` : " → ", into(h)]));
+    return el("div", { class: "delivery-words" }, begin,
+      route.map((h, i) => [i ? `; ${h.program} passes it on ${timing(h)} to ` : " → ", into(h)]));
   }
 
   // The contracts a slot takes, as "crate::Trait".
@@ -984,10 +995,10 @@
     // above the line, then just below. Where every stretch crosses a box,
     // it sits mid-line on a backing of the page's colour, so it reads
     // over the box.
-    const labelOn = (path, line, words, extra) => {
+    const labelOn = (path, line, words, extra, suffix = "") => {
       const tip = (ev) => showDeliveryTip(ev, line);
       const label = svg("text", { class: "delivery-label" + extra, "data-from": line.program, "data-to": line.receiver });
-      label.textContent = shortLabel([...new Set(words)]);
+      label.textContent = shortLabel([...new Set(words)]) + suffix;
       label.addEventListener("mousemove", tip);
       label.addEventListener("mouseleave", hideTip);
       labelLayer.append(label);
@@ -1050,7 +1061,12 @@
       const own = line.routes.filter(ownWork).map(carried);
       const allOwn = line.routes.every(ownWork);
       if (allOwn) path.classList.add("own-work");
-      labelOn(path, line, [...own, ...line.routes.filter((r) => !ownWork(r)).map(carried)], allOwn ? " own-work" : "");
+      // A hop that hands on what its crate was given says so once, after
+      // what it carries, and when: at start-up or per call.
+      const hops = line.routes.map((r) => r.find((h) => h.program === line.program && h.receiver === line.receiver));
+      const when = [...new Set(hops.filter((h) => h && h.how === "passed").map(timing))];
+      labelOn(path, line, [...line.routes.filter(ownWork).map(carried), ...line.routes.filter((r) => !ownWork(r)).map(carried)],
+        allOwn ? " own-work" : "", when.length ? ` · passed on ${when.join(" or ")}` : "");
     }
   }
 
