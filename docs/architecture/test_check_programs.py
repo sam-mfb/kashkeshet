@@ -224,10 +224,16 @@ class AssemblyWiring(unittest.TestCase):
     def test_another_crates_implementation_and_an_adapter_pass(self):
         self.passes([
             {"impl": "kkt-db-sqlite::SqlitePlace", "crate": "kkt-rules", "to": [{"at": "Db::new", "param": "database"}]},
-            {"own": "TerminalLines", "supplier": "kkt-terminal", "supplier_item": "Terminal",
+            {"own": "TerminalLines", "suppliers": [{"crate": "kkt-terminal", "item": "Terminal"}],
              "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]},
-            {"own": "ServeReads", "supplier": "kkt", "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]},
+            {"own": "ServeReads", "suppliers": [{"crate": "kkt"}], "crate": "kkt-setup",
+             "to": [{"at": "ask::Prompter::new", "param": "lines"}]},
         ])
+
+    def test_an_adapter_may_name_several_suppliers_each_with_its_item(self):
+        self.passes([{"own": "ClientLines", "suppliers": [{"crate": "kkt-terminal", "item": "Terminal"},
+                                                          {"crate": "kkt-db-sqlite", "item": "SqlitePlace"}],
+                      "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]}])
 
     def run_with_injector(self, passes_on):
         """kkt fills kkt-install-commands's lines; kkt-install-commands passes something on."""
@@ -235,7 +241,7 @@ class AssemblyWiring(unittest.TestCase):
                                                     {"at": "InstallParts", "name": "clock"}]})
         assembly = {
             "programs": {"kkt": {"steps": [], "wiring": [
-                {"own": "TerminalLines", "supplier": "kkt-terminal", "crate": "kkt-install-commands",
+                {"own": "TerminalLines", "suppliers": [{"crate": "kkt-terminal"}], "crate": "kkt-install-commands",
                  "to": [{"at": "InstallParts", "param": "lines"}]}]}},
             "injectors": {"kkt-install-commands": {"wiring": [dict(
                 {"passes_on": "the lines it was given", "crate": "kkt-setup",
@@ -314,10 +320,29 @@ class AssemblyWiring(unittest.TestCase):
     def test_an_adapter_needs_a_supplier_package_and_its_item(self):
         lines = [{"at": "ask::Prompter::new", "param": "lines"}]
         self.assertIn("names no supplier package (kkt-terminal's Terminal)",
-                      self.check([{"own": "TerminalLines", "supplier": "kkt-terminal's Terminal", "crate": "kkt-setup", "to": lines}]))
-        self.assertIn("no public item Screen in the supplier kkt-terminal",
-                      self.check([{"own": "TerminalLines", "supplier": "kkt-terminal", "supplier_item": "Screen",
+                      self.check([{"own": "TerminalLines", "suppliers": [{"crate": "kkt-terminal's Terminal"}],
                                    "crate": "kkt-setup", "to": lines}]))
+        # Each supplier of several is checked.
+        self.assertIn("no public item Screen in the supplier kkt-terminal",
+                      self.check([{"own": "TerminalLines", "suppliers": [{"crate": "kkt-db-sqlite", "item": "SqlitePlace"},
+                                                                        {"crate": "kkt-terminal", "item": "Screen"}],
+                                   "crate": "kkt-setup", "to": lines}]))
+        self.assertIn("TerminalLines into kkt-setup names no suppliers",
+                      self.check([{"own": "TerminalLines", "suppliers": [], "crate": "kkt-setup", "to": lines}]))
+
+    def test_an_adapters_suppliers_are_listed_once_and_its_own_work_alone(self):
+        lines = [{"at": "ask::Prompter::new", "param": "lines"}]
+        self.assertIn("names a supplier twice",
+                      self.check([{"own": "TerminalLines", "suppliers": [{"crate": "kkt-terminal"}, {"crate": "kkt-terminal"}],
+                                   "crate": "kkt-setup", "to": lines}]))
+        self.assertIn("names kkt among other suppliers",
+                      self.check([{"own": "ServeReads", "suppliers": [{"crate": "kkt"}, {"crate": "kkt-terminal"}],
+                                   "crate": "kkt-setup", "to": lines}]))
+
+    def test_the_old_single_supplier_is_refused_with_how_to_list_it(self):
+        self.assertIn('names "supplier": list each in "suppliers"',
+                      self.check([{"own": "TerminalLines", "supplier": "kkt-terminal", "suppliers": [{"crate": "kkt-terminal"}],
+                                   "crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]}]))
 
     def test_an_entry_is_exactly_one_kind_of_injection(self):
         self.assertIn("needs one of impl, own, passes_on or produces",

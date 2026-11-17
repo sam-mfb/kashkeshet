@@ -9,7 +9,7 @@
   {
    "id": "assembly",
    "title": "Assembly",
-   "about": "Putting the server together from its parts."
+   "about": "What builds a whole from the parts a program gives it: the server, and the kkt command's install, operator and agent commands."
   },
   {
    "id": "surfaces",
@@ -19,7 +19,7 @@
   {
    "id": "access",
    "title": "Access",
-   "about": "Who is let in at all, who a caller is once in, and which host names the server answers to."
+   "about": "What decides whether a caller is let in, and as whom: admission, identity, and the host names the server answers to."
   },
   {
    "id": "core",
