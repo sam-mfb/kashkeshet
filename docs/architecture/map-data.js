@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "661d0dbf",
+ "commit": "abaab689",
  "crates": [
   {
    "bins": [
@@ -28969,12 +28969,12 @@ window.KKT_CONCERNS = {
    "title": "Surfaces"
   },
   {
-   "about": "What decides whether a caller is let in, and as whom: admission, identity, and the host names the server answers to.",
+   "about": "What decides whether a caller is let in, and as whom: admission, identity, the server's keys, and the host names the server answers to.",
    "id": "access",
    "title": "Access"
   },
   {
-   "about": "Every decision and change, the notices they send, and what a server run records about itself.",
+   "about": "Every decision and change, the notices they send, the names and IDs they give, and what a server run records about itself.",
    "id": "core",
    "title": "Core"
   },

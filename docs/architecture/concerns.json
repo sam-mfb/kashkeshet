@@ -19,12 +19,12 @@
   {
    "id": "access",
    "title": "Access",
-   "about": "What decides whether a caller is let in, and as whom: admission, identity, and the host names the server answers to."
+   "about": "What decides whether a caller is let in, and as whom: admission, identity, the server's keys, and the host names the server answers to."
   },
   {
    "id": "core",
    "title": "Core",
-   "about": "Every decision and change, the notices they send, and what a server run records about itself."
+   "about": "Every decision and change, the notices they send, the names and IDs they give, and what a server run records about itself."
   },
   {
    "id": "data",
