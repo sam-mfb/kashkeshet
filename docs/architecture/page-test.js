@@ -284,6 +284,34 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("a ticked supplier's routes run on to the final receiver",
       supplier.hops.includes("kashkeshet>kkt-agent-client-mcp>normal") && supplier.lines.includes("kkt-agent-commands>kkt-watch"), supplier);
 
+    // An injection through a slot typed as a standard-library trait: the
+    // program builds kkt-rolling-file's RotatingFile and hands it to
+    // kkt-log-tracing's init_logging as its log file, a std::io::Write.
+    // Ticking kkt-rolling-file lights its arrow to the program as the
+    // built-by hop and draws the dotted line on to kkt-log-tracing; the
+    // panels name the slot, what fills it, and where the work goes.
+    const rolling = await routeOf("kkt-rolling-file");
+    await onBox("kkt-rolling-file", ".pick-hit");
+    const rollingHop = await p.$$eval("path.edge.route-hop[data-edge='kashkeshet>kkt-rolling-file>normal']",
+      (xs) => xs.map((x) => x.getAttribute("class").match(/role-\w+/)[0]));
+    await onBox("kkt-rolling-file", ".pick-hit");
+    const openSection = (id) => p.evaluate((id) => {
+      const d = document.querySelector(`#panel details[data-section='${id}']`);
+      if (d && !d.open) d.querySelector("summary").click();
+    }, id);
+    await onBox("kkt-log-tracing", "> rect");
+    await openSection("slots");
+    const tracingPanel = await p.$eval("#panel", (x) => x.textContent);
+    await onBox("kkt-rolling-file", "> rect");
+    await openSection("goes");
+    const rollingPanel = await p.$eval("#panel", (x) => x.textContent);
+    check("a log file handed in as a std::io::Write is drawn and named as an injection",
+      rolling.lines.includes("kashkeshet>kkt-log-tracing") && /RotatingFile \(kkt-rolling-file\)/.test(rolling.labels["kashkeshet>kkt-log-tracing"] || "") &&
+      rollingHop.join() === "role-wires" &&
+      /init_logging takes log_file: std::io::Writefilled with RotatingFile \(kkt-rolling-file\), by kashkeshet/.test(tracingPanel) &&
+      /RotatingFile \(kkt-rolling-file\) → kkt-log-tracing's init_logging \(log_file\), by kashkeshet/.test(rollingPanel),
+      { rolling, rollingHop, tracing: (tracingPanel.match(/init_logging[^]{0,160}/) || [""])[0], goes: (rollingPanel.match(/Where its work goes[^]{0,200}/) || [""])[0] });
+
     // Solid is a dependency, dotted an injection: ticking
     // kkt-log-tracing lights the solid arrow from it to kashkeshet as the
     // route's first hop, draws no dotted line from it, and every dotted
@@ -299,7 +327,8 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
         lit: strokes.filter((x) => x.classList.contains("route-hop")).length === 1 &&
           strokes.some((x) => x.classList.contains("route-hop") && x.classList.contains("role-wires") && getComputedStyle(x).strokeDasharray === "none") &&
           strokes.filter((x) => getComputedStyle(x).stroke === getComputedStyle(strokes.find((y) => y.classList.contains("role-wires"))).stroke).length === 1,
-        fromIt: [...document.querySelectorAll("path.delivery")].filter((x) => x.dataset.from === "kkt-log-tracing" || x.dataset.to === "kkt-log-tracing").length,
+        // No dotted line leaves the supplier: its hop is the solid arrow.
+        fromIt: [...document.querySelectorAll("path.delivery")].filter((x) => x.dataset.from === "kkt-log-tracing").length,
         notInjector: [...document.querySelectorAll("path.delivery")].map((x) => x.dataset.from).filter((f) => !injectors.has(f)),
         label: [...document.querySelectorAll("text.delivery-label.supply")].map((x) => x.textContent),
       };
@@ -457,6 +486,17 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("and opens again", (await sectionState()).includes === true);
     await onBox("kashkeshet", "> rect");
     const long = await sectionState();
+    // Drawing a section open is not the viewer's choice: with nothing
+    // stored, a short list drawn open for one crate leaves nothing behind,
+    // and the same section starts closed for a crate whose list is long.
+    await p.evaluate(() => localStorage.clear());
+    await onBox("kkt-log-tracing", "> rect");
+    await onBox("kashkeshet", "> rect");
+    const untouched = await p.evaluate(() => ({
+      stored: Object.keys(localStorage).filter((k) => k.startsWith("kkt-map-section:")),
+      implements: document.querySelector("#panel details[data-section='implements']").open,
+    }));
+    check("drawing a section open stores no choice", untouched.stored.length === 0 && untouched.implements === false, untouched);
     // Sections the viewer has not touched: kashkeshet implements dozens.
     check("a long list starts closed", long.implements === false && long.items === false, long);
 
