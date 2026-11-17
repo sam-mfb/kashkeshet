@@ -315,7 +315,9 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       /Env, from OsMachine/.test(machine.labels["kashkeshet>kkt-operate"] || "") &&
       /Env, from OsMachine.* · passed on$/.test(machine.labels["kkt-agent-commands>kkt-llm-agent-config"] || "") &&
       /filled with Env, from OsMachine, by kashkeshet/.test(operatePanel) &&
-      /Env, from OsMachine → kkt-operate's/.test(machinePanel),
+      /Env, from OsMachine → kkt-operate's/.test(machinePanel) &&
+      // The supply label names each supplied type once.
+      machine.labels["kkt-machine-os>kashkeshet"] === "OsMachine; also wrapped by ThisProgram",
       { machine, operate: (operatePanel.match(/filled with Env[^]{0,60}/) || [""])[0], goes: (machinePanel.match(/Where its work goes[^]{0,120}/) || [""])[0] });
     // A value asked of an implementer the injector was given: kkt-operate
     // asks the clock the program gave it for the time a backup is named for.

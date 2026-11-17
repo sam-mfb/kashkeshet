@@ -2082,6 +2082,14 @@
       {
        "at": "Client::file",
        "param": "env"
+      },
+      {
+       "at": "Client::source",
+       "param": "env"
+      },
+      {
+       "at": "Setup",
+       "param": "env"
       }
      ],
      "from": [
@@ -2362,20 +2370,6 @@
    "at": "Client::installed",
    "param": "env",
    "why": "it calls Client::file and Client::source only"
-  },
-  {
-   "crate": "kkt-operate",
-   "to": "kkt-llm-agent-config",
-   "at": "Client::source",
-   "param": "env",
-   "why": "it never asks a client's source"
-  },
-  {
-   "crate": "kkt-operate",
-   "to": "kkt-llm-agent-config",
-   "at": "Setup",
-   "param": "env",
-   "why": "it builds no Setup: kkt connect does, in kkt-agent-commands"
   }
  ]
 }

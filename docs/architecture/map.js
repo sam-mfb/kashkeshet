@@ -1034,6 +1034,23 @@
         labelLayer.insertBefore(back, label);
       }
     };
+    // Each supplied type once: "OsMachine" where it is given as it is,
+    // "OsMachine, wrapped by A" where only adapters wrap it, and
+    // "OsMachine; also wrapped by A" where it is both.
+    const supplyWords = (routes) => {
+      const byWhat = new Map();
+      for (const r of routes) {
+        const what = r[0].supplierItem || r[0].item.split("::").pop();
+        const seen = byWhat.get(what) || { plain: false, wrappers: [] };
+        if (r[0].how !== "adapts") seen.plain = true;
+        else if (!seen.wrappers.includes(typeName(r[0].item))) seen.wrappers.push(typeName(r[0].item));
+        byWhat.set(what, seen);
+      }
+      return [...byWhat].map(([what, { plain, wrappers }]) => {
+        if (!wrappers.length) return what;
+        return `${what}${plain ? "; also" : ","} wrapped by ${wrappers.join(" and ")}`;
+      });
+    };
     // The supplier's hop: exactly one stroke of the injector's arrow to
     // the supplier, lit amber like the rest of the route, so the route does
     // not change colour halfway. It is the "built by"
@@ -1050,11 +1067,7 @@
       hop.path.classList.remove("faint");
       hop.path.classList.add("route-hop");
       for (const { edge, hit } of view.hitNodes) if (edge === hop.edge) hit.classList.remove("faint");
-      const words = line.routes.map((r) => {
-        const what = r[0].supplierItem || r[0].item.split("::").pop();
-        return r[0].how === "adapts" ? `${what}, wrapped by ${typeName(r[0].item)}` : what;
-      });
-      labelOn(hop.path, line, words, " supply");
+      labelOn(hop.path, line, supplyWords(line.routes), " supply");
     }
     // In the spaces between the arrows' ends, so a line between a program
     // and the crate just below it does not lie on the arrows leaving the

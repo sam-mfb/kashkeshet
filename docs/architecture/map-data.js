@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "c9f52087",
+ "commit": "8bdadded",
  "crates": [
   {
    "bins": [
@@ -28478,6 +28478,14 @@ window.KKT_ASSEMBLY = {
       {
        "at": "Client::file",
        "param": "env"
+      },
+      {
+       "at": "Client::source",
+       "param": "env"
+      },
+      {
+       "at": "Setup",
+       "param": "env"
       }
      ]
     },
@@ -28871,20 +28879,6 @@ window.KKT_ASSEMBLY = {
    "param": "env",
    "to": "kkt-llm-agent-config",
    "why": "it calls Client::file and Client::source only"
-  },
-  {
-   "at": "Client::source",
-   "crate": "kkt-operate",
-   "param": "env",
-   "to": "kkt-llm-agent-config",
-   "why": "it never asks a client's source"
-  },
-  {
-   "at": "Setup",
-   "crate": "kkt-operate",
-   "param": "env",
-   "to": "kkt-llm-agent-config",
-   "why": "it builds no Setup: kkt connect does, in kkt-agent-commands"
   }
  ],
  "programs": {
