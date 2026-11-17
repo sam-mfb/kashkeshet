@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "69a124e0",
+ "commit": "7d13560e",
  "crates": [
   {
    "bins": [
@@ -29449,6 +29449,10 @@ window.KKT_ASSEMBLY = {
       {
        "at": "OperatorParts",
        "param": "clock"
+      },
+      {
+       "at": "LaneParts",
+       "param": "clock"
       }
      ],
      "note": "kkt agent, kkt lanes",
@@ -29485,7 +29489,28 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-lane-files",
      "from": [
       {
+       "at": "LaneParts",
+       "param": "lanes"
+      }
+     ],
+     "note": "the lane check and import kkt setup --lanes asks for, and kkt lanes import's helpers",
+     "passes_on": "the lane folder's disk the program gave LaneParts",
+     "to": [
+      {
+       "at": "read_folder",
+       "param": "disk"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-lane-files",
+     "from": [
+      {
        "at": "OperatorParts",
+       "param": "lane_commit"
+      },
+      {
+       "at": "LaneParts",
        "param": "lane_commit"
       }
      ],
@@ -30250,6 +30275,10 @@ window.KKT_ASSEMBLY = {
       {
        "at": "OperatorParts",
        "param": "container"
+      },
+      {
+       "at": "LaneParts",
+       "param": "container"
       }
      ]
     },
@@ -30273,6 +30302,10 @@ window.KKT_ASSEMBLY = {
      "to": [
       {
        "at": "OperatorParts",
+       "param": "container_configs"
+      },
+      {
+       "at": "LaneParts",
        "param": "container_configs"
       }
      ]
@@ -30355,6 +30388,10 @@ window.KKT_ASSEMBLY = {
       {
        "at": "OperatorParts",
        "param": "lanes"
+      },
+      {
+       "at": "LaneParts",
+       "param": "lanes"
       }
      ]
     },
@@ -30367,6 +30404,10 @@ window.KKT_ASSEMBLY = {
      "to": [
       {
        "at": "OperatorParts",
+       "param": "lane_commit"
+      },
+      {
+       "at": "LaneParts",
        "param": "lane_commit"
       }
      ]
@@ -30391,6 +30432,10 @@ window.KKT_ASSEMBLY = {
      "to": [
       {
        "at": "OperatorParts",
+       "param": "serve"
+      },
+      {
+       "at": "LaneParts",
        "param": "serve"
       }
      ]
@@ -30480,6 +30525,10 @@ window.KKT_ASSEMBLY = {
       {
        "at": "OperatorParts",
        "param": "database"
+      },
+      {
+       "at": "LaneParts",
+       "param": "database"
       }
      ]
     },
@@ -30514,6 +30563,10 @@ window.KKT_ASSEMBLY = {
       {
        "at": "OperatorParts",
        "param": "output"
+      },
+      {
+       "at": "LaneParts",
+       "param": "output"
       }
      ]
     },
@@ -30533,6 +30586,10 @@ window.KKT_ASSEMBLY = {
      "to": [
       {
        "at": "OperatorParts",
+       "param": "clock"
+      },
+      {
+       "at": "LaneParts",
        "param": "clock"
       }
      ]

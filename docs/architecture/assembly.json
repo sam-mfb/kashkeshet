@@ -382,6 +382,10 @@
       {
        "at": "OperatorParts",
        "param": "container"
+      },
+      {
+       "at": "LaneParts",
+       "param": "container"
       }
      ],
      "impl": "kkt-container-docker::Docker",
@@ -405,6 +409,10 @@
      "to": [
       {
        "at": "OperatorParts",
+       "param": "container_configs"
+      },
+      {
+       "at": "LaneParts",
        "param": "container_configs"
       }
      ],
@@ -487,6 +495,10 @@
       {
        "at": "OperatorParts",
        "param": "lanes"
+      },
+      {
+       "at": "LaneParts",
+       "param": "lanes"
       }
      ],
      "supplier": "kkt-files",
@@ -500,6 +512,10 @@
      "to": [
       {
        "at": "OperatorParts",
+       "param": "lane_commit"
+      },
+      {
+       "at": "LaneParts",
        "param": "lane_commit"
       }
      ],
@@ -523,6 +539,10 @@
      "to": [
       {
        "at": "OperatorParts",
+       "param": "serve"
+      },
+      {
+       "at": "LaneParts",
        "param": "serve"
       }
      ],
@@ -612,6 +632,10 @@
       {
        "at": "OperatorParts",
        "param": "database"
+      },
+      {
+       "at": "LaneParts",
+       "param": "database"
       }
      ],
      "supplier": "kkt-db-sqlite",
@@ -646,6 +670,10 @@
       {
        "at": "OperatorParts",
        "param": "output"
+      },
+      {
+       "at": "LaneParts",
+       "param": "output"
       }
      ],
      "supplier": "kkt-terminal",
@@ -667,6 +695,10 @@
      "to": [
       {
        "at": "OperatorParts",
+       "param": "clock"
+      },
+      {
+       "at": "LaneParts",
        "param": "clock"
       }
      ]
@@ -2280,6 +2312,10 @@
       {
        "at": "OperatorParts",
        "param": "clock"
+      },
+      {
+       "at": "LaneParts",
+       "param": "clock"
       }
      ]
     },
@@ -2305,6 +2341,23 @@
      ]
     },
     {
+     "passes_on": "the lane folder's disk the program gave LaneParts",
+     "crate": "kkt-lane-files",
+     "to": [
+      {
+       "at": "read_folder",
+       "param": "disk"
+      }
+     ],
+     "note": "the lane check and import kkt setup --lanes asks for, and kkt lanes import's helpers",
+     "from": [
+      {
+       "at": "LaneParts",
+       "param": "lanes"
+      }
+     ]
+    },
+    {
      "passes_on": "the lane folder's commit the program gave OperatorParts",
      "crate": "kkt-lane-files",
      "to": [
@@ -2317,6 +2370,10 @@
      "from": [
       {
        "at": "OperatorParts",
+       "param": "lane_commit"
+      },
+      {
+       "at": "LaneParts",
        "param": "lane_commit"
       }
      ]
