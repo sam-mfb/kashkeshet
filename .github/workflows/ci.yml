@@ -56,8 +56,11 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       # The release scripts' own tests, also run by release.yml at tag time,
-      # and the tests of check-crates.sh's rules.
+      # and the tests of check-crates.sh's rules. They need Python 3.11 or
+      # later (tomllib), and they test scripts that read and write text, so
+      # one runner is enough: the self-hosted Mac's python3 is older.
       - name: Release and workspace script tests
+        if: matrix.os == 'ubuntu-24.04'
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
       # The third-party packages and features built into the programs match
