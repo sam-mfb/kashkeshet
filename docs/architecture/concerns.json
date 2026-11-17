@@ -24,7 +24,7 @@
   {
    "id": "core",
    "title": "Core",
-   "about": "Every decision and change, and the notices they send."
+   "about": "Every decision and change, the notices they send, and what a server run records about itself."
   },
   {
    "id": "data",
@@ -34,7 +34,7 @@
   {
    "id": "operations",
    "title": "Operations",
-   "about": "What is specific to running kkt on a machine: setup, settings, services, Docker, client configs, diagnostics, backups, lane files and the record of a server run."
+   "about": "What handles kkt's interactions with the machine it runs on: installing and running it there, and the files and checks that go with that. Among them: setup, services, containers, agent client configs, diagnostics, backups, the config file and lane files."
   },
   {
    "id": "clients",
@@ -355,7 +355,7 @@
    "concern": "Implements the structured-log contract over tracing, and starts log output to standard output, standard error or a given writer, at a chosen log level."
   },
   "kkt-provenance": {
-   "layer": "operations",
+   "layer": "core",
    "concern": "What produced a server run: the build, its git commit and the settings that shape the run, as named lines.",
    "kind": "logic"
   },

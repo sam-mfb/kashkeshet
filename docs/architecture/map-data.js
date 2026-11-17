@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "00637023",
+ "commit": "3e9b2c79",
  "crates": [
   {
    "bins": [
@@ -28756,7 +28756,7 @@ window.KKT_CONCERNS = {
   "kkt-provenance": {
    "concern": "What produced a server run: the build, its git commit and the settings that shape the run, as named lines.",
    "kind": "logic",
-   "layer": "operations"
+   "layer": "core"
   },
   "kkt-remote-access": {
    "concern": "Sharing a local service with other machines, as a contract: `RemoteAccess` and its nodes. A remote-access tool implements it.",
@@ -28913,7 +28913,7 @@ window.KKT_CONCERNS = {
    "title": "Access"
   },
   {
-   "about": "Every decision and change, and the notices they send.",
+   "about": "Every decision and change, the notices they send, and what a server run records about itself.",
    "id": "core",
    "title": "Core"
   },
@@ -28923,7 +28923,7 @@ window.KKT_CONCERNS = {
    "title": "Data"
   },
   {
-   "about": "What is specific to running kkt on a machine: setup, settings, services, Docker, client configs, diagnostics, backups, lane files and the record of a server run.",
+   "about": "What handles kkt's interactions with the machine it runs on: installing and running it there, and the files and checks that go with that. Among them: setup, services, containers, agent client configs, diagnostics, backups, the config file and lane files.",
    "id": "operations",
    "title": "Operations"
   },
