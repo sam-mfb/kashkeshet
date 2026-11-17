@@ -17,13 +17,14 @@
 //!
 //! The database is in memory, with its temporary tables there too.
 
-use crate::search::{Hit, Search};
+use crate::search::{Found, Indexer, Reindex, Terms, Words};
 use crate::{
-    Assign, Backend, ColumnType, Condition, Connection, Constraint, ConstraintKind, Count, DbError,
-    Delete, Done, Evolve, Field, Group, Insert, Operand, OrderBy, Related, Row, Schema, Select,
-    Sort, Step, Table, Update, Value, Work,
+    Assign, Backend, BackendConnection, ColumnType, Condition, Constraint, ConstraintKind, Count,
+    DbError, Delete, Done, Evolve, Field, Group, Insert, Operand, OrderBy, Related, Row, Schema,
+    Select, Sort, Step, Table, Update, Value, Work,
 };
 use rusqlite::types::{Value as SqlValue, ValueRef};
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -41,7 +42,13 @@ struct Inner {
     conn: rusqlite::Connection,
     schema: Schema,
     versions: BTreeMap<&'static str, u32>,
+    /// Each searchable table's indexed words, by rowid: those kkt-db
+    /// handed with the write that last set the row's searchable column.
+    words: RefCell<Index>,
 }
+
+/// Indexed words, by table and rowid.
+type Index = BTreeMap<&'static str, BTreeMap<i64, Words>>;
 
 impl FastPlace {
     /// A new, empty database.
@@ -60,6 +67,7 @@ impl FastPlace {
                 conn,
                 schema: Schema::default(),
                 versions: BTreeMap::new(),
+                words: RefCell::new(Index::new()),
             })),
         })
     }
@@ -105,18 +113,24 @@ impl Evolve for FastPlace {
         let inner = &mut *guard;
         inner.conn.execute_batch("BEGIN").map_err(failed)?;
         let mut schema = inner.schema.clone();
+        let words_before = inner.words.borrow().clone();
         let applied = (|| {
             for step in steps {
                 let mut next = schema.clone();
                 step.apply_to(&mut next)?;
                 make(&inner.conn, step)?;
                 schema = next;
+                if let Step::AddSearch { table, column } = step {
+                    backfill(&inner.conn, &inner.words, table, column)?;
+                }
                 if let Step::Fill { run, .. } = step {
-                    run(&FastConnection {
+                    let connection = FastConnection {
                         conn: &inner.conn,
                         schema: &schema,
+                        words: &inner.words,
                         write: true,
-                    })?;
+                    };
+                    run(&connection.connection(&schema))?;
                 }
                 check(&inner.conn, &schema, Scope::All)?;
             }
@@ -136,10 +150,41 @@ impl Evolve for FastPlace {
             }
             Err(e) => {
                 inner.conn.execute_batch("ROLLBACK").map_err(failed)?;
+                *inner.words.borrow_mut() = words_before;
                 Err(e)
             }
         }
     }
+}
+
+/// Indexes the words of every row already in `table`, as
+/// [`Step::AddSearch`] does.
+fn backfill(
+    conn: &rusqlite::Connection,
+    words: &RefCell<Index>,
+    table: &'static str,
+    column: &str,
+) -> Result<(), DbError> {
+    let mut statement = conn
+        .prepare(&format!(
+            "SELECT rowid, {} FROM {}",
+            quote(column),
+            quote(table)
+        ))
+        .map_err(failed)?;
+    let rows: Vec<(i64, Option<String>)> = statement
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .and_then(|rows| rows.collect())
+        .map_err(failed)?;
+    let indexer = Indexer::new();
+    let mut words = words.borrow_mut();
+    let index = words.entry(table).or_default();
+    for (rowid, text) in rows {
+        if let Some(text) = text {
+            index.insert(rowid, indexer.words(&text));
+        }
+    }
+    Ok(())
 }
 
 /// Makes one migration step in SQL. Only tables, columns and indexes are
@@ -298,11 +343,13 @@ impl Backend for FastBackend {
         // The lock is held throughout, so a read sees one state: a write
         // made meanwhile waits for it.
         let done = lock(&self.inner).and_then(|inner| {
-            work(&FastConnection {
+            let connection = FastConnection {
                 conn: &inner.conn,
                 schema: &inner.schema,
+                words: &inner.words,
                 write: false,
-            })
+            };
+            work(&connection.connection(&inner.schema))
         });
         Box::pin(std::future::ready(done))
     }
@@ -311,15 +358,19 @@ impl Backend for FastBackend {
         // The lock is held throughout, so writes run one at a time.
         let done = lock(&self.inner).and_then(|inner| {
             inner.conn.execute_batch("BEGIN").map_err(failed)?;
-            let worked = work(&FastConnection {
+            let words_before = inner.words.borrow().clone();
+            let connection = FastConnection {
                 conn: &inner.conn,
                 schema: &inner.schema,
+                words: &inner.words,
                 write: true,
-            });
+            };
+            let worked = work(&connection.connection(&inner.schema));
             match worked {
                 Ok(()) => inner.conn.execute_batch("COMMIT").map_err(failed),
                 Err(e) => {
                     inner.conn.execute_batch("ROLLBACK").map_err(failed)?;
+                    *inner.words.borrow_mut() = words_before;
                     Err(e)
                 }
             }
@@ -331,8 +382,12 @@ impl Backend for FastBackend {
 struct FastConnection<'a> {
     conn: &'a rusqlite::Connection,
     schema: &'a Schema,
+    words: &'a RefCell<Index>,
     write: bool,
 }
+
+/// What a change does to the index, by rowid: the row's words, or none.
+type Reindexed = Vec<(i64, Option<Words>)>;
 
 /// SQL being written, with its parameters in order.
 #[derive(Default)]
@@ -822,10 +877,19 @@ impl FastConnection<'_> {
         &self,
         insert: &Insert,
         existing: Existing,
+        index: &Reindex,
     ) -> Result<(bool, Option<i64>), DbError> {
         self.schema.check_insert(insert)?;
         let table = self.table(insert.table)?;
-        self.change(table.name, || {
+        // The row's words: what `index` gives it. An insert never sets the
+        // searchable column only where it was null.
+        let entry = |rowid: i64| -> Reindexed {
+            match index {
+                Reindex::Set(words) => vec![(rowid, words.clone())],
+                Reindex::Keep | Reindex::SetIfNull(_) => Vec::new(),
+            }
+        };
+        let (done, planned) = self.change(table.name, || {
             let mut row = Vec::new();
             for column in &table.columns {
                 let given = insert.values.iter().find(|(n, _)| *n == column.name);
@@ -857,7 +921,7 @@ impl FastConnection<'_> {
             if let Some((rowid, old)) = present {
                 return match existing {
                     Existing::Refuse => Err(refused(table, None, ConstraintKind::PrimaryKey)),
-                    Existing::Keep => Ok(((false, None), Touched::default())),
+                    Existing::Keep => Ok((((false, None), Vec::new()), Touched::default())),
                     Existing::Replace => {
                         if table.constraints.contains(&Constraint::Immutable) {
                             return Err(refused(table, None, ConstraintKind::Immutable));
@@ -886,7 +950,7 @@ impl FastConnection<'_> {
                             )?;
                         }
                         Ok((
-                            (true, None),
+                            ((true, None), entry(rowid)),
                             Touched {
                                 rows: vec![rowid],
                                 left,
@@ -927,13 +991,34 @@ impl FastConnection<'_> {
             )?;
             let rowid = self.conn.last_insert_rowid();
             Ok((
-                (true, key),
+                ((true, key), entry(rowid)),
                 Touched {
                     rows: vec![rowid],
                     left: Vec::new(),
                 },
             ))
-        })
+        })?;
+        self.reindexed(table.name, planned);
+        Ok(done)
+    }
+
+    /// Keeps the words a change gave its rows, once the change is kept.
+    fn reindexed(&self, table: &'static str, planned: Reindexed) {
+        if planned.is_empty() {
+            return;
+        }
+        let mut words = self.words.borrow_mut();
+        let index = words.entry(table).or_default();
+        for (rowid, entry) in planned {
+            match entry {
+                Some(entry) => {
+                    index.insert(rowid, entry);
+                }
+                None => {
+                    index.remove(&rowid);
+                }
+            }
+        }
     }
 }
 
@@ -1196,7 +1281,7 @@ fn repeats(
         .map_err(failed)
 }
 
-impl Connection for FastConnection<'_> {
+impl BackendConnection for FastConnection<'_> {
     fn select(&self, select: &Select) -> Result<Vec<Row>, DbError> {
         self.schema.check_select(select)?;
         let mut sql = Sql::default();
@@ -1261,9 +1346,8 @@ impl Connection for FastConnection<'_> {
             .collect())
     }
 
-    fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
-        self.schema.check_search(search)?;
-        let select = &search.select;
+    fn search(&self, select: &Select, terms: &Terms) -> Result<Vec<Found>, DbError> {
+        self.schema.check_search_select(select)?;
         let table = self.table(select.table)?;
         let Some(column) = table.search else {
             return Err(DbError::Schema(format!(
@@ -1271,68 +1355,82 @@ impl Connection for FastConnection<'_> {
                 table.name
             )));
         };
-        let terms = kkt_search::terms(&search.terms);
-        // Every row the select picks, without its limit; the words are
-        // matched here, as every backend matches them (kkt-search), and
-        // the limit applied to the rows that match.
+        // Every row the select picks, without its limit, with its text and
+        // rowid; the row's words are matched here, and the limit applied
+        // to the rows that match.
         let mut sql = Sql::default();
-        let (text, mut types) = self.select_typed(&mut sql, select, false, &[column])?;
+        let (text, mut types) = self.select_typed(&mut sql, select, false, &[column, "rowid"])?;
         types.push(ColumnType::Text);
+        types.push(ColumnType::Int);
         let limit = select
             .limit
             .map(|n| usize::try_from(n).unwrap_or(usize::MAX));
-        let mut hits = Vec::new();
+        let words = self.words.borrow();
+        let index = words.get(table.name);
+        let mut found = Vec::new();
         for mut values in self.rows(&text, &sql, &types)? {
-            if limit.is_some_and(|n| hits.len() >= n) {
+            if limit.is_some_and(|n| found.len() >= n) {
                 break;
             }
-            let words = match values.pop() {
+            let rowid = match values.pop() {
+                Some(Value::Int(rowid)) => rowid,
+                _ => continue,
+            };
+            let text = match values.pop() {
                 Some(Value::Text(t)) => t,
                 _ => String::new(),
             };
-            if !kkt_search::matches(&words, &terms) {
-                continue;
+            let matched = index
+                .and_then(|index| index.get(&rowid))
+                .is_some_and(|words| words.matches(terms));
+            if matched {
+                found.push(Found {
+                    row: Row::new(values),
+                    text,
+                });
             }
-            hits.push(Hit {
-                row: Row::new(values),
-                excerpt: kkt_search::excerpt(
-                    &words,
-                    &terms,
-                    search.excerpt.open,
-                    search.excerpt.close,
-                    search.excerpt.ellipsis,
-                    search.excerpt.words,
-                ),
-            });
         }
-        Ok(hits)
+        Ok(found)
     }
 
-    fn insert(&self, insert: &Insert) -> Result<Option<i64>, DbError> {
-        Ok(self.insert_row(insert, Existing::Refuse)?.1)
+    fn insert(&self, insert: &Insert, index: &Reindex) -> Result<Option<i64>, DbError> {
+        Ok(self.insert_row(insert, Existing::Refuse, index)?.1)
     }
 
-    fn insert_unless_present(&self, insert: &Insert) -> Result<bool, DbError> {
-        Ok(self.insert_row(insert, Existing::Keep)?.0)
+    fn insert_unless_present(&self, insert: &Insert, index: &Reindex) -> Result<bool, DbError> {
+        Ok(self.insert_row(insert, Existing::Keep, index)?.0)
     }
 
-    fn save(&self, insert: &Insert) -> Result<(), DbError> {
-        self.insert_row(insert, Existing::Replace).map(drop)
+    fn save(&self, insert: &Insert, index: &Reindex) -> Result<(), DbError> {
+        self.insert_row(insert, Existing::Replace, index).map(drop)
     }
 
-    fn update(&self, update: &Update) -> Result<u64, DbError> {
+    fn update(&self, update: &Update, index: &Reindex) -> Result<u64, DbError> {
         self.schema.check_update(update)?;
         let table = self.table(update.table)?;
-        self.change(table.name, || {
+        let searched = table
+            .search
+            .and_then(|column| update.set.iter().position(|(n, _)| *n == column));
+        let (done, planned) = self.change(table.name, || {
             let columns: Vec<&str> = update.set.iter().map(|(n, _)| *n).collect();
             let hits = self.hits(table, &update.filter, &columns)?;
             let pointed_at = referenced(self.schema, table.name);
             let mut touched = Touched::default();
+            let mut planned = Reindexed::new();
             if !hits.is_empty() && table.constraints.contains(&Constraint::Immutable) {
                 return Err(refused(table, None, ConstraintKind::Immutable));
             }
             for (rowid, mut old) in hits.iter().cloned() {
                 touched.rows.push(rowid);
+                let was_null = searched.is_none_or(|i| old[i].is_null());
+                match index {
+                    Reindex::Keep => {}
+                    Reindex::Set(words) => planned.push((rowid, words.clone())),
+                    Reindex::SetIfNull(words) if was_null => {
+                        planned.push((rowid, Some(words.clone())));
+                    }
+                    Reindex::SetIfNull(_) => {}
+                }
                 for ((name, _), value) in update.set.iter().zip(&old) {
                     if pointed_at.contains(name) {
                         touched.left.push((*name, value.clone()));
@@ -1368,14 +1466,16 @@ impl Connection for FastConnection<'_> {
                     )?;
                 }
             }
-            Ok((hits.len() as u64, touched))
-        })
+            Ok(((hits.len() as u64, planned), touched))
+        })?;
+        self.reindexed(table.name, planned);
+        Ok(done)
     }
 
     fn delete(&self, delete: &Delete) -> Result<u64, DbError> {
         self.schema.check_delete(delete)?;
         let table = self.table(delete.table)?;
-        self.change(table.name, || {
+        let (done, planned) = self.change(table.name, || {
             let pointed_at = referenced(self.schema, table.name);
             let hits = self.hits(table, &delete.filter, &pointed_at)?;
             let mut touched = Touched::default();
@@ -1408,7 +1508,10 @@ impl Connection for FastConnection<'_> {
                         .collect(),
                 )?;
             }
-            Ok((hits.len() as u64, touched))
-        })
+            let planned: Reindexed = hits.iter().map(|(rowid, _)| (*rowid, None)).collect();
+            Ok(((hits.len() as u64, planned), touched))
+        })?;
+        self.reindexed(table.name, planned);
+        Ok(done)
     }
 }

@@ -18,11 +18,11 @@ use kkt_db::{
 /// The store's questions, over one connection: what a [`Db::read`]
 /// closure is given, and, through [`Writer`], a write closure too. Inside a
 /// read, the connection sees one state of the database.
-pub struct Reader<'a>(pub(crate) &'a dyn Connection);
+pub struct Reader<'a>(pub(crate) &'a Connection<'a>);
 
 /// The store's changes, and through [`Reader`] its questions, over one
 /// connection inside a transaction: what a [`Db::write`] closure is given.
-pub struct Writer<'a>(pub(crate) &'a dyn Connection, pub(crate) Reader<'a>);
+pub struct Writer<'a>(pub(crate) &'a Connection<'a>, pub(crate) Reader<'a>);
 
 impl<'a> std::ops::Deref for Writer<'a> {
     type Target = Reader<'a>;

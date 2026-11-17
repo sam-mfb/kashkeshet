@@ -1,13 +1,13 @@
-//! [`kkt_db::Connection`] over one SQLite connection: runs the SQL
+//! [`kkt_db::BackendConnection`] over one SQLite connection: runs the SQL
 //! [`crate::sql`] writes, reads rows back as kkt-db values, keeps search
-//! indexes in step with their tables, and turns SQLite's errors into
-//! kkt-db's.
+//! indexes in step with their tables with the words kkt-db hands it, and
+//! turns SQLite's errors into kkt-db's.
 
 use crate::sql::{OnConflict, Sql, Statement, match_query, q, search_table};
-use kkt_db::search::{Hit, Search};
+use kkt_db::search::{Found, Reindex, Terms, Words};
 use kkt_db::{
-    ColumnType, Connection, ConstraintKind, Count, DbError, Delete, Group, Insert, Row, Schema,
-    Select, Table, Update, Value,
+    BackendConnection, ColumnType, ConstraintKind, Count, DbError, Delete, Group, Insert, Row,
+    Schema, Select, Table, Update, Value,
 };
 use rusqlite::types::ValueRef;
 use rusqlite::{ErrorCode, ffi};
@@ -169,53 +169,41 @@ impl SqliteConnection<'_> {
     }
 
     /// Brings the search index of `table` up to date for these rows: drops
-    /// their words, and indexes the words of those still there.
-    fn reindex(&self, table: &Table, rowids: &[i64]) -> Result<(), DbError> {
-        let Some(column) = table.search else {
+    /// their entries, and gives each of them `words` if there are any.
+    fn reindex(&self, table: &Table, rowids: &[i64], words: Option<&Words>) -> Result<(), DbError> {
+        if table.search.is_none() {
             return Ok(());
-        };
+        }
         let index = q(&search_table(table.name));
         let failed = |e| db_error(e, table.name);
         for rowid in rowids {
             self.conn
                 .execute(&format!("DELETE FROM {index} WHERE rowid = ?1"), [rowid])
                 .map_err(failed)?;
-            let text: Option<Option<String>> = self
-                .conn
-                .query_row(
-                    &format!(
-                        "SELECT {} FROM {} WHERE rowid = ?1",
-                        q(column),
-                        q(table.name)
-                    ),
-                    [rowid],
-                    |r| r.get(0),
-                )
-                .map(Some)
-                .or_else(|e| match e {
-                    rusqlite::Error::QueryReturnedNoRows => Ok(None),
-                    e => Err(e),
-                })
-                .map_err(failed)?;
-            if let Some(Some(text)) = text {
-                index_words(self.conn, table.name, *rowid, &text).map_err(failed)?;
+            if let Some(words) = words {
+                index_words(self.conn, table.name, *rowid, words).map_err(failed)?;
             }
         }
         Ok(())
     }
 }
 
-/// Indexes the words of `text` for row `rowid` of `table`.
+/// The words a new row gets: what `index` sets, or none.
+fn added(index: &Reindex) -> Option<&Words> {
+    match index {
+        Reindex::Set(words) => words.as_ref(),
+        Reindex::Keep | Reindex::SetIfNull(_) => None,
+    }
+}
+
+/// Indexes `words` for row `rowid` of `table`.
 pub(crate) fn index_words(
     conn: &rusqlite::Connection,
     table: &str,
     rowid: i64,
-    text: &str,
+    words: &Words,
 ) -> rusqlite::Result<()> {
-    let words: Vec<String> = kkt_search::words(text)
-        .into_iter()
-        .map(|w| w.text)
-        .collect();
+    let words = words.as_slice();
     conn.execute(
         &format!(
             "INSERT INTO {} (rowid, words) VALUES (?1, ?2)",
@@ -226,7 +214,7 @@ pub(crate) fn index_words(
     Ok(())
 }
 
-impl Connection for SqliteConnection<'_> {
+impl BackendConnection for SqliteConnection<'_> {
     fn select(&self, select: &Select) -> Result<Vec<Row>, DbError> {
         let sql = Statement::new(self.schema).select(select)?;
         self.rows(&sql, select.table)
@@ -245,13 +233,12 @@ impl Connection for SqliteConnection<'_> {
         self.rows(&sql, group.table)
     }
 
-    fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
-        let terms = kkt_search::terms(&search.terms);
-        let sql = Statement::new(self.schema).search(search, match_query(&terms))?;
+    fn search(&self, select: &Select, terms: &Terms) -> Result<Vec<Found>, DbError> {
+        let sql = Statement::new(self.schema).search(select, match_query(terms.as_slice()))?;
         if terms.is_empty() {
             return Ok(Vec::new());
         }
-        self.rows(&sql, search.select.table)?
+        self.rows(&sql, select.table)?
             .into_iter()
             .map(|row| {
                 let mut values = row.into_values();
@@ -259,48 +246,46 @@ impl Connection for SqliteConnection<'_> {
                     Some(Value::Text(text)) => text,
                     _ => String::new(),
                 };
-                Ok(Hit {
-                    excerpt: kkt_search::excerpt(
-                        &text,
-                        &terms,
-                        search.excerpt.open,
-                        search.excerpt.close,
-                        search.excerpt.ellipsis,
-                        search.excerpt.words,
-                    ),
+                Ok(Found {
                     row: Row::new(values),
+                    text,
                 })
             })
             .collect()
     }
 
-    fn insert(&self, insert: &Insert) -> Result<Option<i64>, DbError> {
+    fn insert(&self, insert: &Insert, index: &Reindex) -> Result<Option<i64>, DbError> {
         self.writable()?;
         let sql = Statement::new(self.schema).insert(insert, OnConflict::Fail)?;
         self.execute(&sql, insert.table)?;
         let table = self.schema.require(insert.table)?;
         let rowid = self.conn.last_insert_rowid();
-        self.reindex(table, &[rowid])?;
+        self.reindex(table, &[rowid], added(index))?;
         Ok(table.key().map(|_| rowid))
     }
 
-    fn insert_unless_present(&self, insert: &Insert) -> Result<bool, DbError> {
+    fn insert_unless_present(&self, insert: &Insert, index: &Reindex) -> Result<bool, DbError> {
         self.writable()?;
         let sql = Statement::new(self.schema).insert(insert, OnConflict::Keep)?;
-        let added = self.execute(&sql, insert.table)? > 0;
-        if added {
+        let inserted = self.execute(&sql, insert.table)? > 0;
+        if inserted {
             let table = self.schema.require(insert.table)?;
-            self.reindex(table, &[self.conn.last_insert_rowid()])?;
+            self.reindex(table, &[self.conn.last_insert_rowid()], added(index))?;
         }
-        Ok(added)
+        Ok(inserted)
     }
 
-    fn save(&self, insert: &Insert) -> Result<(), DbError> {
+    fn save(&self, insert: &Insert, index: &Reindex) -> Result<(), DbError> {
         self.writable()?;
         let table = self.schema.require(insert.table)?;
         let sql = Statement::new(self.schema).insert(insert, OnConflict::Replace)?;
         self.execute(&sql, insert.table)?;
-        if table.search.is_some() {
+        // A save that leaves the searchable column alone keeps the row's
+        // entry: an existing row's text is unchanged, and a new row's is
+        // null.
+        if let Reindex::Set(words) = index
+            && table.search.is_some()
+        {
             // The row inserted or updated, found by its primary key.
             let key = kkt_db::Condition::All(
                 table
@@ -316,25 +301,32 @@ impl Connection for SqliteConnection<'_> {
                     .collect(),
             );
             let rowids = self.rowids(table.name, &key)?;
-            self.reindex(table, &rowids)?;
+            self.reindex(table, &rowids, words.as_ref())?;
         }
         Ok(())
     }
 
-    fn update(&self, update: &Update) -> Result<u64, DbError> {
+    fn update(&self, update: &Update, index: &Reindex) -> Result<u64, DbError> {
         self.writable()?;
         let table = self.schema.require(update.table)?;
-        let searched = table
-            .search
-            .is_some_and(|c| update.set.iter().any(|(n, _)| *n == c));
-        let rowids = if searched {
-            self.rowids(table.name, &update.filter)?
-        } else {
-            Vec::new()
+        // The rows whose entries change, found before the update changes
+        // what the filter sees.
+        let (rowids, words) = match (index, table.search) {
+            (Reindex::Set(words), Some(_)) => {
+                (self.rowids(table.name, &update.filter)?, words.as_ref())
+            }
+            (Reindex::SetIfNull(words), Some(column)) => {
+                let was_null = kkt_db::Condition::All(vec![
+                    update.filter.clone(),
+                    kkt_db::Condition::IsNull(kkt_db::col(column)),
+                ]);
+                (self.rowids(table.name, &was_null)?, Some(words))
+            }
+            _ => (Vec::new(), None),
         };
         let sql = Statement::new(self.schema).update(update)?;
         let changed = self.execute(&sql, update.table)?;
-        self.reindex(table, &rowids)?;
+        self.reindex(table, &rowids, words)?;
         Ok(changed as u64)
     }
 
@@ -348,7 +340,7 @@ impl Connection for SqliteConnection<'_> {
         };
         let sql = Statement::new(self.schema).delete(delete)?;
         let removed = self.execute(&sql, delete.table)?;
-        self.reindex(table, &rowids)?;
+        self.reindex(table, &rowids, None)?;
         Ok(removed as u64)
     }
 }

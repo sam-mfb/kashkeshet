@@ -5,12 +5,14 @@
 //! [`Group`] to ask, [`Insert`], [`Update`] and [`Delete`] to change. The
 //! language is narrow on purpose: it holds what kkt's stores need, in its
 //! own terms. A backend, such as kkt-db-sqlite,
-//! implements [`Backend`] and [`Evolve`] for one database and must pass
-//! [`testing::conformance`]; a store never learns which backend it has.
+//! implements [`Backend`], [`BackendConnection`] and [`Evolve`] for one
+//! database and must pass [`testing::conformance`]; a store never learns
+//! which backend it has.
 //!
-//! [`search`] says what a search asks for and finds. Words, matching and
-//! excerpts are kkt-search's, the same for every backend: a backend indexes
-//! the words kkt-search gives and never splits text itself.
+//! [`search`] says what a search asks for and finds. kkt-db applies
+//! kkt-search's words, matching and excerpts in [`Connection`], the same
+//! for every backend: a backend is handed the words it indexes and the
+//! terms it matches, and never splits text itself.
 //!
 //! A store is given a [`Backend`] and calls [`BackendExt`]'s typed
 //! methods on it. [`BackendExt::read`] runs a closure over a connection
@@ -37,7 +39,7 @@ mod value;
 pub mod testing;
 
 pub use change::{Assign, Delete, Insert, Update};
-pub use connection::{Backend, BackendExt, Connection, Done, Work};
+pub use connection::{Backend, BackendConnection, BackendExt, Connection, Done, Work};
 pub use migration::{Evolve, Legacy, Set, Step, Upgrade};
 pub use query::{
     Condition, Count, Field, Group, Operand, OrderBy, Related, Select, Sort, col, through,

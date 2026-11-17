@@ -7,7 +7,6 @@
 //! so it is 0 or 1, never null. A comparison is `(x IS NOT NULL AND x = ?)`,
 //! which SQLite still answers from an index on `x`.
 
-use kkt_db::search::Search;
 use kkt_db::{
     Assign, ColumnType, Condition, Count, DbError, Delete, Field, Group, Insert, Operand, OrderBy,
     Related, Schema, Select, Sort, Table, Update, Value,
@@ -373,9 +372,8 @@ impl<'s> Statement<'s> {
 
     /// A search's select: its fields, then the searchable column, over the
     /// rows whose words match `query` (an FTS5 query of quoted words).
-    pub(crate) fn search(mut self, search: &Search, query: String) -> Result<Sql, DbError> {
-        self.schema.check_search(search)?;
-        let select = &search.select;
+    pub(crate) fn search(mut self, select: &Select, query: String) -> Result<Sql, DbError> {
+        self.schema.check_search_select(select)?;
         let table = self.schema.require(select.table)?;
         let Some(column) = table.search else {
             return Err(DbError::Schema(format!(
