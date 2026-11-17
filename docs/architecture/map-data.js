@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "79bd92e9",
+ "commit": "e9921edf",
  "crates": [
   {
    "bins": [
@@ -27139,7 +27139,7 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the two assemblies, kkt-operate and kkt-agent-commands, which pass on what the program gave their parts.",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the two assemblies, kkt-operate and kkt-agent-commands, which pass on what the program gave their parts. \"not_passed_on\" lists each place generate.py finds where a crate could hand on a contract value it was given to another crate's slot, but does not, with why: every such place is either wired or listed.",
  "injectors": {
   "kkt-agent-commands": {
    "wiring": [
@@ -27278,6 +27278,31 @@ window.KKT_ASSEMBLY = {
     }
    ]
   },
+  "kkt-api-sim": {
+   "wiring": [
+    {
+     "crate": "kkt-names",
+     "from": [
+      {
+       "at": "Preview::new",
+       "param": "entropy"
+      }
+     ],
+     "note": "on each call that draws a handle or a channel ID in the simulated world",
+     "passes_on": "the entropy the program gave Preview::new",
+     "to": [
+      {
+       "at": "agent_handle",
+       "param": "entropy"
+      },
+      {
+       "at": "channel_id",
+       "param": "entropy"
+      }
+     ]
+    }
+   ]
+  },
   "kkt-operate": {
    "wiring": [
     {
@@ -27293,6 +27318,18 @@ window.KKT_ASSEMBLY = {
      "to": [
       {
        "at": "Inspector::new",
+       "param": "prober"
+      },
+      {
+       "at": "inspect",
+       "param": "prober"
+      },
+      {
+       "at": "inspect_address",
+       "param": "prober"
+      },
+      {
+       "at": "inspect_with_key",
        "param": "prober"
       }
      ]
@@ -27480,6 +27517,140 @@ window.KKT_ASSEMBLY = {
        "param": "try_bind"
       }
      ]
+    },
+    {
+     "crate": "kkt-setup",
+     "from": [
+      {
+       "at": "agent::run",
+       "param": "parts"
+      },
+      {
+       "at": "doctor::run",
+       "param": "parts"
+      },
+      {
+       "at": "key::create",
+       "param": "parts"
+      },
+      {
+       "at": "key::header",
+       "param": "parts"
+      },
+      {
+       "at": "key::show",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_operator_key",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_web_key",
+       "param": "parts"
+      },
+      {
+       "at": "keys::optional_key_path",
+       "param": "parts"
+      },
+      {
+       "at": "keys::selected_key_path",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::existing_db",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::local_lane_limit",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::local_operator",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::run",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::backup",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "parts"
+      },
+      {
+       "at": "record::read_unrecorded",
+       "param": "parts"
+      },
+      {
+       "at": "record::recorded_setup",
+       "param": "parts"
+      },
+      {
+       "at": "service::run",
+       "param": "parts"
+      },
+      {
+       "at": "service::service_plan",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run_switch",
+       "param": "parts"
+      }
+     ],
+     "note": "kkt doctor, setup, status and the commands that read the setup record",
+     "passes_on": "the connection question the program gave each command",
+     "to": [
+      {
+       "at": "connection::client_connection",
+       "param": "source"
+      },
+      {
+       "at": "connection::serve_connection",
+       "param": "source"
+      }
+     ]
+    }
+   ]
+  },
+  "kkt-rules": {
+   "wiring": [
+    {
+     "crate": "kkt-names",
+     "from": [
+      {
+       "at": "Startup",
+       "param": "entropy"
+      }
+     ],
+     "note": "on each call that draws a handle or a channel ID",
+     "passes_on": "the entropy the program gave Startup",
+     "to": [
+      {
+       "at": "NamePack::agent_handle",
+       "param": "entropy"
+      },
+      {
+       "at": "channel_id",
+       "param": "entropy"
+      }
+     ]
     }
    ]
   },
@@ -27633,6 +27804,50 @@ window.KKT_ASSEMBLY = {
    ]
   }
  },
+ "not_passed_on": [
+  {
+   "at": "Client::connected",
+   "crate": "kkt-agent-commands",
+   "param": "host",
+   "to": "kkt-llm-agent-config",
+   "why": "it names Client, and calls configure and file, never connected"
+  },
+  {
+   "at": "Client::installed",
+   "crate": "kkt-agent-commands",
+   "param": "host",
+   "to": "kkt-llm-agent-config",
+   "why": "it names Client, and calls configure and file, never installed"
+  },
+  {
+   "at": "connection::serve_connection",
+   "crate": "kkt-agent-commands",
+   "param": "source",
+   "to": "kkt-setup",
+   "why": "it asks client_connection and admin_connection only"
+  },
+  {
+   "at": "connection::admin_connection",
+   "crate": "kkt-operate",
+   "param": "source",
+   "to": "kkt-setup",
+   "why": "it asks client_connection and serve_connection only"
+  },
+  {
+   "at": "Formatter::new",
+   "crate": "kkt-mcp",
+   "param": "clock",
+   "to": "kkt-result-format",
+   "why": "it takes a built Formatter; it builds one only in its own tests, with a fixed clock"
+  },
+  {
+   "at": "router",
+   "crate": "kkt-server",
+   "param": "sessions",
+   "to": "kkt-web",
+   "why": "it hands on kkt-web's own Sessions, which it builds: a value of the receiving crate's own type"
+  }
+ ],
  "programs": {
   "kashkeshet": {
    "also": [
@@ -28344,6 +28559,106 @@ window.KKT_ASSEMBLY = {
        "param": "level"
       }
      ]
+    },
+    {
+     "crate": "kkt-operate",
+     "note": "in OperateParts' connection, which each command reads",
+     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup",
+     "supplier": "kashkeshet",
+     "to": [
+      {
+       "at": "agent::run",
+       "param": "parts"
+      },
+      {
+       "at": "doctor::run",
+       "param": "parts"
+      },
+      {
+       "at": "key::create",
+       "param": "parts"
+      },
+      {
+       "at": "key::header",
+       "param": "parts"
+      },
+      {
+       "at": "key::show",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_operator_key",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_web_key",
+       "param": "parts"
+      },
+      {
+       "at": "keys::optional_key_path",
+       "param": "parts"
+      },
+      {
+       "at": "keys::selected_key_path",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::existing_db",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::local_lane_limit",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::local_operator",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::run",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::backup",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "parts"
+      },
+      {
+       "at": "record::read_unrecorded",
+       "param": "parts"
+      },
+      {
+       "at": "record::recorded_setup",
+       "param": "parts"
+      },
+      {
+       "at": "service::run",
+       "param": "parts"
+      },
+      {
+       "at": "service::service_plan",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run_switch",
+       "param": "parts"
+      }
+     ]
     }
    ]
   },
@@ -28783,6 +29098,17 @@ window.KKT_ASSEMBLY = {
       {
        "at": "page",
        "param": "log"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-api-sim",
+     "impl": "kkt-entropy::SeededEntropy",
+     "note": "seeded, so the simulated world is the same every time",
+     "to": [
+      {
+       "at": "Preview::new",
+       "param": "entropy"
       }
      ]
     }

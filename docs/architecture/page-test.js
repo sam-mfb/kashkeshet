@@ -268,7 +268,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       ["kashkeshet>kkt-agent-commands", "kkt-agent-commands>kkt-watch"].every((l) => watch.lines.includes(l)) &&
       watch.hops.includes("kashkeshet>kkt-agent-client-mcp>normal"), watch);
     check("no hop's label is only \"passed on\"",
-      Object.values(watch.labels).every((l) => !/passed on/.test(l)) && /\(/.test(watch.labels["kkt-agent-commands>kkt-watch"] || ""),
+      Object.values(watch.labels).every((l) => !/^passed on/.test(l)) && /\(/.test(watch.labels["kkt-agent-commands>kkt-watch"] || ""),
       watch.labels);
     // A crate's own type is never carried out of it as an injection (msg
     // 3694): kkt-server builds kkt-result-format's Formatter itself, and
@@ -283,6 +283,24 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     const supplier = await routeOf("kkt-agent-client-mcp");
     check("a ticked supplier's routes run on to the final receiver",
       supplier.hops.includes("kashkeshet>kkt-agent-client-mcp>normal") && supplier.lines.includes("kkt-agent-commands>kkt-watch"), supplier);
+
+    // A logic crate handing on what it was given: the program gives
+    // kkt-rules OsEntropy at start-up, and kkt-rules hands it to kkt-names
+    // on each call that draws a handle or a channel ID. Ticking kkt-names
+    // draws the route whole, its last hop labelled as passed on.
+    const names = await routeOf("kkt-names");
+    check("kkt-names' entropy is traced from the program through kkt-rules, and passed on",
+      ["kashkeshet>kkt-rules", "kkt-rules>kkt-names"].every((l) => names.lines.includes(l)) &&
+      names.hops.includes("kashkeshet>kkt-entropy-os>normal") &&
+      /OsEntropy \(kkt-entropy-os\).* · passed on$/.test(names.labels["kkt-rules>kkt-names"] || ""),
+      names);
+    // The label says a value is passed on, never when: kkt-server hands its
+    // parts to kkt-mcp once, when it builds the server, and the code's names
+    // cannot tell that from a call that hands it on each time.
+    const server = await routeOf("kkt-mcp");
+    check("a hop handed on at start-up is not labelled per call",
+      / · passed on$/.test(server.labels["kkt-server>kkt-mcp"] || "") &&
+      Object.values(server.labels).concat(Object.values(names.labels)).every((l) => !/per call|at start-up/.test(l)), server.labels);
 
     // An injection through a slot typed as a standard-library trait: the
     // program builds kkt-rolling-file's RotatingFile and hands it to

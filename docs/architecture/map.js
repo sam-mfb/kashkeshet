@@ -880,7 +880,9 @@
       passed: () => [o.item],
     }[o.how]();
     const into = (h) => `${h.receiver} (${h.slots.map((t) => `${t.at}: ${t.param}`).join(", ")})`;
-    return el("div", { class: "delivery-words" }, begin, route.map((h, i) => [i ? `; ${h.program} passes it on to ` : " → ", into(h)]));
+    return el("div", { class: "delivery-words" }, begin,
+      route.map((h, i) => [i ? `; ${h.program} passes it on to ` : " → ", into(h)]),
+      route.length > 1 ? " (the map shows that it is passed on, not when: at start-up or on each call)" : "");
   }
 
   // The contracts a slot takes, as "crate::Trait".
@@ -984,10 +986,10 @@
     // above the line, then just below. Where every stretch crosses a box,
     // it sits mid-line on a backing of the page's colour, so it reads
     // over the box.
-    const labelOn = (path, line, words, extra) => {
+    const labelOn = (path, line, words, extra, suffix = "") => {
       const tip = (ev) => showDeliveryTip(ev, line);
       const label = svg("text", { class: "delivery-label" + extra, "data-from": line.program, "data-to": line.receiver });
-      label.textContent = shortLabel([...new Set(words)]);
+      label.textContent = shortLabel([...new Set(words)]) + suffix;
       label.addEventListener("mousemove", tip);
       label.addEventListener("mouseleave", hideTip);
       labelLayer.append(label);
@@ -1050,7 +1052,13 @@
       const own = line.routes.filter(ownWork).map(carried);
       const allOwn = line.routes.every(ownWork);
       if (allOwn) path.classList.add("own-work");
-      labelOn(path, line, [...own, ...line.routes.filter((r) => !ownWork(r)).map(carried)], allOwn ? " own-work" : "");
+      // A hop that hands on what its crate was given says so once, after
+      // what it carries. When it is handed on, at start-up or on each call,
+      // the code's names cannot show, so the tooltip says the map does not.
+      const hops = line.routes.map((r) => r.find((h) => h.program === line.program && h.receiver === line.receiver));
+      const passed = hops.some((h) => h && h.how === "passed");
+      labelOn(path, line, [...line.routes.filter(ownWork).map(carried), ...line.routes.filter((r) => !ownWork(r)).map(carried)],
+        allOwn ? " own-work" : "", passed ? " · passed on" : "");
     }
   }
 
