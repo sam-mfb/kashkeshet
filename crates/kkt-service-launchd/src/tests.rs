@@ -847,3 +847,74 @@ fn a_new_key_is_made_and_the_service_restarted_to_read_it() {
     );
     assert_eq!(made.get(), 1);
 }
+
+/// What `launchctl print` says for a user with no desktop login session,
+/// and so no `gui/<uid>` domain, with its exit status.
+const NO_DOMAIN: i32 = 125;
+const NO_DOMAIN_SAID: &str =
+    "Could not print domain: 125: Domain does not support specified action\n";
+
+#[test]
+fn every_question_about_the_domain_reports_a_missing_login_session() {
+    let system = Fake::default()
+        .with_file(PLIST)
+        .answer(PRINT, NO_DOMAIN, "", NO_DOMAIN_SAID);
+    let results = [
+        mac().status(&system).map(drop),
+        mac().stop(&system).map(drop),
+        mac().start(&system).map(drop),
+        mac().uninstall(&system).map(drop),
+        mac().state(&system).map(drop),
+        install(&mac(), &system, &mac_spec()).map(drop),
+        at_once(mac().dry_run(&system, &clock(), &mac_spec())).map(drop),
+    ];
+    for result in results {
+        let err = result.expect_err("no login session");
+        assert!(matches!(err, ServiceError::NoLoginSession), "{err}");
+    }
+}
+
+#[test]
+fn a_missing_login_session_is_told_apart_from_a_service_not_loaded() {
+    // Exit 113, "Could not find service": the session is there and the
+    // service is not loaded.
+    let unloaded = Fake::default().with_file(PLIST).not_loaded();
+    assert_eq!(
+        mac().state(&unloaded).expect("state"),
+        ServiceState {
+            installed: true,
+            running: false
+        }
+    );
+    // Only exit 125 with launchd's words is a missing session; either alone
+    // is some other failure, said as launchd said it.
+    for (code, said) in [
+        (NO_DOMAIN, "Something else\n"),
+        (5, "Could not print domain: 5: Input/output error\n"),
+    ] {
+        let system = Fake::default()
+            .with_file(PLIST)
+            .answer(PRINT, code, "", said);
+        let err = mac().state(&system).expect_err("a failed print");
+        assert!(matches!(err, ServiceError::Failed { .. }), "{err}");
+    }
+}
+
+#[test]
+fn a_missing_login_session_is_said_in_plain_words() {
+    let said = ServiceError::NoLoginSession.to_string();
+    assert!(said.contains("logged in at this Mac's desktop"), "{said}");
+    assert!(said.contains("`kkt serve`"), "{said}");
+    assert!(
+        !said.contains("launchctl") && !said.contains("domain"),
+        "{said}"
+    );
+}
+
+#[test]
+fn an_install_without_a_login_session_leaves_no_service_file() {
+    let system = Fake::default().answer(PRINT, NO_DOMAIN, "", NO_DOMAIN_SAID);
+    let err = install(&mac(), &system, &mac_spec()).expect_err("no login session");
+    assert!(matches!(err, ServiceError::NoLoginSession), "{err}");
+    assert!(system.file(PLIST).is_none());
+}

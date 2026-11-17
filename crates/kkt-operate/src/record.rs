@@ -177,9 +177,7 @@ pub fn check_setup(
                 Err(e) => {
                     // Not knowing is no reason to refuse: a server already
                     // on the port stops this one with its own message.
-                    output.errors(format_args!(
-                        "warning: could not tell whether the kkt service is running: {e}\n"
-                    ));
+                    output.errors(format_args!("{}\n", state_unknown_warning(&e)));
                     None
                 }
             }
@@ -187,6 +185,28 @@ pub fn check_setup(
         _ => None,
     };
     setup::guard(record.as_ref(), service_running, false)
+}
+
+/// The warning `kkt serve` gives when it cannot tell whether the kkt
+/// service is running.
+fn state_unknown_warning(error: &ServiceError) -> String {
+    format!(
+        "warning: could not tell whether the kkt service is running: {}",
+        why_state_unknown(error)
+    )
+}
+
+/// Why the service's state could not be read, for a place where the person
+/// asked for no service command (`kkt serve`'s check, `kkt doctor`): a
+/// missing desktop login session is said as a fact, without the advice
+/// that a service command's refusal gives.
+pub(crate) fn why_state_unknown(error: &ServiceError) -> String {
+    match error {
+        ServiceError::NoLoginSession => {
+            "no one is logged in at this Mac's desktop, so the service cannot be asked".to_string()
+        }
+        other => other.to_string(),
+    }
 }
 
 /// Resolve lifecycle commands through the setup record. An unrecorded
@@ -214,4 +234,32 @@ pub fn recorded_setup<D: crate::ServiceDefaults>(
         || read_unfinished(env, parts.setup_files, parts.container, parts.service),
         || read_unrecorded(parts, env, platform),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn without_a_login_session_serve_warns_with_the_fact_only() {
+        assert_eq!(
+            state_unknown_warning(&ServiceError::NoLoginSession),
+            "warning: could not tell whether the kkt service is running: no one is logged in \
+             at this Mac's desktop, so the service cannot be asked"
+        );
+        // The advice belongs to the service commands' own refusal.
+        assert!(!state_unknown_warning(&ServiceError::NoLoginSession).contains("kkt serve"));
+    }
+
+    #[test]
+    fn other_failures_are_warned_as_the_service_says_them() {
+        let error = ServiceError::Failed {
+            command: "launchctl print gui/501/x".to_string(),
+            detail: "Input/output error".to_string(),
+        };
+        assert_eq!(
+            state_unknown_warning(&error),
+            format!("warning: could not tell whether the kkt service is running: {error}")
+        );
+    }
 }

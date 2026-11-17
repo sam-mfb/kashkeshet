@@ -329,13 +329,31 @@ fn fake_service_manager(home: &Path) -> PathBuf {
 /// and every other call succeeds. So no test asks the real service
 /// manager anything, or starts a real service.
 fn service_manager(scratch: &Path, calls: &Path) -> PathBuf {
-    let bin = scratch.join("bin");
-    std::fs::create_dir_all(&bin).expect("bin");
+    fake_bin(
+        &scratch.join("bin"),
+        calls,
+        "if [ \"$1\" = print ]; then echo \"Could not find service \\\"$2\\\"\" >&2; exit 113; fi",
+    )
+}
+
+/// A fake service manager in `bin` as [`service_manager`] makes it, but
+/// whose `launchctl` answers each question as it does for a user with no
+/// desktop login session: `launchctl print` exits 125.
+#[cfg(target_os = "macos")]
+fn service_manager_without_a_login_session(scratch: &Path, calls: &Path) -> PathBuf {
+    fake_bin(
+        &scratch.join("bin-no-session"),
+        calls,
+        "if [ \"$1\" = print ]; then echo 'Could not print domain: 125: Domain does not support specified action' >&2; exit 125; fi",
+    )
+}
+
+/// The fake `launchctl` (answering as `launchctl` says), `systemctl` and
+/// `id` in `bin`, each logging its calls to `calls`.
+fn fake_bin(bin: &Path, calls: &Path, launchctl: &str) -> PathBuf {
+    std::fs::create_dir_all(bin).expect("bin");
     let answers = [
-        (
-            "launchctl",
-            "if [ \"$1\" = print ]; then echo \"Could not find service \\\"$2\\\"\" >&2; exit 113; fi",
-        ),
+        ("launchctl", launchctl),
         (
             "systemctl",
             "case \" $* \" in *\" is-active \"*) echo inactive; exit 3;; esac",
@@ -354,7 +372,48 @@ fn service_manager(scratch: &Path, calls: &Path) -> PathBuf {
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
             .expect("make it runnable");
     }
-    bin
+    bin.to_path_buf()
+}
+
+/// On macOS, for a user not logged in at the desktop, `kkt service
+/// install` says so in plain words, with or without --dry-run.
+#[cfg(target_os = "macos")]
+#[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
+async fn without_a_login_session_install_says_so_plainly() {
+    let home = temp_home("no-session");
+    write_config(&home, "no_access_key = true\n");
+    let bin = service_manager_without_a_login_session(&home, &home.join("calls.log"));
+    for args in [
+        &["service", "install", "--dry-run"][..],
+        &["service", "install"][..],
+    ] {
+        let run = Command::new(KKT)
+            .args(args)
+            .own_home(&home)
+            .env("PATH", &bin)
+            .kill_on_drop(true)
+            .output();
+        let out = tokio::time::timeout(TIMEOUT, run)
+            .await
+            .expect("kkt should finish")
+            .expect("run kkt");
+        let said = text(&out);
+        assert!(!out.status.success(), "{args:?}: {said}");
+        assert!(
+            said.contains("logged in at this Mac's desktop"),
+            "{args:?}: {said}"
+        );
+        assert!(said.contains("`kkt serve`"), "{args:?}: {said}");
+        assert!(!said.contains("Could not print domain"), "{args:?}: {said}");
+        assert!(
+            !service_file(&home).exists(),
+            "{args:?}: no service file is left"
+        );
+    }
 }
 
 /// With another program on the server's address, `kkt service

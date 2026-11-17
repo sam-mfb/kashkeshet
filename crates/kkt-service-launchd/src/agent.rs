@@ -33,6 +33,12 @@ const MACOS_CRASH_LOG_FILE_NAME: &str = "kashkeshet.crash.log";
 
 /// `launchctl print`'s exit status for a service it doesn't have loaded.
 const NOT_FOUND: i32 = 113;
+/// `launchctl print`'s exit status when the user has no `gui/<uid>`
+/// domain, that is, no desktop login session.
+const NO_DOMAIN: i32 = 125;
+/// What `launchctl print` says then: "Could not print domain: 125: Domain
+/// does not support specified action".
+const NO_DOMAIN_TEXT: &str = "Could not print domain";
 /// `launchctl kill`'s exit status when the service has no process (ESRCH).
 const NO_PROCESS: i32 = 3;
 
@@ -235,13 +241,17 @@ impl Agent {
     }
 
     /// What `launchctl print` says about the service, or `None` if launchd
-    /// doesn't have it loaded. Any other failure is an error.
+    /// doesn't have it loaded. A user with no desktop login session, and so
+    /// no `gui/<uid>` domain, is [`ServiceError::NoLoginSession`]. Any other
+    /// failure is an error.
     fn print(&self, system: &dyn System) -> Result<Option<String>, ServiceError> {
         let target = self.target(system)?;
         let print = Command::query("launchctl", &["print", &target]);
         let finished = run(system, &print)?;
         if finished.success() {
             Ok(Some(finished.stdout))
+        } else if finished.code == Some(NO_DOMAIN) && finished.said(NO_DOMAIN_TEXT) {
+            Err(ServiceError::NoLoginSession)
         } else if finished.code == Some(NOT_FOUND) || finished.said("Could not find service") {
             Ok(None)
         } else {
@@ -332,12 +342,15 @@ impl Agent {
         spec: &Spec,
     ) -> Result<Vec<String>, ServiceError> {
         let plist = self.render(spec)?;
+        // Asked before the plist is written, so a user launchd cannot serve
+        // (no login session) is refused with no service file left behind.
+        let loaded = self.loaded(system)?;
         create_dir(system, &self.agents_dir)?;
         create_dir(system, &self.log_dir)?;
         write_file(system, &self.plist(), &plist)?;
         // launchd keeps the plist it loaded, so a loaded one is unloaded
         // (which stops it) before the new one is loaded.
-        if self.loaded(system)? {
+        if loaded {
             let target = self.target(system)?;
             run_ok(system, &Command::new("launchctl", &["bootout", &target]))?;
             self.reload(system, clock).await?;

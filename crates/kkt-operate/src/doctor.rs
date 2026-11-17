@@ -146,7 +146,7 @@ fn service_check(service: &dyn kkt_service::Service) -> kkt_diagnostics::Check {
             .ready()
             .and_then(|()| service.state())
             .map(|state| (state.installed, state.running))
-            .map_err(|e| e.to_string()),
+            .map_err(|e| crate::record::why_state_unknown(&e)),
     ))
 }
 

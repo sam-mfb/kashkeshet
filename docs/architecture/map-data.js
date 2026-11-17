@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "cea2c18a",
+ "commit": "13416ab3",
  "crates": [
   {
    "bins": [
@@ -13409,6 +13409,7 @@ window.KKT_GRAPH = {
       "Unsupported",
       "NoHome",
       "NotInstalled",
+      "NoLoginSession",
       "BadValue",
       "File",
       "Unreadable",
