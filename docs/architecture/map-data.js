@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "e9921edf",
+ "commit": "c9f52087",
  "crates": [
   {
    "bins": [
@@ -592,8 +592,81 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kashkeshet",
    "path": ".",
+   "produces": [],
    "released_program": true,
    "slots": [
+    {
+     "at": "commands::serve::run",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "commands::serve::run",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "machine::agent_parts::agent_parts",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "machine::agent_parts::agent_parts",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "machine::connection::ConnectionReads::new",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "machine::connection::ConnectionReads::new",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "machine::operate::NativeOperate::new",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "machine::operate::NativeOperate::new",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
     {
      "at": "machine::settings::Sources::invalid",
      "kind": "param",
@@ -603,6 +676,42 @@ window.KKT_GRAPH = {
        "crate": "kashkeshet",
        "trait": "machine::settings::BadSetting"
       }
+     ]
+    },
+    {
+     "at": "machine::settings::load_serve_options",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "machine::settings::read_config",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "machine::settings::serve_bind",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "machine::settings::serve_bind",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
      ]
     }
    ],
@@ -871,6 +980,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-admission",
    "path": "crates/kkt-admission",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -1117,6 +1227,38 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-agent-client",
    "path": "crates/kkt-agent-client",
+   "produces": [
+    {
+     "operations": [
+      "Watched::channels"
+     ],
+     "value": "Channel"
+    },
+    {
+     "operations": [
+      "Watched::message"
+     ],
+     "value": "Message"
+    },
+    {
+     "operations": [
+      "Avatars::reclaim"
+     ],
+     "value": "Reclaimed"
+    },
+    {
+     "operations": [
+      "Avatars::register"
+     ],
+     "value": "Registered"
+    },
+    {
+     "operations": [
+      "Watched::wait"
+     ],
+     "value": "Waited"
+    }
+   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -1240,6 +1382,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-agent-client-mcp",
    "path": "crates/kkt-agent-client-mcp",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -1510,6 +1653,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-agent-commands",
    "path": "crates/kkt-agent-commands",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -1620,6 +1764,15 @@ window.KKT_GRAPH = {
        "crate": "kkt-agent-client",
        "trait": "Servers"
       }
+     ]
+    },
+    {
+     "at": "connect::run",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -1974,6 +2127,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-agent-files",
    "path": "crates/kkt-agent-files",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -2069,6 +2223,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-api-admin",
    "path": "crates/kkt-api-admin",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -2831,6 +2986,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-api-agent",
    "path": "crates/kkt-api-agent",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3234,6 +3390,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-api-operator",
    "path": "crates/kkt-api-operator",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3424,6 +3581,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-api-sim",
    "path": "crates/kkt-api-sim",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -3615,8 +3773,28 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-backup",
    "path": "crates/kkt-backup",
+   "produces": [],
    "released_program": false,
-   "slots": [],
+   "slots": [
+    {
+     "at": "layout",
+     "kind": "param",
+     "name": "at",
+     "traits": [],
+     "values": [
+      "kkt-clock::Time"
+     ]
+    },
+    {
+     "at": "name",
+     "kind": "param",
+     "name": "at",
+     "traits": [],
+     "values": [
+      "kkt-clock::Time"
+     ]
+    }
+   ],
    "testing_third_party": [],
    "third_party": [
     "thiserror"
@@ -3671,6 +3849,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-backup-os",
    "path": "crates/kkt-backup-os",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3708,6 +3887,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-browser",
    "path": "crates/kkt-browser",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3838,6 +4018,14 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-clock",
    "path": "crates/kkt-clock",
+   "produces": [
+    {
+     "operations": [
+      "Clock::now"
+     ],
+     "value": "Time"
+    }
+   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -3880,6 +4068,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-clock-system",
    "path": "crates/kkt-clock-system",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4044,6 +4233,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-config-file",
    "path": "crates/kkt-config-file",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -4346,6 +4536,32 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-container",
    "path": "crates/kkt-container",
+   "produces": [
+    {
+     "operations": [
+      "Container::existing"
+     ],
+     "value": "Existing"
+    },
+    {
+     "operations": [
+      "Container::compare_web_key"
+     ],
+     "value": "KeyCopy"
+    },
+    {
+     "operations": [
+      "Container::provision"
+     ],
+     "value": "Provisioned"
+    },
+    {
+     "operations": [
+      "Container::status"
+     ],
+     "value": "State"
+    }
+   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -4432,6 +4648,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-container-docker",
    "path": "crates/kkt-container-docker",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -5171,6 +5388,29 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-db",
    "path": "crates/kkt-db",
+   "produces": [
+    {
+     "operations": [
+      "Connection::first",
+      "Connection::group",
+      "Connection::select"
+     ],
+     "value": "Row"
+    },
+    {
+     "operations": [
+      "Evolve::migrate",
+      "Evolve::pending"
+     ],
+     "value": "Upgrade"
+    },
+    {
+     "operations": [
+      "Connection::search"
+     ],
+     "value": "search::Hit"
+    }
+   ],
    "released_program": false,
    "slots": [
     {
@@ -5317,6 +5557,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-db-sqlite",
    "path": "crates/kkt-db-sqlite",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -5594,6 +5835,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-diagnostics",
    "path": "crates/kkt-diagnostics",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -5829,6 +6071,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-entropy",
    "path": "crates/kkt-entropy",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -5862,6 +6105,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-entropy-os",
    "path": "crates/kkt-entropy-os",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6043,6 +6287,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-events",
    "path": "crates/kkt-events",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6134,6 +6379,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-fake-product",
    "path": "programs/kkt-fake-product",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -6240,6 +6486,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-files",
    "path": "crates/kkt-files",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6266,6 +6513,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-hash",
    "path": "crates/kkt-hash",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6333,6 +6581,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-hosts",
    "path": "crates/kkt-hosts",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6422,6 +6671,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-identity",
    "path": "crates/kkt-identity",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6459,6 +6709,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-identity-keymode",
    "path": "crates/kkt-identity-keymode",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6494,6 +6745,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-keymode",
    "path": "programs/kkt-keymode",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6730,6 +6982,16 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-keys",
    "path": "crates/kkt-keys",
+   "produces": [
+    {
+     "operations": [
+      "KeyFiles::read_access",
+      "KeyFiles::read_admin",
+      "KeyFiles::read_web"
+     ],
+     "value": "KeyText"
+    }
+   ],
    "released_program": false,
    "slots": [
     {
@@ -6790,6 +7052,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-keys-os",
    "path": "crates/kkt-keys-os",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -6952,6 +7215,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-lane-files",
    "path": "crates/kkt-lane-files",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -7032,6 +7296,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-listen",
    "path": "crates/kkt-listen",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -7080,6 +7345,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-llm-agent-command",
    "path": "crates/kkt-llm-agent-command",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7252,8 +7518,18 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-llm-agent-config",
    "path": "crates/kkt-llm-agent-config",
+   "produces": [],
    "released_program": false,
    "slots": [
+    {
+     "at": "Client::connected",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
     {
      "at": "Client::connected",
      "kind": "param",
@@ -7268,12 +7544,30 @@ window.KKT_GRAPH = {
     {
      "at": "Client::file",
      "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "Client::file",
+     "kind": "param",
      "name": "host",
      "traits": [
       {
        "crate": "kkt-llm-agent-config",
        "trait": "Host"
       }
+     ]
+    },
+    {
+     "at": "Client::installed",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -7297,6 +7591,33 @@ window.KKT_GRAPH = {
      "traits": []
     },
     {
+     "at": "Client::source",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "Setup",
+     "kind": "field",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "allow_kkt",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
      "at": "allow_kkt",
      "kind": "param",
      "name": "host",
@@ -7305,6 +7626,15 @@ window.KKT_GRAPH = {
        "crate": "kkt-llm-agent-config",
        "trait": "Host"
       }
+     ]
+    },
+    {
+     "at": "codex_password_store_hint",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -7455,6 +7785,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-log",
    "path": "crates/kkt-log",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7545,6 +7876,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-log-tracing",
    "path": "crates/kkt-log-tracing",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -7665,6 +7997,20 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-machine",
    "path": "crates/kkt-machine",
+   "produces": [
+    {
+     "operations": [
+      "Machine::env"
+     ],
+     "value": "Env"
+    },
+    {
+     "operations": [
+      "Machine::platform"
+     ],
+     "value": "Platform"
+    }
+   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7706,6 +8052,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-machine-os",
    "path": "crates/kkt-machine-os",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -7788,6 +8135,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-mcp",
    "path": "crates/kkt-mcp",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -8029,6 +8377,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-names",
    "path": "crates/kkt-names",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -8708,6 +9057,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-operate",
    "path": "crates/kkt-operate",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -9051,6 +9401,15 @@ window.KKT_GRAPH = {
     },
     {
      "at": "doctor::run",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "doctor::run",
      "holds": [
       {
        "crate": "kkt-operate",
@@ -9150,6 +9509,24 @@ window.KKT_GRAPH = {
        "crate": "kkt-operate",
        "trait": "ServiceDefaults"
       }
+     ]
+    },
+    {
+     "at": "doctor::run",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "key::create",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -9256,6 +9633,24 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "at": "key::create",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "key::header",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
      "at": "key::header",
      "holds": [
       {
@@ -9356,6 +9751,24 @@ window.KKT_GRAPH = {
        "crate": "kkt-operate",
        "trait": "ServiceDefaults"
       }
+     ]
+    },
+    {
+     "at": "key::header",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "key::show",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -9462,6 +9875,15 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "at": "key::show",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
      "at": "keys::admin_name_line",
      "kind": "param",
      "name": "files",
@@ -9470,6 +9892,15 @@ window.KKT_GRAPH = {
        "crate": "kkt-keys",
        "trait": "KeyFiles"
       }
+     ]
+    },
+    {
+     "at": "keys::local_operator_key",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -9569,6 +10000,15 @@ window.KKT_GRAPH = {
        "crate": "kkt-setup",
        "trait": "connection::ConnectionSource"
       }
+     ]
+    },
+    {
+     "at": "keys::local_web_key",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -9694,6 +10134,15 @@ window.KKT_GRAPH = {
     },
     {
      "at": "keys::optional_key_path",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "keys::optional_key_path",
      "holds": [
       {
        "crate": "kkt-operate",
@@ -9793,6 +10242,24 @@ window.KKT_GRAPH = {
        "crate": "kkt-operate",
        "trait": "ServiceDefaults"
       }
+     ]
+    },
+    {
+     "at": "keys::optional_key_path",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "keys::selected_key_path",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -9896,6 +10363,15 @@ window.KKT_GRAPH = {
        "crate": "kkt-operate",
        "trait": "ServiceDefaults"
       }
+     ]
+    },
+    {
+     "at": "keys::selected_key_path",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
      ]
     },
     {
@@ -10219,6 +10695,15 @@ window.KKT_GRAPH = {
     },
     {
      "at": "lanes::run",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "lanes::run",
      "holds": [
       {
        "crate": "kkt-operate",
@@ -10318,6 +10803,15 @@ window.KKT_GRAPH = {
     },
     {
      "at": "lifecycle::backup",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "lifecycle::backup",
      "holds": [
       {
        "crate": "kkt-operate",
@@ -10413,6 +10907,15 @@ window.KKT_GRAPH = {
        "crate": "kkt-setup",
        "trait": "connection::ConnectionSource"
       }
+     ]
+    },
+    {
+     "at": "lifecycle::status",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -10519,6 +11022,24 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "at": "lifecycle::status",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "lifecycle::uninstall",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
      "at": "lifecycle::uninstall",
      "holds": [
       {
@@ -10619,6 +11140,24 @@ window.KKT_GRAPH = {
        "crate": "kkt-operate",
        "trait": "ServiceDefaults"
       }
+     ]
+    },
+    {
+     "at": "lifecycle::uninstall",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "lifecycle::upgrade",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -10725,6 +11264,24 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "at": "lifecycle::upgrade",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "record::check_setup",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
      "at": "record::check_setup",
      "kind": "param",
      "name": "files",
@@ -10760,6 +11317,15 @@ window.KKT_GRAPH = {
     {
      "at": "record::read_setup",
      "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "record::read_setup",
+     "kind": "param",
      "name": "files",
      "traits": [
       {
@@ -10782,6 +11348,15 @@ window.KKT_GRAPH = {
     {
      "at": "record::read_unfinished",
      "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "record::read_unfinished",
+     "kind": "param",
      "name": "files",
      "traits": [
       {
@@ -10799,6 +11374,15 @@ window.KKT_GRAPH = {
        "crate": "kkt-service",
        "trait": "Service"
       }
+     ]
+    },
+    {
+     "at": "record::read_unrecorded",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -10905,6 +11489,24 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "at": "record::read_unrecorded",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "record::recorded_setup",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
      "at": "record::recorded_setup",
      "holds": [
       {
@@ -11005,6 +11607,24 @@ window.KKT_GRAPH = {
        "crate": "kkt-operate",
        "trait": "ServiceDefaults"
       }
+     ]
+    },
+    {
+     "at": "record::recorded_setup",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "record::write_setup_record",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -11218,6 +11838,15 @@ window.KKT_GRAPH = {
     },
     {
      "at": "setup::run",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "setup::run",
      "holds": [
       {
        "crate": "kkt-operate",
@@ -11317,6 +11946,24 @@ window.KKT_GRAPH = {
        "crate": "kkt-operate",
        "trait": "ServiceDefaults"
       }
+     ]
+    },
+    {
+     "at": "setup::run",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "setup::run_switch",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
      ]
     },
     {
@@ -11489,6 +12136,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-probe",
    "path": "crates/kkt-probe",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11545,6 +12193,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-provenance",
    "path": "crates/kkt-provenance",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11623,6 +12272,15 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-remote-access",
    "path": "crates/kkt-remote-access",
+   "produces": [
+    {
+     "operations": [
+      "RemoteAccess::prepare",
+      "RemoteAccess::served"
+     ],
+     "value": "Node"
+    }
+   ],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11664,6 +12322,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-remote-access-tailscale",
    "path": "crates/kkt-remote-access-tailscale",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11774,6 +12433,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-result-format",
    "path": "crates/kkt-result-format",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -11822,6 +12482,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-revision",
    "path": "crates/kkt-revision",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -11911,6 +12572,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-rolling-file",
    "path": "crates/kkt-rolling-file",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -12550,6 +13212,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-rules",
    "path": "crates/kkt-rules",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -13003,6 +13666,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-scratch",
    "path": "crates/kkt-scratch",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -13054,6 +13718,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-search",
    "path": "crates/kkt-search",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -13205,6 +13870,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-server",
    "path": "crates/kkt-server",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -13651,6 +14317,14 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-service",
    "path": "crates/kkt-service",
+   "produces": [
+    {
+     "operations": [
+      "Service::state"
+     ],
+     "value": "ServiceState"
+    }
+   ],
    "released_program": false,
    "slots": [
     {
@@ -13728,6 +14402,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-service-launchd",
    "path": "crates/kkt-service-launchd",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -13775,6 +14450,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-service-systemd",
    "path": "crates/kkt-service-systemd",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -14783,6 +15459,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-setup",
    "path": "crates/kkt-setup",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -14845,6 +15522,87 @@ window.KKT_GRAPH = {
        "crate": "kkt-setup",
        "trait": "connection::ConnectionSource"
       }
+     ]
+    },
+    {
+     "at": "data_dir",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "data_dir",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "default_db",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "default_db",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "docker_folder",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "docker_folder",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "docker_status_lines",
+     "kind": "param",
+     "name": "state",
+     "traits": [],
+     "values": [
+      "kkt-container::State"
+     ]
+    },
+    {
+     "at": "doctor_checks::docker_check",
+     "kind": "param",
+     "name": "state",
+     "traits": [],
+     "values": [
+      "kkt-container::State"
+     ]
+    },
+    {
+     "at": "doctor_checks::docker_web_key_check",
+     "kind": "param",
+     "name": "compared",
+     "traits": [],
+     "values": [
+      "kkt-container::KeyCopy"
      ]
     },
     {
@@ -14934,6 +15692,24 @@ window.KKT_GRAPH = {
        "crate": "kkt-setup",
        "trait": "SwitchSteps"
       }
+     ]
+    },
+    {
+     "at": "unfinished_mode",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "unfinished_mode",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
      ]
     }
    ],
@@ -15027,6 +15803,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-shutdown",
    "path": "crates/kkt-shutdown",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -15073,6 +15850,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-shutdown-os",
    "path": "crates/kkt-shutdown-os",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -15136,6 +15914,7 @@ window.KKT_GRAPH = {
    },
    "name": "kkt-terminal",
    "path": "crates/kkt-terminal",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -15285,6 +16064,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-toml",
    "path": "crates/kkt-toml",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -15392,8 +16172,18 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-watch",
    "path": "crates/kkt-watch",
+   "produces": [],
    "released_program": false,
    "slots": [
+    {
+     "at": "line",
+     "kind": "param",
+     "name": "message",
+     "traits": [],
+     "values": [
+      "kkt-agent-client::Message"
+     ]
+    },
     {
      "at": "run",
      "kind": "param",
@@ -15916,6 +16706,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-web",
    "path": "crates/kkt-web",
+   "produces": [],
    "released_program": false,
    "slots": [
     {
@@ -16874,6 +17665,7 @@ window.KKT_GRAPH = {
    "machine_work": {},
    "name": "kkt-webapp-preview",
    "path": "programs/kkt-webapp-preview",
+   "produces": [],
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
@@ -27275,6 +28067,31 @@ window.KKT_ASSEMBLY = {
        "param": "command"
       }
      ]
+    },
+    {
+     "crate": "kkt-llm-agent-config",
+     "from": [
+      {
+       "at": "connect::run",
+       "param": "env"
+      }
+     ],
+     "note": "kkt connect",
+     "passes_on": "the Env the program gave connect::run",
+     "to": [
+      {
+       "at": "Client::file",
+       "param": "env"
+      },
+      {
+       "at": "Client::source",
+       "param": "env"
+      },
+      {
+       "at": "Setup",
+       "param": "env"
+      }
+     ]
     }
    ]
   },
@@ -27626,6 +28443,144 @@ window.KKT_ASSEMBLY = {
        "param": "source"
       }
      ]
+    },
+    {
+     "crate": "kkt-llm-agent-config",
+     "from": [
+      {
+       "at": "setup::run",
+       "param": "env"
+      },
+      {
+       "at": "doctor::run",
+       "param": "env"
+      }
+     ],
+     "note": "kkt setup and kkt doctor",
+     "passes_on": "the Env the program gave each command",
+     "to": [
+      {
+       "at": "allow_kkt",
+       "param": "env"
+      },
+      {
+       "at": "codex_password_store_hint",
+       "param": "env"
+      },
+      {
+       "at": "Client::installed",
+       "param": "env"
+      },
+      {
+       "at": "Client::connected",
+       "param": "env"
+      },
+      {
+       "at": "Client::file",
+       "param": "env"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-setup",
+     "from": [
+      {
+       "at": "setup::run",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "env"
+      },
+      {
+       "at": "lanes::run",
+       "param": "env"
+      }
+     ],
+     "note": "where the Docker folder is",
+     "passes_on": "the Env the program gave each command",
+     "to": [
+      {
+       "at": "docker_folder",
+       "param": "env"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-setup",
+     "from": [
+      {
+       "at": "setup::run",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "platform"
+      }
+     ],
+     "note": "where the Docker folder is",
+     "passes_on": "the Platform the program gave each command",
+     "to": [
+      {
+       "at": "docker_folder",
+       "param": "platform"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-backup",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "clock"
+      }
+     ],
+     "note": "kkt backup: the time from the clock the program gave OperateParts",
+     "produces": "kkt-clock::Time",
+     "to": [
+      {
+       "at": "layout",
+       "param": "at"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-setup",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "container"
+      }
+     ],
+     "note": "kkt status and kkt doctor: the Docker install's state, from the container the program gave OperateParts",
+     "produces": "kkt-container::State",
+     "to": [
+      {
+       "at": "docker_status_lines",
+       "param": "state"
+      },
+      {
+       "at": "doctor_checks::docker_check",
+       "param": "state"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-setup",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "container"
+      }
+     ],
+     "note": "kkt doctor: the web key compared with the Docker install's copy",
+     "produces": "kkt-container::KeyCopy",
+     "to": [
+      {
+       "at": "doctor_checks::docker_web_key_check",
+       "param": "compared"
+      }
+     ]
     }
    ]
   },
@@ -27846,6 +28801,90 @@ window.KKT_ASSEMBLY = {
    "param": "sessions",
    "to": "kkt-web",
    "why": "it hands on kkt-web's own Sessions, which it builds: a value of the receiving crate's own type"
+  },
+  {
+   "at": "Client::connected",
+   "crate": "kashkeshet",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-operate do"
+  },
+  {
+   "at": "Client::connected",
+   "crate": "kkt-setup",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "it names Client, and calls none of its methods"
+  },
+  {
+   "at": "Client::file",
+   "crate": "kashkeshet",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-operate do"
+  },
+  {
+   "at": "Client::file",
+   "crate": "kkt-setup",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "it names Client, and calls none of its methods"
+  },
+  {
+   "at": "Client::installed",
+   "crate": "kashkeshet",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-operate do"
+  },
+  {
+   "at": "Client::installed",
+   "crate": "kkt-setup",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "it names Client, and calls none of its methods"
+  },
+  {
+   "at": "Client::source",
+   "crate": "kashkeshet",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-operate do"
+  },
+  {
+   "at": "Client::source",
+   "crate": "kkt-setup",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "it names Client, and calls none of its methods"
+  },
+  {
+   "at": "Client::connected",
+   "crate": "kkt-agent-commands",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "it calls Client::file and Client::source only"
+  },
+  {
+   "at": "Client::installed",
+   "crate": "kkt-agent-commands",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "it calls Client::file and Client::source only"
+  },
+  {
+   "at": "Client::source",
+   "crate": "kkt-operate",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "it never asks a client's source"
+  },
+  {
+   "at": "Setup",
+   "crate": "kkt-operate",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "it builds no Setup: kkt connect does, in kkt-agent-commands"
   }
  ],
  "programs": {
@@ -28657,6 +29696,162 @@ window.KKT_ASSEMBLY = {
       {
        "at": "setup::run_switch",
        "param": "parts"
+      }
+     ]
+    },
+    {
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-operate",
+     "note": "asked once at start",
+     "produces": "kkt-machine::Env",
+     "to": [
+      {
+       "at": "doctor::run",
+       "param": "env"
+      },
+      {
+       "at": "key::create",
+       "param": "env"
+      },
+      {
+       "at": "key::header",
+       "param": "env"
+      },
+      {
+       "at": "key::show",
+       "param": "env"
+      },
+      {
+       "at": "keys::selected_key_path",
+       "param": "env"
+      },
+      {
+       "at": "lanes::run",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::backup",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "env"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "env"
+      },
+      {
+       "at": "record::read_setup",
+       "param": "env"
+      },
+      {
+       "at": "setup::run",
+       "param": "env"
+      },
+      {
+       "at": "setup::run_switch",
+       "param": "env"
+      }
+     ]
+    },
+    {
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-operate",
+     "note": "asked once at start",
+     "produces": "kkt-machine::Platform",
+     "to": [
+      {
+       "at": "doctor::run",
+       "param": "platform"
+      },
+      {
+       "at": "key::create",
+       "param": "platform"
+      },
+      {
+       "at": "key::header",
+       "param": "platform"
+      },
+      {
+       "at": "key::show",
+       "param": "platform"
+      },
+      {
+       "at": "keys::selected_key_path",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "platform"
+      },
+      {
+       "at": "setup::run",
+       "param": "platform"
+      }
+     ]
+    },
+    {
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-setup",
+     "note": "where the default database goes",
+     "produces": "kkt-machine::Env",
+     "to": [
+      {
+       "at": "default_db",
+       "param": "env"
+      }
+     ]
+    },
+    {
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-setup",
+     "note": "where the default database goes",
+     "produces": "kkt-machine::Platform",
+     "to": [
+      {
+       "at": "default_db",
+       "param": "platform"
+      }
+     ]
+    },
+    {
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-agent-commands",
+     "note": "kkt connect",
+     "produces": "kkt-machine::Env",
+     "to": [
+      {
+       "at": "connect::run",
+       "param": "env"
+      }
+     ]
+    },
+    {
+     "by": "kkt-clock-system::SystemClock",
+     "crate": "kkt-backup",
+     "note": "the backup before an upgrade, named for the time",
+     "produces": "kkt-clock::Time",
+     "to": [
+      {
+       "at": "layout",
+       "param": "at"
       }
      ]
     }

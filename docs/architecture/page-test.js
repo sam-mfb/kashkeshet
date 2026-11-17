@@ -284,6 +284,46 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("a ticked supplier's routes run on to the final receiver",
       supplier.hops.includes("kashkeshet>kkt-agent-client-mcp>normal") && supplier.lines.includes("kkt-agent-commands>kkt-watch"), supplier);
 
+    // Opens a panel section and waits for its body, which a closed section
+    // draws only when it opens.
+    const openSection = async (id) => {
+      await p.evaluate((id) => {
+        const d = document.querySelector(`#panel details[data-section='${id}']`);
+        if (d && !d.open) d.querySelector("summary").click();
+      }, id);
+      await p.waitForFunction((id) => {
+        const d = document.querySelector(`#panel details[data-section='${id}']`);
+        return !d || d.children.length > 1;
+      }, id);
+    };
+    // A value a contract's operation gives: the program asks OsMachine for
+    // Env and Platform and hands them down; kkt-operate passes them on.
+    // Ticking kkt-machine-os lights the program's arrow to it and draws the
+    // dotted lines on, labelled with the value and what produced it; the
+    // panels say where the values go and where a receiver's come from.
+    const machine = await routeOf("kkt-machine-os");
+    await onBox("kkt-operate", "> rect");
+    await openSection("slots");
+    const operatePanel = await p.$eval("#panel", (x) => x.textContent);
+    await onBox("kkt-machine-os", "> rect");
+    await openSection("goes");
+    const machinePanel = await p.$eval("#panel", (x) => x.textContent);
+    check("Env and Platform are traced from OsMachine through the program to the crates that take them",
+      ["kashkeshet>kkt-operate", "kashkeshet>kkt-setup", "kashkeshet>kkt-agent-commands", "kkt-operate>kkt-setup",
+        "kkt-agent-commands>kkt-llm-agent-config"].every((l) => machine.lines.includes(l)) &&
+      machine.hops.includes("kashkeshet>kkt-machine-os>normal") &&
+      /Env, from OsMachine/.test(machine.labels["kashkeshet>kkt-operate"] || "") &&
+      /Env, from OsMachine.* · passed on$/.test(machine.labels["kkt-agent-commands>kkt-llm-agent-config"] || "") &&
+      /filled with Env, from OsMachine, by kashkeshet/.test(operatePanel) &&
+      /Env, from OsMachine → kkt-operate's/.test(machinePanel),
+      { machine, operate: (operatePanel.match(/filled with Env[^]{0,60}/) || [""])[0], goes: (machinePanel.match(/Where its work goes[^]{0,120}/) || [""])[0] });
+    // A value asked of an implementer the injector was given: kkt-operate
+    // asks the clock the program gave it for the time a backup is named for.
+    const clock = await routeOf("kkt-clock-system");
+    check("the time is traced from SystemClock through kkt-operate to kkt-backup",
+      clock.lines.includes("kkt-operate>kkt-backup") && /Time, from SystemClock/.test(clock.labels["kkt-operate>kkt-backup"] || ""),
+      clock.labels);
+
     // A logic crate handing on what it was given: the program gives
     // kkt-rules OsEntropy at start-up, and kkt-rules hands it to kkt-names
     // on each call that draws a handle or a channel ID. Ticking kkt-names
@@ -313,10 +353,6 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     const rollingHop = await p.$$eval("path.edge.route-hop[data-edge='kashkeshet>kkt-rolling-file>normal']",
       (xs) => xs.map((x) => x.getAttribute("class").match(/role-\w+/)[0]));
     await onBox("kkt-rolling-file", ".pick-hit");
-    const openSection = (id) => p.evaluate((id) => {
-      const d = document.querySelector(`#panel details[data-section='${id}']`);
-      if (d && !d.open) d.querySelector("summary").click();
-    }, id);
     await onBox("kkt-log-tracing", "> rect");
     await openSection("slots");
     const tracingPanel = await p.$eval("#panel", (x) => x.textContent);
