@@ -14,7 +14,6 @@ kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-config-file = { path = "../kkt-config-file" }
-kkt-container = { path = "../kkt-container" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-lane-files = { path = "../kkt-lane-files" }
 kkt-machine = { path = "../kkt-machine" }

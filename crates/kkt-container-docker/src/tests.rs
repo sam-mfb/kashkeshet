@@ -6,6 +6,7 @@ use super::tailscale::{parse_status, split_name};
 use super::*;
 use kkt_clock::testing::FixedClock;
 use kkt_clock::{Span, Time};
+use kkt_container::{Arg, Carry};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -41,10 +42,19 @@ fn failed(stderr: &str) -> io::Result<Finished> {
     })
 }
 
+/// The exit code read as "no admin key" is the one `kkt key show --admin`
+/// exits with when the server has none: kkt-keys' `NO_ADMIN_KEY_EXIT`,
+/// which the program's `tests/key.rs` pins to 4 too. This crate does not
+/// depend on kkt-keys, so the two are held equal by those two pins.
+#[test]
+fn no_admin_key_is_the_exit_code_kkt_key_show_gives() {
+    assert_eq!(NO_ADMIN_KEY_EXIT, 4);
+}
+
 /// How `kkt key show --admin` answers in a container with no admin key.
 fn no_admin_key() -> io::Result<Finished> {
     Ok(Finished {
-        code: Some(i32::from(NO_ADMIN_KEY_EXIT)),
+        code: Some(NO_ADMIN_KEY_EXIT),
         stdout: String::new(),
         stderr: "there is no admin key at /data/.config/kkt/admin-key".into(),
     })
@@ -185,23 +195,41 @@ impl crate::Browser for FakeLogin {
 
 const KEY: &str = "0123456789abcdef0123456789abcdef0123456789abcdef";
 
-/// Parses a container's config text with kkt-config-file, as the program
-/// does, but taking any log level.
+/// A stand-in for the program's reader of a container's config text: each
+/// line is `setting = value`; `name_pack` is a quoted text and
+/// `max_lane_chars` a number, and a `~/` path needs a home folder, as the
+/// program's reader has them.
 struct Reader;
 
 impl ConfigReader for Reader {
     fn settings(
         &self,
         text: &str,
-        dir: &Path,
+        _: &Path,
         home: Option<&Path>,
     ) -> Result<ContainerConfig, String> {
-        let config = kkt_config_file::parse_file(text, dir, home, |_, _| Ok(()))
-            .map_err(|e| e.to_string())?;
-        Ok(ContainerConfig {
-            name_pack: config.name_pack,
-            max_lane_chars: config.max_lane_chars,
-        })
+        let mut config = ContainerConfig {
+            name_pack: None,
+            max_lane_chars: None,
+        };
+        for line in text.lines().filter(|l| !l.trim().is_empty()) {
+            let (key, value) = line.split_once(" = ").ok_or("not a setting")?;
+            let quoted = value.strip_prefix('"').and_then(|v| v.strip_suffix('"'));
+            if quoted.is_some_and(|v| v.starts_with("~/")) && home.is_none() {
+                return Err(format!("{key}: no home directory for ~/"));
+            }
+            match key {
+                "name_pack" => {
+                    config.name_pack = Some(quoted.ok_or("name_pack: not a text")?.to_string());
+                }
+                "max_lane_chars" => {
+                    config.max_lane_chars =
+                        Some(value.parse().map_err(|_| "max_lane_chars: not a number")?);
+                }
+                _ => {}
+            }
+        }
+        Ok(config)
     }
 }
 
@@ -360,7 +388,7 @@ async fn a_local_setup_writes_the_files_starts_kkt_and_saves_the_key_privately()
         },
         &folder(),
         &plain(),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap();
@@ -425,7 +453,7 @@ async fn a_tailscale_setup_shows_the_login_link_once_and_uses_the_nodes_own_name
         },
         &folder(),
         &with_tailscale(None),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap();
@@ -475,7 +503,7 @@ async fn an_auth_key_goes_only_in_the_private_settings_file() {
         },
         &folder(),
         &with_tailscale(Some("tskey-auth-xyz")),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap();
@@ -499,7 +527,7 @@ async fn disabled_https_stops_setup_before_kkt_starts() {
         },
         &folder(),
         &with_tailscale(None),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap_err();
@@ -522,7 +550,7 @@ async fn waiting_for_a_login_gives_up_after_the_deadline() {
         },
         &folder(),
         &with_tailscale(None),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap_err();
@@ -550,7 +578,7 @@ async fn kkt_that_never_makes_a_key_is_a_start_timeout() {
         },
         &folder(),
         &plain(),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap_err();
@@ -571,7 +599,7 @@ async fn missing_docker_is_said_plainly_and_nothing_is_written() {
         },
         &folder(),
         &plain(),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap_err();
@@ -599,7 +627,7 @@ async fn a_failing_command_is_an_error_naming_it() {
         },
         &folder(),
         &plain(),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap_err();
@@ -627,7 +655,14 @@ fn installed(env: &str) -> FakeRunner {
 fn status_says_whether_it_is_set_up_and_running() {
     let host = FakeRunner::new(|_| ok(""));
     assert_eq!(
-        status(&host, &folder(), &Reader, DEFAULT_PACK).unwrap(),
+        status(
+            &host,
+            &folder(),
+            &Reader,
+            DEFAULT_PACK,
+            Path::new(CONFIG_FILE)
+        )
+        .unwrap(),
         State {
             files_present: false,
             running: false,
@@ -641,7 +676,14 @@ fn status_says_whether_it_is_set_up_and_running() {
 
     let host = installed(&env_text(&with_tailscale(None), None));
     assert_eq!(
-        status(&host, &folder(), &Reader, DEFAULT_PACK).unwrap(),
+        status(
+            &host,
+            &folder(),
+            &Reader,
+            DEFAULT_PACK,
+            Path::new(CONFIG_FILE)
+        )
+        .unwrap(),
         State {
             files_present: true,
             running: true,
@@ -657,7 +699,14 @@ fn status_says_whether_it_is_set_up_and_running() {
         PathBuf::from("/data/docker/.env"),
         (env_text(&plain(), None), true),
     );
-    let state = status(&stopped, &folder(), &Reader, DEFAULT_PACK).unwrap();
+    let state = status(
+        &stopped,
+        &folder(),
+        &Reader,
+        DEFAULT_PACK,
+        Path::new(CONFIG_FILE),
+    )
+    .unwrap();
     assert!(state.files_present && !state.running && !state.sharing);
 }
 
@@ -761,9 +810,20 @@ fn an_install_missing_what_its_address_needs_is_incomplete() {
 /// The name pack the tests' callers say `kkt serve` uses when its settings
 /// name none: not a real pack's name, so a test sees it was used.
 const DEFAULT_PACK: &str = "the-default-pack";
-/// The lane text limit the tests' callers say kkt uses when its settings
-/// name none.
-const DEFAULT_LANE_LIMIT: usize = 4321;
+/// Where the tests' callers say `kkt serve`'s default config file is under
+/// its config home.
+const CONFIG_FILE: &str = "kkt/config.toml";
+
+/// Where the keys' host copies go when the access key's is at `access`:
+/// beside it, with the names the program gives them.
+fn copies(access: &str) -> KeyCopies {
+    let access = PathBuf::from(access);
+    KeyCopies {
+        web: access.with_file_name("docker-web-key"),
+        admin: access.with_file_name("docker-admin-key"),
+        access,
+    }
+}
 
 #[test]
 fn status_reads_the_containers_name_pack() {
@@ -870,6 +930,31 @@ fn running_container(inspect: serde_json::Value, config: Option<&'static str>) -
     })
 }
 
+/// The default config file is where the caller says, under the
+/// container's config home.
+#[test]
+fn the_name_pack_is_read_from_the_config_file_the_caller_names() {
+    let host = running_container(
+        serde_json::json!({
+            "Entrypoint": ["kkt"], "Cmd": ["serve"],
+            "Env": ["HOME=/data"], "WorkingDir": ""
+        }),
+        Some("name_pack = \"garden\"\n"),
+    );
+    assert_eq!(
+        super::name_pack::selected(
+            &host,
+            &folder(),
+            &Reader,
+            DEFAULT_PACK,
+            Path::new("other/settings.toml")
+        ),
+        Ok("garden".into())
+    );
+    assert!(host.ran_any("test -e /data/.config/other/settings.toml"));
+    assert!(host.ran_any("cat -- /data/.config/other/settings.toml"));
+}
+
 #[test]
 fn the_name_pack_is_read_where_kkt_serve_in_the_container_reads_it() {
     // Without --config, the default file under the container's own HOME or
@@ -889,7 +974,13 @@ fn the_name_pack_is_read_where_kkt_serve_in_the_container_reads_it() {
             Some("db = \"~/kkt.db\"\nname_pack = \"garden\"\n"),
         );
         assert_eq!(
-            super::name_pack::selected(&host, &folder(), &Reader, DEFAULT_PACK),
+            super::name_pack::selected(
+                &host,
+                &folder(),
+                &Reader,
+                DEFAULT_PACK,
+                Path::new(CONFIG_FILE)
+            ),
             Ok("garden".into())
         );
         assert!(host.ran_any(&format!("test -e {path}")), "{path}");
@@ -906,7 +997,13 @@ fn the_name_pack_is_read_where_kkt_serve_in_the_container_reads_it() {
         Some("name_pack = \"garden\"\n"),
     );
     assert_eq!(
-        super::name_pack::selected(&host, &folder(), &Reader, DEFAULT_PACK),
+        super::name_pack::selected(
+            &host,
+            &folder(),
+            &Reader,
+            DEFAULT_PACK,
+            Path::new(CONFIG_FILE)
+        ),
         Ok("garden".into())
     );
     assert!(host.ran_any("cat -- /srv/settings.toml"));
@@ -920,7 +1017,14 @@ fn the_name_pack_is_read_where_kkt_serve_in_the_container_reads_it() {
         }),
         Some("db = \"~/kkt.db\"\nname_pack = \"garden\"\n"),
     );
-    let err = super::name_pack::selected(&host, &folder(), &Reader, DEFAULT_PACK).unwrap_err();
+    let err = super::name_pack::selected(
+        &host,
+        &folder(),
+        &Reader,
+        DEFAULT_PACK,
+        Path::new(CONFIG_FILE),
+    )
+    .unwrap_err();
     assert!(err.starts_with("unreadable container config: "), "{err}");
     assert!(err.contains("no home directory"), "{err}");
 
@@ -932,7 +1036,13 @@ fn the_name_pack_is_read_where_kkt_serve_in_the_container_reads_it() {
         None,
     );
     assert_eq!(
-        super::name_pack::selected(&host, &folder(), &Reader, DEFAULT_PACK),
+        super::name_pack::selected(
+            &host,
+            &folder(),
+            &Reader,
+            DEFAULT_PACK,
+            Path::new(CONFIG_FILE)
+        ),
         Err("container has no config path".into())
     );
 }
@@ -950,7 +1060,13 @@ fn an_unreadable_container_config_keeps_its_cause() {
         }
     });
     assert_eq!(
-        super::name_pack::selected(&host, &folder(), &Reader, DEFAULT_PACK),
+        super::name_pack::selected(
+            &host,
+            &folder(),
+            &Reader,
+            DEFAULT_PACK,
+            Path::new(CONFIG_FILE)
+        ),
         Err("could not check the container config: docker went away".into())
     );
 
@@ -961,7 +1077,14 @@ fn an_unreadable_container_config_keeps_its_cause() {
         }),
         Some("name_pack = 3\n"),
     );
-    let err = super::name_pack::selected(&host, &folder(), &Reader, DEFAULT_PACK).unwrap_err();
+    let err = super::name_pack::selected(
+        &host,
+        &folder(),
+        &Reader,
+        DEFAULT_PACK,
+        Path::new(CONFIG_FILE),
+    )
+    .unwrap_err();
     assert!(err.starts_with("unreadable container config: "), "{err}");
     assert!(err.contains("name_pack"), "{err}");
 
@@ -979,17 +1102,23 @@ fn an_unreadable_container_config_keeps_its_cause() {
         }
     });
     assert_eq!(
-        super::name_pack::selected(&host, &folder(), &Reader, DEFAULT_PACK),
+        super::name_pack::selected(
+            &host,
+            &folder(),
+            &Reader,
+            DEFAULT_PACK,
+            Path::new(CONFIG_FILE)
+        ),
         Err("could not check the container config".into())
     );
 }
 
-/// `kkt lanes import` in the container is run with no `--config`, so it
-/// reads only the default config file, whatever flags `kkt serve` there
-/// was given; and that file is read in a new container, so a stopped
-/// install has a limit too.
+/// A program run in the container with no `--config`, such as `kkt lanes
+/// import`, reads only the default config file, whatever flags `kkt serve`
+/// there was given; and that file is read in a new container, so a stopped
+/// install has one too.
 #[test]
-fn the_lane_limit_never_reads_serves_command_and_needs_no_running_install() {
+fn a_config_home_file_never_reads_serves_command_and_needs_no_running_install() {
     let host = FakeRunner::new(|command| {
         if command.contains("run --rm --no-deps -T --entrypoint sh kkt -c ") {
             ok("max_lane_chars = 300\nname_pack = \"garden\"\n")
@@ -1001,8 +1130,8 @@ fn the_lane_limit_never_reads_serves_command_and_needs_no_running_install() {
         }
     });
     assert_eq!(
-        lane_limit(&host, &folder(), &Reader, DEFAULT_LANE_LIMIT).unwrap(),
-        300
+        config_home_file(&host, &folder(), Path::new("kkt/config.toml")).unwrap(),
+        "max_lane_chars = 300\nname_pack = \"garden\"\n"
     );
     assert!(!host.ran_any("inspect"));
     assert!(!host.ran_any("exec"));
@@ -1053,6 +1182,65 @@ fn a_failed_backup_copies_nothing() {
     let err = backup(&host, &folder(), Some(Path::new("/home/me/b"))).unwrap_err();
     assert!(err.to_string().contains("disk full"), "{err}");
     assert!(!host.ran_any(" cp "));
+}
+
+/// Lane files and their source, for a run of `kkt lanes import` in the
+/// container as the program asks for one.
+struct LanesImport {
+    files: Vec<PathBuf>,
+    source_folder: String,
+    source_commit: Option<String>,
+    retire_missing: bool,
+}
+
+/// `kkt lanes import` in the container, as the program asks for it.
+fn import_lanes(
+    host: &dyn Runner,
+    folder: &Folder,
+    import: &LanesImport,
+) -> Result<String, DockerError> {
+    let mut args = vec![
+        Arg::Text("lanes".into()),
+        Arg::Text("import".into()),
+        Arg::Folder,
+        Arg::Text("--source-folder".into()),
+        Arg::Text(import.source_folder.clone()),
+    ];
+    if let Some(commit) = &import.source_commit {
+        args.extend([
+            Arg::Text("--source-commit".into()),
+            Arg::Text(commit.clone()),
+        ]);
+    }
+    if import.retire_missing {
+        args.push(Arg::Text("--retire-missing".into()));
+    }
+    run_in_server(
+        host,
+        folder,
+        &InServer {
+            args: &args,
+            folder_prefix: "/tmp/kkt-lanes-import",
+            carry: Carry::In(import.files.clone()),
+        },
+    )
+}
+
+/// `kkt lanes export` in the container, as the program asks for it.
+fn export_lanes(host: &dyn Runner, folder: &Folder, dest: &Path) -> Result<String, DockerError> {
+    run_in_server(
+        host,
+        folder,
+        &InServer {
+            args: &[
+                Arg::Text("lanes".into()),
+                Arg::Text("export".into()),
+                Arg::Folder,
+            ],
+            folder_prefix: "/tmp/kkt-lanes-export",
+            carry: Carry::Out(dest.to_path_buf()),
+        },
+    )
 }
 
 fn lanes_import(commit: Option<&str>, retire_missing: bool) -> LanesImport {
@@ -1131,11 +1319,11 @@ fn with_container_config(config: &'static str) -> FakeRunner {
 }
 
 #[test]
-fn the_lane_limit_is_the_containers_own_setting_or_the_default() {
+fn a_config_home_file_is_read_whole_or_is_empty() {
     let host = with_container_config("max_lane_chars = 20\nname_pack = \"animals\"\n");
     assert_eq!(
-        lane_limit(&host, &folder(), &Reader, DEFAULT_LANE_LIMIT).unwrap(),
-        20
+        config_home_file(&host, &folder(), Path::new("kkt/config.toml")).unwrap(),
+        "max_lane_chars = 20\nname_pack = \"animals\"\n"
     );
     // Read in a new container on the data volume, so the install need not
     // be running, from where `kkt` there finds its config file.
@@ -1149,37 +1337,76 @@ fn the_lane_limit_is_the_containers_own_setting_or_the_default() {
         )]
     );
 
-    // A file with paths under the home folder reads too.
-    let host = with_container_config("db = \"~/kkt.db\"\nmax_lane_chars = 9000\n");
+    // No file: nothing.
+    let host = with_container_config("");
     assert_eq!(
-        lane_limit(&host, &folder(), &Reader, DEFAULT_LANE_LIMIT).unwrap(),
-        9000
+        config_home_file(&host, &folder(), Path::new("kkt/config.toml")).unwrap(),
+        ""
     );
-
-    // No config file, or one without the setting: the default.
-    for config in ["", "name_pack = \"animals\"\n"] {
-        let host = with_container_config(config);
-        assert_eq!(
-            lane_limit(&host, &folder(), &Reader, DEFAULT_LANE_LIMIT).unwrap(),
-            DEFAULT_LANE_LIMIT
-        );
-    }
 }
 
 #[test]
-fn a_lane_limit_that_cannot_be_read_is_an_error() {
-    let host = with_container_config("max_lane_chars = 0.5\n");
-    let err = lane_limit(&host, &folder(), &Reader, DEFAULT_LANE_LIMIT)
-        .unwrap_err()
-        .to_string();
-    assert!(err.contains("config file"), "{err}");
-    assert!(err.contains("max_lane_chars"), "{err}");
-
+fn a_config_home_file_that_cannot_be_read_is_an_error() {
     let host = FakeRunner::new(|_| failed("no such image"));
-    let err = lane_limit(&host, &folder(), &Reader, DEFAULT_LANE_LIMIT)
+    let err = config_home_file(&host, &folder(), Path::new("kkt/config.toml"))
         .unwrap_err()
         .to_string();
     assert!(err.contains("no such image"), "{err}");
+}
+
+/// The path goes into a shell script, so only a plain relative path is
+/// read, and nothing is run for any other.
+#[test]
+fn a_config_home_path_that_is_not_plain_is_refused_before_anything_runs() {
+    for path in [
+        "",
+        "/etc/passwd",
+        "../secret",
+        "kkt/../../x",
+        "kkt//config.toml",
+        "kkt/$HOME",
+        "kkt/a b",
+        "kkt/\"x\"",
+        "kkt/`x`",
+    ] {
+        let host = FakeRunner::new(|_| ok("read"));
+        let err = config_home_file(&host, &folder(), Path::new(path)).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            format!("{path} is not a plain path under the config home")
+        );
+        assert!(host.ran.borrow().is_empty(), "{path:?}");
+    }
+    let host = FakeRunner::new(|_| ok("read"));
+    assert_eq!(
+        config_home_file(&host, &folder(), Path::new("a-b/c_d.1/e.toml")).unwrap(),
+        "read"
+    );
+}
+
+/// A file whose path has no name cannot be carried in, and the run stops
+/// before it starts, removing its folder.
+#[test]
+fn a_file_with_no_name_is_not_carried_in() {
+    let host = FakeRunner::new(|command| mktemp(command).unwrap_or_else(|| ok("")));
+    let err = run_in_server(
+        &host,
+        &folder(),
+        &InServer {
+            args: &[Arg::Text("x".into())],
+            folder_prefix: "/tmp/kkt-run",
+            carry: Carry::In(vec![PathBuf::from("/")]),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(err.to_string(), "unexpected output from a file's name: /");
+    assert_eq!(
+        compose_args(&host),
+        [
+            "exec -T kkt mktemp -d /tmp/kkt-run.XXXXXXXXXX",
+            "exec -T -u root kkt rm -rf /tmp/kkt-run.q7Rk2mZp9w",
+        ]
+    );
 }
 
 #[test]
@@ -1545,7 +1772,7 @@ async fn upgrade_to_0_5_0(host: &FakeRunner) -> Result<(), DockerError> {
         Settings::DEFAULT,
         &folder(),
         "0.5.0",
-        Some(Path::new("/keys/docker-access-key")),
+        Some(&copies("/keys/docker-access-key")),
     )
     .await
 }
@@ -1799,8 +2026,8 @@ async fn adding_an_admin_key_makes_it_restarts_kkt_and_saves_its_copy() {
         &*host.clock,
         Settings::DEFAULT,
         &folder(),
-        Path::new("/keys/docker-access-key"),
-        &sentinel(),
+        &copies("/keys/docker-access-key"),
+        "admin-sentinel",
     )
     .await
     .unwrap();
@@ -1834,8 +2061,8 @@ async fn adding_an_admin_key_keeps_one_the_server_has_and_restarts_kkt_to_serve_
         &*host.clock,
         Settings::DEFAULT,
         &folder(),
-        Path::new("/keys/docker-access-key"),
-        &sentinel(),
+        &copies("/keys/docker-access-key"),
+        "admin-sentinel",
     )
     .await
     .unwrap();
@@ -1850,14 +2077,14 @@ async fn adding_an_admin_key_keeps_one_the_server_has_and_restarts_kkt_to_serve_
 #[tokio::test]
 async fn a_restart_that_fails_after_making_the_admin_key_is_done_on_the_next_try() {
     let host = with_admin_key_and_failing_restarts(false, 1);
-    let key_file = Path::new("/keys/docker-access-key");
+    let keys = copies("/keys/docker-access-key");
     let first = add_admin_key(
         &host,
         &*host.clock,
         Settings::DEFAULT,
         &folder(),
-        key_file,
-        &sentinel(),
+        &keys,
+        "admin-sentinel",
     )
     .await;
     assert!(first.is_err(), "{first:?}");
@@ -1877,8 +2104,8 @@ async fn a_restart_that_fails_after_making_the_admin_key_is_done_on_the_next_try
         &*host.clock,
         Settings::DEFAULT,
         &folder(),
-        key_file,
-        &sentinel(),
+        &keys,
+        "admin-sentinel",
     )
     .await
     .unwrap();
@@ -1898,10 +2125,6 @@ async fn a_restart_that_fails_after_making_the_admin_key_is_done_on_the_next_try
         Some((format!("{ADMIN_KEY}\n"), true))
     );
     no_key_shown(&host);
-}
-
-fn sentinel() -> kkt_names::AdminName {
-    kkt_names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap()
 }
 
 /// A kkt container whose admin key exists but cannot be read.
@@ -1940,7 +2163,7 @@ async fn an_admin_key_that_cannot_be_read_is_an_error_not_no_key() {
         &*host.clock,
         Settings::DEFAULT,
         &folder(),
-        Path::new("/keys/docker-access-key"),
+        &copies("/keys/docker-access-key"),
     )
     .await
     .unwrap_err();
@@ -1990,7 +2213,7 @@ async fn an_older_kkt_without_admin_keys_has_none() {
         &*host.clock,
         Settings::DEFAULT,
         &folder(),
-        Path::new("/keys/docker-access-key"),
+        &copies("/keys/docker-access-key"),
     )
     .await
     .unwrap();
@@ -2010,7 +2233,7 @@ async fn setup_saves_no_admin_key_for_a_server_without_one() {
         },
         &folder(),
         &plain(),
-        Path::new("/keys/docker-access-key"),
+        &copies("/keys/docker-access-key"),
     )
     .await
     .unwrap();
@@ -2131,7 +2354,14 @@ fn status_does_not_call_a_container_stopped_when_compose_failed() {
         PathBuf::from("/data/docker/.env"),
         (env_text(&plain(), None), true),
     );
-    let err = status(&host, &folder(), &Reader, DEFAULT_PACK).unwrap_err();
+    let err = status(
+        &host,
+        &folder(),
+        &Reader,
+        DEFAULT_PACK,
+        Path::new(CONFIG_FILE),
+    )
+    .unwrap_err();
     assert!(
         err.to_string()
             .contains("Cannot connect to the Docker daemon"),
@@ -2152,7 +2382,7 @@ async fn both_keys_go_in_a_folder_that_did_not_exist_yet() {
         },
         &folder(),
         &plain(),
-        Path::new("/home/me/.config/kkt/docker-access-key"),
+        &copies("/home/me/.config/kkt/docker-access-key"),
     )
     .await
     .unwrap();
@@ -2226,7 +2456,7 @@ async fn the_link_is_opened_when_asked_and_setup_goes_on_watching_for_the_login(
         },
         &folder(),
         &with_tailscale(None),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap();
@@ -2270,7 +2500,7 @@ async fn a_link_that_cannot_be_opened_is_said_and_setup_carries_on() {
         },
         &folder(),
         &with_tailscale(None),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap();
@@ -2297,7 +2527,7 @@ async fn no_link_is_shown_when_no_login_is_needed() {
         },
         &folder(),
         &with_tailscale(Some("tskey-auth-xyz")),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap();
@@ -2331,7 +2561,7 @@ async fn an_opener_that_fails_after_starting_is_said_while_setup_goes_on_waiting
         },
         &folder(),
         &with_tailscale(None),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap();
@@ -2393,7 +2623,14 @@ fn status_reports_the_tailscale_login() {
 }
 
 fn status_of(host: &FakeRunner) -> State {
-    status(host, &folder(), &Reader, DEFAULT_PACK).unwrap()
+    status(
+        host,
+        &folder(),
+        &Reader,
+        DEFAULT_PACK,
+        Path::new(CONFIG_FILE),
+    )
+    .unwrap()
 }
 
 #[test]
@@ -2438,7 +2675,7 @@ async fn a_machine_that_needs_a_login_again_gets_its_container_restarted_for_a_l
         },
         &folder(),
         &with_tailscale(None),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap();
@@ -2486,7 +2723,7 @@ async fn a_new_machine_whose_link_comes_within_a_few_seconds_is_not_restarted() 
         },
         &folder(),
         &with_tailscale(None),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap();
@@ -2507,7 +2744,7 @@ async fn a_machine_that_is_already_logged_in_is_not_restarted_or_shown_a_link() 
         },
         &folder(),
         &with_tailscale(None),
-        Path::new("/keys/docker"),
+        &copies("/keys/docker"),
     )
     .await
     .unwrap();

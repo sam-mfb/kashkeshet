@@ -31,7 +31,7 @@ pub fn header(
 }
 
 /// Prints the selected key. A missing admin key is not an error but has its
-/// own exit code, [`kkt_container::NO_ADMIN_KEY_EXIT`], so `kkt setup` and
+/// own exit code, [`kkt_keys::NO_ADMIN_KEY_EXIT`], so `kkt setup` and
 /// `kkt upgrade` can tell it from a key they failed to read.
 pub fn show(
     parts: &OperatorParts<'_>,
@@ -43,9 +43,7 @@ pub fn show(
         parts.output.errors(format_args!(
             "there is no admin key; `kkt key create --admin` makes one\n"
         ));
-        return Ok(std::process::ExitCode::from(
-            kkt_container::NO_ADMIN_KEY_EXIT,
-        ));
+        return Ok(std::process::ExitCode::from(kkt_keys::NO_ADMIN_KEY_EXIT));
     };
     let text = match parts.key_files.read(&path) {
         Ok(text) => text,
@@ -54,9 +52,7 @@ pub fn show(
                 "there is no admin key at {}; `kkt key create --admin` makes one\n",
                 path.display()
             ));
-            return Ok(std::process::ExitCode::from(
-                kkt_container::NO_ADMIN_KEY_EXIT,
-            ));
+            return Ok(std::process::ExitCode::from(kkt_keys::NO_ADMIN_KEY_EXIT));
         }
         Err(e) => {
             return Err(format!("could not read key file {}: {}", path.display(), e));

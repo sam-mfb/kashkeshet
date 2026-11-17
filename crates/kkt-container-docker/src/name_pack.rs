@@ -1,21 +1,24 @@
 //! Reading the running container's name setting through the Docker host.
 //!
 //! This reads the config file `kkt serve` in the running container uses,
-//! following its `--name-pack` and `--config`. [`super::lane_limit`] reads
-//! the container's config differently, and on purpose; its comment says
-//! why the two are not one reader.
+//! following its `--name-pack` and `--config`. [`super::config_home_file`]
+//! reads the container's config differently, and on purpose; its comment
+//! says why the two are not one reader.
 
 use super::compose::compose;
 use super::{Command, ConfigReader, Folder, Runner};
 use kkt_machine::Env;
 use std::path::{Path, PathBuf};
 
-/// `default` is the name pack `kkt serve` uses when its settings name none.
+/// `default` is the name pack `kkt serve` uses when its settings name none,
+/// and `config_file` where its default config file is under its config
+/// home.
 pub(super) fn selected(
     host: &dyn Runner,
     folder: &Folder,
     reader: &dyn ConfigReader,
     default: &str,
+    config_file: &Path,
 ) -> Result<String, String> {
     let id = output(host, &compose(folder, &["ps", "--quiet", "kkt"]))?;
     let id = id.trim();
@@ -60,7 +63,9 @@ pub(super) fn selected(
     let explicit = flag(&args, "--config")?;
     let path = match explicit {
         Some(path) => PathBuf::from(path),
-        None => kkt_config_file::config_file(env.config_home().as_deref())
+        None => env
+            .config_home()
+            .map(|home| home.join(config_file))
             .ok_or("container has no config path")?,
     };
     let working = config["WorkingDir"].as_str().unwrap_or("");

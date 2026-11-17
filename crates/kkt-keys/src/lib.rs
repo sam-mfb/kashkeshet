@@ -16,8 +16,9 @@ pub mod testing;
 pub use admin_name::{admin_name_line, admin_name_written, bound_in, bound_to};
 pub use files::{KeyFiles, ReadError, SelectedKeys};
 pub use place::{
-    ACCESS_KEY_FILE_MODE, ACCESS_KEY_FILE_NAME, ADMIN_KEY_FILE_NAME, ADMIN_NAME_FILE_SUFFIX,
-    WEB_KEY_FILE_NAME, access_key_file, admin_key_path, admin_name_path, web_key_path,
+    ACCESS_KEY_FILE_MODE, ACCESS_KEY_FILE_NAME, ADMIN_KEY_COPY_FILE_NAME, ADMIN_KEY_FILE_NAME,
+    ADMIN_NAME_FILE_SUFFIX, NO_ADMIN_KEY_EXIT, WEB_KEY_COPY_FILE_NAME, WEB_KEY_FILE_NAME,
+    access_key_file, admin_key_path, admin_name_path, web_key_path,
 };
 
 use std::path::PathBuf;
@@ -97,6 +98,16 @@ pub fn check_access_key(key: &str) -> Result<(), SettingError> {
 mod tests {
     use super::*;
     use std::path::Path;
+
+    /// Existing Docker installs keep their key copies under these names,
+    /// and kkt in a container tells "no admin key" by this exit code, which
+    /// kkt-container-docker reads as 4.
+    #[test]
+    fn the_key_copies_names_and_the_no_admin_key_exit_stay_as_installs_have_them() {
+        assert_eq!(WEB_KEY_COPY_FILE_NAME, "docker-web-key");
+        assert_eq!(ADMIN_KEY_COPY_FILE_NAME, "docker-admin-key");
+        assert_eq!(NO_ADMIN_KEY_EXIT, 4);
+    }
 
     #[test]
     fn the_access_key_goes_in_the_config_directory() {

@@ -22,8 +22,8 @@ pub mod doctor_checks;
 mod program;
 pub use program::{
     admin_key_line, client_key, configured_name_pack_line, docker_status_lines,
-    service_backup_folder, service_upgrade_error, setup_lane_limit, staged_client_key,
-    uninstall_line, uninstall_record, upgrade_backup_folder, waiting_note, web_key_line,
+    service_backup_folder, service_upgrade_error, staged_client_key, uninstall_line,
+    uninstall_record, upgrade_backup_folder, waiting_note, web_key_line,
 };
 mod flow;
 mod guard;
@@ -59,7 +59,7 @@ pub use key_finders::{KeyReads, OperatorKeyReads, find_here, find_key, find_oper
 pub use key_writes::{admin_name_line, new_key_file, write_admin_name, write_key_file};
 pub use keys::{
     Here, KeyKind, KeyPlace, KeysOff, admin_key_collision, configured_key, create_asks_for_docker,
-    create_checks, create_destination_check, operator_key, recorded_key,
+    create_checks, create_destination_check, docker_key_copies, operator_key, recorded_key,
 };
 pub use lifecycle::{
     Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,

@@ -6,11 +6,10 @@ use super::compose::{compose, tailscale_status, version};
 use super::files::{create_dir, env_text, write_embedded, write_env};
 use super::tailscale::{parse_status, split_name};
 use super::{
-    DOCKER_ADMIN_KEY_FILE_NAME, DOCKER_BACKUPS_MOUNT, DOCKER_WEB_KEY_FILE_NAME, DockerError,
-    Folder, Inputs, LoginLink, NO_ADMIN_KEY_EXIT, Runner, Settings, UNKNOWN_OPTION_EXIT,
+    DOCKER_BACKUPS_MOUNT, DockerError, Folder, Inputs, KeyCopies, LoginLink, NO_ADMIN_KEY_EXIT,
+    Runner, Settings, UNKNOWN_OPTION_EXIT,
 };
 use kkt_clock::{Clock, Span};
-use kkt_names::AdminName;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -27,7 +26,7 @@ pub struct LinkAndBrowser<'a> {
 }
 
 /// Writes the files for `inputs` into `folder`, starts kkt (and Tailscale)
-/// and saves the access key at `key_file` and the web key beside it, both
+/// and saves the access and web keys' copies where `keys` says, both
 /// readable only by their owner. It waits on the containers as `settings`
 /// say.
 /// Safe to run again on the same folder: it carries on from where it was.
@@ -38,7 +37,7 @@ pub async fn provision(
     login: LinkAndBrowser<'_>,
     folder: &Folder,
     inputs: &Inputs,
-    key_file: &Path,
+    keys: &KeyCopies,
 ) -> Result<Provisioned, DockerError> {
     check_docker(host)?;
     let tailscale = inputs.sharing.is_some();
@@ -61,11 +60,11 @@ pub async fn provision(
 
     host.say("Starting kkt (this takes a minute if the image has to be downloaded)...");
     run_attached(host, &compose(folder, &["up", "-d"]))?;
-    let saved = save_keys(host, clock, settings, folder, key_file).await?;
+    let saved = save_keys(host, clock, settings, folder, keys).await?;
     say_saved(host, &saved);
     host.say(&format!(
         "kkt is running. The access key is saved in {}.",
-        key_file.display()
+        keys.access.display()
     ));
     Ok(Provisioned { node })
 }
@@ -94,8 +93,7 @@ pub(super) fn say_saved(host: &dyn Runner, saved: &SavedKeys) {
 
 /// Gives the running kkt container in `folder` an admin key named `name`,
 /// unless it has one, then restarts kkt so it serves `/mcp-admin`; then
-/// saves the keys' host copies beside the access key's at `key_file`, as
-/// setup does, and returns the admin key's. No key is shown or put in a
+/// saves the keys' host copies where `keys` says, as setup does, and returns the admin key's. No key is shown or put in a
 /// command's arguments; the name, which is not secret, is.
 ///
 /// kkt is restarted even when the key was already there: a run that made
@@ -106,8 +104,8 @@ pub async fn add_admin_key(
     clock: &dyn Clock,
     settings: Settings,
     folder: &Folder,
-    key_file: &Path,
-    name: &AdminName,
+    keys: &KeyCopies,
+    name: &str,
 ) -> Result<PathBuf, DockerError> {
     // Wait for kkt to be up before asking it about its admin key.
     wait_for_key(host, clock, settings, folder, ServerKey::Access).await?;
@@ -120,22 +118,14 @@ pub async fn add_admin_key(
             &compose(
                 folder,
                 &[
-                    "exec",
-                    "-T",
-                    "kkt",
-                    "kkt",
-                    "key",
-                    "create",
-                    "--admin",
-                    "--name",
-                    name.as_str(),
+                    "exec", "-T", "kkt", "kkt", "key", "create", "--admin", "--name", name,
                 ],
             ),
         )?;
     }
     host.say("Restarting kkt so it serves /mcp-admin...");
     run_attached(host, &compose(folder, &["restart", "kkt"]))?;
-    let saved = save_keys(host, clock, settings, folder, key_file).await?;
+    let saved = save_keys(host, clock, settings, folder, keys).await?;
     say_saved(host, &saved);
     saved.admin.ok_or(DockerError::Unexpected {
         what: "`kkt key show --admin`",
@@ -144,35 +134,42 @@ pub async fn add_admin_key(
 }
 
 /// Waits for the running kkt container to have its access and web keys,
-/// then saves the access key at `key_file` and the web key beside it, both
-/// readable only by their owner, replacing any copies there. If the
-/// container also has an admin key, saves it beside them the same way.
+/// then saves their copies where `keys` says, each readable only by its
+/// owner, replacing any copies there. If the container also has an admin
+/// key, saves its copy the same way.
 /// No key is shown or put in a command's arguments.
 pub(super) async fn save_keys(
     host: &dyn Runner,
     clock: &dyn Clock,
     settings: Settings,
     folder: &Folder,
-    key_file: &Path,
+    keys: &KeyCopies,
 ) -> Result<SavedKeys, DockerError> {
     let key = wait_for_key(host, clock, settings, folder, ServerKey::Access).await?;
     let web_key = wait_for_key(host, clock, settings, folder, ServerKey::Web).await?;
     // Only a server whose operator asked for one has an admin key, so it is
     // not waited for.
     let admin_key = read_admin_key(host, folder)?;
-    if let Some(parent) = key_file.parent() {
-        create_dir(host, parent)?;
+    // Each folder once, the access key's first.
+    let mut made: Vec<&Path> = Vec::new();
+    for path in [&keys.access, &keys.web, &keys.admin] {
+        if let Some(parent) = path.parent()
+            && !made.contains(&parent)
+        {
+            create_dir(host, parent)?;
+            made.push(parent);
+        }
     }
     let write = |path: &Path, key: &str| {
         host.write_file(path, key, true)
             .map_err(|e| DockerError::io(format!("could not write {}", path.display()), e))
     };
-    write(key_file, &key)?;
-    let web = key_file.with_file_name(DOCKER_WEB_KEY_FILE_NAME);
+    write(&keys.access, &key)?;
+    let web = keys.web.clone();
     write(&web, &web_key)?;
     let admin = match admin_key {
         Some(admin_key) => {
-            let admin = key_file.with_file_name(DOCKER_ADMIN_KEY_FILE_NAME);
+            let admin = keys.admin.clone();
             write(&admin, &admin_key)?;
             Some(admin)
         }
@@ -192,9 +189,7 @@ fn read_admin_key(host: &dyn Runner, folder: &Folder) -> Result<Option<String>, 
     let key = done.stdout.trim();
     match done.code {
         Some(0) if !key.is_empty() => Ok(Some(format!("{key}\n"))),
-        Some(code) if code == i32::from(NO_ADMIN_KEY_EXIT) || code == UNKNOWN_OPTION_EXIT => {
-            Ok(None)
-        }
+        Some(code) if code == NO_ADMIN_KEY_EXIT || code == UNKNOWN_OPTION_EXIT => Ok(None),
         code => Err(DockerError::Command {
             command: show.to_string(),
             detail: match code {

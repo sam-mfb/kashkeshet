@@ -1,7 +1,8 @@
 //! The operator's commands on this machine's server: `kkt key` (create,
 //! header, show), `kkt lanes` (export, import) and `kkt agent` (list,
 //! revoke), and the lane import and check that `kkt setup` asks for. What
-//! is installed here comes as kkt-setup's [`InstalledHere`]; every other
+//! is installed here comes as kkt-setup's [`InstalledHere`], and the server
+//! `kkt lanes` acts on as [`lanes::LaneServers`] picks it; every other
 //! effect and serving fact comes through [`OperatorParts`].
 //!
 //! [`InstalledHere`]: kkt_setup::InstalledHere
@@ -67,8 +68,8 @@ pub struct OperatorParts<'a> {
     pub key_files: &'a dyn kkt_keys::KeyFiles,
     /// Where new keys are drawn from.
     pub entropy: &'a dyn kkt_entropy::Entropy,
-    pub container: &'a dyn kkt_container::Container,
-    pub container_configs: &'a dyn kkt_container::ConfigReader,
+    /// The server `kkt lanes` acts on.
+    pub lane_servers: &'a dyn lanes::LaneServers,
     pub lanes: &'a dyn kkt_lane_files::Disk,
     pub lane_commit: &'a dyn kkt_lane_files::LaneCommit,
     pub database: &'a dyn Databases,
@@ -76,15 +77,14 @@ pub struct OperatorParts<'a> {
     pub output: &'a dyn Output,
 }
 
-/// What the lane helpers need: the serve config and database, the clock, the
-/// container, the lane folder and its commit, and where to say things.
-/// Setup's lane steps and `kkt agent`'s database take these alone.
+/// What the lane helpers and [`lanes::LocalLanes`] need: the serve config
+/// and database, the clock, the lane folder and its commit, and where to
+/// say things. Setup's lane steps and `kkt agent`'s database take these
+/// alone.
 pub struct LaneParts<'a> {
     pub serve: &'a dyn ServeConfig,
     pub database: &'a dyn Databases,
     pub clock: Arc<dyn kkt_clock::Clock>,
-    pub container: &'a dyn kkt_container::Container,
-    pub container_configs: &'a dyn kkt_container::ConfigReader,
     pub lanes: &'a dyn kkt_lane_files::Disk,
     pub lane_commit: &'a dyn kkt_lane_files::LaneCommit,
     pub output: &'a dyn Output,
@@ -97,8 +97,6 @@ impl OperatorParts<'_> {
             serve: self.serve,
             database: self.database,
             clock: self.clock.clone(),
-            container: self.container,
-            container_configs: self.container_configs,
             lanes: self.lanes,
             lane_commit: self.lane_commit,
             output: self.output,

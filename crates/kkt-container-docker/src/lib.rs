@@ -1,7 +1,7 @@
 //! kkt-container over Docker and Compose: `Docker` implements its
 //! `Container`. It holds the Compose files that come with this program, the
 //! folder kkt manages for them, and the commands that set it up, start it,
-//! back it up, import and export its lanes, upgrade it and remove it. All of
+//! back it up, run kkt in it, upgrade it and remove it. All of
 //! it goes through the private runner, so it is tested against a fake host. A sharing setup's login link opens in
 //! the [`Browser`] it declares, which the program supplies.
 //!
@@ -15,7 +15,7 @@
 mod browser;
 mod compose;
 mod files;
-mod lanes;
+mod in_server;
 mod lifecycle;
 mod name_pack;
 mod provision;
@@ -33,25 +33,24 @@ use futures::future::LocalBoxFuture;
 use kkt_clock::Clock;
 use kkt_container::Container;
 use kkt_container::{
-    ADMIN_KEY_FILE_NAME as DOCKER_ADMIN_KEY_FILE_NAME, NO_ADMIN_KEY_EXIT,
-    WEB_KEY_FILE_NAME as DOCKER_WEB_KEY_FILE_NAME,
+    ConfigReader, Existing, Folder, InServer, Inputs, KeyCopies, KeyCopy, Login, LoginLink,
+    Provisioned, State,
 };
-use kkt_container::{
-    ConfigReader, Existing, Folder, Inputs, KeyCopy, LanesImport, Login, LoginLink, Provisioned,
-    State,
-};
-use kkt_names::AdminName;
 mod runner;
 #[cfg(test)]
 use files::env_text;
 use files::{ENV_FILE, docker_env, tailscale_auth_key, version_in_env};
+use in_server::{config_home_file, run_in_server};
 #[cfg(test)]
 use kkt_container::{ContainerConfig, Sharing as Tailscale};
-use lanes::{export_lanes, import_lanes, lane_limit};
 use lifecycle::{backup, compare_web_key, down, existing, status, up, upgrade};
 use runner::OsHost;
 
 use provision::{LinkAndBrowser, add_admin_key, provision};
+
+/// The exit code of `kkt key show --admin` when the server has no admin
+/// key.
+const NO_ADMIN_KEY_EXIT: i32 = 4;
 
 /// The exit code of a command given an option it does not know, as a kkt
 /// from before admin keys is given `kkt key show --admin`.
@@ -229,6 +228,8 @@ enum DockerError {
     StartTimeout,
     #[error("unexpected output from {what}: {detail}")]
     Unexpected { what: &'static str, detail: String },
+    #[error("{0} is not a plain path under the config home")]
+    NotPlain(String),
     /// The managed folder is there but lacks something setup writes, or has
     /// a setting setup does not write, said as "its ...".
     #[error("{0}")]
@@ -264,7 +265,7 @@ impl Container for Docker {
         login: &'a dyn LoginLink,
         folder: &'a Folder,
         inputs: &'a Inputs,
-        key_file: &'a Path,
+        keys: &'a KeyCopies,
     ) -> LocalBoxFuture<'a, Result<Provisioned, String>> {
         Box::pin(async move {
             provision(
@@ -277,7 +278,7 @@ impl Container for Docker {
                 },
                 folder,
                 inputs,
-                key_file,
+                keys,
             )
             .await
             .map_err(|e| e.to_string())
@@ -287,11 +288,11 @@ impl Container for Docker {
         &'a self,
         clock: &'a dyn Clock,
         folder: &'a Folder,
-        key_file: &'a Path,
-        name: &'a AdminName,
+        keys: &'a KeyCopies,
+        name: &'a str,
     ) -> LocalBoxFuture<'a, Result<PathBuf, String>> {
         Box::pin(async move {
-            add_admin_key(&OsHost, clock, Settings::DEFAULT, folder, key_file, name)
+            add_admin_key(&OsHost, clock, Settings::DEFAULT, folder, keys, name)
                 .await
                 .map_err(|e| e.to_string())
         })
@@ -301,8 +302,9 @@ impl Container for Docker {
         folder: &Folder,
         reader: &dyn ConfigReader,
         default_name_pack: &str,
+        config_file: &Path,
     ) -> Result<State, String> {
-        status(&OsHost, folder, reader, default_name_pack).map_err(|e| e.to_string())
+        status(&OsHost, folder, reader, default_name_pack, config_file).map_err(|e| e.to_string())
     }
     fn existing(&self, folder: &Folder) -> Result<Option<Existing>, String> {
         existing(&OsHost, folder).map_err(|e| e.to_string())
@@ -324,34 +326,19 @@ impl Container for Docker {
         clock: &'a dyn Clock,
         folder: &'a Folder,
         new_version: &'a str,
-        key_file: Option<&'a Path>,
+        keys: Option<&'a KeyCopies>,
     ) -> LocalBoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            upgrade(
-                &OsHost,
-                clock,
-                Settings::DEFAULT,
-                folder,
-                new_version,
-                key_file,
-            )
-            .await
-            .map_err(|e| e.to_string())
+            upgrade(&OsHost, clock, Settings::DEFAULT, folder, new_version, keys)
+                .await
+                .map_err(|e| e.to_string())
         })
     }
-    fn import_lanes(&self, folder: &Folder, import: &LanesImport) -> Result<String, String> {
-        import_lanes(&OsHost, folder, import).map_err(|e| e.to_string())
+    fn run_in_server(&self, folder: &Folder, command: &InServer<'_>) -> Result<String, String> {
+        run_in_server(&OsHost, folder, command).map_err(|e| e.to_string())
     }
-    fn export_lanes(&self, folder: &Folder, dest: &Path) -> Result<String, String> {
-        export_lanes(&OsHost, folder, dest).map_err(|e| e.to_string())
-    }
-    fn lane_limit(
-        &self,
-        folder: &Folder,
-        reader: &dyn ConfigReader,
-        default: usize,
-    ) -> Result<usize, String> {
-        lane_limit(&OsHost, folder, reader, default).map_err(|e| e.to_string())
+    fn config_home_file(&self, folder: &Folder, relative: &Path) -> Result<String, String> {
+        config_home_file(&OsHost, folder, relative).map_err(|e| e.to_string())
     }
     fn has_settings(&self, folder: &Folder) -> bool {
         has_settings(&OsHost, folder)

@@ -1,5 +1,6 @@
 //! In-memory installations for tests. No commands run and no files are read.
-//! Lane output and sharing keys are supplied explicitly by the test.
+//! What runs in the server print, the files under its config home and
+//! sharing keys are supplied explicitly by the test.
 
 use super::*;
 use std::cell::RefCell;
@@ -10,31 +11,61 @@ struct Install {
     running: bool,
 }
 
-/// Installations in memory, with a supplied sharing name and lane output.
-/// Backups use the fixed name `backup`; key comparisons return `Same`.
+/// A run in the server that [`Memory`] was asked for, as it was asked.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Run {
+    pub folder: Folder,
+    pub args: Vec<Arg>,
+    pub folder_prefix: String,
+    pub carry: Carry,
+}
+
+/// Installations in memory, with a supplied sharing name and the output of
+/// every run in the server. Backups use the fixed name `backup`; key
+/// comparisons return `Same`. A file under the config home is empty unless
+/// the test supplies it.
 pub struct Memory {
     node: Option<(String, String)>,
     installs: RefCell<BTreeMap<PathBuf, Install>>,
     keys: RefCell<BTreeMap<PathBuf, String>>,
+    config_files: RefCell<BTreeMap<PathBuf, String>>,
     calls: RefCell<Vec<&'static str>>,
-    lane_output: String,
+    runs: RefCell<Vec<Run>>,
+    read: RefCell<Vec<PathBuf>>,
+    run_output: String,
 }
 
 impl Memory {
-    pub fn new(node: Option<(String, String)>, lane_output: String) -> Self {
+    pub fn new(node: Option<(String, String)>, run_output: String) -> Self {
         Self {
             node,
             installs: RefCell::new(BTreeMap::new()),
             keys: RefCell::new(BTreeMap::new()),
+            config_files: RefCell::new(BTreeMap::new()),
             calls: RefCell::new(Vec::new()),
-            lane_output,
+            runs: RefCell::new(Vec::new()),
+            read: RefCell::new(Vec::new()),
+            run_output,
         }
     }
     pub fn set_sharing_key(&self, path: PathBuf, key: String) {
         self.keys.borrow_mut().insert(path, key);
     }
+    /// Gives every installation the file at `relative` under its config
+    /// home, with `text`.
+    pub fn set_config_home_file(&self, relative: PathBuf, text: String) {
+        self.config_files.borrow_mut().insert(relative, text);
+    }
     pub fn calls(&self) -> Vec<&'static str> {
         self.calls.borrow().clone()
+    }
+    /// The runs in the server asked for, in order.
+    pub fn runs(&self) -> Vec<Run> {
+        self.runs.borrow().clone()
+    }
+    /// The files under the config home asked for, in order.
+    pub fn config_home_reads(&self) -> Vec<PathBuf> {
+        self.read.borrow().clone()
     }
     fn note(&self, operation: &'static str) {
         self.calls.borrow_mut().push(operation);
@@ -59,7 +90,7 @@ impl Container for Memory {
         _: &'a dyn LoginLink,
         folder: &'a Folder,
         inputs: &'a Inputs,
-        _: &'a Path,
+        _: &'a KeyCopies,
     ) -> LocalBoxFuture<'a, Result<Provisioned, String>> {
         self.note("provision");
         Box::pin(async move {
@@ -86,17 +117,18 @@ impl Container for Memory {
         &'a self,
         _: &'a dyn Clock,
         folder: &'a Folder,
-        key_file: &'a Path,
-        _: &'a AdminName,
+        keys: &'a KeyCopies,
+        _: &'a str,
     ) -> LocalBoxFuture<'a, Result<PathBuf, String>> {
         self.note("add_admin_key");
-        Box::pin(async move { self.with(folder, |_| key_file.with_file_name(ADMIN_KEY_FILE_NAME)) })
+        Box::pin(async move { self.with(folder, |_| keys.admin.clone()) })
     }
     fn status(
         &self,
         folder: &Folder,
         _: &dyn ConfigReader,
         default_name_pack: &str,
+        _: &Path,
     ) -> Result<State, String> {
         self.note("status");
         Ok(match self.installs.borrow().get(folder.path()) {
@@ -156,7 +188,7 @@ impl Container for Memory {
         _: &'a dyn Clock,
         folder: &'a Folder,
         new_version: &'a str,
-        _: Option<&'a Path>,
+        _: Option<&'a KeyCopies>,
     ) -> LocalBoxFuture<'a, Result<(), String>> {
         self.note("upgrade");
         Box::pin(async move {
@@ -166,22 +198,27 @@ impl Container for Memory {
             })
         })
     }
-    fn import_lanes(&self, folder: &Folder, _: &LanesImport) -> Result<String, String> {
-        self.note("import_lanes");
-        self.with(folder, |_| self.lane_output.clone())
+    fn run_in_server(&self, folder: &Folder, command: &InServer<'_>) -> Result<String, String> {
+        self.note("run_in_server");
+        self.with(folder, |_| ())?;
+        self.runs.borrow_mut().push(Run {
+            folder: folder.clone(),
+            args: command.args.to_vec(),
+            folder_prefix: command.folder_prefix.into(),
+            carry: command.carry.clone(),
+        });
+        Ok(self.run_output.clone())
     }
-    fn export_lanes(&self, folder: &Folder, _: &Path) -> Result<String, String> {
-        self.note("export_lanes");
-        self.with(folder, |_| self.lane_output.clone())
-    }
-    fn lane_limit(
-        &self,
-        folder: &Folder,
-        _: &dyn ConfigReader,
-        default: usize,
-    ) -> Result<usize, String> {
-        self.note("lane_limit");
-        self.with(folder, |_| default)
+    fn config_home_file(&self, folder: &Folder, relative: &Path) -> Result<String, String> {
+        self.note("config_home_file");
+        self.with(folder, |_| ())?;
+        self.read.borrow_mut().push(relative.to_path_buf());
+        Ok(self
+            .config_files
+            .borrow()
+            .get(relative)
+            .cloned()
+            .unwrap_or_default())
     }
     fn has_settings(&self, folder: &Folder) -> bool {
         self.note("has_settings");
@@ -243,7 +280,11 @@ mod tests {
             );
             let one = Folder("/one".into());
             let two = Folder("/two".into());
-            let key = Path::new("/keys/access");
+            let key = &KeyCopies {
+                access: "/keys/access".into(),
+                web: "/keys/web".into(),
+                admin: "/keys/admin".into(),
+            };
             let inputs = Inputs {
                 version: "0.1.0".into(),
                 project: "kkt".into(),
@@ -263,17 +304,60 @@ mod tests {
                 .await
                 .unwrap();
             memory.down(&one, true).unwrap();
-            let stopped = memory.status(&one, &Unused, "plants").unwrap();
+            let stopped = memory
+                .status(&one, &Unused, "plants", Path::new("c"))
+                .unwrap();
             assert!(stopped.files_present && !stopped.running);
             assert!(memory.settings_file(&one));
-            assert!(memory.status(&two, &Unused, "plants").unwrap().running);
+            assert!(
+                memory
+                    .status(&two, &Unused, "plants", Path::new("c"))
+                    .unwrap()
+                    .running
+            );
             memory.upgrade(&Unused, &one, "0.2.0", None).await.unwrap();
             assert_eq!(memory.version(&one).unwrap(), "0.2.0");
             assert_eq!(memory.version(&two).unwrap(), "0.1.0");
-            assert_eq!(memory.lane_limit(&one, &Unused, 2048).unwrap(), 2048);
             assert_eq!(
-                memory.export_lanes(&one, Path::new("/export")).unwrap(),
+                memory
+                    .add_admin_key(&Unused, &one, key, "admin-a")
+                    .await
+                    .unwrap(),
+                PathBuf::from("/keys/admin")
+            );
+            let export = InServer {
+                args: &[Arg::Text("export".into()), Arg::Folder],
+                folder_prefix: "/tmp/out",
+                carry: Carry::Out("/export".into()),
+            };
+            assert_eq!(
+                memory.run_in_server(&one, &export).unwrap(),
                 "lanes transferred"
+            );
+            assert_eq!(
+                memory.runs(),
+                vec![Run {
+                    folder: one.clone(),
+                    args: vec![Arg::Text("export".into()), Arg::Folder],
+                    folder_prefix: "/tmp/out".into(),
+                    carry: Carry::Out("/export".into()),
+                }]
+            );
+            assert!(
+                memory
+                    .run_in_server(&Folder("/none".into()), &export)
+                    .is_err()
+            );
+            assert_eq!(memory.runs().len(), 1);
+            assert_eq!(memory.config_home_file(&one, Path::new("a/b")).unwrap(), "");
+            memory.set_config_home_file("a/b".into(), "said".into());
+            assert_eq!(
+                memory.config_home_file(&two, Path::new("a/b")).unwrap(),
+                "said"
+            );
+            assert_eq!(
+                memory.config_home_reads(),
+                vec![PathBuf::from("a/b"), PathBuf::from("a/b")]
             );
             memory.set_sharing_key("/keys/sharing".into(), "  secret\n".into());
             assert_eq!(
@@ -295,7 +379,10 @@ mod tests {
             assert_eq!(ready.node, Some(("shared".into(), "network".into())));
             assert_eq!(memory.existing(&shared).unwrap().unwrap().node, ready.node);
             assert_eq!(
-                memory.status(&shared, &Unused, "plants").unwrap().login,
+                memory
+                    .status(&shared, &Unused, "plants", Path::new("c"))
+                    .unwrap()
+                    .login,
                 Some(Login::LoggedIn)
             );
             assert!(memory.calls().contains(&"upgrade"));

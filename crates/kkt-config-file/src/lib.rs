@@ -43,7 +43,13 @@ pub fn config_dir(config_home: Option<&Path>) -> Option<PathBuf> {
 /// The config file `kkt serve` reads when it exists and no `--config` is
 /// given.
 pub fn config_file(config_home: Option<&Path>) -> Option<PathBuf> {
-    Some(config_dir(config_home)?.join(CONFIG_FILE_NAME))
+    Some(config_home?.join(config_file_in_home()))
+}
+
+/// Where [`config_file`] is, relative to the config home: for asking
+/// another place, such as a container, for its config file.
+pub fn config_file_in_home() -> PathBuf {
+    Path::new(CONFIG_DIR).join(CONFIG_FILE_NAME)
 }
 
 /// Why a config file's text could not be read as a config file: the setting
@@ -484,5 +490,6 @@ mod tests {
         );
         assert_eq!(config_dir(None), None);
         assert_eq!(config_file(None), None);
+        assert_eq!(config_file_in_home(), PathBuf::from("kkt/config.toml"));
     }
 }
