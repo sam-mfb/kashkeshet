@@ -61,7 +61,7 @@
   },
   "kkt-keymode": {
    "layer": "programs",
-   "concern": "A second program that assembles a key-mode server from the shared crates alone. The HTTP end-to-end tests run against it. For development only.",
+   "concern": "A second program that assembles a key-mode server from the shared crates alone. For development only.",
    "kind": "composition"
   },
   "kkt-fake-product": {
@@ -156,7 +156,7 @@
   },
   "kkt-db-sqlite": {
    "layer": "data",
-   "concern": "Implements kkt-db's `Backend` over SQLite, in a file or in memory. It also adopts a database in an older layout and copies a database for backups.",
+   "concern": "Implements kkt-db's `Backend` over SQLite, in a file or in memory. It also adopts a database in an older layout and copies a database.",
    "kind": "effect"
   },
   "kkt-config-file": {
@@ -216,7 +216,7 @@
   },
   "kkt-diagnostics": {
    "layer": "operations",
-   "concern": "The checks `kkt doctor` runs and their plan, and setup's wait for a new server. It probes through a `Prober` it declares.",
+   "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It probes through a `Prober` it declares.",
    "kind": "logic"
   },
   "kkt-probe": {
@@ -361,7 +361,7 @@
   },
   "kkt-api-sim": {
    "layer": "dev",
-   "concern": "A simulated application over a world made from a seed: it implements the agent and operator API contracts the web page uses, with a stand-in for the page's gate.",
+   "concern": "A simulated application over a world made from a seed: it implements the agent and operator API contracts and kkt-web's `Gate`.",
    "kind": "test support"
   },
   "kkt-clock-system": {

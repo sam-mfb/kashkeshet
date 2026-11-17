@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "d550b33b",
+ "commit": "ab43c27e",
  "crates": [
   {
    "bins": [
@@ -26524,7 +26524,7 @@ window.KKT_CONCERNS = {
    "layer": "core"
   },
   "kkt-api-sim": {
-   "concern": "A simulated application over a world made from a seed: it implements the agent and operator API contracts the web page uses, with a stand-in for the page's gate.",
+   "concern": "A simulated application over a world made from a seed: it implements the agent and operator API contracts and kkt-web's `Gate`.",
    "kind": "test support",
    "layer": "dev"
   },
@@ -26574,12 +26574,12 @@ window.KKT_CONCERNS = {
    "layer": "data"
   },
   "kkt-db-sqlite": {
-   "concern": "Implements kkt-db's `Backend` over SQLite, in a file or in memory. It also adopts a database in an older layout and copies a database for backups.",
+   "concern": "Implements kkt-db's `Backend` over SQLite, in a file or in memory. It also adopts a database in an older layout and copies a database.",
    "kind": "effect",
    "layer": "data"
   },
   "kkt-diagnostics": {
-   "concern": "The checks `kkt doctor` runs and their plan, and setup's wait for a new server. It probes through a `Prober` it declares.",
+   "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It probes through a `Prober` it declares.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -26629,7 +26629,7 @@ window.KKT_CONCERNS = {
    "layer": "access"
   },
   "kkt-keymode": {
-   "concern": "A second program that assembles a key-mode server from the shared crates alone. The HTTP end-to-end tests run against it. For development only.",
+   "concern": "A second program that assembles a key-mode server from the shared crates alone. For development only.",
    "kind": "composition",
    "layer": "programs"
   },

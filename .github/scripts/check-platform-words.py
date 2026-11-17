@@ -8,10 +8,9 @@ public item. Comments, doc comments and crate names in paths are not read.
 Tests are left out: files named tests.rs, folders named tests, and modules
 under `#[cfg(test)]`.
 
-It also reads the crate descriptions concerns.json gives the map (Sam, msg
-3766): a platform crate's must not say kkt or kashkeshet, other crates'
-names included, and no crate's may carry the plainest marks of history
-(HISTORY).
+It also reads the crate descriptions concerns.json gives the map: a
+platform crate's must not say kkt or kashkeshet, other crates' names
+included, and no crate's may carry the plainest marks of history (HISTORY).
 
 Usage: check-platform-words.py [ROOT]   (the workspace root; default: here)
 Tested by test_check_platform_words.py.
