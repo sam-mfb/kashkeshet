@@ -455,7 +455,7 @@
      "note": "the program's own work"
     },
     {
-     "impl": "kkt-service-launchd::Launchd",
+     "impl": "kkt-bare-service-launchd::Launchd",
      "crate": "kkt-install-commands",
      "to": [
       {
@@ -470,7 +470,7 @@
      "note": "On macOS: the program picks the service manager by platform and injects it directly."
     },
     {
-     "impl": "kkt-service-systemd::Systemd",
+     "impl": "kkt-bare-service-systemd::Systemd",
      "crate": "kkt-install-commands",
      "to": [
       {
@@ -485,7 +485,7 @@
      "note": "On Linux."
     },
     {
-     "impl": "kkt-service::Unsupported",
+     "impl": "kkt-bare-service::Unsupported",
      "crate": "kkt-install-commands",
      "to": [
       {
@@ -2305,7 +2305,7 @@
     },
     {
      "passes_on": "the bind check the program gave InstallParts",
-     "crate": "kkt-service",
+     "crate": "kkt-bare-service",
      "to": [
       {
        "at": "check_bind",

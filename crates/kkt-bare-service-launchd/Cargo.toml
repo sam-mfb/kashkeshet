@@ -1,6 +1,6 @@
 [package]
-name = "kkt-service-systemd"
-description = "kkt's service as a systemd user unit on Linux"
+name = "kkt-bare-service-launchd"
+description = "Running kkt's server directly on the machine as a launchd user agent on macOS"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,8 +9,7 @@ publish = false
 
 [dependencies]
 kkt-clock = { path = "../kkt-clock" }
-kkt-service = { path = "../kkt-service" }
+kkt-bare-service = { path = "../kkt-bare-service" }
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-scratch = { path = "../kkt-scratch" }

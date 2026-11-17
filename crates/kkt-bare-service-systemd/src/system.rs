@@ -3,7 +3,7 @@
 //! dry run that writes changes down, and the ways a command's failure is
 //! said. Tests replace the system with a fake and never start a service.
 
-use kkt_service::ServiceError;
+use kkt_bare_service::ServiceError;
 use std::cell::RefCell;
 use std::fmt;
 use std::io;
@@ -13,8 +13,6 @@ use std::process::Stdio;
 /// The files and commands the service manager is worked through: the real
 /// system ([`OsSystem`]), a dry run ([`DryRun`]), or a test's fake.
 pub(crate) trait System {
-    /// The user's numeric ID, which names their launchd domain.
-    fn user_id(&self) -> io::Result<u32>;
     /// Whether `path` is there: `Ok(false)` only when it is not, and an
     /// error when that can't be told, such as when a folder above it can't
     /// be read.
@@ -87,26 +85,12 @@ impl Finished {
     pub(crate) fn success(&self) -> bool {
         self.code == Some(0)
     }
-
-    /// Whether the command said `text`, in either stream.
-    pub(crate) fn said(&self, text: &str) -> bool {
-        self.stdout.contains(text) || self.stderr.contains(text)
-    }
 }
 
 /// The real system: files on disk and real commands.
 pub(crate) struct OsSystem;
 
 impl System for OsSystem {
-    fn user_id(&self) -> io::Result<u32> {
-        let finished = self.run(&Command::query("id", &["-u"]))?;
-        finished
-            .stdout
-            .trim()
-            .parse()
-            .map_err(|_| io::Error::other(format!("id -u printed {:?}", finished.stdout)))
-    }
-
     fn exists(&self, path: &Path) -> io::Result<bool> {
         path.try_exists()
     }
@@ -179,10 +163,6 @@ impl<'a> DryRun<'a> {
 }
 
 impl System for DryRun<'_> {
-    fn user_id(&self) -> io::Result<u32> {
-        self.real.user_id()
-    }
-
     fn exists(&self, path: &Path) -> io::Result<bool> {
         self.real.exists(path)
     }
