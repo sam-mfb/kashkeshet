@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "ae753cba",
+ "commit": "76e2a05f",
  "crates": [
   {
    "bins": [
@@ -4699,7 +4699,6 @@ window.KKT_GRAPH = {
      "doc": "The questions and changes a store makes, on one connection.",
      "kind": "struct",
      "methods": [
-      "backend",
       "count",
       "delete",
       "first",
@@ -4707,7 +4706,6 @@ window.KKT_GRAPH = {
       "insert",
       "insert_unless_present",
       "save",
-      "schema",
       "search",
       "select",
       "update"

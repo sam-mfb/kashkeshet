@@ -276,6 +276,46 @@ mod tests {
     }
 
     #[test]
+    fn a_searchable_column_with_a_default_is_refused() {
+        let schema = |steps: Vec<Step>| {
+            Schema::latest(&[Set {
+                name: "core",
+                migrations: vec![steps],
+            }])
+        };
+        let noted =
+            |text: Column| Table::new("notes", vec![Column::text("name"), text], vec!["name"]);
+        let searchable = || Step::AddSearch {
+            table: "notes",
+            column: "text",
+        };
+        // A table that declares the column with a default and makes it
+        // searchable.
+        let mut declared = noted(Column::text("text").default("none"));
+        declared.search = Some("text");
+        assert!(matches!(
+            schema(vec![Step::AddTable(declared)]),
+            Err(DbError::Schema(e)) if e.contains("has a default, so cannot be searched")
+        ));
+        // A column that already has a default, made searchable later.
+        assert!(matches!(
+            schema(vec![
+                Step::AddTable(noted(Column::text("text").default("none"))),
+                searchable(),
+            ]),
+            Err(DbError::Schema(e)) if e.contains("has a default, so cannot be searched")
+        ));
+        // The same column with no default is searchable.
+        assert!(
+            schema(vec![
+                Step::AddTable(noted(Column::text("text"))),
+                searchable()
+            ])
+            .is_ok()
+        );
+    }
+
+    #[test]
     fn a_step_that_cannot_hold_is_refused() {
         let refused = |steps: Vec<Step>| {
             let set = Set {
