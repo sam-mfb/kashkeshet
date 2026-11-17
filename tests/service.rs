@@ -1,9 +1,12 @@
 //! `kkt service install --dry-run` with the real binary: what the service
-//! would run, worked out from a temporary home, with nothing changed. The
-//! other service commands are tested against a fake system in each service
-//! manager's wrapper (`crates/kkt-service-launchd/src/tests.rs` and
-//! `crates/kkt-service-systemd/src/tests.rs`), so no test here starts a
-//! real service.
+//! would run, worked out from a temporary home, with nothing changed. Every
+//! run here has only a fake `launchctl`, `systemctl` and `id` on its PATH,
+//! answering as a machine with no kkt service, so no test asks the real
+//! service manager anything: the answers are the same on every machine,
+//! with or without a login session or an installed kkt. The other service
+//! commands are tested against a fake system in each service manager's
+//! wrapper (`crates/kkt-service-launchd/src/tests.rs` and
+//! `crates/kkt-service-systemd/src/tests.rs`).
 #![cfg(any(target_os = "macos", target_os = "linux"))]
 
 #[path = "common/home.rs"]
@@ -33,6 +36,7 @@ async fn kkt(home: &Path, args: &[&str]) -> Output {
     let run = Command::new(KKT)
         .args(args)
         .own_home(home)
+        .env("PATH", fake_service_manager(home))
         .kill_on_drop(true)
         .output();
     tokio::time::timeout(TIMEOUT, run)
@@ -131,6 +135,17 @@ async fn a_dry_run_shows_absolute_paths_and_changes_nothing() {
     assert!(!key.exists());
     assert!(!service_file(&home).exists());
     assert!(!default_db(&home).parent().expect("db dir").exists());
+    // On macOS the dry run asks launchd whether the service is loaded: the
+    // fake answered, so the real launchd, and any kkt installed on this
+    // machine, played no part.
+    if cfg!(target_os = "macos") {
+        let calls = std::fs::read_to_string(home.join("service-calls.log")).unwrap_or_default();
+        assert!(
+            calls.contains("launchctl print gui/501/com.sam-mfb.kashkeshet"),
+            "{calls}"
+        );
+        assert!(calls.contains("id -u"), "{calls}");
+    }
 }
 
 #[tokio::test]
@@ -167,6 +182,7 @@ async fn relative_flags_become_absolute() {
         .args(["service", "install", "--dry-run", "--db", "data/chat.db"])
         .current_dir(&home)
         .own_home(&home)
+        .env("PATH", fake_service_manager(&home))
         .output()
         .await
         .expect("run kkt");
@@ -300,17 +316,38 @@ async fn a_bad_existing_web_key_is_checked_even_when_the_access_key_is_new() {
     assert!(!keys.join("access-key").exists());
 }
 
+/// The fake service manager of [`service_manager`] in `home`, logging to
+/// `service-calls.log` there: the PATH a test's `kkt` runs with.
+fn fake_service_manager(home: &Path) -> PathBuf {
+    service_manager(home, &home.join("service-calls.log"))
+}
+
 /// A `bin` folder in `scratch` with a fake launchd and systemd that log
-/// each call to `calls` and succeed, so no test starts a real service.
+/// each call to `calls` and answer as a machine with no kkt service:
+/// `launchctl print` finds no service (exit 113, as launchd says it),
+/// `systemctl is-active` says inactive (exit 3), `id -u` gives a user ID,
+/// and every other call succeeds. So no test asks the real service
+/// manager anything, or starts a real service.
 fn service_manager(scratch: &Path, calls: &Path) -> PathBuf {
     let bin = scratch.join("bin");
     std::fs::create_dir_all(&bin).expect("bin");
-    for name in ["launchctl", "systemctl", "id"] {
+    let answers = [
+        (
+            "launchctl",
+            "if [ \"$1\" = print ]; then echo \"Could not find service \\\"$2\\\"\" >&2; exit 113; fi",
+        ),
+        (
+            "systemctl",
+            "case \" $* \" in *\" is-active \"*) echo inactive; exit 3;; esac",
+        ),
+        ("id", "if [ \"$1\" = -u ]; then echo 501; fi"),
+    ];
+    for (name, answer) in answers {
         let path = bin.join(name);
         let log = calls.display();
         std::fs::write(
             &path,
-            format!("#!/bin/sh\necho \"{name} $*\" >> '{log}'\nexit 0\n"),
+            format!("#!/bin/sh\necho \"{name} $*\" >> '{log}'\n{answer}\nexit 0\n"),
         )
         .expect("script");
         use std::os::unix::fs::PermissionsExt;
