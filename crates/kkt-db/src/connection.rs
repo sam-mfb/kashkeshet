@@ -81,11 +81,13 @@ pub struct Connection<'a> {
 impl<'a> Connection<'a> {
     /// The backend's side of this connection, for a wrapper that passes
     /// its operations on (as [`crate::testing`]'s faulty backend does).
+    #[cfg(any(test, feature = "testing"))]
     pub(crate) fn backend(&self) -> &'a dyn BackendConnection {
         self.backend
     }
 
     /// The schema this connection works with.
+    #[cfg(any(test, feature = "testing"))]
     pub(crate) fn schema(&self) -> &'a Schema {
         self.schema
     }

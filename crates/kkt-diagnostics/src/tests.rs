@@ -13,18 +13,22 @@ use std::sync::Mutex;
 use std::task::{Context, Poll, Waker};
 use std::time::Duration;
 
+/// What one server answers: a GET, then an `initialize`.
+type Server = (Answered, Initialized);
+
 /// A [`Prober`] that answers from fixed values and notes each probe.
 struct FakeProber {
     /// Each key file there is; any other path cannot be looked at.
     keys: HashMap<PathBuf, KeyFile>,
-    /// What each probe returns, in turn; the last one repeats.
-    answers: Vec<Result<Vec<Check>, String>>,
-    /// The URL and key of each probe made.
+    /// What each probe finds, in turn; the last one repeats.
+    answers: Vec<Result<Server, Unprobed>>,
+    /// The URL and key of each probe made: the key is the one its
+    /// `initialize` was given, if it got that far.
     probes: Mutex<Vec<(String, Option<String>)>>,
 }
 
 impl FakeProber {
-    fn answering(answers: Vec<Result<Vec<Check>, String>>) -> FakeProber {
+    fn answering(answers: Vec<Result<Server, Unprobed>>) -> FakeProber {
         FakeProber {
             keys: HashMap::new(),
             answers,
@@ -50,11 +54,23 @@ impl Prober for FakeProber {
             .ok_or_else(|| "No such file or directory".to_string())
     }
 
-    fn probe<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a> {
+    fn answer<'a>(&'a self, url: &'a str) -> Probing<'a, Answered> {
         let mut probes = self.probes.lock().unwrap();
-        probes.push((url.to_string(), key.map(str::to_string)));
+        probes.push((url.to_string(), None));
         let turn = (probes.len() - 1).min(self.answers.len() - 1);
-        let answer = self.answers[turn].clone();
+        let answer = self.answers[turn].clone().map(|(answered, _)| answered);
+        Box::pin(async move { answer })
+    }
+
+    fn initialize<'a>(&'a self, _: &'a str, key: Option<&'a str>) -> Probing<'a, Initialized> {
+        let mut probes = self.probes.lock().unwrap();
+        let turn = (probes.len() - 1).min(self.answers.len() - 1);
+        if let Some(last) = probes.last_mut() {
+            last.1 = key.map(str::to_string);
+        }
+        let answer = self.answers[turn]
+            .clone()
+            .map(|(_, initialized)| initialized);
         Box::pin(async move { answer })
     }
 }
@@ -79,16 +95,49 @@ fn key(mode: Option<u32>, text: Result<String, String>) -> KeyFile {
     KeyFile { mode, text }
 }
 
-/// A server that answers and accepts the key.
+fn status(code: u16, reason: &str) -> Status {
+    Status {
+        code,
+        reason: Some(reason.into()),
+    }
+}
+
+/// A server that answers and accepts the key, and gives its version.
+fn up() -> Server {
+    (
+        Ok(status(200, "OK")),
+        Initialized::Replied {
+            reply: Ok(Reply::ServerInfo {
+                name: Some("kashkeshet".into()),
+                version: Some("1.2.3".into()),
+            }),
+            cleanup: Some(Ok(status(200, "OK"))),
+        },
+    )
+}
+
+/// A server that does not answer.
+fn down() -> Server {
+    (
+        Err("connection refused".into()),
+        Initialized::Failed("connection refused".into()),
+    )
+}
+
+/// The checks of [`up`].
 fn answering() -> Vec<Check> {
     vec![
         Check::ok(SERVER_CHECK, "reachable at http://127.0.0.1:8080/mcp"),
         Check::ok("Host", "accepted"),
         Check::ok(KEY_CHECK, "MCP initialize returned 200"),
+        Check::ok(
+            "server build",
+            "version 1.2.3; commit is not exposed by MCP (see the web page's server runs)",
+        ),
     ]
 }
 
-/// A server that does not answer.
+/// The checks of [`down`].
 fn silent() -> Vec<Check> {
     vec![Check::problem(
         SERVER_CHECK,
@@ -110,7 +159,7 @@ fn shell_word_quotes_text_for_fix_text() {
 
 #[test]
 fn inspect_checks_the_key_file_then_probes_with_its_key() {
-    let prober = FakeProber::answering(vec![Ok(answering())]).with_key(
+    let prober = FakeProber::answering(vec![Ok(up())]).with_key(
         "/keys/key",
         key(Some(0o600), Ok(format!("{}\n", valid_key()))),
     );
@@ -127,7 +176,7 @@ fn inspect_checks_the_key_file_then_probes_with_its_key() {
 
 #[test]
 fn inspect_without_a_key_file_says_so_and_probes_without_a_key() {
-    let prober = FakeProber::answering(vec![Ok(answering())]);
+    let prober = FakeProber::answering(vec![Ok(up())]);
     let checks = at_once(Inspector::new(&prober).server(URL, None)).unwrap();
     assert_eq!(checks[0], Check::ok("key", "disabled in the serve config"));
     assert_eq!(checks[1..], answering());
@@ -136,7 +185,7 @@ fn inspect_without_a_key_file_says_so_and_probes_without_a_key() {
 
 #[test]
 fn a_key_file_that_cannot_be_looked_at_is_a_problem_and_the_probe_has_no_key() {
-    let prober = FakeProber::answering(vec![Ok(answering())]);
+    let prober = FakeProber::answering(vec![Ok(up())]);
     let checks =
         at_once(Inspector::new(&prober).server(URL, Some(Path::new("/keys/missing")))).unwrap();
     assert_eq!(
@@ -153,7 +202,7 @@ fn a_key_file_that_cannot_be_looked_at_is_a_problem_and_the_probe_has_no_key() {
 
 #[test]
 fn key_permissions_are_checked_only_where_the_system_has_them() {
-    let prober = FakeProber::answering(vec![Ok(answering())])
+    let prober = FakeProber::answering(vec![Ok(up())])
         .with_key("/my keys/key", key(Some(0o644), Ok(valid_key())))
         .with_key("/keys/no-mode", key(None, Ok(valid_key())));
     let inspector = Inspector::new(&prober);
@@ -174,7 +223,7 @@ fn key_permissions_are_checked_only_where_the_system_has_them() {
 
 #[test]
 fn key_contents_that_are_unreadable_or_invalid_are_problems() {
-    let prober = FakeProber::answering(vec![Ok(answering())])
+    let prober = FakeProber::answering(vec![Ok(up())])
         .with_key("/keys/unreadable", key(Some(0o600), Err("denied".into())))
         .with_key("/keys/empty", key(Some(0o600), Ok("\n".into())));
     let checks = Inspector::new(&prober).admin_key(Path::new("/keys/unreadable"), "fix it");
@@ -199,15 +248,19 @@ fn key_contents_that_are_unreadable_or_invalid_are_problems() {
 
 #[test]
 fn inspect_address_leaves_out_whether_the_key_was_accepted() {
-    let prober = FakeProber::answering(vec![Ok(answering())]);
+    let prober = FakeProber::answering(vec![Ok(up())]);
     let checks = at_once(Inspector::new(&prober).address(URL)).unwrap();
-    assert_eq!(checks, answering()[..2]);
+    let without_the_key: Vec<Check> = answering()
+        .into_iter()
+        .filter(|check| check.name != KEY_CHECK)
+        .collect();
+    assert_eq!(checks, without_the_key);
     assert_eq!(prober.probes(), [(URL.to_string(), None)]);
 }
 
 #[test]
 fn inspect_with_key_probes_with_the_key_given() {
-    let prober = FakeProber::answering(vec![Ok(answering())]);
+    let prober = FakeProber::answering(vec![Ok(up())]);
     let checks = at_once(Inspector::new(&prober).server_with_key(URL, Some("typed"))).unwrap();
     assert_eq!(checks, answering());
     assert_eq!(prober.probes(), [(URL.to_string(), Some("typed".into()))]);
@@ -215,7 +268,7 @@ fn inspect_with_key_probes_with_the_key_given() {
 
 #[test]
 fn a_probe_that_cannot_be_made_is_an_error() {
-    let prober = FakeProber::answering(vec![Err("invalid diagnostic URL".into())]);
+    let prober = FakeProber::answering(vec![Err(Unprobed::BadUrl)]);
     assert_eq!(
         at_once(Inspector::new(&prober).server("nonsense", None)).unwrap_err(),
         "invalid diagnostic URL"
@@ -227,7 +280,7 @@ fn a_probe_that_cannot_be_made_is_an_error() {
 // Doctor's plan.
 
 /// The server lines a probe of `answer` makes, with no key file.
-fn server_lines(answer: Vec<Check>) -> ServerLines {
+fn server_lines(answer: Server) -> ServerLines {
     let prober = FakeProber::answering(vec![Ok(answer)]);
     at_once(ServerLines::inspect(Inspector::new(&prober), URL, None)).unwrap()
 }
@@ -238,7 +291,7 @@ fn line(name: &'static str) -> Check {
 
 /// A machine with a valid web key and admin key.
 fn with_keys() -> FakeProber {
-    FakeProber::answering(vec![Ok(answering())])
+    FakeProber::answering(vec![Ok(up())])
         .with_key("/keys/web", key(Some(0o600), Ok(valid_key())))
         .with_key("/keys/admin", key(Some(0o600), Ok(valid_key())))
 }
@@ -251,7 +304,7 @@ fn names(checks: &[Check]) -> Vec<&'static str> {
 fn the_plan_puts_the_server_then_the_keys_then_this_machine_then_setup() {
     let prober = with_keys();
     let plan = Plan {
-        server: server_lines(answering()),
+        server: server_lines(up()),
         server_fix: None,
         web_key: Some(KeyToCheck {
             path: Path::new("/keys/web"),
@@ -276,6 +329,7 @@ fn the_plan_puts_the_server_then_the_keys_then_this_machine_then_setup() {
             SERVER_CHECK,
             "Host",
             KEY_CHECK,
+            "server build",
             "web key file",
             "web key permissions",
             "admin key file",
@@ -293,7 +347,7 @@ fn the_plan_puts_the_server_then_the_keys_then_this_machine_then_setup() {
 fn each_machine_line_the_program_supplies_appears_only_when_given() {
     let prober = with_keys();
     let plan = |machine| Plan {
-        server: server_lines(answering()),
+        server: server_lines(up()),
         server_fix: None,
         web_key: None,
         admin_key: None,
@@ -301,7 +355,7 @@ fn each_machine_line_the_program_supplies_appears_only_when_given() {
         unfinished: Ok(None),
         unrecorded: None,
     };
-    let server = ["key", SERVER_CHECK, "Host", KEY_CHECK];
+    let server = ["key", SERVER_CHECK, "Host", KEY_CHECK, "server build"];
     let checks = plan(ThisMachine::Elsewhere).checks(Inspector::new(&prober));
     assert_eq!(names(&checks), server);
     let checks = plan(ThisMachine::Service(line("service"))).checks(Inspector::new(&prober));
@@ -333,7 +387,7 @@ fn each_machine_line_the_program_supplies_appears_only_when_given() {
 fn an_unfinished_setup_is_a_problem_and_so_is_one_that_cannot_be_read() {
     let prober = with_keys();
     let plan = |unfinished, unrecorded| Plan {
-        server: server_lines(answering()),
+        server: server_lines(up()),
         server_fix: None,
         web_key: None,
         admin_key: None,
@@ -362,7 +416,7 @@ fn an_unfinished_setup_is_a_problem_and_so_is_one_that_cannot_be_read() {
     let unrecorded = Check::ok(SETUP_CHECK, "found a service");
     let checks = plan(Ok(None), Some(unrecorded.clone())).checks(Inspector::new(&prober));
     assert_eq!(checks.last(), Some(&unrecorded));
-    assert_eq!(checks.len(), 5);
+    assert_eq!(checks.len(), 6);
 }
 
 #[test]
@@ -377,11 +431,11 @@ fn the_server_fix_replaces_only_a_failed_server_lines_fix() {
         unfinished: Ok(None),
         unrecorded: None,
     };
-    let checks = plan(silent(), Some("start Docker".into())).checks(Inspector::new(&prober));
+    let checks = plan(down(), Some("start Docker".into())).checks(Inspector::new(&prober));
     assert_eq!(checks[1].fix.as_deref(), Some("start Docker"));
-    let checks = plan(silent(), None).checks(Inspector::new(&prober));
+    let checks = plan(down(), None).checks(Inspector::new(&prober));
     assert_eq!(checks[1], silent()[0]);
-    let checks = plan(answering(), Some("start Docker".into())).checks(Inspector::new(&prober));
+    let checks = plan(up(), Some("start Docker".into())).checks(Inspector::new(&prober));
     assert!(checks.iter().all(|check| check.fix.is_none()));
 }
 
@@ -444,7 +498,7 @@ fn setup_waits_for_a_new_server_and_not_for_one_elsewhere() {
 #[test]
 fn a_server_that_answers_at_once_is_not_waited_for() {
     let clock = clock();
-    let prober = FakeProber::answering(vec![Ok(answering())]);
+    let prober = FakeProber::answering(vec![Ok(up())]);
     let mut said = 0;
     let checks = at_once(until_reachable(
         Inspector::new(&prober),
@@ -463,7 +517,7 @@ fn a_server_that_answers_at_once_is_not_waited_for() {
 #[test]
 fn a_server_that_answers_after_some_tries_is_tried_every_step_until_it_does() {
     let clock = clock();
-    let prober = FakeProber::answering(vec![Ok(silent()), Ok(silent()), Ok(answering())]);
+    let prober = FakeProber::answering(vec![Ok(down()), Ok(down()), Ok(up())]);
     let said = Cell::new(0);
     let mut waiting = || said.set(said.get() + 1);
     let mut future = std::pin::pin!(until_reachable(
@@ -495,7 +549,7 @@ fn a_server_that_answers_after_some_tries_is_tried_every_step_until_it_does() {
 #[test]
 fn a_server_that_never_answers_is_tried_until_the_wait_is_up() {
     let clock = clock();
-    let prober = FakeProber::answering(vec![Ok(silent())]);
+    let prober = FakeProber::answering(vec![Ok(down())]);
     let said = Cell::new(0);
     let mut waiting = || said.set(said.get() + 1);
     let mut future = std::pin::pin!(until_reachable(
@@ -523,7 +577,7 @@ fn a_server_that_never_answers_is_tried_until_the_wait_is_up() {
 #[test]
 fn a_server_elsewhere_that_does_not_answer_is_tried_once() {
     let clock = clock();
-    let prober = FakeProber::answering(vec![Ok(silent())]);
+    let prober = FakeProber::answering(vec![Ok(down())]);
     let mut said = 0;
     let checks = at_once(until_reachable(
         Inspector::new(&prober),
@@ -542,7 +596,7 @@ fn a_server_elsewhere_that_does_not_answer_is_tried_once() {
 #[test]
 fn a_probe_that_cannot_be_made_while_waiting_ends_the_wait() {
     let clock = clock();
-    let prober = FakeProber::answering(vec![Ok(silent()), Err("invalid diagnostic URL".into())]);
+    let prober = FakeProber::answering(vec![Ok(down()), Err(Unprobed::BadUrl)]);
     let mut waiting = || {};
     let mut future = std::pin::pin!(until_reachable(
         Inspector::new(&prober),
@@ -557,5 +611,227 @@ fn a_probe_that_cannot_be_made_while_waiting_ends_the_wait() {
     assert_eq!(
         poll(future.as_mut()),
         Poll::Ready(Err("invalid diagnostic URL".to_string()))
+    );
+}
+
+// The server checks, from each fact a probe can report. The details and
+// fixes are those `kkt doctor` has always printed.
+
+/// The checks of a server at [`URL`] answering as `server` does, with a key.
+fn checks_of(server: Server) -> Vec<Check> {
+    let prober = FakeProber::answering(vec![Ok(server)]);
+    at_once(Inspector::new(&prober).server_with_key(URL, Some("k"))).unwrap()
+}
+
+fn replied(
+    reply: Result<Reply, ReplyError>,
+    cleanup: Option<Result<Status, String>>,
+) -> Initialized {
+    Initialized::Replied { reply, cleanup }
+}
+
+const REACHABLE: &str = "reachable at http://127.0.0.1:8080/mcp";
+
+#[test]
+fn a_server_that_refuses_its_host_name_stops_the_checks() {
+    assert_eq!(
+        checks_of((
+            Ok(status(403, "Forbidden")),
+            Initialized::Failed("unused".into())
+        )),
+        [
+            Check::ok(SERVER_CHECK, REACHABLE),
+            Check::problem(
+                "Host",
+                "the server refused this host name",
+                "add \"127.0.0.1\" to allow_hosts in the serve config, then restart"
+            ),
+        ]
+    );
+}
+
+#[test]
+fn an_initialize_that_fails_or_is_refused_is_a_problem() {
+    let host_ok = || {
+        vec![
+            Check::ok(SERVER_CHECK, REACHABLE),
+            Check::ok("Host", "accepted"),
+        ]
+    };
+    let with = |last: Check| {
+        let mut checks = host_ok();
+        checks.push(last);
+        checks
+    };
+    let ok = || Ok(status(200, "OK"));
+    assert_eq!(
+        checks_of((ok(), Initialized::Failed("connection reset".into()))),
+        with(Check::problem(
+            "MCP",
+            "connection reset",
+            "check the MCP URL and server logs"
+        ))
+    );
+    assert_eq!(
+        checks_of((ok(), Initialized::Refused(status(401, "Unauthorized")))),
+        with(Check::problem(
+            KEY_CHECK,
+            "server returned 401",
+            "pass --key-file with the key used by the running server, or restart it after changing keys"
+        ))
+    );
+    assert_eq!(
+        checks_of((ok(), Initialized::Refused(status(404, "Not Found")))),
+        with(Check::problem(
+            "MCP",
+            "server returned 404 Not Found",
+            "check that --url points at the server's /mcp endpoint"
+        ))
+    );
+    let odd = Status {
+        code: 599,
+        reason: None,
+    };
+    assert_eq!(
+        checks_of((ok(), Initialized::Refused(odd))),
+        with(Check::problem(
+            "MCP",
+            "server returned 599 <unknown status code>",
+            "check that --url points at the server's /mcp endpoint"
+        ))
+    );
+}
+
+#[test]
+fn a_reply_without_a_result_or_server_info_is_a_problem() {
+    let ok = || Ok(status(200, "OK"));
+    let last = |initialized: Initialized| checks_of((ok(), initialized)).pop().unwrap();
+    for (error, detail) in [
+        (
+            ReplyError::TooLarge,
+            "MCP response exceeded the diagnostic size limit",
+        ),
+        (
+            ReplyError::NoResult,
+            "the endpoint did not return an MCP initialize result",
+        ),
+        (
+            ReplyError::Read("stream ended".into()),
+            "could not read MCP response: stream ended",
+        ),
+    ] {
+        assert_eq!(
+            last(replied(Err(error), None)),
+            Check::problem("MCP", detail, "check --url and the server logs")
+        );
+    }
+    assert_eq!(
+        last(replied(Ok(Reply::NoServerInfo), None)),
+        Check::problem(
+            "MCP",
+            "initialize did not return serverInfo",
+            "check --url and the server's MCP implementation"
+        )
+    );
+    let unversioned = Reply::ServerInfo {
+        name: None,
+        version: None,
+    };
+    assert_eq!(
+        last(replied(Ok(unversioned), None)),
+        Check::ok(
+            "server build",
+            "version not reported; commit is not exposed by MCP (see the web page's server runs)"
+        )
+    );
+}
+
+#[test]
+fn a_session_that_does_not_close_is_a_problem_before_the_reply_checks() {
+    let ok = || Ok(status(200, "OK"));
+    let info = || {
+        Ok(Reply::ServerInfo {
+            name: None,
+            version: Some("1.2.3".into()),
+        })
+    };
+    let cleanup = |checks: Vec<Check>| checks[2].clone();
+    assert_eq!(
+        cleanup(checks_of((
+            ok(),
+            replied(info(), Some(Ok(status(500, "Internal Server Error"))))
+        ))),
+        Check::problem(
+            "probe cleanup",
+            "server returned 500 Internal Server Error",
+            "check the server logs"
+        )
+    );
+    assert_eq!(
+        cleanup(checks_of((
+            ok(),
+            replied(info(), Some(Err("connection closed".into())))
+        ))),
+        Check::problem(
+            "probe cleanup",
+            "connection closed",
+            "check the server logs"
+        )
+    );
+    // A session closed with any 2xx, or none opened, adds no check.
+    for closed in [Some(Ok(status(204, "No Content"))), None] {
+        assert_eq!(checks_of((ok(), replied(info(), closed))).len(), 4);
+    }
+}
+
+#[test]
+fn a_probe_that_cannot_be_made_says_why() {
+    for (why, said) in [
+        (Unprobed::BadUrl, "invalid diagnostic URL".to_string()),
+        (
+            Unprobed::NoClient("no TLS backend".into()),
+            "could not construct the diagnostic HTTP client: no TLS backend".to_string(),
+        ),
+    ] {
+        let prober = FakeProber::answering(vec![Err(why)]);
+        assert_eq!(
+            at_once(Inspector::new(&prober).server_with_key(URL, None)),
+            Err(said)
+        );
+    }
+}
+
+#[test]
+fn the_doctor_report_reads_as_it_always_has() {
+    let prober = FakeProber::answering(vec![Ok(up())]).with_key(
+        "/keys/key",
+        key(Some(0o600), Ok(format!("{}\n", valid_key()))),
+    );
+    let checks =
+        at_once(Inspector::new(&prober).server(URL, Some(Path::new("/keys/key")))).unwrap();
+    assert_eq!(
+        report(checks),
+        (
+            "ok: key file: /keys/key\n\
+             ok: key permissions: 0600\n\
+             ok: server: reachable at http://127.0.0.1:8080/mcp\n\
+             ok: Host: accepted\n\
+             ok: key accepted: MCP initialize returned 200\n\
+             ok: server build: version 1.2.3; commit is not exposed by MCP (see the web page's server runs)\n"
+                .to_string(),
+            true
+        )
+    );
+    let prober = FakeProber::answering(vec![Ok(down())]);
+    let checks = at_once(Inspector::new(&prober).server(URL, None)).unwrap();
+    assert_eq!(
+        report(checks),
+        (
+            "ok: key: disabled in the serve config\n\
+             problem: server: connection refused\n  \
+             fix: run `kkt service start` or `kkt serve`, and check --url and the bind setting\n"
+                .to_string(),
+            false
+        )
     );
 }

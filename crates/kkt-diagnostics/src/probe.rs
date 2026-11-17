@@ -1,6 +1,7 @@
 //! What the checks need from the machine: reading key files and probing a
 //! server, behind [`Prober`], which the program supplies; with what it finds
-//! ([`KeyFile`]) and the checks it gives back ([`Check`]).
+//! ([`KeyFile`], and a probe's facts: [`Answered`], [`Initialized`]) and the
+//! checks made of them ([`Check`]).
 
 use std::future::Future;
 use std::path::Path;
@@ -15,20 +16,79 @@ pub struct KeyFile {
     pub text: Result<String, String>,
 }
 
-/// The server checks a [`Prober`] makes, once they are done.
-pub type Probing<'a> = Pin<Box<dyn Future<Output = Result<Vec<Check>, String>> + Send + 'a>>;
+/// An HTTP status: its code, and its standard reason phrase where it has
+/// one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Status {
+    pub code: u16,
+    pub reason: Option<String>,
+}
 
-/// What the checks do to the machine. Neither registers an agent nor
-/// changes a server's database.
+/// What a GET of the server's address gave: its status, or the error that
+/// kept it from answering.
+pub type Answered = Result<Status, String>;
+
+/// What the server said about itself in its `initialize` result.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Reply {
+    ServerInfo {
+        name: Option<String>,
+        version: Option<String>,
+    },
+    NoServerInfo,
+}
+
+/// Why no `initialize` result could be read from a reply.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReplyError {
+    /// The reply grew past the size a probe reads.
+    TooLarge,
+    /// The reply ended with no `initialize` result or error in it.
+    NoResult,
+    /// The reply could not be read: the error.
+    Read(String),
+}
+
+/// What an MCP `initialize` request gave.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Initialized {
+    /// The request could not be sent: the error.
+    Failed(String),
+    /// The server answered with a status other than 200.
+    Refused(Status),
+    /// The server answered 200: what its reply held, and, where it opened
+    /// a session, what closing that session gave.
+    Replied {
+        reply: Result<Reply, ReplyError>,
+        cleanup: Option<Result<Status, String>>,
+    },
+}
+
+/// Why no request could be made at all.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Unprobed {
+    /// The address is not a URL.
+    BadUrl,
+    /// The HTTP client could not be built: the error.
+    NoClient(String),
+}
+
+/// A probe's answer, once it is in.
+pub type Probing<'a, T> = Pin<Box<dyn Future<Output = Result<T, Unprobed>> + Send + 'a>>;
+
+/// What the checks do to the machine. None registers an agent or changes a
+/// server's database.
 pub trait Prober: Sync {
     /// What the key file at `path` holds. `Err` says why the file could not
     /// be looked at.
     fn key_file(&self, path: &Path) -> Result<KeyFile, String>;
 
-    /// The checks of the server at `url`, using `key` (`None` for none):
-    /// whether it answers, accepts its host name, accepts the key and serves
-    /// MCP, and its build. `Err` when the probe cannot be made at all.
-    fn probe<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a>;
+    /// A plain GET of `url`.
+    fn answer<'a>(&'a self, url: &'a str) -> Probing<'a, Answered>;
+
+    /// An MCP `initialize` request to `url`, with `key` (`None` for none),
+    /// closing any session it opens.
+    fn initialize<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a, Initialized>;
 }
 
 /// One check and its outcome: its name, whether it passed, what was found,

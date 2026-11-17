@@ -1,11 +1,13 @@
-//! Read-only connection diagnostics. The checks and their names are here, and doctor's plan of them
+//! Read-only connection diagnostics. The checks and their names are here,
+//! made from what a probe finds (`server.rs`), and doctor's plan of them
 //! (`plan.rs`) and setup's wait for a new server (`wait.rs`). What touches
 //! the machine, reading key files and probing a server, is behind the
-//! [`Prober`] it declares, which the program supplies (adapting kkt-probe's
-//! `HttpProber`).
+//! [`Prober`] it declares, which the program supplies: it reports plain
+//! facts, and the checks here word what they mean for kkt.
 
 mod plan;
 mod probe;
+mod server;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 mod wait;
@@ -13,7 +15,9 @@ mod wait;
 pub use plan::{
     KeyToCheck, Plan, SETUP_CHECK, ServerLines, ThisMachine, point_server_fix_at, report,
 };
-pub use probe::{Check, KeyFile, Prober, Probing};
+pub use probe::{
+    Answered, Check, Initialized, KeyFile, Prober, Probing, Reply, ReplyError, Status, Unprobed,
+};
 use std::net::SocketAddr;
 use std::path::Path;
 use std::time::Duration;
@@ -91,14 +95,14 @@ impl<'a> Inspector<'a> {
     pub async fn server(self, url: &str, key_path: Option<&Path>) -> Result<Vec<Check>, String> {
         let mut checks = Vec::new();
         let key = self.key_file(key_path, &mut checks);
-        checks.extend(self.prober.probe(url, key.as_deref()).await?);
+        checks.extend(server::checks(self.prober, url, key.as_deref()).await?);
         Ok(checks)
     }
 
     /// Checks that a server answers at `url`, accepts its host name, and
     /// serves MCP there, without a key: a server that asks for one passes.
     pub async fn address(self, url: &str) -> Result<Vec<Check>, String> {
-        let mut checks = self.prober.probe(url, None).await?;
+        let mut checks = server::checks(self.prober, url, None).await?;
         checks.retain(|check| check.name != KEY_CHECK);
         Ok(checks)
     }
@@ -106,7 +110,7 @@ impl<'a> Inspector<'a> {
     /// Checks a server as [`Inspector::server`] does, with the key given as
     /// text (`None` for no key) rather than in a file.
     pub async fn server_with_key(self, url: &str, key: Option<&str>) -> Result<Vec<Check>, String> {
-        self.prober.probe(url, key).await
+        server::checks(self.prober, url, key).await
     }
 
     /// Adds the checks of the key file at `path` to `checks`, and returns

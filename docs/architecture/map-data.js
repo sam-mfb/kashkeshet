@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "8b4d581a",
+ "commit": "00637023",
  "crates": [
   {
    "bins": [
@@ -354,12 +354,12 @@ window.KKT_GRAPH = {
      "path": "machine::database::pending_upgrade"
     },
     {
-     "doc": "The program's prober: kkt-probe's `HttpProber`, with the doctor's timeout, response cap, protocol version and check names from kkt-diagnostics, adapted to kkt-diagnostics' `Prober` (`Probe`).",
+     "doc": "The program's prober (`Probe`): kkt-probe's `HttpProber` with the doctor's timeout, response cap, protocol version and client name, and the key files through kkt-keys' `KeyFiles` on this machine's disk, adapted to kkt-diagnostics' `Prober`.",
      "kind": "mod",
      "path": "machine::diagnostics"
     },
     {
-     "doc": "kkt-probe's `HttpProber`, adapted to kkt-diagnostics' `Prober`: each record it gives becomes kkt-diagnostics' record of the same fields.",
+     "doc": "kkt-probe's `HttpProber` and this machine's key files, adapted to kkt-diagnostics' `Prober`: each record kkt-probe gives becomes kkt-diagnostics' record of the same fields.",
      "kind": "struct",
      "path": "machine::diagnostics::Probe"
     },
@@ -5762,6 +5762,11 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
+     "doc": "What a GET of the server's address gave: its status, or the error that kept it from answering.",
+     "kind": "type",
+     "path": "Answered"
+    },
+    {
      "doc": "One check and its outcome: its name, whether it passed, what was found, and for a problem, how to fix it.",
      "fields": [
       "name",
@@ -5785,6 +5790,16 @@ window.KKT_GRAPH = {
      "doc": "The MCP protocol version a probe asks for.",
      "kind": "const",
      "path": "DOCTOR_PROTOCOL_VERSION"
+    },
+    {
+     "doc": "What an MCP `initialize` request gave.",
+     "kind": "enum",
+     "path": "Initialized",
+     "variants": [
+      "Failed",
+      "Refused",
+      "Replied"
+     ]
     },
     {
      "doc": "The checks, made through a `Prober`.",
@@ -5843,15 +5858,35 @@ window.KKT_GRAPH = {
      "doc": "What the checks do to the machine.",
      "kind": "trait",
      "methods": [
-      "key_file",
-      "probe"
+      "answer",
+      "initialize",
+      "key_file"
      ],
      "path": "Prober"
     },
     {
-     "doc": "The server checks a `Prober` makes, once they are done.",
+     "doc": "A probe's answer, once it is in.",
      "kind": "type",
      "path": "Probing"
+    },
+    {
+     "doc": "What the server said about itself in its `initialize` result.",
+     "kind": "enum",
+     "path": "Reply",
+     "variants": [
+      "ServerInfo",
+      "NoServerInfo"
+     ]
+    },
+    {
+     "doc": "Why no `initialize` result could be read from a reply.",
+     "kind": "enum",
+     "path": "ReplyError",
+     "variants": [
+      "TooLarge",
+      "NoResult",
+      "Read"
+     ]
     },
     {
      "doc": "The name of the check that the server answered at all.",
@@ -5891,6 +5926,15 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "An HTTP status: its code, and its standard reason phrase where it has one.",
+     "fields": [
+      "code",
+      "reason"
+     ],
+     "kind": "struct",
+     "path": "Status"
+    },
+    {
      "doc": "The lines about how this machine runs kkt.",
      "kind": "enum",
      "path": "ThisMachine",
@@ -5898,6 +5942,15 @@ window.KKT_GRAPH = {
       "Elsewhere",
       "Docker",
       "Service"
+     ]
+    },
+    {
+     "doc": "Why no request could be made at all.",
+     "kind": "enum",
+     "path": "Unprobed",
+     "variants": [
+      "BadUrl",
+      "NoClient"
      ]
     },
     {
@@ -5955,7 +6008,7 @@ window.KKT_GRAPH = {
      "path": "shell_word"
     },
     {
-     "doc": "A prober in memory, a stand-in `Prober` for tests: key files and each address's checks are given up front, and nothing touches the machine or a network.",
+     "doc": "A prober in memory, a stand-in `Prober` for tests: key files and what each address answers are given up front, and nothing touches the machine or a network.",
      "feature": "testing",
      "kind": "mod",
      "path": "testing"
@@ -9500,6 +9553,7 @@ window.KKT_GRAPH = {
       "is_file",
       "keep_staged",
       "make_default_key",
+      "mode",
       "new_key",
       "read",
       "read_access",
@@ -9710,9 +9764,11 @@ window.KKT_GRAPH = {
    "lib": "kkt_keys_os",
    "machine_work": {
     "src/lib.rs": [
+     "fs::Metadata",
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
      "fs::create_dir_all",
+     "fs::metadata",
      "fs::read_to_string",
      "fs::remove_file",
      "fs::rename",
@@ -12488,7 +12544,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Probing a kkt server over HTTP and reading its key files, with reqwest, whose types stay inside this crate: `HttpProber`, with the `Settings` the program chooses.",
+   "crate_doc": "Probing an MCP server over HTTP, with reqwest, whose types stay inside this crate.",
    "dev_only": false,
    "features": {},
    "foreign_implements": [],
@@ -12496,57 +12552,82 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
-     "doc": "What `HttpProber` found in a key file.",
-     "fields": [
-      "mode",
-      "text"
-     ],
-     "kind": "struct",
-     "path": "FileRead"
+     "doc": "What a GET of the server's address gave: its status, or the error that kept it from answering.",
+     "kind": "type",
+     "path": "Answered"
     },
     {
-     "doc": "One thing a probe found: the check's name, whether it passed, what was found, and for a problem, how to fix it.",
-     "fields": [
-      "name",
-      "ok",
-      "detail",
-      "fix"
-     ],
-     "kind": "struct",
-     "path": "Finding"
-    },
-    {
-     "doc": "Reads key files and probes servers over HTTP, as its settings say.",
+     "doc": "Probes servers over HTTP, as its settings say.",
      "kind": "struct",
      "methods": [
-      "key_file",
-      "new",
-      "probe"
+      "answer",
+      "initialize",
+      "new"
      ],
      "path": "HttpProber"
     },
     {
-     "doc": "What the HTTP prober takes from the program; it chooses no defaults.",
+     "doc": "What an MCP `initialize` request gave.",
+     "kind": "enum",
+     "path": "Initialized",
+     "variants": [
+      "Failed",
+      "Refused",
+      "Replied"
+     ]
+    },
+    {
+     "doc": "What the server said about itself in its `initialize` result.",
+     "kind": "enum",
+     "path": "Reply",
+     "variants": [
+      "ServerInfo",
+      "NoServerInfo"
+     ]
+    },
+    {
+     "doc": "Why no `initialize` result could be read from a reply.",
+     "kind": "enum",
+     "path": "ReplyError",
+     "variants": [
+      "TooLarge",
+      "NoResult",
+      "Read"
+     ]
+    },
+    {
+     "doc": "What the prober sends and how long it waits, all chosen by the caller.",
      "fields": [
       "timeout",
       "max_response_bytes",
       "protocol_version",
-      "server_check",
-      "key_check"
+      "client_name",
+      "client_version"
      ],
      "kind": "struct",
      "path": "Settings"
+    },
+    {
+     "doc": "An HTTP status: its code, and its standard reason phrase where it has one (\"Not Found\" for 404).",
+     "fields": [
+      "code",
+      "reason"
+     ],
+     "kind": "struct",
+     "path": "Status"
+    },
+    {
+     "doc": "Why no request could be made at all.",
+     "kind": "enum",
+     "path": "Unprobed",
+     "variants": [
+      "BadUrl",
+      "NoClient"
+     ]
     }
    ],
    "lib": "kkt_probe",
-   "machine_work": {
-    "src/http.rs": [
-     "fs::Metadata",
-     "fs::metadata",
-     "fs::read_to_string",
-     "os::unix::fs::PermissionsExt"
-    ]
-   },
+   "machine_work": {},
    "name": "kkt-probe",
    "path": "crates/kkt-probe",
    "produces": [],
@@ -18741,15 +18822,18 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Check",
+    "Answered",
     "DOCTOR_MAX_RESPONSE_BYTES",
     "DOCTOR_PROTOCOL_VERSION",
-    "KEY_CHECK",
+    "Initialized",
     "KeyFile",
     "Prober",
     "Probing",
-    "SERVER_CHECK",
+    "Reply",
+    "ReplyError",
     "Settings",
+    "Status",
+    "Unprobed",
     "endpoint",
     "shell_word"
    ],
@@ -18765,14 +18849,17 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "Check",
+      "Answered",
       "DOCTOR_MAX_RESPONSE_BYTES",
       "DOCTOR_PROTOCOL_VERSION",
-      "KEY_CHECK",
+      "Initialized",
       "KeyFile",
       "Probing",
-      "SERVER_CHECK",
+      "Reply",
+      "ReplyError",
       "Settings",
+      "Status",
+      "Unprobed",
       "endpoint",
       "shell_word"
      ],
@@ -19376,10 +19463,13 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "FileRead",
-    "Finding",
     "HttpProber",
-    "Settings"
+    "Initialized",
+    "Reply",
+    "ReplyError",
+    "Settings",
+    "Status",
+    "Unprobed"
    ],
    "kind": "normal",
    "optional": false,
@@ -19387,10 +19477,13 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "FileRead",
-      "Finding",
       "HttpProber",
-      "Settings"
+      "Initialized",
+      "Reply",
+      "ReplyError",
+      "Settings",
+      "Status",
+      "Unprobed"
      ],
      "role": "uses"
     }
@@ -23217,6 +23310,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "Answered",
+    "Initialized",
     "KeyFile",
     "Probing"
    ],
@@ -24426,6 +24521,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-keys-os",
+   "items": [
+    "Dir"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Dir"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-scratch"
   },
   {
    "features": [],
@@ -28508,7 +28624,7 @@ window.KKT_CONCERNS = {
    "layer": "data"
   },
   "kkt-diagnostics": {
-   "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It probes through a `Prober` it declares.",
+   "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It makes its checks, with their fixes, from the facts a `Prober` it declares reports.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -28633,9 +28749,9 @@ window.KKT_CONCERNS = {
    "layer": "assembly"
   },
   "kkt-probe": {
-   "concern": "Probes a kkt server over HTTP, with an MCP handshake, and reads its key files from disk.",
+   "concern": "Probes an MCP server over HTTP: whether it answers at its address, and what an `initialize` request gives, the server's name and version among it. It reports plain facts: statuses, errors and what the server said.",
    "kind": "effect",
-   "layer": "operations"
+   "layer": "platform"
   },
   "kkt-provenance": {
    "concern": "What produced a server run: the build, its git commit and the settings that shape the run, as named lines.",
@@ -30606,8 +30722,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-install-commands",
-     "note": "The program builds HttpProber with the doctor's settings and adapts it.",
-     "own": "Probe, adapting kkt-probe's HttpProber to kkt-diagnostics' Prober",
+     "note": "The program builds HttpProber with the doctor's settings and the client name it announces, and reads key files through OsKeyFiles.",
+     "own": "Probe, adapting kkt-probe's HttpProber, and kkt-keys-os' OsKeyFiles for the key files, to kkt-diagnostics' Prober",
      "supplier": "kkt-probe",
      "supplier_item": "HttpProber",
      "to": [
