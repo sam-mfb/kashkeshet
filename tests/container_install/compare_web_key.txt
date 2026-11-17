@@ -1,13 +1,13 @@
 == the same
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
-  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
+  -> exit 0, out "<web key>\n"
 result   Same
 
 == different
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
-  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
+  -> exit 0, out "<web key>\n"
 result   Differs
 
 == no copy
@@ -16,7 +16,7 @@ error    could not read /home/me/.config/kkt/docker-web-key: no such file
 == unreadable: the output, which may hold the key, is left out
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
-  -> exit 1, out "web00123456789abcdef0123456789abcdef0123456789ab\n", err "partial web00123456789abcdef0123456789abcdef0123456789ab"
+  -> exit 1, out "<web key>\n", err "partial <web key>"
 error    `docker compose --project-directory /data/docker exec -T kkt kkt key show --web` failed (exit 1, no key)
 
 == no key printed
@@ -28,7 +28,7 @@ error    `docker compose --project-directory /data/docker exec -T kkt kkt key sh
 == ended by a signal
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
-  -> ended by a signal, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
+  -> ended by a signal, out "<web key>\n"
 error    `docker compose --project-directory /data/docker exec -T kkt kkt key show --web` failed (ended by a signal)
 
 == cannot be asked

@@ -46,9 +46,9 @@ say      Starting kkt (this takes a minute if the image has to be downloaded)...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
   -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
-  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
+  -> exit 0, out "<web key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
   -> exit 4, err "there is no admin key at /data/.config/kkt/admin-key"
 mkdir    /home/me/.config/kkt
@@ -112,9 +112,9 @@ say      Starting kkt (this takes a minute if the image has to be downloaded)...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
   -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
-  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
+  -> exit 0, out "<web key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
   -> exit 4, err "there is no admin key at /data/.config/kkt/admin-key"
 mkdir    /home/me/.config/kkt

@@ -216,7 +216,11 @@ impl Run {
             Scripted::new(clock.clone(), move |command| rules.answer(command))
                 .knowing("the repository's compose.yaml", COMPOSE)
                 .knowing("the repository's compose.tailscale.yaml", COMPOSE_TAILSCALE)
-                .knowing("the repository's tailscale/serve.json", SERVE),
+                .knowing("the repository's tailscale/serve.json", SERVE)
+                .masking("access key", ACCESS)
+                .masking("web key", WEB)
+                .masking("admin key", ADMIN)
+                .masking("Tailscale auth key", AUTH),
         );
         let login = Rc::new(Login {
             host: host.clone(),

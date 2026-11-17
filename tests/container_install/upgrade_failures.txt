@@ -103,7 +103,7 @@ attached cwd=/data/docker  docker compose --project-directory /data/docker pull
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
   -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
   -> exit 1, err "not running"  (x40)
 say      kkt is running, but its keys could not be saved on this machine: kkt did not start or did not make its keys in time; `docker compose logs kkt` shows why. To save them, run `kkt setup` again with the same answers. To read the web key now, run `docker compose exec kkt kkt key show --web` in /data/docker.

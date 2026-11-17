@@ -7,7 +7,7 @@ error    kkt did not start or did not make its keys in time; `docker compose log
 == making the key fails
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
   -> exit 4, err "there is no admin key at /data/.config/kkt/admin-key"
 say      Making the admin key for /mcp-admin, for the admin agent kkt-admin...
@@ -18,7 +18,7 @@ error    `docker compose --project-directory /data/docker exec -T kkt kkt key cr
 == the restart fails
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
   -> exit 4, err "there is no admin key at /data/.config/kkt/admin-key"
 say      Making the admin key for /mcp-admin, for the admin agent kkt-admin...
@@ -32,7 +32,7 @@ error    `docker compose --project-directory /data/docker restart kkt` failed (e
 == still no key after making one
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
   -> exit 4, err "there is no admin key at /data/.config/kkt/admin-key"
 say      Making the admin key for /mcp-admin, for the admin agent kkt-admin...
@@ -42,9 +42,9 @@ say      Restarting kkt so it serves /mcp-admin...
 attached cwd=/data/docker  docker compose --project-directory /data/docker restart kkt
   -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
-  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
+  -> exit 0, out "<web key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
   -> exit 4, err "there is no admin key at /data/.config/kkt/admin-key"
 mkdir    /home/me/.config/kkt
@@ -59,26 +59,26 @@ error    unexpected output from `kkt key show --admin`: kkt has no admin key aft
 == unreadable: the output, which may hold the key, is left out
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
-  -> exit 1, out "admin123456789abcdef0123456789abcdef0123456789a\n"
+  -> exit 1, out "<admin key>\n"
 error    `docker compose --project-directory /data/docker exec -T kkt kkt key show --admin` failed (exit 1, could not read the admin key)
 
 == the key copies cannot be saved
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
-  -> exit 0, out "admin123456789abcdef0123456789abcdef0123456789a\n"
+  -> exit 0, out "<admin key>\n"
 say      Restarting kkt so it serves /mcp-admin...
 attached cwd=/data/docker  docker compose --project-directory /data/docker restart kkt
   -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
-  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
+  -> exit 0, out "<web key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
-  -> exit 0, out "admin123456789abcdef0123456789abcdef0123456789a\n"
+  -> exit 0, out "<admin key>\n"
 mkdir    /home/me/.config/kkt
 mkdir    /home/me/.config/kkt-admin
 write    private /home/me/.config/kkt/docker-access-key
@@ -89,7 +89,7 @@ error    could not write /home/me/.config/kkt/docker-web-key: not allowed
 == an older kkt does not know --admin
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
   -> exit 2, err "error: unexpected argument '--admin' found"
 say      Making the admin key for /mcp-admin, for the admin agent kkt-admin...
@@ -99,9 +99,9 @@ say      Restarting kkt so it serves /mcp-admin...
 attached cwd=/data/docker  docker compose --project-directory /data/docker restart kkt
   -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+  -> exit 0, out "<access key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
-  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
+  -> exit 0, out "<web key>\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
   -> exit 2, err "error: unexpected argument '--admin' found"
 mkdir    /home/me/.config/kkt
