@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "76e2a05f",
+ "commit": "077a9353",
  "crates": [
   {
    "bins": [
@@ -38,6 +38,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The `kkt` program's library: what the binary in `src/bin/kkt/` runs.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -651,6 +652,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Admission: whether an HTTP caller is let in to `/mcp` or the web page at all.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -941,6 +943,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -1128,6 +1131,7 @@ window.KKT_GRAPH = {
    "crate_doc": "kkt-agent-client over MCP, through rmcp and reqwest: `Mcp` implements its `Servers`, and `Client`, `Remote` and `AdminRemote` its `Avatars` and `Watched`.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -1321,6 +1325,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The agents' commands: `kkt register` and `kkt reclaim`, which get an avatar from a server and save its credentials, `kkt watch`, which waits for new messages from a shell, and `kkt connect`, which writes a client's MCP config.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -1864,6 +1869,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Agent credentials and watch state on disk: the token and recovery-code files `kkt register` and `kkt reclaim` write, the token file `kkt watch` reads, and its state file.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -2010,6 +2016,7 @@ window.KKT_GRAPH = {
    "crate_doc": "What /mcp-admin's administrator does: the admin reads across every channel of a swarm (`Admin`), and what is server-wide, creating a swarm (`Swarms`), with `AdminChannel`.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -2155,6 +2162,7 @@ window.KKT_GRAPH = {
    "crate_doc": "What any registered agent may do (`Api` and its areas, with the `Limits` they enforce), and the records every level shares: the agents, channels, messages, memory and lanes the operations take and give back, the queries they take, who ac...",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -2917,6 +2925,7 @@ window.KKT_GRAPH = {
    "crate_doc": "What the human who runs the server may do: the web page's operator powers, by area (`Views`, `Changes`, `Lanes`, `Server`), with the records only they use, and the notices the operator hears as things happen (`Notice`, `Notices`).",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -3241,6 +3250,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -3470,6 +3480,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -3618,6 +3629,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Backups on disk: `OsBackups` implements kkt-backup's `Backups` contract with the operating system's files, writing kkt-backup's layouts and removing the old backup folders kkt-backup picks.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -3671,6 +3683,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Opening a link in the person's browser with the system's own opener: `SystemBrowser` starts opening a link at once and says later, once, if that failed.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -3723,6 +3736,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -3840,6 +3854,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The system clock and its wall-clock sleep, implementing the shared `Clock` contract.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -3894,6 +3909,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The config file's format: TOML with one key per server setting, named as the flag is with `_` for `-`.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -4084,6 +4100,15 @@ window.KKT_GRAPH = {
        "trait": "files::Disk"
       }
      ]
+    },
+    {
+     "at": "parse_file",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "level",
+     "traits": []
     }
    ],
    "testing_third_party": [],
@@ -4132,6 +4157,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -4344,6 +4370,7 @@ window.KKT_GRAPH = {
    "crate_doc": "kkt-container over Docker and Compose: `Docker` implements its `Container`.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -4517,6 +4544,7 @@ window.KKT_GRAPH = {
      "dep:tokio"
     ]
    },
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -5219,6 +5247,16 @@ window.KKT_GRAPH = {
        "trait": "Backend"
       }
      ]
+    },
+    {
+     "at": "testing::conformance",
+     "feature": "testing",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "new_place",
+     "traits": []
     }
    ],
    "testing_third_party": [
@@ -5257,6 +5295,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -5372,6 +5411,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -5738,6 +5778,15 @@ window.KKT_GRAPH = {
      "kind": "param",
      "name": "inspector",
      "traits": []
+    },
+    {
+     "at": "until_reachable",
+     "foreign": [
+      "core::ops::function::FnMut"
+     ],
+     "kind": "param",
+     "name": "waiting",
+     "traits": []
     }
    ],
    "testing_third_party": [],
@@ -5776,6 +5825,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -5854,6 +5904,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Randomness from the operating system: `OsEntropy` implements `Entropy` with the operating system's cryptographic generator.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -5888,6 +5939,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Notifications of what happens: new messages, new agents, channels and channel members, and agents and channels hidden.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -6072,6 +6124,7 @@ window.KKT_GRAPH = {
    "crate_doc": "A fake product with two swarms, for tests only: the shared crates assembled the way a product other than kkt would assemble them, with the real server (`kkt_listen::listen`) in the test's process.",
    "dev_only": true,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -6199,6 +6252,7 @@ window.KKT_GRAPH = {
    "crate_doc": "General file access on this machine: reading and writing whole files (a file that may be missing, and a write that replaces a file only once the new text is whole), listing a folder's file names, making folders, renaming and removing, wh...",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -6261,6 +6315,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Hashing: `sha256`, the SHA-256 digest of some bytes, over sha2.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -6288,6 +6343,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Which `Host` header values the server answers to.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -6372,6 +6428,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -6440,6 +6497,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Key mode's identity: `KeyMode`, which implements kkt-identity's `Identify` directly, a shared contract.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -6478,6 +6536,7 @@ window.KKT_GRAPH = {
    "crate_doc": "",
    "dev_only": true,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -6528,6 +6587,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -6734,7 +6794,17 @@ window.KKT_GRAPH = {
    "name": "kkt-keys",
    "path": "crates/kkt-keys",
    "released_program": false,
-   "slots": [],
+   "slots": [
+    {
+     "at": "admin_name_line",
+     "foreign": [
+      "core::ops::function::FnOnce"
+     ],
+     "kind": "param",
+     "name": "read",
+     "traits": []
+    }
+   ],
    "testing_third_party": [],
    "third_party": [
     "thiserror"
@@ -6747,6 +6817,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Private key files on disk: `OsKeyFiles` implements kkt-keys' `KeyFiles` contract with the operating system's files, for the server's key files and the client key copies setup writes, as kkt-keys names and places them.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -6819,6 +6890,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -6989,6 +7061,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Serving HTTP: binding an address, then answering on it with the router it is handed until told to stop.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -7023,7 +7096,17 @@ window.KKT_GRAPH = {
    "name": "kkt-listen",
    "path": "crates/kkt-listen",
    "released_program": false,
-   "slots": [],
+   "slots": [
+    {
+     "at": "Listening::serve_until",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "report",
+     "traits": []
+    }
+   ],
    "testing_third_party": [],
    "third_party": [
     "axum",
@@ -7037,6 +7120,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Claude Code's own command line, `claude mcp`, for configuring one MCP server, named by the caller, in Claude Code's settings: removing it, and adding it as Claude Code's own entry.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -7096,6 +7180,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -7266,6 +7351,15 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "at": "Client::installed",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "on_path",
+     "traits": []
+    },
+    {
      "at": "allow_kkt",
      "kind": "param",
      "name": "host",
@@ -7339,6 +7433,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -7435,6 +7530,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The `Log` contract over `tracing`: `TracingLog` sends structured events to the tracing subscriber, and `init_logging` and `init_stderr_logging` start that subscriber, to stdout, stderr or a writer the program gives, such as a rolling log...",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -7513,7 +7609,17 @@ window.KKT_GRAPH = {
    "name": "kkt-log-tracing",
    "path": "crates/kkt-log-tracing",
    "released_program": false,
-   "slots": [],
+   "slots": [
+    {
+     "at": "init_logging",
+     "foreign": [
+      "std::io::Write"
+     ],
+     "kind": "param",
+     "name": "log_file",
+     "traits": []
+    }
+   ],
    "testing_third_party": [],
    "third_party": [
     "thiserror",
@@ -7544,6 +7650,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -7633,6 +7740,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The machine's facts as this process sees them: `OsMachine` implements `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID, this program's path and the folders `$PATH` names.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -7673,6 +7781,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The MCP tools, and the agent endpoint at `/mcp` that serves them.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -7865,6 +7974,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Agents' handles, channel IDs, the name packs, and the operator's and admins' names.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -8092,6 +8202,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The operator's commands and this machine's install.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -8881,6 +8992,15 @@ window.KKT_GRAPH = {
        "trait": "SetupFiles"
       }
      ]
+    },
+    {
+     "at": "OperateParts",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "field",
+     "name": "try_bind",
+     "traits": []
     },
     {
      "at": "ServiceInputs",
@@ -11374,6 +11494,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Probing a kkt server over HTTP and reading its key files, with reqwest, whose types stay inside this crate: `HttpProber`, with the `Settings` the program chooses.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -11446,6 +11567,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Provenance: what produced a server run.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -11514,6 +11636,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -11575,6 +11698,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Sharing a local server over the host's existing Tailscale login: `Tailscale` implements the remote-access contract, `RemoteAccess`.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -11618,6 +11742,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The MCP tools' results, turned into small responses: plain-text lines by default, JSON on request.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -11739,6 +11864,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The commit a folder is at, as the machine's git says: `Git`.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -11771,6 +11897,12 @@ window.KKT_GRAPH = {
    "crate_doc": "A file on disk that rolls over at a size and prunes old copies by age (`RotatingFile`, opened by `open_log_file` after checking its `LogPolicy`), such as a log.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [
+    {
+     "trait": "std::io::Write",
+     "type": "RotatingFile"
+    }
+   ],
    "holders": [],
    "implements": [],
    "items": [
@@ -11897,6 +12029,7 @@ window.KKT_GRAPH = {
      "tokio/time"
     ]
    },
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -12856,6 +12989,16 @@ window.KKT_GRAPH = {
      "traits": []
     },
     {
+     "at": "testing::scenarios::run_all",
+     "feature": "testing",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "new_backend",
+     "traits": []
+    },
+    {
      "at": "testing::swarms_stay_apart_in",
      "feature": "testing",
      "holds": [
@@ -12891,6 +13034,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Where tests put their scratch files: a folder inside Cargo's `target/` folder, never the system temporary folder, so a test run writes only inside the clone.",
    "dev_only": true,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -12934,6 +13078,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Search as text: the words of a text, a search's terms, whether a text matches them, and an excerpt around the matches, as pure text logic.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -12984,6 +13129,7 @@ window.KKT_GRAPH = {
    "crate_doc": "Puts the parts together: the application API, the MCP endpoint at `/mcp`, the admin endpoint at `/mcp-admin` when there is an admin key, and the web page at `/`; or the web page alone (`page`).",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -13378,6 +13524,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -13568,7 +13715,26 @@ window.KKT_GRAPH = {
    "name": "kkt-service",
    "path": "crates/kkt-service",
    "released_program": false,
-   "slots": [],
+   "slots": [
+    {
+     "at": "check_bind",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "try_bind",
+     "traits": []
+    },
+    {
+     "at": "plan",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "exists",
+     "traits": []
+    }
+   ],
    "testing_third_party": [],
    "third_party": [
     "thiserror"
@@ -13581,6 +13747,7 @@ window.KKT_GRAPH = {
    "crate_doc": "kkt's service as a launchd user agent on macOS: `Launchd` implements kkt-service's `Service` over the user's `gui/<uid>` domain, writing the plist and running `launchctl`, `tail` and `id`.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -13636,6 +13803,7 @@ window.KKT_GRAPH = {
    "crate_doc": "kkt's service as a systemd user unit on Linux: `Systemd` implements kkt-service's `Service` with the user's systemd, writing the unit file and running `systemctl` and `journalctl`.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -13747,6 +13915,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -14691,6 +14860,15 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "at": "backup_keys",
+     "foreign": [
+      "core::ops::function::FnMut"
+     ],
+     "kind": "param",
+     "name": "found",
+     "traits": []
+    },
+    {
      "at": "connection::admin_connection",
      "kind": "param",
      "name": "source",
@@ -14713,6 +14891,15 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "at": "connection::recorded_connection",
+     "foreign": [
+      "core::ops::function::FnOnce"
+     ],
+     "kind": "param",
+     "name": "absolute",
+     "traits": []
+    },
+    {
      "at": "connection::serve_connection",
      "kind": "param",
      "name": "source",
@@ -14722,6 +14909,33 @@ window.KKT_GRAPH = {
        "trait": "connection::ConnectionSource"
       }
      ]
+    },
+    {
+     "at": "lane_reports::docker_limit",
+     "foreign": [
+      "core::ops::function::FnOnce"
+     ],
+     "kind": "param",
+     "name": "read",
+     "traits": []
+    },
+    {
+     "at": "recorded_setup",
+     "foreign": [
+      "core::ops::function::FnOnce"
+     ],
+     "kind": "param",
+     "name": "unfinished",
+     "traits": []
+    },
+    {
+     "at": "recorded_setup",
+     "foreign": [
+      "core::ops::function::FnOnce"
+     ],
+     "kind": "param",
+     "name": "unrecorded",
+     "traits": []
     },
     {
      "at": "run",
@@ -14744,6 +14958,24 @@ window.KKT_GRAPH = {
        "trait": "Steps"
       }
      ]
+    },
+    {
+     "at": "setup_lane_limit",
+     "foreign": [
+      "core::ops::function::FnOnce"
+     ],
+     "kind": "param",
+     "name": "docker",
+     "traits": []
+    },
+    {
+     "at": "setup_lane_limit",
+     "foreign": [
+      "core::ops::function::FnOnce"
+     ],
+     "kind": "param",
+     "name": "local",
+     "traits": []
     },
     {
      "at": "switch",
@@ -14797,6 +15029,7 @@ window.KKT_GRAPH = {
    "features": {
     "testing": []
    },
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -14871,6 +15104,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The operating system's stop signals.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [
     {
@@ -14916,6 +15150,7 @@ window.KKT_GRAPH = {
    "crate_doc": "The process terminal: input, output, terminal detection, a link shown with a wait for Enter (`BrowserLink`) and the default behavior when a command's output pipe closes.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -14978,6 +15213,7 @@ window.KKT_GRAPH = {
    "crate_doc": "TOML text, in this crate's own terms, over the `toml` and `toml_edit` libraries, whose types stay out of its public items.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -15148,6 +15384,7 @@ window.KKT_GRAPH = {
    "crate_doc": "`kkt watch`: wait for one agent's new messages from the shell, with no model running.",
    "dev_only": false,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [
@@ -15307,6 +15544,7 @@ window.KKT_GRAPH = {
      "kkt-log/testing"
     ]
    },
+   "foreign_implements": [],
    "holders": [
     {
      "holds": [
@@ -16691,6 +16929,7 @@ window.KKT_GRAPH = {
    "crate_doc": "",
    "dev_only": true,
    "features": {},
+   "foreign_implements": [],
    "holders": [],
    "implements": [],
    "items": [],
@@ -17907,12 +18146,16 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "LogPolicy",
       "OpenError",
-      "PolicyValue",
-      "open_log_file"
+      "PolicyValue"
      ],
      "role": "uses"
+    },
+    {
+     "detail": [
+      "open_log_file"
+     ],
+     "role": "wires"
     }
    ],
    "target": null,
@@ -17942,15 +18185,15 @@ window.KKT_GRAPH = {
       "CORE",
       "Settings",
       "legacy",
-      "schema",
-      "start"
+      "schema"
      ],
      "role": "uses"
     },
     {
      "detail": [
       "Db",
-      "DefaultWording"
+      "DefaultWording",
+      "start"
      ],
      "role": "wires"
     }
@@ -18369,10 +18612,8 @@ window.KKT_GRAPH = {
       "Rules",
       "Settings",
       "schema",
-      "start",
       "testing",
       "testing::every_store_read",
-      "testing::rules_on",
       "testing::scenarios::run_all",
       "testing::swarms_stay_apart_in"
      ],
@@ -18382,7 +18623,9 @@ window.KKT_GRAPH = {
      "detail": [
       "Db",
       "DefaultWording",
-      "testing::Memory"
+      "start",
+      "testing::Memory",
+      "testing::rules_on"
      ],
      "role": "wires"
     }
@@ -20929,15 +21172,15 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Settings",
-      "schema",
-      "start"
+      "schema"
      ],
      "role": "uses"
     },
     {
      "detail": [
       "Db",
-      "DefaultWording"
+      "DefaultWording",
+      "start"
      ],
      "role": "wires"
     }
@@ -21436,14 +21679,14 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "OperatorWording",
-      "Rules",
-      "testing::memory"
+      "Rules"
      ],
      "role": "uses"
     },
     {
      "detail": [
-      "testing::Memory"
+      "testing::Memory",
+      "testing::memory"
      ],
      "role": "wires"
     }
@@ -21951,15 +22194,15 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Settings",
-      "schema",
-      "start"
+      "schema"
      ],
      "role": "uses"
     },
     {
      "detail": [
       "Db",
-      "DefaultWording"
+      "DefaultWording",
+      "start"
      ],
      "role": "wires"
     }
@@ -22712,14 +22955,14 @@ window.KKT_GRAPH = {
      "detail": [
       "OperatorWording",
       "Rules",
-      "Settings",
-      "testing::memory"
+      "Settings"
      ],
      "role": "uses"
     },
     {
      "detail": [
-      "testing::Memory"
+      "testing::Memory",
+      "testing::memory"
      ],
      "role": "wires"
     }
@@ -25055,9 +25298,7 @@ window.KKT_GRAPH = {
      "detail": [
       "Rules",
       "Settings",
-      "start",
-      "testing::database",
-      "testing::memory"
+      "testing::database"
      ],
      "role": "uses"
     },
@@ -25065,7 +25306,9 @@ window.KKT_GRAPH = {
      "detail": [
       "CommandLine",
       "DefaultWording",
-      "testing::Memory"
+      "start",
+      "testing::Memory",
+      "testing::memory"
      ],
      "role": "wires"
     }
@@ -26967,7 +27210,7 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the two assemblies, kkt-operate and kkt-agent-commands, which pass on what the program gave their parts.",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the two assemblies, kkt-operate and kkt-agent-commands, which pass on what the program gave their parts. \"not_passed_on\" lists each place generate.py finds where a crate could hand on a contract value it was given to another crate's slot, but does not, with why: every such place is either wired or listed.",
  "injectors": {
   "kkt-agent-commands": {
    "wiring": [
@@ -27106,6 +27349,31 @@ window.KKT_ASSEMBLY = {
     }
    ]
   },
+  "kkt-api-sim": {
+   "wiring": [
+    {
+     "crate": "kkt-names",
+     "from": [
+      {
+       "at": "Preview::new",
+       "param": "entropy"
+      }
+     ],
+     "note": "on each call that draws a handle or a channel ID in the simulated world",
+     "passes_on": "the entropy the program gave Preview::new",
+     "to": [
+      {
+       "at": "agent_handle",
+       "param": "entropy"
+      },
+      {
+       "at": "channel_id",
+       "param": "entropy"
+      }
+     ]
+    }
+   ]
+  },
   "kkt-operate": {
    "wiring": [
     {
@@ -27121,6 +27389,18 @@ window.KKT_ASSEMBLY = {
      "to": [
       {
        "at": "Inspector::new",
+       "param": "prober"
+      },
+      {
+       "at": "inspect",
+       "param": "prober"
+      },
+      {
+       "at": "inspect_address",
+       "param": "prober"
+      },
+      {
+       "at": "inspect_with_key",
        "param": "prober"
       }
      ]
@@ -27291,6 +27571,157 @@ window.KKT_ASSEMBLY = {
        "param": "command"
       }
      ]
+    },
+    {
+     "crate": "kkt-service",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "try_bind"
+      }
+     ],
+     "note": "kkt service install",
+     "passes_on": "the bind check the program gave OperateParts",
+     "to": [
+      {
+       "at": "check_bind",
+       "param": "try_bind"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-setup",
+     "from": [
+      {
+       "at": "agent::run",
+       "param": "parts"
+      },
+      {
+       "at": "doctor::run",
+       "param": "parts"
+      },
+      {
+       "at": "key::create",
+       "param": "parts"
+      },
+      {
+       "at": "key::header",
+       "param": "parts"
+      },
+      {
+       "at": "key::show",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_operator_key",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_web_key",
+       "param": "parts"
+      },
+      {
+       "at": "keys::optional_key_path",
+       "param": "parts"
+      },
+      {
+       "at": "keys::selected_key_path",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::existing_db",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::local_lane_limit",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::local_operator",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::run",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::backup",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "parts"
+      },
+      {
+       "at": "record::read_unrecorded",
+       "param": "parts"
+      },
+      {
+       "at": "record::recorded_setup",
+       "param": "parts"
+      },
+      {
+       "at": "service::run",
+       "param": "parts"
+      },
+      {
+       "at": "service::service_plan",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run_switch",
+       "param": "parts"
+      }
+     ],
+     "note": "kkt doctor, setup, status and the commands that read the setup record",
+     "passes_on": "the connection question the program gave each command",
+     "to": [
+      {
+       "at": "connection::client_connection",
+       "param": "source"
+      },
+      {
+       "at": "connection::serve_connection",
+       "param": "source"
+      }
+     ]
+    }
+   ]
+  },
+  "kkt-rules": {
+   "wiring": [
+    {
+     "crate": "kkt-names",
+     "from": [
+      {
+       "at": "Startup",
+       "param": "entropy"
+      }
+     ],
+     "note": "on each call that draws a handle or a channel ID",
+     "passes_on": "the entropy the program gave Startup",
+     "to": [
+      {
+       "at": "NamePack::agent_handle",
+       "param": "entropy"
+      },
+      {
+       "at": "channel_id",
+       "param": "entropy"
+      }
+     ]
     }
    ]
   },
@@ -27444,6 +27875,50 @@ window.KKT_ASSEMBLY = {
    ]
   }
  },
+ "not_passed_on": [
+  {
+   "at": "Client::connected",
+   "crate": "kkt-agent-commands",
+   "param": "host",
+   "to": "kkt-llm-agent-config",
+   "why": "it names Client, and calls configure and file, never connected"
+  },
+  {
+   "at": "Client::installed",
+   "crate": "kkt-agent-commands",
+   "param": "host",
+   "to": "kkt-llm-agent-config",
+   "why": "it names Client, and calls configure and file, never installed"
+  },
+  {
+   "at": "connection::serve_connection",
+   "crate": "kkt-agent-commands",
+   "param": "source",
+   "to": "kkt-setup",
+   "why": "it asks client_connection and admin_connection only"
+  },
+  {
+   "at": "connection::admin_connection",
+   "crate": "kkt-operate",
+   "param": "source",
+   "to": "kkt-setup",
+   "why": "it asks client_connection and serve_connection only"
+  },
+  {
+   "at": "Formatter::new",
+   "crate": "kkt-mcp",
+   "param": "clock",
+   "to": "kkt-result-format",
+   "why": "it takes a built Formatter; it builds one only in its own tests, with a fixed clock"
+  },
+  {
+   "at": "router",
+   "crate": "kkt-server",
+   "param": "sessions",
+   "to": "kkt-web",
+   "why": "it hands on kkt-web's own Sessions, which it builds: a value of the receiving crate's own type"
+  }
+ ],
  "programs": {
   "kashkeshet": {
    "also": [
@@ -28120,6 +28595,141 @@ window.KKT_ASSEMBLY = {
        "param": "browser"
       }
      ]
+    },
+    {
+     "crate": "kkt-log-tracing",
+     "impl": "kkt-rolling-file::RotatingFile",
+     "note": "the server's log file, opened by open_log_file with the system clock",
+     "to": [
+      {
+       "at": "init_logging",
+       "param": "log_file"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "impl": "kkt-listen::try_bind",
+     "note": "whether the service's server could listen on its address",
+     "to": [
+      {
+       "at": "OperateParts",
+       "param": "try_bind"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-config-file",
+     "note": "the config file's log levels, as kkt-log-tracing reads them",
+     "own": "the log-level check, a closure over LogLevel::parse",
+     "supplier": "kkt-log-tracing",
+     "supplier_item": "LogLevel",
+     "to": [
+      {
+       "at": "parse_file",
+       "param": "level"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-operate",
+     "note": "in OperateParts' connection, which each command reads",
+     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup",
+     "supplier": "kashkeshet",
+     "to": [
+      {
+       "at": "agent::run",
+       "param": "parts"
+      },
+      {
+       "at": "doctor::run",
+       "param": "parts"
+      },
+      {
+       "at": "key::create",
+       "param": "parts"
+      },
+      {
+       "at": "key::header",
+       "param": "parts"
+      },
+      {
+       "at": "key::show",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_operator_key",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_web_key",
+       "param": "parts"
+      },
+      {
+       "at": "keys::optional_key_path",
+       "param": "parts"
+      },
+      {
+       "at": "keys::selected_key_path",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::existing_db",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::local_lane_limit",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::local_operator",
+       "param": "parts"
+      },
+      {
+       "at": "lanes::run",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::backup",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "parts"
+      },
+      {
+       "at": "record::read_unrecorded",
+       "param": "parts"
+      },
+      {
+       "at": "record::recorded_setup",
+       "param": "parts"
+      },
+      {
+       "at": "service::run",
+       "param": "parts"
+      },
+      {
+       "at": "service::service_plan",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run_switch",
+       "param": "parts"
+      }
+     ]
     }
    ]
   },
@@ -28426,6 +29036,19 @@ window.KKT_ASSEMBLY = {
        "param": "log"
       }
      ]
+    },
+    {
+     "crate": "kkt-config-file",
+     "note": "the config file's log levels, as kkt-log-tracing reads them",
+     "own": "the log-level check, a closure over LogLevel::parse",
+     "supplier": "kkt-log-tracing",
+     "supplier_item": "LogLevel",
+     "to": [
+      {
+       "at": "parse_file",
+       "param": "level"
+      }
+     ]
     }
    ]
   },
@@ -28546,6 +29169,17 @@ window.KKT_ASSEMBLY = {
       {
        "at": "page",
        "param": "log"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-api-sim",
+     "impl": "kkt-entropy::SeededEntropy",
+     "note": "seeded, so the simulated world is the same every time",
+     "to": [
+      {
+       "at": "Preview::new",
+       "param": "entropy"
       }
      ]
     }
