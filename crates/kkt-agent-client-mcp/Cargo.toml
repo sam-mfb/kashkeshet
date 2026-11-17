@@ -12,7 +12,7 @@ futures.workspace = true
 kkt-agent-client = { path = "../kkt-agent-client" }
 kkt-clock = { path = "../kkt-clock" }
 # Written out rather than left to the program: rmcp's client transport talks
-# TLS through reqwest's `rustls` (reorganization plan, risk 4).
+# TLS through reqwest's `rustls`.
 reqwest = { workspace = true, features = ["rustls", "stream"] }
 rmcp = { workspace = true, features = ["client", "transport-streamable-http-client-reqwest"] }
 serde_json.workspace = true

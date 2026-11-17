@@ -59,7 +59,7 @@ fn service_file(home: &Path) -> PathBuf {
 
 /// What every test's config file starts with: an address no other program
 /// has, since port 0 lets the system pick one. `install` checks that the
-/// server can listen on its address, even on a dry run (#371), so the
+/// server can listen on its address, even on a dry run, so the
 /// default address would fail these tests on a machine already running kkt.
 const FREE_BIND: &str = "bind = \"127.0.0.1:0\"\n";
 
@@ -320,7 +320,7 @@ fn service_manager(scratch: &Path, calls: &Path) -> PathBuf {
     bin
 }
 
-/// #371: with another program on the server's address, `kkt service
+/// With another program on the server's address, `kkt service
 /// install` fails, with or without --dry-run, and changes nothing: no
 /// service file, no key, no call to the service manager.
 #[tokio::test]

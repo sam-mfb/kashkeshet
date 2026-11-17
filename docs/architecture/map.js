@@ -10,8 +10,7 @@
   const assembly = window.KKT_ASSEMBLY;
   // The roles an arrow can play, worded in the direction the arrow is
   // drawn: every arrow runs from the crate that is depended on to the
-  // crate that depends on it, with its head on the dependant (Sam, msgs
-  // 3155 and 3550). A used or built crate goes into what uses or builds
+  // crate that depends on it, with its head on the dependant. A used or built crate goes into what uses or builds
   // it; a contract goes into its implementer, which needs the contract to
   // know what to build. The data keeps Cargo's sense: an edge's `from` is
   // always the crate that depends on `to`.
@@ -122,7 +121,7 @@
   // lines of even length. A unit is one crate, or a group (generate.py's
   // `groups`): its head crate with its partners stacked directly beneath.
 
-  // Five at most, so no band is wider than five boxes (msg 3541).
+  // Five at most, so no band is wider than five boxes.
   const PER_LINE = 5;
   const TITLE_H = 24;
   const LINE_H = BOX_H + 30;
@@ -949,7 +948,7 @@
     const touches = (r) => (r[0].builder && focus.has(r[0].builder)) ||
       r.some((h) => focus.has(h.program) || focus.has(h.receiver));
     const shown = focus.size ? routes().filter(touches) : [];
-    // The supplier's part is an ordinary dependency (Sam, msg 3696): the
+    // The supplier's part is an ordinary dependency: the
     // injector names the supplier's type to build it, so the solid arrow
     // between them is that hop, lit in amber and labelled. Dotted lines
     // are injections: one per pair of crates from the injector on, through
@@ -1016,7 +1015,7 @@
     };
     // The supplier's hop: exactly one stroke of the injector's arrow to
     // the supplier, lit amber like the rest of the route, so the route does
-    // not change colour halfway (Sam, msg 3734). It is the "built by"
+    // not change colour halfway. It is the "built by"
     // stroke where the arrow has one, otherwise the "used by" stroke, where
     // an adapter wraps a plain type of the supplier. Never two strokes of
     // one arrow, and a hop whose stroke is filtered out is not drawn. Its

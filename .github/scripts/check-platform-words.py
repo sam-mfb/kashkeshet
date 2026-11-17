@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """A platform crate knows nothing of kkt, in what it says as well as in what
-it depends on (Sam, 2026-11-16). This check reads the platform crates from
+it depends on. This check reads the platform crates from
 docs/architecture/concerns.json, so a crate that joins the layer is covered
 without an edit here, and fails when one's Rust source outside its tests has
-`kkt` or `kashkeshet` as a word in a string literal, or in the name of a
-public item. Comments, doc comments and crate names in paths are not read.
+`kkt` or `kashkeshet` as a word in a string literal, in the name of a
+public item, or in a doc comment (`///` or `//!`). In a doc comment, a
+crate's name (`kkt-log`, `kkt_log::Log`) is allowed: a doc link needs it.
+Ordinary comments and crate names in code paths are not read.
 Tests are left out: files named tests.rs, folders named tests, and modules
 under `#[cfg(test)]`.
 
@@ -22,6 +24,10 @@ STRING = re.compile(r'r(#*)"(.*?)"\1|"((?:[^"\\]|\\.)*)"', re.DOTALL)
 PUBLIC_NAME = re.compile(
     r"\bpub(?:\([^)]*\))?\s+(?:const\s+fn|async\s+fn|unsafe\s+fn|fn|struct|enum|const|static|trait|type|mod)\s+(\w+)"
 )
+# In a doc comment: kkt or kashkeshet as a word, but not as the start of a
+# crate's name, such as `kkt-log` or `kkt_log::Log`.
+DOC_WORD = re.compile(r"\b(kkt|kashkeshet)\b(?![-_])", re.IGNORECASE)
+DOC_LINE = re.compile(r"^\s*//[/!](.*)$")
 TEST_MODULE = re.compile(r"#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{")
 
 
@@ -93,6 +99,10 @@ def problems_in(text, where):
         if re.search(r"kkt|kashkeshet", name.group(1), re.IGNORECASE):
             line = code.count("\n", 0, name.start()) + 1
             found.append(f"{where}:{line}: a public item's name names kkt: {name.group(1)}")
+    for number, line in enumerate(without_test_modules(text).split("\n"), start=1):
+        doc = DOC_LINE.match(line)
+        if doc and DOC_WORD.search(doc.group(1)):
+            found.append(f"{where}:{number}: a doc comment names kkt: {line.strip()[:80]}")
     return found
 
 

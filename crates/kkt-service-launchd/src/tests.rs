@@ -177,7 +177,7 @@ const NOT_FOUND: i32 = 113;
 const GONE: &str =
     "Bad request.\nCould not find service \"com.sam-mfb.kashkeshet\" in domain for user gui: 501\n";
 /// What `launchctl bootstrap` says while launchd is still removing the
-/// service just booted out (#369).
+/// service just booted out.
 const REMOVING: &str = "Bootstrap failed: 5: Input/output error\n";
 
 fn bootstrap() -> String {
@@ -352,7 +352,7 @@ fn launchd_install_again_unloads_the_old_one_first() {
 }
 
 /// launchd removes a booted-out service after `bootout` returns, and a
-/// `bootstrap` before it has finished fails (#369). While `launchctl
+/// `bootstrap` before it has finished fails. While `launchctl
 /// print` still finds the old service, the install tries again on the
 /// clock; once it is gone, once more, at once.
 #[test]
@@ -577,7 +577,7 @@ fn launchd_logs_tail_the_log_file() {
     assert_eq!(said, [format!("No log yet at {MAC_LOG}")]);
 }
 
-/// #371 on launchd: stopping a failed server is not enough, since launchd
+/// On launchd, stopping a failed server is not enough, since launchd
 /// starts it again after each failure, so the service is unloaded.
 #[test]
 fn launchd_unloads_a_server_that_did_not_stay_up() {

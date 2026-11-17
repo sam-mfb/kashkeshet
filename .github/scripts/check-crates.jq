@@ -98,7 +98,7 @@ def default_reach($features):
     # dependency's testing. Anyone may turn on a package's features, so
     # these count as outside [dev-dependencies]. The one exception: a
     # package's own `testing` may turn on a dependency's `testing`, since
-    # it is itself on only from [dev-dependencies] (Sam, 2026-11-11).
+    # it is itself on only from [dev-dependencies].
     .features
     | to_entries[]
     | .key as $feature
@@ -140,8 +140,7 @@ def default_reach($features):
 ),
 (
     # Check 6: no package has a feature named `real`. Code that touches the
-    # machine is in an effect crate of its own, not behind a feature
-    # (phase 16).
+    # machine is in an effect crate of its own, not behind a feature.
     if .features | has("real")
     then "\(.name): it has a `real` feature; code that touches the machine belongs in an effect crate, not behind a feature"
     else empty end

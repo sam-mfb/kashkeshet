@@ -1,5 +1,5 @@
-//! TOML text, in kkt's terms. The one crate that uses the `toml` and
-//! `toml_edit` libraries; no type of theirs is in its public items.
+//! TOML text, in this crate's own terms, over the `toml` and `toml_edit`
+//! libraries, whose types stay out of its public items.
 //!
 //! It offers three things:
 //! - [`parse`]: a text's tree of values ([`Table`], [`Value`]), its keys in

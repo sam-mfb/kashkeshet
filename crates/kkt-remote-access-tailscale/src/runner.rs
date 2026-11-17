@@ -1,4 +1,4 @@
-//! The wrapper's private process boundary: tests replace it without touching a tailnet.
+//! The wrapper's private process boundary, which tests replace.
 
 pub(super) trait Runner {
     fn run(&self, args: &[String]) -> Result<Output, String>;

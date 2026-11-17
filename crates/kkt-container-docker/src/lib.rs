@@ -5,9 +5,8 @@
 //! it goes through the private runner, so it is tested against a fake host. A sharing setup's login link opens in
 //! the [`Browser`] it declares, which the program supplies.
 //!
-//! This crate only runs Docker. It does not decide what a person wants (the
-//! setup answers) or remember what was set up (the setup record); the caller
-//! passes those in.
+//! The caller passes in what a person wants (the setup answers) and what
+//! was set up (the setup record).
 //!
 //! `Inputs.project` names the Compose project and its containers and volumes.
 //! `Inputs.allow_hosts` is written to `.env` as `KKT_ALLOW_HOSTS`;

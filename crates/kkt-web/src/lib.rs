@@ -212,7 +212,7 @@ pub fn router<S: Held>(
             ANNOUNCEMENT_PATH,
             get(server_announcement).post(save_server_announcement),
         )
-        // The page's address before the rename, kept for bookmarks.
+        // A second address for the page, which bookmarks may hold.
         .route("/instructions", get(old_announcement_address))
         .route(
             lanes::LANES_PATH,

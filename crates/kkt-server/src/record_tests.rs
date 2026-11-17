@@ -1,4 +1,4 @@
-//! The existing run-record golden and ordering tests, with each owner's
+//! The run-record golden and ordering tests, with each owner's
 //! settings supplied separately and program values passed as plain lines.
 
 use crate::ServerSettings;
@@ -94,7 +94,7 @@ impl RecordedSettings {
     }
 }
 
-// The original tests of just the limit portion leave out allow_any_bind.
+// The tests of the limit lines alone leave out allow_any_bind.
 fn limit_lines(
     limits: &FixtureLimits,
     log_level: &'static str,

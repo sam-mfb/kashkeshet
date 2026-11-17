@@ -260,7 +260,7 @@ impl Agent {
     /// Writes the service file, starts the service, and has it start at
     /// each login, after making the folders the server needs. Installing
     /// again replaces the file and restarts it, which waits on `clock`
-    /// while launchd removes the old service (#369), as its settings say.
+    /// while launchd removes the old service, as its settings say.
     pub(crate) async fn install(
         &self,
         system: &dyn System,

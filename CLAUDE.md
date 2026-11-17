@@ -63,8 +63,7 @@ directly (kkt-service and kkt-service-systemd), or the consumer declares
 the contract it needs and the program adapts the effect crate to it
 (kkt-llm-agent-config's `ClientCommand`, over kkt-llm-agent-command); logic and
 the effect that carries out its plans are a logic crate and its `-os`
-crate. No crate has a `real` feature (phase 16, Sam, 2026-11-15, which
-removed phases 13 and 14's mixed kinds). Tests SHOULD NOT depend on an
+crate. No crate has a `real` feature. Tests SHOULD NOT depend on an
 effect crate the program they test does not: a test that must is a
 documented exception, listed with its reason in
 `.github/scripts/effect-exceptions.json` (today, the fake product's tests,
@@ -81,7 +80,7 @@ Platform crates: a crate that knows nothing of kkt and would make sense in
 any program (time, randomness, logs, files, HTTP serving, the terminal,
 the browser, remote access, git) is in the map's `platform` layer
 (`docs/architecture/concerns.json`), and depends in code only on other
-platform crates (Sam, 2026-11-16). A crate that needs kkt's own words,
+platform crates. A crate that needs kkt's own words,
 such as handles or the setup record, is not a platform crate. A platform
 crate says nothing of kkt either: kkt's names, settings, commands and
 messages are its caller's, passed in as arguments, or worded by the caller
@@ -167,7 +166,7 @@ The fake product, `programs/kkt-fake-product` (package `kkt-fake-product`), is t
 
 The web preview, `programs/kkt-webapp-preview` (package `kkt-webapp-preview`), serves kkt-web's page alone (`kkt_server::page`) over kkt-api-sim's simulated application and stand-in gate, with the real clock, randomness and stop signals, so the page can be worked on with no database, MCP or agents (`docs/development.md`). It turns on kkt-api-sim's `testing`, as a dev-only program may. It is dev-only and never released.
 
-Other files: `docs/architecture/` (the interactive crate map; run its `generate.py` after a change to crates, dependencies or public items. CI checks it is current only on pull requests into `main`, so before a release, regenerate it on `next`); `tests/migrations/sql/` (the SQL migrations kkt ran up to 0.10.0 and `next`'s swarms, which it no longer runs: the tests build older databases from them);
+Other files: `docs/architecture/` (the interactive crate map; run its `generate.py` after a change to crates, dependencies or public items. CI checks it is current only on pull requests into `main`, so before a release, regenerate it on `next`); `tests/migrations/sql/` (the SQL migrations of releases up to 0.10.0 and of `next`'s swarms, from which the tests build older databases);
 `crates/kkt-mcp/agent-instructions.md` and `crates/kkt-mcp/admin-instructions.md` (what agents are told
 when they connect); `crates/kkt-mcp/agent-tools.toml` and `crates/kkt-mcp/admin-tools.toml` (what agents
 are told about each tool); `crates/kkt-mcp/build.rs` (builds the tool text); `tests/contract/` (the tools agents see, pinned);
@@ -286,8 +285,7 @@ as `{max_limit}`. After an intended change, run
 
 **Public surface.** Make an item public only when another crate or the program needs it.
 
-**Third-party tools and libraries (Sam, 2026-11-12, revised for phase
-16).** A third-party tool or library is wrapped by a crate named for what it
+**Third-party tools and libraries.** A third-party tool or library is wrapped by a crate named for what it
 does for kkt, with a contract in kkt's terms. With one implementation, the
 contract and the implementation are two crates, or the consumer declares
 the contract (the adapter model), as "Kinds and features" says. The
@@ -309,7 +307,7 @@ a sign the crate lines are wrong.
   build scripts, by git at the commit under test, as kkt-pro will
   (`.github/scripts/build-outside-crate.sh`): a shared crate must build
   when used that way.
-- CI also checks the refactor's rules. check-crates.sh fails on a crate
+- CI also checks the crate rules. check-crates.sh fails on a crate
   other than a program that depends on an effect crate (unless listed in
   effect-exceptions.json), on a crate other than a program that depends on
   a composition crate in [dependencies], on a platform crate that depends
@@ -319,7 +317,8 @@ a sign the crate lines are wrong.
   string or a public item's name: the caller passes kkt's words in.
   `docs/architecture/check-programs.py` builds the map from the code and
   fails on a kind that does not fit, a broken rule, and machine work in a
-  program's own code that the refactor plan's temporary breaks do not list.
+  program's own code that the temporary-breaks table in
+  `docs/architecture/refactor-plan.md` does not list.
 - A bug fix, a robustness change or a performance claim comes with a test
   that fails without it.
 - Every pull request says whether it can affect an existing install, and how

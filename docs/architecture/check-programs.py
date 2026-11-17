@@ -9,14 +9,14 @@ a third-party crate that reaches the machine, or a std path for files, the
 environment, processes, sockets, the terminal or the clock, a print
 macro, or a `Path` method that asks the file system about a path).
 
-Machine work the refactor has not yet moved out is allowed only where the
-plan's "Temporary breaks" table lists it, as a row naming the crate and
+Machine work in a program's own code is allowed only where the
+"Temporary breaks" table of refactor-plan.md lists it, as a row naming the crate and
 each file or library, such as:
 
   | `kkt-keymode` does machine work in `src/main.rs` | before the refactor | 7.5 |
 
 Anything else fails, and so does a listed file or library that no longer
-does machine work, so a step that moves the work out also removes the row.
+does machine work, so a row goes when its work does.
 
 It also fails on the map's kind checks (`kind_mismatches`: a crate whose
 hand-written kind does not fit what the map shows) and rule checks

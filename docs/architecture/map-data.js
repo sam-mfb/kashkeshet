@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "21f81e56",
+ "commit": "d550b33b",
  "crates": [
   {
    "bins": [
@@ -3668,7 +3668,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Opening a link in the person's browser with the system's own opener: `SystemBrowser`, which starts opening a link now and says later, once, if that failed.",
+   "crate_doc": "Opening a link in the person's browser with the system's own opener: `SystemBrowser` starts opening a link at once and says later, once, if that failed.",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -3718,7 +3718,7 @@ window.KKT_GRAPH = {
      "trait": "Clock"
     }
    ],
-   "crate_doc": "The current time, injected so tests can control it, and kkt's own time types.",
+   "crate_doc": "The current time, injected so tests can control it, and the time types that go with it.",
    "dev_only": false,
    "features": {
     "testing": []
@@ -3837,7 +3837,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The system clock and its wall-clock sleep, implementing the shared `kkt_clock::Clock` contract.",
+   "crate_doc": "The system clock and its wall-clock sleep, implementing the shared `Clock` contract.",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -5788,7 +5788,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Randomness from the operating system: `OsEntropy`, kkt-entropy's `Entropy` from the operating system's cryptographic generator.",
+   "crate_doc": "Randomness from the operating system: `OsEntropy` implements `Entropy` with the operating system's cryptographic generator.",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -6195,7 +6195,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Hashing: `sha256`, the SHA-256 digest of some bytes.",
+   "crate_doc": "Hashing: `sha256`, the SHA-256 digest of some bytes, over sha2.",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -6590,7 +6590,7 @@ window.KKT_GRAPH = {
      "path": "access_key_file"
     },
     {
-     "doc": "The admin key lives beside the server's access key, unless that place is already used by the access key (which older versions allowed).",
+     "doc": "The admin key lives beside the server's access key, unless that place is already used by the access key (an install may have one there).",
      "kind": "fn",
      "path": "admin_key_path"
     },
@@ -6605,7 +6605,7 @@ window.KKT_GRAPH = {
      "path": "admin_name_path"
     },
     {
-     "doc": "The unchanged advice after the native name-file write or removal.",
+     "doc": "The advice after the name file is written or removed.",
      "kind": "fn",
      "path": "admin_name_written"
     },
@@ -7369,7 +7369,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "kkt-log's `Log` contract over `tracing`: `TracingLog` sends structured events to the tracing subscriber, and `init_logging` and `init_stderr_logging` start that subscriber, to stdout, stderr or a writer the program gives, such as a rolli...",
+   "crate_doc": "The `Log` contract over `tracing`: `TracingLog` sends structured events to the tracing subscriber, and `init_logging` and `init_stderr_logging` start that subscriber, to stdout, stderr or a writer the program gives, such as a rolling log...",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -7476,7 +7476,7 @@ window.KKT_GRAPH = {
      "trait": "Machine"
     }
    ],
-   "crate_doc": "Facts about the machine kkt runs on: the folders its environment names (`Env`) and its platform (`Platform`), as plain values.",
+   "crate_doc": "Facts about the machine a program runs on: the folders its environment names (`Env`) and its platform (`Platform`), as plain values, from which callers build their own paths.",
    "dev_only": false,
    "features": {
     "testing": []
@@ -7567,7 +7567,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's facts as this process sees them: `OsMachine` implements kkt-machine's `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID, this program's path and the folders `$P...",
+   "crate_doc": "The machine's facts as this process sees them: `OsMachine` implements `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID, this program's path and the folders `$PATH` names.",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -11481,7 +11481,7 @@ window.KKT_GRAPH = {
      "path": "RemoteAccess"
     },
     {
-     "doc": "Remote sharing in memory for consumers' tests, without network or processes.",
+     "doc": "Remote sharing in memory, for consumers' tests.",
      "feature": "testing",
      "kind": "mod",
      "path": "testing"
@@ -11509,7 +11509,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Sharing a local server over the host's existing Tailscale login: `Tailscale` implements kkt-remote-access's `RemoteAccess`.",
+   "crate_doc": "Sharing a local server over the host's existing Tailscale login: `Tailscale` implements the remote-access contract, `RemoteAccess`.",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -12868,7 +12868,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Search as text: the words of a text, a search's terms, whether a text matches them, and an excerpt around the matches.",
+   "crate_doc": "Search as text: the words of a text, a search's terms, whether a text matches them, and an excerpt around the matches, as pure text logic.",
    "dev_only": false,
    "features": {},
    "holders": [],
@@ -14880,7 +14880,7 @@ window.KKT_GRAPH = {
      "path": "Terminal"
     },
     {
-     "doc": "Lets a closed standard output, as with `kkt status | head`, end the command the way it ends other Unix commands (SIGPIPE), where Rust would otherwise panic at the next print.",
+     "doc": "Lets a closed standard output, as with `program status | head`, end the command the way it ends other Unix commands (SIGPIPE), where Rust would otherwise panic at the next print.",
      "kind": "fn",
      "path": "end_on_closed_output"
     }
@@ -14911,7 +14911,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "TOML text, in kkt's terms.",
+   "crate_doc": "TOML text, in this crate's own terms, over the `toml` and `toml_edit` libraries, whose types stay out of its public items.",
    "dev_only": false,
    "features": {},
    "holders": [],

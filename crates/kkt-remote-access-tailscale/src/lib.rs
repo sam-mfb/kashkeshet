@@ -1,9 +1,9 @@
 //! Sharing a local server over the host's existing Tailscale login:
-//! `Tailscale` implements kkt-remote-access's `RemoteAccess`. Commands go
-//! through a private runner, so what their answers mean is tested against a
-//! fake and never reaches a tailnet. It never changes the login, DNS
-//! preferences, or anything of the caller's. It owns only the HTTPS root
-//! proxy it installs.
+//! `Tailscale` implements the remote-access contract,
+//! [`RemoteAccess`](kkt_remote_access::RemoteAccess). Commands go through a
+//! private runner, so what their answers mean is tested against a fake. It
+//! leaves the login, DNS preferences and the caller's own settings as they
+//! are, and owns only the HTTPS root proxy it installs.
 
 use serde::Deserialize;
 use serde_json::Value;

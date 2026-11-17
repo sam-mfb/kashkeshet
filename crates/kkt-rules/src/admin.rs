@@ -1,7 +1,7 @@
 //! What an admin agent reads at `/mcp-admin`, acting for the operator as
 //! [`Who::Operator`]. It sees every channel, closed and hidden ones included,
 //! and every agent the web page shows. Admission (the admin key) has already
-//! let the caller in; nothing here changes anything.
+//! let the caller in. Everything here only reads.
 
 use super::channels::decode_channel_cursor;
 use super::*;

@@ -31,8 +31,8 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     const node = (name) => `.node[aria-label^='${name}:']`;
     // Clicks a part of a crate's box (its tick box, its eye, or the box),
     // first scrolling the box to the middle of the view, so a box near the
-    // top is never under the sticky header and a click never lands there
-    // (msgs 3619 and 3621). Every click on a box goes through it.
+    // top is never under the sticky header and a click never lands there.
+    // Every click on a box goes through it.
     const onBox = async (name, part) => {
       await p.$eval(node(name), (n) => n.scrollIntoView({ block: "center", inline: "center" }));
       // The tick box and the eye sit on the box's edge, where an arrow's
@@ -123,7 +123,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       }
       return bad;
     });
-    // Heads (msg 3550): every head is on the crate that depends on the
+    // Heads: every head is on the crate that depends on the
     // other, an implementation arrow's on the implementer; and no two heads
     // overlap.
     const heads = await p.evaluate(() => {
@@ -178,7 +178,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     }));
     check("every label fits inside its box", overflow.length === 0, overflow);
     // No band is wider than five boxes on any line: a band wraps at five
-    // units, and a group's partners stack beneath its head (msg 3541).
+    // units, and a group's partners stack beneath its head.
     const wide = await p.evaluate(() => {
       const layer = Object.fromEntries(Object.entries(window.KKT_CONCERNS.crates).map(([n, c]) => [n, c.layer]));
       const rows = new Map();
@@ -192,7 +192,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     });
     check("no band is wider than five boxes", wide.length === 0, wide);
 
-    // No box is split any more: every crate is one kind (phase 16).
+    // No box is split: every crate is one kind.
     check("no crate's box is split", (await p.$$eval(".node .impl-part", (x) => x.length)) === 0);
     const client = "kkt-agent-client";
     // A "uses" arrow's head is at the user: drawn from the used crate.
@@ -248,7 +248,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       return null;
     }, sel);
 
-    // An injection's whole route (msg 3574): ticking kkt-watch draws
+    // An injection's whole route: ticking kkt-watch draws
     // kashkeshet to kkt-agent-commands to kkt-watch, and the crates that
     // supply what kashkeshet injects, with every hop's label saying what it
     // carries, never "passed on" alone.
@@ -284,7 +284,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("a ticked supplier's routes run on to the final receiver",
       supplier.hops.includes("kashkeshet>kkt-agent-client-mcp>normal") && supplier.lines.includes("kkt-agent-commands>kkt-watch"), supplier);
 
-    // Solid is a dependency, dotted an injection (msg 3696): ticking
+    // Solid is a dependency, dotted an injection: ticking
     // kkt-log-tracing lights the solid arrow from it to kashkeshet as the
     // route's first hop, draws no dotted line from it, and every dotted
     // line starts at an injector.
@@ -293,7 +293,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       const injectors = new Set([...Object.keys(window.KKT_ASSEMBLY.programs), ...Object.keys(window.KKT_ASSEMBLY.injectors || {})]);
       const strokes = [...document.querySelectorAll("path.edge[data-edge='kashkeshet>kkt-log-tracing>normal']")];
       return {
-        // Only the "built by" stroke is the hop (msg 3704): exactly one
+        // Only the "built by" stroke is the hop: exactly one
         // amber stroke runs between them, solid, and the others keep their
         // role's colour.
         lit: strokes.filter((x) => x.classList.contains("route-hop")).length === 1 &&
@@ -309,7 +309,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       solid.lit && solid.fromIt === 0 && solid.notInjector.length === 0 && solid.label.some((l) => /TracingLog/.test(l)), solid);
 
     // What a crate builds only for its tests is on its test arrow, never a
-    // role of its code arrow (msg 3714): kkt-web builds kkt-log's
+    // role of its code arrow: kkt-web builds kkt-log's
     // CapturedLog only behind `testing`.
     await onBox("kkt-log", ".pick-hit");
     const builtInCode = () => p.$$eval("path.edge[data-edge='kkt-web>kkt-log>normal'].role-wires", (x) => x.length);
@@ -324,7 +324,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("a test-only build is on the test arrow, not a built-by stroke of the code arrow",
       codeOnly.wires === 0 && codeOnly.tests === 0 && withTests.wires === 0 && withTests.tests > 0, { codeOnly, withTests });
 
-    // A route is amber from its first hop on (msg 3734): exactly one
+    // A route is amber from its first hop on: exactly one
     // stroke of the supplier's arrow lights, amber. kkt-terminal's arrow
     // to kashkeshet only uses (WatchOutput wraps its Terminal), so its
     // used-by stroke is the hop; kkt-log-tracing's has a built-by stroke,
@@ -366,7 +366,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     });
     check("with nothing ticked, no used-by stroke is amber", resting === 0, resting);
 
-    // An adapter is not an implementation (msg 3574): a composition's own
+    // An adapter is not an implementation: a composition's own
     // type meeting another crate's trait is "adapted by", drawn apart from
     // the green arrows; its tooltip says whether it is an adapter or the
     // injector's own work.
@@ -392,7 +392,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       return text;
     };
     // Its colour is its own: apart from the injection lines' amber and the
-    // "built by" arrows' (msg 3577).
+    // "built by" arrows'.
     await onBox("kkt-watch", ".pick-hit");
     const colours = await p.evaluate(() => {
       const style = (sel) => { const x = document.querySelector(sel); return x && getComputedStyle(x); };
@@ -425,7 +425,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     const gateTip = await tipOf("kkt-server>kkt-web>normal", "kkt-server");
     check("an adapting arrow names the crate its adapter is over", /adapter over kkt-admission/.test(gateTip), gateTip.slice(0, 300));
 
-    // Injections follow the rule (msg 3343): the program injects nothing of
+    // Injections follow the rule: the program injects nothing of
     // kkt-diagnostics' own into it; kkt-operate passes on the prober it was
     // given; and the program's own work is labelled as such.
     await onBox("kkt-diagnostics", ".pick-hit");
@@ -438,7 +438,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("the program's own work is named as such", labels.some((l) => l.includes("its own work")), labels);
     await onBox("kkt-operate", ".pick-hit");
 
-    // The panel (msg 3582): no "Must not" and no notes on where things come
+    // The panel: no "Must not" and no notes on where things come
     // from; each list is a section with a count that opens and closes,
     // short ones open and long ones closed, and the viewer's choice kept.
     await onBox("kkt-watch", "> rect");

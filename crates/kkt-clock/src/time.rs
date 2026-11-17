@@ -1,6 +1,6 @@
-//! kkt's own time types: `Time`, a moment in UTC, and `Span`, a signed
-//! length of time between two moments. They wrap chrono, which no other kkt
-//! crate depends on, and offer only the operations and text forms kkt uses.
+//! The time types: `Time`, a moment in UTC, and `Span`, a signed length of
+//! time between two moments. They wrap chrono and offer a small set of
+//! operations and text forms.
 
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, SubsecRound, TimeDelta, Utc};
 use std::fmt;
@@ -162,7 +162,7 @@ impl Span {
 }
 
 impl fmt::Display for OutOfRange {
-    /// The same text as chrono's error, which kkt's messages have always shown.
+    /// The same text as chrono's error.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
     }
@@ -171,7 +171,7 @@ impl fmt::Display for OutOfRange {
 impl std::error::Error for OutOfRange {}
 
 /// The same text as a chrono time's debug form, such as
-/// `2026-10-23T14:02:11Z`, so test failures read as before.
+/// `2026-10-23T14:02:11Z`.
 impl fmt::Debug for Time {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.0, f)
@@ -319,7 +319,7 @@ mod tests {
             "20261028T131500.000Z"
         );
         assert!(Time::is_compact_millis_text("20261028T131500.123Z"));
-        // As chrono has always read it, the fraction may be left out.
+        // As chrono reads it, the fraction may be left out.
         assert!(Time::is_compact_millis_text("20261028T131500Z"));
         assert!(!Time::is_compact_millis_text("2026-10-28T13:15:00Z"));
         assert!(!Time::is_compact_millis_text("x"));

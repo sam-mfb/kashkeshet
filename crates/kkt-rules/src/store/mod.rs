@@ -1,9 +1,9 @@
 //! Storage: what the rules can ask of the database and change in it.
 //!
 //! Two types carry it: [`Reader`] answers questions, and [`Writer`] adds the
-//! changes, with the questions through [`Reader`]. Neither decides anything
-//! about permissions: the rules ask, for
-//! example, whether an agent is a member, and decide what that means. A
+//! changes, with the questions through [`Reader`]. Permissions are the
+//! rules': they ask, for example, whether an agent is a member, and decide
+//! what that means. A
 //! query over many channels takes a [`ChannelScope`]: the rules say which
 //! kinds of channel it covers, and the store only applies it.
 //!
@@ -18,7 +18,7 @@
 //! [`Reader::channel_id_taken`] look across every swarm.
 //!
 //! [`Db`] runs closures over a [`kkt_db::Backend`], which the program
-//! opens and passes in: the store knows no particular database. Each call
+//! opens and passes in, so the store works over any database. Each call
 //! to [`Db::read`] or [`Db::write`] runs one closure; a read sees one
 //! state, and a write closure is one transaction whose changes all commit
 //! together, or not at all. [`schema`] gives the core's tables as kkt-db

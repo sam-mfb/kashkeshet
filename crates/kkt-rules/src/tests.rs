@@ -142,7 +142,7 @@ async fn a_proposed_name_is_given_exactly_and_works() {
     assert_eq!(reg.handle, "api-reviewer-2");
     let me = w.rules.authenticate(Some(&reg.token)).await.unwrap();
     assert_eq!(me.handle, "api-reviewer-2");
-    // Without one, the name is drawn as before.
+    // Without one, the server draws the name.
     let drawn = w
         .rules
         .register_with_client(None, None, None)
@@ -3558,7 +3558,7 @@ async fn an_admin_key_without_a_name_is_refused_every_change_and_may_read() {
     for (i, result) in refused.into_iter().enumerate() {
         let e = result.expect_err("an unnamed admin's change");
         // The admin endpoint words this refusal for an unnamed key, word
-        // for word as before (kkt-mcp's tests and tests/admin.rs).
+        // for word as kkt-mcp's tests and tests/admin.rs pin it.
         assert_eq!(e.code, Code::Unauthenticated, "change {i}");
         assert_eq!(
             e.refusal,

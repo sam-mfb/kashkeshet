@@ -2557,8 +2557,8 @@ mod flow {
         );
     }
 
-    /// The Docker over Tailscale server kkt 0.4.1 left on Sam's Mac: set up,
-    /// but stopped before recording it.
+    /// A Docker over Tailscale server as kkt 0.4.1 left one: set up, but
+    /// stopped before recording it.
     fn found_docker() -> Unrecorded {
         Unrecorded {
             mode: Mode::Docker(DockerSetup {

@@ -33,7 +33,7 @@ impl Terminal {
         writeln!(out, "{line}").and_then(|()| out.flush())
     }
 
-    /// Whether standard input is a terminal, as setup has always checked.
+    /// Whether standard input is a terminal.
     pub fn interactive(&self) -> bool {
         io::stdin().is_terminal()
     }
@@ -56,15 +56,15 @@ impl Terminal {
     }
 }
 
-/// Lets a closed standard output, as with `kkt status | head`, end the
+/// Lets a closed standard output, as with `program status | head`, end the
 /// command the way it ends other Unix commands (SIGPIPE), where Rust would
-/// otherwise panic at the next print. Not for `kkt serve`: a server keeps
+/// otherwise panic at the next print. For commands only: a server keeps
 /// running when whatever reads its output goes away, and systemd starts it
 /// with SIGPIPE ignored on purpose. Network writes are unaffected: Rust
 /// asks the system not to signal for those.
 pub fn end_on_closed_output() {
     // SAFETY: this sets only what happens on SIGPIPE, to the system's
-    // default; no handler of ours runs, and nothing else in kkt sets it.
+    // default; no handler of ours runs, and the program sets it nowhere else.
     #[cfg(unix)]
     if unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) } == libc::SIG_ERR {
         Terminal.errors(format_args!(

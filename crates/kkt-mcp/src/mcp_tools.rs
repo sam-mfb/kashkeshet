@@ -4,8 +4,8 @@
 //! and reading the parameters both take the same way (the read position, a
 //! body cut, an offset into text).
 //!
-//! Nothing here logs. Logging stays with each endpoint, which passes in what
-//! to do with an internal error.
+//! Each endpoint logs for itself, and passes in what to do with an internal
+//! error.
 
 use crate::tool_text;
 use kkt_api_agent::Limits;

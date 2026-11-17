@@ -1,7 +1,6 @@
 //! The MCP tools, and the agent endpoint at `/mcp` that serves them. Each
 //! tool asks [`Identify`] who the caller is and in which swarm, calls into
-//! the rules in that swarm, and formats the result. No tool touches the
-//! database directly.
+//! the rules in that swarm, and formats the result.
 
 mod format_choice;
 #[cfg(test)]

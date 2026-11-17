@@ -1,4 +1,4 @@
-//! Remote sharing in memory for consumers' tests, without network or processes.
+//! Remote sharing in memory, for consumers' tests.
 
 use crate::{Node, RemoteAccess};
 use std::cell::RefCell;

@@ -3,8 +3,8 @@
 //! A store declares its tables as migrations ([`Set`], [`Step`]), and asks
 //! and changes through a [`Connection`]: [`Select`], [`Count`] and
 //! [`Group`] to ask, [`Insert`], [`Update`] and [`Delete`] to change. The
-//! language is narrow on purpose: it holds what kkt's stores need, and no
-//! SQL or other database's terms. A backend, such as kkt-db-sqlite,
+//! language is narrow on purpose: it holds what kkt's stores need, in its
+//! own terms. A backend, such as kkt-db-sqlite,
 //! implements [`Backend`] and [`Evolve`] for one database and must pass
 //! [`testing::conformance`]; a store never learns which backend it has.
 //!

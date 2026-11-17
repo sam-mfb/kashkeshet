@@ -8,9 +8,9 @@
 //! which server installed with no record is
 //! here, and which setup `kkt doctor` goes by and which fixes it gives.
 //!
-//! Its logic reads no files and runs nothing itself. The caller reads what
-//! is installed, answers questions through [`Ask`], and carries out what is
-//! decided here, so every rule here is tested directly.
+//! The caller reads what is installed, answers questions through [`Ask`],
+//! and carries out what is decided here, so every rule here is tested
+//! directly.
 
 mod acts_on;
 mod adopt;

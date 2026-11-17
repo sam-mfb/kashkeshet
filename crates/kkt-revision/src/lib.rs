@@ -1,11 +1,11 @@
-//! The commit a folder is at, as the machine's git says: `Git`. It
-//! declares no contract: a caller adapts `Git` to its own.
+//! The commit a folder is at, as the machine's git says: `Git`. A caller
+//! adapts `Git` to its own contract.
 //!
 //! `Git` runs `git -C <folder>` in the C locale and reads its answers. Only
 //! an expected absence is "no commit": the folder is in no git repository,
 //! the repository has no commit yet, git ignores the folder, or git is not
 //! installed. Any other failure is an error carrying git's own message.
-//! What the answers mean is tested over a private runner, without git.
+//! What the answers mean is tested over a private runner.
 
 use std::io;
 use std::path::Path;

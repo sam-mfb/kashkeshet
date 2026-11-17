@@ -1,6 +1,7 @@
 //! The browser with the system's own opener: `open` on macOS, `xdg-open`
-//! elsewhere. It starts the opener with the link and does not wait for it;
-//! a thread waits for it and reaps it, and a failure is kept to report once.
+//! elsewhere. It starts the opener with the link and returns at once; a
+//! thread waits for the opener and reaps it, and a failure is kept to report
+//! once.
 //! Which opener, and how a failure is worded, are plain functions tested
 //! without starting it.
 

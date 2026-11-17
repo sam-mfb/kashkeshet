@@ -1,7 +1,7 @@
 //! The rules' scenarios that run on the real backend too: those whose
 //! answers rest on how a database answers (refusals from its rules, paging
 //! and order, search, time windows, waits, failed writes) and that no
-//! end-to-end or contract test asserts there (11.3). They run here, on
+//! end-to-end or contract test asserts there. They run here, on
 //! kkt-db's fast stand-in, from the crate's own tests, and on kkt-db-sqlite
 //! from the program's (`tests/rules_on_sqlite.rs`), through
 //! [`run_all`]. With them are the helpers every rules test uses.

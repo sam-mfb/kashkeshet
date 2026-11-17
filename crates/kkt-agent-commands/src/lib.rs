@@ -5,8 +5,8 @@
 //! kkt-setup's connection question, and how what the server refuses is
 //! worded.
 //!
-//! It touches nothing itself. The program passes in every effect and every
-//! fact about the local server in [`AgentParts`], each as a contract this
+//! The program passes in every effect and every fact about the local server
+//! in [`AgentParts`], each as a contract this
 //! crate or a logic crate declares, and calls the commands with typed
 //! requests.
 

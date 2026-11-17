@@ -1,5 +1,5 @@
-//! The current time, injected so tests can control it, and kkt's own time
-//! types.
+//! The current time, injected so tests can control it, and the time types
+//! that go with it.
 
 mod time;
 

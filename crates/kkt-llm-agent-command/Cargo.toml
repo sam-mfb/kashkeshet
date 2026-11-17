@@ -1,6 +1,6 @@
 [package]
 name = "kkt-llm-agent-command"
-description = "Claude Code's own command line, for configuring kkt's server in its settings"
+description = "Claude Code's own command line, for configuring an MCP server in its settings"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

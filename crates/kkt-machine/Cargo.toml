@@ -1,6 +1,6 @@
 [package]
 name = "kkt-machine"
-description = "Facts about the machine kkt runs on: its environment's folders and its platform, and the contract for reading them"
+description = "Facts about the machine a program runs on: its environment's folders and its platform, and the contract for reading them"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

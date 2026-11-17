@@ -8,8 +8,7 @@
 //! kkt-identity-keymode's `KeyMode` is kashkeshet's. A stand-in for tests,
 //! [`testing::FixedIdentify`], is behind the `testing` feature.
 //!
-//! This crate knows nothing of HTTP: each surface reads the principal off
-//! its own requests and passes it in.
+//! Each surface reads the principal off its own requests and passes it in.
 
 use kkt_admission::Principal;
 use kkt_api_agent::{Agent, Api, Operator, SwarmId};

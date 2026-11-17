@@ -1,4 +1,5 @@
-//! Open waits and the short grace after normal completion. Never persisted.
+//! Open waits and the short grace after normal completion, held in memory
+//! only.
 use super::*;
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Mutex;

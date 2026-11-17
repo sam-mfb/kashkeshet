@@ -28,10 +28,19 @@ class ProblemsIn(unittest.TestCase):
     def test_a_word_inside_another_is_not_kkt(self):
         self.assertEqual(self.found('let a = "kktools"; let b = "x_kkt_y";\n'), [])
 
-    def test_comments_doc_comments_and_crate_paths_are_not_read(self):
-        text = ('//! kkt\n/// "kkt"\n// "kkt"\n/* "kkt" */\n'
+    def test_ordinary_comments_and_crate_paths_are_not_read(self):
+        text = ('// "kkt"\n/* "kkt" */\n'
                 'use kkt_clock::Time;\nfn f() -> kkt_names::Handle { x() } // "kkt"\n')
         self.assertEqual(self.found(text), [])
+
+    def test_a_doc_comment_that_names_kkt_is_found_but_a_crate_name_is_not(self):
+        self.assertEqual(self.found("//! For kkt's server.\n/// Like Kashkeshet does.\nfn f() {}\n"),
+                         ["f.rs:1: a doc comment names kkt: //! For kkt's server.",
+                          "f.rs:2: a doc comment names kkt: /// Like Kashkeshet does."])
+        self.assertEqual(self.found("//! Implements [`kkt_log::Log`] over kkt-log's levels.\n"), [])
+
+    def test_doc_comments_in_test_modules_are_left_out(self):
+        self.assertEqual(self.found("#[cfg(test)]\nmod tests {\n    /// kkt\n    fn t() {}\n}\n"), [])
 
     def test_a_quote_in_a_character_literal_opens_no_string(self):
         self.assertEqual(self.found("let q = '\"'; let e = '\\\"'; // kkt\nlet s = \"plain\";\n"), [])

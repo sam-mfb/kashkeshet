@@ -19,10 +19,10 @@
 //! ([`config_file`], under the supplied config-home folder): parsing its text into
 //! [`Config`], what the file says in its own terms, and adding an allowed
 //! host to its text; and reading and writing the config and instructions
-//! files whole ([`files`]), over the [`files::Disk`] the program gives: it
-//! touches no file itself. It knows nothing of the settings' defaults or
-//! checks beyond the kind of each value: the log levels are kept as written,
-//! for the reader to check.
+//! files whole ([`files`]), over the [`files::Disk`] the program gives. It
+//! checks the kind of each value; the settings' defaults and checks are
+//! their owners'. The log levels are kept as written, for the reader to
+//! check.
 
 pub mod files;
 
