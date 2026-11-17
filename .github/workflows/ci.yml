@@ -16,7 +16,19 @@ concurrency:
 jobs:
   checks:
     name: Rust checks (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    # The macOS leg runs on the project's own Mac (the self-hosted runner
+    # labelled `kkt-mac`) for pushes and for pull requests from this
+    # repository's branches, and on GitHub's macos-15 for pull requests from
+    # forks, so this workflow never sends a fork's code to that machine.
+    # This condition keeps an unaltered fork pull request off it. A fork
+    # that edits this file is stopped by the repository setting that
+    # requires approval before an outside contributor's workflow runs, and
+    # by the Mac's own job-started hook, which refuses any job not from this
+    # repository's branches.
+    # Setting the repository variable KKT_MAC_RUNNER to `off` sends every
+    # macOS leg to macos-15, for when the Mac is offline. The job's name
+    # stays "Rust checks (macos-15)" either way.
+    runs-on: ${{ matrix.os == 'macos-15' && vars.KKT_MAC_RUNNER != 'off' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && 'kkt-mac' || matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -32,8 +44,12 @@ jobs:
         # The rustup proxy installs the toolchain and components from rust-toolchain.toml.
         run: rustc --version
 
+      # GitHub's macOS runners and the self-hosted Mac build at different
+      # paths, so each keeps a cache of its own.
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: ${{ runner.environment }}
 
       - name: Check formatting
         run: cargo fmt --check
