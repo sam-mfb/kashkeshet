@@ -23,7 +23,7 @@ pub async fn run(
         Some(_) => None,
         None => parts.serve.config(config)?.db,
     };
-    let path = existing_db(parts, db, config_db)?;
+    let path = existing_db(&parts.lane_parts(), db, config_db)?;
     let db = parts.database.open(&path)?;
     // Key mode: the one swarm, which every avatar is in.
     let operator = CommandLine::new(db, kkt_api_agent::SwarmId::main(), parts.clock.clone());

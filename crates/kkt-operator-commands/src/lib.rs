@@ -75,3 +75,33 @@ pub struct OperatorParts<'a> {
     pub clock: Arc<dyn kkt_clock::Clock>,
     pub output: &'a dyn Output,
 }
+
+/// What the lane helpers need: the serve config and database, the clock, the
+/// container, the lane folder and its commit, and where to say things.
+/// Setup's lane steps and `kkt agent`'s database take these alone.
+pub struct LaneParts<'a> {
+    pub serve: &'a dyn ServeConfig,
+    pub database: &'a dyn Databases,
+    pub clock: Arc<dyn kkt_clock::Clock>,
+    pub container: &'a dyn kkt_container::Container,
+    pub container_configs: &'a dyn kkt_container::ConfigReader,
+    pub lanes: &'a dyn kkt_lane_files::Disk,
+    pub lane_commit: &'a dyn kkt_lane_files::LaneCommit,
+    pub output: &'a dyn Output,
+}
+
+impl OperatorParts<'_> {
+    /// The parts the lane helpers take.
+    pub fn lane_parts(&self) -> LaneParts<'_> {
+        LaneParts {
+            serve: self.serve,
+            database: self.database,
+            clock: self.clock.clone(),
+            container: self.container,
+            container_configs: self.container_configs,
+            lanes: self.lanes,
+            lane_commit: self.lane_commit,
+            output: self.output,
+        }
+    }
+}

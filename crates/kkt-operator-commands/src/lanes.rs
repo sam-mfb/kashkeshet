@@ -2,7 +2,7 @@
 //! import`, and reading a lane folder, checking it, and importing it into a
 //! local database or kkt in Docker, which `kkt setup` also uses.
 
-use crate::OperatorParts;
+use crate::{LaneParts, OperatorParts};
 use kkt_api_agent::LaneSource;
 use kkt_api_operator::LaneSave;
 use kkt_lane_files as lane_files;
@@ -81,7 +81,7 @@ pub async fn run(
         }
         setup::LanesOn::Local => match command {
             LanesAction::Export { folder } => {
-                let (operator, _) = local_operator(parts, db, config)?;
+                let (operator, _) = local_operator(&parts.lane_parts(), db, config)?;
                 let lanes = operator.current_lanes().await.map_err(|e| e.to_string())?;
                 let files: Vec<lane_files::LaneFile> = lanes
                     .iter()
@@ -123,8 +123,15 @@ pub async fn run(
                     &folder,
                     retire_missing,
                 )?;
-                let report =
-                    local_import_lanes(parts, db, config, read, retire_missing, source).await?;
+                let report = local_import_lanes(
+                    &parts.lane_parts(),
+                    db,
+                    config,
+                    read,
+                    retire_missing,
+                    source,
+                )
+                .await?;
                 parts.output.output(format_args!("{report}"));
                 Ok(())
             }
@@ -135,7 +142,7 @@ pub async fn run(
 /// The database file `kkt serve` would use given the config file's `db`,
 /// unless `db` names another. It must exist.
 pub fn existing_db(
-    parts: &OperatorParts<'_>,
+    parts: &LaneParts<'_>,
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
@@ -153,7 +160,7 @@ pub fn existing_db(
 /// unless `db` names another, and the server's `max_lane_chars` from the
 /// config file.
 pub fn local_operator(
-    parts: &OperatorParts<'_>,
+    parts: &LaneParts<'_>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(CommandLine, usize), String> {
@@ -172,7 +179,7 @@ pub fn local_operator(
 /// source recorded is `source` if given, else the folder and its git
 /// commit. Returns the report to print.
 pub(crate) async fn local_import_lanes(
-    parts: &OperatorParts<'_>,
+    parts: &LaneParts<'_>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
     read: lane_files::Read,
@@ -243,7 +250,7 @@ fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
 }
 
 /// The lane limit from this machine's default serve config, else the owner's default.
-pub fn local_lane_limit(parts: &OperatorParts<'_>) -> Result<usize, String> {
+pub fn local_lane_limit(parts: &LaneParts<'_>) -> Result<usize, String> {
     Ok(parts.serve.config(None)?.max_lane_chars)
 }
 
@@ -252,7 +259,7 @@ pub fn local_lane_limit(parts: &OperatorParts<'_>) -> Result<usize, String> {
 /// the default for a new one, whose container starts with no config file.
 /// The host's config file plays no part; the container never reads it.
 pub(crate) fn docker_lane_limit(
-    parts: &OperatorParts<'_>,
+    parts: &LaneParts<'_>,
     env: &Env,
     platform: Platform,
 ) -> Result<usize, String> {
@@ -300,7 +307,7 @@ pub(crate) fn check_lanes_folder(
 /// that server's lane limit, the local serve config's or the Docker
 /// container's. Returns how many lanes there are.
 pub fn check_lanes_for_setup(
-    parts: &OperatorParts<'_>,
+    parts: &LaneParts<'_>,
     env: &Env,
     platform: Platform,
     folder: &Path,
@@ -324,7 +331,7 @@ pub fn check_lanes_for_setup(
 /// runs, and returns the report to print. The check before setup began
 /// warned of the files the import skips.
 pub fn import_lanes_for_setup(
-    parts: &OperatorParts<'_>,
+    parts: &LaneParts<'_>,
     record: &setup::Record,
     folder: &Path,
 ) -> Result<String, String> {

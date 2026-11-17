@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "ae753cba",
+ "commit": "489cecee",
  "crates": [
   {
    "bins": [
@@ -19,6 +19,10 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-operator-commands",
        "type": "OperatorParts"
+      },
+      {
+       "crate": "kkt-operator-commands",
+       "type": "LaneParts"
       }
      ],
      "type": "machine::operate::NativeOperate"
@@ -226,12 +230,6 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
-     "trait": "InstalledHere",
-     "trait_crate": "kkt-setup",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
      "trait": "ask::Lines",
      "trait_crate": "kkt-setup",
      "type": null
@@ -384,6 +382,7 @@ window.KKT_GRAPH = {
      "kind": "struct",
      "methods": [
       "install_parts",
+      "lane_parts",
       "new",
       "operator_parts",
       "setup_lanes",
@@ -10386,6 +10385,43 @@ window.KKT_GRAPH = {
     {
      "holds": [
       {
+       "crate": "kkt-operator-commands",
+       "trait": "ServeConfig"
+      },
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Databases"
+      },
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      },
+      {
+       "crate": "kkt-container",
+       "trait": "Container"
+      },
+      {
+       "crate": "kkt-container",
+       "trait": "ConfigReader"
+      },
+      {
+       "crate": "kkt-lane-files",
+       "trait": "Disk"
+      },
+      {
+       "crate": "kkt-lane-files",
+       "trait": "LaneCommit"
+      },
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Output"
+      }
+     ],
+     "type": "LaneParts"
+    },
+    {
+     "holds": [
+      {
        "crate": "kkt-setup",
        "trait": "InstalledHere"
       },
@@ -10471,6 +10507,21 @@ window.KKT_GRAPH = {
      "path": "Databases"
     },
     {
+     "doc": "What the lane helpers need: the serve config and database, the clock, the container, the lane folder and its commit, and where to say things.",
+     "fields": [
+      "serve",
+      "database",
+      "clock",
+      "container",
+      "container_configs",
+      "lanes",
+      "lane_commit",
+      "output"
+     ],
+     "kind": "struct",
+     "path": "LaneParts"
+    },
+    {
      "doc": "Implementations chosen by the program.",
      "fields": [
       "installed",
@@ -10487,6 +10538,9 @@ window.KKT_GRAPH = {
       "output"
      ],
      "kind": "struct",
+     "methods": [
+      "lane_parts"
+     ],
      "path": "OperatorParts"
     },
     {
@@ -10650,6 +10704,94 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-operator-commands",
    "released_program": false,
    "slots": [
+    {
+     "at": "LaneParts",
+     "kind": "field",
+     "name": "clock",
+     "traits": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      }
+     ]
+    },
+    {
+     "at": "LaneParts",
+     "kind": "field",
+     "name": "container",
+     "traits": [
+      {
+       "crate": "kkt-container",
+       "trait": "Container"
+      }
+     ]
+    },
+    {
+     "at": "LaneParts",
+     "kind": "field",
+     "name": "container_configs",
+     "traits": [
+      {
+       "crate": "kkt-container",
+       "trait": "ConfigReader"
+      }
+     ]
+    },
+    {
+     "at": "LaneParts",
+     "kind": "field",
+     "name": "database",
+     "traits": [
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Databases"
+      }
+     ]
+    },
+    {
+     "at": "LaneParts",
+     "kind": "field",
+     "name": "lane_commit",
+     "traits": [
+      {
+       "crate": "kkt-lane-files",
+       "trait": "LaneCommit"
+      }
+     ]
+    },
+    {
+     "at": "LaneParts",
+     "kind": "field",
+     "name": "lanes",
+     "traits": [
+      {
+       "crate": "kkt-lane-files",
+       "trait": "Disk"
+      }
+     ]
+    },
+    {
+     "at": "LaneParts",
+     "kind": "field",
+     "name": "output",
+     "traits": [
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Output"
+      }
+     ]
+    },
+    {
+     "at": "LaneParts",
+     "kind": "field",
+     "name": "serve",
+     "traits": [
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "ServeConfig"
+      }
+     ]
+    },
     {
      "at": "OperatorParts",
      "kind": "field",
@@ -11223,24 +11365,16 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
-         "trait": "InstalledHere"
-        },
-        {
          "crate": "kkt-operator-commands",
          "trait": "ServeConfig"
         },
         {
          "crate": "kkt-operator-commands",
-         "trait": "Paths"
+         "trait": "Databases"
         },
         {
-         "crate": "kkt-keys",
-         "trait": "KeyFiles"
-        },
-        {
-         "crate": "kkt-entropy",
-         "trait": "Entropy"
+         "crate": "kkt-clock",
+         "trait": "Clock"
         },
         {
          "crate": "kkt-container",
@@ -11260,18 +11394,10 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-operator-commands",
-         "trait": "Databases"
-        },
-        {
-         "crate": "kkt-clock",
-         "trait": "Clock"
-        },
-        {
-         "crate": "kkt-operator-commands",
          "trait": "Output"
         }
        ],
-       "type": "OperatorParts"
+       "type": "LaneParts"
       }
      ],
      "kind": "param",
@@ -11285,24 +11411,16 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
-         "trait": "InstalledHere"
-        },
-        {
          "crate": "kkt-operator-commands",
          "trait": "ServeConfig"
         },
         {
          "crate": "kkt-operator-commands",
-         "trait": "Paths"
+         "trait": "Databases"
         },
         {
-         "crate": "kkt-keys",
-         "trait": "KeyFiles"
-        },
-        {
-         "crate": "kkt-entropy",
-         "trait": "Entropy"
+         "crate": "kkt-clock",
+         "trait": "Clock"
         },
         {
          "crate": "kkt-container",
@@ -11322,18 +11440,10 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-operator-commands",
-         "trait": "Databases"
-        },
-        {
-         "crate": "kkt-clock",
-         "trait": "Clock"
-        },
-        {
-         "crate": "kkt-operator-commands",
          "trait": "Output"
         }
        ],
-       "type": "OperatorParts"
+       "type": "LaneParts"
       }
      ],
      "kind": "param",
@@ -11347,24 +11457,16 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
-         "trait": "InstalledHere"
-        },
-        {
          "crate": "kkt-operator-commands",
          "trait": "ServeConfig"
         },
         {
          "crate": "kkt-operator-commands",
-         "trait": "Paths"
+         "trait": "Databases"
         },
         {
-         "crate": "kkt-keys",
-         "trait": "KeyFiles"
-        },
-        {
-         "crate": "kkt-entropy",
-         "trait": "Entropy"
+         "crate": "kkt-clock",
+         "trait": "Clock"
         },
         {
          "crate": "kkt-container",
@@ -11384,18 +11486,10 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-operator-commands",
-         "trait": "Databases"
-        },
-        {
-         "crate": "kkt-clock",
-         "trait": "Clock"
-        },
-        {
-         "crate": "kkt-operator-commands",
          "trait": "Output"
         }
        ],
-       "type": "OperatorParts"
+       "type": "LaneParts"
       }
      ],
      "kind": "param",
@@ -11409,24 +11503,16 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
-         "trait": "InstalledHere"
-        },
-        {
          "crate": "kkt-operator-commands",
          "trait": "ServeConfig"
         },
         {
          "crate": "kkt-operator-commands",
-         "trait": "Paths"
+         "trait": "Databases"
         },
         {
-         "crate": "kkt-keys",
-         "trait": "KeyFiles"
-        },
-        {
-         "crate": "kkt-entropy",
-         "trait": "Entropy"
+         "crate": "kkt-clock",
+         "trait": "Clock"
         },
         {
          "crate": "kkt-container",
@@ -11446,18 +11532,10 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-operator-commands",
-         "trait": "Databases"
-        },
-        {
-         "crate": "kkt-clock",
-         "trait": "Clock"
-        },
-        {
-         "crate": "kkt-operator-commands",
          "trait": "Output"
         }
        ],
-       "type": "OperatorParts"
+       "type": "LaneParts"
       }
      ],
      "kind": "param",
@@ -11471,24 +11549,16 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
-         "trait": "InstalledHere"
-        },
-        {
          "crate": "kkt-operator-commands",
          "trait": "ServeConfig"
         },
         {
          "crate": "kkt-operator-commands",
-         "trait": "Paths"
+         "trait": "Databases"
         },
         {
-         "crate": "kkt-keys",
-         "trait": "KeyFiles"
-        },
-        {
-         "crate": "kkt-entropy",
-         "trait": "Entropy"
+         "crate": "kkt-clock",
+         "trait": "Clock"
         },
         {
          "crate": "kkt-container",
@@ -11508,18 +11578,10 @@ window.KKT_GRAPH = {
         },
         {
          "crate": "kkt-operator-commands",
-         "trait": "Databases"
-        },
-        {
-         "crate": "kkt-clock",
-         "trait": "Clock"
-        },
-        {
-         "crate": "kkt-operator-commands",
          "trait": "Output"
         }
        ],
-       "type": "OperatorParts"
+       "type": "LaneParts"
       }
      ],
      "kind": "param",
@@ -13921,10 +13983,6 @@ window.KKT_GRAPH = {
     },
     {
      "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": null
-      },
       {
        "crate": "kkt-install-commands",
        "type": "record::InstallReads"
@@ -18161,6 +18219,7 @@ window.KKT_GRAPH = {
    "items": [
     "Config",
     "Databases",
+    "LaneParts",
     "OperatorParts",
     "Output",
     "Paths",
@@ -18194,6 +18253,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Config",
+      "LaneParts",
       "OperatorParts",
       "agent::AgentAction",
       "agent::run",
@@ -18538,7 +18598,6 @@ window.KKT_GRAPH = {
     "Switch",
     "Target",
     "Unfinished",
-    "Unrecorded",
     "connection",
     "connection::ConnectionOptions",
     "default_db",
@@ -18552,7 +18611,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "a type of its own implements InstalledHere",
       "a type of its own implements ask::Lines",
       "machine::connection::ConnectionReads implements connection::ConnectionSource"
      ],
@@ -18561,13 +18619,13 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Answers",
+      "InstalledHere",
       "Lines",
       "Purpose",
       "Record",
       "Switch",
       "Target",
       "Unfinished",
-      "Unrecorded",
       "connection",
       "connection::ConnectionOptions",
       "default_db",
@@ -18584,6 +18642,7 @@ window.KKT_GRAPH = {
     "KeyKind",
     "Mode",
     "Server",
+    "Unrecorded",
     "connection::Connection",
     "connection::serve_connection"
    ],

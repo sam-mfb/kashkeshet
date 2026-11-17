@@ -123,6 +123,21 @@ impl<'a, D> NativeOperate<'a, D> {
         }
     }
 
+    /// The parts the operator's lane helpers take: setup's lane steps and
+    /// the program's tests of them use these alone.
+    pub fn lane_parts(&self) -> kkt_operator_commands::LaneParts<'_> {
+        kkt_operator_commands::LaneParts {
+            serve: &self.serve,
+            database: &NativeDatabases,
+            clock: Arc::new(kkt_clock_system::SystemClock),
+            container: &self.docker,
+            container_configs: &settings::ContainerConfigs,
+            lanes: &crate::commands::lanes::LaneDisk,
+            lane_commit: &crate::commands::lanes::LaneGit,
+            output: &NativeOutput,
+        }
+    }
+
     /// The lane import `kkt setup --lanes` makes, over the operator's lane
     /// commands.
     pub fn setup_lanes(&self) -> SetupLanes<'_, 'a, D> {
@@ -137,7 +152,7 @@ impl<D> kkt_install_commands::ImportLanes for SetupLanes<'_, '_, D> {
     fn check(&self, folder: &Path, purpose: kkt_setup::Purpose) -> Result<usize, String> {
         let native = self.0;
         kkt_operator_commands::lanes::check_lanes_for_setup(
-            &native.operator_parts(&NotRead),
+            &native.lane_parts(),
             native.serve.env,
             native.serve.platform,
             folder,
@@ -145,32 +160,9 @@ impl<D> kkt_install_commands::ImportLanes for SetupLanes<'_, '_, D> {
         )
     }
     fn import(&self, record: &kkt_setup::Record, folder: &Path) -> Result<String, String> {
-        kkt_operator_commands::lanes::import_lanes_for_setup(
-            &self.0.operator_parts(&NotRead),
-            record,
-            folder,
-        )
+        kkt_operator_commands::lanes::import_lanes_for_setup(&self.0.lane_parts(), record, folder)
     }
 }
-
-/// What is installed here, for operator commands that never ask: setup's
-/// lane steps, which are told the record, and the lane helpers. Each read
-/// is refused.
-pub(crate) struct NotRead;
-
-impl kkt_setup::InstalledHere for NotRead {
-    fn record(&self) -> Result<Option<kkt_setup::Record>, String> {
-        Err(NOT_READ.into())
-    }
-    fn unfinished(&self) -> Result<Option<kkt_setup::Unfinished>, String> {
-        Err(NOT_READ.into())
-    }
-    fn unrecorded(&self) -> Result<Option<kkt_setup::Unrecorded>, (kkt_setup::Purpose, String)> {
-        Err((kkt_setup::Purpose::Service, NOT_READ.into()))
-    }
-}
-
-const NOT_READ: &str = "what is installed here is not read for this command";
 
 struct ServeReads<'a> {
     env: &'a Env,
