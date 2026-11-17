@@ -432,6 +432,14 @@ class ProgramFills(unittest.TestCase):
         self.assertIn("kkt may fill kkt-server's Parts::new (entropy): wire it under programs, "
                       "or list it in not_filled with why", str(stop.exception))
 
+    def test_a_slot_both_wired_and_left_unfilled_fails(self):
+        with self.assertRaises(SystemExit) as stop:
+            self.checked({"programs": {"kkt": {"steps": [], "wiring": [
+                {"impl": "kkt-entropy-os::OsEntropy", "crate": "kkt-server", "to": [{"at": "Parts::new", "param": "entropy"}]}]}},
+                "not_filled": [{"crate": "kkt", "to": "kkt-server", "at": "Parts::new", "param": "entropy", "why": "w"}]})
+        self.assertIn("not_filled: kkt to kkt-server's Parts::new (entropy) is wired; remove it from not_filled",
+                      str(stop.exception))
+
     def test_a_slot_left_unfilled_needs_why_and_must_still_be_a_place(self):
         with self.assertRaises(SystemExit) as stop:
             self.checked({"not_filled": [
@@ -486,6 +494,16 @@ class PassThroughs(unittest.TestCase):
         with self.assertRaises(SystemExit) as stop:
             self.checked({})
         self.assertIn("kkt-rules may hand on what it was given to kkt-names's channel_id (entropy)", str(stop.exception))
+
+    def test_a_place_both_wired_and_left_out_fails(self):
+        with self.assertRaises(SystemExit) as stop:
+            self.checked({"injectors": {"kkt-rules": {"wiring": [
+                {"passes_on": "the entropy", "crate": "kkt-names", "to": [{"at": "channel_id", "param": "entropy"}],
+                 "from": [{"at": "Startup", "param": "entropy"}]}]}},
+                "not_passed_on": [{"crate": "kkt-rules", "to": "kkt-names", "at": "channel_id", "param": "entropy",
+                                   "why": "w"}]})
+        self.assertIn("not_passed_on: kkt-rules to kkt-names's channel_id (entropy) is wired; remove it from not_passed_on",
+                      str(stop.exception))
 
     def test_a_place_left_out_needs_why_and_must_still_be_a_place(self):
         with self.assertRaises(SystemExit) as stop:

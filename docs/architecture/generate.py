@@ -1414,8 +1414,8 @@ def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candid
                     problems.append(f"{program}: no public item {path} in {crate}")
     # Every place a crate may hand on what it was given, and every slot a
     # program may fill, is either wired (by that crate, into that slot) or
-    # left out with a reason, and every entry left out is still such a
-    # place.
+    # left out with a reason, never both, and every entry left out is
+    # still such a place.
     def wired(c):
         return any(w["crate"] == c["to"] and any(t["at"] == c["at"] and t["param"] == c["param"] for t in w["to"])
                    for w in (assembly["programs"].get(c["crate"]) or assembly.get("injectors", {}).get(c["crate"]) or {})
@@ -1436,6 +1436,8 @@ def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candid
             if k not in {key(x) for x in places}:
                 problems.append(f"{listed}: {k[0]} to {k[1]}'s {k[2]} ({k[3]}) is no longer a place "
                                 + ("to hand anything on" if listed == "not_passed_on" else "a program may fill"))
+            elif wired(c):
+                problems.append(f"{listed}: {k[0]} to {k[1]}'s {k[2]} ({k[3]}) is wired; remove it from {listed}")
     if problems:
         sys.exit("assembly.json is out of date:\n  " + "\n  ".join(problems))
 
