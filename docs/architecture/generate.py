@@ -863,8 +863,10 @@ def main():
     assembly = json.loads((HERE / "assembly.json").read_text())
     check_assembly(assembly, items_of, packages, {c["name"]: c["slots"] for c in crates},
                    {c["name"]: c.get("foreign_implements", []) for c in crates},
-                   pass_through_candidates(crates, edges) + [v for v in value_candidates(crates, edges, kind_of)
-                                                              if v not in pass_through_candidates(crates, edges)],
+                   {"not_passed_on": pass_through_candidates(crates, edges)
+                    + [v for v in value_candidates(crates, edges, kind_of)
+                       if v not in pass_through_candidates(crates, edges)],
+                    "not_filled": program_fill_candidates(crates, edges)},
                    {c["name"]: {p["value"]: p["operations"] for p in c.get("produces", [])} for c in crates},
                    {c["name"]: c["implements"] for c in crates})
 
@@ -1222,15 +1224,16 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
 
 
 def value_candidates(crates, edges, kind_of):
-    """Where an injector (a program or a composition crate) may hand a value
-    a contract's operation produced to another crate: it depends on the
-    contract's crate and names the receiver's slot that takes the value."""
+    """Where a composition crate that is not a program may hand a value a
+    contract's operation produced to another crate: it depends on the
+    contract's crate and names the receiver's slot that takes the value. A
+    program's are among `program_fill_candidates`."""
     by_name = {c["name"]: c for c in crates}
     depends = {(e["from"], e["to"]) for e in edges if e["kind"] == "normal"}
     found = []
     for e in edges:
         a, b = by_name.get(e["from"]), by_name.get(e["to"])
-        if e["kind"] != "normal" or not a or not b or not (a["bins"] or kind_of.get(a["name"]) == "composition"):
+        if e["kind"] != "normal" or not a or not b or a["bins"] or kind_of.get(a["name"]) != "composition":
             continue
         for slot in b["slots"]:
             if slot["at"].startswith("testing"):
@@ -1242,6 +1245,30 @@ def value_candidates(crates, edges, kind_of):
                 if (a["name"], value.split("::", 1)[0]) in depends:
                     found.append({"crate": a["name"], "to": b["name"], "at": slot["at"], "param": slot["name"]})
     return [dict(t) for t in {tuple(sorted(c.items())) for c in found}]
+
+
+def program_fill_candidates(crates, edges):
+    """Where a program may fill a slot: it depends in code on the slot's
+    crate and names the slot, or the item the slot belongs to, and the slot
+    takes a workspace contract, a value a contract's operation produced, or
+    a trait from outside the workspace that the wiring check can verify.
+    Testing slots are left out. A candidate is confirmed by reading the
+    call, and assembly.json records each, as wiring or in not_filled."""
+    by_name = {c["name"]: c for c in crates}
+    found = []
+    for e in edges:
+        a, b = by_name.get(e["from"]), by_name.get(e["to"])
+        if e["kind"] != "normal" or not a or not b or not a["bins"]:
+            continue
+        for slot in b["slots"]:
+            if slot["at"].startswith("testing"):
+                continue
+            if not (slot["traits"] or slot.get("values") or slot.get("foreign")):
+                continue
+            owner = slot["at"].rsplit("::", 1)[0] if "::" in slot["at"] else None
+            if slot["at"] in e["items"] or owner in e["items"]:
+                found.append({"crate": a["name"], "to": b["name"], "at": slot["at"], "param": slot["name"]})
+    return found
 
 
 def pass_through_candidates(crates, edges):
@@ -1280,7 +1307,10 @@ def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candid
     slot typed as a trait from outside the workspace (`foreign`) something
     rustdoc does not show meeting it, or passes something on without
     saying, in "from",
-    which of the injector's slots a program filled with it."""
+    which of the injector's slots a program filled with it. `candidates`
+    maps each list of places left out (not_passed_on, for what a crate may
+    hand on, and not_filled, for a slot a program may fill) to the places
+    the code shows: each is wired or in its list with why."""
     problems = []
 
     flows = list(assembly["programs"].values()) + list(assembly.get("injectors", {}).values())
@@ -1382,24 +1412,30 @@ def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candid
                 crate, _, path = ref.partition("::")
                 if crate not in items_of or path not in items_of[crate]:
                     problems.append(f"{program}: no public item {path} in {crate}")
-    # Every place a crate may hand on what it was given is either wired
-    # (by that crate, into that slot) or left out with a reason, and every
-    # entry left out is still such a place.
+    # Every place a crate may hand on what it was given, and every slot a
+    # program may fill, is either wired (by that crate, into that slot) or
+    # left out with a reason, and every entry left out is still such a
+    # place.
     def wired(c):
         return any(w["crate"] == c["to"] and any(t["at"] == c["at"] and t["param"] == c["param"] for t in w["to"])
                    for w in (assembly["programs"].get(c["crate"]) or assembly.get("injectors", {}).get(c["crate"]) or {})
                    .get("wiring", []))
     key = lambda c: (c["crate"], c["to"], c["at"], c["param"])
-    left = {key(c): c for c in assembly.get("not_passed_on", [])}
-    for c in candidates:
-        if not wired(c) and key(c) not in left:
-            problems.append(f"{c['crate']} may hand on what it was given to {c['to']}'s {c['at']} ({c['param']}): "
-                            f"wire it under injectors, or list it in not_passed_on with why")
-    for k, c in left.items():
-        if not c.get("why"):
-            problems.append(f"not_passed_on: {k[0]} to {k[1]}'s {k[2]} ({k[3]}) says no why")
-        if k not in {key(x) for x in candidates}:
-            problems.append(f"not_passed_on: {k[0]} to {k[1]}'s {k[2]} ({k[3]}) is no longer a place to hand anything on")
+    unwired = {"not_passed_on": lambda c: f"{c['crate']} may hand on what it was given to {c['to']}'s {c['at']} "
+                                          f"({c['param']}): wire it under injectors, or list it in not_passed_on with why",
+               "not_filled": lambda c: f"{c['crate']} may fill {c['to']}'s {c['at']} ({c['param']}): "
+                                       f"wire it under programs, or list it in not_filled with why"}
+    for listed, places in candidates.items():
+        left = {key(c): c for c in assembly.get(listed, [])}
+        for c in places:
+            if not wired(c) and key(c) not in left:
+                problems.append(unwired[listed](c))
+        for k, c in left.items():
+            if not c.get("why"):
+                problems.append(f"{listed}: {k[0]} to {k[1]}'s {k[2]} ({k[3]}) says no why")
+            if k not in {key(x) for x in places}:
+                problems.append(f"{listed}: {k[0]} to {k[1]}'s {k[2]} ({k[3]}) is no longer a place "
+                                + ("to hand anything on" if listed == "not_passed_on" else "a program may fill"))
     if problems:
         sys.exit("assembly.json is out of date:\n  " + "\n  ".join(problems))
 
