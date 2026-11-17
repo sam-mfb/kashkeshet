@@ -4,9 +4,10 @@
 //! match the same file in `tests/container_install/`.
 //!
 //! This folder sits outside `tests/container_install/` on purpose. While the
-//! container split is under way, a step may add a subject here. It may not
-//! change the scenarios, what the scripted host answers, or their files,
-//! which all live in that folder.
+//! container split is under way, a step may add a subject here. Until its
+//! last step, no step removes or alters a subject. No step changes the
+//! scenarios, what the scripted host answers, or their files, which all
+//! live in that folder.
 
 use kkt_container::Container;
 use kkt_container_docker::testing::Scripted;
