@@ -1,10 +1,14 @@
-//! In-memory installations for tests. No commands run and no files are read.
+//! In-memory installations ([`Memory`]) and Compose projects
+//! ([`MemoryProjects`]) for tests. No commands run and no files are read.
 //! What runs in the server print, the files under its config home and
 //! sharing keys are supplied explicitly by the test.
 
 use super::*;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+
+mod projects;
+pub use projects::{MemoryProjects, Request};
 
 struct Install {
     inputs: Inputs,

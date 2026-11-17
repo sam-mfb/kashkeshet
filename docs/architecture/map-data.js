@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "8fbcbd35",
+ "commit": "6315bbf5",
  "crates": [
   {
    "bins": [
@@ -4828,6 +4828,19 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "LoginLink"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kkt-container",
+       "type": "testing::MemoryProjects"
+      },
+      {
+       "crate": "kkt-container-docker",
+       "type": "Docker"
+      }
+     ],
+     "trait": "Projects"
     }
    ],
    "crate_doc": "The operations and records of a kkt container installation, as a contract: `Container`, what it is given (`ConfigReader`, `LoginLink`) and its records, with a stand-in behind `testing`.",
@@ -4843,6 +4856,12 @@ window.KKT_GRAPH = {
      "trait": "Container",
      "trait_crate": "kkt-container",
      "type": "testing::Memory"
+    },
+    {
+     "crate": "kkt-container",
+     "trait": "Projects",
+     "trait_crate": "kkt-container",
+     "type": "testing::MemoryProjects"
     }
    ],
    "items": [
@@ -4912,6 +4931,26 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Existing"
+    },
+    {
+     "doc": "What was being done to a file when it failed.",
+     "kind": "enum",
+     "path": "FileAction",
+     "variants": [
+      "Read",
+      "Write",
+      "Make"
+     ]
+    },
+    {
+     "doc": "Whether a path is there, and what it is.",
+     "kind": "enum",
+     "path": "FileState",
+     "variants": [
+      "Missing",
+      "File",
+      "Other"
+     ]
     },
     {
      "doc": "The folder managed for a container installation and its backups.",
@@ -4984,12 +5023,106 @@ window.KKT_GRAPH = {
      "path": "LoginLink"
     },
     {
+     "doc": "Where a command's output goes.",
+     "kind": "enum",
+     "path": "Output",
+     "variants": [
+      "Captured",
+      "Terminal"
+     ]
+    },
+    {
+     "doc": "A Compose project: a folder of files and the services they describe.",
+     "fields": [
+      "folder",
+      "shielded"
+     ],
+     "kind": "struct",
+     "path": "Project"
+    },
+    {
+     "doc": "Why an operation on a project failed.",
+     "kind": "enum",
+     "methods": [
+      "detail",
+      "file"
+     ],
+     "path": "ProjectError",
+     "variants": [
+      "Missing",
+      "Failed",
+      "Unexpected",
+      "File",
+      "Refused"
+     ]
+    },
+    {
+     "doc": "A file to write in or for a project.",
+     "fields": [
+      "path",
+      "text",
+      "private"
+     ],
+     "kind": "struct",
+     "path": "ProjectFile"
+    },
+    {
+     "doc": "A container tool's operations on Compose projects.",
+     "kind": "trait",
+     "methods": [
+      "available",
+      "copy_in",
+      "copy_out",
+      "down",
+      "exec",
+      "file",
+      "inspect",
+      "make_folders",
+      "pull",
+      "read",
+      "restart",
+      "run_once",
+      "running",
+      "tool",
+      "typed",
+      "up",
+      "write"
+     ],
+     "path": "Projects"
+    },
+    {
      "doc": "The network name discovered while starting the installation.",
      "fields": [
       "node"
      ],
      "kind": "struct",
      "path": "Provisioned"
+    },
+    {
+     "doc": "A command that ran, however it ended.",
+     "fields": [
+      "command",
+      "status",
+      "stdout",
+      "stderr"
+     ],
+     "kind": "struct",
+     "methods": [
+      "succeeded",
+      "success"
+     ],
+     "path": "Ran"
+    },
+    {
+     "doc": "How a running service was started, as the tool reports it.",
+     "fields": [
+      "command",
+      "entrypoint",
+      "env",
+      "working_dir"
+     ],
+     "kind": "struct",
+     "path": "ServiceConfig"
     },
     {
      "doc": "The network name and optional login key requested for sharing.",
@@ -5014,7 +5147,16 @@ window.KKT_GRAPH = {
      "path": "State"
     },
     {
-     "doc": "In-memory installations for tests.",
+     "doc": "The user a command in a service runs as.",
+     "kind": "enum",
+     "path": "User",
+     "variants": [
+      "Default",
+      "Root"
+     ]
+    },
+    {
+     "doc": "In-memory installations (`Memory`) and Compose projects (`MemoryProjects`) for tests.",
      "feature": "testing",
      "kind": "mod",
      "path": "testing"
@@ -5032,6 +5174,32 @@ window.KKT_GRAPH = {
       "set_sharing_key"
      ],
      "path": "testing::Memory"
+    },
+    {
+     "doc": "Compose projects in memory.",
+     "feature": "testing",
+     "kind": "struct",
+     "methods": [
+      "answering",
+      "file_text",
+      "has_folder",
+      "log",
+      "new",
+      "unavailable",
+      "with_config",
+      "with_file"
+     ],
+     "path": "testing::MemoryProjects"
+    },
+    {
+     "doc": "A command in a service that `MemoryProjects` was asked to run.",
+     "feature": "testing",
+     "kind": "enum",
+     "path": "testing::Request",
+     "variants": [
+      "Exec",
+      "RunOnce"
+     ]
     },
     {
      "doc": "A run in the server that `Memory` was asked for, as it was asked.",
@@ -5059,6 +5227,12 @@ window.KKT_GRAPH = {
     },
     {
      "operations": [
+      "Projects::file"
+     ],
+     "value": "FileState"
+    },
+    {
+     "operations": [
       "Container::compare_web_key"
      ],
      "value": "KeyCopy"
@@ -5071,13 +5245,37 @@ window.KKT_GRAPH = {
     },
     {
      "operations": [
+      "Projects::exec",
+      "Projects::run_once"
+     ],
+     "value": "Ran"
+    },
+    {
+     "operations": [
+      "Projects::inspect"
+     ],
+     "value": "ServiceConfig"
+    },
+    {
+     "operations": [
       "Container::status"
      ],
      "value": "State"
     }
    ],
    "released_program": false,
-   "slots": [],
+   "slots": [
+    {
+     "at": "testing::MemoryProjects::answering",
+     "feature": "testing",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "answer",
+     "traits": []
+    }
+   ],
    "testing_third_party": [],
    "third_party": [
     "futures"
@@ -5097,7 +5295,7 @@ window.KKT_GRAPH = {
      "trait": "Browser"
     }
    ],
-   "crate_doc": "kkt-container over Docker and Compose: `Docker` implements its `Container`.",
+   "crate_doc": "kkt-container over Docker and Compose: `Docker` implements its `Container`, and its general `Projects` (in `projects`).",
    "dev_only": false,
    "features": {
     "testing": [
@@ -5120,6 +5318,12 @@ window.KKT_GRAPH = {
     {
      "crate": "kkt-container-docker",
      "trait": "Container",
+     "trait_crate": "kkt-container",
+     "type": "Docker"
+    },
+    {
+     "crate": "kkt-container-docker",
+     "trait": "Projects",
      "trait_crate": "kkt-container",
      "type": "Docker"
     }
@@ -22253,6 +22457,8 @@ window.KKT_GRAPH = {
     "ConfigReader",
     "Container",
     "Existing",
+    "FileAction",
+    "FileState",
     "Folder",
     "InServer",
     "Inputs",
@@ -22260,8 +22466,16 @@ window.KKT_GRAPH = {
     "KeyCopy",
     "Login",
     "LoginLink",
+    "Output",
+    "Project",
+    "ProjectError",
+    "ProjectFile",
+    "Projects",
     "Provisioned",
-    "State"
+    "Ran",
+    "ServiceConfig",
+    "State",
+    "User"
    ],
    "kind": "normal",
    "optional": false,
@@ -22269,7 +22483,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Docker implements Container"
+      "Docker implements Container",
+      "Docker implements Projects"
      ],
      "role": "implements"
     },
@@ -22279,6 +22494,8 @@ window.KKT_GRAPH = {
       "Carry",
       "ConfigReader",
       "Existing",
+      "FileAction",
+      "FileState",
       "Folder",
       "InServer",
       "Inputs",
@@ -22286,8 +22503,15 @@ window.KKT_GRAPH = {
       "KeyCopy",
       "Login",
       "LoginLink",
+      "Output",
+      "Project",
+      "ProjectError",
+      "ProjectFile",
       "Provisioned",
-      "State"
+      "Ran",
+      "ServiceConfig",
+      "State",
+      "User"
      ],
      "role": "uses"
     }
@@ -22357,13 +22581,17 @@ window.KKT_GRAPH = {
   {
    "features": [],
    "from": "kkt-container-docker",
-   "items": [],
+   "items": [
+    "Dir"
+   ],
    "kind": "dev",
    "optional": false,
    "role": "uses",
    "roles": [
     {
-     "detail": [],
+     "detail": [
+      "Dir"
+     ],
      "role": "uses"
     }
    ],
@@ -28833,12 +29061,12 @@ window.KKT_CONCERNS = {
    "layer": "operations"
   },
   "kkt-container": {
-   "concern": "Running the server in a container, as a contract: `Container` sets up, reports on and removes a container install, runs the server's own program inside it with a private work folder carried in or out, and reads a file under its config home. The caller names the key copies' paths, the admin name and the config file's path. A container tool implements it.",
+   "concern": "Running the server in a container, as a contract: `Container` sets up, reports on and removes a container install, runs the server's own program inside it with a private work folder carried in or out, and reads a file under its config home. The caller names the key copies' paths, the admin name and the config file's path. A container tool implements it. Beside it, `Projects`: the operations a container tool offers on any Compose project, its files, services and commands in them, which knows nothing of what runs in the project.",
    "kind": "contract",
    "layer": "operations"
   },
   "kkt-container-docker": {
-   "concern": "Implements kkt-container's `Container` with Docker and Compose: the Compose files, the managed folder and the docker commands, among them a run in the container with its work folder made by mktemp and files copied in or out. It opens a sharing setup's login link through a `Browser` it declares.",
+   "concern": "Implements kkt-container's `Container` with Docker and Compose: the Compose files, the managed folder and the docker commands, among them a run in the container with its work folder made by mktemp and files copied in or out; and kkt-container's general `Projects`, each operation one `docker compose` command in the project's folder. It opens a sharing setup's login link through a `Browser` it declares.",
    "kind": "effect",
    "layer": "operations"
   },
