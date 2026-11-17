@@ -312,13 +312,29 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       ["kashkeshet>kkt-install-commands", "kashkeshet>kkt-setup", "kashkeshet>kkt-agent-commands", "kkt-install-commands>kkt-setup",
         "kkt-agent-commands>kkt-llm-agent-config"].every((l) => machine.lines.includes(l)) &&
       machine.hops.includes("kashkeshet>kkt-machine-os>normal") &&
-      /Env, from OsMachine/.test(machine.labels["kashkeshet>kkt-install-commands"] || "") &&
+      // The line into kkt-install-commands also carries ClientHost and
+      // NativeSetupFiles, so its label is shortened; the line into
+      // kkt-setup carries only the values.
+      /Env, from OsMachine/.test(machine.labels["kashkeshet>kkt-setup"] || "") &&
       /Env, from OsMachine.* · passed on$/.test(machine.labels["kkt-agent-commands>kkt-llm-agent-config"] || "") &&
       /filled with Env, from OsMachine, by kashkeshet/.test(operatePanel) &&
       /Env, from OsMachine → kkt-install-commands's/.test(machinePanel) &&
       // The supply label names each supplied type once.
-      machine.labels["kkt-machine-os>kashkeshet"] === "OsMachine; also wrapped by ThisProgram",
+      machine.labels["kkt-machine-os>kashkeshet"] === "OsMachine; also wrapped by ClientHost, ThisProgram and NativeSetupFiles" &&
+      // An adapter over two crates: ClientHost wraps kkt-files' Files and
+      // kkt-machine-os' OsMachine, so its route is drawn whole from either,
+      // and kkt-files' hop names what wraps its Files.
+      /ClientHost \(over kkt-files and kkt-machine-os\)/.test(machine.labels["kashkeshet>kkt-agent-commands"] || "") &&
+      machine.hops.includes("kashkeshet>kkt-files>normal") &&
+      machine.labels["kkt-files>kashkeshet"] === "Files, wrapped by ClientHost and NativeSetupFiles",
       { machine, operate: (operatePanel.match(/filled with Env[^]{0,60}/) || [""])[0], goes: (machinePanel.match(/Where its work goes[^]{0,120}/) || [""])[0] });
+    // ConnectionReads wraps kkt-files, kkt-keys-os and kkt-entropy-os, so
+    // ticking kkt-keys-os draws its route into both assemblies.
+    const keys = await routeOf("kkt-keys-os");
+    check("ticking one of an adapter's several suppliers draws its route",
+      ["kashkeshet>kkt-agent-commands", "kashkeshet>kkt-install-commands"].every((l) => keys.lines.includes(l)) &&
+      keys.hops.includes("kashkeshet>kkt-keys-os>normal") &&
+      /OsKeyFiles.* wrapped by .*ConnectionReads/.test(keys.labels["kkt-keys-os>kashkeshet"] || ""), keys);
     // Nothing is drawn out of kkt-shutdown-os: the program builds the
     // Shutdown it stops, and StopSignals gives back only which signal came.
     const shutdown = await routeOf("kkt-shutdown-os");
@@ -432,7 +448,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     await onBox("kkt-terminal", ".pick-hit");
     check("an adapter's hop is its used-by stroke, lit amber and labelled with what it wraps",
       terminal.hops.join() === "role-uses" && terminal.amber.join() === "role-uses" &&
-      terminal.labels.some((l) => /Terminal, wrapped by WatchOutput/.test(l)), terminal);
+      terminal.labels.some((l) => /Terminal, wrapped by .*WatchOutput/.test(l)), terminal);
     await onBox("kkt-log-tracing", ".pick-hit");
     const tracing = await hopOn("kashkeshet>kkt-log-tracing>normal");
     await onBox("kkt-log-tracing", ".pick-hit");
