@@ -870,16 +870,6 @@
     return `${typeName(o.item)} (its own work)`;
   }
   const ownWork = (route) => route[0].how === "own" || (route[0].how === "injects" && route[0].builder === route[0].program);
-  // When a crate hands on what it was given: once, at start-up, where every
-  // slot it fills is a field or a constructor's parameter, which keeps the
-  // value; otherwise per call.
-  function timing(hop) {
-    const slots = (crates.get(hop.receiver) || { slots: [] }).slots;
-    const kept = hop.slots.every((t) => t.at.endsWith("::new") ||
-      slots.some((s) => s.at === t.at && s.name === t.param && s.kind === "field"));
-    return kept ? "at start-up" : "per call";
-  }
-
   // The route in words, hop by hop, with the slots it fills.
   function routeWords(route) {
     const o = route[0];
@@ -891,7 +881,8 @@
     }[o.how]();
     const into = (h) => `${h.receiver} (${h.slots.map((t) => `${t.at}: ${t.param}`).join(", ")})`;
     return el("div", { class: "delivery-words" }, begin,
-      route.map((h, i) => [i ? `; ${h.program} passes it on ${timing(h)} to ` : " → ", into(h)]));
+      route.map((h, i) => [i ? `; ${h.program} passes it on to ` : " → ", into(h)]),
+      route.length > 1 ? " (the map shows that it is passed on, not when: at start-up or on each call)" : "");
   }
 
   // The contracts a slot takes, as "crate::Trait".
@@ -1062,11 +1053,12 @@
       const allOwn = line.routes.every(ownWork);
       if (allOwn) path.classList.add("own-work");
       // A hop that hands on what its crate was given says so once, after
-      // what it carries, and when: at start-up or per call.
+      // what it carries. When it is handed on, at start-up or on each call,
+      // the code's names cannot show, so the tooltip says the map does not.
       const hops = line.routes.map((r) => r.find((h) => h.program === line.program && h.receiver === line.receiver));
-      const when = [...new Set(hops.filter((h) => h && h.how === "passed").map(timing))];
+      const passed = hops.some((h) => h && h.how === "passed");
       labelOn(path, line, [...line.routes.filter(ownWork).map(carried), ...line.routes.filter((r) => !ownWork(r)).map(carried)],
-        allOwn ? " own-work" : "", when.length ? ` · passed on ${when.join(" or ")}` : "");
+        allOwn ? " own-work" : "", passed ? " · passed on" : "");
     }
   }
 
