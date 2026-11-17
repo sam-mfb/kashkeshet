@@ -810,6 +810,162 @@
       }
      ],
      "note": "in OperateParts' connection, which each command reads"
+    },
+    {
+     "produces": "kkt-machine::Env",
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "doctor::run",
+       "param": "env"
+      },
+      {
+       "at": "key::create",
+       "param": "env"
+      },
+      {
+       "at": "key::header",
+       "param": "env"
+      },
+      {
+       "at": "key::show",
+       "param": "env"
+      },
+      {
+       "at": "keys::selected_key_path",
+       "param": "env"
+      },
+      {
+       "at": "lanes::run",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::backup",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "env"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "env"
+      },
+      {
+       "at": "record::read_setup",
+       "param": "env"
+      },
+      {
+       "at": "setup::run",
+       "param": "env"
+      },
+      {
+       "at": "setup::run_switch",
+       "param": "env"
+      }
+     ],
+     "note": "asked once at start"
+    },
+    {
+     "produces": "kkt-machine::Platform",
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-operate",
+     "to": [
+      {
+       "at": "doctor::run",
+       "param": "platform"
+      },
+      {
+       "at": "key::create",
+       "param": "platform"
+      },
+      {
+       "at": "key::header",
+       "param": "platform"
+      },
+      {
+       "at": "key::show",
+       "param": "platform"
+      },
+      {
+       "at": "keys::selected_key_path",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "platform"
+      },
+      {
+       "at": "setup::run",
+       "param": "platform"
+      }
+     ],
+     "note": "asked once at start"
+    },
+    {
+     "produces": "kkt-machine::Env",
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-setup",
+     "to": [
+      {
+       "at": "default_db",
+       "param": "env"
+      }
+     ],
+     "note": "where the default database goes"
+    },
+    {
+     "produces": "kkt-machine::Platform",
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-setup",
+     "to": [
+      {
+       "at": "default_db",
+       "param": "platform"
+      }
+     ],
+     "note": "where the default database goes"
+    },
+    {
+     "produces": "kkt-machine::Env",
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "connect::run",
+       "param": "env"
+      }
+     ],
+     "note": "kkt connect"
+    },
+    {
+     "produces": "kkt-clock::Time",
+     "by": "kkt-clock-system::SystemClock",
+     "crate": "kkt-backup",
+     "to": [
+      {
+       "at": "layout",
+       "param": "at"
+      }
+     ],
+     "note": "the backup before an upgrade, named for the time"
     }
    ],
    "inferred": false
@@ -1551,6 +1707,31 @@
        "param": "client_command"
       }
      ]
+    },
+    {
+     "passes_on": "the Env the program gave connect::run",
+     "crate": "kkt-llm-agent-config",
+     "to": [
+      {
+       "at": "Client::file",
+       "param": "env"
+      },
+      {
+       "at": "Client::source",
+       "param": "env"
+      },
+      {
+       "at": "Setup",
+       "param": "env"
+      }
+     ],
+     "from": [
+      {
+       "at": "connect::run",
+       "param": "env"
+      }
+     ],
+     "note": "kkt connect"
     }
    ]
   },
@@ -1877,6 +2058,152 @@
       }
      ],
      "note": "kkt doctor, setup, status and the commands that read the setup record"
+    },
+    {
+     "passes_on": "the Env the program gave each command",
+     "crate": "kkt-llm-agent-config",
+     "to": [
+      {
+       "at": "allow_kkt",
+       "param": "env"
+      },
+      {
+       "at": "codex_password_store_hint",
+       "param": "env"
+      },
+      {
+       "at": "Client::installed",
+       "param": "env"
+      },
+      {
+       "at": "Client::connected",
+       "param": "env"
+      },
+      {
+       "at": "Client::file",
+       "param": "env"
+      },
+      {
+       "at": "Client::source",
+       "param": "env"
+      },
+      {
+       "at": "Setup",
+       "param": "env"
+      }
+     ],
+     "from": [
+      {
+       "at": "setup::run",
+       "param": "env"
+      },
+      {
+       "at": "doctor::run",
+       "param": "env"
+      }
+     ],
+     "note": "kkt setup and kkt doctor"
+    },
+    {
+     "passes_on": "the Env the program gave each command",
+     "crate": "kkt-setup",
+     "to": [
+      {
+       "at": "docker_folder",
+       "param": "env"
+      }
+     ],
+     "from": [
+      {
+       "at": "setup::run",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "env"
+      },
+      {
+       "at": "lanes::run",
+       "param": "env"
+      }
+     ],
+     "note": "where the Docker folder is"
+    },
+    {
+     "passes_on": "the Platform the program gave each command",
+     "crate": "kkt-setup",
+     "to": [
+      {
+       "at": "docker_folder",
+       "param": "platform"
+      }
+     ],
+     "from": [
+      {
+       "at": "setup::run",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "platform"
+      }
+     ],
+     "note": "where the Docker folder is"
+    },
+    {
+     "produces": "kkt-clock::Time",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "clock"
+      }
+     ],
+     "crate": "kkt-backup",
+     "to": [
+      {
+       "at": "layout",
+       "param": "at"
+      }
+     ],
+     "note": "kkt backup: the time from the clock the program gave OperateParts"
+    },
+    {
+     "produces": "kkt-container::State",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "container"
+      }
+     ],
+     "crate": "kkt-setup",
+     "to": [
+      {
+       "at": "docker_status_lines",
+       "param": "state"
+      },
+      {
+       "at": "doctor_checks::docker_check",
+       "param": "state"
+      }
+     ],
+     "note": "kkt status and kkt doctor: the Docker install's state, from the container the program gave OperateParts"
+    },
+    {
+     "produces": "kkt-container::KeyCopy",
+     "from": [
+      {
+       "at": "OperateParts",
+       "param": "container"
+      }
+     ],
+     "crate": "kkt-setup",
+     "to": [
+      {
+       "at": "doctor_checks::docker_web_key_check",
+       "param": "compared"
+      }
+     ],
+     "note": "kkt doctor: the web key compared with the Docker install's copy"
     }
    ]
   },
@@ -1973,6 +2300,76 @@
    "at": "router",
    "param": "sessions",
    "why": "it hands on kkt-web's own Sessions, which it builds: a value of the receiving crate's own type"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::connected",
+   "param": "env",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-operate do"
+  },
+  {
+   "crate": "kkt-setup",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::connected",
+   "param": "env",
+   "why": "it names Client, and calls none of its methods"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::file",
+   "param": "env",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-operate do"
+  },
+  {
+   "crate": "kkt-setup",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::file",
+   "param": "env",
+   "why": "it names Client, and calls none of its methods"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::installed",
+   "param": "env",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-operate do"
+  },
+  {
+   "crate": "kkt-setup",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::installed",
+   "param": "env",
+   "why": "it names Client, and calls none of its methods"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::source",
+   "param": "env",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-operate do"
+  },
+  {
+   "crate": "kkt-setup",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::source",
+   "param": "env",
+   "why": "it names Client, and calls none of its methods"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::connected",
+   "param": "env",
+   "why": "it calls Client::file and Client::source only"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::installed",
+   "param": "env",
+   "why": "it calls Client::file and Client::source only"
   }
  ]
 }
