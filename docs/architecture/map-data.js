@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a9f6168b",
+ "commit": "a46b593f",
  "crates": [
   {
    "bins": [
@@ -16025,11 +16025,6 @@ window.KKT_GRAPH = {
     {
      "doc": "",
      "kind": "fn",
-     "path": "setup_lane_limit"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
      "path": "staged_client_key"
     },
     {
@@ -16405,24 +16400,6 @@ window.KKT_GRAPH = {
        "trait": "Steps"
       }
      ]
-    },
-    {
-     "at": "setup_lane_limit",
-     "foreign": [
-      "core::ops::function::FnOnce"
-     ],
-     "kind": "param",
-     "name": "docker",
-     "traits": []
-    },
-    {
-     "at": "setup_lane_limit",
-     "foreign": [
-      "core::ops::function::FnOnce"
-     ],
-     "kind": "param",
-     "name": "local",
-     "traits": []
     },
     {
      "at": "switch",
