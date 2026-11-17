@@ -551,14 +551,18 @@
        "param": "prober"
       }
      ],
-     "own": "Probe, adapting kkt-probe's HttpProber to kkt-diagnostics' Prober",
+     "own": "Probe, adapting kkt-probe's HttpProber, and kkt-keys-os' OsKeyFiles for the key files, to kkt-diagnostics' Prober",
      "suppliers": [
       {
        "crate": "kkt-probe",
        "item": "HttpProber"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
       }
      ],
-     "note": "The program builds HttpProber with the doctor's settings and adapts it."
+     "note": "The program builds HttpProber with the doctor's settings and the client name it announces, and reads key files through OsKeyFiles."
     },
     {
      "own": "LaneDisk",

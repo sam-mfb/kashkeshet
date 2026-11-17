@@ -10,6 +10,19 @@ use std::path::Path;
 /// The key files on this machine's disk.
 pub struct OsKeyFiles;
 
+/// A file's permission bits.
+#[cfg(unix)]
+fn permission_bits(metadata: &std::fs::Metadata) -> Option<u32> {
+    use std::os::unix::fs::PermissionsExt;
+    Some(metadata.permissions().mode() & 0o777)
+}
+
+/// No permission bits: this system does not have them.
+#[cfg(not(unix))]
+fn permission_bits(_metadata: &std::fs::Metadata) -> Option<u32> {
+    None
+}
+
 impl KeyFiles for OsKeyFiles {
     fn read(&self, path: &Path) -> io::Result<String> {
         std::fs::read_to_string(path)
@@ -25,6 +38,10 @@ impl KeyFiles for OsKeyFiles {
 
     fn is_file(&self, path: &Path) -> bool {
         path.is_file()
+    }
+
+    fn mode(&self, path: &Path) -> io::Result<Option<u32>> {
+        std::fs::metadata(path).map(|metadata| permission_bits(&metadata))
     }
 
     fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
@@ -82,5 +99,33 @@ impl KeyFiles for OsKeyFiles {
                 result => result,
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kkt_scratch as scratch;
+
+    #[test]
+    fn a_files_mode_is_its_permission_bits() {
+        let dir = scratch::Dir::new("keys-os-mode");
+        let path = dir.join("access-key");
+        OsKeyFiles
+            .write_key(&path, "a key", false)
+            .expect("written");
+        let mode = OsKeyFiles.mode(&path).expect("mode");
+        if cfg!(unix) {
+            assert_eq!(mode, Some(kkt_keys::ACCESS_KEY_FILE_MODE));
+        } else {
+            assert_eq!(mode, None);
+        }
+        assert_eq!(
+            OsKeyFiles
+                .mode(&dir.join("missing"))
+                .expect_err("missing")
+                .kind(),
+            io::ErrorKind::NotFound
+        );
     }
 }

@@ -135,6 +135,14 @@ impl KeyFiles for Memory {
         self.files.borrow().contains_key(path)
     }
 
+    fn mode(&self, path: &Path) -> io::Result<Option<u32>> {
+        self.check(path)?;
+        match self.files.borrow().get(path) {
+            Some(file) => Ok(file.mode),
+            None => Err(io::Error::new(io::ErrorKind::NotFound, "no such file")),
+        }
+    }
+
     fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
         self.check(dir)
             .map_err(|e| format!("could not create {}: {e}", dir.display()))?;

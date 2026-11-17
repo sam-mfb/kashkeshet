@@ -1,12 +1,11 @@
-//! [`HttpProber`]: reading key files and probing a server over HTTP.
-//! reqwest's types stay in this file.
+//! [`HttpProber`]: the requests, with reqwest. reqwest's types stay in this
+//! file.
 
-use crate::{FileRead, Finding, Settings};
-use reqwest::{Client, Response, Url, redirect::Policy};
+use crate::{Answered, Initialized, Reply, ReplyError, Settings, Status, Unprobed};
+use reqwest::{Client, Response, StatusCode, Url, redirect::Policy};
 use serde_json::{Value, json};
-use std::path::Path;
 
-/// Reads key files and probes servers over HTTP, as its settings say.
+/// Probes servers over HTTP, as its settings say.
 pub struct HttpProber {
     settings: Settings,
 }
@@ -15,40 +14,107 @@ impl HttpProber {
     pub fn new(settings: Settings) -> Self {
         Self { settings }
     }
-}
 
-impl HttpProber {
-    /// What the key file at `path` holds. `Err` says why the file could not
-    /// be looked at.
-    pub fn key_file(&self, path: &Path) -> Result<FileRead, String> {
-        let metadata = std::fs::metadata(path).map_err(|e| e.to_string())?;
-        Ok(FileRead {
-            mode: mode(&metadata),
-            text: std::fs::read_to_string(path).map_err(|e| e.to_string()),
+    /// A plain GET of `url`: the status it answered with, or why it did not
+    /// answer.
+    pub async fn answer(&self, url: &str) -> Result<Answered, Unprobed> {
+        let url = parse(url)?;
+        let client = client(self.settings)?;
+        Ok(match client.get(url).send().await {
+            Ok(response) => Ok(status(response.status())),
+            Err(e) => Err(e.to_string()),
         })
     }
 
-    /// What a probe of the server at `url` finds, using `key` (`None` for
-    /// none): whether it answers, accepts its host name, accepts the key and
-    /// serves MCP, and its build. `Err` when the probe cannot be made at all.
-    pub async fn probe(&self, url: &str, key: Option<&str>) -> Result<Vec<Finding>, String> {
-        probe(url, key, self.settings).await
+    /// An MCP `initialize` request to `url`, with `key` as a bearer token
+    /// when given: what the server answered, and, for a session it opened,
+    /// what closing that session gave.
+    pub async fn initialize(&self, url: &str, key: Option<&str>) -> Result<Initialized, Unprobed> {
+        let settings = self.settings;
+        let url = parse(url)?;
+        let client = client(settings)?;
+        let request = json!({"jsonrpc":"2.0", "id":1, "method":"initialize", "params":{
+            "protocolVersion": settings.protocol_version,
+            "capabilities": {},
+            "clientInfo": {"name": settings.client_name, "version": settings.client_version}
+        }});
+        let mut post = client
+            .post(url.clone())
+            .header("Accept", "application/json, text/event-stream")
+            .header("Content-Type", "application/json")
+            .body(request.to_string());
+        if let Some(key) = key {
+            post = post.bearer_auth(key);
+        }
+        let response = match post.send().await {
+            Ok(response) => response,
+            Err(e) => return Ok(Initialized::Failed(e.to_string())),
+        };
+        if response.status() != StatusCode::OK {
+            return Ok(Initialized::Refused(status(response.status())));
+        }
+        let session = response.headers().get("mcp-session-id").cloned();
+        let reply = read_reply(response, settings).await.map(|value| {
+            match value.get("result").and_then(|r| r.get("serverInfo")) {
+                Some(info) => Reply::ServerInfo {
+                    name: text(info, "name"),
+                    version: text(info, "version"),
+                },
+                None => Reply::NoServerInfo,
+            }
+        });
+        let cleanup = match session {
+            Some(session) => {
+                let mut delete = client
+                    .delete(url)
+                    .header("mcp-session-id", session)
+                    .header("MCP-Protocol-Version", settings.protocol_version);
+                if let Some(key) = key {
+                    delete = delete.bearer_auth(key);
+                }
+                Some(match delete.send().await {
+                    Ok(response) => Ok(status(response.status())),
+                    Err(e) => Err(e.to_string()),
+                })
+            }
+            None => None,
+        };
+        Ok(Initialized::Replied { reply, cleanup })
     }
 }
 
-/// A file's permission bits.
-#[cfg(unix)]
-fn mode(metadata: &std::fs::Metadata) -> Option<u32> {
-    use std::os::unix::fs::PermissionsExt;
-    Some(metadata.permissions().mode() & 0o777)
+fn parse(url: &str) -> Result<Url, Unprobed> {
+    Url::parse(url).map_err(|_| Unprobed::BadUrl)
 }
 
-/// No permission bits: this system does not have them.
-#[cfg(not(unix))]
-fn mode(_metadata: &std::fs::Metadata) -> Option<u32> {
-    None
+fn client(settings: Settings) -> Result<Client, Unprobed> {
+    Client::builder()
+        .timeout(settings.timeout)
+        .connect_timeout(settings.timeout)
+        .redirect(Policy::none())
+        .no_proxy()
+        .https_only(false)
+        .user_agent(format!(
+            "{}/{}",
+            settings.client_name, settings.client_version
+        ))
+        .build()
+        .map_err(|e| Unprobed::NoClient(e.to_string()))
 }
 
+fn status(code: StatusCode) -> Status {
+    Status {
+        code: code.as_u16(),
+        reason: code.canonical_reason().map(str::to_string),
+    }
+}
+
+fn text(info: &Value, key: &str) -> Option<String> {
+    info.get(key).and_then(Value::as_str).map(str::to_string)
+}
+
+/// The first JSON value in `text` that is an `initialize` result or error:
+/// the whole body, or one of its `data:` lines when it is a stream.
 fn initialized(text: &[u8]) -> Option<Value> {
     let text = std::str::from_utf8(text).ok()?;
     let candidates =
@@ -58,160 +124,77 @@ fn initialized(text: &[u8]) -> Option<Value> {
         .find(|value| value.get("result").is_some() || value.get("error").is_some())
 }
 
-async fn initialize_response(mut response: Response, settings: Settings) -> Result<Value, String> {
+async fn read_reply(mut response: Response, settings: Settings) -> Result<Value, ReplyError> {
     let mut body = Vec::new();
     while let Some(chunk) = response
         .chunk()
         .await
-        .map_err(|e| format!("could not read MCP response: {e}"))?
+        .map_err(|e| ReplyError::Read(e.to_string()))?
     {
         if body.len() + chunk.len() > settings.max_response_bytes {
-            return Err("MCP response exceeded the diagnostic size limit".into());
+            return Err(ReplyError::TooLarge);
         }
         body.extend_from_slice(&chunk);
         if let Some(value) = initialized(&body) {
             return Ok(value);
         }
     }
-    Err("the endpoint did not return an MCP initialize result".into())
+    Err(ReplyError::NoResult)
 }
 
-fn http_client(settings: Settings) -> Result<Client, String> {
-    Client::builder()
-        .timeout(settings.timeout)
-        .connect_timeout(settings.timeout)
-        .redirect(Policy::none())
-        .no_proxy()
-        .https_only(false)
-        .user_agent(concat!("kkt-doctor/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .map_err(|e| format!("could not construct the diagnostic HTTP client: {e}"))
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-/// Adds whether the server answers at `url` and accepts its host name to
-/// `checks`. Returns whether both did.
-async fn reach(client: &Client, url: &Url, checks: &mut Vec<Finding>, settings: Settings) -> bool {
-    let response = match client.get(url.clone()).send().await {
-        Ok(response) => response,
-        Err(e) => {
-            checks.push(Finding::problem(
-                settings.server_check,
-                e.to_string(),
-                "run `kkt service start` or `kkt serve`, and check --url and the bind setting",
-            ));
-            return false;
-        }
-    };
-    checks.push(Finding::ok(
-        settings.server_check,
-        format!("reachable at {url}"),
-    ));
-    if response.status().as_u16() == 403 {
-        checks.push(Finding::problem(
-            "Host",
-            "the server refused this host name",
-            format!(
-                "add {:?} to allow_hosts in the serve config, then restart",
-                url.host_str().unwrap_or("")
-            ),
-        ));
-        return false;
-    }
-    checks.push(Finding::ok("Host", "accepted"));
-    true
-}
-
-/// The server checks for `url`, using `key`.
-async fn probe(url: &str, key: Option<&str>, settings: Settings) -> Result<Vec<Finding>, String> {
-    let mut checks = Vec::new();
-    let client = http_client(settings)?;
-    let url = Url::parse(url).map_err(|_| "invalid diagnostic URL")?;
-    if !reach(&client, &url, &mut checks, settings).await {
-        return Ok(checks);
-    }
-    let request = json!({"jsonrpc":"2.0", "id":1, "method":"initialize", "params":{
-        "protocolVersion": settings.protocol_version,
-        "capabilities": {}, "clientInfo":{"name":"kkt-doctor", "version":env!("CARGO_PKG_VERSION")}
-    }});
-    let mut post = client
-        .post(url.clone())
-        .header("Accept", "application/json, text/event-stream")
-        .header("Content-Type", "application/json")
-        .body(request.to_string());
-    if let Some(key) = key {
-        post = post.bearer_auth(key);
-    }
-    let response = match post.send().await {
-        Ok(response) => response,
-        Err(e) => {
-            checks.push(Finding::problem(
-                "MCP",
-                e.to_string(),
-                "check the MCP URL and server logs",
-            ));
-            return Ok(checks);
-        }
-    };
-    if response.status().as_u16() == 401 {
-        checks.push(Finding::problem(settings.key_check, "server returned 401", "pass --key-file with the key used by the running server, or restart it after changing keys"));
-        return Ok(checks);
-    }
-    if response.status().as_u16() != 200 {
-        checks.push(Finding::problem(
-            "MCP",
-            format!("server returned {}", response.status()),
-            "check that --url points at the server's /mcp endpoint",
-        ));
-        return Ok(checks);
-    }
-    let session = response.headers().get("mcp-session-id").cloned();
-    let initialized = initialize_response(response, settings).await;
-    if let Some(session) = session {
-        let mut delete = client
-            .delete(url)
-            .header("mcp-session-id", session)
-            .header("MCP-Protocol-Version", settings.protocol_version);
-        if let Some(key) = key {
-            delete = delete.bearer_auth(key);
-        }
-        match delete.send().await {
-            Ok(response) if response.status().is_success() => (),
-            Ok(response) => checks.push(Finding::problem(
-                "probe cleanup",
-                format!("server returned {}", response.status()),
-                "check the server logs",
-            )),
-            Err(e) => checks.push(Finding::problem(
-                "probe cleanup",
-                e.to_string(),
-                "check the server logs",
-            )),
-        }
-    }
-    match initialized {
-        Ok(value) => match value.get("result").and_then(|r| r.get("serverInfo")) {
-            Some(info) => {
-                checks.push(Finding::ok(
-                    settings.key_check,
-                    "MCP initialize returned 200",
-                ));
-                let version = info
-                    .get("version")
-                    .and_then(Value::as_str)
-                    .unwrap_or("not reported");
-                checks.push(Finding::ok("server build", format!("version {version}; commit is not exposed by MCP (see the web page's server runs)")));
+    #[test]
+    fn a_status_is_its_code_and_standard_reason() {
+        assert_eq!(
+            status(StatusCode::NOT_FOUND),
+            Status {
+                code: 404,
+                reason: Some("Not Found".into())
             }
-            None => checks.push(Finding::problem(
-                "MCP",
-                "initialize did not return serverInfo",
-                "check --url and the server's MCP implementation",
-            )),
-        },
-        Err(error) => checks.push(Finding::problem(
-            "MCP",
-            error,
-            "check --url and the server logs",
-        )),
+        );
+        let odd = StatusCode::from_u16(599).expect("a status");
+        assert_eq!(
+            status(odd),
+            Status {
+                code: 599,
+                reason: None
+            }
+        );
     }
-    Ok(checks)
+
+    #[test]
+    fn an_initialize_result_is_found_whole_or_in_a_stream() {
+        let whole = br#"{"jsonrpc":"2.0","id":1,"result":{"serverInfo":{"name":"s"}}}"#;
+        assert!(initialized(whole).is_some());
+        let stream = b"event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{}}\n\n";
+        assert!(initialized(stream).is_some());
+        assert!(initialized(b"data: {\"other\":1}\n").is_none());
+        assert!(initialized(b"not json").is_none());
+    }
+
+    #[test]
+    fn a_bad_url_is_refused_before_any_request() {
+        let prober = HttpProber::new(Settings {
+            timeout: std::time::Duration::from_secs(1),
+            max_response_bytes: 1024,
+            protocol_version: "2025-06-18",
+            client_name: "probe-test",
+            client_version: "1",
+        });
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        assert_eq!(
+            runtime.block_on(prober.answer("not a url")).err(),
+            Some(Unprobed::BadUrl)
+        );
+        assert_eq!(
+            runtime.block_on(prober.initialize("not a url", None)).err(),
+            Some(Unprobed::BadUrl)
+        );
+    }
 }
