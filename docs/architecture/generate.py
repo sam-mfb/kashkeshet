@@ -1383,12 +1383,27 @@ def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candid
                             h["crate"] == crate and h["type"] == path for h in taken.get("holds", [])):
                         problems.append(f"{program}: {impl} is a value of a type {wire['crate']} names directly "
                                         f"({slot['at']} ({slot['param']})), not an injection: record what goes into it")
+            if wire.get("supplier") or wire.get("supplier_item"):
+                problems.append(f"{program}: {wire.get('own')} into {wire['crate']} names \"supplier\": "
+                                f"list each in \"suppliers\", as {{\"crate\": ..., \"item\": ...}}")
             if wire.get("own"):
-                supplier = wire.get("supplier")
-                if supplier not in packages:
-                    problems.append(f"{program}: {wire['own']} names no supplier package ({supplier})")
-                elif wire.get("supplier_item") and wire["supplier_item"] not in items_of.get(supplier, {}):
-                    problems.append(f"{program}: no public item {wire['supplier_item']} in the supplier {supplier}")
+                # An adapter names each crate whose work it wraps, with
+                # that crate's item where there is one; the injector's own
+                # work names only the injector.
+                suppliers = wire.get("suppliers") or []
+                if not suppliers:
+                    problems.append(f"{program}: {wire['own']} into {wire['crate']} names no suppliers")
+                crates_named = [x.get("crate") for x in suppliers]
+                if program in crates_named and len(suppliers) > 1:
+                    problems.append(f"{program}: {wire['own']} names {program} among other suppliers: "
+                                    f"its own work names only itself")
+                if len(set(crates_named)) != len(crates_named):
+                    problems.append(f"{program}: {wire['own']} names a supplier twice")
+                for x in suppliers:
+                    if x.get("crate") not in packages:
+                        problems.append(f"{program}: {wire['own']} names no supplier package ({x.get('crate')})")
+                    elif x.get("item") and x["item"] not in items_of.get(x["crate"], {}):
+                        problems.append(f"{program}: no public item {x['item']} in the supplier {x['crate']}")
             for slot in wire["to"]:
                 if not any(s["at"] == slot["at"] and s["name"] == slot["param"]
                            for s in slots_of.get(wire["crate"], [])):

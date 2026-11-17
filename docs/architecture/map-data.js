@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a46b593f",
+ "commit": "563531a7",
  "crates": [
   {
    "bins": [
@@ -29006,7 +29006,7 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of four; the fourth, \"produces\", is a value a contract's operation gave the injector. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the three assemblies, kkt-install-commands, kkt-operator-commands and kkt-agent-commands, which pass on what the program gave their parts. \"not_passed_on\" lists each place generate.py finds where a crate could hand on a contract value it was given to another crate's slot, but does not, with why: every such place is either wired or listed. \"not_filled\" lists each slot generate.py finds that a program may fill (the program names it, and it takes a workspace contract, a value a contract's operation gives, or an outside trait the wiring check can verify) but does not, with why: every such slot is either wired under programs or listed.",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of four; the fourth, \"produces\", is a value a contract's operation gave the injector. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"suppliers\", each crate whose implementation does part of the work it adapts, as {\"crate\", \"item\"} (the item where one does); a single supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the three assemblies, kkt-install-commands, kkt-operator-commands and kkt-agent-commands, which pass on what the program gave their parts. \"not_passed_on\" lists each place generate.py finds where a crate could hand on a contract value it was given to another crate's slot, but does not, with why: every such place is either wired or listed. \"not_filled\" lists each slot generate.py finds that a program may fill (the program names it, and it takes a workspace contract, a value a contract's operation gives, or an outside trait the wiring check can verify) but does not, with why: every such slot is either wired under programs or listed.",
  "injectors": {
   "kkt-agent-commands": {
    "wiring": [
@@ -29264,7 +29264,11 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-setup",
      "note": "kkt setup: the assembly's own work",
      "own": "OsSteps, setup's steps through the program's parts",
-     "supplier": "kkt-install-commands",
+     "suppliers": [
+      {
+       "crate": "kkt-install-commands"
+      }
+     ],
      "to": [
       {
        "at": "run",
@@ -29276,7 +29280,11 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-setup",
      "note": "kkt switch: the assembly's own work",
      "own": "OsSwitchSteps, switch's steps through the program's parts",
-     "supplier": "kkt-install-commands",
+     "suppliers": [
+      {
+       "crate": "kkt-install-commands"
+      }
+     ],
      "to": [
       {
        "at": "switch",
@@ -29790,8 +29798,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-web",
      "own": "AdmissionGate, asking kkt-admission's web admission and the identity the program gave Parts",
-     "supplier": "kkt-admission",
-     "supplier_item": "WebAdmission",
+     "suppliers": [
+      {
+       "crate": "kkt-admission",
+       "item": "WebAdmission"
+      }
+     ],
      "to": [
       {
        "at": "router",
@@ -30414,8 +30426,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-admission",
      "note": "kkt serve",
      "own": "ServerKeyFiles, adapting kkt-keys-os::OsKeyFiles",
-     "supplier": "kkt-keys-os",
-     "supplier_item": "OsKeyFiles",
+     "suppliers": [
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      }
+     ],
      "to": [
       {
        "at": "server_keys::check",
@@ -30499,8 +30515,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt watch --admin",
      "own": "AdminKeyHere, asking kkt-operator-commands' key finder (keys::selected_key_path) over the operator's parts on this machine",
-     "supplier": "kkt-operator-commands",
-     "supplier_item": "keys::selected_key_path",
+     "suppliers": [
+      {
+       "crate": "kkt-operator-commands",
+       "item": "keys::selected_key_path"
+      }
+     ],
      "to": [
       {
        "at": "AgentParts",
@@ -30522,9 +30542,17 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and watch",
-     "own": "CredentialFiles, applying kkt-setup's credential-file rule to kkt-agent-files' credential and state files",
-     "supplier": "kkt-agent-files",
-     "supplier_item": "CredentialFile",
+     "own": "CredentialFiles, applying kkt-agent-commands' credential-file rule to kkt-agent-files' credential and state files, with its warnings on kkt-terminal's standard error",
+     "suppliers": [
+      {
+       "crate": "kkt-agent-files",
+       "item": "CredentialFile"
+      },
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
      "to": [
       {
        "at": "AgentParts",
@@ -30536,8 +30564,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and watch",
      "own": "KeyFiles, adapting kkt-keys-os::OsKeyFiles",
-     "supplier": "kkt-keys-os",
-     "supplier_item": "OsKeyFiles",
+     "suppliers": [
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      }
+     ],
      "to": [
       {
        "at": "AgentParts",
@@ -30549,8 +30581,16 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt connect",
      "own": "ClientHost, adapting kkt-files' Files and kkt-machine-os' process_id",
-     "supplier": "kkt-files",
-     "supplier_item": "Files",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-machine-os",
+       "item": "OsMachine"
+      }
+     ],
      "to": [
       {
        "at": "AgentParts",
@@ -30562,8 +30602,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt connect",
      "own": "ThisProgram, adapting the program's kkt_path, over kkt-machine-os' OsMachine",
-     "supplier": "kkt-machine-os",
-     "supplier_item": "OsMachine",
+     "suppliers": [
+      {
+       "crate": "kkt-machine-os",
+       "item": "OsMachine"
+      }
+     ],
      "to": [
       {
        "at": "AgentParts",
@@ -30575,8 +30619,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt watch",
      "own": "WatchOutput, adapting kkt-terminal::Terminal",
-     "supplier": "kkt-terminal",
-     "supplier_item": "Terminal",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
      "to": [
       {
        "at": "AgentParts",
@@ -30588,8 +30636,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt register, reclaim and connect",
      "own": "TerminalOutput, adapting kkt-terminal::Terminal",
-     "supplier": "kkt-terminal",
-     "supplier_item": "Terminal",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
      "to": [
       {
        "at": "AgentParts",
@@ -30645,8 +30697,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-operator-commands",
      "note": "kkt lanes export and import",
      "own": "HereLanes, picking the server kkt lanes acts on from what is installed here: ContainerLanes, kkt lanes run in the container over kkt-container-docker's Docker, or kkt-operator-commands' LocalLanes",
-     "supplier": "kkt-container-docker",
-     "supplier_item": "Docker",
+     "suppliers": [
+      {
+       "crate": "kkt-container-docker",
+       "item": "Docker"
+      }
+     ],
      "to": [
       {
        "at": "OperatorParts",
@@ -30658,7 +30714,11 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-install-commands",
      "note": "the program's own work",
      "own": "ContainerConfigs",
-     "supplier": "kashkeshet",
+     "suppliers": [
+      {
+       "crate": "kashkeshet"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -30724,9 +30784,17 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-install-commands",
-     "own": "ClientHost",
-     "supplier": "kkt-files",
-     "supplier_item": "Files",
+     "own": "ClientHost, adapting kkt-files' Files and kkt-machine-os' process_id",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-machine-os",
+       "item": "OsMachine"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -30738,8 +30806,16 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-install-commands",
      "note": "The program builds HttpProber with the doctor's settings and the client name it announces, and reads key files through OsKeyFiles.",
      "own": "Probe, adapting kkt-probe's HttpProber, and kkt-keys-os' OsKeyFiles for the key files, to kkt-diagnostics' Prober",
-     "supplier": "kkt-probe",
-     "supplier_item": "HttpProber",
+     "suppliers": [
+      {
+       "crate": "kkt-probe",
+       "item": "HttpProber"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -30750,8 +30826,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operator-commands",
      "own": "LaneDisk",
-     "supplier": "kkt-files",
-     "supplier_item": "Files",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
      "to": [
       {
        "at": "OperatorParts",
@@ -30767,8 +30847,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-operator-commands",
      "note": "The lane folder's commit, from the machine's git.",
      "own": "LaneGit, adapting kkt-revision's Git to kkt-lane-files' LaneCommit",
-     "supplier": "kkt-revision",
-     "supplier_item": "Git",
+     "suppliers": [
+      {
+       "crate": "kkt-revision",
+       "item": "Git"
+      }
+     ],
      "to": [
       {
        "at": "OperatorParts",
@@ -30784,7 +30868,11 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-install-commands",
      "note": "the program's own work",
      "own": "ServeReads, answering the program's serving questions lazily",
-     "supplier": "kashkeshet",
+     "suppliers": [
+      {
+       "crate": "kashkeshet"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -30796,7 +30884,11 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-operator-commands",
      "note": "the program's own work",
      "own": "ServeReads, answering the program's serving questions lazily",
-     "supplier": "kashkeshet",
+     "suppliers": [
+      {
+       "crate": "kashkeshet"
+      }
+     ],
      "to": [
       {
        "at": "OperatorParts",
@@ -30811,8 +30903,16 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "own": "NativeSetupFiles, reading and writing setup's record and note through kkt-files' Files with kkt-setup's parse and render, and this program's path and $PATH through kkt-machine-os' OsMachine",
-     "supplier": "kkt-files",
-     "supplier_item": "Files",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-machine-os",
+       "item": "OsMachine"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -30831,8 +30931,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operator-commands",
      "own": "NativeSetupFiles, making paths absolute and canonical through kkt-files' Files",
-     "supplier": "kkt-files",
-     "supplier_item": "Files",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
      "to": [
       {
        "at": "OperatorParts",
@@ -30883,8 +30987,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "own": "NativeDatabases, opening this program's database",
-     "supplier": "kkt-db-sqlite",
-     "supplier_item": "SqlitePlace",
+     "suppliers": [
+      {
+       "crate": "kkt-db-sqlite",
+       "item": "SqlitePlace"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -30895,8 +31003,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operator-commands",
      "own": "NativeDatabases, opening this program's database",
-     "supplier": "kkt-db-sqlite",
-     "supplier_item": "SqlitePlace",
+     "suppliers": [
+      {
+       "crate": "kkt-db-sqlite",
+       "item": "SqlitePlace"
+      }
+     ],
      "to": [
       {
        "at": "OperatorParts",
@@ -30921,8 +31033,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "own": "NativeOutput, adapting kkt-terminal",
-     "supplier": "kkt-terminal",
-     "supplier_item": "Terminal",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -30937,8 +31053,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operator-commands",
      "own": "NativeOutput, adapting kkt-terminal",
-     "supplier": "kkt-terminal",
-     "supplier_item": "Terminal",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
      "to": [
       {
        "at": "OperatorParts",
@@ -30978,7 +31098,11 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-install-commands",
      "note": "the program's own work",
      "own": "ServiceCheck, keeping the program's loaded serve options and source context until the service plan is checked",
-     "supplier": "kashkeshet",
+     "suppliers": [
+      {
+       "crate": "kashkeshet"
+      }
+     ],
      "to": [
       {
        "at": "ServiceInputs",
@@ -30989,8 +31113,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "own": "TerminalLink, adapting the terminal's half of the login link",
-     "supplier": "kkt-terminal",
-     "supplier_item": "BrowserLink",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "BrowserLink"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -31001,8 +31129,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "own": "TerminalLines, adapting the terminal",
-     "supplier": "kkt-terminal",
-     "supplier_item": "Terminal",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -31013,8 +31145,16 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "own": "NativeConfigText, forwarding config text reads and writes to kkt-config-file's files over kkt-files",
-     "supplier": "kkt-files",
-     "supplier_item": "Files",
+     "suppliers": [
+      {
+       "crate": "kkt-config-file",
+       "item": "files::read"
+      },
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -31026,8 +31166,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-install-commands",
      "note": "kkt setup: Claude Code's own command",
      "own": "ClaudeCommand, adapting kkt-llm-agent-command's Claude to kkt-llm-agent-config's ClientCommand",
-     "supplier": "kkt-llm-agent-command",
-     "supplier_item": "Claude",
+     "suppliers": [
+      {
+       "crate": "kkt-llm-agent-command",
+       "item": "Claude"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -31050,8 +31194,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-install-commands",
      "note": "kkt setup --lanes",
      "own": "SetupLanes, setup's lane check and import through kkt-operator-commands' lane helpers over LaneParts, on the server the program picks: ContainerLanes or LocalLanes",
-     "supplier": "kkt-operator-commands",
-     "supplier_item": "lanes::import_lanes_for_setup",
+     "suppliers": [
+      {
+       "crate": "kkt-operator-commands",
+       "item": "lanes::import_lanes_for_setup"
+      }
+     ],
      "to": [
       {
        "at": "InstallParts",
@@ -31073,8 +31221,21 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "note": "in InstallParts' connection, which each command reads",
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup",
-     "supplier": "kashkeshet",
+     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      },
+      {
+       "crate": "kkt-entropy-os",
+       "item": "OsEntropy"
+      }
+     ],
      "to": [
       {
        "at": "doctor::run",
@@ -31242,8 +31403,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-agent-commands",
      "note": "kkt connect: Claude Code's own command",
      "own": "ClaudeCommand, adapting kkt-llm-agent-command's Claude to kkt-llm-agent-config's ClientCommand",
-     "supplier": "kkt-llm-agent-command",
-     "supplier_item": "Claude",
+     "suppliers": [
+      {
+       "crate": "kkt-llm-agent-command",
+       "item": "Claude"
+      }
+     ],
      "to": [
       {
        "at": "AgentParts",
@@ -31254,8 +31419,21 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "in AgentParts' connection, which each command reads",
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup",
-     "supplier": "kashkeshet",
+     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      },
+      {
+       "crate": "kkt-entropy-os",
+       "item": "OsEntropy"
+      }
+     ],
      "to": [
       {
        "at": "register",
@@ -31279,8 +31457,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-container-docker",
      "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener",
      "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container-docker's Browser",
-     "supplier": "kkt-browser",
-     "supplier_item": "SystemBrowser",
+     "suppliers": [
+      {
+       "crate": "kkt-browser",
+       "item": "SystemBrowser"
+      }
+     ],
      "to": [
       {
        "at": "Docker::new",
@@ -31303,8 +31485,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-config-file",
      "note": "the config file's log levels, as kkt-log-tracing reads them",
      "own": "the log-level check, a closure over LogLevel::parse",
-     "supplier": "kkt-log-tracing",
-     "supplier_item": "LogLevel",
+     "suppliers": [
+      {
+       "crate": "kkt-log-tracing",
+       "item": "LogLevel"
+      }
+     ],
      "to": [
       {
        "at": "parse_file",
@@ -31371,8 +31557,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-config-file",
      "own": "ConfigDisk, adapting kkt-files' Files to kkt-config-file's Disk",
-     "supplier": "kkt-files",
-     "supplier_item": "Files",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
      "to": [
       {
        "at": "files::read",
@@ -31400,8 +31590,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-operator-commands",
      "note": "kkt setup --lanes",
      "own": "ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-container-docker's Docker",
-     "supplier": "kkt-container-docker",
-     "supplier_item": "Docker",
+     "suppliers": [
+      {
+       "crate": "kkt-container-docker",
+       "item": "Docker"
+      }
+     ],
      "to": [
       {
        "at": "lanes::check_lanes_for_setup",
@@ -31417,8 +31611,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-setup",
      "note": "kkt setup --lanes, for kkt in Docker",
      "own": "ContainerLanes' read of the lane limit, the container's config file read over kkt-container-docker's Docker and parsed by ContainerConfigs",
-     "supplier": "kkt-container-docker",
-     "supplier_item": "Docker",
+     "suppliers": [
+      {
+       "crate": "kkt-container-docker",
+       "item": "Docker"
+      }
+     ],
      "to": [
       {
        "at": "lane_reports::docker_limit",
@@ -31640,8 +31838,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-admission",
      "own": "KeyFiles, adapting kkt-keys-os::OsKeyFiles",
-     "supplier": "kkt-keys-os",
-     "supplier_item": "OsKeyFiles",
+     "suppliers": [
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      }
+     ],
      "to": [
       {
        "at": "server_keys::check",
@@ -31736,8 +31938,12 @@ window.KKT_ASSEMBLY = {
      "crate": "kkt-config-file",
      "note": "the config file's log levels, as kkt-log-tracing reads them",
      "own": "the log-level check, a closure over LogLevel::parse",
-     "supplier": "kkt-log-tracing",
-     "supplier_item": "LogLevel",
+     "suppliers": [
+      {
+       "crate": "kkt-log-tracing",
+       "item": "LogLevel"
+      }
+     ],
      "to": [
       {
        "at": "parse_file",
@@ -31748,8 +31954,12 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-config-file",
      "own": "ConfigDisk, adapting kkt-files' Files to kkt-config-file's Disk",
-     "supplier": "kkt-files",
-     "supplier_item": "Files",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
      "to": [
       {
        "at": "files::read_named",
