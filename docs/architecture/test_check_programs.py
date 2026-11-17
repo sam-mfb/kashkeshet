@@ -211,12 +211,12 @@ class AssemblyWiring(unittest.TestCase):
     def check(self, wiring):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": wiring}}}
         with self.assertRaises(SystemExit) as stop:
-            generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, self.SLOTS)
+            generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, self.SLOTS, {}, [])
         return str(stop.exception)
 
     def passes(self, wiring):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": wiring}}}
-        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, self.SLOTS)
+        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, self.SLOTS, {}, [])
 
     def test_another_crates_implementation_and_an_adapter_pass(self):
         self.passes([
@@ -238,7 +238,7 @@ class AssemblyWiring(unittest.TestCase):
                 {"passes_on": "the lines it was given", "crate": "kkt-setup",
                  "to": [{"at": "ask::Prompter::new", "param": "lines"}]}, **passes_on)]}},
         }
-        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES | {"kkt-operate"}, slots)
+        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES | {"kkt-operate"}, slots, {}, [])
 
     def test_passing_on_names_the_slot_a_program_filled(self):
         self.run_with_injector({"from": [{"at": "OperateParts", "param": "lines"}]})
@@ -271,7 +271,7 @@ class AssemblyWiring(unittest.TestCase):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": [
             {"impl": "kkt-result-format::Formatter", "crate": "kkt-mcp", "to": [{"at": "endpoint", "param": "fmt"}]}]}}}
         with self.assertRaises(SystemExit) as stop:
-            generate.check_assembly(assembly, items, self.PACKAGES | {"kkt-mcp", "kkt-result-format"}, slots)
+            generate.check_assembly(assembly, items, self.PACKAGES | {"kkt-mcp", "kkt-result-format"}, slots, {}, [])
         self.assertIn("kkt-result-format::Formatter is a value of a type kkt-mcp names directly", str(stop.exception))
 
     def test_a_factory_for_the_slots_contract_passes(self):
@@ -282,7 +282,7 @@ class AssemblyWiring(unittest.TestCase):
 
     def passes_with(self, slots, wiring):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": wiring}}}
-        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, slots)
+        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, slots, {}, [])
 
     def foreign_check(self, impl, foreign, foreign_impls, items):
         slots = dict(self.SLOTS, **{"kkt-log-tracing": [
@@ -290,7 +290,7 @@ class AssemblyWiring(unittest.TestCase):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": [
             {"impl": impl, "crate": "kkt-log-tracing", "to": [{"at": "init_logging", "param": "log_file"}]}]}}}
         generate.check_assembly(assembly, dict(self.ITEMS, **items), self.PACKAGES | {"kkt-log-tracing", "kkt-rolling-file"},
-                                slots, foreign_impls)
+                                slots, foreign_impls, [])
 
     def test_a_slot_typed_as_an_outside_trait_takes_what_rustdoc_shows_meeting_it(self):
         write = ["std::io::Write"]
