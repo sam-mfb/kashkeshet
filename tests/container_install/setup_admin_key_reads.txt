@@ -1,6 +1,7 @@
 == an older kkt does not know --admin
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      docker compose version
+  -> exit 0, out "Docker Compose version v2.29.0\n"
 mkdir    /data/docker
 mkdir    /data/docker/backups
 mkdir    /data/docker
@@ -12,11 +13,16 @@ write    private /data/docker/.env
   | COMPOSE_PROJECT_NAME=kkt
   | KKT_PORT=7420
 attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+  -> exit 0
 say      Starting kkt (this takes a minute if the image has to be downloaded)...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+  -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> exit 2, err "error: unexpected argument '--admin' found"
 mkdir    /home/me/.config/kkt
 mkdir    /home/me/.config/kkt-admin
 write    private /home/me/.config/kkt/docker-access-key
@@ -30,6 +36,7 @@ result   Provisioned { node: None }
 == unreadable: the output, which may hold the key, is left out
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      docker compose version
+  -> exit 0, out "Docker Compose version v2.29.0\n"
 mkdir    /data/docker
 mkdir    /data/docker/backups
 mkdir    /data/docker
@@ -41,16 +48,22 @@ write    private /data/docker/.env
   | COMPOSE_PROJECT_NAME=kkt
   | KKT_PORT=7420
 attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+  -> exit 0
 say      Starting kkt (this takes a minute if the image has to be downloaded)...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+  -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> exit 1, out "admin123456789abcdef0123456789abcdef0123456789a\n", err "partial admin123456789abcdef0123456789abcdef0123456789a"
 error    `docker compose --project-directory /data/docker exec -T kkt kkt key show --admin` failed (exit 1, could not read the admin key)
 
 == ended by a signal
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      docker compose version
+  -> exit 0, out "Docker Compose version v2.29.0\n"
 mkdir    /data/docker
 mkdir    /data/docker/backups
 mkdir    /data/docker
@@ -62,16 +75,22 @@ write    private /data/docker/.env
   | COMPOSE_PROJECT_NAME=kkt
   | KKT_PORT=7420
 attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+  -> exit 0
 say      Starting kkt (this takes a minute if the image has to be downloaded)...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+  -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> ended by a signal, out "admin123456789abcdef0123456789abcdef0123456789a\n"
 error    `docker compose --project-directory /data/docker exec -T kkt kkt key show --admin` failed (ended by a signal)
 
 == no key printed
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      docker compose version
+  -> exit 0, out "Docker Compose version v2.29.0\n"
 mkdir    /data/docker
 mkdir    /data/docker/backups
 mkdir    /data/docker
@@ -83,9 +102,14 @@ write    private /data/docker/.env
   | COMPOSE_PROJECT_NAME=kkt
   | KKT_PORT=7420
 attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+  -> exit 0
 say      Starting kkt (this takes a minute if the image has to be downloaded)...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+  -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> exit 0, out "  \n"
 error    `docker compose --project-directory /data/docker exec -T kkt kkt key show --admin` failed (exit 0, could not read the admin key)

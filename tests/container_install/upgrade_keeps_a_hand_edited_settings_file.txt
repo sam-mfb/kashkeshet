@@ -1,6 +1,7 @@
 == edited by hand
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+  -> exit 0, out "Backed up to /backups/kkt-backup-20261117-120000\n"
 mkdir    /data/docker
 write    plain /data/docker/compose.yaml
   = the repository's compose.yaml
@@ -10,12 +11,15 @@ write    private /data/docker/.env
   | KKT_VERSION=0.5.0
   | EXTRA=1
 attached cwd=/data/docker  docker compose --project-directory /data/docker pull
+  -> exit 0
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+  -> exit 0
 result   ()
 
 == with no KKT_VERSION and no newline at the end
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+  -> exit 0, out "Backed up to /backups/kkt-backup-20261117-120000\n"
 mkdir    /data/docker
 write    plain /data/docker/compose.yaml
   = the repository's compose.yaml
@@ -23,5 +27,7 @@ write    private /data/docker/.env
   | KKT_PORT=8000
   | KKT_VERSION=0.5.0
 attached cwd=/data/docker  docker compose --project-directory /data/docker pull
+  -> exit 0
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+  -> exit 0
 result   ()

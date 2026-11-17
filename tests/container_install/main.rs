@@ -1,7 +1,7 @@
 //! The container install, pinned: every scenario drives kkt-container's
 //! `Container` over Docker on a scripted host, and its whole story (each
-//! command line in order with the folder it runs in, the variables it runs
-//! without, the folders made, the files written with their modes and text,
+//! command line in order with the folder it runs in and what the scripted
+//! host answered, the variables it runs without, the folders made, the files written with their modes and text,
 //! the lines said, the login link, and the result or the error's text) must
 //! match its file in `tests/container_install/`. `UPDATE_GOLDEN=1 cargo
 //! test --test container_install` writes the files again; a change to one

@@ -1,6 +1,7 @@
 == HTTPS is off
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      docker compose version
+  -> exit 0, out "Docker Compose version v2.29.0\n"
 mkdir    /data/docker
 mkdir    /data/docker/backups
 mkdir    /data/docker
@@ -19,14 +20,18 @@ write    private /data/docker/.env
   | TS_HOSTNAME=kkt
   | TS_TAILNET=pending.invalid
 attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+  -> exit 0
 say      Starting Tailscale...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d tailscale
+  -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+  -> exit 0, out "{\"BackendState\":\"Running\",\"Self\":{\"DNSName\":\"kkt-1.tail1234.ts.net.\"},\"CertDomains\":[]}"
 error    HTTPS certificates are not enabled for your tailnet. Turn them on at https://login.tailscale.com/admin/dns ("Enable HTTPS"), then run setup again
 
 == the node has no name
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      docker compose version
+  -> exit 0, out "Docker Compose version v2.29.0\n"
 mkdir    /data/docker
 mkdir    /data/docker/backups
 mkdir    /data/docker
@@ -45,14 +50,18 @@ write    private /data/docker/.env
   | TS_HOSTNAME=kkt
   | TS_TAILNET=pending.invalid
 attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+  -> exit 0
 say      Starting Tailscale...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d tailscale
+  -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+  -> exit 0, out "{\"BackendState\":\"Running\",\"CertDomains\":[\"x\"]}"
 error    unexpected output from `tailscale status --json`: logged in, but the node has no name
 
 == the node's name has no tailnet
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      docker compose version
+  -> exit 0, out "Docker Compose version v2.29.0\n"
 mkdir    /data/docker
 mkdir    /data/docker/backups
 mkdir    /data/docker
@@ -71,14 +80,18 @@ write    private /data/docker/.env
   | TS_HOSTNAME=kkt
   | TS_TAILNET=pending.invalid
 attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+  -> exit 0
 say      Starting Tailscale...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d tailscale
+  -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+  -> exit 0, out "{\"BackendState\":\"Running\",\"Self\":{\"DNSName\":\"kkt.\"},\"CertDomains\":[\"x\"]}"
 error    unexpected output from `tailscale status --json`: the node name "kkt" has no tailnet part
 
 == the answer is not JSON
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      docker compose version
+  -> exit 0, out "Docker Compose version v2.29.0\n"
 mkdir    /data/docker
 mkdir    /data/docker/backups
 mkdir    /data/docker
@@ -97,14 +110,18 @@ write    private /data/docker/.env
   | TS_HOSTNAME=kkt
   | TS_TAILNET=pending.invalid
 attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+  -> exit 0
 say      Starting Tailscale...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d tailscale
+  -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+  -> exit 0, out "not json"
 error    unexpected output from `tailscale status --json`: expected ident at line 1 column 2
 
 == the answer has no state
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      docker compose version
+  -> exit 0, out "Docker Compose version v2.29.0\n"
 mkdir    /data/docker
 mkdir    /data/docker/backups
 mkdir    /data/docker
@@ -123,14 +140,18 @@ write    private /data/docker/.env
   | TS_HOSTNAME=kkt
   | TS_TAILNET=pending.invalid
 attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+  -> exit 0
 say      Starting Tailscale...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d tailscale
+  -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+  -> exit 0, out "{\"Self\":{}}"
 error    unexpected output from `tailscale status --json`: no BackendState
 
 == the status cannot be asked
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      docker compose version
+  -> exit 0, out "Docker Compose version v2.29.0\n"
 mkdir    /data/docker
 mkdir    /data/docker/backups
 mkdir    /data/docker
@@ -149,7 +170,10 @@ write    private /data/docker/.env
   | TS_HOSTNAME=kkt
   | TS_TAILNET=pending.invalid
 attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+  -> exit 0
 say      Starting Tailscale...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d tailscale
+  -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T tailscale tailscale status --json
+  -> cannot run: no such file or directory
 error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T tailscale tailscale status --json`: no such file or directory

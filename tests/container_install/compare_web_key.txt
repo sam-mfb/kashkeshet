@@ -1,11 +1,13 @@
 == the same
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
 result   Same
 
 == different
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
 result   Differs
 
 == no copy
@@ -14,19 +16,23 @@ error    could not read /home/me/.config/kkt/docker-web-key: no such file
 == unreadable: the output, which may hold the key, is left out
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> exit 1, out "web00123456789abcdef0123456789abcdef0123456789ab\n", err "partial web00123456789abcdef0123456789abcdef0123456789ab"
 error    `docker compose --project-directory /data/docker exec -T kkt kkt key show --web` failed (exit 1, no key)
 
 == no key printed
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> exit 0, out "\n"
 error    `docker compose --project-directory /data/docker exec -T kkt kkt key show --web` failed (exit 0, no key)
 
 == ended by a signal
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> ended by a signal, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
 error    `docker compose --project-directory /data/docker exec -T kkt kkt key show --web` failed (ended by a signal)
 
 == cannot be asked
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> cannot run: broken pipe
 error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt key show --web`: broken pipe

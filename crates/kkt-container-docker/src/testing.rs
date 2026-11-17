@@ -151,8 +151,10 @@ impl Scripted {
         self.0.events.borrow_mut().push(line.to_string());
     }
 
-    /// Everything done through this host, a line each, in order. A line
-    /// repeated straight after itself is shown once, with how many times.
+    /// Everything done through this host, a line each, in order, with the
+    /// script's answer under each command (`->`: its exit status and what
+    /// it printed, or why it could not run). An entry repeated straight
+    /// after itself is shown once, with how many times.
     pub fn transcript(&self) -> String {
         let events = self.0.events.borrow();
         let mut out = String::new();
@@ -186,9 +188,28 @@ impl Scripted {
             .as_ref()
             .map(|dir| format!("cwd={}  ", dir.display()))
             .unwrap_or_default();
-        self.note(&format!("{kind:<8} {cwd}{text}"));
         self.0.clock.advance(Span::seconds(3));
-        let reply = (self.0.script)(&text)?;
+        let answered = (self.0.script)(&text);
+        // The command and the host's answer are one entry, so a command
+        // answered the same way again and again is shown once.
+        let answer = match &answered {
+            Ok(reply) => {
+                let mut answer = match reply.code {
+                    Some(code) => format!("  -> exit {code}"),
+                    None => "  -> ended by a signal".to_string(),
+                };
+                if !reply.stdout.is_empty() {
+                    answer.push_str(&format!(", out {:?}", reply.stdout));
+                }
+                if !reply.stderr.is_empty() {
+                    answer.push_str(&format!(", err {:?}", reply.stderr));
+                }
+                answer
+            }
+            Err(e) => format!("  -> cannot run: {e}"),
+        };
+        self.note(&format!("{kind:<8} {cwd}{text}\n{answer}"));
+        let reply = answered?;
         Ok(Finished {
             code: reply.code,
             stdout: reply.stdout,
