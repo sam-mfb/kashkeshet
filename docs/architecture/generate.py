@@ -330,11 +330,13 @@ def signatures(doc, items, ids):
     index = doc["index"]
     takes, gives = [], []
 
-    def function(owner, item):
+    def function(owner, item, trait_method=False):
         f = item["inner"]["function"]
         bounds = generic_bounds(f["generics"])
         for name, ty in f["sig"]["inputs"]:
-            if name == "self":
+            # A trait's operations give values, not slots: what they take is
+            # the implementer's business.
+            if name == "self" or trait_method:
                 continue
             traits, types = type_refs(ty, bounds)
             takes.append({"at": owner, "name": name, "kind": "param", "traits": traits, "types": types})
@@ -343,6 +345,8 @@ def signatures(doc, items, ids):
             # another crate's contract as a trait object (`-> Arc<dyn Backend>`).
             out_traits, types = type_refs(f["sig"]["output"], bounds)
             entry = {"at": owner, "types": types + out_traits}
+            if trait_method:
+                entry["trait_method"] = True
             # `-> Self` (or `Result<Self, _>`) gives back the owner type.
             if '"generic": "Self"' in json.dumps(f["sig"]["output"]):
                 entry["self"] = True
@@ -355,6 +359,12 @@ def signatures(doc, items, ids):
         kind = next(iter(item["inner"]))
         if kind == "function":
             function(path, item)
+        elif kind == "trait":
+            # A contract's operations, for the values they give back.
+            for method_id in item["inner"]["trait"]["items"]:
+                method = index.get(str(method_id))
+                if method and "function" in method["inner"]:
+                    function(f"{path}::{method['name']}", method, trait_method=True)
         elif kind in ("struct", "enum"):
             inner = item["inner"][kind]
             shape = inner.get("kind")
@@ -852,7 +862,11 @@ def main():
     add_contracts(crates, edges, items_of, contracts_raw, package_of_lib, kind_of)
     assembly = json.loads((HERE / "assembly.json").read_text())
     check_assembly(assembly, items_of, packages, {c["name"]: c["slots"] for c in crates},
-                   {c["name"]: c.get("foreign_implements", []) for c in crates}, pass_through_candidates(crates, edges))
+                   {c["name"]: c.get("foreign_implements", []) for c in crates},
+                   pass_through_candidates(crates, edges) + [v for v in value_candidates(crates, edges, kind_of)
+                                                              if v not in pass_through_candidates(crates, edges)],
+                   {c["name"]: {p["value"]: p["operations"] for p in c.get("produces", [])} for c in crates},
+                   {c["name"]: c["implements"] for c in crates})
 
     mismatches, _ = kinds.check(crates, edges, kind_of, mixed_allowed=True)
     for m in mismatches:
@@ -993,6 +1007,29 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
         return sorted({full for (lib, name, kind), full in entry.get("trait_paths", [])
                        if kind == "trait" and lib and full and package_of_lib.get(lib) is None and name not in FOREIGN_PLAIN})
 
+    # What each contract's operations give back that another crate may be
+    # handed: a public struct or enum of the contract's own crate returned
+    # by one of its traits' methods (`Machine::env` gives an `Env`), where
+    # an effect crate implements that trait, so the value is one the
+    # machine or the world gave. Error and failure types are left out:
+    # they are a call's answer, not a value handed on. So are values whose
+    # trait only logic or a program's own adapter implements (the kkt-api
+    # records, which kkt-rules gives): they are work done inside the
+    # system, not a value it was given.
+    produced = {}
+    for package, data in raw.items():
+        lib = next((l for l, pkg in package_of_lib.items() if pkg == package), None)
+        for entry in data["gives"]:
+            if not entry.get("trait_method"):
+                continue
+            for l, name, kind in entry["types"]:
+                path = public(package, name, {"struct", "enum"}) if l == lib and kind in ("struct", "enum") else None
+                trait = entry["at"].rsplit("::", 1)[0]
+                by_effect = any(i["trait_crate"] == package and i["trait"] == trait and kind_of.get(i["crate"]) == "effect"
+                                for i in implementations)
+                if path and by_effect and not name.endswith(("Error", "Failure")):
+                    produced.setdefault((package, path), set()).add(entry["at"])
+
     holders = {}
     for _ in range(3):
         for package, data in raw.items():
@@ -1032,10 +1069,17 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
             # `Box<dyn std::io::Write>`): kept apart, as `foreign`, since
             # only a program's wiring makes it an injection point.
             foreign = foreign_traits(entry)
-            if traits or holds or foreign:
+            # A value a contract's operation produced, taken by another
+            # crate: kept apart as `values`, shown where wiring fills it.
+            values = sorted({f"{pkg}::{path}" for lib, name, kind in entry["types"]
+                             for pkg in [package_of_lib.get(lib)] if pkg and pkg != c["name"]
+                             for path in [public(pkg, name, {"struct", "enum"})] if path and (pkg, path) in produced})
+            if traits or holds or foreign or values:
                 slot = {"at": entry["at"], "name": entry["name"], "kind": entry["kind"], "traits": traits}
                 if foreign:
                     slot["foreign"] = foreign
+                if values:
+                    slot["values"] = values
                 if entry.get("feature"):
                     slot["feature"] = entry["feature"]
                 if holds:
@@ -1044,6 +1088,8 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
                     slots.append(slot)
         c["slots"] = sorted(slots, key=lambda s: (s["at"], s["name"]))
         c["implements"] = [i for i in implementations if i["crate"] == c["name"]]
+        c["produces"] = sorted(({"value": path, "operations": sorted(ops)} for (pkg, path), ops in produced.items()
+                                if pkg == c["name"]), key=lambda v: v["value"])
         c["contracts"] = []
         for item in c["items"]:
             if item["kind"] != "trait":
@@ -1077,6 +1123,8 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
     for c in crates:
         lib = next((l for l, pkg in package_of_lib.items() if pkg == c["name"]), None)
         for entry in c["_gives"]:
+            if entry.get("trait_method"):
+                continue
             if "::" not in entry["at"]:
                 continue
             owner_type, method = entry["at"].rsplit("::", 1)
@@ -1089,6 +1137,8 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
     for c in crates:
         lib = next((l for l, pkg in package_of_lib.items() if pkg == c["name"]), None)
         for entry in c["_gives"]:
+            if entry.get("trait_method"):
+                continue
             owner = entry["at"].rsplit("::", 1)[0] if "::" in entry["at"] else None
             if owner and is_type(c["name"], owner):
                 continue
@@ -1098,6 +1148,8 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
     factories = {}
     for c in crates:
         for entry in c["_gives"]:
+            if entry.get("trait_method"):
+                continue
             owner_type = entry["at"].rsplit("::", 1)[0] if "::" in entry["at"] else None
             if owner_type is None or not is_type(c["name"], owner_type):
                 continue
@@ -1169,6 +1221,29 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
         del e["_paths"]
 
 
+def value_candidates(crates, edges, kind_of):
+    """Where an injector (a program or a composition crate) may hand a value
+    a contract's operation produced to another crate: it depends on the
+    contract's crate and names the receiver's slot that takes the value."""
+    by_name = {c["name"]: c for c in crates}
+    depends = {(e["from"], e["to"]) for e in edges if e["kind"] == "normal"}
+    found = []
+    for e in edges:
+        a, b = by_name.get(e["from"]), by_name.get(e["to"])
+        if e["kind"] != "normal" or not a or not b or not (a["bins"] or kind_of.get(a["name"]) == "composition"):
+            continue
+        for slot in b["slots"]:
+            if slot["at"].startswith("testing"):
+                continue
+            owner = slot["at"].rsplit("::", 1)[0] if "::" in slot["at"] else None
+            if not (slot["at"] in e["items"] or owner in e["items"]):
+                continue
+            for value in slot.get("values", []):
+                if (a["name"], value.split("::", 1)[0]) in depends:
+                    found.append({"crate": a["name"], "to": b["name"], "at": slot["at"], "param": slot["name"]})
+    return [dict(t) for t in {tuple(sorted(c.items())) for c in found}]
+
+
 def pass_through_candidates(crates, edges):
     """Where a crate may hand on a contract value it was given: crate A, not
     a program, has a slot of trait T and depends in code on crate B, whose
@@ -1178,7 +1253,7 @@ def pass_through_candidates(crates, edges):
     by_name = {c["name"]: c for c in crates}
 
     def direct(slot):
-        return {f"{t['crate']}::{t['trait']}" for t in slot["traits"]}
+        return {f"{t['crate']}::{t['trait']}" for t in slot["traits"]} | set(slot.get("values", []))
 
     def held(slot):
         return direct(slot) | {f"{t['crate']}::{t['trait']}" for h in slot.get("holds", []) for t in h["traits"]}
@@ -1198,7 +1273,7 @@ def pass_through_candidates(crates, edges):
     return found
 
 
-def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candidates):
+def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candidates, produced, implements):
     """Fails if assembly.json names a program, an item, a supplier or a slot
     that is not there, records as an injection a value of the receiving
     crate's own type or of a holder type it names directly, injects into a
@@ -1221,9 +1296,33 @@ def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candid
         if program not in packages:
             problems.append(f"no package {program}")
         for wire in flow.get("wiring", []):
-            forms = [f for f in ("impl", "own", "passes_on") if wire.get(f)]
+            forms = [f for f in ("impl", "own", "passes_on", "produces") if wire.get(f)]
             if len(forms) != 1:
-                problems.append(f"{program}: a wiring entry into {wire.get('crate')} needs one of impl, own or passes_on")
+                problems.append(f"{program}: a wiring entry into {wire.get('crate')} needs one of impl, own, passes_on or produces")
+            # A value a contract's operation produced: the contract's crate
+            # gives it back from one of its traits' operations; `by` names an
+            # implementer of that trait the injector built, or `from` the
+            # injector's slots it was given one through; each slot it goes
+            # to takes the value.
+            value = wire.get("produces")
+            if value:
+                crate, _, path = value.partition("::")
+                ops = produced.get(crate, {}).get(path, [])
+                if not ops:
+                    problems.append(f"{program}: no operation of {crate} gives back {path}")
+                traits = {op.rsplit("::", 1)[0] for op in ops}
+                if wire.get("by"):
+                    by_crate, _, by_type = wire["by"].partition("::")
+                    if not any(i["type"] == by_type and i["trait_crate"] == crate and i["trait"] in traits
+                               for i in implements.get(by_crate, [])):
+                        problems.append(f"{program}: {wire['by']} implements no trait of {crate} that gives back {path}")
+                elif not wire.get("from"):
+                    problems.append(f"{program}: {value} into {wire['crate']} says neither by nor from")
+                for slot in wire["to"]:
+                    taken = next((s for s in slots_of.get(wire["crate"], [])
+                                  if s["at"] == slot["at"] and s["name"] == slot["param"]), None)
+                    if taken and value not in taken.get("values", []):
+                        problems.append(f"{program}: {wire['crate']}'s {slot['at']} ({slot['param']}) does not take {value}")
             impl = wire.get("impl")
             if impl:
                 crate, _, path = impl.partition("::")
@@ -1245,9 +1344,9 @@ def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candid
                     # (rustdoc's impls), or the named item is a public
                     # function and the slot takes a function trait.
                     if taken and taken.get("foreign") and not taken.get("traits") and not taken.get("holds"):
-                        implements = {i["trait"] for i in foreign_impls.get(crate, []) if i["type"] == path}
+                        meets = {i["trait"] for i in foreign_impls.get(crate, []) if i["type"] == path}
                         is_fn = items_of.get(crate, {}).get(path, {}).get("kind") == "fn"
-                        if not (implements & set(taken["foreign"]) or (is_fn and FUNCTION_TRAITS & set(taken["foreign"]))):
+                        if not (meets & set(taken["foreign"]) or (is_fn and FUNCTION_TRAITS & set(taken["foreign"]))):
                             problems.append(f"{program}: cannot verify that {impl} meets {wire['crate']}'s "
                                             f"{slot['at']} ({slot['param']}), which takes {', '.join(taken['foreign'])}")
                     if taken and not taken.get("traits") and any(
@@ -1266,15 +1365,15 @@ def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candid
                     problems.append(f"{program}: no slot {slot['at']} ({slot['param']}) in {wire['crate']}")
             # What an injector passes on names the slots of its own that
             # fed it, so a path is joined on slots, never on the wording.
-            if wire.get("passes_on"):
+            if wire.get("passes_on") or (wire.get("produces") and wire.get("from")):
                 if not wire.get("from"):
-                    problems.append(f"{program}: passing on {wire['passes_on']} into {wire['crate']} says no \"from\"")
+                    problems.append(f"{program}: passing on {wire.get('passes_on')} into {wire['crate']} says no \"from\"")
                 for slot in wire.get("from", []):
                     if not any(s["at"] == slot["at"] and s["name"] == slot["param"] for s in slots_of.get(program, [])):
                         problems.append(f"{program}: \"from\" names no slot {slot['at']} ({slot['param']}) of {program}")
                     elif not filled(program, slot):
                         problems.append(f"{program}: no program fills {slot['at']} ({slot['param']}), "
-                                        f"which \"from\" names for {wire['passes_on']}")
+                                        f"which \"from\" names for {wire.get('passes_on') or wire.get('produces')}")
     for program, flow in assembly["programs"].items():
         if program not in packages:
             problems.append(f"no package {program}")

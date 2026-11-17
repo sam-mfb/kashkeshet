@@ -211,12 +211,12 @@ class AssemblyWiring(unittest.TestCase):
     def check(self, wiring):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": wiring}}}
         with self.assertRaises(SystemExit) as stop:
-            generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, self.SLOTS, {}, [])
+            generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, self.SLOTS, {}, [], {}, {})
         return str(stop.exception)
 
     def passes(self, wiring):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": wiring}}}
-        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, self.SLOTS, {}, [])
+        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, self.SLOTS, {}, [], {}, {})
 
     def test_another_crates_implementation_and_an_adapter_pass(self):
         self.passes([
@@ -238,7 +238,7 @@ class AssemblyWiring(unittest.TestCase):
                 {"passes_on": "the lines it was given", "crate": "kkt-setup",
                  "to": [{"at": "ask::Prompter::new", "param": "lines"}]}, **passes_on)]}},
         }
-        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES | {"kkt-operate"}, slots, {}, [])
+        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES | {"kkt-operate"}, slots, {}, [], {}, {})
 
     def test_passing_on_names_the_slot_a_program_filled(self):
         self.run_with_injector({"from": [{"at": "OperateParts", "param": "lines"}]})
@@ -271,7 +271,7 @@ class AssemblyWiring(unittest.TestCase):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": [
             {"impl": "kkt-result-format::Formatter", "crate": "kkt-mcp", "to": [{"at": "endpoint", "param": "fmt"}]}]}}}
         with self.assertRaises(SystemExit) as stop:
-            generate.check_assembly(assembly, items, self.PACKAGES | {"kkt-mcp", "kkt-result-format"}, slots, {}, [])
+            generate.check_assembly(assembly, items, self.PACKAGES | {"kkt-mcp", "kkt-result-format"}, slots, {}, [], {}, {})
         self.assertIn("kkt-result-format::Formatter is a value of a type kkt-mcp names directly", str(stop.exception))
 
     def test_a_factory_for_the_slots_contract_passes(self):
@@ -282,7 +282,7 @@ class AssemblyWiring(unittest.TestCase):
 
     def passes_with(self, slots, wiring):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": wiring}}}
-        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, slots, {}, [])
+        generate.check_assembly(assembly, self.ITEMS, self.PACKAGES, slots, {}, [], {}, {})
 
     def foreign_check(self, impl, foreign, foreign_impls, items):
         slots = dict(self.SLOTS, **{"kkt-log-tracing": [
@@ -290,7 +290,7 @@ class AssemblyWiring(unittest.TestCase):
         assembly = {"programs": {"kkt": {"steps": [], "wiring": [
             {"impl": impl, "crate": "kkt-log-tracing", "to": [{"at": "init_logging", "param": "log_file"}]}]}}}
         generate.check_assembly(assembly, dict(self.ITEMS, **items), self.PACKAGES | {"kkt-log-tracing", "kkt-rolling-file"},
-                                slots, foreign_impls, [])
+                                slots, foreign_impls, [], {}, {})
 
     def test_a_slot_typed_as_an_outside_trait_takes_what_rustdoc_shows_meeting_it(self):
         write = ["std::io::Write"]
@@ -317,8 +317,65 @@ class AssemblyWiring(unittest.TestCase):
                                    "crate": "kkt-setup", "to": lines}]))
 
     def test_an_entry_is_exactly_one_kind_of_injection(self):
-        self.assertIn("needs one of impl, own or passes_on",
+        self.assertIn("needs one of impl, own, passes_on or produces",
                       self.check([{"crate": "kkt-setup", "to": [{"at": "ask::Prompter::new", "param": "lines"}]}]))
+
+
+class ProducedValues(unittest.TestCase):
+    """A value a contract's operation gives, handed by an injector to
+    another crate's slot (`produces`)."""
+
+    SLOTS = {"kkt-operate": [{"at": "doctor::run", "name": "env", "traits": [], "values": ["kkt-machine::Env"]},
+                             {"at": "doctor::run", "name": "flags", "traits": []}]}
+    PRODUCED = {"kkt-machine": {"Env": ["Machine::env"]}}
+    IMPLEMENTS = {"kkt-machine-os": [{"type": "OsMachine", "trait_crate": "kkt-machine", "trait": "Machine"}]}
+
+    def check(self, entry):
+        assembly = {"programs": {"kkt": {"steps": [], "wiring": [dict({"crate": "kkt-operate"}, **entry)]}}}
+        generate.check_assembly(assembly, {}, {"kkt", "kkt-operate"}, self.SLOTS, {}, [], self.PRODUCED, self.IMPLEMENTS)
+
+    def refused(self, entry):
+        with self.assertRaises(SystemExit) as stop:
+            self.check(entry)
+        return str(stop.exception)
+
+    def test_a_value_from_an_implementer_of_the_trait_that_gives_it_passes(self):
+        self.check({"produces": "kkt-machine::Env", "by": "kkt-machine-os::OsMachine",
+                    "to": [{"at": "doctor::run", "param": "env"}]})
+
+    def test_what_cannot_be_verified_is_refused(self):
+        to = [{"at": "doctor::run", "param": "env"}]
+        self.assertIn("no operation of kkt-machine gives back Platform",
+                      self.refused({"produces": "kkt-machine::Platform", "by": "kkt-machine-os::OsMachine", "to": to}))
+        self.assertIn("kkt-machine-os::Other implements no trait of kkt-machine that gives back Env",
+                      self.refused({"produces": "kkt-machine::Env", "by": "kkt-machine-os::Other", "to": to}))
+        self.assertIn("says neither by nor from", self.refused({"produces": "kkt-machine::Env", "to": to}))
+        self.assertIn("kkt-operate's doctor::run (flags) does not take kkt-machine::Env",
+                      self.refused({"produces": "kkt-machine::Env", "by": "kkt-machine-os::OsMachine",
+                                    "to": [{"at": "doctor::run", "param": "flags"}]}))
+
+
+class ValueCandidates(unittest.TestCase):
+    """Where an injector may hand on a value a contract's operation gave."""
+
+    CRATES = [{"name": "kkt", "bins": ["kkt"], "slots": []},
+              {"name": "kkt-rules", "bins": [], "slots": []},
+              {"name": "kkt-operate", "bins": [], "slots": [
+                  {"at": "doctor::run", "name": "env", "traits": [], "values": ["kkt-machine::Env"]}]}]
+    KIND = {"kkt": "composition", "kkt-rules": "logic", "kkt-operate": "composition"}
+
+    def found(self, edges):
+        return generate.value_candidates(self.CRATES, edges, self.KIND)
+
+    def test_an_injector_that_depends_on_the_value_and_names_the_slot(self):
+        edges = [{"from": "kkt", "to": "kkt-operate", "kind": "normal", "items": ["doctor::run"]},
+                 {"from": "kkt", "to": "kkt-machine", "kind": "normal", "items": []}]
+        self.assertEqual(self.found(edges), [{"crate": "kkt", "to": "kkt-operate", "at": "doctor::run", "param": "env"}])
+
+    def test_not_a_logic_crate_nor_one_that_never_reaches_the_value(self):
+        self.assertEqual(self.found([{"from": "kkt-rules", "to": "kkt-operate", "kind": "normal", "items": ["doctor::run"]},
+                                     {"from": "kkt-rules", "to": "kkt-machine", "kind": "normal", "items": []}]), [])
+        self.assertEqual(self.found([{"from": "kkt", "to": "kkt-operate", "kind": "normal", "items": ["doctor::run"]}]), [])
 
 
 class PassThroughs(unittest.TestCase):
@@ -353,7 +410,7 @@ class PassThroughs(unittest.TestCase):
             {"impl": "kkt-entropy-os::OsEntropy", "crate": "kkt-rules", "to": [{"at": "Startup", "param": "entropy"}]}]}}},
             **assembly)
         generate.check_assembly(assembly, {"kkt-entropy-os": {"OsEntropy": {}}},
-                                {"kkt", "kkt-rules", "kkt-names", "kkt-entropy-os"}, slots, {}, candidate)
+                                {"kkt", "kkt-rules", "kkt-names", "kkt-entropy-os"}, slots, {}, candidate, {}, {})
 
     def test_each_place_is_wired_or_left_out_with_why(self):
         self.checked({"injectors": {"kkt-rules": {"wiring": [
