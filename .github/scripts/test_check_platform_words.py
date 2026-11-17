@@ -68,6 +68,18 @@ class DescriptionProblems(unittest.TestCase):
                      "Per RUST.md 6.", "Added in #563.", "Split in phase 16."]:
             self.assertEqual(len(self.found({"kkt-core": {"layer": "core", "concern": text}})), 1, text)
 
+    def test_the_layer_texts_keep_to_the_rules(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "docs/architecture").mkdir(parents=True)
+            (root / "docs/architecture/concerns.json").write_text(json.dumps({"crates": {}, "layers": [
+                {"id": "platform", "about": "General crates that know nothing of kkt."},
+                {"id": "core", "about": "The kkt core, split in phase 16."},
+                {"id": "data", "about": "The kkt database."}]}))
+            self.assertEqual(check.description_problems(root), [
+                "concerns.json: the platform layer's text names kkt: kkt",
+                "concerns.json: the core layer's text gives history: phase 16"])
+
     def test_a_plain_description_passes(self):
         self.assertEqual(self.found({"kkt-plain": {"layer": "platform", "concern": "A file that rolls over at a size."},
                                      "kkt-core": {"layer": "core", "concern": "Every change, in one swarm."}}), [])

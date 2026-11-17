@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "ab43c27e",
+ "commit": "73e141e1",
  "crates": [
   {
    "bins": [
@@ -26811,7 +26811,7 @@ window.KKT_CONCERNS = {
  },
  "kinds": [
   {
-   "about": "Traits and plain values, with pure behaviour on its own value types (such as Time arithmetic, query checks and search matching), and no effect or wiring.",
+   "about": "Traits and plain values, with pure behaviour on their own value types (such as time arithmetic, query checks and search matching).",
    "id": "contract",
    "title": "contract"
   },
@@ -26826,7 +26826,7 @@ window.KKT_CONCERNS = {
    "title": "effect"
   },
   {
-   "about": "Wires others and decides nothing.",
+   "about": "Wires other crates together.",
    "id": "composition",
    "title": "composition"
   },
@@ -26883,12 +26883,12 @@ window.KKT_CONCERNS = {
    "title": "Clients"
   },
   {
-   "about": "General crates that know nothing of kkt and would make sense in any program: time, randomness, logs, files, HTTP serving, the terminal, the browser, remote access, git and more. The test: a platform crate depends on no crate outside the platform layer.",
+   "about": "General-purpose crates for any program: time, randomness, logs, files, HTTP serving, the terminal, the browser, remote access and version control. A platform crate depends in code only on other platform crates.",
    "id": "platform",
    "title": "Platform"
   },
   {
-   "about": "Never in a release: test scratch folders.",
+   "about": "Packages for development only: test scratch folders and a simulated application.",
    "id": "dev",
    "title": "Dev-only"
   }
@@ -27507,7 +27507,7 @@ window.KKT_ASSEMBLY = {
       "kkt-shutdown-os::StopSignals",
       "kkt-shutdown::Signals"
      ],
-     "text": "build assembles the server from the parts and config; listen binds the router the program takes out of it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
+     "text": "build assembles the server from the parts and config; listen binds the router the program takes out of it; serve_until answers until a stop signal, and the program logs any socket option that fails to set.",
      "title": "Build and run"
     }
    ],
@@ -27614,7 +27614,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "impl": "kkt-agent-client-mcp::Mcp",
-     "note": "kkt register, reclaim and watch: injected as it is, with no adapter",
+     "note": "kkt register, reclaim and watch: injected as it is",
      "to": [
       {
        "at": "AgentParts",
@@ -27746,7 +27746,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "note": "the program's own work, not another crate's implementation",
+     "note": "the program's own work",
      "own": "ContainerConfigs",
      "supplier": "kashkeshet",
      "to": [
@@ -27759,7 +27759,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "impl": "kkt-service-launchd::Launchd",
-     "note": "On macOS: the program picks the service manager by platform and injects it directly (12.3).",
+     "note": "On macOS: the program picks the service manager by platform and injects it directly.",
      "to": [
       {
        "at": "OperateParts",
@@ -27770,7 +27770,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "impl": "kkt-service-systemd::Systemd",
-     "note": "On Linux (12.3).",
+     "note": "On Linux.",
      "to": [
       {
        "at": "OperateParts",
@@ -27781,7 +27781,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operate",
      "impl": "kkt-service::Unsupported",
-     "note": "On any other system (12.3).",
+     "note": "On any other system.",
      "to": [
       {
        "at": "OperateParts",
@@ -27814,7 +27814,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "note": "The program builds HttpProber with the doctor's settings and adapts it (phase 16).",
+     "note": "The program builds HttpProber with the doctor's settings and adapts it.",
      "own": "Probe, adapting kkt-probe's HttpProber to kkt-diagnostics' Prober",
      "supplier": "kkt-probe",
      "supplier_item": "HttpProber",
@@ -27839,7 +27839,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "note": "The lane folder's commit, from the machine's git (phase 16).",
+     "note": "The lane folder's commit, from the machine's git.",
      "own": "LaneGit, adapting kkt-revision's Git to kkt-lane-files' LaneCommit",
      "supplier": "kkt-revision",
      "supplier_item": "Git",
@@ -27852,7 +27852,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "note": "the program's own work, not another crate's implementation",
+     "note": "the program's own work",
      "own": "ServeReads, answering the program's serving questions lazily",
      "supplier": "kashkeshet",
      "to": [
@@ -27940,7 +27940,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-operate",
-     "note": "the program's own work, not another crate's implementation",
+     "note": "the program's own work",
      "own": "ServiceCheck, keeping the program's loaded serve options and source context until the service plan is checked",
      "supplier": "kashkeshet",
      "to": [
@@ -28038,7 +28038,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-container-docker",
-     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener (phase 16)",
+     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener",
      "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container-docker's Browser",
      "supplier": "kkt-browser",
      "supplier_item": "SystemBrowser",
@@ -28215,7 +28215,7 @@ window.KKT_ASSEMBLY = {
       "kkt-rules::schema",
       "kkt-rules::Db"
      ],
-     "text": "A SqlitePlace opens the database file with the core's tables. It adopts no database from before kkt-db.",
+     "text": "A SqlitePlace opens the database file with the core's tables.",
      "title": "Database"
     },
     {

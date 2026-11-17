@@ -8,9 +8,10 @@ public item. Comments, doc comments and crate names in paths are not read.
 Tests are left out: files named tests.rs, folders named tests, and modules
 under `#[cfg(test)]`.
 
-It also reads the crate descriptions concerns.json gives the map: a
-platform crate's must not say kkt or kashkeshet, other crates' names
-included, and no crate's may carry the plainest marks of history (HISTORY).
+It also reads the crate descriptions and layer texts concerns.json gives
+the map: a platform crate's description, and the platform layer's text,
+must not say kkt or kashkeshet, other crates' names included, and none may
+carry the plainest marks of history (HISTORY).
 
 Usage: check-platform-words.py [ROOT]   (the workspace root; default: here)
 Tested by test_check_platform_words.py.
@@ -113,6 +114,13 @@ def description_problems(root):
         history = HISTORY.search(text)
         if history:
             found.append(f"concerns.json: {name}'s description gives history: {history.group(0)}")
+    # The layers' texts keep to the same rules.
+    for layer in concerns.get("layers", []):
+        text = layer.get("about", "")
+        if layer["id"] == "platform" and WORD.search(text):
+            found.append(f"concerns.json: the platform layer's text names kkt: {WORD.search(text).group(0)}")
+        if HISTORY.search(text):
+            found.append(f"concerns.json: the {layer['id']} layer's text gives history: {HISTORY.search(text).group(0)}")
     return found
 
 

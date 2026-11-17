@@ -44,12 +44,12 @@
   {
    "id": "platform",
    "title": "Platform",
-   "about": "General crates that know nothing of kkt and would make sense in any program: time, randomness, logs, files, HTTP serving, the terminal, the browser, remote access, git and more. The test: a platform crate depends on no crate outside the platform layer."
+   "about": "General-purpose crates for any program: time, randomness, logs, files, HTTP serving, the terminal, the browser, remote access and version control. A platform crate depends in code only on other platform crates."
   },
   {
    "id": "dev",
    "title": "Dev-only",
-   "about": "Never in a release: test scratch folders."
+   "about": "Packages for development only: test scratch folders and a simulated application."
   }
  ],
  "crates": {
@@ -389,7 +389,7 @@
   {
    "id": "contract",
    "title": "contract",
-   "about": "Traits and plain values, with pure behaviour on its own value types (such as Time arithmetic, query checks and search matching), and no effect or wiring."
+   "about": "Traits and plain values, with pure behaviour on their own value types (such as time arithmetic, query checks and search matching)."
   },
   {
    "id": "logic",
@@ -404,7 +404,7 @@
   {
    "id": "composition",
    "title": "composition",
-   "about": "Wires others and decides nothing."
+   "about": "Wires other crates together."
   },
   {
    "id": "test support",
