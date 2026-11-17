@@ -73,8 +73,6 @@ struct Inner {
     last_unset: RefCell<Option<Vec<String>>>,
     /// Texts a write is shown as a name instead of line by line.
     known: RefCell<Vec<(String, String)>>,
-    /// Texts an answer shows as a marker instead.
-    masked: RefCell<Vec<(String, String)>>,
 }
 
 impl Scripted {
@@ -96,7 +94,6 @@ impl Scripted {
             events: RefCell::default(),
             last_unset: RefCell::default(),
             known: RefCell::default(),
-            masked: RefCell::default(),
         }))
     }
 
@@ -145,16 +142,6 @@ impl Scripted {
             .known
             .borrow_mut()
             .push((name.to_string(), text.to_string()));
-        self
-    }
-
-    /// Wherever `text` is in a command's answer, the transcript shows
-    /// `<marker>` instead. Files written still show it as it is.
-    pub fn masking(self, marker: &str, text: &str) -> Scripted {
-        self.0
-            .masked
-            .borrow_mut()
-            .push((format!("<{marker}>"), text.to_string()));
         self
     }
 
@@ -221,14 +208,6 @@ impl Scripted {
             }
             Err(e) => format!("  -> cannot run: {e}"),
         };
-        let answer = self
-            .0
-            .masked
-            .borrow()
-            .iter()
-            .fold(answer, |answer, (marker, text)| {
-                answer.replace(text, marker)
-            });
         self.note(&format!("{kind:<8} {cwd}{text}\n{answer}"));
         let reply = answered?;
         Ok(Finished {

@@ -17,7 +17,7 @@ say      Starting kkt (this takes a minute if the image has to be downloaded)...
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
   -> exit 0
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
-  -> exit 0, out "<access key>\n"
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
   -> exit 0  (x40)
 error    kkt did not start or did not make its keys in time; `docker compose logs kkt` shows why
