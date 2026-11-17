@@ -328,6 +328,13 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       machine.hops.includes("kashkeshet>kkt-files>normal") &&
       machine.labels["kkt-files>kashkeshet"] === "Files, wrapped by ClientHost and NativeSetupFiles",
       { machine, operate: (operatePanel.match(/filled with Env[^]{0,60}/) || [""])[0], goes: (machinePanel.match(/Where its work goes[^]{0,120}/) || [""])[0] });
+    // ConnectionReads wraps kkt-files, kkt-keys-os and kkt-entropy-os, so
+    // ticking kkt-keys-os draws its route into both assemblies.
+    const keys = await routeOf("kkt-keys-os");
+    check("ticking one of an adapter's several suppliers draws its route",
+      ["kashkeshet>kkt-agent-commands", "kashkeshet>kkt-install-commands"].every((l) => keys.lines.includes(l)) &&
+      keys.hops.includes("kashkeshet>kkt-keys-os>normal") &&
+      /OsKeyFiles.* wrapped by .*ConnectionReads/.test(keys.labels["kkt-keys-os>kashkeshet"] || ""), keys);
     // Nothing is drawn out of kkt-shutdown-os: the program builds the
     // Shutdown it stops, and StopSignals gives back only which signal came.
     const shutdown = await routeOf("kkt-shutdown-os");

@@ -956,10 +956,19 @@
      "note": "whether the service's server could listen on its address"
     },
     {
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup",
+     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
      "suppliers": [
       {
-       "crate": "kashkeshet"
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      },
+      {
+       "crate": "kkt-entropy-os",
+       "item": "OsEntropy"
       }
      ],
      "crate": "kkt-install-commands",
@@ -1161,10 +1170,19 @@
      "note": "kkt connect: Claude Code's own command"
     },
     {
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup",
+     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
      "suppliers": [
       {
-       "crate": "kashkeshet"
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      },
+      {
+       "crate": "kkt-entropy-os",
+       "item": "OsEntropy"
       }
      ],
      "crate": "kkt-agent-commands",

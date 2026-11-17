@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "243b5df5",
+ "commit": "6bd99519",
  "crates": [
   {
    "bins": [
@@ -31087,10 +31087,19 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "note": "in InstallParts' connection, which each command reads",
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup",
+     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
      "suppliers": [
       {
-       "crate": "kashkeshet"
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      },
+      {
+       "crate": "kkt-entropy-os",
+       "item": "OsEntropy"
       }
      ],
      "to": [
@@ -31292,10 +31301,19 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "in AgentParts' connection, which each command reads",
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup",
+     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
      "suppliers": [
       {
-       "crate": "kashkeshet"
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      },
+      {
+       "crate": "kkt-entropy-os",
+       "item": "OsEntropy"
       }
      ],
      "to": [
