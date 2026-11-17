@@ -319,6 +319,10 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       // The supply label names each supplied type once.
       machine.labels["kkt-machine-os>kashkeshet"] === "OsMachine; also wrapped by ThisProgram",
       { machine, operate: (operatePanel.match(/filled with Env[^]{0,60}/) || [""])[0], goes: (machinePanel.match(/Where its work goes[^]{0,120}/) || [""])[0] });
+    // Nothing is drawn out of kkt-shutdown-os: the program builds the
+    // Shutdown it stops, and StopSignals gives back only which signal came.
+    const shutdown = await routeOf("kkt-shutdown-os");
+    check("ticking kkt-shutdown-os draws no dotted line", shutdown.lines.length === 0, shutdown);
     // A value asked of an implementer the injector was given: kkt-operate
     // asks the clock the program gave it for the time a backup is named for.
     const clock = await routeOf("kkt-clock-system");
