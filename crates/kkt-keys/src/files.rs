@@ -23,6 +23,9 @@ pub trait KeyFiles {
     fn try_exists(&self, path: &Path) -> io::Result<bool>;
     /// Whether `path` is a file, following links.
     fn is_file(&self, path: &Path) -> bool;
+    /// The file's permission bits; `None` on a system that has none. `Err`
+    /// when the file cannot be looked at.
+    fn mode(&self, path: &Path) -> io::Result<Option<u32>>;
     /// Makes the folder `dir` and its parents.
     fn create_dir_all(&self, dir: &Path) -> Result<(), String>;
     /// Moves a staged key file to `path`.

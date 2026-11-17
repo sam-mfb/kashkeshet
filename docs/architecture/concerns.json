@@ -221,13 +221,8 @@
   },
   "kkt-diagnostics": {
    "layer": "operations",
-   "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It probes through a `Prober` it declares.",
+   "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It makes its checks, with their fixes, from the facts a `Prober` it declares reports.",
    "kind": "logic"
-  },
-  "kkt-probe": {
-   "layer": "operations",
-   "concern": "Probes a kkt server over HTTP, with an MCP handshake, and reads its key files from disk.",
-   "kind": "effect"
   },
   "kkt-backup": {
    "layer": "operations",
@@ -343,6 +338,11 @@
    "layer": "platform",
    "kind": "effect",
    "concern": "The terminal: reading and writing lines, telling whether output goes to a terminal, and showing a link that opens on a press of Enter."
+  },
+  "kkt-probe": {
+   "layer": "platform",
+   "kind": "effect",
+   "concern": "Probes an MCP server over HTTP: whether it answers at its address, and what an `initialize` request gives, the server's name and version among it. It reports plain facts: statuses, errors and what the server said."
   },
   "kkt-browser": {
    "layer": "platform",

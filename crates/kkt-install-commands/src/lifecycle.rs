@@ -515,7 +515,17 @@ mod tests {
         fn key_file(&self, _: &Path) -> Result<kkt_diagnostics::KeyFile, String> {
             panic!("uninstall read a key file to probe")
         }
-        fn probe<'a>(&'a self, _: &'a str, _: Option<&'a str>) -> kkt_diagnostics::Probing<'a> {
+        fn answer<'a>(
+            &'a self,
+            _: &'a str,
+        ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Answered> {
+            panic!("uninstall probed a server")
+        }
+        fn initialize<'a>(
+            &'a self,
+            _: &'a str,
+            _: Option<&'a str>,
+        ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Initialized> {
             panic!("uninstall probed a server")
         }
     }
@@ -574,6 +584,9 @@ mod tests {
         fn is_file(&self, _: &Path) -> bool {
             self.0.borrow_mut().push("key_files.is_file");
             false
+        }
+        fn mode(&self, _: &Path) -> std::io::Result<Option<u32>> {
+            self.asked("key_files.mode")
         }
         fn create_dir_all(&self, _: &Path) -> Result<(), String> {
             self.refused("key_files.create_dir_all")
