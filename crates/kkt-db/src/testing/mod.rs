@@ -14,9 +14,10 @@ pub use conformance::{Place, conformance};
 pub use fast::FastPlace;
 pub use memory::MemoryPlace;
 
-use crate::search::{Hit, Search};
+use crate::search::{Found, Reindex, Terms};
 use crate::{
-    Backend, Connection, Count, DbError, Delete, Done, Group, Insert, Row, Select, Update, Work,
+    Backend, BackendConnection, Count, DbError, Delete, Done, Group, Insert, Row, Select, Update,
+    Work,
 };
 use std::sync::{Arc, Mutex};
 
@@ -67,7 +68,10 @@ impl FaultyBackend {
 
     fn wrap(&self, work: Work) -> Work {
         let faults = self.faults.clone();
-        Box::new(move |connection| work(&Faulty::new(connection, &faults)))
+        Box::new(move |connection| {
+            let faulty = Faulty::new(connection.backend(), &faults);
+            work(&faulty.connection(connection.schema()))
+        })
     }
 }
 
@@ -83,12 +87,12 @@ impl Backend for FaultyBackend {
 
 /// A connection whose changes fail where [`Faults`] says.
 struct Faulty<'a> {
-    inner: &'a dyn Connection,
+    inner: &'a dyn BackendConnection,
     faults: &'a Faults,
 }
 
 impl<'a> Faulty<'a> {
-    fn new(inner: &'a dyn Connection, faults: &'a Faults) -> Faulty<'a> {
+    fn new(inner: &'a dyn BackendConnection, faults: &'a Faults) -> Faulty<'a> {
         Faulty { inner, faults }
     }
 
@@ -102,7 +106,7 @@ impl<'a> Faulty<'a> {
     }
 }
 
-impl Connection for Faulty<'_> {
+impl BackendConnection for Faulty<'_> {
     fn select(&self, select: &Select) -> Result<Vec<Row>, DbError> {
         self.inner.select(select)
     }
@@ -115,28 +119,28 @@ impl Connection for Faulty<'_> {
         self.inner.group(group)
     }
 
-    fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
-        self.inner.search(search)
+    fn search(&self, select: &Select, terms: &Terms) -> Result<Vec<Found>, DbError> {
+        self.inner.search(select, terms)
     }
 
-    fn insert(&self, insert: &Insert) -> Result<Option<i64>, DbError> {
+    fn insert(&self, insert: &Insert, index: &Reindex) -> Result<Option<i64>, DbError> {
         self.check(insert.table)?;
-        self.inner.insert(insert)
+        self.inner.insert(insert, index)
     }
 
-    fn insert_unless_present(&self, insert: &Insert) -> Result<bool, DbError> {
+    fn insert_unless_present(&self, insert: &Insert, index: &Reindex) -> Result<bool, DbError> {
         self.check(insert.table)?;
-        self.inner.insert_unless_present(insert)
+        self.inner.insert_unless_present(insert, index)
     }
 
-    fn save(&self, insert: &Insert) -> Result<(), DbError> {
+    fn save(&self, insert: &Insert, index: &Reindex) -> Result<(), DbError> {
         self.check(insert.table)?;
-        self.inner.save(insert)
+        self.inner.save(insert, index)
     }
 
-    fn update(&self, update: &Update) -> Result<u64, DbError> {
+    fn update(&self, update: &Update, index: &Reindex) -> Result<u64, DbError> {
         self.check(update.table)?;
-        self.inner.update(update)
+        self.inner.update(update, index)
     }
 
     fn delete(&self, delete: &Delete) -> Result<u64, DbError> {

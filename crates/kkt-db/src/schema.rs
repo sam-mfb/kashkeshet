@@ -251,10 +251,16 @@ impl Table {
                 self.require(column)?;
             }
         }
-        if let Some(column) = self.search
-            && self.require(column)?.ty != ColumnType::Text
-        {
-            return fail(format!("{column} is not text, so cannot be searched"));
+        if let Some(column) = self.search {
+            let searched = self.require(column)?;
+            if searched.ty != ColumnType::Text {
+                return fail(format!("{column} is not text, so cannot be searched"));
+            }
+            // A row added without the column has no text, so no words: the
+            // index is worked out from the values a change names.
+            if searched.default.is_some() {
+                return fail(format!("{column} has a default, so cannot be searched"));
+            }
         }
         for constraint in &self.constraints {
             match constraint {

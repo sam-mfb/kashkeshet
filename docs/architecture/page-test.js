@@ -268,7 +268,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       ["kashkeshet>kkt-agent-commands", "kkt-agent-commands>kkt-watch"].every((l) => watch.lines.includes(l)) &&
       watch.hops.includes("kashkeshet>kkt-agent-client-mcp>normal"), watch);
     check("no hop's label is only \"passed on\"",
-      Object.values(watch.labels).every((l) => !/passed on/.test(l)) && /\(/.test(watch.labels["kkt-agent-commands>kkt-watch"] || ""),
+      Object.values(watch.labels).every((l) => !/^passed on/.test(l)) && /\(/.test(watch.labels["kkt-agent-commands>kkt-watch"] || ""),
       watch.labels);
     // A crate's own type is never carried out of it as an injection (msg
     // 3694): kkt-server builds kkt-result-format's Formatter itself, and
@@ -283,6 +283,94 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     const supplier = await routeOf("kkt-agent-client-mcp");
     check("a ticked supplier's routes run on to the final receiver",
       supplier.hops.includes("kashkeshet>kkt-agent-client-mcp>normal") && supplier.lines.includes("kkt-agent-commands>kkt-watch"), supplier);
+
+    // Opens a panel section and waits for its body, which a closed section
+    // draws only when it opens.
+    const openSection = async (id) => {
+      await p.evaluate((id) => {
+        const d = document.querySelector(`#panel details[data-section='${id}']`);
+        if (d && !d.open) d.querySelector("summary").click();
+      }, id);
+      await p.waitForFunction((id) => {
+        const d = document.querySelector(`#panel details[data-section='${id}']`);
+        return !d || d.children.length > 1;
+      }, id);
+    };
+    // A value a contract's operation gives: the program asks OsMachine for
+    // Env and Platform and hands them down; kkt-install-commands passes them on.
+    // Ticking kkt-machine-os lights the program's arrow to it and draws the
+    // dotted lines on, labelled with the value and what produced it; the
+    // panels say where the values go and where a receiver's come from.
+    const machine = await routeOf("kkt-machine-os");
+    await onBox("kkt-install-commands", "> rect");
+    await openSection("slots");
+    const operatePanel = await p.$eval("#panel", (x) => x.textContent);
+    await onBox("kkt-machine-os", "> rect");
+    await openSection("goes");
+    const machinePanel = await p.$eval("#panel", (x) => x.textContent);
+    check("Env and Platform are traced from OsMachine through the program to the crates that take them",
+      ["kashkeshet>kkt-install-commands", "kashkeshet>kkt-setup", "kashkeshet>kkt-agent-commands", "kkt-install-commands>kkt-setup",
+        "kkt-agent-commands>kkt-llm-agent-config"].every((l) => machine.lines.includes(l)) &&
+      machine.hops.includes("kashkeshet>kkt-machine-os>normal") &&
+      /Env, from OsMachine/.test(machine.labels["kashkeshet>kkt-install-commands"] || "") &&
+      /Env, from OsMachine.* · passed on$/.test(machine.labels["kkt-agent-commands>kkt-llm-agent-config"] || "") &&
+      /filled with Env, from OsMachine, by kashkeshet/.test(operatePanel) &&
+      /Env, from OsMachine → kkt-install-commands's/.test(machinePanel) &&
+      // The supply label names each supplied type once.
+      machine.labels["kkt-machine-os>kashkeshet"] === "OsMachine; also wrapped by ThisProgram",
+      { machine, operate: (operatePanel.match(/filled with Env[^]{0,60}/) || [""])[0], goes: (machinePanel.match(/Where its work goes[^]{0,120}/) || [""])[0] });
+    // Nothing is drawn out of kkt-shutdown-os: the program builds the
+    // Shutdown it stops, and StopSignals gives back only which signal came.
+    const shutdown = await routeOf("kkt-shutdown-os");
+    check("ticking kkt-shutdown-os draws no dotted line", shutdown.lines.length === 0, shutdown);
+    // A value asked of an implementer the injector was given: kkt-install-commands
+    // asks the clock the program gave it for the time a backup is named for.
+    const clock = await routeOf("kkt-clock-system");
+    check("the time is traced from SystemClock through kkt-install-commands to kkt-backup",
+      clock.lines.includes("kkt-install-commands>kkt-backup") && /Time, from SystemClock/.test(clock.labels["kkt-install-commands>kkt-backup"] || ""),
+      clock.labels);
+
+    // A logic crate handing on what it was given: the program gives
+    // kkt-rules OsEntropy at start-up, and kkt-rules hands it to kkt-names
+    // on each call that draws a handle or a channel ID. Ticking kkt-names
+    // draws the route whole, its last hop labelled as passed on.
+    const names = await routeOf("kkt-names");
+    check("kkt-names' entropy is traced from the program through kkt-rules, and passed on",
+      ["kashkeshet>kkt-rules", "kkt-rules>kkt-names"].every((l) => names.lines.includes(l)) &&
+      names.hops.includes("kashkeshet>kkt-entropy-os>normal") &&
+      /OsEntropy \(kkt-entropy-os\).* · passed on$/.test(names.labels["kkt-rules>kkt-names"] || ""),
+      names);
+    // The label says a value is passed on, never when: kkt-server hands its
+    // parts to kkt-mcp once, when it builds the server, and the code's names
+    // cannot tell that from a call that hands it on each time.
+    const server = await routeOf("kkt-mcp");
+    check("a hop handed on at start-up is not labelled per call",
+      / · passed on$/.test(server.labels["kkt-server>kkt-mcp"] || "") &&
+      Object.values(server.labels).concat(Object.values(names.labels)).every((l) => !/per call|at start-up/.test(l)), server.labels);
+
+    // An injection through a slot typed as a standard-library trait: the
+    // program builds kkt-rolling-file's RotatingFile and hands it to
+    // kkt-log-tracing's init_logging as its log file, a std::io::Write.
+    // Ticking kkt-rolling-file lights its arrow to the program as the
+    // built-by hop and draws the dotted line on to kkt-log-tracing; the
+    // panels name the slot, what fills it, and where the work goes.
+    const rolling = await routeOf("kkt-rolling-file");
+    await onBox("kkt-rolling-file", ".pick-hit");
+    const rollingHop = await p.$$eval("path.edge.route-hop[data-edge='kashkeshet>kkt-rolling-file>normal']",
+      (xs) => xs.map((x) => x.getAttribute("class").match(/role-\w+/)[0]));
+    await onBox("kkt-rolling-file", ".pick-hit");
+    await onBox("kkt-log-tracing", "> rect");
+    await openSection("slots");
+    const tracingPanel = await p.$eval("#panel", (x) => x.textContent);
+    await onBox("kkt-rolling-file", "> rect");
+    await openSection("goes");
+    const rollingPanel = await p.$eval("#panel", (x) => x.textContent);
+    check("a log file handed in as a std::io::Write is drawn and named as an injection",
+      rolling.lines.includes("kashkeshet>kkt-log-tracing") && /RotatingFile \(kkt-rolling-file\)/.test(rolling.labels["kashkeshet>kkt-log-tracing"] || "") &&
+      rollingHop.join() === "role-wires" &&
+      /init_logging takes log_file: std::io::Writefilled with RotatingFile \(kkt-rolling-file\), by kashkeshet/.test(tracingPanel) &&
+      /RotatingFile \(kkt-rolling-file\) → kkt-log-tracing's init_logging \(log_file\), by kashkeshet/.test(rollingPanel),
+      { rolling, rollingHop, tracing: (tracingPanel.match(/init_logging[^]{0,160}/) || [""])[0], goes: (rollingPanel.match(/Where its work goes[^]{0,200}/) || [""])[0] });
 
     // Solid is a dependency, dotted an injection: ticking
     // kkt-log-tracing lights the solid arrow from it to kashkeshet as the
@@ -299,7 +387,8 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
         lit: strokes.filter((x) => x.classList.contains("route-hop")).length === 1 &&
           strokes.some((x) => x.classList.contains("route-hop") && x.classList.contains("role-wires") && getComputedStyle(x).strokeDasharray === "none") &&
           strokes.filter((x) => getComputedStyle(x).stroke === getComputedStyle(strokes.find((y) => y.classList.contains("role-wires"))).stroke).length === 1,
-        fromIt: [...document.querySelectorAll("path.delivery")].filter((x) => x.dataset.from === "kkt-log-tracing" || x.dataset.to === "kkt-log-tracing").length,
+        // No dotted line leaves the supplier: its hop is the solid arrow.
+        fromIt: [...document.querySelectorAll("path.delivery")].filter((x) => x.dataset.from === "kkt-log-tracing").length,
         notInjector: [...document.querySelectorAll("path.delivery")].map((x) => x.dataset.from).filter((f) => !injectors.has(f)),
         label: [...document.querySelectorAll("text.delivery-label.supply")].map((x) => x.textContent),
       };
@@ -457,6 +546,17 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     check("and opens again", (await sectionState()).includes === true);
     await onBox("kashkeshet", "> rect");
     const long = await sectionState();
+    // Drawing a section open is not the viewer's choice: with nothing
+    // stored, a short list drawn open for one crate leaves nothing behind,
+    // and the same section starts closed for a crate whose list is long.
+    await p.evaluate(() => localStorage.clear());
+    await onBox("kkt-log-tracing", "> rect");
+    await onBox("kashkeshet", "> rect");
+    const untouched = await p.evaluate(() => ({
+      stored: Object.keys(localStorage).filter((k) => k.startsWith("kkt-map-section:")),
+      implements: document.querySelector("#panel details[data-section='implements']").open,
+    }));
+    check("drawing a section open stores no choice", untouched.stored.length === 0 && untouched.implements === false, untouched);
     // Sections the viewer has not touched: kashkeshet implements dozens.
     check("a long list starts closed", long.implements === false && long.items === false, long);
 

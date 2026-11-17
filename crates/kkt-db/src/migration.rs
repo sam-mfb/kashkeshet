@@ -34,7 +34,9 @@ pub enum Step {
         constraint: Constraint,
     },
     /// Makes a text column searchable ([`crate::search`]): its words are
-    /// indexed, those of rows already there included. One per table.
+    /// indexed, those of rows already there included, which the backend
+    /// gets from a [`crate::search::Indexer`]. One per table. The column
+    /// has no default.
     AddSearch {
         table: &'static str,
         column: &'static str,
@@ -44,7 +46,7 @@ pub enum Step {
     /// rows, which a column's default cannot give.
     Fill {
         name: &'static str,
-        run: fn(&dyn Connection) -> Result<(), DbError>,
+        run: fn(&Connection) -> Result<(), DbError>,
     },
 }
 
@@ -271,6 +273,46 @@ mod tests {
         assert!(one.require("people").unwrap().column("away").is_none());
         let two = Schema::latest(std::slice::from_ref(&set)).unwrap();
         assert!(two.require("people").unwrap().column("away").is_some());
+    }
+
+    #[test]
+    fn a_searchable_column_with_a_default_is_refused() {
+        let schema = |steps: Vec<Step>| {
+            Schema::latest(&[Set {
+                name: "core",
+                migrations: vec![steps],
+            }])
+        };
+        let noted =
+            |text: Column| Table::new("notes", vec![Column::text("name"), text], vec!["name"]);
+        let searchable = || Step::AddSearch {
+            table: "notes",
+            column: "text",
+        };
+        // A table that declares the column with a default and makes it
+        // searchable.
+        let mut declared = noted(Column::text("text").default("none"));
+        declared.search = Some("text");
+        assert!(matches!(
+            schema(vec![Step::AddTable(declared)]),
+            Err(DbError::Schema(e)) if e.contains("has a default, so cannot be searched")
+        ));
+        // A column that already has a default, made searchable later.
+        assert!(matches!(
+            schema(vec![
+                Step::AddTable(noted(Column::text("text").default("none"))),
+                searchable(),
+            ]),
+            Err(DbError::Schema(e)) if e.contains("has a default, so cannot be searched")
+        ));
+        // The same column with no default is searchable.
+        assert!(
+            schema(vec![
+                Step::AddTable(noted(Column::text("text"))),
+                searchable()
+            ])
+            .is_ok()
+        );
     }
 
     #[test]

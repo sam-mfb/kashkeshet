@@ -3,11 +3,11 @@
 //! It is slow on purpose: every change works on a copy of the whole
 //! database, which replaces it only if the change keeps every constraint.
 
-use crate::search::{Hit, Search};
+use crate::search::{Found, Indexer, Reindex, Terms, Words};
 use crate::{
-    Assign, Backend, Column, Condition, Connection, Constraint, ConstraintKind, Count, DbError,
-    Delete, Done, Evolve, Field, Group, Insert, Operand, OrderBy, Related, Row, Schema, Select,
-    Set, Sort, Step, Table, Update, Value, Work,
+    Assign, Backend, BackendConnection, Column, Condition, Constraint, ConstraintKind, Count,
+    DbError, Delete, Done, Evolve, Field, Group, Insert, Operand, OrderBy, Related, Row, Schema,
+    Select, Set, Sort, Step, Table, Update, Value, Work,
 };
 use std::cell::RefCell;
 use std::cmp::Ordering;
@@ -26,6 +26,9 @@ struct State {
 #[derive(Clone, Debug, Default)]
 struct Data {
     rows: Vec<Vec<Value>>,
+    /// Each row's indexed words, beside `rows`: those kkt-db handed with
+    /// the write that last set the row's searchable column, or none.
+    words: Vec<Option<Words>>,
     /// The largest increasing key ever assigned.
     last_key: i64,
 }
@@ -96,18 +99,30 @@ impl Evolve for MemoryPlace {
                         }
                     }
                 }
-                Step::AddIndex { .. }
-                | Step::AddConstraint { .. }
-                | Step::AddSearch { .. }
-                | Step::Fill { .. } => {}
+                Step::AddSearch { table, column } => {
+                    let at = position(schema.require(table)?, column)?;
+                    if let Some(data) = state.data.get_mut(table) {
+                        let indexer = Indexer::new();
+                        data.words = data
+                            .rows
+                            .iter()
+                            .map(|row| match &row[at] {
+                                Value::Text(text) => Some(indexer.words(text)),
+                                _ => None,
+                            })
+                            .collect();
+                    }
+                }
+                Step::AddIndex { .. } | Step::AddConstraint { .. } | Step::Fill { .. } => {}
             }
             state.schema = schema;
             if let Step::Fill { run, .. } = step {
+                let schema = state.schema.clone();
                 let connection = MemoryConnection {
                     state: RefCell::new(state),
                     write: true,
                 };
-                run(&connection)?;
+                run(&connection.connection(&schema))?;
                 state = connection.state.into_inner();
             }
             check_all(&state)?;
@@ -134,10 +149,12 @@ impl Backend for MemoryBackend {
         let done = lock(&self.state)
             .map(|state| state.clone())
             .and_then(|state| {
-                work(&MemoryConnection {
+                let schema = state.schema.clone();
+                let connection = MemoryConnection {
                     state: RefCell::new(state),
                     write: false,
-                })
+                };
+                work(&connection.connection(&schema))
             });
         Box::pin(std::future::ready(done))
     }
@@ -145,11 +162,12 @@ impl Backend for MemoryBackend {
     fn write(&self, work: Work) -> Done<'_> {
         // The lock is held throughout, so writes run one at a time.
         let done = lock(&self.state).and_then(|mut guard| {
+            let schema = guard.schema.clone();
             let connection = MemoryConnection {
                 state: RefCell::new(guard.clone()),
                 write: true,
             };
-            work(&connection)?;
+            work(&connection.connection(&schema))?;
             *guard = connection.state.into_inner();
             Ok(())
         });
@@ -403,10 +421,8 @@ impl View<'_> {
             .collect()
     }
 
-    fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
-        let select = &search.select;
+    fn search(&self, select: &Select, terms: &Terms) -> Result<Vec<Found>, DbError> {
         let table = self.table(select.table)?;
-        let terms = kkt_search::terms(&search.terms);
         let Some(column) = table.search else {
             return Err(DbError::Schema(format!(
                 "table {} is not searchable",
@@ -418,19 +434,24 @@ impl View<'_> {
             Value::Text(t) => t.clone(),
             _ => String::new(),
         };
-        self.selected(select, |row| kkt_search::matches(&text(row), &terms))?
+        // The rows whose words match, known by where their values are.
+        let matched: std::collections::HashSet<*const Value> = match self.state.data.get(table.name)
+        {
+            Some(data) => data
+                .rows
+                .iter()
+                .zip(&data.words)
+                .filter(|(_, words)| words.as_ref().is_some_and(|w| w.matches(terms)))
+                .map(|(row, _)| row.as_ptr())
+                .collect(),
+            None => Default::default(),
+        };
+        self.selected(select, |row| matched.contains(&row.as_ptr()))?
             .into_iter()
             .map(|row| {
-                Ok(Hit {
+                Ok(Found {
                     row: Row::new(self.fields(table, select, row)?),
-                    excerpt: kkt_search::excerpt(
-                        &text(row),
-                        &terms,
-                        search.excerpt.open,
-                        search.excerpt.close,
-                        search.excerpt.ellipsis,
-                        search.excerpt.words,
-                    ),
+                    text: text(row),
                 })
             })
             .collect()
@@ -613,6 +634,7 @@ impl MemoryConnection {
         &self,
         insert: &Insert,
         existing: Existing,
+        index: &Reindex,
     ) -> Result<(bool, Option<i64>), DbError> {
         self.state.borrow().schema.check_insert(insert)?;
         self.change(|state| {
@@ -652,6 +674,8 @@ impl MemoryConnection {
                             fixed(&table, name, &old[i], value)?;
                             data.rows[at][i] = value.clone();
                         }
+                        let was_null = searched_was_null(&table, &old)?;
+                        reindex(&mut data.words, at, index, was_null);
                         Ok((true, None))
                     }
                 };
@@ -666,8 +690,33 @@ impl MemoryConnection {
                 None => None,
             };
             data.rows.push(row);
+            data.words.resize(data.rows.len() - 1, None);
+            data.words.push(None);
+            reindex(&mut data.words, data.rows.len() - 1, index, true);
             Ok((true, key))
         })
+    }
+}
+
+/// Whether the searchable column of `row`, if the table has one, is null.
+fn searched_was_null(table: &Table, row: &[Value]) -> Result<bool, DbError> {
+    match table.search {
+        Some(column) => Ok(row[position(table, column)?].is_null()),
+        None => Ok(true),
+    }
+}
+
+/// Sets the words of row `at` as `index` says; `was_null` is whether its
+/// searchable column was null before the write.
+fn reindex(words: &mut Vec<Option<Words>>, at: usize, index: &Reindex, was_null: bool) {
+    if words.len() <= at {
+        words.resize(at + 1, None);
+    }
+    match index {
+        Reindex::Keep => {}
+        Reindex::Set(new) => words[at] = new.clone(),
+        Reindex::SetIfNull(new) if was_null => words[at] = Some(new.clone()),
+        Reindex::SetIfNull(_) => {}
     }
 }
 
@@ -691,7 +740,7 @@ fn fixed(table: &Table, column: &str, old: &Value, new: &Value) -> Result<(), Db
     Ok(())
 }
 
-impl Connection for MemoryConnection {
+impl BackendConnection for MemoryConnection {
     fn select(&self, select: &Select) -> Result<Vec<Row>, DbError> {
         let state = self.state.borrow();
         state.schema.check_select(select)?;
@@ -712,25 +761,25 @@ impl Connection for MemoryConnection {
         View { state: &state }.group(group)
     }
 
-    fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
+    fn search(&self, select: &Select, terms: &Terms) -> Result<Vec<Found>, DbError> {
         let state = self.state.borrow();
-        state.schema.check_search(search)?;
-        View { state: &state }.search(search)
+        state.schema.check_search_select(select)?;
+        View { state: &state }.search(select, terms)
     }
 
-    fn insert(&self, insert: &Insert) -> Result<Option<i64>, DbError> {
-        Ok(self.insert_row(insert, Existing::Refuse)?.1)
+    fn insert(&self, insert: &Insert, index: &Reindex) -> Result<Option<i64>, DbError> {
+        Ok(self.insert_row(insert, Existing::Refuse, index)?.1)
     }
 
-    fn insert_unless_present(&self, insert: &Insert) -> Result<bool, DbError> {
-        Ok(self.insert_row(insert, Existing::Keep)?.0)
+    fn insert_unless_present(&self, insert: &Insert, index: &Reindex) -> Result<bool, DbError> {
+        Ok(self.insert_row(insert, Existing::Keep, index)?.0)
     }
 
-    fn save(&self, insert: &Insert) -> Result<(), DbError> {
-        self.insert_row(insert, Existing::Replace).map(drop)
+    fn save(&self, insert: &Insert, index: &Reindex) -> Result<(), DbError> {
+        self.insert_row(insert, Existing::Replace, index).map(drop)
     }
 
-    fn update(&self, update: &Update) -> Result<u64, DbError> {
+    fn update(&self, update: &Update, index: &Reindex) -> Result<u64, DbError> {
         self.state.borrow().schema.check_update(update)?;
         self.change(|state| {
             let table = state.schema.require(update.table)?.clone();
@@ -749,6 +798,8 @@ impl Connection for MemoryConnection {
             }
             let data = state.data.entry(table.name).or_default();
             for &i in &hits {
+                let was_null = searched_was_null(&table, &data.rows[i])?;
+                reindex(&mut data.words, i, index, was_null);
                 for (name, assign) in &update.set {
                     let at = position(&table, name)?;
                     let old = data.rows[i][at].clone();
@@ -790,6 +841,9 @@ impl Connection for MemoryConnection {
             let data = state.data.entry(table.name).or_default();
             let mut flags = keep.iter();
             data.rows.retain(|_| *flags.next().unwrap_or(&true));
+            data.words.resize(keep.len(), None);
+            let mut flags = keep.iter();
+            data.words.retain(|_| *flags.next().unwrap_or(&true));
             Ok(removed as u64)
         })
     }
