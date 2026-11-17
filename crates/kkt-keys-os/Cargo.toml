@@ -10,4 +10,7 @@ publish = false
 [dependencies]
 kkt-keys = { path = "../kkt-keys" }
 
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }
+
 [features]

@@ -219,3 +219,27 @@ fn a_refused_move_leaves_the_staged_key_in_place() {
         "key\n"
     );
 }
+
+#[test]
+fn the_stand_in_gives_a_files_mode_or_says_it_cannot_look() {
+    let files = Memory::new().with_dir("/k").with_file("/k/plain", "x");
+    files
+        .write_key(Path::new("/k/access-key"), "a key", false)
+        .expect("written");
+    assert_eq!(
+        files.mode(Path::new("/k/access-key")).expect("mode"),
+        Some(ACCESS_KEY_FILE_MODE)
+    );
+    assert_eq!(files.mode(Path::new("/k/plain")).expect("mode"), None);
+    assert_eq!(
+        files
+            .mode(Path::new("/k/missing"))
+            .expect_err("missing")
+            .kind(),
+        std::io::ErrorKind::NotFound
+    );
+    let refused = Memory::new()
+        .with_file("/k/locked", "x")
+        .failing("/k/locked");
+    assert!(refused.mode(Path::new("/k/locked")).is_err());
+}
