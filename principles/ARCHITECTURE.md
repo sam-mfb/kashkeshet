@@ -257,3 +257,5 @@ These principles are not an exhaustive list of best practices or responsible cod
 9.6.1 It SHOULD NOT contain cross-references to other documentation of the project.
 
 9.7 Documentation of a module SHOULD NOT require knowledge of other modules.
+
+9.8 Documentation SHOULD NOT include history (e.g., changes made or the reasons for them) unless the documentation file is a change log or other file dedicated to recording changes.
