@@ -1,6 +1,6 @@
 //! The operator's service commands and the ordered plan/check/install sequence.
 use crate::keys::new_key_file;
-use kkt_service::{Spec, check_bind};
+use kkt_bare_service::{Spec, check_bind};
 use kkt_setup::connection::ConnectionSource;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -73,7 +73,7 @@ pub async fn run<D>(
                 let actions = service
                     .dry_run(
                         parts.clock.as_ref(),
-                        kkt_service::Settings::DEFAULT,
+                        kkt_bare_service::Settings::DEFAULT,
                         &plan.spec,
                     )
                     .await
@@ -109,7 +109,7 @@ pub async fn run<D>(
                 match service
                     .install(
                         parts.clock.as_ref(),
-                        kkt_service::Settings::DEFAULT,
+                        kkt_bare_service::Settings::DEFAULT,
                         &plan.spec,
                     )
                     .await
@@ -117,7 +117,7 @@ pub async fn run<D>(
                     // The service manager took the request; whether the
                     // server stays up is checked before saying it started.
                     Ok(said) => service
-                        .check_started(parts.clock.as_ref(), kkt_service::Settings::DEFAULT)
+                        .check_started(parts.clock.as_ref(), kkt_bare_service::Settings::DEFAULT)
                         .await
                         .map(|()| said),
                     Err(e) => Err(e),
@@ -182,13 +182,13 @@ pub fn service_plan<D>(
             .absolute(&path)
             .map_err(|e| format!("could not make {} absolute: {e}", path.display()))
     };
-    let flags = kkt_service::ServiceSettings {
+    let flags = kkt_bare_service::ServiceSettings {
         db: db.map(absolute).transpose()?,
         access_key_file: access_key_file.map(absolute).transpose()?,
         no_access_key: no_access_key.then_some(true),
     };
     let inputs = parts.serve.service_settings(config, flags)?;
-    let plan = kkt_service::plan(inputs.request, &|path: &Path| parts.key_files.exists(path))
+    let plan = kkt_bare_service::plan(inputs.request, &|path: &Path| parts.key_files.exists(path))
         .map_err(|e| e.to_string())?;
     let checked = inputs.check.check(&plan)?;
     Ok(ServicePlan {

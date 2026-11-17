@@ -20,6 +20,8 @@ mod lifecycle;
 mod name_pack;
 mod provision;
 mod tailscale;
+#[cfg(feature = "testing")]
+pub mod testing;
 #[cfg(test)]
 mod tests;
 
@@ -249,12 +251,27 @@ impl DockerError {
 /// sharing setup's login link opens in `browser` when the person asks.
 pub struct Docker {
     browser: Box<dyn Browser>,
+    /// The machine the commands run on and the files are written to.
+    host: Box<dyn Runner>,
 }
 
 impl Docker {
     /// Docker and Compose, opening a login link in `browser`.
     pub fn new(browser: Box<dyn Browser>) -> Docker {
-        Docker { browser }
+        Docker {
+            browser,
+            host: Box::new(OsHost),
+        }
+    }
+
+    /// Docker and Compose over a scripted host instead of this machine,
+    /// for tests: `host` answers every command and keeps a transcript.
+    #[cfg(feature = "testing")]
+    pub fn scripted(browser: Box<dyn Browser>, host: testing::Scripted) -> Docker {
+        Docker {
+            browser,
+            host: Box::new(host),
+        }
     }
 }
 
@@ -269,7 +286,7 @@ impl Container for Docker {
     ) -> LocalBoxFuture<'a, Result<Provisioned, String>> {
         Box::pin(async move {
             provision(
-                &OsHost,
+                &*self.host,
                 clock,
                 Settings::DEFAULT,
                 LinkAndBrowser {
@@ -292,7 +309,7 @@ impl Container for Docker {
         name: &'a str,
     ) -> LocalBoxFuture<'a, Result<PathBuf, String>> {
         Box::pin(async move {
-            add_admin_key(&OsHost, clock, Settings::DEFAULT, folder, keys, name)
+            add_admin_key(&*self.host, clock, Settings::DEFAULT, folder, keys, name)
                 .await
                 .map_err(|e| e.to_string())
         })
@@ -304,22 +321,23 @@ impl Container for Docker {
         default_name_pack: &str,
         config_file: &Path,
     ) -> Result<State, String> {
-        status(&OsHost, folder, reader, default_name_pack, config_file).map_err(|e| e.to_string())
+        status(&*self.host, folder, reader, default_name_pack, config_file)
+            .map_err(|e| e.to_string())
     }
     fn existing(&self, folder: &Folder) -> Result<Option<Existing>, String> {
-        existing(&OsHost, folder).map_err(|e| e.to_string())
+        existing(&*self.host, folder).map_err(|e| e.to_string())
     }
     fn compare_web_key(&self, folder: &Folder, web_key_file: &Path) -> Result<KeyCopy, String> {
-        compare_web_key(&OsHost, folder, web_key_file).map_err(|e| e.to_string())
+        compare_web_key(&*self.host, folder, web_key_file).map_err(|e| e.to_string())
     }
     fn up(&self, folder: &Folder) -> Result<(), String> {
-        up(&OsHost, folder).map_err(|e| e.to_string())
+        up(&*self.host, folder).map_err(|e| e.to_string())
     }
     fn down(&self, folder: &Folder, remove_data: bool) -> Result<(), String> {
-        down(&OsHost, folder, remove_data).map_err(|e| e.to_string())
+        down(&*self.host, folder, remove_data).map_err(|e| e.to_string())
     }
     fn backup(&self, folder: &Folder, dest: Option<&Path>) -> Result<PathBuf, String> {
-        backup(&OsHost, folder, dest).map_err(|e| e.to_string())
+        backup(&*self.host, folder, dest).map_err(|e| e.to_string())
     }
     fn upgrade<'a>(
         &'a self,
@@ -329,28 +347,35 @@ impl Container for Docker {
         keys: Option<&'a KeyCopies>,
     ) -> LocalBoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            upgrade(&OsHost, clock, Settings::DEFAULT, folder, new_version, keys)
-                .await
-                .map_err(|e| e.to_string())
+            upgrade(
+                &*self.host,
+                clock,
+                Settings::DEFAULT,
+                folder,
+                new_version,
+                keys,
+            )
+            .await
+            .map_err(|e| e.to_string())
         })
     }
     fn run_in_server(&self, folder: &Folder, command: &InServer<'_>) -> Result<String, String> {
-        run_in_server(&OsHost, folder, command).map_err(|e| e.to_string())
+        run_in_server(&*self.host, folder, command).map_err(|e| e.to_string())
     }
     fn config_home_file(&self, folder: &Folder, relative: &Path) -> Result<String, String> {
-        config_home_file(&OsHost, folder, relative).map_err(|e| e.to_string())
+        config_home_file(&*self.host, folder, relative).map_err(|e| e.to_string())
     }
     fn has_settings(&self, folder: &Folder) -> bool {
-        has_settings(&OsHost, folder)
+        has_settings(&*self.host, folder)
     }
     fn settings_file(&self, folder: &Folder) -> bool {
-        settings_file(&OsHost, folder)
+        settings_file(&*self.host, folder)
     }
     fn version(&self, folder: &Folder) -> Result<String, String> {
-        installed_version(&OsHost, folder)
+        installed_version(&*self.host, folder)
     }
     fn sharing_key(&self, path: &Path) -> Result<String, String> {
-        tailscale_auth_key(&OsHost, path)
+        tailscale_auth_key(&*self.host, path)
     }
 }
 

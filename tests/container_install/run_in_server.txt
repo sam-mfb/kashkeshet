@@ -1,0 +1,28 @@
+== files carried in
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.AbC123xyz0\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/one.md kkt:/tmp/kkt-lanes.AbC123xyz0/one.md
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/two.md kkt:/tmp/kkt-lanes.AbC123xyz0/two.md
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt chmod -R a+rX /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt lanes import /tmp/kkt-lanes.AbC123xyz0 "--note=a b"
+  -> exit 0, out "Imported 2 lanes.\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+result   "Imported 2 lanes.\n"
+
+== files carried out
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.AbC123xyz0\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt lanes import /tmp/kkt-lanes.AbC123xyz0 "--note=a b"
+  -> exit 0, out "Imported 2 lanes.\n"
+mkdir    /home/me/export
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp kkt:/tmp/kkt-lanes.AbC123xyz0/. /home/me/export
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+result   "Imported 2 lanes.\n"

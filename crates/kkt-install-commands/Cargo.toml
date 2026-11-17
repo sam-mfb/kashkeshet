@@ -21,12 +21,12 @@ kkt-names = { path = "../kkt-names" }
 kkt-provenance = { path = "../kkt-provenance" }
 kkt-remote-access = { path = "../kkt-remote-access" }
 kkt-rules = { path = "../kkt-rules" }
-kkt-service = { path = "../kkt-service" }
+kkt-bare-service = { path = "../kkt-bare-service" }
 kkt-setup = { path = "../kkt-setup" }
 tokio.workspace = true
 
 [dev-dependencies]
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
 kkt-container = { path = "../kkt-container", features = ["testing"] }
-kkt-service = { path = "../kkt-service", features = ["testing"] }
+kkt-bare-service = { path = "../kkt-bare-service", features = ["testing"] }
 futures.workspace = true

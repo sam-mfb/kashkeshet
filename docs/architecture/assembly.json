@@ -455,7 +455,7 @@
      "note": "the program's own work"
     },
     {
-     "impl": "kkt-service-launchd::Launchd",
+     "impl": "kkt-bare-service-launchd::Launchd",
      "crate": "kkt-install-commands",
      "to": [
       {
@@ -470,7 +470,7 @@
      "note": "On macOS: the program picks the service manager by platform and injects it directly."
     },
     {
-     "impl": "kkt-service-systemd::Systemd",
+     "impl": "kkt-bare-service-systemd::Systemd",
      "crate": "kkt-install-commands",
      "to": [
       {
@@ -485,7 +485,7 @@
      "note": "On Linux."
     },
     {
-     "impl": "kkt-service::Unsupported",
+     "impl": "kkt-bare-service::Unsupported",
      "crate": "kkt-install-commands",
      "to": [
       {
@@ -2305,7 +2305,7 @@
     },
     {
      "passes_on": "the bind check the program gave InstallParts",
-     "crate": "kkt-service",
+     "crate": "kkt-bare-service",
      "to": [
       {
        "at": "check_bind",
@@ -3098,6 +3098,13 @@
    "at": "page",
    "param": "sessions",
    "why": "it hands over a kkt-web Sessions it builds: a value of a type kkt-server names, not an injection; its clock and entropy are wired into Sessions::new"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-container-docker",
+   "at": "Docker::scripted",
+   "param": "browser",
+   "why": "only the program's tests call it, over a scripted host (tests/container_install/); the program builds Docker with Docker::new"
   }
  ]
 }

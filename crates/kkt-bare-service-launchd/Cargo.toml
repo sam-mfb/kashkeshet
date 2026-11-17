@@ -1,0 +1,15 @@
+[package]
+name = "kkt-bare-service-launchd"
+description = "Running kkt's server directly on the machine as a launchd user agent on macOS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-clock = { path = "../kkt-clock" }
+kkt-bare-service = { path = "../kkt-bare-service" }
+
+[dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }

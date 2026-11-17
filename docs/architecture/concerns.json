@@ -174,20 +174,20 @@
    "concern": "What this machine is set up as, kept in the setup record, and what follows from it: whether a server may run here, which server its clients use, and what status, upgrade, lanes, backup and doctor do. It declares what is installed here (`InstalledHere`), finds and writes the operator's key files, and places the data folder.",
    "kind": "logic"
   },
-  "kkt-service": {
+  "kkt-bare-service": {
    "layer": "operations",
-   "concern": "Running the server as a service of the user's login, as a contract: `Service` installs, starts, stops, reports on and removes it. Each platform's service manager implements it.",
+   "concern": "Running the server directly on the machine as a service of the user's login, as a contract: `Service` installs, starts, stops, reports on and removes it. Each platform's service manager implements it.",
    "kind": "contract"
   },
-  "kkt-service-launchd": {
+  "kkt-bare-service-launchd": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "Implements kkt-service's `Service` as a launchd user agent on macOS: the plist, launchctl's commands and the service's log file."
+   "concern": "Implements kkt-bare-service's `Service` as a launchd user agent on macOS, running the server directly on the machine: the plist, launchctl's commands and the service's log file."
   },
-  "kkt-service-systemd": {
+  "kkt-bare-service-systemd": {
    "layer": "operations",
    "kind": "effect",
-   "concern": "Implements kkt-service's `Service` as a systemd user unit on Linux: the unit file, and systemctl's and journalctl's commands."
+   "concern": "Implements kkt-bare-service's `Service` as a systemd user unit on Linux, running the server directly on the machine: the unit file, and systemctl's and journalctl's commands."
   },
   "kkt-container": {
    "layer": "operations",
