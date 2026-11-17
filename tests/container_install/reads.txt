@@ -1,0 +1,18 @@
+== installed: settings, a settings file, the version
+result   true  (x2)
+result   "0.4.0"
+
+== nothing there
+result   false  (x2)
+error    could not read /data/docker/.env: no such file
+
+== a folder where the settings file goes
+result   true
+result   false
+
+== no KKT_VERSION
+error    /data/docker/.env has no KKT_VERSION
+
+== the sharing key, trimmed, and a missing one
+result   "tskey-auth-k1-abc"
+error    could not read /home/me/no-key: no such file

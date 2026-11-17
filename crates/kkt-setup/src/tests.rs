@@ -258,6 +258,33 @@ fn a_relative_xdg_data_home_is_ignored() {
     );
 }
 
+/// An existing Docker install's managed folder stays where setup put it:
+/// `docker` in the data directory.
+#[test]
+fn the_managed_docker_folder_keeps_its_place() {
+    assert_eq!(
+        docker_folder(&data_env(Some("/Users/sam"), None), Platform::MacOs),
+        Ok(PathBuf::from(
+            "/Users/sam/Library/Application Support/kashkeshet/docker"
+        ))
+    );
+    assert_eq!(
+        docker_folder(&data_env(Some("/home/sam"), None), Platform::Xdg),
+        Ok(PathBuf::from("/home/sam/.local/share/kashkeshet/docker"))
+    );
+    assert_eq!(
+        docker_folder(
+            &data_env(Some("/home/sam"), Some("/xdg/data")),
+            Platform::Xdg
+        ),
+        Ok(PathBuf::from("/xdg/data/kashkeshet/docker"))
+    );
+    assert_eq!(
+        docker_folder(&data_env(None, None), Platform::Xdg),
+        Err("set HOME to keep kkt's Docker files".to_string())
+    );
+}
+
 #[test]
 fn without_a_home_there_is_no_database_unless_xdg_says() {
     assert_eq!(default_db(&data_env(None, None), Platform::MacOs), None);

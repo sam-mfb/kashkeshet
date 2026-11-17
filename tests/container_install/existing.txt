@@ -1,0 +1,47 @@
+== nothing there
+result   None
+
+== a local install
+result   Some(Existing { sharing: false, node: None, port: 7420 })
+
+== a Tailscale install
+result   Some(Existing { sharing: true, node: Some(("kkt-1", "tail1234.ts.net")), port: 7420 })
+
+== the settings file cannot be read
+error    could not read /data/docker/.env: no such file
+
+== another COMPOSE_FILE
+error    its settings file /data/docker/.env has COMPOSE_FILE=other.yaml, which kkt setup does not write
+
+== a local install's Compose file is missing
+error    its Compose file /data/docker/compose.yaml is missing
+
+== a Tailscale install's serve file is missing
+error    its Compose file /data/docker/tailscale/serve.json is missing
+
+== no KKT_PORT
+error    its settings file /data/docker/.env has no KKT_PORT
+
+== KKT_PORT not a number
+error    its settings file /data/docker/.env has KKT_PORT=http, which is not a port
+
+== KKT_PORT zero
+error    its settings file /data/docker/.env has KKT_PORT=0, which is not a port
+
+== no TS_HOSTNAME
+error    its settings file /data/docker/.env has no TS_HOSTNAME
+
+== no TS_TAILNET
+error    its settings file /data/docker/.env has no TS_TAILNET
+
+== the login never finished
+error    its Tailscale login never finished, so its address is not known
+
+== a hostname with a dot
+error    its settings file /data/docker/.env has TS_HOSTNAME=kkt.a, which kkt setup does not write
+
+== a hostname that is not a DNS label
+error    its settings file /data/docker/.env has TS_HOSTNAME=-kkt, which kkt setup does not write
+
+== a tailnet that is not a DNS name
+error    its settings file /data/docker/.env has TS_TAILNET=t..net, which kkt setup does not write

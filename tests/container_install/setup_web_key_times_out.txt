@@ -1,0 +1,23 @@
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+  -> exit 0, out "Docker Compose version v2.29.0\n"
+mkdir    /data/docker
+mkdir    /data/docker/backups
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps --user root --entrypoint chown kkt 10001 /backups
+  -> exit 0
+say      Starting kkt (this takes a minute if the image has to be downloaded)...
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> exit 0  (x40)
+error    kkt did not start or did not make its keys in time; `docker compose logs kkt` shows why

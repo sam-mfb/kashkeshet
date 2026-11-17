@@ -15,6 +15,11 @@ kkt-machine = { path = "../kkt-machine" }
 serde_json.workspace = true
 thiserror.workspace = true
 
+[features]
+# `testing`: `testing::Scripted`, a scripted host that keeps a transcript,
+# and `Docker::scripted`, which builds a Docker over one.
+testing = ["kkt-clock/testing"]
+
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-scratch = { path = "../kkt-scratch" }

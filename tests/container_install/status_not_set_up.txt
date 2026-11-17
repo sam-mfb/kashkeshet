@@ -1,0 +1,1 @@
+result   State { files_present: false, running: false, version: None, name_pack: Err("container is not set up"), sharing: false, login: None }
