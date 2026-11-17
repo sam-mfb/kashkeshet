@@ -155,6 +155,16 @@ fn second() -> Vec<Step> {
             table: "notes",
             column: "text",
         },
+        // Searchable, by a column that can be null.
+        Step::AddTable(Table::new(
+            "memos",
+            vec![Column::text("name"), Column::text("text").nullable()],
+            vec!["name"],
+        )),
+        Step::AddSearch {
+            table: "memos",
+            column: "text",
+        },
         Step::Fill {
             name: "nicks from names",
             run: fill_nicks,
@@ -163,7 +173,7 @@ fn second() -> Vec<Step> {
 }
 
 /// Gives everyone without a nickname their name as one.
-fn fill_nicks(c: &dyn Connection) -> Result<(), DbError> {
+fn fill_nicks(c: &Connection) -> Result<(), DbError> {
     let rows = c.select(
         &Select::columns("people", &["id", "name"]).filter(Condition::IsNull(col("nick"))),
     )?;
@@ -223,6 +233,8 @@ pub async fn conformance(new_place: impl Fn() -> Box<dyn Place>) {
     a_change_can_be_made_to_fail(open()).await;
     search_finds_words_as_the_contract_says(open()).await;
     search_follows_changes(open()).await;
+    every_write_keeps_the_index(open()).await;
+    search_answers_follow_kkt_search(open()).await;
     migrations_apply_once_in_order_and_fill(&new_place).await;
     a_failing_migration_changes_nothing(&new_place).await;
     a_database_newer_than_its_sets_is_refused(&new_place).await;
@@ -231,14 +243,14 @@ pub async fn conformance(new_place: impl Fn() -> Box<dyn Place>) {
 
 async fn write<T: Send + 'static>(
     db: &Arc<dyn Backend>,
-    f: impl FnOnce(&dyn Connection) -> Result<T, DbError> + Send + 'static,
+    f: impl FnOnce(&Connection) -> Result<T, DbError> + Send + 'static,
 ) -> Result<T, DbError> {
     BackendExt::write(db.as_ref(), f).await
 }
 
 async fn read<T: Send + 'static>(
     db: &Arc<dyn Backend>,
-    f: impl FnOnce(&dyn Connection) -> Result<T, DbError> + Send + 'static,
+    f: impl FnOnce(&Connection) -> Result<T, DbError> + Send + 'static,
 ) -> Result<T, DbError> {
     BackendExt::read(db.as_ref(), f).await
 }
@@ -456,7 +468,7 @@ async fn refuses(
     db: &Arc<dyn Backend>,
     what: &str,
     kind: ConstraintKind,
-    change: impl FnOnce(&dyn Connection) -> Result<(), DbError> + Send + 'static,
+    change: impl FnOnce(&Connection) -> Result<(), DbError> + Send + 'static,
 ) {
     let before = snapshot(db).await;
     let result = write(db, move |c| {
@@ -1383,7 +1395,7 @@ async fn writes_run_as_if_alone(db: Arc<dyn Backend>) {
 }
 
 async fn questions_that_do_not_fit_the_schema_are_refused(db: Arc<dyn Backend>) {
-    type Check = Box<dyn FnOnce(&dyn Connection) -> Result<(), DbError> + Send>;
+    type Check = Box<dyn FnOnce(&Connection) -> Result<(), DbError> + Send>;
     let checks: Vec<(&str, Check)> = vec![
         (
             "no such table",
@@ -1658,6 +1670,154 @@ async fn search_follows_changes(db: Arc<dyn Backend>) {
     assert!(notes.is_empty(), "a deleted row's words matched: {notes:?}");
 }
 
+/// Names of the memos a search finds, in name order.
+async fn memos(db: &Arc<dyn Backend>, term: &str) -> Vec<String> {
+    let search = Search {
+        select: Select::columns("memos", &["name"]).order(Sort::asc(col("name"))),
+        terms: vec![term.to_string()],
+        excerpt: style(),
+    };
+    read(db, move |c| c.search(&search))
+        .await
+        .expect("search: memos")
+        .into_iter()
+        .map(|hit| hit.row.get::<String>(0).expect("name"))
+        .collect()
+}
+
+/// Each kind of write leaves the index as the row's text says: an insert
+/// with and without the text, a save of a new and of an existing row, with
+/// and without the text, an insert that finds its row there, an update to
+/// text, to null and only where null, and a delete.
+async fn every_write_keeps_the_index(db: Arc<dyn Backend>) {
+    let memo = |name: &str| Insert::new("memos").value("name", name.to_string());
+    let named = |name: &str| Condition::Eq(col("name"), name.into());
+    write(&db, move |c| {
+        c.insert(&memo("a").value("text", "apple"))?;
+        c.insert(&memo("b"))?;
+        c.save(&memo("c").value("text", "cherry"))?;
+        c.save(&memo("d"))?;
+        c.insert(&memo("e").value("text", "elder"))?;
+        Ok(())
+    })
+    .await
+    .expect("memos");
+    assert_eq!(memos(&db, "apple").await, ["a"], "an insert with its text");
+    assert_eq!(memos(&db, "cherry").await, ["c"], "a save of a new row");
+    write(&db, move |c| {
+        // A save without the text keeps the row's words; one with new
+        // text replaces them.
+        c.save(&memo("a"))?;
+        c.save(&memo("c").value("text", "currant"))?;
+        // The row is there, so nothing changes.
+        c.insert_unless_present(&memo("e").value("text", "never"))?;
+        c.update(&Update::new("memos", named("b")).set_if_null("text", "banana"))?;
+        c.update(&Update::new("memos", Condition::True).set_if_null("text", "durian"))?;
+        c.update(&Update::new("memos", named("e")).set("text", Value::Null))?;
+        Ok(())
+    })
+    .await
+    .expect("memos changed");
+    assert_eq!(
+        memos(&db, "apple").await,
+        ["a"],
+        "a save that leaves the text alone"
+    );
+    assert!(memos(&db, "cherry").await.is_empty(), "a save's old words");
+    assert_eq!(memos(&db, "currant").await, ["c"], "a save's new words");
+    assert!(
+        memos(&db, "never").await.is_empty(),
+        "an insert that found its row"
+    );
+    assert_eq!(memos(&db, "banana").await, ["b"], "set where null");
+    assert_eq!(
+        memos(&db, "durian").await,
+        ["d"],
+        "set where null leaves rows that have text"
+    );
+    assert!(memos(&db, "elder").await.is_empty(), "text set to null");
+    write(&db, move |c| c.delete(&Delete::new("memos", named("a"))))
+        .await
+        .expect("memo deleted");
+    assert!(memos(&db, "apple").await.is_empty(), "a deleted row");
+}
+
+/// For any backend, a search finds exactly the rows kkt-search says match,
+/// with the excerpt kkt-search draws: words, folding, order and excerpts are
+/// the same everywhere.
+async fn search_answers_follow_kkt_search(db: Arc<dyn Backend>) {
+    let texts = [
+        "Hello, World! The quick brown fox jumps over the lazy dog.",
+        "Ünïcode: Straße, café au lait; ÉTÉ and naïve résumé.",
+        "one two three two one",
+        "snake_case and kebab-case and dot.separated words",
+        "日本語のテキスト and emoji 🚀 rockets",
+        "",
+        "Tabs\tand\nnew lines, \"quotes\" and 'apostrophes'",
+    ];
+    write(&db, move |c| {
+        for (i, text) in texts.iter().enumerate() {
+            c.insert(
+                &Insert::new("notes")
+                    .value("name", format!("n{i}"))
+                    .value("text", text.to_string()),
+            )?;
+        }
+        Ok(())
+    })
+    .await
+    .expect("notes");
+    let searches: [&[&str]; 12] = [
+        &["quick brown"],
+        &["brown quick"],
+        &["WORLD", "dog"],
+        &["strasse"],
+        &["cafe", "ete"],
+        &["two one"],
+        &["kebab case"],
+        &["snake_case"],
+        &["rockets"],
+        &["日本語のテキスト"],
+        &["quotes", "apostrophes"],
+        &["!!!"],
+    ];
+    for raw in searches {
+        let terms: Vec<String> = raw.iter().map(|t| t.to_string()).collect();
+        let words = kkt_search::terms(&terms);
+        let expected: Vec<(String, String)> = texts
+            .iter()
+            .enumerate()
+            .filter(|(_, text)| kkt_search::matches(text, &words))
+            .map(|(i, text)| {
+                let style = style();
+                (
+                    format!("n{i}"),
+                    kkt_search::excerpt(
+                        text,
+                        &words,
+                        style.open,
+                        style.close,
+                        style.ellipsis,
+                        style.words,
+                    ),
+                )
+            })
+            .collect();
+        let search = Search {
+            select: Select::columns("notes", &["name"]).order(Sort::asc(col("name"))),
+            terms,
+            excerpt: style(),
+        };
+        let got: Vec<(String, String)> = read(&db, move |c| c.search(&search))
+            .await
+            .expect("search: notes")
+            .into_iter()
+            .map(|hit| (hit.row.get::<String>(0).expect("name"), hit.excerpt))
+            .collect();
+        assert_eq!(got, expected, "{raw:?}");
+    }
+}
+
 async fn a_change_can_be_made_to_fail(db: Arc<dyn Backend>) {
     let faulty = super::FaultyBackend::new(db);
     let db: Arc<dyn Backend> = Arc::new(faulty.clone());
@@ -1770,7 +1930,7 @@ async fn migrations_apply_once_in_order_and_fill(new_place: &impl Fn() -> Box<dy
     );
 }
 
-fn failing_fill(_: &dyn Connection) -> Result<(), DbError> {
+fn failing_fill(_: &Connection) -> Result<(), DbError> {
     Err(DbError::Backend("the fill failed".into()))
 }
 

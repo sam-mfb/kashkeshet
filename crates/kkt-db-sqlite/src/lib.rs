@@ -12,7 +12,7 @@
 //! The schema is made by kkt-db's migration steps ([`ddl`]); the versions
 //! applied are recorded per set in `kkt_db_versions`, and `user_version`
 //! is set to [`MANAGED`] to say so. Search indexes are FTS5 tables over
-//! kkt-search's words, kept in the same transaction as
+//! the words kkt-db hands with each write, kept in the same transaction as
 //! their rows.
 
 mod adopt;

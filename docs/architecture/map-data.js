@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "13416ab3",
+ "commit": "ae753cba",
  "crates": [
   {
    "bins": [
@@ -4452,22 +4452,22 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-db",
        "type": null
-      }
-     ],
-     "trait": "BackendExt"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kkt-db",
-       "type": null
       },
       {
        "crate": "kkt-db-sqlite",
        "type": null
       }
      ],
-     "trait": "Connection"
+     "trait": "BackendConnection"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kkt-db",
+       "type": null
+      }
+     ],
+     "trait": "BackendExt"
     },
     {
      "implementors": [
@@ -4513,7 +4513,6 @@ window.KKT_GRAPH = {
    "dev_only": false,
    "features": {
     "testing": [
-     "dep:kkt-search",
      "dep:rusqlite",
      "dep:tokio"
     ]
@@ -4544,13 +4543,13 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kkt-db",
-     "trait": "BackendExt",
+     "trait": "BackendConnection",
      "trait_crate": "kkt-db",
      "type": null
     },
     {
      "crate": "kkt-db",
-     "trait": "Connection",
+     "trait": "BackendExt",
      "trait_crate": "kkt-db",
      "type": null
     },
@@ -4603,6 +4602,23 @@ window.KKT_GRAPH = {
       "write"
      ],
      "path": "Backend"
+    },
+    {
+     "doc": "A backend's side of one connection: the questions and changes, with the search index's words handed to it by kkt-db.",
+     "kind": "trait",
+     "methods": [
+      "connection",
+      "count",
+      "delete",
+      "group",
+      "insert",
+      "insert_unless_present",
+      "save",
+      "search",
+      "select",
+      "update"
+     ],
+     "path": "BackendConnection"
     },
     {
      "doc": "The typed read and write a store calls, written once in terms of `Backend`'s async read and write: the caller's own result and error types, the closure's error rolling a write back, and the guard that the work ran.",
@@ -4680,9 +4696,10 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "The questions and changes, on one connection.",
-     "kind": "trait",
+     "doc": "The questions and changes a store makes, on one connection.",
+     "kind": "struct",
      "methods": [
+      "backend",
       "count",
       "delete",
       "first",
@@ -4690,6 +4707,7 @@ window.KKT_GRAPH = {
       "insert",
       "insert_unless_present",
       "save",
+      "schema",
       "search",
       "select",
       "update"
@@ -4903,6 +4921,7 @@ window.KKT_GRAPH = {
       "check_group",
       "check_insert",
       "check_search",
+      "check_search_select",
       "check_select",
       "check_update",
       "latest",
@@ -5047,7 +5066,7 @@ window.KKT_GRAPH = {
      "path": "col"
     },
     {
-     "doc": "What a caller asks a search for, and what it finds.",
+     "doc": "What a caller asks a search for, and what it finds; and the words a backend indexes and matches.",
      "kind": "mod",
      "path": "search"
     },
@@ -5063,6 +5082,15 @@ window.KKT_GRAPH = {
      "path": "search::Excerpt"
     },
     {
+     "doc": "One row a backend's search found: its fields, and its searchable text, from which kkt-db cuts the excerpt (empty when the text is null).",
+     "fields": [
+      "row",
+      "text"
+     ],
+     "kind": "struct",
+     "path": "search::Found"
+    },
+    {
      "doc": "One row a search found.",
      "fields": [
       "row",
@@ -5070,6 +5098,25 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "search::Hit"
+    },
+    {
+     "doc": "Turns stored text into `Words`, for a backend building the index over rows already in a table: when `crate::Step::AddSearch` makes a column searchable, and when a backend adopts a database from before kkt-db.",
+     "kind": "struct",
+     "methods": [
+      "new",
+      "words"
+     ],
+     "path": "search::Indexer"
+    },
+    {
+     "doc": "How a write changes the search index of the rows it writes, worked out by kkt-db from the write's values.",
+     "kind": "enum",
+     "path": "search::Reindex",
+     "variants": [
+      "Keep",
+      "Set",
+      "SetIfNull"
+     ]
     },
     {
      "doc": "Rows of a table with a search index (`crate::Step::AddSearch`) that match every term, with an excerpt of the searchable column for each.",
@@ -5080,6 +5127,24 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "search::Search"
+    },
+    {
+     "doc": "A search's terms, each as its words; terms with no words are left out.",
+     "kind": "struct",
+     "methods": [
+      "as_slice",
+      "is_empty"
+     ],
+     "path": "search::Terms"
+    },
+    {
+     "doc": "The words of one row's searchable text, in order: what a backend indexes for the row.",
+     "kind": "struct",
+     "methods": [
+      "as_slice",
+      "matches"
+     ],
+     "path": "search::Words"
     },
     {
      "doc": "For tests: `MemoryPlace`, a database held in memory that keeps the contract, plainly and slowly; `FastPlace`, a fast stand-in on SQLite in memory, for stores' tests; `conformance`, the checks every backend must pass; and `FaultyBackend`,...",
@@ -5204,7 +5269,7 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kkt-db-sqlite",
-     "trait": "Connection",
+     "trait": "BackendConnection",
      "trait_crate": "kkt-db",
      "type": null
     },
@@ -20072,24 +20137,26 @@ window.KKT_GRAPH = {
    "from": "kkt-db",
    "items": [
     "excerpt",
-    "matches",
-    "terms"
+    "terms",
+    "words"
    ],
-   "kind": "dev",
-   "optional": true,
+   "kind": "normal",
+   "optional": false,
    "role": "uses",
    "roles": [
     {
      "detail": [
       "excerpt",
-      "matches",
-      "terms"
+      "terms",
+      "words"
      ],
      "role": "uses"
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "matches"
+   ],
    "to": "kkt-search"
   },
   {
@@ -20098,10 +20165,10 @@ window.KKT_GRAPH = {
    "items": [
     "Assign",
     "Backend",
+    "BackendConnection",
     "Column",
     "ColumnType",
     "Condition",
-    "Connection",
     "Constraint",
     "ConstraintKind",
     "Count",
@@ -20130,8 +20197,11 @@ window.KKT_GRAPH = {
     "Work",
     "col",
     "search",
-    "search::Hit",
-    "search::Search"
+    "search::Found",
+    "search::Indexer",
+    "search::Reindex",
+    "search::Terms",
+    "search::Words"
    ],
    "kind": "normal",
    "optional": false,
@@ -20140,7 +20210,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "a type of its own implements Backend",
-      "a type of its own implements Connection",
+      "a type of its own implements BackendConnection",
       "a type of its own implements Evolve"
      ],
      "role": "implements"
@@ -20178,8 +20248,11 @@ window.KKT_GRAPH = {
       "Work",
       "col",
       "search",
-      "search::Hit",
-      "search::Search"
+      "search::Found",
+      "search::Indexer",
+      "search::Reindex",
+      "search::Terms",
+      "search::Words"
      ],
      "role": "uses"
     }
@@ -20192,33 +20265,6 @@ window.KKT_GRAPH = {
     "testing::conformance"
    ],
    "to": "kkt-db"
-  },
-  {
-   "features": [],
-   "from": "kkt-db-sqlite",
-   "items": [
-    "excerpt",
-    "terms",
-    "words"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "excerpt",
-      "terms",
-      "words"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "matches"
-   ],
-   "to": "kkt-search"
   },
   {
    "features": [
@@ -20292,6 +20338,33 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-scratch"
+  },
+  {
+   "features": [],
+   "from": "kkt-db-sqlite",
+   "items": [
+    "excerpt",
+    "matches",
+    "terms",
+    "words"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "excerpt",
+      "matches",
+      "terms",
+      "words"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-search"
   },
   {
    "features": [],
@@ -26570,12 +26643,12 @@ window.KKT_CONCERNS = {
    "layer": "operations"
   },
   "kkt-db": {
-   "concern": "The database contract: values, tables, keys and constraints; a small language of questions and changes; transactions, search and migrations. `Backend` is the trait a database implements.",
+   "concern": "The database contract: values, tables, keys and constraints; a small language of questions and changes; transactions, search and migrations. It applies the search rules itself, handing a backend the words to index and the terms to match. `Backend` and `BackendConnection` are the traits a database implements.",
    "kind": "contract",
    "layer": "data"
   },
   "kkt-db-sqlite": {
-   "concern": "Implements kkt-db's `Backend` over SQLite, in a file or in memory. It also adopts a database in an older layout and copies a database.",
+   "concern": "Implements kkt-db's `Backend` and `BackendConnection` over SQLite, in a file or in memory, with full-text indexes of the words kkt-db hands it. It also adopts a database in an older layout and copies a database.",
    "kind": "effect",
    "layer": "data"
   },

@@ -34,7 +34,9 @@ pub enum Step {
         constraint: Constraint,
     },
     /// Makes a text column searchable ([`crate::search`]): its words are
-    /// indexed, those of rows already there included. One per table.
+    /// indexed, those of rows already there included, which the backend
+    /// gets from a [`crate::search::Indexer`]. One per table. The column
+    /// has no default.
     AddSearch {
         table: &'static str,
         column: &'static str,
@@ -44,7 +46,7 @@ pub enum Step {
     /// rows, which a column's default cannot give.
     Fill {
         name: &'static str,
-        run: fn(&dyn Connection) -> Result<(), DbError>,
+        run: fn(&Connection) -> Result<(), DbError>,
     },
 }
 

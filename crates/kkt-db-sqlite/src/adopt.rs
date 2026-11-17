@@ -279,9 +279,10 @@ fn adopt_in(
                     .collect::<rusqlite::Result<_>>()
                     .map_err(failed)?;
                 drop(statement);
+                let indexer = kkt_db::search::Indexer::new();
                 for (rowid, text) in rows {
                     if let Some(text) = text {
-                        index_words(&tx, table, rowid, &text).map_err(failed)?;
+                        index_words(&tx, table, rowid, &indexer.words(&text)).map_err(failed)?;
                     }
                 }
             }

@@ -151,12 +151,12 @@
   },
   "kkt-db": {
    "layer": "data",
-   "concern": "The database contract: values, tables, keys and constraints; a small language of questions and changes; transactions, search and migrations. `Backend` is the trait a database implements.",
+   "concern": "The database contract: values, tables, keys and constraints; a small language of questions and changes; transactions, search and migrations. It applies the search rules itself, handing a backend the words to index and the terms to match. `Backend` and `BackendConnection` are the traits a database implements.",
    "kind": "contract"
   },
   "kkt-db-sqlite": {
    "layer": "data",
-   "concern": "Implements kkt-db's `Backend` over SQLite, in a file or in memory. It also adopts a database in an older layout and copies a database.",
+   "concern": "Implements kkt-db's `Backend` and `BackendConnection` over SQLite, in a file or in memory, with full-text indexes of the words kkt-db hands it. It also adopts a database in an older layout and copies a database.",
    "kind": "effect"
   },
   "kkt-config-file": {

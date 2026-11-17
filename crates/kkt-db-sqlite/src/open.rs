@@ -6,7 +6,7 @@ use crate::adopt::adopt;
 use crate::conn::{SqliteConnection, db_error, index_words};
 use crate::{MANAGED, ddl, sql};
 use kkt_db::Legacy;
-use kkt_db::{Backend, DbError, Done, Evolve, Schema, Set, Step, Upgrade, Work};
+use kkt_db::{Backend, BackendConnection, DbError, Done, Evolve, Schema, Set, Step, Upgrade, Work};
 use rusqlite::{Connection, TransactionBehavior};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -53,11 +53,12 @@ impl Connections {
         let tx = conn
             .transaction_with_behavior(TransactionBehavior::Deferred)
             .map_err(failed)?;
-        work(&SqliteConnection {
+        let connection = SqliteConnection {
             conn: &tx,
             schema: &self.schema,
             write: false,
-        })
+        };
+        work(&connection.connection(&self.schema))
     }
 
     fn write(&self, work: Work) -> Result<(), DbError> {
@@ -65,11 +66,12 @@ impl Connections {
         let tx = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(failed)?;
-        work(&SqliteConnection {
+        let connection = SqliteConnection {
             conn: &tx,
             schema: &self.schema,
             write: true,
-        })?;
+        };
+        work(&connection.connection(&self.schema))?;
         tx.commit().map_err(failed)
     }
 }
@@ -251,17 +253,21 @@ fn apply(
                             .collect::<rusqlite::Result<Vec<_>>>()
                     })
                     .map_err(failed)?;
+                let indexer = kkt_db::search::Indexer::new();
                 for (rowid, text) in rows {
                     if let Some(text) = text {
-                        index_words(&tx, table, rowid, &text).map_err(failed)?;
+                        index_words(&tx, table, rowid, &indexer.words(&text)).map_err(failed)?;
                     }
                 }
             }
-            Step::Fill { run, .. } => run(&SqliteConnection {
-                conn: &tx,
-                schema: &schema,
-                write: true,
-            })?,
+            Step::Fill { run, .. } => {
+                let connection = SqliteConnection {
+                    conn: &tx,
+                    schema: &schema,
+                    write: true,
+                };
+                run(&connection.connection(&schema))?
+            }
             Step::AddTable(_) | Step::AddColumn { .. } | Step::AddIndex { .. } => {}
         }
     }

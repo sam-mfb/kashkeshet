@@ -270,6 +270,19 @@ impl Schema {
         self::search(self, search)
     }
 
+    /// Checks what a backend's side of a search is given: a select that
+    /// fits, of a searchable table.
+    pub fn check_search_select(&self, select: &Select) -> Result<(), DbError> {
+        self::select(self, select)?;
+        if self.require(select.table)?.search.is_none() {
+            return Err(DbError::Schema(format!(
+                "table {} is not searchable",
+                select.table
+            )));
+        }
+        Ok(())
+    }
+
     /// Checks a count.
     pub fn check_count(&self, count: &Count) -> Result<(), DbError> {
         self::count(self, count)
