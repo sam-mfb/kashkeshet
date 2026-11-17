@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "7d13560e",
+ "commit": "8b4d581a",
  "crates": [
   {
    "bins": [
@@ -28829,7 +28829,7 @@ window.KKT_CONCERNS = {
  ]
 };
 window.KKT_ASSEMBLY = {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the three assemblies, kkt-install-commands, kkt-operator-commands and kkt-agent-commands, which pass on what the program gave their parts. \"not_passed_on\" lists each place generate.py finds where a crate could hand on a contract value it was given to another crate's slot, but does not, with why: every such place is either wired or listed.",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of four; the fourth, \"produces\", is a value a contract's operation gave the injector. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the three assemblies, kkt-install-commands, kkt-operator-commands and kkt-agent-commands, which pass on what the program gave their parts. \"not_passed_on\" lists each place generate.py finds where a crate could hand on a contract value it was given to another crate's slot, but does not, with why: every such place is either wired or listed. \"not_filled\" lists each slot generate.py finds that a program may fill (the program names it, and it takes a workspace contract, a value a contract's operation gives, or an outside trait the wiring check can verify) but does not, with why: every such slot is either wired under programs or listed.",
  "injectors": {
   "kkt-agent-commands": {
    "wiring": [
@@ -29776,6 +29776,260 @@ window.KKT_ASSEMBLY = {
    ]
   }
  },
+ "not_filled": [
+  {
+   "at": "Client::connected",
+   "crate": "kashkeshet",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "at": "Client::file",
+   "crate": "kashkeshet",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "at": "Client::installed",
+   "crate": "kashkeshet",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "at": "Client::source",
+   "crate": "kashkeshet",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "at": "Client::connected",
+   "crate": "kashkeshet",
+   "param": "host",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "at": "Client::file",
+   "crate": "kashkeshet",
+   "param": "host",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "at": "Client::installed",
+   "crate": "kashkeshet",
+   "param": "host",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "at": "Client::installed",
+   "crate": "kashkeshet",
+   "param": "on_path",
+   "to": "kkt-llm-agent-config",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "at": "NamePack::agent_handle",
+   "crate": "kashkeshet",
+   "param": "entropy",
+   "to": "kkt-names",
+   "why": "it calls only NamePack::find, to check the name_pack setting; kkt-rules draws handles"
+  },
+  {
+   "at": "NamePack::agent_handle",
+   "crate": "kkt-keymode",
+   "param": "entropy",
+   "to": "kkt-names",
+   "why": "it calls only NamePack::find, to check the name_pack setting; kkt-rules draws handles"
+  },
+  {
+   "at": "Parts",
+   "crate": "kashkeshet",
+   "param": "rules",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kashkeshet",
+   "param": "clock",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kashkeshet",
+   "param": "entropy",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kashkeshet",
+   "param": "identify",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kashkeshet",
+   "param": "log",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Startup",
+   "crate": "kashkeshet",
+   "param": "wording",
+   "to": "kkt-rules",
+   "why": "it gives kkt-rules' own DefaultWording: a value of the receiving crate's own type, not an injection"
+  },
+  {
+   "at": "Parts",
+   "crate": "kkt-keymode",
+   "param": "rules",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kkt-keymode",
+   "param": "clock",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kkt-keymode",
+   "param": "entropy",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kkt-keymode",
+   "param": "identify",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kkt-keymode",
+   "param": "log",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Startup",
+   "crate": "kkt-keymode",
+   "param": "wording",
+   "to": "kkt-rules",
+   "why": "it gives kkt-rules' own DefaultWording: a value of the receiving crate's own type, not an injection"
+  },
+  {
+   "at": "Parts",
+   "crate": "kkt-fake-product",
+   "param": "rules",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kkt-fake-product",
+   "param": "clock",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kkt-fake-product",
+   "param": "entropy",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kkt-fake-product",
+   "param": "identify",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Parts",
+   "crate": "kkt-fake-product",
+   "param": "log",
+   "to": "kkt-server",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "at": "Startup",
+   "crate": "kkt-fake-product",
+   "param": "wording",
+   "to": "kkt-rules",
+   "why": "it gives kkt-rules' own DefaultWording: a value of the receiving crate's own type, not an injection"
+  },
+  {
+   "at": "files::read",
+   "crate": "kkt-keymode",
+   "param": "disk",
+   "to": "kkt-config-file",
+   "why": "it calls only read_named and read_instructions"
+  },
+  {
+   "at": "files::read_default",
+   "crate": "kkt-keymode",
+   "param": "disk",
+   "to": "kkt-config-file",
+   "why": "it calls only read_named and read_instructions"
+  },
+  {
+   "at": "files::write",
+   "crate": "kkt-keymode",
+   "param": "disk",
+   "to": "kkt-config-file",
+   "why": "it calls only read_named and read_instructions"
+  },
+  {
+   "at": "connection::client_connection",
+   "crate": "kashkeshet",
+   "param": "source",
+   "to": "kkt-setup",
+   "why": "the program gives its ConnectionReads to kkt-install-commands and kkt-agent-commands, which ask it"
+  },
+  {
+   "at": "connection::admin_connection",
+   "crate": "kashkeshet",
+   "param": "source",
+   "to": "kkt-setup",
+   "why": "the program gives its ConnectionReads to kkt-agent-commands, which asks it"
+  },
+  {
+   "at": "connection::serve_connection",
+   "crate": "kashkeshet",
+   "param": "source",
+   "to": "kkt-setup",
+   "why": "it calls serve_connection only in its own tests; kkt-install-commands asks it"
+  },
+  {
+   "at": "connection::recorded_connection",
+   "crate": "kashkeshet",
+   "param": "absolute",
+   "to": "kkt-setup",
+   "why": "it never calls recorded_connection: kkt-setup's other connection functions do"
+  },
+  {
+   "at": "page",
+   "crate": "kkt-webapp-preview",
+   "param": "sessions",
+   "to": "kkt-server",
+   "why": "it hands over a kkt-web Sessions it builds: a value of a type kkt-server names, not an injection; its clock and entropy are wired into Sessions::new"
+  }
+ ],
  "not_passed_on": [
   {
    "at": "Client::connected",
@@ -29821,24 +30075,10 @@ window.KKT_ASSEMBLY = {
   },
   {
    "at": "Client::connected",
-   "crate": "kashkeshet",
-   "param": "env",
-   "to": "kkt-llm-agent-config",
-   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
-  },
-  {
-   "at": "Client::connected",
    "crate": "kkt-setup",
    "param": "env",
    "to": "kkt-llm-agent-config",
    "why": "it names Client, and calls none of its methods"
-  },
-  {
-   "at": "Client::file",
-   "crate": "kashkeshet",
-   "param": "env",
-   "to": "kkt-llm-agent-config",
-   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
   },
   {
    "at": "Client::file",
@@ -29849,24 +30089,10 @@ window.KKT_ASSEMBLY = {
   },
   {
    "at": "Client::installed",
-   "crate": "kashkeshet",
-   "param": "env",
-   "to": "kkt-llm-agent-config",
-   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
-  },
-  {
-   "at": "Client::installed",
    "crate": "kkt-setup",
    "param": "env",
    "to": "kkt-llm-agent-config",
    "why": "it names Client, and calls none of its methods"
-  },
-  {
-   "at": "Client::source",
-   "crate": "kashkeshet",
-   "param": "env",
-   "to": "kkt-llm-agent-config",
-   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
   },
   {
    "at": "Client::source",
@@ -30318,6 +30544,10 @@ window.KKT_ASSEMBLY = {
       {
        "at": "InstallParts",
        "param": "service"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "service"
       }
      ]
     },
@@ -30329,6 +30559,10 @@ window.KKT_ASSEMBLY = {
       {
        "at": "InstallParts",
        "param": "service"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "service"
       }
      ]
     },
@@ -30339,6 +30573,10 @@ window.KKT_ASSEMBLY = {
      "to": [
       {
        "at": "InstallParts",
+       "param": "service"
+      },
+      {
+       "at": "record::check_setup",
        "param": "service"
       }
      ]
@@ -30449,6 +30687,14 @@ window.KKT_ASSEMBLY = {
       {
        "at": "InstallParts",
        "param": "setup_files"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "files"
+      },
+      {
+       "at": "record::read_setup",
+       "param": "files"
       }
      ]
     },
@@ -30550,6 +30796,10 @@ window.KKT_ASSEMBLY = {
      "to": [
       {
        "at": "InstallParts",
+       "param": "output"
+      },
+      {
+       "at": "record::check_setup",
        "param": "output"
       }
      ]
@@ -30995,6 +31245,34 @@ window.KKT_ASSEMBLY = {
        "param": "at"
       }
      ]
+    },
+    {
+     "crate": "kkt-config-file",
+     "own": "ConfigDisk, adapting kkt-files' Files to kkt-config-file's Disk",
+     "supplier": "kkt-files",
+     "supplier_item": "Files",
+     "to": [
+      {
+       "at": "files::read",
+       "param": "disk"
+      },
+      {
+       "at": "files::read_default",
+       "param": "disk"
+      },
+      {
+       "at": "files::read_named",
+       "param": "disk"
+      },
+      {
+       "at": "files::read_instructions",
+       "param": "disk"
+      },
+      {
+       "at": "files::write",
+       "param": "disk"
+      }
+     ]
     }
    ]
   },
@@ -31312,6 +31590,22 @@ window.KKT_ASSEMBLY = {
       {
        "at": "parse_file",
        "param": "level"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-config-file",
+     "own": "ConfigDisk, adapting kkt-files' Files to kkt-config-file's Disk",
+     "supplier": "kkt-files",
+     "supplier_item": "Files",
+     "to": [
+      {
+       "at": "files::read_named",
+       "param": "disk"
+      },
+      {
+       "at": "files::read_instructions",
+       "param": "disk"
       }
      ]
     }
