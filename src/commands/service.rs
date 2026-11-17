@@ -1,10 +1,10 @@
-//! Tests of kkt-operate's service plan over this program's real parts: the
+//! Tests of the install commands' service plan over this program's real parts: the
 //! settings a service install passes come from the program's serving code.
+use kkt_install_commands::service::{ServiceInstall, ServicePlan};
 use kkt_machine::{Env, Platform};
-use kkt_operate::service::{ServiceInstall, ServicePlan};
 use std::path::PathBuf;
 
-/// kkt-operate's service plan, over this program's real parts.
+/// The install commands' service plan, over this program's real parts.
 fn service_plan(
     env: &Env,
     platform: Platform,
@@ -14,8 +14,9 @@ fn service_plan(
     no_access_key: bool,
 ) -> Result<ServicePlan, String> {
     let native = crate::machine::operate::NativeOperate::new(env, platform);
-    kkt_operate::service::service_plan(
-        &native.parts(),
+    let setup_lanes = native.setup_lanes();
+    kkt_install_commands::service::service_plan(
+        &native.install_parts(&setup_lanes),
         ServiceInstall {
             config,
             db,

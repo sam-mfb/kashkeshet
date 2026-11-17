@@ -1,69 +1,16 @@
-//! Key files: where this machine's access, web and admin keys are, and
-//! reading, making and writing them and the admin key's name file.
+//! Finding this machine's key files: the order of the reads that finding
+//! a key makes (the record, the note of an unfinished setup, a server
+//! installed with no record, the serve config), each made only when the
+//! one before leaves the answer open. The caller supplies the reads.
 
-use crate::record::{read_setup, read_unfinished, read_unrecorded};
-use kkt_machine::{Env, Platform};
-use kkt_names::AdminName;
-use kkt_setup as setup;
-use kkt_setup::connection::ConnectionSource;
-use std::path::{Path, PathBuf};
-
-pub fn admin_name_line(
-    files: &dyn kkt_keys::KeyFiles,
-    path: &Path,
-    key: &str,
-    label: &str,
-) -> Result<Option<String>, String> {
-    let docker_host_copy =
-        path.file_name() == Some(std::ffi::OsStr::new(kkt_container::ADMIN_KEY_FILE_NAME));
-    kkt_keys::admin_name_line(path, key, label, docker_host_copy, |names| {
-        files.read_optional(names).map_err(|e| {
-            format!(
-                "invalid setting: the admin name could not be read from {}: {e}",
-                names.display()
-            )
-        })
-    })
-}
-
-pub use kkt_setup::{KeyKind, admin_key_collision};
-
-/// Resolve a key without reading its contents or creating a file. An explicit
-/// path names the selected key itself; otherwise use this machine's setup.
-pub fn selected_key_path<D: crate::ServiceDefaults>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
-    env: &Env,
-    platform: Platform,
-    path: Option<PathBuf>,
-    kind: KeyKind,
-) -> Result<PathBuf, String> {
-    optional_key_path(parts, env, platform, path, kind)?
-        .ok_or_else(|| "there is no admin key".into())
-}
-
-/// None means the access key occupies the implicit admin key's place.
-pub fn optional_key_path<D: crate::ServiceDefaults>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
-    env: &Env,
-    platform: Platform,
-    path: Option<PathBuf>,
-    kind: KeyKind,
-) -> Result<Option<PathBuf>, String> {
-    find_key(
-        &InstallReads {
-            env: EnvReads(env, parts),
-            platform,
-        },
-        path,
-        kind,
-    )
-}
+use crate::KeyKind;
+use std::path::PathBuf;
 
 /// The reads that finding an operator key makes. Each is made when the one
 /// before it leaves the answer open, so the order is part of the behavior.
-trait OperatorKeyReads {
+pub trait OperatorKeyReads {
     /// This machine's setup record.
-    fn setup(&self) -> Result<Option<setup::Record>, String>;
+    fn setup(&self) -> Result<Option<crate::Record>, String>;
     /// The access key file the serve config names; `None` when it turns
     /// keys off.
     fn configured_access(&self) -> Result<Option<PathBuf>, String>;
@@ -73,56 +20,12 @@ trait OperatorKeyReads {
 
 /// The reads that finding any key from `kkt key` makes, beyond
 /// [`OperatorKeyReads`].
-trait KeyReads: OperatorKeyReads {
+pub trait KeyReads: OperatorKeyReads {
     /// The note of an unfinished setup, if its install is still here.
-    fn unfinished(&self) -> Result<Option<setup::Unfinished>, String>;
-    /// A server installed with no record ([`unrecorded_for_keys`]).
-    fn unrecorded(&self) -> Option<setup::Unrecorded>;
-}
-
-/// [`OperatorKeyReads`] on this machine.
-struct EnvReads<'a, 'p, C: ConnectionSource, D>(&'a Env, &'a crate::OperateParts<'p, C, D>);
-
-impl<C: ConnectionSource, D> OperatorKeyReads for EnvReads<'_, '_, C, D> {
-    fn setup(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.0, self.1.setup_files)
-    }
-    fn configured_access(&self) -> Result<Option<PathBuf>, String> {
-        self.1.serve.configured_access_key()
-    }
-    fn config_dir(&self) -> Option<PathBuf> {
-        kkt_config_file::config_dir(self.0.config_home().as_deref())
-    }
-}
-
-struct InstallReads<'a, 'p, C: ConnectionSource, D> {
-    env: EnvReads<'a, 'p, C, D>,
-    platform: Platform,
-}
-impl<C: ConnectionSource, D> OperatorKeyReads for InstallReads<'_, '_, C, D> {
-    fn setup(&self) -> Result<Option<setup::Record>, String> {
-        self.env.setup()
-    }
-    fn configured_access(&self) -> Result<Option<PathBuf>, String> {
-        self.env.configured_access()
-    }
-    fn config_dir(&self) -> Option<PathBuf> {
-        self.env.config_dir()
-    }
-}
-impl<C: ConnectionSource, D: crate::ServiceDefaults> KeyReads for InstallReads<'_, '_, C, D> {
-    fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
-        let parts = self.env.1;
-        read_unfinished(
-            self.env.0,
-            parts.setup_files,
-            parts.container,
-            parts.service,
-        )
-    }
-    fn unrecorded(&self) -> Option<setup::Unrecorded> {
-        unrecorded_for_keys(self.env.1, self.env.0, self.platform)
-    }
+    fn unfinished(&self) -> Result<Option<crate::Unfinished>, String>;
+    /// A server installed with no record, or `None` when there is none or
+    /// it cannot be made out (the reader says why, if it says anything).
+    fn unrecorded(&self) -> Option<crate::Unrecorded>;
 }
 
 /// The key of `kind` that `kkt key` reads or replaces: `path` if given,
@@ -132,7 +35,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> KeyReads for InstallReads<'
 /// which reads the record again). Otherwise every key is beside the serve
 /// config's access key, read once more, and keys turned off there are an
 /// error.
-fn find_key<R: KeyReads + ?Sized>(
+pub fn find_key<R: KeyReads + ?Sized>(
     reads: &R,
     path: Option<PathBuf>,
     kind: KeyKind,
@@ -141,7 +44,7 @@ fn find_key<R: KeyReads + ?Sized>(
         return Ok(Some(path));
     }
     if let Some(record) = reads.setup()? {
-        return setup::recorded_key(&record, kind);
+        return crate::recorded_key(&record, kind);
     }
     if kind.looks_past_record() {
         let found = match reads.unfinished()? {
@@ -155,23 +58,23 @@ fn find_key<R: KeyReads + ?Sized>(
             return Ok(Some(path));
         }
     }
-    setup::configured_key(
+    crate::configured_key(
         reads.configured_access()?.as_deref(),
         kind,
-        setup::KeysOff::Refuse,
+        crate::KeysOff::Refuse,
     )
 }
 
-/// Where this machine's key of `kind` is ([`local_operator_key`]): reads
-/// the record, then, only if it does not say, the serve config.
-fn find_operator_key<R: OperatorKeyReads + ?Sized>(
+/// Where this machine's key of `kind` is: reads the record, then, only if
+/// it does not say, the serve config.
+pub fn find_operator_key<R: OperatorKeyReads + ?Sized>(
     reads: &R,
-    unfinished: Option<&setup::Unfinished>,
-    unrecorded: Option<&setup::Unrecorded>,
+    unfinished: Option<&crate::Unfinished>,
+    unrecorded: Option<&crate::Unrecorded>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
     let recorded = reads.setup()?;
-    let place = setup::operator_key(
+    let place = crate::operator_key(
         recorded.as_ref(),
         unfinished,
         unrecorded,
@@ -179,11 +82,11 @@ fn find_operator_key<R: OperatorKeyReads + ?Sized>(
         kind,
     )?;
     match place {
-        setup::KeyPlace::Known(path) => Ok(path),
-        setup::KeyPlace::Configured => setup::configured_key(
+        crate::KeyPlace::Known(path) => Ok(path),
+        crate::KeyPlace::Configured => crate::configured_key(
             reads.configured_access()?.as_deref(),
             kind,
-            setup::KeysOff::NoKey,
+            crate::KeysOff::NoKey,
         ),
     }
 }
@@ -191,120 +94,23 @@ fn find_operator_key<R: OperatorKeyReads + ?Sized>(
 /// What is known about the server here: its record, else a note of an
 /// unfinished setup, else a server installed with no record, each read only
 /// if the one before is not there.
-fn find_here<R: KeyReads + ?Sized>(reads: &R) -> Result<setup::Here, String> {
+pub fn find_here<R: KeyReads + ?Sized>(reads: &R) -> Result<crate::Here, String> {
     if let Some(record) = reads.setup()? {
-        return Ok(setup::Here::Recorded(record));
+        return Ok(crate::Here::Recorded(record));
     }
     if let Some(unfinished) = reads.unfinished()? {
-        return Ok(setup::Here::Unfinished(unfinished));
+        return Ok(crate::Here::Unfinished(unfinished));
     }
     Ok(match reads.unrecorded() {
-        Some(found) => setup::Here::Unrecorded(found),
-        None => setup::Here::Nothing,
+        Some(found) => crate::Here::Unrecorded(found),
+        None => crate::Here::Nothing,
     })
-}
-
-/// A server kkt installed here with no record, for finding its keys. One
-/// that cannot be made out is said on standard error, as `kkt status` says
-/// it, and the keys are then looked for as the serve config says.
-fn unrecorded_for_keys<D: crate::ServiceDefaults>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
-    env: &Env,
-    platform: Platform,
-) -> Option<setup::Unrecorded> {
-    match read_unrecorded(parts, env, platform) {
-        Ok(found) => found,
-        Err((_, e)) => {
-            parts
-                .output
-                .errors(format_args!("Unrecorded install: {e}\n"));
-            None
-        }
-    }
-}
-
-/// Whether this machine's server runs in Docker, as recorded or, with no
-/// record and no unfinished setup, as found ([`unrecorded_for_keys`]).
-pub(crate) fn runs_in_docker<D: crate::ServiceDefaults>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
-    env: &Env,
-    platform: Platform,
-) -> Result<bool, String> {
-    let reads = InstallReads {
-        env: EnvReads(env, parts),
-        platform,
-    };
-    Ok(find_here(&reads)?.runs_in_docker())
-}
-
-/// This machine's web key file, if it runs a server. See
-/// [`local_operator_key`].
-pub fn local_web_key<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
-    env: &Env,
-    unfinished: Option<&setup::Unfinished>,
-    unrecorded: Option<&setup::Unrecorded>,
-) -> Result<Option<PathBuf>, String> {
-    local_operator_key(parts, env, unfinished, unrecorded, KeyKind::Web)
-}
-
-/// Where this machine's web or admin key file is, if it runs a server: for
-/// Docker, the host copy `kkt setup` saves, even while that setup is
-/// `unfinished` or the server is `unrecorded`; otherwise the file the server
-/// reads. The file need not exist.
-pub fn local_operator_key<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
-    env: &Env,
-    unfinished: Option<&setup::Unfinished>,
-    unrecorded: Option<&setup::Unrecorded>,
-    kind: KeyKind,
-) -> Result<Option<PathBuf>, String> {
-    find_operator_key(&EnvReads(env, parts), unfinished, unrecorded, kind)
-}
-
-/// Ties `name` to the new admin key `key`, just written to the file at
-/// `path`, in the name file beside it. The name file holds a hash of the
-/// key, so a name never passes to another key: one left from an earlier key
-/// names nothing. With no name, such a file is removed. Returns what to tell
-/// the person.
-pub fn write_admin_name(
-    files: &dyn kkt_keys::KeyFiles,
-    path: &Path,
-    key: &str,
-    name: Option<&AdminName>,
-) -> Result<String, String> {
-    let bound = name.map(|name| kkt_keys::bound_to(name, key));
-    let written = files
-        .write_admin_name(path, bound.as_deref())
-        .map_err(|e| e.to_string());
-    kkt_keys::admin_name_written(path, name, written)
-}
-
-/// Makes a new random key and writes it to `path`, creating its folder if
-/// needed. Returns the key.
-pub fn new_key_file(
-    files: &dyn kkt_keys::KeyFiles,
-    entropy: &dyn kkt_entropy::Entropy,
-    path: &Path,
-    force: bool,
-) -> Result<String, String> {
-    files.new_key(path, force, &mut || {
-        entropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS)
-    })
-}
-
-pub fn write_key_file(
-    files: &dyn kkt_keys::KeyFiles,
-    path: &Path,
-    key: &str,
-    force: bool,
-) -> Result<(), String> {
-    files.write_key(path, key, force)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate as setup;
     use std::cell::RefCell;
     use std::collections::VecDeque;
 

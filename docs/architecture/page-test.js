@@ -420,23 +420,23 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     });
     check("no route label sits bare on a box", covered.length === 0, covered);
     await onBox("kkt-watch", ".pick-hit");
-    const ownTip = await tipOf("kkt-operate>kkt-setup>normal", "kkt-operate");
+    const ownTip = await tipOf("kkt-install-commands>kkt-setup>normal", "kkt-install-commands");
     check("an adapting arrow names the injector's own work as such", /adapted by: [^]*its own work/.test(ownTip), ownTip.slice(0, 300));
     const gateTip = await tipOf("kkt-server>kkt-web>normal", "kkt-server");
     check("an adapting arrow names the crate its adapter is over", /adapter over kkt-admission/.test(gateTip), gateTip.slice(0, 300));
 
     // Injections follow the rule: the program injects nothing of
-    // kkt-diagnostics' own into it; kkt-operate passes on the prober it was
+    // kkt-diagnostics' own into it; kkt-install-commands passes on the prober it was
     // given; and the program's own work is labelled as such.
     await onBox("kkt-diagnostics", ".pick-hit");
     const lines = await p.$$eval("path.delivery", (paths) => paths.map((x) => `${x.dataset.from}>${x.dataset.to}`));
     check("no injection of a crate's own type, and the assembly passes on what it was given",
-      !lines.includes("kashkeshet>kkt-diagnostics") && lines.includes("kkt-operate>kkt-diagnostics"), lines);
+      !lines.includes("kashkeshet>kkt-diagnostics") && lines.includes("kkt-install-commands>kkt-diagnostics"), lines);
     await onBox("kkt-diagnostics", ".pick-hit");
-    await onBox("kkt-operate", ".pick-hit");
+    await onBox("kkt-install-commands", ".pick-hit");
     const labels = await p.$$eval("text.delivery-label", (xs) => xs.map((x) => x.textContent));
     check("the program's own work is named as such", labels.some((l) => l.includes("its own work")), labels);
-    await onBox("kkt-operate", ".pick-hit");
+    await onBox("kkt-install-commands", ".pick-hit");
 
     // The panel: no "Must not" and no notes on where things come
     // from; each list is a section with a count that opens and closes,

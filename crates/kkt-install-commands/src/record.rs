@@ -15,7 +15,7 @@ pub const DOCKER_KEY_FILE_NAME: &str = "docker-access-key";
 /// it is recorded: for callers that found no record and no note of an
 /// unfinished setup. An error names how the server it is about runs.
 pub fn read_unrecorded<D: crate::ServiceDefaults>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+    parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
 ) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
@@ -28,7 +28,7 @@ pub fn read_unrecorded<D: crate::ServiceDefaults>(
 /// kkt in Docker in the folder `kkt setup` uses, with the access key's host
 /// copy it saves.
 fn unrecorded_docker<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+    parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
 ) -> Result<Option<setup::Unrecorded>, String> {
@@ -78,7 +78,7 @@ fn unrecorded_docker<D>(
 /// installs again (the default config file's), so that clients are told
 /// the address it really has and an upgrade keeps its settings.
 fn unrecorded_service<D: crate::ServiceDefaults>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+    parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
 ) -> Result<Option<setup::Unrecorded>, String> {
     let service = parts.service;
     match service.ready() {
@@ -117,6 +117,45 @@ fn unrecorded_service<D: crate::ServiceDefaults>(
         connection.url,
         connection.key_file,
     )))
+}
+
+/// What is installed on this machine, read through the install's parts: the
+/// setup record, the note of an unfinished setup whose install is still
+/// here, and a server installed with no record. Only parts that can ask
+/// what an installed service runs with (`D: ServiceDefaults`) can read it.
+pub struct InstallReads<'a, 'p, C: ConnectionSource, D> {
+    parts: &'a crate::InstallParts<'p, C, D>,
+    env: &'a Env,
+    platform: Platform,
+}
+
+impl<'a, 'p, C: ConnectionSource, D> InstallReads<'a, 'p, C, D> {
+    pub fn new(parts: &'a crate::InstallParts<'p, C, D>, env: &'a Env, platform: Platform) -> Self {
+        Self {
+            parts,
+            env,
+            platform,
+        }
+    }
+}
+
+impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::InstalledHere
+    for InstallReads<'_, '_, C, D>
+{
+    fn record(&self) -> Result<Option<setup::Record>, String> {
+        read_setup(self.env, self.parts.setup_files)
+    }
+    fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
+        read_unfinished(
+            self.env,
+            self.parts.setup_files,
+            self.parts.container,
+            self.parts.service,
+        )
+    }
+    fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
+        read_unrecorded(self.parts, self.env, self.platform)
+    }
 }
 
 /// The server a `kkt setup` installed here but did not record, if it noted
@@ -225,7 +264,7 @@ pub fn write_setup_record(
 /// server kkt installed here anyway, which `kkt setup` can record without
 /// installing it again.
 pub fn recorded_setup<D: crate::ServiceDefaults>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+    parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
 ) -> Result<setup::Record, String> {

@@ -1063,6 +1063,7 @@ dependencies = [
  "kkt-hash",
  "kkt-hosts",
  "kkt-identity-keymode",
+ "kkt-install-commands",
  "kkt-keys",
  "kkt-keys-os",
  "kkt-lane-files",
@@ -1074,7 +1075,7 @@ dependencies = [
  "kkt-machine-os",
  "kkt-mcp",
  "kkt-names",
- "kkt-operate",
+ "kkt-operator-commands",
  "kkt-probe",
  "kkt-provenance",
  "kkt-remote-access-tailscale",
@@ -1403,6 +1404,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-install-commands"
+version = "0.10.0"
+dependencies = [
+ "futures",
+ "kkt-backup",
+ "kkt-clock",
+ "kkt-config-file",
+ "kkt-container",
+ "kkt-diagnostics",
+ "kkt-entropy",
+ "kkt-keys",
+ "kkt-llm-agent-config",
+ "kkt-machine",
+ "kkt-names",
+ "kkt-provenance",
+ "kkt-remote-access",
+ "kkt-rules",
+ "kkt-service",
+ "kkt-setup",
+ "tokio",
+]
+
+[[package]]
 name = "kkt-keymode"
 version = "0.10.0"
 dependencies = [
@@ -1541,27 +1565,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "kkt-operate"
+name = "kkt-operator-commands"
 version = "0.10.0"
 dependencies = [
- "futures",
  "kkt-api-agent",
  "kkt-api-operator",
- "kkt-backup",
  "kkt-clock",
  "kkt-config-file",
  "kkt-container",
- "kkt-diagnostics",
  "kkt-entropy",
  "kkt-keys",
  "kkt-lane-files",
  "kkt-llm-agent-config",
  "kkt-machine",
- "kkt-names",
- "kkt-provenance",
- "kkt-remote-access",
  "kkt-rules",
- "kkt-service",
  "kkt-setup",
  "tokio",
 ]
@@ -1711,6 +1728,7 @@ name = "kkt-setup"
 version = "0.10.0"
 dependencies = [
  "kkt-container",
+ "kkt-entropy",
  "kkt-hash",
  "kkt-keys",
  "kkt-llm-agent-config",

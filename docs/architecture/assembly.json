@@ -1,5 +1,5 @@
 {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the two assemblies, kkt-operate and kkt-agent-commands, which pass on what the program gave their parts.",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of three. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"supplier\", the crate whose implementation does the work it adapts (and \"supplier_item\", that item, where one does); a supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the three assemblies, kkt-install-commands, kkt-operator-commands and kkt-agent-commands, which pass on what the program gave their parts.",
  "programs": {
   "kashkeshet": {
    "title": "kkt serve",
@@ -106,35 +106,40 @@
      ]
     },
     {
-     "title": "The operator's commands",
-     "text": "main.rs builds the operator's parts once, a NativeOperate with the service capability (ServeArgs), and gives every operator command its OperateParts: native containers, services, client files, probes, lane disk, clock, setup and key files, database, backups and terminal. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in operate, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
+     "title": "The install and operator commands",
+     "text": "main.rs builds the program's parts once, a NativeOperate with the service capability (ServeArgs). From it come InstallParts for the commands that install and look after kkt (setup, switch, status, upgrade, uninstall, backup, service and doctor): native containers, services, client files, probes, clock, setup and key files, database, backups and terminal. InstallReads reads what is installed here over those parts, and the program hands it to OperatorParts, which the key, agent and lanes commands take, with the lane disk and git. Setup's lane check and import go through SetupLanes, the program's adapter of kkt-operator-commands' lane commands to the install commands' ImportLanes. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in the install commands, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
      "items": [
       "kashkeshet::machine::operate::NativeOperate",
-      "kkt-operate::OperateParts",
-      "kkt-operate::ServeFacts",
-      "kkt-operate::ServiceDefaults",
-      "kkt-operate::SetupFiles",
+      "kkt-install-commands::InstallParts",
+      "kkt-install-commands::record::InstallReads",
+      "kkt-setup::InstalledHere",
+      "kkt-operator-commands::OperatorParts",
+      "kkt-install-commands::ImportLanes",
+      "kashkeshet::machine::operate::SetupLanes",
+      "kkt-install-commands::ServeFacts",
+      "kkt-install-commands::ServiceDefaults",
+      "kkt-install-commands::SetupFiles",
       "kkt-keys::KeyFiles",
-      "kkt-operate::Databases",
-      "kkt-operate::Output",
+      "kkt-install-commands::Databases",
+      "kkt-install-commands::Output",
       "kkt-setup::connection::ConnectionSource",
-      "kkt-operate::agent::run",
-      "kkt-operate::doctor::run",
-      "kkt-operate::lanes::run",
-      "kkt-operate::key::create",
-      "kkt-operate::service::run",
-      "kkt-operate::service::service_plan",
-      "kkt-operate::ServiceInputs",
-      "kkt-operate::CheckService",
-      "kkt-operate::setup::run",
-      "kkt-operate::setup::run_switch",
-      "kkt-operate::setup::InstallOptions",
-      "kkt-operate::ConfigText",
-      "kkt-operate::lifecycle::status",
-      "kkt-operate::lifecycle::upgrade",
-      "kkt-operate::lifecycle::uninstall",
-      "kkt-operate::lifecycle::backup",
-      "kkt-operate::record::check_setup",
+      "kkt-operator-commands::agent::run",
+      "kkt-install-commands::doctor::run",
+      "kkt-operator-commands::lanes::run",
+      "kkt-operator-commands::key::create",
+      "kkt-install-commands::service::run",
+      "kkt-install-commands::service::service_plan",
+      "kkt-install-commands::ServiceInputs",
+      "kkt-install-commands::CheckService",
+      "kkt-install-commands::setup::run",
+      "kkt-install-commands::setup::run_switch",
+      "kkt-install-commands::setup::InstallOptions",
+      "kkt-install-commands::ConfigText",
+      "kkt-install-commands::lifecycle::status",
+      "kkt-install-commands::lifecycle::upgrade",
+      "kkt-install-commands::lifecycle::uninstall",
+      "kkt-install-commands::lifecycle::backup",
+      "kkt-install-commands::record::check_setup",
       "kkt-backup::Backups"
      ]
     }
@@ -226,7 +231,7 @@
      ]
     },
     {
-     "own": "AdminKeyHere, asking kkt-operate's key finder (keys::selected_key_path) over the operator's parts on this machine",
+     "own": "AdminKeyHere, asking kkt-operator-commands' key finder (keys::selected_key_path) over the operator's parts on this machine",
      "crate": "kkt-agent-commands",
      "to": [
       {
@@ -235,7 +240,7 @@
       }
      ],
      "note": "kkt watch --admin",
-     "supplier": "kkt-operate",
+     "supplier": "kkt-operator-commands",
      "supplier_item": "keys::selected_key_path"
     },
     {
@@ -361,22 +366,45 @@
      "note": "The MCP endpoints and web page share the program's log."
     },
     {
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "container"
       }
      ],
      "impl": "kkt-container-docker::Docker",
-     "note": "Direct injection of the named container implementation into the operator assembly."
+     "note": "Direct injection of the named container implementation into the install commands."
+    },
+    {
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "container"
+      }
+     ],
+     "impl": "kkt-container-docker::Docker",
+     "note": "Direct injection of the named container implementation into the operator commands."
     },
     {
      "own": "ContainerConfigs",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
+       "param": "container_configs"
+      }
+     ],
+     "supplier": "kashkeshet",
+     "note": "the program's own work"
+    },
+    {
+     "own": "ContainerConfigs",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
        "param": "container_configs"
       }
      ],
@@ -385,10 +413,10 @@
     },
     {
      "impl": "kkt-service-launchd::Launchd",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "service"
       }
      ],
@@ -396,10 +424,10 @@
     },
     {
      "impl": "kkt-service-systemd::Systemd",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "service"
       }
      ],
@@ -407,32 +435,32 @@
     },
     {
      "impl": "kkt-service::Unsupported",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "service"
       }
      ],
      "note": "On any other system."
     },
     {
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "remote"
       }
      ],
      "impl": "kkt-remote-access-tailscale::Tailscale",
-     "note": "The program injects the sharing implementation directly into the operator assembly."
+     "note": "The program injects the sharing implementation directly into the install commands."
     },
     {
      "own": "ClientHost",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "clients"
       }
      ],
@@ -440,10 +468,10 @@
      "supplier_item": "Files"
     },
     {
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "prober"
       }
      ],
@@ -454,10 +482,10 @@
     },
     {
      "own": "LaneDisk",
-     "crate": "kkt-operate",
+     "crate": "kkt-operator-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "OperatorParts",
        "param": "lanes"
       }
      ],
@@ -468,10 +496,10 @@
      "own": "LaneGit, adapting kkt-revision's Git to kkt-lane-files' LaneCommit",
      "supplier": "kkt-revision",
      "supplier_item": "Git",
-     "crate": "kkt-operate",
+     "crate": "kkt-operator-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "OperatorParts",
        "param": "lane_commit"
       }
      ],
@@ -479,10 +507,22 @@
     },
     {
      "own": "ServeReads, answering the program's serving questions lazily",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
+       "param": "serve"
+      }
+     ],
+     "supplier": "kashkeshet",
+     "note": "the program's own work"
+    },
+    {
+     "own": "ServeReads, answering the program's serving questions lazily",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
        "param": "serve"
       }
      ],
@@ -491,10 +531,10 @@
     },
     {
      "own": "NativeSetupFiles, reading and writing setup's record and note through kkt-files' Files with kkt-setup's parse and render, and this program's path and $PATH through kkt-machine-os' OsMachine",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "setup_files"
       }
      ],
@@ -502,31 +542,75 @@
      "supplier_item": "Files"
     },
     {
-     "impl": "kkt-keys-os::OsKeyFiles",
-     "crate": "kkt-operate",
+     "own": "NativeSetupFiles, making paths absolute and canonical through kkt-files' Files",
+     "crate": "kkt-operator-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "OperatorParts",
+       "param": "paths"
+      }
+     ],
+     "supplier": "kkt-files",
+     "supplier_item": "Files"
+    },
+    {
+     "impl": "kkt-keys-os::OsKeyFiles",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "key_files"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-keys-os::OsKeyFiles",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
        "param": "key_files"
       }
      ]
     },
     {
      "impl": "kkt-entropy-os::OsEntropy",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
        "param": "entropy"
       }
      ]
     },
     {
      "own": "NativeDatabases, opening this program's database",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
+       "param": "database"
+      }
+     ],
+     "supplier": "kkt-db-sqlite",
+     "supplier_item": "SqlitePlace"
+    },
+    {
+     "own": "NativeDatabases, opening this program's database",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
        "param": "database"
       }
      ],
@@ -535,20 +619,32 @@
     },
     {
      "impl": "kkt-backup-os::OsBackups",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "backups"
       }
      ]
     },
     {
      "own": "NativeOutput, adapting kkt-terminal",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
+       "param": "output"
+      }
+     ],
+     "supplier": "kkt-terminal",
+     "supplier_item": "Terminal"
+    },
+    {
+     "own": "NativeOutput, adapting kkt-terminal",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
        "param": "output"
       }
      ],
@@ -557,17 +653,27 @@
     },
     {
      "impl": "kkt-clock-system::SystemClock",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
        "param": "clock"
       }
      ]
     },
     {
      "own": "ServiceCheck, keeping the program's loaded serve options and source context until the service plan is checked",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
        "at": "ServiceInputs",
@@ -579,10 +685,10 @@
     },
     {
      "own": "TerminalLink, adapting the terminal's half of the login link",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "login_link"
       }
      ],
@@ -591,10 +697,10 @@
     },
     {
      "own": "TerminalLines, adapting the terminal",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "lines"
       }
      ],
@@ -603,10 +709,10 @@
     },
     {
      "own": "NativeConfigText, forwarding config text reads and writes to kkt-config-file's files over kkt-files",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "config_file"
       }
      ],
@@ -616,10 +722,10 @@
     {
      "own": "ClaudeCommand, adapting kkt-llm-agent-command's Claude to kkt-llm-agent-config's ClientCommand",
      "supplier": "kkt-llm-agent-command",
-     "crate": "kkt-operate",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "client_command"
       }
      ],
@@ -675,6 +781,30 @@
       }
      ],
      "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener"
+    },
+    {
+     "impl": "kkt-install-commands::record::InstallReads",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "installed"
+      }
+     ],
+     "note": "What is installed here, read by the install commands over their parts."
+    },
+    {
+     "own": "SetupLanes, setup's lane check and import through kkt-operator-commands' lane commands over the operator's parts",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "import_lanes"
+      }
+     ],
+     "supplier": "kkt-operator-commands",
+     "supplier_item": "lanes::import_lanes_for_setup",
+     "note": "kkt setup --lanes"
     }
    ],
    "inferred": false
@@ -1395,10 +1525,10 @@
     }
    ]
   },
-  "kkt-operate": {
+  "kkt-install-commands": {
    "wiring": [
     {
-     "passes_on": "the prober the program gave OperateParts",
+     "passes_on": "the prober the program gave InstallParts",
      "crate": "kkt-diagnostics",
      "to": [
       {
@@ -1409,13 +1539,13 @@
      "note": "kkt doctor, kkt setup",
      "from": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "prober"
       }
      ]
     },
     {
-     "passes_on": "the clock the program gave OperateParts",
+     "passes_on": "the clock the program gave InstallParts",
      "crate": "kkt-diagnostics",
      "to": [
       {
@@ -1426,30 +1556,13 @@
      "note": "kkt setup, waiting for a new server",
      "from": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "clock"
       }
      ]
     },
     {
-     "passes_on": "the clock the program gave OperateParts",
-     "crate": "kkt-rules",
-     "to": [
-      {
-       "at": "CommandLine::new",
-       "param": "clock"
-      }
-     ],
-     "note": "kkt agent, kkt lanes",
-     "from": [
-      {
-       "at": "OperateParts",
-       "param": "clock"
-      }
-     ]
-    },
-    {
-     "passes_on": "the lines the program gave OperateParts",
+     "passes_on": "the lines the program gave InstallParts",
      "crate": "kkt-setup",
      "to": [
       {
@@ -1460,14 +1573,14 @@
      "note": "kkt setup, kkt switch",
      "from": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "lines"
       }
      ]
     },
     {
      "own": "OsSteps, setup's steps through the program's parts",
-     "supplier": "kkt-operate",
+     "supplier": "kkt-install-commands",
      "crate": "kkt-setup",
      "to": [
       {
@@ -1479,7 +1592,7 @@
     },
     {
      "own": "OsSwitchSteps, switch's steps through the program's parts",
-     "supplier": "kkt-operate",
+     "supplier": "kkt-install-commands",
      "crate": "kkt-setup",
      "to": [
       {
@@ -1490,7 +1603,7 @@
      "note": "kkt switch: the assembly's own work"
     },
     {
-     "passes_on": "the client configs' host the program gave OperateParts",
+     "passes_on": "the client configs' host the program gave InstallParts",
      "crate": "kkt-llm-agent-config",
      "to": [
       {
@@ -1521,13 +1634,51 @@
      "note": "kkt setup, kkt doctor",
      "from": [
       {
-       "at": "OperateParts",
+       "at": "InstallParts",
        "param": "clients"
       }
      ]
     },
     {
-     "passes_on": "the lane folder's disk the program gave OperateParts",
+     "passes_on": "the client command the program gave InstallParts",
+     "crate": "kkt-llm-agent-config",
+     "to": [
+      {
+       "at": "configure",
+       "param": "command"
+      }
+     ],
+     "note": "kkt setup",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "client_command"
+      }
+     ]
+    }
+   ]
+  },
+  "kkt-operator-commands": {
+   "wiring": [
+    {
+     "passes_on": "the clock the program gave OperatorParts",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "CommandLine::new",
+       "param": "clock"
+      }
+     ],
+     "note": "kkt agent, kkt lanes",
+     "from": [
+      {
+       "at": "OperatorParts",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "passes_on": "the lane folder's disk the program gave OperatorParts",
      "crate": "kkt-lane-files",
      "to": [
       {
@@ -1539,16 +1690,16 @@
        "param": "disk"
       }
      ],
-     "note": "kkt lanes import and export, kkt setup --lanes",
+     "note": "kkt lanes import and export, and the lane import kkt setup --lanes asks for",
      "from": [
       {
-       "at": "OperateParts",
+       "at": "OperatorParts",
        "param": "lanes"
       }
      ]
     },
     {
-     "passes_on": "the lane folder's commit the program gave OperateParts",
+     "passes_on": "the lane folder's commit the program gave OperatorParts",
      "crate": "kkt-lane-files",
      "to": [
       {
@@ -1556,28 +1707,11 @@
        "param": "commits"
       }
      ],
-     "note": "kkt lanes import and export, kkt setup --lanes",
+     "note": "kkt lanes import and export, and the lane import kkt setup --lanes asks for",
      "from": [
       {
-       "at": "OperateParts",
+       "at": "OperatorParts",
        "param": "lane_commit"
-      }
-     ]
-    },
-    {
-     "passes_on": "the client command the program gave OperateParts",
-     "crate": "kkt-llm-agent-config",
-     "to": [
-      {
-       "at": "configure",
-       "param": "command"
-      }
-     ],
-     "note": "kkt setup",
-     "from": [
-      {
-       "at": "OperateParts",
-       "param": "client_command"
       }
      ]
     }

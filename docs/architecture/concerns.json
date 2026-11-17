@@ -74,10 +74,15 @@
    "concern": "The web page served alone over simulated data, with the real clock, randomness and stop signals, for working on the page. For development only.",
    "kind": "composition"
   },
-  "kkt-operate": {
+  "kkt-install-commands": {
    "layer": "assembly",
    "kind": "composition",
-   "concern": "The operator's commands: setup, switch, status, upgrade, uninstall, backup, keys, lanes, service and doctor. It takes every effect it needs as injected parts."
+   "concern": "The commands that install and look after kkt on this machine: setup, switch, status, upgrade, uninstall, backup, service and doctor. It reads what is installed here for the other commands, and takes every effect it needs as injected parts."
+  },
+  "kkt-operator-commands": {
+   "layer": "assembly",
+   "kind": "composition",
+   "concern": "The operator's commands on a server's keys, agents and lanes, and the lane import setup asks for. It is given what is installed here, and takes every effect it needs as injected parts."
   },
   "kkt-server": {
    "layer": "assembly",
@@ -166,7 +171,7 @@
   },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: whether a server may run here, which server its clients use, and what status, upgrade, lanes, backup and doctor do. It also places the data folder.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: whether a server may run here, which server its clients use, and what status, upgrade, lanes, backup and doctor do. It declares what is installed here (`InstalledHere`), finds and writes the operator's key files, and places the data folder.",
    "kind": "logic"
   },
   "kkt-service": {
@@ -256,7 +261,7 @@
   },
   "kkt-agent-commands": {
    "layer": "assembly",
-   "concern": "The agents' commands: register, reclaim, watch and connect, and how a client finds the server. It takes every effect it needs as injected parts.",
+   "concern": "The agents' commands: register, reclaim, watch and connect, how a client finds the server, and the rule for an agent's credential file. It takes every effect it needs as injected parts.",
    "kind": "composition"
   },
   "kkt-agent-files": {

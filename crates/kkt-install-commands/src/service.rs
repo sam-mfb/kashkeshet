@@ -39,7 +39,7 @@ impl ServiceInstall {
 /// manager and prints what happened. Installing may wait on the system
 /// clock while launchd lets the new service load.
 pub async fn run<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+    parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     command: ServiceAction,
 ) -> Result<(), String> {
     let service = parts.service;
@@ -153,7 +153,7 @@ pub struct ServicePlan {
 /// Resolve paths, read serving inputs lazily, plan the service, then ask the
 /// program to check its whole serving surface with the plan's database and keys.
 pub fn service_plan<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+    parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     install: ServiceInstall,
 ) -> Result<ServicePlan, String> {
     let ServiceInstall {

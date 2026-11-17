@@ -45,7 +45,8 @@ members = [
     "crates/kkt-mcp",
     "crates/kkt-result-format",
     "crates/kkt-names",
-    "crates/kkt-operate",
+    "crates/kkt-install-commands",
+    "crates/kkt-operator-commands",
     "crates/kkt-probe",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
@@ -113,7 +114,8 @@ default-members = [
     "crates/kkt-mcp",
     "crates/kkt-result-format",
     "crates/kkt-names",
-    "crates/kkt-operate",
+    "crates/kkt-install-commands",
+    "crates/kkt-operator-commands",
     "crates/kkt-probe",
     "crates/kkt-provenance",
     "crates/kkt-remote-access",
@@ -245,7 +247,8 @@ kkt-machine = { path = "crates/kkt-machine" }
 kkt-machine-os = { path = "crates/kkt-machine-os" }
 kkt-mcp = { path = "crates/kkt-mcp" }
 kkt-names = { path = "crates/kkt-names" }
-kkt-operate = { path = "crates/kkt-operate" }
+kkt-install-commands = { path = "crates/kkt-install-commands" }
+kkt-operator-commands = { path = "crates/kkt-operator-commands" }
 kkt-provenance = { path = "crates/kkt-provenance" }
 kkt-remote-access-tailscale = { path = "crates/kkt-remote-access-tailscale" }
 kkt-rules = { path = "crates/kkt-rules" }
