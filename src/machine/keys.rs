@@ -1,7 +1,7 @@
 //! The server's key reads, for `kkt serve` and the service check: the key
 //! files its settings name, checked as kkt-admission checks them, and the
-//! default key made if it is missing. (The operator's key finders and
-//! writers are kkt-operate's.)
+//! default key made if it is missing. (The key finders and writers are
+//! kkt-setup's.)
 use crate::machine::settings::Sources;
 use kkt_admission::server_keys::{self, KeyTexts, ServerKeys};
 use kkt_admission::{ServerKey, SharedKey};
@@ -125,10 +125,10 @@ mod tests {
     use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};
     use crate::scratch;
     use kkt_machine::{Env, Platform};
-    use kkt_operate::keys::KeyKind;
+    use kkt_setup::KeyKind;
     use std::path::PathBuf;
 
-    // kkt-operate's key finders, over this program's real parts.
+    // The key finders, over this program's real parts.
     fn optional_key_path(
         env: &Env,
         platform: Platform,
@@ -137,7 +137,15 @@ mod tests {
         kind: KeyKind,
     ) -> Result<Option<PathBuf>, String> {
         let native = NativeOperate::new(env, platform).with_service_args(serve_args);
-        kkt_operate::keys::optional_key_path(&native.parts(), env, platform, path, kind)
+        let setup_lanes = native.setup_lanes();
+        let install = native.install_parts(&setup_lanes);
+        let installed = kkt_install_commands::record::InstallReads::new(&install, env, platform);
+        kkt_operator_commands::keys::optional_key_path(
+            &native.operator_parts(&installed),
+            env,
+            path,
+            kind,
+        )
     }
 
     fn local_operator_key(
@@ -148,7 +156,14 @@ mod tests {
         kind: KeyKind,
     ) -> Result<Option<PathBuf>, String> {
         let native = NativeOperate::new(env, platform);
-        kkt_operate::keys::local_operator_key(&native.parts(), env, unfinished, unrecorded, kind)
+        let setup_lanes = native.setup_lanes();
+        kkt_install_commands::keys::local_operator_key(
+            &native.install_parts(&setup_lanes),
+            env,
+            unfinished,
+            unrecorded,
+            kind,
+        )
     }
 
     fn unused_args(_: &[String]) -> Result<(Option<PathBuf>, ServeOptions), String> {

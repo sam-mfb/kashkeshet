@@ -42,7 +42,7 @@ pub fn agent_parts(
     }
 }
 
-/// Where `kkt key show --admin` finds the admin key: kkt-operate's key
+/// Where `kkt key show --admin` finds the admin key: the operator's key
 /// finder.
 struct AdminKeyHere {
     env: Env,
@@ -52,16 +52,19 @@ struct AdminKeyHere {
 
 impl AdminKey for AdminKeyHere {
     fn path(&self, given: Option<PathBuf>) -> Result<PathBuf, String> {
-        // kkt-operate's key finder answers, over the operator's parts on
+        // The operator's key finder answers, over the operator's parts on
         // this machine: kkt-agent-commands depends on no other assembly.
         let native =
             NativeOperate::new(&self.env, self.platform).with_service_args(self.serve_args);
-        kkt_operate::keys::selected_key_path(
-            &native.parts(),
+        let setup_lanes = native.setup_lanes();
+        let install = native.install_parts(&setup_lanes);
+        let installed =
+            kkt_install_commands::record::InstallReads::new(&install, &self.env, self.platform);
+        kkt_operator_commands::keys::selected_key_path(
+            &native.operator_parts(&installed),
             &self.env,
-            self.platform,
             given,
-            kkt_operate::keys::KeyKind::Admin,
+            kkt_operator_commands::keys::KeyKind::Admin,
         )
     }
 }

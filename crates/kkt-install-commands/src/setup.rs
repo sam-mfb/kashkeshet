@@ -16,7 +16,7 @@ use steps::{OsSteps, OsSwitchSteps};
 pub async fn run<D: crate::ServiceDefaults>(
     env: &Env,
     platform: Platform,
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+    parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     answers: setup::Answers,
     options: InstallOptions,
 ) -> Result<(), String> {
@@ -37,7 +37,7 @@ pub async fn run<D: crate::ServiceDefaults>(
 /// `kkt switch`: asks on the terminal if there is one, and does the work
 /// through [`OsSwitchSteps`].
 pub async fn run_switch<D>(
-    parts: &crate::OperateParts<'_, impl ConnectionSource, D>,
+    parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     how: setup::Switch,
 ) -> Result<(), String> {

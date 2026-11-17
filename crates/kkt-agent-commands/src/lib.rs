@@ -13,9 +13,11 @@
 mod agent;
 mod client;
 pub mod connect;
+mod credential_file;
 pub mod watch;
 
 pub use agent::{NewAvatar, reclaim, register};
+pub use credential_file::{CredentialFileFix, credential_file_check};
 
 use kkt_agent_client::Servers;
 use kkt_clock::Clock;

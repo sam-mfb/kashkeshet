@@ -11,6 +11,7 @@ publish = false
 kkt-keys = { path = "../kkt-keys" }
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-container = { path = "../kkt-container" }
+kkt-entropy = { path = "../kkt-entropy" }
 kkt-machine = { path = "../kkt-machine" }
 kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }

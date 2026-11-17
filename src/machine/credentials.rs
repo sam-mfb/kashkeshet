@@ -46,15 +46,20 @@ fn credential_check(
     facts: kkt_agent_files::CredentialFileFacts,
 ) -> Result<Option<kkt_agent_files::PrivateMode>, String> {
     let quoted = diagnostics::shell_word(&path.to_string_lossy());
-    kkt_setup::credential_file_check(path, &quoted, facts.owner, facts.mode, facts.caller_uid).map(
-        |fix| {
-            fix.map(|fix| kkt_agent_files::PrivateMode {
-                mode: fix.mode,
-                advice: fix.advice,
-                warning: fix.warning,
-            })
-        },
+    kkt_agent_commands::credential_file_check(
+        path,
+        &quoted,
+        facts.owner,
+        facts.mode,
+        facts.caller_uid,
     )
+    .map(|fix| {
+        fix.map(|fix| kkt_agent_files::PrivateMode {
+            mode: fix.mode,
+            advice: fix.advice,
+            warning: fix.warning,
+        })
+    })
 }
 
 fn private_warning(text: &str) {

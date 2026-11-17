@@ -1,4 +1,4 @@
-//! The lane folder on this machine's disk and git, which kkt-operate's lane
+//! The lane folder on this machine's disk and git, which the operator's lane
 //! commands take (`LaneDisk`, `LaneGit`), and tests of those commands over this
 //! program's real parts.
 mod commit;
@@ -18,7 +18,7 @@ fn existing_db(
     config_db: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
     let native = crate::machine::operate::NativeOperate::new(env, platform);
-    kkt_operate::lanes::existing_db(&native.parts(), db, config_db)
+    kkt_operator_commands::lanes::existing_db(&native.lane_parts(), db, config_db)
 }
 
 #[cfg(test)]
@@ -29,14 +29,14 @@ fn local_operator(
     config: Option<PathBuf>,
 ) -> Result<(kkt_rules::CommandLine, usize), String> {
     let native = crate::machine::operate::NativeOperate::new(env, platform);
-    kkt_operate::lanes::local_operator(&native.parts(), db, config)
+    kkt_operator_commands::lanes::local_operator(&native.lane_parts(), db, config)
 }
 
 #[cfg(test)]
 fn local_lane_limit(env: &Env) -> Result<usize, String> {
     let native =
         crate::machine::operate::NativeOperate::new(env, crate::machine::settings::TEST_PLATFORM);
-    kkt_operate::lanes::local_lane_limit(&native.parts())
+    kkt_operator_commands::lanes::local_lane_limit(&native.lane_parts())
 }
 
 #[cfg(test)]

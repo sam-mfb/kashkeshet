@@ -1,8 +1,10 @@
 //! `cli` defines the command line and turns it into plain inputs. `run`
-//! builds the parts of kkt's two assemblies in one place, kkt-operate's for
-//! the operator's commands and kkt-agent-commands' for the agents', from
-//! the implementations this program chooses, and runs each command; `kkt
-//! serve` is composed by the library's `commands::serve` over kkt-server.
+//! builds the parts of kkt's three assemblies in one place,
+//! kkt-install-commands' for the install's commands,
+//! kkt-operator-commands' for the operator's and kkt-agent-commands' for
+//! the agents', from the implementations this program chooses, and runs
+//! each command; `kkt serve` is composed by the library's `commands::serve`
+//! over kkt-server.
 
 mod cli;
 
@@ -14,15 +16,16 @@ use kashkeshet::machine::settings::LOG_OWN_TARGETS;
 use kashkeshet::machine::settings::ServeArgs;
 use kashkeshet::machine::settings::ServeOptions;
 use kkt_agent_commands::{self as agent_commands, connect, watch::WatchTask};
+use kkt_install_commands::record::InstallReads;
+use kkt_install_commands::service::{ServiceAction, ServiceInstall};
+use kkt_install_commands::setup::InstallOptions;
 use kkt_log_tracing::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
 use kkt_log_tracing::{init_logging, init_stderr_logging};
 use kkt_machine::{Env, Machine, Platform};
 use kkt_machine_os::OsMachine;
-use kkt_operate::agent::AgentAction;
-use kkt_operate::keys::KeyKind;
-use kkt_operate::lanes::LanesAction;
-use kkt_operate::service::{ServiceAction, ServiceInstall};
-use kkt_operate::setup::InstallOptions;
+use kkt_operator_commands::agent::AgentAction;
+use kkt_operator_commands::keys::KeyKind;
+use kkt_operator_commands::lanes::LanesAction;
 use kkt_setup as setup;
 use kkt_terminal::Terminal;
 use kkt_terminal::end_on_closed_output;
@@ -165,7 +168,10 @@ async fn run(
     // The two assemblies' parts, built once, here. Neither reads anything
     // until a command asks.
     let native = NativeOperate::new(env, platform).with_service_args(serve_args);
-    let operate = native.parts();
+    let setup_lanes = native.setup_lanes();
+    let operate = native.install_parts(&setup_lanes);
+    let installed = InstallReads::new(&operate, env, platform);
+    let operator = native.operator_parts(&installed);
     let mut agents = agent_parts(env, platform, serve_args);
     let done = match task {
         Task::Serve {
@@ -174,7 +180,7 @@ async fn run(
             options,
         } => {
             if !ignore_setup {
-                kkt_operate::record::check_setup(
+                kkt_install_commands::record::check_setup(
                     env,
                     operate.setup_files,
                     operate.service,
@@ -189,11 +195,10 @@ async fn run(
             show,
             kind,
             name,
-        } => kkt_operate::key::create(
-            &operate,
+        } => kkt_operator_commands::key::create(
+            &operator,
             env,
-            platform,
-            kkt_operate::key::NewKey {
+            kkt_operator_commands::key::NewKey {
                 kind,
                 path,
                 name: name.as_deref(),
@@ -202,26 +207,28 @@ async fn run(
             show,
         ),
         Task::Agent { action, db, config } => {
-            kkt_operate::agent::run(&operate, action, db, config).await
+            kkt_operator_commands::agent::run(&operator, action, db, config).await
         }
         Task::Lanes { action, db, config } => {
-            kkt_operate::lanes::run(&operate, env, action, db, config).await
+            kkt_operator_commands::lanes::run(&operator, action, db, config).await
         }
-        Task::Service(action) => kkt_operate::service::run(&operate, action).await,
+        Task::Service(action) => kkt_install_commands::service::run(&operate, action).await,
         Task::Backup { folder, db, config } => {
-            kkt_operate::lifecycle::backup(&operate, env, folder.as_deref(), db, config)
+            kkt_install_commands::lifecycle::backup(&operate, env, folder.as_deref(), db, config)
         }
-        Task::Status => kkt_operate::lifecycle::status(&operate, env, platform).await,
+        Task::Status => kkt_install_commands::lifecycle::status(&operate, env, platform).await,
         Task::Upgrade { allow_downgrade } => {
-            kkt_operate::lifecycle::upgrade(&operate, env, platform, allow_downgrade).await
+            kkt_install_commands::lifecycle::upgrade(&operate, env, platform, allow_downgrade).await
         }
-        Task::Uninstall => kkt_operate::lifecycle::uninstall(&operate, env, platform).await,
-        Task::Switch(how) => kkt_operate::setup::run_switch(&operate, env, how).await,
+        Task::Uninstall => {
+            kkt_install_commands::lifecycle::uninstall(&operate, env, platform).await
+        }
+        Task::Switch(how) => kkt_install_commands::setup::run_switch(&operate, env, how).await,
         Task::KeyHeader { key_file, json } => {
-            kkt_operate::key::header(&operate, env, platform, key_file, json)
+            kkt_operator_commands::key::header(&operator, env, key_file, json)
         }
         Task::KeyShow { key_file, kind } => {
-            return kkt_operate::key::show(&operate, env, platform, key_file, kind);
+            return kkt_operator_commands::key::show(&operator, env, key_file, kind);
         }
         Task::Connect {
             client,
@@ -230,10 +237,10 @@ async fn run(
             write,
         } => connect::run(&agents, env, &client, connection, client_config, write),
         Task::Doctor(connection) => {
-            kkt_operate::doctor::run(&operate, env, platform, connection).await
+            kkt_install_commands::doctor::run(&operate, env, platform, connection).await
         }
         Task::Setup { answers, options } => {
-            kkt_operate::setup::run(env, platform, &operate, answers, options).await
+            kkt_install_commands::setup::run(env, platform, &operate, answers, options).await
         }
         Task::Register {
             token_file,

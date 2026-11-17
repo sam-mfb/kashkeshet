@@ -34,7 +34,7 @@ impl ConnectionSource for ConnectionReads<'_> {
     type KeySource = Sources;
 
     fn record(&self) -> Result<Option<setup::Record>, String> {
-        kkt_operate::record::read_setup(self.env, &NativeSetupFiles)
+        kkt_install_commands::record::read_setup(self.env, &NativeSetupFiles)
     }
 
     fn serve(&self, flags: ConnectionOptions) -> Result<ServeConnection<Sources>, String> {

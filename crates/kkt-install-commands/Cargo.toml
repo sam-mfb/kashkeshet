@@ -1,0 +1,32 @@
+[package]
+name = "kkt-install-commands"
+description = "The commands for this machine's kkt install: setup, switch, status, upgrade, uninstall, the service, backup and doctor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-keys = { path = "../kkt-keys" }
+kkt-backup = { path = "../kkt-backup" }
+kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
+kkt-clock = { path = "../kkt-clock" }
+kkt-config-file = { path = "../kkt-config-file" }
+kkt-container = { path = "../kkt-container" }
+kkt-diagnostics = { path = "../kkt-diagnostics" }
+kkt-entropy = { path = "../kkt-entropy" }
+kkt-machine = { path = "../kkt-machine" }
+kkt-names = { path = "../kkt-names" }
+kkt-provenance = { path = "../kkt-provenance" }
+kkt-remote-access = { path = "../kkt-remote-access" }
+kkt-rules = { path = "../kkt-rules" }
+kkt-service = { path = "../kkt-service" }
+kkt-setup = { path = "../kkt-setup" }
+tokio.workspace = true
+
+[dev-dependencies]
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
+kkt-container = { path = "../kkt-container", features = ["testing"] }
+kkt-service = { path = "../kkt-service", features = ["testing"] }
+futures.workspace = true
