@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "842eb877",
+ "commit": "f0a785e4",
  "crates": [
   {
    "bins": [
@@ -7319,7 +7319,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "Why no request could be made at all.",
+     "doc": "Why no request could be made at all, worded for the person.",
      "kind": "enum",
      "path": "Unprobed",
      "variants": [
@@ -7601,6 +7601,7 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
+    "thiserror",
     "url"
    ]
   },
