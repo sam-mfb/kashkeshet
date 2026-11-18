@@ -1158,6 +1158,11 @@ mod flow {
         };
         let error =
             run(&answers, "0.6.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the admin name must be lowercase letters and digits, in words joined by single hyphens, such as `sentinel` (which becomes `admin-sentinel`); got \"Night Owl\""
+        );
         assert!(error.contains("admin name"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
@@ -1173,6 +1178,11 @@ mod flow {
             ..docker_flags()
         };
         let error = run(&answers, "0.6.0", "/mcp", &Script::default(), &steps).expect_err("fails");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "kkt did not answer\nAn earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the connection check."
+        );
         assert!(error.contains("kkt did not answer"), "{error}");
         assert!(error.contains("Run `kkt setup` again to finish"), "{error}");
         assert!(!steps.recorded());
@@ -1248,6 +1258,11 @@ mod flow {
         };
         let ask = Refusing;
         let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("unanswered");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "Connect Codex to kkt? No terminal to ask on: pass --clients."
+        );
         assert!(error.contains("pass --clients"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
@@ -1285,6 +1300,11 @@ mod flow {
             ..Answers::default()
         };
         let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps).expect_err("fails");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "launchctl failed\nAn earlier `kkt setup` began to install a server here as a service, but stopped before the install finished; parts of it may be running. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the install."
+        );
         assert!(error.starts_with("launchctl failed\n"), "{error}");
         assert!(error.contains("continues from the install"), "{error}");
         assert_eq!(
@@ -1342,6 +1362,11 @@ mod flow {
             ..client_flags()
         };
         let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("rejected");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the connection check found problems (see the fixes above), so nothing was recorded; fix that and run `kkt setup` again"
+        );
         assert!(error.contains("nothing was recorded"), "{error}");
         assert!(error.ends_with("run `kkt setup` again"), "{error}");
         assert_eq!(*ask.asked.borrow(), ["--key-file", "Try again?"]);
@@ -1548,6 +1573,11 @@ mod flow {
         };
         let error =
             run(&client_flags(), "0.4.0", "/mcp", &Script::default(), &steps).expect_err("flaky");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the answer given with --url did not pass its check, so nothing was changed:\nproblem: server: connection refused"
+        );
         assert!(error.contains("given with --url"), "{error}");
         assert!(!error.contains("--key-file"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
@@ -1561,6 +1591,11 @@ mod flow {
         };
         let error = run(&client_flags(), "0.4.0", "/mcp", &Script::default(), &steps)
             .expect_err("bad address");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the answer given with --url did not pass its check, so nothing was changed:\nproblem: server: connection refused"
+        );
         assert!(error.contains("--url"), "{error}");
         assert!(error.contains("connection refused"), "{error}");
         assert_eq!(steps.checked(), ["address https://kkt.tail1234.ts.net/mcp"]);
@@ -1575,6 +1610,11 @@ mod flow {
         };
         let error =
             run(&client_flags(), "0.4.0", "/mcp", &Script::default(), &steps).expect_err("bad key");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the answer given with --key-file did not pass its check, so nothing was changed:\nproblem: key accepted: server returned 401"
+        );
         assert!(error.contains("--key-file"), "{error}");
         assert!(error.contains("401"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
@@ -1603,6 +1643,11 @@ mod flow {
         };
         let error =
             run(&answers, "0.4.0", "/mcp", &Script::default(), &steps).expect_err("bad url");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the answer given with --url did not pass its check, so nothing was changed:\nURL must be an absolute http:// or https:// address"
+        );
         assert!(error.contains("--url"), "{error}");
         assert!(error.contains("http:// or https://"), "{error}");
         assert!(steps.checked().is_empty());
@@ -1621,6 +1666,11 @@ mod flow {
         };
         let ask = Script::default();
         let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("one failed");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "could not connect Claude Code, so nothing was recorded; fix that and run `kkt setup` again"
+        );
         assert!(error.contains("Claude Code"), "{error}");
         assert!(error.contains("nothing was recorded"), "{error}");
         // The others are still tried, so one run shows every problem.
@@ -1649,6 +1699,11 @@ mod flow {
         };
         let ask = Script::default();
         let error = run(&client_flags(), "0.4.0", "/mcp", &ask, &steps).expect_err("doctor");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the connection check found problems (see the fixes above), so nothing was recorded; fix that and run `kkt setup` again"
+        );
         assert!(error.contains("nothing was recorded"), "{error}");
         assert_eq!(steps.done(), ["doctor"]);
         assert!(
@@ -1747,6 +1802,11 @@ mod flow {
             ..Fake::default()
         };
         let error = run(&docker_flags(), "0.4.0", "/mcp", &ask, &steps).expect_err("no retry");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the connection check found problems (see the fixes above), so nothing was recorded.\nAn earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the connection check."
+        );
         assert!(ask.asked.borrow().is_empty());
         assert!(error.contains("nothing was recorded"), "{error}");
         assert!(
@@ -1837,6 +1897,11 @@ mod flow {
             ..docker_flags()
         };
         let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("declined");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "could not connect Codex, so nothing was recorded.\nAn earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the connection check."
+        );
         assert!(error.starts_with("could not connect Codex"), "{error}");
         assert!(error.contains("Run `kkt setup` again to finish"), "{error}");
         assert!(!steps.recorded());
@@ -1956,6 +2021,11 @@ mod flow {
         };
         let error =
             run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "An earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Setting kkt up as a service instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt setup --mode docker` to finish that setup first; then `kkt uninstall` removes it, or `kkt switch <url>` points only this machine's clients at another server"
+        );
         assert!(
             error.contains("installed a server here in Docker"),
             "{error}"
@@ -1970,6 +2040,11 @@ mod flow {
         *steps.unfinished.borrow_mut() = Some(left_over_service());
         let error =
             run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "An earlier `kkt setup` installed a server here as a service, for clients at http://127.0.0.1:7420/mcp, but stopped before recording it. Setting kkt up in Docker instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt setup --mode service` to finish that setup first; then `kkt uninstall` removes it, or `kkt switch <url>` points only this machine's clients at another server"
+        );
         assert!(
             error.contains("installed a server here as a service"),
             "{error}"
@@ -1994,6 +2069,11 @@ mod flow {
             ..Answers::default()
         };
         let error = run(&answers, "0.8.0", "/mcp", &ask, &steps).expect_err("refused");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "An earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Setting kkt up as a service instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt setup --mode docker` to finish that setup first; then `kkt uninstall` removes it, or `kkt switch <url>` points only this machine's clients at another server"
+        );
         assert!(error.contains("nothing was changed"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
@@ -2084,6 +2164,11 @@ mod flow {
             ..Answers::default()
         };
         let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("fails");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the connection check found problems (see the fixes above), so nothing was recorded.\nAn earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the connection check."
+        );
         assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
         assert!(error.contains("nothing was recorded"), "{error}");
         assert_eq!(steps.done(), ["doctor"]);
@@ -2121,6 +2206,8 @@ mod flow {
                 ..docker_flags()
             };
             let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("fails");
+            // Pinned exactly: what a person is told, in either case.
+            assert!(["could not connect Codex, so nothing was recorded.\nAn earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the connection check.", "could not write /home/sam/.config/kkt/docker-access-key\nAn earlier `kkt setup` began to install a server here in Docker, but stopped before the install finished; parts of it may be running. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the install."].contains(&error.to_string().as_str()), "{error}");
             assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
             assert!(error.contains(failed), "{error}");
         }
@@ -2217,6 +2304,11 @@ mod flow {
             ..Answers::default()
         };
         let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("fails");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "could not write /home/sam/.config/kkt/docker-access-key\nAn earlier `kkt setup` began to install a server here in Docker, but stopped before the install finished; parts of it may be running. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the install."
+        );
         assert!(
             error.contains("began to install a server here in Docker"),
             "{error}"
@@ -2388,6 +2480,11 @@ mod flow {
             &steps,
         )
         .expect_err("refused");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the answer given with --lanes did not pass its check, so nothing was changed:\n/home/sam/lanes/reviewer.md: the header has no name: line"
+        );
         assert!(error.contains("--lanes"), "{error}");
         assert!(
             error.contains("reviewer.md: the header has no name"),
@@ -2420,6 +2517,11 @@ mod flow {
         };
         let error =
             run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "--lanes is for a server: run `kkt lanes import` on the machine where it runs"
+        );
         assert!(error.contains("--lanes is for a server"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
         // A client setup is not asked about lanes.
@@ -2443,6 +2545,11 @@ mod flow {
             &steps,
         )
         .expect_err("import failed");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "lane reviewer: the lane needs instructions\nThe setup is recorded, but the lanes were not imported; import them with `kkt lanes import /home/sam/lanes`"
+        );
         assert!(error.contains("needs instructions"), "{error}");
         assert!(
             error.contains("The setup is recorded, but the lanes were not imported"),
@@ -2670,6 +2777,11 @@ mod flow {
         let steps = with_found(Ok(found_docker()));
         let error =
             run(&Answers::default(), "0.5.1", "/mcp", &Refusing, &steps).expect_err("unanswered");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "What is this machine for? No terminal to ask on: pass --mode."
+        );
         assert!(error.contains("--mode"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
 
@@ -2713,6 +2825,11 @@ mod flow {
             ..Answers::default()
         };
         let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("check");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the connection check found problems (see the fixes above), so setup stopped there.\nThe server is recorded, so `kkt status` and `kkt upgrade` manage it. For a server set up by an older kkt, `kkt upgrade` may fix the problem; then connect clients with `kkt connect <client> --write`."
+        );
         assert!(error.contains("so setup stopped there"), "{error}");
         assert!(!error.contains("nothing was recorded"), "{error}");
         assert!(error.contains("The server is recorded"), "{error}");
@@ -2731,6 +2848,11 @@ mod flow {
         };
         let steps = Fake::default();
         let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("none");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "--adopt: no kkt server without a setup record was found here"
+        );
         assert!(
             error.contains("no kkt server without a setup record"),
             "{error}"
@@ -2741,6 +2863,11 @@ mod flow {
                        login never finished, so its address is not known.";
         let steps = with_found(Err(missing.into()));
         let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("unread");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "--adopt: Found a kkt server in Docker from /srv, not recorded, but its Tailscale login never finished, so its address is not known."
+        );
         assert_eq!(error, format!("--adopt: {missing}"));
         assert!(steps.done().is_empty());
     }
@@ -2785,6 +2912,11 @@ mod flow {
             let steps = with_found(Ok(found_docker()));
             let error =
                 run(&adopt, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("differs");
+            // Pinned exactly: what a person is told.
+            assert_eq!(
+                error.to_string(),
+                "--adopt: Found a kkt server in Docker from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, not recorded. The answers given now are different."
+            );
             assert!(error.contains("answers given now are different"), "{error}");
             assert!(steps.done().is_empty());
         }
@@ -2841,6 +2973,11 @@ mod flow {
                 ..Script::default()
             };
             let error = run(&answers, "0.5.1", "/mcp", &ask, &steps).expect_err("not adopted");
+            // Pinned exactly: what a person is told.
+            assert_eq!(
+                error.to_string(),
+                "--adopt installs nothing, but this setup had not finished installing its server; run `kkt setup` without --adopt to continue it"
+            );
             assert!(error.contains("--adopt installs nothing"), "{error}");
             assert!(ask.asked.borrow().is_empty());
             assert!(steps.done().is_empty(), "{:?}", steps.done());
@@ -2977,6 +3114,11 @@ mod flow {
         let steps = on(docker_record());
         let error =
             run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "kkt runs here in Docker, from /home/sam/.local/share/kashkeshet/docker (see `kkt status`). Setting kkt up as a service instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt uninstall` first to remove it, or `kkt switch <url>` to point only this machine's clients at another server"
+        );
         assert!(error.contains("kkt runs here in Docker"), "{error}");
         assert!(error.contains("kkt uninstall"), "{error}");
         assert!(error.contains("kkt switch"), "{error}");
@@ -2985,6 +3127,11 @@ mod flow {
         let steps = on(super::record(Mode::Service { tailscale: true }));
         let error =
             run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "kkt runs here as a service (see `kkt status`). Setting kkt up in Docker instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt uninstall` first to remove it, or `kkt switch <url>` to point only this machine's clients at another server"
+        );
         assert!(error.contains("kkt runs here as a service"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
 
@@ -2992,6 +3139,11 @@ mod flow {
         let steps = with_left_over(on(super::record(Mode::Service { tailscale: false })));
         let error =
             run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "kkt runs here as a service (see `kkt status`). Setting kkt up in Docker instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt uninstall` first to remove it, or `kkt switch <url>` to point only this machine's clients at another server"
+        );
         assert!(error.contains("kkt runs here as a service"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
