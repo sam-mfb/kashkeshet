@@ -386,7 +386,7 @@ impl ServeFacts for ServeReads<'_> {
     fn service_settings(
         &self,
         config: Option<PathBuf>,
-        flags: kkt_bare_service::ServiceSettings,
+        flags: kkt_deployment::ServiceSettings,
     ) -> Result<kkt_install_commands::ServiceInputs<'_>, String> {
         let flags = ServeOptions {
             db: flags.db,
@@ -396,7 +396,7 @@ impl ServeFacts for ServeReads<'_> {
         };
         let loaded = settings::load_serve_options(self.env, config, flags)?;
         let sources = loaded.sources();
-        let request = kkt_bare_service::Request {
+        let request = kkt_deployment::Request {
             config_file: loaded.config_file.clone(),
             flags: service_settings(&loaded.flags),
             from_file: service_settings(&loaded.from_file),
@@ -435,8 +435,8 @@ impl kkt_install_commands::ServiceDefaults for ServiceArgs<'_> {
     }
 }
 
-fn service_settings(options: &ServeOptions) -> kkt_bare_service::ServiceSettings {
-    kkt_bare_service::ServiceSettings {
+fn service_settings(options: &ServeOptions) -> kkt_deployment::ServiceSettings {
+    kkt_deployment::ServiceSettings {
         db: options.db.clone(),
         access_key_file: options.access_key_file.clone(),
         no_access_key: options.no_access_key,
@@ -452,7 +452,7 @@ struct ServiceCheck<'a> {
 impl kkt_install_commands::CheckService for ServiceCheck<'_> {
     fn check(
         self: Box<Self>,
-        plan: &kkt_bare_service::Plan,
+        plan: &kkt_deployment::Plan,
     ) -> Result<kkt_install_commands::CheckedService, String> {
         let check = ServeOptions {
             db: plan.check.db.clone(),

@@ -48,19 +48,19 @@ pub trait ServeFacts {
     fn service_settings(
         &self,
         config: Option<PathBuf>,
-        flags: kkt_bare_service::ServiceSettings,
+        flags: kkt_deployment::ServiceSettings,
     ) -> Result<ServiceInputs<'_>, String>;
 }
 
 /// Inputs to the service plan, plus a deferred check with opaque program context.
 pub struct ServiceInputs<'a> {
-    pub request: kkt_bare_service::Request,
+    pub request: kkt_deployment::Request,
     pub check: Box<dyn CheckService + 'a>,
 }
 
 /// The program checks the plan against its whole serving surface, with its source context.
 pub trait CheckService {
-    fn check(self: Box<Self>, plan: &kkt_bare_service::Plan) -> Result<CheckedService, String>;
+    fn check(self: Box<Self>, plan: &kkt_deployment::Plan) -> Result<CheckedService, String>;
 }
 
 /// What the service command needs after the program's settings check.

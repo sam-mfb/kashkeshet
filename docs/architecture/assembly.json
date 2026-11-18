@@ -2382,7 +2382,7 @@
     },
     {
      "passes_on": "the bind check the program gave InstallParts",
-     "crate": "kkt-bare-service",
+     "crate": "kkt-deployment",
      "to": [
       {
        "at": "check_bind",
