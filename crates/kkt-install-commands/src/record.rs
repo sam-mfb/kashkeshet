@@ -33,7 +33,7 @@ fn unrecorded_docker<D>(
     platform: Platform,
 ) -> Result<Option<setup::Unrecorded>, String> {
     let (Ok(folder), Some(config_dir)) = (
-        setup::docker_folder(env, platform),
+        docker_folder(env, platform),
         kkt_config_file::config_dir(env.config_home().as_deref()),
     ) else {
         return Ok(None);
@@ -191,7 +191,18 @@ pub fn read_unfinished(
     Ok(present.then_some(unfinished))
 }
 
-pub use setup::{docker_folder, docker_url, unfinished_mode};
+pub use kkt_deployment::{docker_folder, docker_url};
+
+/// The mode of the server `unfinished` notes: from its record, or, for an
+/// install that did not finish, where that install puts the server, in the
+/// folder `kkt setup` keeps kkt's Docker files in.
+pub fn unfinished_mode(
+    env: &Env,
+    platform: Platform,
+    unfinished: &setup::Unfinished,
+) -> Result<setup::Mode, String> {
+    unfinished.mode(docker_folder(env, platform))
+}
 
 /// This machine's setup record, if `kkt setup` wrote one.
 pub fn read_setup(env: &Env, files: &dyn SetupFiles) -> Result<Option<setup::Record>, String> {
@@ -224,7 +235,11 @@ pub fn check_setup(
         }
         _ => None,
     };
-    setup::guard(record.as_ref(), service_running, false)
+    kkt_deployment::guard(
+        record.as_ref().map(crate::deployment::recorded).as_ref(),
+        service_running,
+        false,
+    )
 }
 
 /// The warning `kkt serve` gives when it cannot tell whether the kkt

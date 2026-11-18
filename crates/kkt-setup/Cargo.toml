@@ -1,6 +1,6 @@
 [package]
 name = "kkt-setup"
-description = "kkt setup: the setup record and the steps of setup, switch and upgrade"
+description = "kkt setup: the setup record and the steps of setup and switch"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,10 +13,8 @@ kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-container = { path = "../kkt-container" }
 kkt-containerized-service = { path = "../kkt-containerized-service" }
 kkt-entropy = { path = "../kkt-entropy" }
-kkt-machine = { path = "../kkt-machine" }
 kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
-semver.workspace = true
 serde.workspace = true
 kkt-toml = { path = "../kkt-toml" }
 

@@ -1,33 +1,4 @@
-//! Setup's local paths and the advice when no record has been saved.
-use kkt_machine::{Env, Platform};
-use std::path::PathBuf;
-const DOCKER_FOLDER: &str = "docker";
-
-/// The MCP endpoint of kkt in Docker, at `mcp_path`: published on the
-/// host's `port`, or served over Tailscale as `node`, `(hostname, tailnet)`.
-pub fn docker_url(port: u16, node: Option<&(String, String)>, mcp_path: &str) -> String {
-    match node {
-        Some((hostname, tailnet)) => format!("https://{hostname}.{tailnet}{mcp_path}"),
-        None => format!("http://127.0.0.1:{port}{mcp_path}"),
-    }
-}
-
-/// The mode of the server `unfinished` notes: from its record, or, for an
-/// install that did not finish, where that install puts the server.
-pub fn unfinished_mode(
-    env: &Env,
-    platform: Platform,
-    unfinished: &crate::Unfinished,
-) -> Result<crate::Mode, String> {
-    unfinished.mode(docker_folder(env, platform))
-}
-
-/// The folder `kkt setup` keeps kkt's Docker files in.
-pub fn docker_folder(env: &Env, platform: Platform) -> Result<PathBuf, String> {
-    Ok(crate::data_dir(env, platform)
-        .ok_or("set HOME to keep kkt's Docker files")?
-        .join(DOCKER_FOLDER))
-}
+//! The advice when no record has been saved.
 
 /// This machine's setup record. Without one, the error says so, and names a
 /// server kkt installed here anyway, which `kkt setup` can record without

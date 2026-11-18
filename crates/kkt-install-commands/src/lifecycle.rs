@@ -2,9 +2,10 @@
 //! and `kkt backup`. The backup `kkt serve` makes before it upgrades the
 //! database is the program's, beside its serving code.
 
+use crate::deployment;
 use crate::keys::{KeyKind, admin_name_line, local_operator_key, local_web_key, new_key_file};
 use crate::record::{
-    docker_folder, read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
+    read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
 };
 use crate::service::{self, ServiceAction, ServiceInstall, service_plan};
 use crate::{InstallParts, ServeFacts, ServiceDefaults};
@@ -61,7 +62,8 @@ pub async fn status<D: ServiceDefaults>(
 ) -> Result<(), String> {
     let unfinished = read_unfinished(env, parts.setup_files, parts.container, parts.service);
     let recorded = read_setup(env, parts.setup_files)?;
-    let unrecorded = if setup::status_looks_for_unrecorded(recorded.as_ref(), &unfinished) {
+    let unrecorded = if kkt_deployment::status_looks_for_unrecorded(recorded.as_ref(), &unfinished)
+    {
         read_unrecorded(parts, env, platform).map_err(|(_, e)| e)
     } else {
         Ok(None)
@@ -96,17 +98,16 @@ pub async fn status<D: ServiceDefaults>(
             parts.output.output(format_args!("{line}\n"));
         }
     }
-    let said = setup::status(
-        recorded.as_ref(),
-        &unfinished,
-        &unrecorded,
-        docker_folder(env, platform),
+    let said = kkt_deployment::status(
+        recorded.as_ref().map(deployment::recorded).as_ref(),
+        &deployment::noted_unfinished(&unfinished, env, platform),
+        &deployment::noted_unrecorded(&unrecorded),
     );
     for line in &said.lines {
         parts.output.output(format_args!("{line}\n"));
     }
     match said.then? {
-        setup::StatusThen::Service => {
+        kkt_deployment::StatusThen::Service => {
             // Status reads local configuration, not a running server's
             // command line.
             let config = parts.serve.config(None)?;
@@ -116,7 +117,7 @@ pub async fn status<D: ServiceDefaults>(
             ));
             service::run(parts, ServiceAction::Status).await
         }
-        setup::StatusThen::Docker(folder) => {
+        kkt_deployment::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
             let state = parts
                 .container
@@ -132,7 +133,7 @@ pub async fn status<D: ServiceDefaults>(
             }
             Ok(())
         }
-        setup::StatusThen::Done => Ok(()),
+        kkt_deployment::StatusThen::Done => Ok(()),
     }
 }
 
@@ -146,19 +147,21 @@ pub async fn upgrade<D: ServiceDefaults>(
     allow_downgrade: bool,
 ) -> Result<(), String> {
     let record = recorded_setup(parts, env, platform)?;
-    let running = match setup::running_version(&record)? {
-        setup::RunningVersion::DockerSettings(folder) => {
-            parts.container.version(&kkt_container::Folder(folder))?
+    let recorded = deployment::recorded(&record);
+    let running = match kkt_deployment::running_version(&recorded)? {
+        kkt_deployment::RunningVersion::DockerSettings(folder) => {
+            deployment::server_version(&parts.container.version(&kkt_container::Folder(folder))?)
         }
-        setup::RunningVersion::Recorded(version) => version,
+        kkt_deployment::RunningVersion::Recorded(version) => version,
     };
-    let plan = setup::upgrade_plan(&record, &running, Build::CURRENT.version, allow_downgrade)?;
+    let plan =
+        kkt_deployment::upgrade_plan(&recorded, &running, Build::CURRENT.version, allow_downgrade)?;
     let Some(how) = plan.replace else {
         parts.output.output(format_args!("{}\n", plan.said));
         return Ok(());
     };
     match how {
-        setup::Replace::Docker { folder, key_file } => {
+        kkt_deployment::Replace::Docker { folder, key_file } => {
             parts
                 .container
                 .upgrade(
@@ -170,7 +173,7 @@ pub async fn upgrade<D: ServiceDefaults>(
                 .await
                 .map_err(|e| e.to_string())?;
         }
-        setup::Replace::Service => {
+        kkt_deployment::Replace::Service => {
             // Validate the replacement service before doing anything. Its
             // program is this one, the binary just installed by the user.
             let service = service_plan(parts, ServiceInstall::NONE)?;
@@ -200,7 +203,10 @@ pub async fn upgrade<D: ServiceDefaults>(
             }
         }
     }
-    write_setup_record(env, parts.setup_files, &plan.record)?;
+    // The record now names the version the server runs.
+    let mut record = record;
+    record.written_by = Build::CURRENT.version.to_string();
+    write_setup_record(env, parts.setup_files, &record)?;
     parts.output.output(format_args!("{}\n", plan.said));
     Ok(())
 }
@@ -848,7 +854,7 @@ mod tests {
             xdg_config_home: None,
             xdg_data_home: None,
         };
-        let folder = setup::docker_folder(&env, Platform::Xdg).expect("a Docker folder");
+        let folder = kkt_deployment::docker_folder(&env, Platform::Xdg).expect("a Docker folder");
         let key_file = home
             .join(".config")
             .join("kkt")

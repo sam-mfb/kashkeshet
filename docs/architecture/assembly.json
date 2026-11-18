@@ -15,7 +15,7 @@
       "kkt-config-file::files::read_default",
       "kkt-files::Files",
       "kkt-config-file::parse_file",
-      "kkt-setup::default_db",
+      "kkt-deployment::default_db",
       "kashkeshet::machine::settings::ServeOptions",
       "kashkeshet::machine::settings::ServeSettings",
       "kashkeshet::machine::settings::server_settings",
@@ -1274,7 +1274,7 @@
     {
      "produces": "kkt-machine::Env",
      "by": "kkt-machine-os::OsMachine",
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "to": [
       {
        "at": "default_db",
@@ -1290,7 +1290,7 @@
     {
      "produces": "kkt-machine::Platform",
      "by": "kkt-machine-os::OsMachine",
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "to": [
       {
        "at": "default_db",
@@ -2508,7 +2508,7 @@
     },
     {
      "passes_on": "the Env the program gave each command",
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "to": [
       {
        "at": "docker_folder",
@@ -2529,7 +2529,7 @@
     },
     {
      "passes_on": "the Platform the program gave each command",
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "to": [
       {
        "at": "docker_folder",
@@ -2887,34 +2887,6 @@
    "at": "router",
    "param": "sessions",
    "why": "it hands on kkt-web's own Sessions, which it builds: a value of the receiving crate's own type"
-  },
-  {
-   "crate": "kkt-setup",
-   "to": "kkt-llm-agent-config",
-   "at": "Client::connected",
-   "param": "env",
-   "why": "it names Client, and calls none of its methods"
-  },
-  {
-   "crate": "kkt-setup",
-   "to": "kkt-llm-agent-config",
-   "at": "Client::file",
-   "param": "env",
-   "why": "it names Client, and calls none of its methods"
-  },
-  {
-   "crate": "kkt-setup",
-   "to": "kkt-llm-agent-config",
-   "at": "Client::installed",
-   "param": "env",
-   "why": "it names Client, and calls none of its methods"
-  },
-  {
-   "crate": "kkt-setup",
-   "to": "kkt-llm-agent-config",
-   "at": "Client::source",
-   "param": "env",
-   "why": "it names Client, and calls none of its methods"
   },
   {
    "crate": "kkt-agent-commands",

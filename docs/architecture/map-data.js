@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "0bd9417c",
+ "commit": "8f5d2d96",
  "crates": [
   {
    "bins": [
@@ -6489,6 +6489,242 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
+   "contracts": [],
+   "crate_doc": "What follows from how kkt is deployed on this machine: as a service, in Docker, or as a client of a server elsewhere.",
+   "dev_only": false,
+   "features": {},
+   "foreign_implements": [],
+   "holders": [],
+   "implements": [],
+   "items": [
+    {
+     "doc": "How kkt is deployed on this machine.",
+     "kind": "enum",
+     "methods": [
+      "name"
+     ],
+     "path": "Deployment",
+     "variants": [
+      "Service",
+      "Docker",
+      "Client"
+     ]
+    },
+    {
+     "doc": "The deployment of a `Noted` install.",
+     "fields": [
+      "deployment",
+      "url"
+     ],
+     "kind": "struct",
+     "path": "Found"
+    },
+    {
+     "doc": "A deployment `kkt status` reports beside the record, or in its place: one an earlier setup began and did not finish, or one found installed with no record.",
+     "fields": [
+      "summary",
+      "found"
+     ],
+     "kind": "struct",
+     "path": "Noted"
+    },
+    {
+     "doc": "This machine's deployment, as its setup record says.",
+     "fields": [
+      "deployment",
+      "url",
+      "key_file",
+      "clients_url",
+      "version"
+     ],
+     "kind": "struct",
+     "path": "Recorded"
+    },
+    {
+     "doc": "How `kkt upgrade` replaces the server.",
+     "kind": "enum",
+     "path": "Replace",
+     "variants": [
+      "Docker",
+      "Service"
+     ]
+    },
+    {
+     "doc": "Where `kkt upgrade` finds the version of the server it replaces.",
+     "kind": "enum",
+     "path": "RunningVersion",
+     "variants": [
+      "DockerSettings",
+      "Recorded"
+     ]
+    },
+    {
+     "doc": "The version of kkt that runs the server.",
+     "kind": "enum",
+     "path": "ServerVersion",
+     "variants": [
+      "Known",
+      "NotKnown"
+     ]
+    },
+    {
+     "doc": "What `kkt status` says after the key lines, and what it does next.",
+     "fields": [
+      "lines",
+      "then"
+     ],
+     "kind": "struct",
+     "path": "Status"
+    },
+    {
+     "doc": "What `kkt status` does after its lines.",
+     "kind": "enum",
+     "path": "StatusThen",
+     "variants": [
+      "Service",
+      "Docker",
+      "Done"
+     ]
+    },
+    {
+     "doc": "",
+     "kind": "enum",
+     "path": "Upgrade",
+     "variants": [
+      "Already",
+      "Proceed"
+     ]
+    },
+    {
+     "doc": "What `kkt upgrade` does.",
+     "fields": [
+      "replace",
+      "said"
+     ],
+     "kind": "struct",
+     "path": "UpgradePlan"
+    },
+    {
+     "doc": "The per-user data directory: `~/Library/Application Support/kashkeshet` on macOS, and `kashkeshet` in the XDG data home (`Env::data_home`) elsewhere.",
+     "kind": "fn",
+     "path": "data_dir"
+    },
+    {
+     "doc": "The database `kkt serve` uses when none is given, in `data_dir`.",
+     "kind": "fn",
+     "path": "default_db"
+    },
+    {
+     "doc": "The folder `kkt setup` keeps kkt's Docker files in.",
+     "kind": "fn",
+     "path": "docker_folder"
+    },
+    {
+     "doc": "The MCP endpoint of kkt in Docker, at `mcp_path`: published on the host's `port`, or served over Tailscale as `node`, `(hostname, tailnet)`.",
+     "kind": "fn",
+     "path": "docker_url"
+    },
+    {
+     "doc": "Whether `kkt serve` may start here.",
+     "kind": "fn",
+     "path": "guard"
+    },
+    {
+     "doc": "Where the version of the server `recorded` describes is, for `kkt upgrade`.",
+     "kind": "fn",
+     "path": "running_version"
+    },
+    {
+     "doc": "What `kkt status` says about this machine: from its `recorded` deployment, the note of an `unfinished` one, or an `unrecorded` install (looked for only as `status_looks_for_unrecorded` says; otherwise `Ok(None)`).",
+     "kind": "fn",
+     "path": "status"
+    },
+    {
+     "doc": "Whether `kkt status` looks for a server kkt installed here with no record: only when there is no record and no note of an unfinished setup, readable or not.",
+     "kind": "fn",
+     "path": "status_looks_for_unrecorded"
+    },
+    {
+     "doc": "Compare semantic versions without exposing the parser's types.",
+     "kind": "fn",
+     "path": "upgrade"
+    },
+    {
+     "doc": "What `kkt upgrade` does to the server `recorded` describes, which runs kkt `running`, to bring it to `target`.",
+     "kind": "fn",
+     "path": "upgrade_plan"
+    }
+   ],
+   "lib": "kkt_deployment",
+   "machine_work": {},
+   "name": "kkt-deployment",
+   "path": "crates/kkt-deployment",
+   "produces": [],
+   "released_program": false,
+   "slots": [
+    {
+     "at": "data_dir",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "data_dir",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "default_db",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "default_db",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "docker_folder",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "docker_folder",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    }
+   ],
+   "testing_third_party": [],
+   "third_party": [
+    "semver"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
    "contracts": [
     {
      "implementors": [
@@ -7926,6 +8162,36 @@ window.KKT_GRAPH = {
      "path": "SetupFiles"
     },
     {
+     "doc": "kkt-deployment's facts, read from the setup record: how kkt is deployed here, as the record, the note of an unfinished setup, or a server found installed with no record says.",
+     "kind": "mod",
+     "path": "deployment"
+    },
+    {
+     "doc": "The deployment a record's `mode` names.",
+     "kind": "fn",
+     "path": "deployment::deployment"
+    },
+    {
+     "doc": "The note of an unfinished setup, for `kkt status`: from its record when the install finished, otherwise from where it puts the server, in the folder `kkt setup` keeps kkt's Docker files in.",
+     "kind": "fn",
+     "path": "deployment::noted_unfinished"
+    },
+    {
+     "doc": "A server found installed with no record, for `kkt status`.",
+     "kind": "fn",
+     "path": "deployment::noted_unrecorded"
+    },
+    {
+     "doc": "This machine's deployment, as `record` says.",
+     "kind": "fn",
+     "path": "deployment::recorded"
+    },
+    {
+     "doc": "The version of kkt a record or a settings file names: not known when it says so (`setup::version_not_known`).",
+     "kind": "fn",
+     "path": "deployment::server_version"
+    },
+    {
      "doc": "`kkt doctor`: checks the server this machine's clients use, its keys, and how this machine runs kkt, and prints a line for each with a fix for each problem.",
      "kind": "mod",
      "path": "doctor"
@@ -8000,13 +8266,13 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "setup::docker_folder",
+     "from": "kkt_deployment::docker_folder",
      "kind": "fn",
      "path": "record::docker_folder"
     },
     {
      "doc": "",
-     "from": "setup::docker_url",
+     "from": "kkt_deployment::docker_url",
      "kind": "fn",
      "path": "record::docker_url"
     },
@@ -8031,8 +8297,7 @@ window.KKT_GRAPH = {
      "path": "record::recorded_setup"
     },
     {
-     "doc": "",
-     "from": "setup::unfinished_mode",
+     "doc": "The mode of the server `unfinished` notes: from its record, or, for an install that did not finish, where that install puts the server, in the folder `kkt setup` keeps kkt's Docker files in.",
      "kind": "fn",
      "path": "record::unfinished_mode"
     },
@@ -8356,6 +8621,24 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "at": "deployment::noted_unfinished",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "deployment::noted_unfinished",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
      "at": "doctor::run",
      "kind": "param",
      "name": "env",
@@ -9574,6 +9857,24 @@ window.KKT_GRAPH = {
     },
     {
      "at": "record::recorded_setup",
+     "kind": "param",
+     "name": "platform",
+     "traits": [],
+     "values": [
+      "kkt-machine::Platform"
+     ]
+    },
+    {
+     "at": "record::unfinished_mode",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "record::unfinished_mode",
      "kind": "param",
      "name": "platform",
      "traits": [],
@@ -15255,7 +15556,7 @@ window.KKT_GRAPH = {
      "trait": "connection::ConnectionSource"
     }
    ],
-   "crate_doc": "`kkt setup`: what this machine is set up as (a server run as a service, a server in Docker, or a client of a server elsewhere), the record that says so, and what follows from it: whether `kkt serve` may run here, and which server this ma...",
+   "crate_doc": "`kkt setup`: what this machine is set up as (a server run as a service, a server in Docker, or a client of a server elsewhere), the record that says so, and which server this machine's clients use (`kkt switch` changes it).",
    "dev_only": false,
    "features": {
     "testing": []
@@ -15563,24 +15864,6 @@ window.KKT_GRAPH = {
      "path": "Record"
     },
     {
-     "doc": "How `kkt upgrade` replaces the server.",
-     "kind": "enum",
-     "path": "Replace",
-     "variants": [
-      "Docker",
-      "Service"
-     ]
-    },
-    {
-     "doc": "Where `kkt upgrade` finds the version of the server it replaces.",
-     "kind": "enum",
-     "path": "RunningVersion",
-     "variants": [
-      "DockerSettings",
-      "Recorded"
-     ]
-    },
-    {
      "doc": "A server, as this machine's clients reach it.",
      "fields": [
       "url",
@@ -15596,25 +15879,6 @@ window.KKT_GRAPH = {
      "variants": [
       "Elsewhere",
       "Docker"
-     ]
-    },
-    {
-     "doc": "What `kkt status` says after the key lines, and what it does next.",
-     "fields": [
-      "lines",
-      "then"
-     ],
-     "kind": "struct",
-     "path": "Status"
-    },
-    {
-     "doc": "What `kkt status` does after its lines.",
-     "kind": "enum",
-     "path": "StatusThen",
-     "variants": [
-      "Service",
-      "Docker",
-      "Done"
      ]
     },
     {
@@ -15712,25 +15976,6 @@ window.KKT_GRAPH = {
       "summary"
      ],
      "path": "Unrecorded"
-    },
-    {
-     "doc": "",
-     "kind": "enum",
-     "path": "Upgrade",
-     "variants": [
-      "Already",
-      "Proceed"
-     ]
-    },
-    {
-     "doc": "What `kkt upgrade` does.",
-     "fields": [
-      "replace",
-      "record",
-      "said"
-     ],
-     "kind": "struct",
-     "path": "UpgradePlan"
     },
     {
      "doc": "An access key may keep its old name, but cannot also be the admin key.",
@@ -15919,21 +16164,6 @@ window.KKT_GRAPH = {
      "path": "create_destination_check"
     },
     {
-     "doc": "The per-user data directory: `~/Library/Application Support/kashkeshet` on macOS, and `kashkeshet` in the XDG data home (`Env::data_home`) elsewhere.",
-     "kind": "fn",
-     "path": "data_dir"
-    },
-    {
-     "doc": "The database `kkt serve` uses when none is given, in `data_dir`.",
-     "kind": "fn",
-     "path": "default_db"
-    },
-    {
-     "doc": "The folder `kkt setup` keeps kkt's Docker files in.",
-     "kind": "fn",
-     "path": "docker_folder"
-    },
-    {
      "doc": "Where a Docker setup keeps its host copies of the keys, given the access key's copy: each beside it, as `KeyKind::docker_copy` names them.",
      "kind": "fn",
      "path": "docker_key_copies"
@@ -15942,11 +16172,6 @@ window.KKT_GRAPH = {
      "doc": "",
      "kind": "fn",
      "path": "docker_status_lines"
-    },
-    {
-     "doc": "The MCP endpoint of kkt in Docker, at `mcp_path`: published on the host's `port`, or served over Tailscale as `node`, `(hostname, tailnet)`.",
-     "kind": "fn",
-     "path": "docker_url"
     },
     {
      "doc": "The doctor's checks and fixes, from facts read by the program.",
@@ -16025,11 +16250,6 @@ window.KKT_GRAPH = {
      "path": "find_operator_key"
     },
     {
-     "doc": "Whether `kkt serve` may start here.",
-     "kind": "fn",
-     "path": "guard"
-    },
-    {
      "doc": "The fix for a key on a machine set up as `mode` (`None` when not known).",
      "kind": "fn",
      "path": "key_fix"
@@ -16098,11 +16318,6 @@ window.KKT_GRAPH = {
      "path": "run"
     },
     {
-     "doc": "Where the version of the server `record` describes is, for `kkt upgrade`.",
-     "kind": "fn",
-     "path": "running_version"
-    },
-    {
      "doc": "The fix for a server that does not answer, checked as `mode`; `None` where starting the kkt service is how kkt runs.",
      "kind": "fn",
      "path": "server_fix"
@@ -16126,16 +16341,6 @@ window.KKT_GRAPH = {
      "doc": "",
      "kind": "fn",
      "path": "staged_client_key"
-    },
-    {
-     "doc": "What `kkt status` says about this machine: from its `recorded` setup, the note of an `unfinished` one, or an `unrecorded` install (looked for only as `status_looks_for_unrecorded` says; otherwise `Ok(None)`).",
-     "kind": "fn",
-     "path": "status"
-    },
-    {
-     "doc": "Whether `kkt status` looks for a server kkt installed here with no record: only when there is no record and no note of an unfinished setup, readable or not.",
-     "kind": "fn",
-     "path": "status_looks_for_unrecorded"
     },
     {
      "doc": "Switches this machine's clients to the server `how` names: checks it, changing nothing if it fails; points each client at it; and records it.",
@@ -16164,11 +16369,6 @@ window.KKT_GRAPH = {
      "doc": "The error for a question there is no one to ask: it names the flag that answers it.",
      "kind": "fn",
      "path": "unanswered"
-    },
-    {
-     "doc": "The mode of the server `unfinished` notes: from its record, or, for an install that did not finish, where that install puts the server.",
-     "kind": "fn",
-     "path": "unfinished_mode"
     },
     {
      "doc": "Where an unfinished setup is noted: `setup-unfinished.toml` beside the record, in `config_dir`.",
@@ -16201,19 +16401,14 @@ window.KKT_GRAPH = {
      "path": "unrecorded_service"
     },
     {
-     "doc": "Compare semantic versions without exposing the parser's types.",
-     "kind": "fn",
-     "path": "upgrade"
-    },
-    {
      "doc": "The folder for the backups made before an upgrade, beside `database`.",
      "kind": "fn",
      "path": "upgrade_backup_folder"
     },
     {
-     "doc": "What `kkt upgrade` does to the server `record` describes, which runs kkt `running`, to bring it to `target`.",
+     "doc": "Whether `written_by`, the version a record names, says that version is not known: the record adopts a service whose version nothing says.",
      "kind": "fn",
-     "path": "upgrade_plan"
+     "path": "version_not_known"
     },
     {
      "doc": "What setup says while it waits for the server at `url`, set up as `mode`, to answer.",
@@ -16314,60 +16509,6 @@ window.KKT_GRAPH = {
        "crate": "kkt-setup",
        "trait": "connection::ConnectionSource"
       }
-     ]
-    },
-    {
-     "at": "data_dir",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "data_dir",
-     "kind": "param",
-     "name": "platform",
-     "traits": [],
-     "values": [
-      "kkt-machine::Platform"
-     ]
-    },
-    {
-     "at": "default_db",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "default_db",
-     "kind": "param",
-     "name": "platform",
-     "traits": [],
-     "values": [
-      "kkt-machine::Platform"
-     ]
-    },
-    {
-     "at": "docker_folder",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "docker_folder",
-     "kind": "param",
-     "name": "platform",
-     "traits": [],
-     "values": [
-      "kkt-machine::Platform"
      ]
     },
     {
@@ -16497,24 +16638,6 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "at": "unfinished_mode",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "unfinished_mode",
-     "kind": "param",
-     "name": "platform",
-     "traits": [],
-     "values": [
-      "kkt-machine::Platform"
-     ]
-    },
-    {
      "at": "write_admin_name",
      "kind": "param",
      "name": "files",
@@ -16539,7 +16662,6 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
-    "semver",
     "serde"
    ]
   },
@@ -19111,6 +19233,29 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "default_db",
+    "docker_folder"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "default_db",
+      "docker_folder"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-deployment"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
     "Answered",
     "DOCTOR_MAX_RESPONSE_BYTES",
     "DOCTOR_PROTOCOL_VERSION",
@@ -19988,8 +20133,6 @@ window.KKT_GRAPH = {
     "Unfinished",
     "connection",
     "connection::ConnectionOptions",
-    "default_db",
-    "docker_folder",
     "lane_reports::docker_limit",
     "lanes_on",
     "record_path",
@@ -20021,8 +20164,6 @@ window.KKT_GRAPH = {
       "Unfinished",
       "connection",
       "connection::ConnectionOptions",
-      "default_db",
-      "docker_folder",
       "lane_reports::docker_limit",
       "lanes_on",
       "record_path",
@@ -20440,8 +20581,7 @@ window.KKT_GRAPH = {
     "Record",
     "Server",
     "Unfinished",
-    "Unrecorded",
-    "default_db"
+    "Unrecorded"
    ],
    "kind": "dev",
    "optional": false,
@@ -20456,8 +20596,7 @@ window.KKT_GRAPH = {
       "Record",
       "Server",
       "Unfinished",
-      "Unrecorded",
-      "default_db"
+      "Unrecorded"
      ],
      "role": "uses"
     }
@@ -22681,6 +22820,29 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
+   "from": "kkt-deployment",
+   "items": [
+    "Env",
+    "Platform"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Env",
+      "Platform"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-machine"
+  },
+  {
+   "features": [],
    "from": "kkt-diagnostics",
    "items": [
     "Clock"
@@ -23878,6 +24040,55 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
+    "Deployment",
+    "Found",
+    "Noted",
+    "Recorded",
+    "Replace",
+    "RunningVersion",
+    "ServerVersion",
+    "StatusThen",
+    "docker_folder",
+    "docker_url",
+    "guard",
+    "running_version",
+    "status",
+    "status_looks_for_unrecorded",
+    "upgrade_plan"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Deployment",
+      "Found",
+      "Noted",
+      "Recorded",
+      "Replace",
+      "RunningVersion",
+      "ServerVersion",
+      "StatusThen",
+      "docker_folder",
+      "docker_url",
+      "guard",
+      "running_version",
+      "status",
+      "status_looks_for_unrecorded",
+      "upgrade_plan"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-deployment"
+  },
+  {
+   "features": [],
+   "from": "kkt-install-commands",
+   "items": [
     "Check",
     "Inspector",
     "KeyToCheck",
@@ -24125,9 +24336,6 @@ window.KKT_GRAPH = {
     "OperatorKeyReads",
     "Purpose",
     "Record",
-    "Replace",
-    "RunningVersion",
-    "StatusThen",
     "Steps",
     "Switch",
     "SwitchSteps",
@@ -24150,31 +24358,26 @@ window.KKT_GRAPH = {
     "connection::client_connection",
     "connection::recorded_connection",
     "connection::serve_connection",
-    "docker_folder",
     "docker_key_copies",
     "docker_status_lines",
     "doctor_checks",
     "doctor_record",
     "find_operator_key",
-    "guard",
     "new_key_file",
     "recorded_setup",
     "run",
-    "running_version",
     "server_fix",
     "service_backup_folder",
     "service_runs_defaults",
     "service_upgrade_error",
     "staged_client_key",
-    "status",
-    "status_looks_for_unrecorded",
     "switch",
     "uninstall_line",
     "uninstall_record",
     "unreadable_service",
     "unrecorded_here",
     "unrecorded_service",
-    "upgrade_plan",
+    "version_not_known",
     "waiting_note",
     "web_key_line",
     "write_admin_name",
@@ -24204,9 +24407,6 @@ window.KKT_GRAPH = {
       "Mode",
       "Purpose",
       "Record",
-      "Replace",
-      "RunningVersion",
-      "StatusThen",
       "Unfinished",
       "Unrecorded",
       "admin_key_collision",
@@ -24223,31 +24423,26 @@ window.KKT_GRAPH = {
       "connection::client_connection",
       "connection::recorded_connection",
       "connection::serve_connection",
-      "docker_folder",
       "docker_key_copies",
       "docker_status_lines",
       "doctor_checks",
       "doctor_record",
       "find_operator_key",
-      "guard",
       "new_key_file",
       "recorded_setup",
       "run",
-      "running_version",
       "server_fix",
       "service_backup_folder",
       "service_runs_defaults",
       "service_upgrade_error",
       "staged_client_key",
-      "status",
-      "status_looks_for_unrecorded",
       "switch",
       "uninstall_line",
       "uninstall_record",
       "unreadable_service",
       "unrecorded_here",
       "unrecorded_service",
-      "upgrade_plan",
+      "version_not_known",
       "waiting_note",
       "web_key_line",
       "write_admin_name",
@@ -24264,6 +24459,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "Server",
     "ServerFix",
     "connection::ServeConnection"
    ],
@@ -27571,29 +27767,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
-    "Env",
-    "Platform"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Env",
-      "Platform"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-machine"
-  },
-  {
-   "features": [],
-   "from": "kkt-setup",
-   "items": [
     "AdminName",
     "MAX_ADMIN_NAME_CHARS"
    ],
@@ -28658,6 +28831,11 @@ window.KKT_CONCERNS = {
    "kind": "effect",
    "layer": "data"
   },
+  "kkt-deployment": {
+   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data and Docker files are, whether `kkt serve` may run here, and what `kkt status` and `kkt upgrade` do. It works on facts it declares, which its caller reads from the setup record.",
+   "kind": "logic",
+   "layer": "operations"
+  },
   "kkt-diagnostics": {
    "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It makes its checks, with their fixes, from the facts a `Prober` it declares reports.",
    "kind": "logic",
@@ -28829,7 +29007,7 @@ window.KKT_CONCERNS = {
    "layer": "assembly"
   },
   "kkt-setup": {
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: whether a server may run here, which server its clients use, and what status, upgrade, lanes, backup and doctor do. It declares what is installed here (`InstalledHere`), finds and writes the operator's key files, and places the data folder.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what lanes, backup and doctor do. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -29431,7 +29609,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "from": [
       {
        "at": "setup::run",
@@ -29452,7 +29630,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "from": [
       {
        "at": "setup::run",
@@ -30219,34 +30397,6 @@ window.KKT_ASSEMBLY = {
   },
   {
    "at": "Client::connected",
-   "crate": "kkt-setup",
-   "param": "env",
-   "to": "kkt-llm-agent-config",
-   "why": "it names Client, and calls none of its methods"
-  },
-  {
-   "at": "Client::file",
-   "crate": "kkt-setup",
-   "param": "env",
-   "to": "kkt-llm-agent-config",
-   "why": "it names Client, and calls none of its methods"
-  },
-  {
-   "at": "Client::installed",
-   "crate": "kkt-setup",
-   "param": "env",
-   "to": "kkt-llm-agent-config",
-   "why": "it names Client, and calls none of its methods"
-  },
-  {
-   "at": "Client::source",
-   "crate": "kkt-setup",
-   "param": "env",
-   "to": "kkt-llm-agent-config",
-   "why": "it names Client, and calls none of its methods"
-  },
-  {
-   "at": "Client::connected",
    "crate": "kkt-agent-commands",
    "param": "env",
    "to": "kkt-llm-agent-config",
@@ -30350,7 +30500,7 @@ window.KKT_ASSEMBLY = {
       "kkt-config-file::files::read_default",
       "kkt-files::Files",
       "kkt-config-file::parse_file",
-      "kkt-setup::default_db",
+      "kkt-deployment::default_db",
       "kashkeshet::machine::settings::ServeOptions",
       "kashkeshet::machine::settings::ServeSettings",
       "kashkeshet::machine::settings::server_settings",
@@ -31548,7 +31698,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "by": "kkt-machine-os::OsMachine",
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "note": "where the default database goes, and the Docker folder whose lane limit kkt setup --lanes checks against",
      "produces": "kkt-machine::Env",
      "to": [
@@ -31564,7 +31714,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "by": "kkt-machine-os::OsMachine",
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "note": "where the default database goes, and the Docker folder whose lane limit kkt setup --lanes checks against",
      "produces": "kkt-machine::Platform",
      "to": [

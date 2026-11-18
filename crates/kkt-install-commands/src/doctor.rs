@@ -23,10 +23,11 @@ pub async fn run<D: crate::ServiceDefaults>(
     // for it; with no note of one either, a server kkt installed here anyway.
     let unfinished = read_unfinished(env, parts.setup_files, parts.container, parts.service);
     let recorded = read_setup(env, parts.setup_files)?;
-    let unrecorded = match setup::status_looks_for_unrecorded(recorded.as_ref(), &unfinished) {
-        true => read_unrecorded(parts, env, platform),
-        false => Ok(None),
-    };
+    let unrecorded =
+        match kkt_deployment::status_looks_for_unrecorded(recorded.as_ref(), &unfinished) {
+            true => read_unrecorded(parts, env, platform),
+            false => Ok(None),
+        };
     let found = unrecorded.as_ref().ok().and_then(Option::as_ref);
     let record = setup::doctor_record(recorded, &unfinished, found, Build::CURRENT.version);
     let connection = match &record {

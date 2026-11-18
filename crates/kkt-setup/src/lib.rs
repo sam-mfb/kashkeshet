@@ -1,11 +1,9 @@
 //! `kkt setup`: what this machine is set up as (a server run as a service, a
 //! server in Docker, or a client of a server elsewhere), the record that
-//! says so, and what follows from it: whether `kkt serve` may run here, and
-//! which server this machine's clients use (`kkt switch` changes it). It
-//! also decides, by how the machine is set up, what `kkt status` reports,
-//! what `kkt upgrade` does, which server `kkt lanes` and `kkt backup` act
-//! on, which key files a local backup holds, where each key file is,
-//! which server installed with no record is
+//! says so, and which server this machine's clients use (`kkt switch`
+//! changes it). It also decides, by how the machine is set up, which server
+//! `kkt lanes` and `kkt backup` act on, which key files a local backup
+//! holds, where each key file is, which server installed with no record is
 //! here, and which setup `kkt doctor` goes by and which fixes it gives.
 //!
 //! The caller reads what is installed, answers questions through [`Ask`],
@@ -26,13 +24,11 @@ pub use program::{
     uninstall_record, upgrade_backup_folder, waiting_note, web_key_line,
 };
 mod flow;
-mod guard;
 mod installed_here;
 mod key_finders;
 mod key_writes;
 mod keys;
 pub mod lane_reports;
-mod lifecycle;
 mod local;
 mod record;
 mod switch;
@@ -40,7 +36,6 @@ mod switch;
 pub mod testing;
 #[cfg(test)]
 mod tests;
-mod upgrade;
 
 pub use acts_on::{BackupOf, LanesOn, backup_of, lanes_on};
 pub use adopt::{
@@ -53,7 +48,6 @@ pub use doctor::{
     KeyFix, ServerFix, clients_server_fix, clients_server_mode, doctor_record, key_fix, server_fix,
 };
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
-pub use guard::guard;
 pub use installed_here::InstalledHere;
 pub use key_finders::{KeyReads, OperatorKeyReads, find_here, find_key, find_operator_key};
 pub use key_writes::{admin_name_line, new_key_file, write_admin_name, write_key_file};
@@ -61,16 +55,10 @@ pub use keys::{
     Here, KeyKind, KeyPlace, KeysOff, admin_key_collision, configured_key, create_asks_for_docker,
     create_checks, create_destination_check, docker_key_copies, operator_key, recorded_key,
 };
-pub use lifecycle::{
-    Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,
-    status_looks_for_unrecorded, upgrade_plan,
-};
-pub use local::{docker_folder, docker_url, recorded_setup, unfinished_mode};
+pub use local::recorded_setup;
 pub use record::{DockerSetup, InstallCheck, Mode, Record, Server, TailscaleLogin, Unfinished};
 pub use switch::{Switch, SwitchSteps, Target, switch};
-pub use upgrade::{Upgrade, upgrade};
 
-use kkt_machine::{Env, Platform};
 use std::path::{Path, PathBuf};
 
 /// The setup record `kkt setup` writes, in the config directory.
@@ -83,26 +71,10 @@ const SETUP_UNFINISHED_FILE_NAME: &str = "setup-unfinished.toml";
 /// always installs such a service again.
 const SETUP_UNKNOWN_VERSION: &str = "unknown";
 
-/// The database file's name in the per-user data directory, for `kkt serve`.
-const DB_FILE_NAME: &str = "kashkeshet.db";
-/// The per-user data directory on macOS, under the home directory.
-const MACOS_DATA_DIR: &str = "Library/Application Support/kashkeshet";
-/// The per-user data directory elsewhere, under the XDG data home.
-const XDG_DATA_DIR: &str = "kashkeshet";
-
-/// The per-user data directory: `~/Library/Application Support/kashkeshet`
-/// on macOS, and `kashkeshet` in the XDG data home ([`Env::data_home`])
-/// elsewhere. The database and the managed Docker folder go here.
-pub fn data_dir(env: &Env, platform: Platform) -> Option<PathBuf> {
-    match platform {
-        Platform::MacOs => Some(env.home.as_ref()?.join(MACOS_DATA_DIR)),
-        Platform::Xdg => Some(env.data_home()?.join(XDG_DATA_DIR)),
-    }
-}
-
-/// The database `kkt serve` uses when none is given, in [`data_dir`].
-pub fn default_db(env: &Env, platform: Platform) -> Option<PathBuf> {
-    Some(data_dir(env, platform)?.join(DB_FILE_NAME))
+/// Whether `written_by`, the version a record names, says that version is
+/// not known: the record adopts a service whose version nothing says.
+pub fn version_not_known(written_by: &str) -> bool {
+    written_by == SETUP_UNKNOWN_VERSION
 }
 
 /// Where the setup record is: `setup.toml` in kkt's config directory,

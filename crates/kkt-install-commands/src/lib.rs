@@ -5,6 +5,7 @@
 //! the program also hands to the operator's commands. The program supplies
 //! every effect and answers questions about its serving settings lazily.
 
+pub mod deployment;
 pub mod doctor;
 pub mod keys;
 pub mod lifecycle;

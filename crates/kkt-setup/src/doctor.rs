@@ -11,8 +11,8 @@ use std::path::PathBuf;
 /// The setup `kkt doctor` goes by: the `recorded` one; else the one an
 /// `unfinished` setup installed but did not record; else, with no note of
 /// one, a server `found` installed here with no record, adopted as kkt
-/// `version` would record it. `found` is looked for only as
-/// [`super::status_looks_for_unrecorded`] says.
+/// `version` would record it. `found` is looked for only when there is no
+/// record and no note of an unfinished setup, readable or not.
 pub fn doctor_record(
     recorded: Option<Record>,
     unfinished: &Result<Option<Unfinished>, String>,
@@ -87,7 +87,7 @@ pub fn key_fix(mode: Option<&Mode>) -> KeyFix {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DockerSetup, Purpose, Server, status_looks_for_unrecorded};
+    use crate::{DockerSetup, Purpose, Server};
 
     fn docker(tailscale: bool) -> Mode {
         Mode::Docker(DockerSetup {
@@ -169,7 +169,6 @@ mod tests {
     fn doctor_goes_by_what_an_unfinished_setup_installed() {
         let installed = record(docker(false));
         let noted = Ok(Some(unfinished(Some(installed.clone()))));
-        assert!(!status_looks_for_unrecorded(None, &noted));
         assert_eq!(doctor_record(None, &noted, None, "0.7.0"), Some(installed));
         // One that stopped before installing has no record to go by.
         assert_eq!(
@@ -187,14 +186,12 @@ mod tests {
     #[test]
     fn an_unreadable_note_leaves_nothing_to_go_by() {
         let unreadable = Err("bad note".to_string());
-        assert!(!status_looks_for_unrecorded(None, &unreadable));
         assert_eq!(doctor_record(None, &unreadable, None, "0.7.0"), None);
         assert_eq!(clients_server_fix(false, None), None);
     }
 
     #[test]
     fn doctor_goes_by_a_server_found_installed() {
-        assert!(status_looks_for_unrecorded(None, &Ok(None)));
         let found = found(docker(false));
         let chosen = doctor_record(None, &Ok(None), Some(&found), "0.7.0");
         assert_eq!(chosen, Some(found.record("0.7.0")));

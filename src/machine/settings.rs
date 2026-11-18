@@ -107,7 +107,7 @@ pub(crate) fn database(
     if let Some(given) = given {
         return Ok(given);
     }
-    let found = kkt_setup::default_db(env, platform);
+    let found = kkt_deployment::default_db(env, platform);
     match default {
         DefaultDb::OrEmpty => Ok(found.unwrap_or_default()),
         DefaultDb::Required(without_home) => found.ok_or_else(|| without_home.to_string()),
@@ -814,7 +814,7 @@ mod tests {
             serve_settings(&env, TEST_PLATFORM, None, ServeOptions::NONE).expect("valid");
         assert_eq!(
             Some(settings.db),
-            kkt_setup::default_db(&env, TEST_PLATFORM)
+            kkt_deployment::default_db(&env, TEST_PLATFORM)
         );
         assert_eq!(
             settings.access_key,
