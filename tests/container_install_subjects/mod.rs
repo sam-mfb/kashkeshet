@@ -12,7 +12,7 @@
 use kkt_container::Container;
 use kkt_container_docker::testing::Scripted;
 use kkt_container_docker::{Browser, Docker};
-use kkt_containerized_service::Containerized;
+use kkt_containerized_service::{Containerized, Tell};
 use std::io;
 
 /// The subjects, by name, in the order they run.
@@ -27,9 +27,21 @@ pub fn subject(name: &str, browser: Box<dyn Browser>, host: Scripted) -> Box<dyn
         // `Projects`, with Docker on the same host doing the rest.
         "Containerized" => Box::new(Containerized::new(
             Docker::scripted(Box::new(NoBrowser), host.clone()),
-            Docker::scripted(browser, host),
+            Docker::scripted(browser, host.clone()),
+            Box::new(Transcript(host.clone())),
+            host.current_folder().map_err(|e| e.to_string()),
         )),
         other => panic!("no subject {other}"),
+    }
+}
+
+/// The containerized service's lines, written into the transcript as
+/// Docker's host writes its own.
+struct Transcript(Scripted);
+
+impl Tell for Transcript {
+    fn say(&self, line: &str) {
+        self.0.note(&format!("{:<8} {line}", "say"));
     }
 }
 

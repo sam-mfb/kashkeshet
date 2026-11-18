@@ -4,8 +4,8 @@
 //! only that folder afterwards, so two runs at the same time never see or
 //! remove each other's files.
 
-use crate::here;
 use crate::services::worded;
+use crate::{Tell, here};
 use kkt_container::{Arg, Carry, InServer, Output, Project, Projects, User};
 use kkt_machine::XDG_CONFIG_HOME_DEFAULT;
 use std::path::{Path, PathBuf};
@@ -18,6 +18,7 @@ pub(crate) const SERVER: &str = "kkt";
 /// the run or out after it. Returns what the program printed.
 pub(crate) fn run_in_server(
     projects: &dyn Projects,
+    tell: &dyn Tell,
     project: &Project,
     command: &InServer<'_>,
 ) -> Result<String, String> {
@@ -26,7 +27,7 @@ pub(crate) fn run_in_server(
         Carry::In(files) => copy_in_and_run(projects, project, &dir, command.args, files),
         Carry::Out(dest) => run_and_copy_out(projects, project, &dir, command.args, dest),
     };
-    finish(projects, project, &dir, done)
+    finish(projects, tell, project, &dir, done)
 }
 
 fn copy_in_and_run(
@@ -178,6 +179,7 @@ fn make_dir(projects: &dyn Projects, project: &Project, prefix: &str) -> Result<
 /// failed, it is said, and `done`'s error returned.
 fn finish(
     projects: &dyn Projects,
+    tell: &dyn Tell,
     project: &Project,
     dir: &str,
     done: Result<String, String>,
@@ -187,7 +189,7 @@ fn finish(
         (Ok(_), Err(e)) => Err(e),
         (Err(e), Ok(())) => Err(e),
         (Err(e), Err(cleanup)) => {
-            projects.say(&format!(
+            tell.say(&format!(
                 "Could not remove {dir} in the container: {cleanup}"
             ));
             Err(e)

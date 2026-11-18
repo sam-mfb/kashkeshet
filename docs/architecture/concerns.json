@@ -327,7 +327,7 @@
   "kkt-files": {
    "layer": "platform",
    "kind": "effect",
-   "concern": "General file access: reading and writing whole files, listing folders, making, renaming and removing files and folders, private files, and absolute and canonical paths."
+   "concern": "General file access: reading and writing whole files, listing folders, making, renaming and removing files and folders, private files, absolute and canonical paths, and the folder the process works in."
   },
   "kkt-listen": {
    "layer": "platform",

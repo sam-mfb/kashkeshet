@@ -1,7 +1,7 @@
 //! Containerized over projects in memory: the managed folder's reads, the
 //! service's start and stop, and what it hands to its fallback.
 
-use crate::Containerized;
+use crate::{Containerized, Tell};
 use futures::executor::block_on;
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
@@ -11,8 +11,10 @@ use kkt_container::{
     KeyCopy, Login, Output, Project, ProjectError, ProjectFile, Projects, Ran, ServiceConfig,
     State, User,
 };
+use std::cell::RefCell;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 const FOLDER: &str = "/data/docker";
 
@@ -25,7 +27,48 @@ fn at(name: &str) -> PathBuf {
 }
 
 fn service(projects: MemoryProjects) -> Containerized<MemoryProjects, Memory> {
-    Containerized::new(projects, Memory::new(None, String::new()))
+    working_in(projects, Ok(PathBuf::from("/home/me"))).0
+}
+
+/// The lines the service said, in order.
+#[derive(Clone, Default)]
+struct Said(Rc<RefCell<Vec<String>>>);
+
+impl Tell for Said {
+    fn say(&self, line: &str) {
+        self.0.borrow_mut().push(line.to_string());
+    }
+}
+
+/// The service over `projects`, in the folder `working_dir`, with what it
+/// says.
+fn working_in(
+    projects: MemoryProjects,
+    working_dir: Result<PathBuf, String>,
+) -> (Containerized<MemoryProjects, Memory>, Said) {
+    let said = Said::default();
+    (over(projects, said.clone(), working_dir), said)
+}
+
+fn over<P: Projects>(
+    projects: P,
+    said: Said,
+    working_dir: Result<PathBuf, String>,
+) -> Containerized<P, Memory> {
+    Containerized::new(
+        projects,
+        Memory::new(None, String::new()),
+        Box::new(said),
+        working_dir,
+    )
+}
+
+fn failing(error: ProjectError) -> Containerized<Failing, Memory> {
+    over(
+        Failing(error),
+        Said::default(),
+        Ok(PathBuf::from("/home/me")),
+    )
 }
 
 const LOCAL_ENV: &str = "KKT_VERSION=0.4.0\nCOMPOSE_PROJECT_NAME=kkt\nKKT_PORT=7420\n";
@@ -219,12 +262,6 @@ impl Projects for Failing {
     fn typed(&self, args: &[&str]) -> String {
         format!("tool compose {}", args.join(" "))
     }
-    fn working_dir(&self) -> io::Result<PathBuf> {
-        unreachable!()
-    }
-    fn say(&self, _: &str) {
-        unreachable!()
-    }
     fn write(&self, _: &Project, _: &[ProjectFile]) -> Result<(), ProjectError> {
         unreachable!()
     }
@@ -289,38 +326,29 @@ impl Projects for Failing {
 
 #[test]
 fn a_tool_that_cannot_run_is_not_available_by_its_name_and_a_failure_says_how() {
-    let missing = Containerized::new(
-        Failing(ProjectError::Missing {
-            command: "tool compose up -d".into(),
-            cause: "no such file".into(),
-        }),
-        Memory::new(None, String::new()),
-    );
+    let missing = failing(ProjectError::Missing {
+        command: "tool compose up -d".into(),
+        cause: "no such file".into(),
+    });
     assert_eq!(
         missing.up(&folder()),
         Err("Tool is not available: could not run `tool compose up -d`: no such file".into())
     );
-    let failed = Containerized::new(
-        Failing(ProjectError::Failed {
-            command: "tool compose down".into(),
-            status: Some(1),
-            stdout: String::new(),
-            stderr: "no network\n".into(),
-        }),
-        Memory::new(None, String::new()),
-    );
+    let failed = failing(ProjectError::Failed {
+        command: "tool compose down".into(),
+        status: Some(1),
+        stdout: String::new(),
+        stderr: "no network\n".into(),
+    });
     assert_eq!(
         failed.down(&folder(), false),
         Err("`tool compose down` failed (exit 1: no network)".into())
     );
-    let file = Containerized::new(
-        Failing(ProjectError::file(
-            FileAction::Read,
-            Path::new("/x"),
-            &io::Error::other("gone"),
-        )),
-        Memory::new(None, String::new()),
-    );
+    let file = failing(ProjectError::file(
+        FileAction::Read,
+        Path::new("/x"),
+        &io::Error::other("gone"),
+    ));
     assert_eq!(file.up(&folder()), Err("could not read /x: gone".into()));
 }
 
@@ -424,25 +452,26 @@ fn a_run_refuses_a_folder_mktemp_did_not_make_as_asked() {
 
 #[test]
 fn a_failed_run_whose_folder_cannot_be_removed_says_so_and_gives_the_runs_error() {
-    let service = service(in_server(|request| match request {
-        Request::Exec { args, .. } if args[0] == "kkt" => {
-            Some((Some(1), String::new(), "no title".into()))
-        }
-        Request::Exec { args, .. } if args[0] == "rm" => {
-            Some((Some(1), String::new(), "busy".into()))
-        }
-        _ => None,
-    }));
+    let (service, said) = working_in(
+        in_server(|request| match request {
+            Request::Exec { args, .. } if args[0] == "kkt" => {
+                Some((Some(1), String::new(), "no title".into()))
+            }
+            Request::Exec { args, .. } if args[0] == "rm" => {
+                Some((Some(1), String::new(), "busy".into()))
+            }
+            _ => None,
+        }),
+        Ok(PathBuf::from("/home/me")),
+    );
     assert_eq!(
         service.run_in_server(&folder(), &command(Carry::In(vec![]))),
         Err("`tool compose exec kkt kkt lanes /tmp/run.Abc123` failed (exit 1: no title)".into())
     );
-    assert!(
-        service.projects.log().contains(
-            &"say Could not remove /tmp/run.Abc123 in the container: \
-          `tool compose exec --user root kkt rm -rf /tmp/run.Abc123` failed (exit 1: busy)"
-                .to_string()
-        )
+    assert_eq!(
+        *said.0.borrow(),
+        ["Could not remove /tmp/run.Abc123 in the container: \
+          `tool compose exec --user root kkt rm -rf /tmp/run.Abc123` failed (exit 1: busy)"]
     );
 }
 
@@ -500,7 +529,7 @@ fn a_backup_stays_in_the_managed_folder_or_is_copied_where_the_person_asks() {
         managed.backup(&folder(), None),
         Ok(at("backups/kkt-backup-1"))
     );
-    let copied = service(backing_up(said).working_in(Some("/home/me")));
+    let copied = service(backing_up(said));
     assert_eq!(
         copied.backup(&folder(), Some(Path::new("saved"))),
         Ok(PathBuf::from("/home/me/saved/kkt-backup-1"))
@@ -517,7 +546,10 @@ fn a_backup_stays_in_the_managed_folder_or_is_copied_where_the_person_asks() {
 
 #[test]
 fn a_backup_says_what_went_wrong() {
-    let lost = service(backing_up("Backed up to /backups/x\n").working_in(None));
+    let (lost, _) = working_in(
+        backing_up("Backed up to /backups/x\n"),
+        Err("no such folder".into()),
+    );
     assert_eq!(
         lost.backup(&folder(), Some(Path::new("saved"))),
         Err("could not find the current folder: no such folder".into())

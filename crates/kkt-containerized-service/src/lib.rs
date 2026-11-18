@@ -36,17 +36,39 @@ fn here() -> Folder {
     Folder(PathBuf::new())
 }
 
+/// Tells the person running kkt one line.
+pub trait Tell {
+    fn say(&self, line: &str);
+}
+
 /// kkt's containerized service over `projects`, handing the operations it
 /// does not do itself to `fallback`.
 pub struct Containerized<P, F> {
     projects: P,
     fallback: F,
+    tell: Box<dyn Tell>,
+    /// The folder the person ran kkt in, which paths they type are
+    /// relative to, or why it could not be found.
+    working_dir: Result<PathBuf, String>,
 }
 
 impl<P: Projects, F: Container> Containerized<P, F> {
-    /// The service over `projects`, with `fallback` for the rest.
-    pub fn new(projects: P, fallback: F) -> Self {
-        Containerized { projects, fallback }
+    /// The service over `projects`, with `fallback` for the rest, telling
+    /// the person what they need to know through `tell`. `working_dir` is
+    /// the folder the person ran kkt in, read once by the caller, or why
+    /// it could not be found.
+    pub fn new(
+        projects: P,
+        fallback: F,
+        tell: Box<dyn Tell>,
+        working_dir: Result<PathBuf, String>,
+    ) -> Self {
+        Containerized {
+            projects,
+            fallback,
+            tell,
+            working_dir,
+        }
     }
 
     /// The managed folder as a Compose project, whose commands run without
@@ -107,7 +129,12 @@ impl<P: Projects, F: Container> Container for Containerized<P, F> {
         services::down(&self.projects, &self.project(folder), remove_data)
     }
     fn backup(&self, folder: &Folder, dest: Option<&Path>) -> Result<PathBuf, String> {
-        backup::backup(&self.projects, &self.project(folder), dest)
+        backup::backup(
+            &self.projects,
+            &self.project(folder),
+            self.working_dir.as_deref(),
+            dest,
+        )
     }
     fn upgrade<'a>(
         &'a self,
@@ -119,7 +146,7 @@ impl<P: Projects, F: Container> Container for Containerized<P, F> {
         self.fallback.upgrade(clock, folder, new_version, keys)
     }
     fn run_in_server(&self, folder: &Folder, command: &InServer<'_>) -> Result<String, String> {
-        in_server::run_in_server(&self.projects, &self.project(folder), command)
+        in_server::run_in_server(&self.projects, &*self.tell, &self.project(folder), command)
     }
     fn config_home_file(&self, folder: &Folder, relative: &Path) -> Result<String, String> {
         in_server::config_home_file(&self.projects, &self.project(folder), relative)

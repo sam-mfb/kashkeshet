@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "2ce71c65",
+ "commit": "bdb196b7",
  "crates": [
   {
    "bins": [
@@ -125,6 +125,12 @@ window.KKT_GRAPH = {
      "crate": "kashkeshet",
      "trait": "Browser",
      "trait_crate": "kkt-container-docker",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Tell",
+     "trait_crate": "kkt-containerized-service",
      "type": null
     },
     {
@@ -5088,11 +5094,9 @@ window.KKT_GRAPH = {
       "restart",
       "run_once",
       "running",
-      "say",
       "tool",
       "typed",
       "up",
-      "working_dir",
       "write"
      ],
      "path": "Projects"
@@ -5194,8 +5198,7 @@ window.KKT_GRAPH = {
       "new",
       "unavailable",
       "with_config",
-      "with_file",
-      "working_in"
+      "with_file"
      ],
      "path": "testing::MemoryProjects"
     },
@@ -5386,6 +5389,7 @@ window.KKT_GRAPH = {
      "feature": "testing",
      "kind": "struct",
      "methods": [
+      "current_folder",
       "failing_dir",
       "failing_write",
       "knowing",
@@ -5469,12 +5473,32 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "Tell"
+    }
+   ],
    "crate_doc": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever container tool implements it.",
    "dev_only": false,
    "features": {},
    "foreign_implements": [],
-   "holders": [],
+   "holders": [
+    {
+     "holds": [
+      {
+       "crate": "kkt-containerized-service",
+       "trait": "Tell"
+      }
+     ],
+     "type": "Containerized"
+    }
+   ],
    "implements": [
     {
      "crate": "kkt-containerized-service",
@@ -5491,6 +5515,14 @@ window.KKT_GRAPH = {
       "new"
      ],
      "path": "Containerized"
+    },
+    {
+     "doc": "Tells the person running kkt one line.",
+     "kind": "trait",
+     "methods": [
+      "say"
+     ],
+     "path": "Tell"
     }
    ],
    "lib": "kkt_containerized_service",
@@ -5499,7 +5531,19 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-containerized-service",
    "produces": [],
    "released_program": false,
-   "slots": [],
+   "slots": [
+    {
+     "at": "Containerized::new",
+     "kind": "param",
+     "name": "tell",
+     "traits": [
+      {
+       "crate": "kkt-containerized-service",
+       "trait": "Tell"
+      }
+     ]
+    }
+   ],
    "testing_third_party": [],
    "third_party": [
     "futures",
@@ -7404,6 +7448,7 @@ window.KKT_GRAPH = {
       "canonicalize",
       "create_dir_all",
       "create_private",
+      "current_dir",
       "exists",
       "file_names",
       "is_file",
@@ -7422,6 +7467,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_files",
    "machine_work": {
     "src/lib.rs": [
+     "env::current_dir",
      "fs",
      "fs::OpenOptions",
      "fs::OpenOptions::new",
@@ -19282,12 +19328,19 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Containerized"
+    "Containerized",
+    "Tell"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "adapts",
    "roles": [
+    {
+     "detail": [
+      "a type of its own implements Tell"
+     ],
+     "role": "adapts"
+    },
     {
      "detail": [
       "Containerized"
@@ -29399,7 +29452,7 @@ window.KKT_CONCERNS = {
    "layer": "programs"
   },
   "kkt-files": {
-   "concern": "General file access: reading and writing whole files, listing folders, making, renaming and removing files and folders, private files, and absolute and canonical paths.",
+   "concern": "General file access: reading and writing whole files, listing folders, making, renaming and removing files and folders, private files, absolute and canonical paths, and the folder the process works in.",
    "kind": "effect",
    "layer": "platform"
   },
@@ -31371,6 +31424,23 @@ window.KKT_ASSEMBLY = {
       {
        "at": "InstallParts",
        "param": "container"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-containerized-service",
+     "note": "what the containerized service tells the person, such as a work folder in the container it could not remove",
+     "own": "TerminalTell, the containerized service's lines on kkt-terminal's standard output, a line each",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
+     "to": [
+      {
+       "at": "Containerized::new",
+       "param": "tell"
       }
      ]
     },

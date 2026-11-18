@@ -8,8 +8,7 @@ use kkt_container::{
     FileAction, FileState, Output, Project, ProjectError, ProjectFile, Projects, Ran,
     ServiceConfig, User,
 };
-use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// The variables Compose reads itself, which would take the place of the
 /// project folder's own settings if they were set where the tool runs.
@@ -96,14 +95,6 @@ impl Projects for Docker {
         let mut all = vec!["compose".to_string()];
         all.extend(args.iter().map(|a| a.to_string()));
         docker(&[], all).to_string()
-    }
-
-    fn working_dir(&self) -> io::Result<PathBuf> {
-        self.host.working_dir()
-    }
-
-    fn say(&self, line: &str) {
-        self.host.say(line);
     }
 
     fn write(&self, project: &Project, files: &[ProjectFile]) -> Result<(), ProjectError> {

@@ -25,6 +25,7 @@ pub(crate) fn backups(folder: &Folder) -> PathBuf {
 pub(crate) fn backup(
     projects: &dyn Projects,
     project: &Project,
+    working_dir: Result<&Path, &String>,
     dest: Option<&Path>,
 ) -> Result<PathBuf, String> {
     let name = backup_in_container(projects, project)?;
@@ -33,8 +34,7 @@ pub(crate) fn backup(
     };
     // A folder typed relative to where the person is, not to the managed
     // folder the tool's commands run in.
-    let dest = projects
-        .working_dir()
+    let dest = working_dir
         .map_err(|e| format!("could not find the current folder: {e}"))?
         .join(dest);
     let here_folder = here();

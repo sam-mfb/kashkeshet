@@ -231,12 +231,6 @@ pub trait Projects {
     /// How a person would type the tool's project command with `args`, in
     /// the project's folder.
     fn typed(&self, args: &[&str]) -> String;
-    /// The folder the person runs the tool from, which paths they type are
-    /// relative to.
-    fn working_dir(&self) -> io::Result<PathBuf>;
-    /// Tells the person one line, on the terminal the tool's own output
-    /// goes to, so it comes in order with that output.
-    fn say(&self, line: &str);
 
     /// Writes each file, in order, stopping at the first that fails.
     fn write(&self, project: &Project, files: &[ProjectFile]) -> Result<(), ProjectError>;

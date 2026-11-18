@@ -34,9 +34,7 @@ pub enum Request {
 type Answer = Box<dyn Fn(&Request) -> Result<(Option<i32>, String, String), ProjectError>>;
 
 /// Compose projects in memory. Paths are taken relative to the project's
-/// folder unless absolute. The person runs the tool from `/here` unless
-/// [`Self::working_in`] says otherwise, and each line said is noted in
-/// [`Self::log`] as `say` and the line. `up` with no services starts every service it
+/// folder unless absolute. `up` with no services starts every service it
 /// was given; `restart` fails for a service that is not running. Each
 /// operation is noted, as a person would type it, in [`Self::log`]. The
 /// tool is called `tool`.
@@ -48,7 +46,6 @@ pub struct MemoryProjects {
     folders: RefCell<BTreeSet<PathBuf>>,
     running: RefCell<BTreeSet<String>>,
     configs: RefCell<BTreeMap<String, ServiceConfig>>,
-    working_dir: Option<PathBuf>,
     log: RefCell<Vec<String>>,
 }
 
@@ -64,7 +61,6 @@ impl MemoryProjects {
             folders: RefCell::default(),
             running: RefCell::default(),
             configs: RefCell::default(),
-            working_dir: Some(PathBuf::from("/here")),
             log: RefCell::default(),
         }
     }
@@ -81,13 +77,6 @@ impl MemoryProjects {
     /// The tool is not installed.
     pub fn unavailable(mut self) -> MemoryProjects {
         self.available = false;
-        self
-    }
-
-    /// The person runs the tool from `dir`, or, with `None`, from a folder
-    /// that cannot be found. Until this says otherwise, it is `/here`.
-    pub fn working_in(mut self, dir: Option<&str>) -> MemoryProjects {
-        self.working_dir = dir.map(PathBuf::from);
         self
     }
 
@@ -176,16 +165,6 @@ impl Projects for MemoryProjects {
             line.push_str(arg);
         }
         line
-    }
-
-    fn working_dir(&self) -> io::Result<PathBuf> {
-        self.working_dir
-            .clone()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such folder"))
-    }
-
-    fn say(&self, line: &str) {
-        self.note(format!("say {line}"));
     }
 
     fn write(&self, project: &Project, files: &[ProjectFile]) -> Result<(), ProjectError> {
