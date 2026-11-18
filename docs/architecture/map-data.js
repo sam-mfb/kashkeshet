@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "6e645394",
+ "commit": "f2509ac4",
  "crates": [
   {
    "bins": [
@@ -13634,6 +13634,11 @@ window.KKT_GRAPH = {
      "path": "Output"
     },
     {
+     "doc": "Why one of the program's parts could not answer: the implementation's own error, passed on unread.",
+     "kind": "struct",
+     "path": "PartError"
+    },
+    {
      "doc": "Paths made whole, as the operating system resolves them.",
      "kind": "trait",
      "methods": [
@@ -13669,6 +13674,16 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "Why `kkt agent` failed: the serve config could not be read, the database could not be used, or the rules refused.",
+     "kind": "enum",
+     "path": "agent::AgentError",
+     "variants": [
+      "Config",
+      "Database",
+      "Rule"
+     ]
+    },
+    {
      "doc": "`kkt agent`: the operator's commands, on the database `kkt serve` would use unless `--db` names another.",
      "kind": "fn",
      "path": "agent::run"
@@ -13677,6 +13692,26 @@ window.KKT_GRAPH = {
      "doc": "`kkt key`: `create` makes a new access, web or admin key, `header` prints the header clients send with the access key, and `show` prints a key.",
      "kind": "mod",
      "path": "key"
+    },
+    {
+     "doc": "Why `kkt key header`, `show` or `create` failed: a source's own error, or the step here that failed, with the key file it was on.",
+     "kind": "enum",
+     "path": "key::KeyError",
+     "variants": [
+      "Find",
+      "Selected",
+      "Header",
+      "AdminNameLine",
+      "Refused",
+      "Name",
+      "Collision",
+      "Write",
+      "NameNotWritten",
+      "Read",
+      "Exists",
+      "Resolve",
+      "NoHome"
+     ]
     },
     {
      "doc": "The key `kkt key create` makes: its kind, the file to write it to if given, and the admin agent's name if given.",
@@ -13713,6 +13748,15 @@ window.KKT_GRAPH = {
      "from": "kkt_deployment::KeyKind",
      "kind": "enum",
      "path": "keys::KeyKind"
+    },
+    {
+     "doc": "Why `kkt key` found no key to use: the finder's own refusal, or no admin key where one was asked for.",
+     "kind": "enum",
+     "path": "keys::SelectedKeyError",
+     "variants": [
+      "Find",
+      "NoAdminKey"
+     ]
     },
     {
      "doc": "",
@@ -13758,6 +13802,16 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "lanes::ContainerLanes"
+    },
+    {
+     "doc": "Why the local database could not be used: where it is could not be worked out, there is none there, or it could not be opened.",
+     "kind": "enum",
+     "path": "lanes::DatabaseError",
+     "variants": [
+      "Path",
+      "Missing",
+      "Open"
+     ]
     },
     {
      "doc": "What a `LaneServer` gives back, in time.",
@@ -14819,6 +14873,7 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
+    "thiserror",
     "tokio"
    ]
   },
@@ -20605,6 +20660,7 @@ window.KKT_GRAPH = {
     "LaneParts",
     "OperatorParts",
     "Output",
+    "PartError",
     "Paths",
     "ServeConfig",
     "agent::AgentAction",
@@ -20649,6 +20705,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "OperatorParts",
+      "PartError",
       "agent::AgentAction",
       "agent::run",
       "key::create",
@@ -27044,6 +27101,7 @@ window.KKT_GRAPH = {
     "Operator",
     "Permission",
     "Permissions",
+    "RuleError",
     "SwarmId"
    ],
    "kind": "normal",
@@ -27057,6 +27115,7 @@ window.KKT_GRAPH = {
       "Operator",
       "Permission",
       "Permissions",
+      "RuleError",
       "SwarmId"
      ],
      "role": "uses"
@@ -27115,9 +27174,14 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operator-commands",
    "items": [
+    "AdminKeyCollision",
+    "AdminNameLineError",
+    "CreateRefusal",
     "Deployment",
+    "FindKeyError",
     "KeyKind",
     "KeyReadError",
+    "NameNotWritten",
     "RecordedServerRead",
     "ServeConfigReads",
     "ServerKeys",
@@ -27148,9 +27212,14 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "AdminKeyCollision",
+      "AdminNameLineError",
+      "CreateRefusal",
       "Deployment",
+      "FindKeyError",
       "KeyKind",
       "KeyReadError",
+      "NameNotWritten",
       "ServerKeys",
       "UnfinishedSetup",
       "admin_key_collision",
@@ -27198,6 +27267,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operator-commands",
    "items": [
+    "KeyFileError",
     "KeyFiles",
     "NO_ADMIN_KEY_EXIT",
     "bound_to"
@@ -27208,6 +27278,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "KeyFileError",
       "KeyFiles",
       "NO_ADMIN_KEY_EXIT",
       "bound_to"
@@ -27263,6 +27334,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operator-commands",
    "items": [
+    "ClientConfigError",
     "header"
    ],
    "kind": "normal",
@@ -27271,6 +27343,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "ClientConfigError",
       "header"
      ],
      "role": "uses"
@@ -27285,7 +27358,8 @@ window.KKT_GRAPH = {
    "from": "kkt-operator-commands",
    "items": [
     "AdminName",
-    "MAX_ADMIN_NAME_CHARS"
+    "MAX_ADMIN_NAME_CHARS",
+    "NameError"
    ],
    "kind": "normal",
    "optional": false,
@@ -27294,7 +27368,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AdminName",
-      "MAX_ADMIN_NAME_CHARS"
+      "MAX_ADMIN_NAME_CHARS",
+      "NameError"
      ],
      "role": "uses"
     }

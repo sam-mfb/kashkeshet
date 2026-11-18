@@ -23,6 +23,7 @@ fn existing_db(
 ) -> Result<PathBuf, String> {
     let native = crate::machine::native::NativeParts::new(env, platform);
     kkt_operator_commands::lanes::existing_db(&native.lane_parts(), db, config_db)
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

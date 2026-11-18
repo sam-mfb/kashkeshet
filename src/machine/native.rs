@@ -226,28 +226,36 @@ pub struct InstalledOnThisMachine<'r, 'a, 'p, C: kkt_deployment::connection::Con
 impl<C: kkt_deployment::connection::ConnectionSource, D: kkt_install_commands::ServiceDefaults>
     kkt_operator_commands::InstalledHere for InstalledOnThisMachine<'_, '_, '_, C, D>
 {
-    fn recorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String> {
+    fn recorded(
+        &self,
+    ) -> Result<Option<kkt_deployment::ServerKeys>, kkt_operator_commands::PartError> {
         Ok(self
             .0
-            .record()?
+            .record()
+            .map_err(|said| kkt_operator_commands::PartError(said.into()))?
             .as_ref()
             .map(kkt_install_commands::deployment::server_keys))
     }
-    fn unfinished(&self) -> Result<Option<kkt_deployment::UnfinishedSetup>, String> {
+    fn unfinished(
+        &self,
+    ) -> Result<Option<kkt_deployment::UnfinishedSetup>, kkt_operator_commands::PartError> {
         Ok(self
             .0
-            .unfinished()?
+            .unfinished()
+            .map_err(|said| kkt_operator_commands::PartError(said.into()))?
             .as_ref()
             .map(kkt_install_commands::deployment::unfinished_setup))
     }
     /// The reason a server cannot be made out, without how it runs, which
     /// the key lookups do not use.
-    fn unrecorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String> {
+    fn unrecorded(
+        &self,
+    ) -> Result<Option<kkt_deployment::ServerKeys>, kkt_operator_commands::PartError> {
         match self.0.unrecorded() {
             Ok(found) => Ok(found
                 .as_ref()
                 .map(kkt_install_commands::deployment::found_server_keys)),
-            Err((_, e)) => Err(e),
+            Err((_, said)) => Err(kkt_operator_commands::PartError(said.into())),
         }
     }
 }
@@ -265,7 +273,11 @@ impl<D> LaneServers for HereLanes<'_, '_, D> {
         db: Option<PathBuf>,
         config: Option<PathBuf>,
     ) -> Result<Box<dyn LaneServer + '_>, String> {
-        let deployment = self.installed.recorded()?.map(|keys| keys.deployment);
+        let deployment = self
+            .installed
+            .recorded()
+            .map_err(|e| e.to_string())?
+            .map(|keys| keys.deployment);
         let on = kkt_operator_commands::lanes::lanes_on(
             deployment.as_ref(),
             db.is_some() || config.is_some(),
@@ -323,22 +335,28 @@ impl<'a> ServeReads<'a> {
 }
 
 impl kkt_operator_commands::ServeConfig for ServeReads<'_> {
-    fn config(&self, file: Option<PathBuf>) -> Result<kkt_operator_commands::Config, String> {
-        let config = ServeFacts::config(self, file)?;
+    fn config(
+        &self,
+        file: Option<PathBuf>,
+    ) -> Result<kkt_operator_commands::Config, kkt_operator_commands::PartError> {
+        let config = ServeFacts::config(self, file)
+            .map_err(|said| kkt_operator_commands::PartError(said.into()))?;
         Ok(kkt_operator_commands::Config {
             db: config.db,
             max_lane_chars: config.max_lane_chars,
         })
     }
-    fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
+    fn configured_access_key(&self) -> Result<Option<PathBuf>, kkt_operator_commands::PartError> {
         ServeFacts::configured_access_key(self)
+            .map_err(|said| kkt_operator_commands::PartError(said.into()))
     }
     fn database(
         &self,
         given: Option<PathBuf>,
         from_config: Option<PathBuf>,
-    ) -> Result<PathBuf, String> {
+    ) -> Result<PathBuf, kkt_operator_commands::PartError> {
         ServeFacts::database(self, given, from_config)
+            .map_err(|said| kkt_operator_commands::PartError(said.into()))
     }
     fn default_access_key(&self) -> Option<PathBuf> {
         ServeFacts::default_access_key(self)
@@ -605,8 +623,8 @@ impl kkt_operator_commands::Databases for NativeDatabases {
     fn exists(&self, path: &Path) -> bool {
         kkt_db_sqlite::SqlitePlace::exists(path)
     }
-    fn open(&self, path: &Path) -> Result<kkt_rules::Db, String> {
-        super::database::open(path)
+    fn open(&self, path: &Path) -> Result<kkt_rules::Db, kkt_operator_commands::PartError> {
+        super::database::open(path).map_err(|said| kkt_operator_commands::PartError(said.into()))
     }
 }
 
