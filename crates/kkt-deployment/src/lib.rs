@@ -37,7 +37,7 @@ pub use lifecycle::{
     status_looks_for_unrecorded, upgrade_plan,
 };
 pub use service_plan::{Plan, PlanError, Request, ServiceSettings, plan};
-pub use upgrade::{Upgrade, upgrade};
+pub use upgrade::{Upgrade, UpgradeError, upgrade};
 
 use kkt_machine::{Env, Platform};
 use std::path::PathBuf;
