@@ -173,6 +173,7 @@ async fn run(
     let setup_lanes = native.setup_lanes();
     let install = native.install_parts(&setup_lanes);
     let installed = InstallReads::new(&install, env, platform);
+    let installed = kashkeshet::machine::native::InstalledOnThisMachine(&installed);
     let lane_servers = native.lane_servers(&installed);
     let operator = native.operator_parts(&installed, &lane_servers);
     let mut agents = agent_parts(env, platform, serve_args);

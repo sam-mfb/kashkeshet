@@ -140,13 +140,16 @@ impl<'a, 'p, C: ConnectionSource, D> InstallReads<'a, 'p, C, D> {
     }
 }
 
-impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::InstalledHere
-    for InstallReads<'_, '_, C, D>
-{
-    fn record(&self) -> Result<Option<setup::Record>, String> {
+/// The three reads of what is installed here. Each is made only when
+/// asked, so a caller that stops at the record reads nothing more.
+impl<C: ConnectionSource, D: crate::ServiceDefaults> InstallReads<'_, '_, C, D> {
+    /// This machine's setup record, if `kkt setup` wrote one.
+    pub fn record(&self) -> Result<Option<setup::Record>, String> {
         read_setup(self.env, self.parts.setup_files)
     }
-    fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
+    /// The note of a setup not finished, if the install it noted is still
+    /// here.
+    pub fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
         read_unfinished(
             self.env,
             self.parts.setup_files,
@@ -154,7 +157,10 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::InstalledHere
             self.parts.service,
         )
     }
-    fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
+    /// A server kkt installed here, in Docker or as a service, with no
+    /// record. An error says how the server it is about runs, and why it
+    /// cannot be made out.
+    pub fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
         read_unrecorded(self.parts, self.env, self.platform)
     }
 }

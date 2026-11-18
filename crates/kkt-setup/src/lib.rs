@@ -17,7 +17,6 @@ pub use program::{
     web_key_line,
 };
 mod flow;
-mod installed_here;
 mod local;
 mod record;
 mod switch;
@@ -32,7 +31,6 @@ pub use adopt::{
 };
 pub use ask::{Ask, Lines, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
-pub use installed_here::InstalledHere;
 pub use local::recorded_setup;
 pub use record::{DockerSetup, InstallCheck, Mode, Record, Server, TailscaleLogin, Unfinished};
 pub use switch::{Switch, SwitchSteps, Target, switch};
