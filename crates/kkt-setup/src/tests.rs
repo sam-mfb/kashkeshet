@@ -617,6 +617,11 @@ mod flow {
             }
             Ok("created reviewer (version 1)".into())
         }
+        /// Refuses a malformed key with kkt-keys' own check, as the
+        /// program's steps do.
+        fn check_typed_key(&self, key: &str) -> Result<(), String> {
+            kkt_keys::check_access_key(key).map_err(|e| e.to_string())
+        }
     }
 
     impl SwitchSteps for Fake {

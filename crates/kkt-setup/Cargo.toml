@@ -8,11 +8,15 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-keys = { path = "../kkt-keys" }
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-names = { path = "../kkt-names" }
 serde.workspace = true
 kkt-toml = { path = "../kkt-toml" }
+
+[dev-dependencies]
+# The test steps refuse a malformed typed key with kkt-keys' own check, as
+# the real steps do.
+kkt-keys = { path = "../kkt-keys" }
 
 [features]
 # `testing::DEFAULT_SETUP_URL` and `DEFAULT_SETUP_KEY`, the defaults Enter

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "0812d828",
+ "commit": "7696ba9b",
  "crates": [
   {
    "bins": [
@@ -16789,6 +16789,7 @@ window.KKT_GRAPH = {
       "add_admin_key",
       "allow_kkt",
       "check_lanes",
+      "check_typed_key",
       "detect_clients",
       "discard_key",
       "doctor",
@@ -24956,6 +24957,7 @@ window.KKT_GRAPH = {
     "KeyFiles",
     "admin_key_path",
     "bound_to",
+    "check_access_key",
     "web_key_path"
    ],
    "kind": "normal",
@@ -24967,6 +24969,7 @@ window.KKT_GRAPH = {
       "KeyFiles",
       "admin_key_path",
       "bound_to",
+      "check_access_key",
       "web_key_path"
      ],
      "role": "uses"
@@ -28499,27 +28502,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
-    "check_access_key"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "check_access_key"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-keys"
-  },
-  {
-   "features": [],
-   "from": "kkt-setup",
-   "items": [
     "Client"
    ],
    "kind": "normal",
@@ -28582,6 +28564,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-toml"
+  },
+  {
+   "features": [],
+   "from": "kkt-setup",
+   "items": [
+    "check_access_key"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "check_access_key"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
   },
   {
    "features": [],

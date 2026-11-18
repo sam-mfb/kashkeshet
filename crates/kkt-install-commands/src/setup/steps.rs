@@ -307,6 +307,16 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         // `check_lanes` warned of the skipped files before setup began.
         self.parts.import_lanes.import(record, folder)
     }
+
+    fn check_typed_key(&self, key: &str) -> Result<(), String> {
+        check_typed_key(key)
+    }
+}
+
+/// Checks that `key`, typed in for a client, is a valid access key, by
+/// kkt-keys' rule. Returns why not.
+fn check_typed_key(key: &str) -> Result<(), String> {
+    kkt_keys::check_access_key(key).map_err(|e| e.to_string())
 }
 
 impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
@@ -520,6 +530,22 @@ pub(crate) fn waiting_note(url: &str, mode: &setup::Mode) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_malformed_typed_key_is_refused_with_kkt_keys_words() {
+        assert_eq!(
+            super::check_typed_key("short"),
+            Err("access_key_file must hold a key of at least 32 characters".to_string())
+        );
+        assert_eq!(
+            super::check_typed_key("0123456789abcdef 0123456789abcdef"),
+            Err("access_key_file must hold only printable ASCII with no spaces".to_string())
+        );
+        assert_eq!(
+            super::check_typed_key("0123456789abcdefghijklmnopqrstuvwxyz"),
+            Ok(())
+        );
+    }
+
     #[test]
     fn the_client_key_names_and_the_waiting_note_are_pinned() {
         // The client key names, hash and all.
