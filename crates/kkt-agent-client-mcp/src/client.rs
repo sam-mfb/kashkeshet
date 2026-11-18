@@ -4,7 +4,8 @@ mod http;
 pub use http::{Http, HttpReply};
 
 mod watching;
-pub use watching::{AdminRemote, Remote};
+use watching::AdminRemote;
+pub use watching::Remote;
 
 use crate::Settings;
 use futures::future::BoxFuture;

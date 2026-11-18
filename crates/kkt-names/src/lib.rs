@@ -7,7 +7,7 @@ use kkt_entropy::Entropy;
 /// Characters used in channel IDs.
 const ID_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
-pub const CHANNEL_PREFIX: &str = "ch_";
+pub(crate) const CHANNEL_PREFIX: &str = "ch_";
 
 /// A pair of word lists built into the binary. Stored handles never
 /// depend on which pack is selected for future registrations.
@@ -53,7 +53,7 @@ pub fn is_operator(name: &str) -> bool {
 /// handles come from the name packs, whose words are never `admin`, and
 /// [`check_proposed_handle`] refuses it. So an admin agent can't be taken for
 /// an agent, or for the operator.
-pub const ADMIN_PREFIX: &str = "admin-";
+pub(crate) const ADMIN_PREFIX: &str = "admin-";
 
 /// The longest handle an agent may propose at `register`. Every handle
 /// the server draws, numbered forms included, fits too (tested below).

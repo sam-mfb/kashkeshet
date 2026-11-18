@@ -54,7 +54,11 @@ pub struct RotatingFile {
 impl RotatingFile {
     /// Opens `path` for appending, creating it and its folder if needed, and
     /// deletes rolled files that are past the policy's age.
-    pub fn open(path: &Path, policy: LogPolicy, clock: Arc<dyn Clock>) -> io::Result<RotatingFile> {
+    pub(crate) fn open(
+        path: &Path,
+        policy: LogPolicy,
+        clock: Arc<dyn Clock>,
+    ) -> io::Result<RotatingFile> {
         if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
             std::fs::create_dir_all(dir)?;
         }
