@@ -164,7 +164,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::InstalledHere
 pub fn read_unfinished(
     env: &Env,
     files: &dyn SetupFiles,
-    container: &dyn kkt_containerized_service::Container,
+    container: &dyn kkt_containerized_service::ServiceContainer,
     service: &dyn kkt_bare_service::Service,
 ) -> Result<Option<setup::Unfinished>, String> {
     let Some(config_dir) = kkt_config_file::config_dir(env.config_home().as_deref()) else {
