@@ -26,9 +26,7 @@ pub async fn run<C: ConnectionSource>(
     task: WatchTask,
 ) -> Result<ExitCode, String> {
     let server = if task.admin {
-        parts
-            .servers
-            .admin(client::admin(parts, task.connection)?, parts.clock.clone())
+        parts.servers.admin(client::admin(parts, task.connection)?)
     } else {
         let token = parts.credentials.token(task.token_file.as_deref())?;
         parts

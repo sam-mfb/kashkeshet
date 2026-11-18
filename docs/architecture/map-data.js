@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "22b10599",
+ "commit": "a9eaca6e",
  "crates": [
   {
    "bins": [
@@ -1258,6 +1258,7 @@ window.KKT_GRAPH = {
       "handle",
       "latest_id",
       "message",
+      "polls",
       "wait"
      ],
      "path": "Watched"
@@ -1426,10 +1427,9 @@ window.KKT_GRAPH = {
      "path": "Remote"
     },
     {
-     "doc": "How much the watch asks for at a time, and how often it asks the admin endpoint.",
+     "doc": "How much the watch asks for at a time.",
      "fields": [
-      "watch_batch",
-      "watch_admin_poll"
+      "watch_batch"
      ],
      "kind": "struct",
      "path": "Settings"
@@ -17094,7 +17094,8 @@ window.KKT_GRAPH = {
       "watch_wait",
       "watch_call_grace",
       "watch_retry_first",
-      "watch_retry_max"
+      "watch_retry_max",
+      "watch_poll"
      ],
      "kind": "struct",
      "path": "Settings"
@@ -20748,29 +20749,6 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-agent-client",
-   "items": [
-    "Clock"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Clock"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Time"
-   ],
-   "to": "kkt-clock"
-  },
-  {
-   "features": [],
    "from": "kkt-agent-client-mcp",
    "items": [
     "Address",
@@ -20815,29 +20793,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-agent-client"
-  },
-  {
-   "features": [],
-   "from": "kkt-agent-client-mcp",
-   "items": [
-    "Clock",
-    "Span"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Clock",
-      "Span"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-clock"
   },
   {
    "features": [],
