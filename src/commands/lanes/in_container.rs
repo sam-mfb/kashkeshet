@@ -1,10 +1,10 @@
 //! kkt installed in a container, as kkt-operator-commands' lane commands
-//! take it (`KktInContainer`): this program's container service, the
+//! take it (`ServerInContainer`): this program's container service, the
 //! folder kkt is installed in, and its reader of kkt's config file.
 
 use kkt_container::Folder;
 use kkt_containerized_service::{Arg, Carry, ConfigReader, InServer, ServiceContainer};
-use kkt_operator_commands::lanes::{Carried, KktArg, KktInContainer};
+use kkt_operator_commands::lanes::{Carried, RunArg, ServerInContainer};
 use std::path::Path;
 
 /// kkt in the container installed in `folder`.
@@ -15,18 +15,18 @@ pub(crate) struct LanesInContainer<'a> {
     pub(crate) folder: Folder,
 }
 
-impl KktInContainer for LanesInContainer<'_> {
+impl ServerInContainer for LanesInContainer<'_> {
     fn run_kkt(
         &self,
-        args: &[KktArg],
+        args: &[RunArg],
         folder_prefix: &str,
         carry: Carried,
     ) -> Result<String, String> {
         let args: Vec<Arg> = args
             .iter()
             .map(|arg| match arg {
-                KktArg::Text(text) => Arg::Text(text.clone()),
-                KktArg::WorkFolder => Arg::Folder,
+                RunArg::Text(text) => Arg::Text(text.clone()),
+                RunArg::WorkFolder => Arg::Folder,
             })
             .collect();
         let carry = match carry {

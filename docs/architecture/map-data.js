@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "b811373a",
+ "commit": "ce278525",
  "crates": [
   {
    "bins": [
@@ -243,15 +243,15 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
-     "trait": "lanes::KktInContainer",
-     "trait_crate": "kkt-operator-commands",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
      "trait": "lanes::LaneServers",
      "trait_crate": "kkt-operator-commands",
      "type": "machine::native::HereLanes"
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "lanes::ServerInContainer",
+     "trait_crate": "kkt-operator-commands",
+     "type": null
     },
     {
      "crate": "kashkeshet",
@@ -12252,15 +12252,6 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kashkeshet",
-       "type": null
-      }
-     ],
-     "trait": "lanes::KktInContainer"
-    },
-    {
-     "implementors": [
-      {
        "crate": "kkt-operator-commands",
        "type": "lanes::ContainerLanes"
       },
@@ -12279,6 +12270,15 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "lanes::LaneServers"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "lanes::ServerInContainer"
     }
    ],
    "crate_doc": "The operator's commands on this machine's server: `kkt key` (create, header, show), `kkt lanes` (export, import) and `kkt agent` (list, revoke), and the lane import and check that `kkt setup` asks for.",
@@ -12368,7 +12368,7 @@ window.KKT_GRAPH = {
      "holds": [
       {
        "crate": "kkt-operator-commands",
-       "trait": "lanes::KktInContainer"
+       "trait": "lanes::ServerInContainer"
       },
       {
        "crate": "kkt-operator-commands",
@@ -12625,26 +12625,6 @@ window.KKT_GRAPH = {
      "path": "lanes::ContainerLanes"
     },
     {
-     "doc": "One argument to kkt's program in the container.",
-     "kind": "enum",
-     "path": "lanes::KktArg",
-     "variants": [
-      "Text",
-      "WorkFolder"
-     ]
-    },
-    {
-     "doc": "kkt installed in a container, as the lane commands use it.",
-     "kind": "trait",
-     "methods": [
-      "config_file",
-      "installed",
-      "lane_limit_in",
-      "run_kkt"
-     ],
-     "path": "lanes::KktInContainer"
-    },
-    {
      "doc": "What a `LaneServer` gives back, in time.",
      "kind": "type",
      "path": "lanes::LaneFuture"
@@ -12703,6 +12683,26 @@ window.KKT_GRAPH = {
       "new"
      ],
      "path": "lanes::LocalLanes"
+    },
+    {
+     "doc": "One argument to kkt's program in the container.",
+     "kind": "enum",
+     "path": "lanes::RunArg",
+     "variants": [
+      "Text",
+      "WorkFolder"
+     ]
+    },
+    {
+     "doc": "kkt installed in a container, as the lane commands use it.",
+     "kind": "trait",
+     "methods": [
+      "config_file",
+      "installed",
+      "lane_limit_in",
+      "run_kkt"
+     ],
+     "path": "lanes::ServerInContainer"
     },
     {
      "doc": "Reads the lane files in `folder` and checks them as an import into `server`, the server `kkt setup` sets up, would, changing nothing: against that server's lane limit.",
@@ -13401,7 +13401,7 @@ window.KKT_GRAPH = {
      "traits": [
       {
        "crate": "kkt-operator-commands",
-       "trait": "lanes::KktInContainer"
+       "trait": "lanes::ServerInContainer"
       }
      ]
     },
@@ -19922,13 +19922,13 @@ window.KKT_GRAPH = {
     "lanes",
     "lanes::Carried",
     "lanes::ContainerLanes",
-    "lanes::KktArg",
-    "lanes::KktInContainer",
     "lanes::LaneServer",
     "lanes::LaneServers",
     "lanes::LanesAction",
     "lanes::LanesOn",
     "lanes::LocalLanes",
+    "lanes::RunArg",
+    "lanes::ServerInContainer",
     "lanes::check_lanes_for_setup",
     "lanes::import_lanes_for_setup",
     "lanes::lanes_on",
@@ -19944,8 +19944,8 @@ window.KKT_GRAPH = {
       "a type of its own implements Output",
       "a type of its own implements Paths",
       "a type of its own implements ServeConfig",
-      "a type of its own implements lanes::KktInContainer",
-      "machine::native::HereLanes implements lanes::LaneServers"
+      "machine::native::HereLanes implements lanes::LaneServers",
+      "a type of its own implements lanes::ServerInContainer"
      ],
      "role": "adapts"
     },
@@ -19961,9 +19961,9 @@ window.KKT_GRAPH = {
       "keys::selected_key_path",
       "lanes",
       "lanes::Carried",
-      "lanes::KktArg",
       "lanes::LanesAction",
       "lanes::LanesOn",
+      "lanes::RunArg",
       "lanes::check_lanes_for_setup",
       "lanes::import_lanes_for_setup",
       "lanes::lanes_on",

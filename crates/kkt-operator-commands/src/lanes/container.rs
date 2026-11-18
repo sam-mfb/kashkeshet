@@ -21,13 +21,13 @@ const LANES_EXPORT_FOLDER: &str = "/tmp/kkt-lanes-export";
 /// kkt installed in a container, as the lane commands use it. The program
 /// adapts its container, the folder kkt is installed in and its reader of
 /// kkt's config file to it.
-pub trait KktInContainer {
+pub trait ServerInContainer {
     /// Runs kkt's own program in the container with `args`, in a work
     /// folder of its own whose name starts with `folder_prefix`, carrying
     /// files in or out as `carry` says; what it printed.
     fn run_kkt(
         &self,
-        args: &[KktArg],
+        args: &[RunArg],
         folder_prefix: &str,
         carry: Carried,
     ) -> Result<String, String>;
@@ -43,7 +43,7 @@ pub trait KktInContainer {
 
 /// One argument to kkt's program in the container.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum KktArg {
+pub enum RunArg {
     Text(String),
     /// The run's own work folder.
     WorkFolder,
@@ -60,7 +60,7 @@ pub enum Carried {
 
 /// The lanes of kkt installed in a container.
 pub struct ContainerLanes<'a> {
-    pub container: Box<dyn KktInContainer + 'a>,
+    pub container: Box<dyn ServerInContainer + 'a>,
     /// Makes an export's folder absolute, as the person typed it here.
     pub paths: &'a dyn Paths,
     pub output: &'a dyn Output,
@@ -74,7 +74,7 @@ impl LaneServer for ContainerLanes<'_> {
                 .absolute(dest)
                 .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
             let said = self.container.run_kkt(
-                &[text("lanes"), text("export"), KktArg::WorkFolder],
+                &[text("lanes"), text("export"), RunArg::WorkFolder],
                 LANES_EXPORT_FOLDER,
                 Carried::Out(dest.clone()),
             )?;
@@ -105,12 +105,12 @@ impl LaneServer for ContainerLanes<'_> {
             let mut args = vec![
                 text("lanes"),
                 text("import"),
-                KktArg::WorkFolder,
+                RunArg::WorkFolder,
                 text("--source-folder"),
-                KktArg::Text(lanes.read.folder.display().to_string()),
+                RunArg::Text(lanes.read.folder.display().to_string()),
             ];
             if let Some(commit) = lanes.read.commit {
-                args.extend([text("--source-commit"), KktArg::Text(commit)]);
+                args.extend([text("--source-commit"), RunArg::Text(commit)]);
             }
             if lanes.retire_missing {
                 args.push(text("--retire-missing"));
@@ -140,8 +140,8 @@ impl LaneServer for ContainerLanes<'_> {
     }
 }
 
-fn text(text: &str) -> KktArg {
-    KktArg::Text(text.into())
+fn text(text: &str) -> RunArg {
+    RunArg::Text(text.into())
 }
 
 /// The lane limit of kkt in a container: `default` when the folder holds
@@ -192,7 +192,7 @@ mod tests {
 
     /// One run of kkt in the container: its arguments, its work folder's
     /// prefix and what it carried.
-    type RunKkt = (Vec<KktArg>, String, Carried);
+    type RunKkt = (Vec<RunArg>, String, Carried);
 
     /// kkt in a container, in memory: installed or not, every run printing
     /// `said`, and a config file (none is an empty one, as a container with
@@ -206,10 +206,10 @@ mod tests {
         config_reads: RefCell<usize>,
     }
 
-    impl KktInContainer for &Stand {
+    impl ServerInContainer for &Stand {
         fn run_kkt(
             &self,
-            args: &[KktArg],
+            args: &[RunArg],
             folder_prefix: &str,
             carry: Carried,
         ) -> Result<String, String> {
@@ -297,7 +297,7 @@ mod tests {
         assert_eq!(
             *stand.runs.borrow(),
             [(
-                vec![text("lanes"), text("export"), KktArg::WorkFolder],
+                vec![text("lanes"), text("export"), RunArg::WorkFolder],
                 "/tmp/kkt-lanes-export".to_string(),
                 Carried::Out("/home/me/out".into()),
             )]
@@ -330,7 +330,7 @@ mod tests {
                     vec![
                         text("lanes"),
                         text("import"),
-                        KktArg::WorkFolder,
+                        RunArg::WorkFolder,
                         text("--source-folder"),
                         text("/home/me/lanes"),
                         text("--source-commit"),
@@ -350,7 +350,7 @@ mod tests {
                     vec![
                         text("lanes"),
                         text("import"),
-                        KktArg::WorkFolder,
+                        RunArg::WorkFolder,
                         text("--source-folder"),
                         text("/home/me/lanes"),
                     ],
