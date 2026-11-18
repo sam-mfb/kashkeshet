@@ -1532,6 +1532,7 @@ dependencies = [
  "kkt-toml",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
