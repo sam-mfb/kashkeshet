@@ -12,7 +12,7 @@ mod host;
 mod order;
 mod permissions;
 
-pub use command::ClientCommand;
+pub use command::{ClientCommand, CommandError, CommandFailure};
 pub use error::{
     ClientConfigError, Encoded, FileAction, Folder, Shape, Text, TomlProblem, Unresolved,
 };
