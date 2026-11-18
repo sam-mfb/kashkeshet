@@ -10,6 +10,10 @@ const COMPOSE_TAILSCALE: &str = include_str!("../../../compose.tailscale.yaml");
 /// Tailscale's serve settings, for an install shared over Tailscale.
 const SERVE: &str = include_str!("../../../tailscale/serve.json");
 
+/// The service of a shared install's Compose file that shares the server:
+/// its Tailscale container.
+pub(crate) const SHARING: &str = "tailscale";
+
 /// The file Compose reads its settings from, in the managed folder.
 pub(crate) const ENV_FILE: &str = ".env";
 

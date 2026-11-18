@@ -12,8 +12,8 @@
 //! sharing node's login, and the server's key copies on this machine. It
 //! touches the machine only through `Projects` and kkt-keys' `KeyFiles`,
 //! for the key copies, and takes the tool's name and how its commands are typed
-//! from it. What the sharing node's status
-//! answer means comes from the `SharingNode` it is given.
+//! from it. The command that asks the sharing node for its status, and
+//! what the answer means, come from the `SharingNode` it is given.
 
 mod admin_key;
 mod backup;
@@ -80,9 +80,12 @@ pub trait Browser {
     fn open_failure(&self) -> Option<String>;
 }
 
-/// Reads what the node that shares the server says of itself, whatever
-/// shares it.
+/// Asks and reads what the node that shares the server says of itself,
+/// whatever shares it.
 pub trait SharingNode {
+    /// The command, run in the sharing service, whose answer the two
+    /// methods below read.
+    fn status_command(&self) -> Vec<String>;
     /// What the node's status answer, `answer`, says of its login, or
     /// `None` when the answer cannot be read.
     fn login(&self, answer: &str) -> Option<NodeLogin>;

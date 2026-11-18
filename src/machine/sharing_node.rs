@@ -11,6 +11,10 @@ use kkt_remote_access_tailscale::Tailscale;
 pub struct TailscaleNode;
 
 impl SharingNode for TailscaleNode {
+    fn status_command(&self) -> Vec<String> {
+        Tailscale::STATUS_COMMAND.map(String::from).to_vec()
+    }
+
     fn login(&self, answer: &str) -> Option<NodeLogin> {
         let status = Tailscale::read_status(answer).ok()?;
         Some(login(&status))

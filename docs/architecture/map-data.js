@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "d7da1581",
+ "commit": "f54531b9",
  "crates": [
   {
    "bins": [
@@ -5403,11 +5403,12 @@ window.KKT_GRAPH = {
      "path": "Sharing"
     },
     {
-     "doc": "Reads what the node that shares the server says of itself, whatever shares it.",
+     "doc": "Asks and reads what the node that shares the server says of itself, whatever shares it.",
      "kind": "trait",
      "methods": [
       "login",
-      "status"
+      "status",
+      "status_command"
      ],
      "path": "SharingNode"
     },
