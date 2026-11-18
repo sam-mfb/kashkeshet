@@ -161,7 +161,7 @@ class HeaderProblems(unittest.TestCase):
 
     def test_the_plainer_marks_of_history_are_found_too(self):
         for text in ["Kept as before.", "It used to be part of kkt-web.", "It no longer logs.",
-                     "In the established order."]:
+                     "In the established order.", "Previously in kkt-web.", "Originally one crate."]:
             self.assertEqual(len(self.found({"kkt-a": f"//! Files.\n//! {text}\nmod x;\n"})), 1, text)
 
     def test_the_root_packages_library_and_binaries_are_read(self):

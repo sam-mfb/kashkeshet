@@ -50,7 +50,7 @@ PUBLIC_NAME = re.compile(
 DOC_WORD = re.compile(r"\b(kkt|kashkeshet)\b(?![-_])", re.IGNORECASE)
 DOC_LINE = re.compile(r"^\s*//[/!](.*)$")
 HISTORY = re.compile(r"\bwas kkt-|\bformerly\b|ARCHITECTURE\.md|RUST\.md|#\d+|\bphase \d+|"
-                     r"\bas before\b|\bused to\b|\bno longer\b|\bestablished\b", re.IGNORECASE)
+                     r"\bas before\b|\bused to\b|\bno longer\b|\bestablished\b|\bpreviously\b|\boriginally\b", re.IGNORECASE)
 # A description says what a crate is and does, not what it is not.
 NEGATIVE = re.compile(r"\bnot\b|\bnever\b|\bnothing\b|\bcannot\b|n['’]t\b", re.IGNORECASE)
 # One to three short sentences: room for the longest descriptions that keep
