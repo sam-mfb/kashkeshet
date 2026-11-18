@@ -24,7 +24,8 @@ carry the plainest marks of history (HISTORY) or the plainest negatives
 (NEGATIVE). A crate's description is one to three short sentences, so one
 longer than MAX_DESCRIPTION characters fails.
 
-Each crate's header, the `//!` lines that open its lib.rs (or main.rs), keeps
+Each crate's header, the `//!` lines that open its lib.rs or main.rs (for the
+root package, its src/lib.rs and each binary's main.rs), keeps
 to the same rules: no line of it carries the marks of history, and its
 first sentence, which the map shows, says no plain negative. The rest of
 a header may say what its code does not do, such as a refusal a rule
@@ -48,7 +49,8 @@ PUBLIC_NAME = re.compile(
 # crate's name, such as `kkt-log` or `kkt_log::Log`.
 DOC_WORD = re.compile(r"\b(kkt|kashkeshet)\b(?![-_])", re.IGNORECASE)
 DOC_LINE = re.compile(r"^\s*//[/!](.*)$")
-HISTORY = re.compile(r"\bwas kkt-|\bformerly\b|ARCHITECTURE\.md|RUST\.md|#\d+|\bphase \d+", re.IGNORECASE)
+HISTORY = re.compile(r"\bwas kkt-|\bformerly\b|ARCHITECTURE\.md|RUST\.md|#\d+|\bphase \d+|"
+                     r"\bas before\b|\bused to\b|\bno longer\b|\bestablished\b", re.IGNORECASE)
 # A description says what a crate is and does, not what it is not.
 NEGATIVE = re.compile(r"\bnot\b|\bnever\b|\bnothing\b|\bcannot\b|n['’]t\b", re.IGNORECASE)
 # One to three short sentences: room for the longest descriptions that keep
@@ -218,22 +220,31 @@ def header_problems(root):
     concerns = json.loads((root / "docs/architecture/concerns.json").read_text())
     found = []
     for name in sorted(concerns["crates"]):
-        for path in (root / "crates" / name / "src/lib.rs", root / "crates" / name / "src/main.rs",
-                     root / "programs" / name / "src/lib.rs", root / "programs" / name / "src/main.rs"):
-            if path.exists():
-                break
-        else:
-            continue
-        lines = header(path.read_text())
-        where = str(path.relative_to(root))
-        for number, line in enumerate(lines, start=1):
-            history = HISTORY.search(line)
-            if history:
-                found.append(f"{where}:{number}: the crate's header gives history: {history.group(0)}")
-        negative = NEGATIVE.search(first_sentence(lines))
-        if negative:
-            found.append(f"{where}: the crate's header begins with what it is not: {negative.group(0)}")
+        places = [root / "crates" / name / "src/lib.rs", root / "crates" / name / "src/main.rs",
+                  root / "programs" / name / "src/lib.rs", root / "programs" / name / "src/main.rs"]
+        if crate_at_root(root) == name:
+            # The root package: its library and its binaries.
+            places = [root / "src/lib.rs"] + sorted((root / "src/bin").glob("*/main.rs"))
+        for path in [p for p in places if p.exists()]:
+            lines = header(path.read_text())
+            where = str(path.relative_to(root))
+            for number, line in enumerate(lines, start=1):
+                history = HISTORY.search(line)
+                if history:
+                    found.append(f"{where}:{number}: the crate's header gives history: {history.group(0)}")
+            negative = NEGATIVE.search(first_sentence(lines))
+            if negative:
+                found.append(f"{where}: the crate's header begins with what it is not: {negative.group(0)}")
     return found
+
+
+def crate_at_root(root):
+    """The name of the package at the workspace's root, if it has one."""
+    manifest = root / "Cargo.toml"
+    if not manifest.exists():
+        return None
+    found = re.search(r'^\[package\][^\[]*?^name\s*=\s*"([^"]+)"', manifest.read_text(), re.MULTILINE | re.DOTALL)
+    return found.group(1) if found else None
 
 
 def problems(root):

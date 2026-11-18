@@ -159,6 +159,24 @@ class HeaderProblems(unittest.TestCase):
         self.assertEqual(self.found({"kkt-a": "//! Files. A missing one is not an error.\n//!\n"
                                               "//! It does not log.\nmod x;\n"}), [])
 
+    def test_the_plainer_marks_of_history_are_found_too(self):
+        for text in ["Kept as before.", "It used to be part of kkt-web.", "It no longer logs.",
+                     "In the established order."]:
+            self.assertEqual(len(self.found({"kkt-a": f"//! Files.\n//! {text}\nmod x;\n"})), 1, text)
+
+    def test_the_root_packages_library_and_binaries_are_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "docs/architecture").mkdir(parents=True)
+            (root / "docs/architecture/concerns.json").write_text(json.dumps({"crates": {"app": {"layer": "program"}}}))
+            (root / "Cargo.toml").write_text('[package]\nname = "app"\n\n[workspace]\n')
+            (root / "src/bin/app").mkdir(parents=True)
+            (root / "src/lib.rs").write_text("//! The app, never a library.\n")
+            (root / "src/bin/app/main.rs").write_text("//! The command.\n//! Split out in #12.\n")
+            self.assertEqual(check.header_problems(root), [
+                "src/lib.rs: the crate's header begins with what it is not: never",
+                "src/bin/app/main.rs:2: the crate's header gives history: #12"])
+
     def test_only_the_opening_lines_are_the_header(self):
         self.assertEqual(self.found({"kkt-a": "//! Files.\n\nmod x;\n//! Was in #1.\n"}), [])
 
