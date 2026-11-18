@@ -621,3 +621,108 @@ impl kkt_install_commands::ConfigText for NativeConfigText {
             .map_err(|e| e.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::machine::settings::{TEST_PLATFORM, test_env};
+    use crate::scratch;
+
+    /// The host edit `kkt setup` makes to the config file: each text given,
+    /// with what it becomes or why it is refused.
+    const HOST_EDITS: [(&str, Result<&str, &str>); 6] = [
+        ("", Ok("allow_hosts = [\"h.example\"]\n")),
+        (
+            "# mine\nbind = \"127.0.0.1:7420\"\n",
+            Ok("# mine\nbind = \"127.0.0.1:7420\"\nallow_hosts = [\"h.example\"]\n"),
+        ),
+        (
+            "allow_hosts = [\"h.example\"]\n",
+            Ok("allow_hosts = [\"h.example\"]\n"),
+        ),
+        (
+            "allow_hosts = [\"a.example\"] # kept\n",
+            Ok("allow_hosts = [\"a.example\", \"h.example\"] # kept\n"),
+        ),
+        (
+            "allow_hosts = [",
+            Err("config is not valid TOML: unclosed array, expected `]`"),
+        ),
+        (
+            "allow_hosts = \"x\"\n",
+            Err("allow_hosts in the config file must be a list"),
+        ),
+    ];
+
+    /// The config folder, the config file and the config file's path under a
+    /// config home, which the install's and the operator's commands use.
+    #[test]
+    fn the_config_paths_the_commands_use_are_pinned() {
+        let env = test_env(Some(Path::new("/h")));
+        let config_home = env.config_home();
+        assert_eq!(
+            kkt_config_file::config_dir(config_home.as_deref()),
+            Some(PathBuf::from("/h/.config/kkt"))
+        );
+        assert_eq!(
+            kkt_config_file::config_file(config_home.as_deref()),
+            Some(PathBuf::from("/h/.config/kkt/config.toml"))
+        );
+        assert_eq!(
+            kkt_config_file::config_file_in_home(),
+            PathBuf::from("kkt/config.toml")
+        );
+        let homeless = test_env(None);
+        assert_eq!(
+            kkt_config_file::config_dir(homeless.config_home().as_deref()),
+            None
+        );
+        assert_eq!(
+            kkt_config_file::config_file(homeless.config_home().as_deref()),
+            None
+        );
+    }
+
+    #[test]
+    fn the_host_edit_is_pinned() {
+        for (text, edited) in HOST_EDITS {
+            assert_eq!(
+                kkt_config_file::with_allowed_host(text, "h.example").map_err(|e| e.to_string()),
+                edited.map(str::to_string).map_err(str::to_string),
+                "{text:?}"
+            );
+        }
+    }
+
+    /// The setup record, written and read over this program's parts, is in
+    /// the config folder; with no home there is none to read, and none can
+    /// be written.
+    #[test]
+    fn the_setup_record_is_in_the_config_folder() {
+        let home = scratch::Dir::new("native-record-place");
+        let env = test_env(Some(&home));
+        let record = kkt_setup::Record {
+            mode: kkt_setup::Mode::Client,
+            written_by: "0.10.0".into(),
+            url: "https://kkt.example/mcp".into(),
+            key_file: None,
+            clients: None,
+        };
+        kkt_install_commands::record::write_setup_record(&env, &NativeSetupFiles, &record)
+            .expect("written");
+        assert!(home.join(".config/kkt/setup.toml").is_file());
+        assert_eq!(
+            kkt_install_commands::record::read_setup(&env, &NativeSetupFiles),
+            Ok(Some(record.clone()))
+        );
+        let homeless = test_env(None);
+        assert_eq!(
+            kkt_install_commands::record::read_setup(&homeless, &NativeSetupFiles),
+            Ok(None)
+        );
+        assert_eq!(
+            kkt_install_commands::record::write_setup_record(&homeless, &NativeSetupFiles, &record),
+            Err("set HOME to keep the setup record".to_string())
+        );
+    }
+}
