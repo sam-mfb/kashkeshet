@@ -38,7 +38,7 @@ pub use ask::{Ask, Lines, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use installed_here::InstalledHere;
 pub use key_finders::{KeyReads, OperatorKeyReads, find_here, find_key, find_operator_key};
-pub use key_writes::{admin_name_line, new_key_file, write_admin_name, write_key_file};
+pub use key_writes::{new_key_file, write_admin_name, write_key_file};
 pub use keys::{
     Here, KeyKind, KeyPlace, KeysOff, admin_key_collision, configured_key, create_asks_for_docker,
     create_checks, create_destination_check, docker_key_copies, operator_key, recorded_key,

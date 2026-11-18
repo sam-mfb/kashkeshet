@@ -8,8 +8,6 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-# The admin-name lines key_writes gives, until the key writes move there.
-kkt-deployment = { path = "../kkt-deployment" }
 kkt-keys = { path = "../kkt-keys" }
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-containerized-service = { path = "../kkt-containerized-service" }
@@ -23,7 +21,3 @@ kkt-toml = { path = "../kkt-toml" }
 # `testing::DEFAULT_SETUP_URL` and `DEFAULT_SETUP_KEY`, the defaults Enter
 # accepts for a client, for other crates' tests.
 testing = []
-
-[dev-dependencies]
-# Key files in memory, for the admin-name lines' pins.
-kkt-keys = { path = "../kkt-keys", features = ["testing"] }

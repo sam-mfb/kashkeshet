@@ -270,7 +270,12 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                                 path,
                                 false,
                             )?;
-                            write_admin_name(self.parts.key_files, path, &key, Some(name)).map(drop)
+                            kkt_deployment::admin_name_written(
+                                path,
+                                Some(&name.to_string()),
+                                write_admin_name(self.parts.key_files, path, &key, Some(name)),
+                            )
+                            .map(drop)
                         })
                     })
                     .map_err(|e| e.to_string())?;

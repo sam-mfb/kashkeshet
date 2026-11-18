@@ -11,3 +11,8 @@ publish = false
 kkt-keys = { path = "../kkt-keys" }
 kkt-machine = { path = "../kkt-machine" }
 semver.workspace = true
+
+[dev-dependencies]
+# Key files in memory and admin names, for the admin-name lines' pins.
+kkt-keys = { path = "../kkt-keys", features = ["testing"] }
+kkt-names = { path = "../kkt-names" }
