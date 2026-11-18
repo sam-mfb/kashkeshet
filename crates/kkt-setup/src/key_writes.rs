@@ -64,3 +64,93 @@ pub fn write_key_file(
 ) -> Result<(), String> {
     files.write_key(path, key, force)
 }
+
+#[cfg(test)]
+mod tests {
+    //! Every line a person is told about an admin key's name, pinned byte
+    //! for byte: `kkt status`, `kkt key show` and `kkt key create` print
+    //! these.
+
+    use super::*;
+    use kkt_keys::testing::Memory;
+
+    const KEY: &str = "the-admin-key";
+
+    fn name(text: &str) -> AdminName {
+        AdminName::new(text, kkt_names::MAX_ADMIN_NAME_CHARS).expect("a name")
+    }
+
+    #[test]
+    fn the_admin_name_lines_say_what_they_always_said() {
+        let path = Path::new("/k/admin-key");
+        let named = Memory::new().with_dir("/k");
+        write_admin_name(&named, path, KEY, Some(&name("sentinel"))).expect("written");
+        let other = Memory::new().with_dir("/k");
+        write_admin_name(&other, path, "another-key", Some(&name("sentinel"))).expect("written");
+        let lines: Vec<_> = [&named, &Memory::new(), &other]
+            .into_iter()
+            .map(|files| admin_name_line(files, path, KEY, "admin name").expect("read"))
+            .collect();
+        assert_eq!(
+            lines,
+            [
+                Some("admin name: admin-sentinel".to_string()),
+                Some(
+                    "admin name: none, so the key may only read; `kkt key create --admin \
+                     --force --name <name>` makes a named one"
+                        .to_string()
+                ),
+                Some(
+                    "admin name: none, so the key may only read: /k/admin-key.name names a \
+                     different key; `kkt key create --admin --force --name <name>` makes a \
+                     named one"
+                        .to_string()
+                ),
+            ]
+        );
+        // A Docker setup's host copy keeps no name beside it.
+        let copy = Path::new("/k").join(kkt_keys::ADMIN_KEY_COPY_FILE_NAME);
+        assert_eq!(admin_name_line(&named, &copy, KEY, "Admin name"), Ok(None));
+    }
+
+    #[test]
+    fn writing_a_name_says_what_it_always_said() {
+        let path = Path::new("/k/admin-key");
+        let files = Memory::new().with_dir("/k");
+        assert_eq!(
+            write_admin_name(&files, path, KEY, Some(&name("sentinel"))),
+            Ok(
+                "Its admin agent is named admin-sentinel: its changes are announced as \
+                \"operator (via admin-sentinel)\"."
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            write_admin_name(&files, path, KEY, None),
+            Ok(
+                "It has no name, so it may only read. To let it make changes, make it again \
+                with --force --name <name>."
+                    .to_string()
+            )
+        );
+        let failing = Memory::new().with_dir("/k").failing("/k/admin-key.name");
+        assert_eq!(
+            write_admin_name(&failing, path, KEY, Some(&name("sentinel"))),
+            Err(
+                "the key was written, but its name could not be: could not write \
+                 /k/admin-key.name: refused. It has no name, so it may only read. To let \
+                 it make changes, make it again with --force --name <name>."
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            write_admin_name(&failing, path, KEY, None),
+            Ok(
+                "It has no name, so it may only read. To let it make changes, make it again \
+                with --force --name <name>. The name file of an earlier key, \
+                /k/admin-key.name, could not be removed (refused); it does not name this key."
+                    .to_string()
+            )
+        );
+    }
+}
