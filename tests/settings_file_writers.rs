@@ -129,9 +129,11 @@ fn both(name: &str, prepare: impl Fn(&Path), texts: &[&str]) -> (Outcome, Outcom
             break;
         }
     }
+    // The scratch folder differs from run to run; the texts name it `<dir>`.
+    let here = new_folder.display().to_string();
     let errors = Errors {
-        old: old_error,
-        new: new_error,
+        old: old_error.map(|e| e.replace(&here, "<dir>")),
+        new: new_error.map(|e| e.replace(&here, "<dir>")),
     };
     eprintln!("{name}: {errors:?}");
     (
@@ -159,6 +161,35 @@ fn with_settings(text: &'static str, mode: u32) -> impl Fn(&Path) {
     }
 }
 
+/// The mode the settings file is left at: only its owner may read it.
+#[cfg(unix)]
+const PRIVATE: u32 = 0o600;
+#[cfg(not(unix))]
+const PRIVATE: u32 = 0;
+
+/// A settings file written with `text`, private.
+fn written(text: &str) -> Outcome {
+    Outcome {
+        worked: true,
+        left: Left::File {
+            bytes: text.as_bytes().to_vec(),
+            mode: PRIVATE,
+        },
+    }
+}
+
+/// Whether this process may write a file its mode makes read-only, as the
+/// superuser may.
+#[cfg(unix)]
+fn may_write_read_only_files() -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = scratch::Dir::new("kkt-settings-writers-probe");
+    let path = dir.path().join("probe");
+    std::fs::write(&path, "").unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400)).unwrap();
+    std::fs::OpenOptions::new().write(true).open(&path).is_ok()
+}
+
 fn empty_folder(folder: &Path) {
     std::fs::create_dir_all(folder).unwrap();
 }
@@ -169,6 +200,8 @@ fn a_new_settings_file_is_the_same_from_both_writers() {
     assert!(old.worked);
     assert_eq!(old, new);
     assert_eq!(errors.old, errors.new);
+    assert_eq!(new, written(SETTINGS));
+    assert_eq!(errors.new, None);
 }
 
 #[cfg(unix)]
@@ -178,6 +211,8 @@ fn an_upgraded_settings_file_is_the_same_from_both_writers() {
     assert!(old.worked);
     assert_eq!(old, new);
     assert_eq!(errors.old, errors.new);
+    assert_eq!(new, written(UPGRADED));
+    assert_eq!(errors.new, None);
 }
 
 #[cfg(unix)]
@@ -200,6 +235,8 @@ fn a_settings_file_put_back_after_a_failed_pull_is_the_same_from_both_writers() 
             mode: 0o600
         }
     );
+    assert_eq!(new, written(SETTINGS));
+    assert_eq!(errors.new, None);
 }
 
 #[cfg(unix)]
@@ -209,6 +246,8 @@ fn a_settings_file_others_may_read_is_made_private_by_both_writers() {
     assert!(old.worked);
     assert_eq!(old, new);
     assert_eq!(errors.old, errors.new);
+    assert_eq!(new, written(UPGRADED));
+    assert_eq!(errors.new, None);
 }
 
 #[cfg(unix)]
@@ -217,6 +256,25 @@ fn a_read_only_settings_file_ends_the_same_from_both_writers() {
     let (old, new, errors) = both("read-only", with_settings(SETTINGS, 0o400), &[UPGRADED]);
     assert_eq!(old, new);
     assert_eq!(errors.old, errors.new);
+    if may_write_read_only_files() {
+        assert_eq!(new, written(UPGRADED));
+        assert_eq!(errors.new, None);
+    } else {
+        assert_eq!(
+            new,
+            Outcome {
+                worked: false,
+                left: Left::File {
+                    bytes: SETTINGS.as_bytes().to_vec(),
+                    mode: 0o400
+                },
+            }
+        );
+        assert_eq!(
+            errors.new.as_deref(),
+            Some("could not write <dir>/.env: Permission denied (os error 13)")
+        );
+    }
 }
 
 #[test]
@@ -227,6 +285,11 @@ fn a_settings_file_whose_folder_is_missing_fails_alike_and_leaves_nothing() {
     assert_eq!(new.left, Left::Nothing);
     assert!(errors.new.is_some());
     assert_eq!(errors.old, errors.new);
+    assert!(!new.worked);
+    assert_eq!(
+        errors.new.as_deref(),
+        Some("could not write <dir>/.env: No such file or directory (os error 2)")
+    );
 }
 
 #[test]
@@ -241,4 +304,9 @@ fn a_settings_file_that_is_a_folder_fails_alike_and_leaves_the_folder() {
     assert_eq!(new.left, Left::Folder);
     assert!(errors.new.is_some());
     assert_eq!(errors.old, errors.new);
+    assert!(!new.worked);
+    assert_eq!(
+        errors.new.as_deref(),
+        Some("could not write <dir>/.env: Is a directory (os error 21)")
+    );
 }

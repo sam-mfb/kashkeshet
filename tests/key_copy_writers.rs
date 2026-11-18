@@ -77,6 +77,12 @@ fn both(name: &str, prepare: impl Fn(&Path) -> PathBuf) -> (Outcome, Outcome, Er
             .map(|e| format!("could not write {}: {e}", new_path.display())),
         new: new.as_ref().err().cloned(),
     };
+    // The scratch folder differs from run to run; the texts name it `<dir>`.
+    let here = dir.path().join("new").display().to_string();
+    let errors = Errors {
+        old: errors.old.map(|e| e.replace(&here, "<dir>")),
+        new: errors.new.map(|e| e.replace(&here, "<dir>")),
+    };
     eprintln!("{name}: {errors:?}");
     (
         Outcome {
@@ -102,6 +108,35 @@ fn with_file(base: &Path, text: &str, mode: u32) -> PathBuf {
     path
 }
 
+/// The mode a key copy is left at: only its owner may read it.
+#[cfg(unix)]
+const PRIVATE: u32 = 0o600;
+#[cfg(not(unix))]
+const PRIVATE: u32 = 0;
+
+/// A key copy as it is written: the key and a line's end, private.
+fn written() -> Outcome {
+    Outcome {
+        worked: true,
+        left: Left::File {
+            bytes: format!("{KEY}\n").into_bytes(),
+            mode: PRIVATE,
+        },
+    }
+}
+
+/// Whether this process may write a file its mode makes read-only, as the
+/// superuser may.
+#[cfg(unix)]
+fn may_write_read_only_files() -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = scratch::Dir::new("kkt-key-writers-probe");
+    let path = dir.path().join("probe");
+    std::fs::write(&path, "").unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400)).unwrap();
+    std::fs::OpenOptions::new().write(true).open(&path).is_ok()
+}
+
 #[test]
 fn a_new_copy_is_the_same_from_both_writers() {
     let (old, new, errors) = both("new", |base| {
@@ -111,6 +146,8 @@ fn a_new_copy_is_the_same_from_both_writers() {
     assert!(old.worked);
     assert_eq!(old, new);
     assert_eq!(errors.old, errors.new);
+    assert_eq!(new, written());
+    assert_eq!(errors.new, None);
 }
 
 #[cfg(unix)]
@@ -126,6 +163,8 @@ fn a_copy_over_another_text_is_the_same_from_both_writers() {
     assert!(old.worked);
     assert_eq!(old, new);
     assert_eq!(errors.old, errors.new);
+    assert_eq!(new, written());
+    assert_eq!(errors.new, None);
 }
 
 #[cfg(unix)]
@@ -135,6 +174,8 @@ fn a_copy_over_a_file_others_may_read_is_made_private_by_both_writers() {
     assert!(old.worked);
     assert_eq!(old, new);
     assert_eq!(errors.old, errors.new);
+    assert_eq!(new, written());
+    assert_eq!(errors.new, None);
 }
 
 #[cfg(unix)]
@@ -143,6 +184,25 @@ fn a_copy_over_a_read_only_file_ends_the_same_from_both_writers() {
     let (old, new, errors) = both("read-only", |base| with_file(base, "old\n", 0o400));
     assert_eq!(old, new);
     assert_eq!(errors.old, errors.new);
+    if may_write_read_only_files() {
+        assert_eq!(new, written());
+        assert_eq!(errors.new, None);
+    } else {
+        assert_eq!(
+            new,
+            Outcome {
+                worked: false,
+                left: Left::File {
+                    bytes: b"old\n".to_vec(),
+                    mode: 0o400
+                },
+            }
+        );
+        assert_eq!(
+            errors.new.as_deref(),
+            Some("could not write <dir>/copy: Permission denied (os error 13)")
+        );
+    }
 }
 
 #[test]
@@ -153,6 +213,11 @@ fn a_copy_whose_folder_is_missing_fails_alike_and_leaves_nothing() {
     assert_eq!(new.left, Left::Nothing);
     assert!(errors.new.is_some());
     assert_eq!(errors.old, errors.new);
+    assert!(!new.worked);
+    assert_eq!(
+        errors.new.as_deref(),
+        Some("could not write <dir>/missing/copy: No such file or directory (os error 2)")
+    );
 }
 
 #[test]
@@ -167,4 +232,9 @@ fn a_copy_whose_path_is_a_folder_fails_alike_and_leaves_the_folder() {
     assert_eq!(new.left, Left::Folder);
     assert!(errors.new.is_some());
     assert_eq!(errors.old, errors.new);
+    assert!(!new.worked);
+    assert_eq!(
+        errors.new.as_deref(),
+        Some("could not write <dir>/copy: Is a directory (os error 21)")
+    );
 }
