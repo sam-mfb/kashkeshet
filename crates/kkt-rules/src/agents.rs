@@ -31,7 +31,8 @@ impl Rules {
         lane: Option<String>,
     ) -> Result<Registration> {
         if let Some(handle) = &proposed {
-            names::check_proposed_handle(handle, MAX_HANDLE_CHARS).map_err(RuleError::invalid)?;
+            names::check_proposed_handle(handle, MAX_HANDLE_CHARS)
+                .map_err(|e| RuleError::invalid(e.to_string()))?;
         }
         if let Some(name) = &lane {
             names::check_lane_name(name, MAX_LANE_NAME_CHARS)

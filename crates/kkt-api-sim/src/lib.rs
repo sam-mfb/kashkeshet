@@ -945,7 +945,8 @@ impl World {
     /// one-line description, instructions, and the limits.
     fn save_lane(&mut self, save: LaneSave, create: bool, now: String) -> Result<(), SourceError> {
         let limits = lane_limits();
-        names::check_lane_name(&save.name, MAX_LANE_NAME_CHARS).map_err(SourceError::Invalid)?;
+        names::check_lane_name(&save.name, MAX_LANE_NAME_CHARS)
+            .map_err(|e| SourceError::Invalid(e.to_string()))?;
         let description = save.description.trim().to_string();
         if description.is_empty() || description.contains(['\n', '\r']) {
             return Err(SourceError::Invalid(
