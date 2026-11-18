@@ -124,4 +124,56 @@ mod tests {
             io::ErrorKind::NotFound
         );
     }
+
+    /// Every message the disk's steps give that a test can cause without
+    /// root, pinned exactly: kkt's words around the system's own cause,
+    /// which each case gets by doing the same thing itself.
+    #[test]
+    fn every_key_file_message_says_what_it_always_said() {
+        let dir = scratch::Dir::new("keys-os-messages");
+        let file = dir.join("a-file");
+        std::fs::write(&file, "").expect("file");
+
+        let under_file = file.join("keys");
+        let cause = std::fs::create_dir_all(&under_file).expect_err("not a folder");
+        assert_eq!(
+            OsKeyFiles.create_dir_all(&under_file),
+            Err(format!(
+                "could not create {}: {cause}",
+                under_file.display()
+            ))
+        );
+
+        let taken = dir.join("taken");
+        std::fs::write(&taken, "old").expect("taken");
+        assert_eq!(
+            OsKeyFiles.write_key(&taken, "key", false),
+            Err(format!(
+                "{} already exists; pass --force to replace it",
+                taken.display()
+            ))
+        );
+
+        let missing = dir.join("no-folder").join("access-key");
+        let cause = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&missing)
+            .expect_err("no folder");
+        assert_eq!(
+            OsKeyFiles.write_key(&missing, "key", false),
+            Err(format!("could not write {}: {cause}", missing.display()))
+        );
+
+        let staged = dir.join("staged");
+        std::fs::write(&staged, "key").expect("staged");
+        let cause = std::fs::rename(dir.join("nothing-staged"), &missing).expect_err("no folder");
+        assert_eq!(
+            OsKeyFiles.keep_staged(&dir.join("nothing-staged"), &missing),
+            Err(format!(
+                "could not move the key to {}: {cause}",
+                missing.display()
+            ))
+        );
+    }
 }

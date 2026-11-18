@@ -111,6 +111,29 @@ mod tests {
         }
     }
 
+    /// What is wrong with a name file, pinned exactly.
+    #[test]
+    fn every_name_file_message_says_what_it_always_said() {
+        let key = "0123456789abcdef0123456789abcdef";
+        assert_eq!(
+            bound_in("admin-sentinel\n", key, MAX_CHARS),
+            Err("its second line must be `key-sha256: ` and a hash of the admin key".to_string())
+        );
+        let text = bound_to(&AdminName::new("sentinel", MAX_CHARS).unwrap(), key);
+        assert_eq!(
+            bound_in(&format!("{text}extra\n"), key, MAX_CHARS),
+            Err("it must have only the name and the key's hash".to_string())
+        );
+        let path = Path::new("/k/admin-key");
+        let refused = read_admin_name(path, key, |_| Ok(Some("admin-sentinel\n".into())))
+            .err()
+            .expect("no hash");
+        assert_eq!(
+            refused,
+            "invalid setting: admin name in /k/admin-key.name: its second line must be `key-sha256: ` and a hash of the admin key"
+        );
+    }
+
     #[test]
     fn bound_names_use_the_supplied_name_length_limit() {
         let text = bound_to(&AdminName::new("abc", 9).unwrap(), "key");

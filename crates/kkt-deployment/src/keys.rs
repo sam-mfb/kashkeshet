@@ -167,6 +167,28 @@ mod tests {
         assert_eq!(admin_name_line(&named, &copy, KEY, "Admin name"), Ok(None));
     }
 
+    /// A name file that cannot be read, or holds no key's hash, keeps the
+    /// "invalid setting: " the person always saw, pinned exactly.
+    #[test]
+    fn a_bad_or_unreadable_name_file_says_what_it_always_said() {
+        let path = Path::new("/k/admin-key");
+        let unreadable = Memory::new().with_dir("/k").failing("/k/admin-key.name");
+        assert_eq!(
+            admin_name_line(&unreadable, path, KEY, "admin name"),
+            Err(
+                "invalid setting: the admin name could not be read from /k/admin-key.name: refused"
+                    .to_string()
+            )
+        );
+        let unhashed = Memory::new()
+            .with_dir("/k")
+            .with_file("/k/admin-key.name", "admin-sentinel\n");
+        assert_eq!(
+            admin_name_line(&unhashed, path, KEY, "admin name"),
+            Err("invalid setting: admin name in /k/admin-key.name: its second line must be `key-sha256: ` and a hash of the admin key".to_string())
+        );
+    }
+
     #[test]
     fn writing_a_name_says_what_it_always_said() {
         let path = Path::new("/k/admin-key");

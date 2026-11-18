@@ -274,3 +274,38 @@ fn a_read_error_names_the_file_and_keeps_the_systems_reason() {
     let source = std::error::Error::source(&error).expect("the io error");
     assert_eq!(source.to_string(), "denied");
 }
+
+/// Every message the stand-in's steps and the provided writers give,
+/// pinned exactly: the container install's transcripts quote them.
+#[test]
+fn every_key_file_message_says_what_it_always_said() {
+    let files = Memory::new().failing("/k");
+    assert_eq!(
+        files.create_dir_all(Path::new("/k")),
+        Err("could not create /k: refused".to_owned())
+    );
+    let files = Memory::new();
+    assert_eq!(
+        files.write_key(Path::new("/k/access-key"), "key", false),
+        Err("could not write /k/access-key: no such folder".to_owned())
+    );
+    let staged = Path::new("/k/client-key.partial");
+    let files = Memory::new().with_file(staged, "key\n");
+    assert_eq!(
+        files.keep_staged(staged, Path::new("/other/client-key")),
+        Err("could not move the key to /other/client-key: no such folder".to_owned())
+    );
+    let files = Memory::new()
+        .with_dir("/k")
+        .with_file("/k/access-key", "key\n");
+    assert_eq!(
+        files.new_key(Path::new("/k/access-key"), false, &mut || "new".into()),
+        Err("/k/access-key already exists; pass --force to replace it".to_owned())
+    );
+    let files = Memory::new().with_dir("/k").failing("/k/access-key");
+    assert_eq!(
+        files.make_default_key(&AccessKey::Default("/k/access-key".into()), &mut || "new"
+            .into()),
+        Err("could not tell whether /k/access-key is there: refused".to_owned())
+    );
+}
