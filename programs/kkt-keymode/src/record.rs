@@ -2,7 +2,7 @@
 //! kkt-server orders these plain lines with its own settings' lines.
 //! kkt-keymode writes no log file, so it records none.
 
-use kkt_log_tracing::LogLevel;
+use kkt_log::Level;
 use kkt_provenance::ServerRun;
 use kkt_server::ServerSettings;
 
@@ -11,8 +11,8 @@ pub(crate) struct RecordedSettings<'a> {
     pub rules: kkt_rules::Settings,
     pub backup: kkt_backup::Settings,
     pub allow_any_bind: bool,
-    pub log_level: LogLevel,
-    pub dependency_log_level: LogLevel,
+    pub log_level: Level,
+    pub dependency_log_level: Level,
     pub config_file: Option<String>,
     pub access_key_file: Option<String>,
     pub web_key_file: Option<String>,

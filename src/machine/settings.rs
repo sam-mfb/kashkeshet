@@ -10,7 +10,7 @@ use kkt_admission::server_keys::ServerKeys;
 use kkt_config_file::Config;
 use kkt_config_file::files as config_files;
 use kkt_keys::AccessKey;
-use kkt_log_tracing::LogLevel;
+use kkt_log::Level;
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_server::{AppConfig, CheckedSettings};
@@ -25,10 +25,10 @@ pub const LOG_OWN_TARGETS: &[&str] = &["kashkeshet", "kkt"];
 /// Checks `dependency_log_level`. At debug and trace the MCP library logs
 /// whole requests and replies, tokens and recovery codes included, and logs
 /// must never hold those; so those levels are refused.
-pub fn check_dependency_log_level(level: LogLevel) -> Result<(), kkt_log_tracing::SettingError> {
+pub fn check_dependency_log_level(level: Level) -> Result<(), kkt_log_tracing::SettingError> {
     match level {
-        LogLevel::Error | LogLevel::Warn | LogLevel::Info => Ok(()),
-        LogLevel::Debug | LogLevel::Trace => Err(kkt_log_tracing::SettingError::new(
+        Level::Error | Level::Warn | Level::Info => Ok(()),
+        Level::Debug | Level::Trace => Err(kkt_log_tracing::SettingError::new(
             "dependency_log_level",
             format!(
                 "must be error, warn or info, not {}: at debug and trace the MCP library \
@@ -288,14 +288,14 @@ pub(crate) fn parse_config(
     dir: &Path,
     home: Option<&Path>,
 ) -> Result<ServeOptions, BadValue> {
-    let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
+    let level = |name, text: &str| kkt_log_tracing::parse_level(name, text).map_err(|e| e.rule);
     let config = kkt_config_file::parse_file(text, dir, home, level)
         .map_err(|e| BadValue::new(e.name, e.rule))?;
     Ok(serve_options(config))
 }
 
 /// What a parsed config file says, as [`ServeOptions`].
-fn serve_options(config: Config<LogLevel>) -> ServeOptions {
+fn serve_options(config: Config<Level>) -> ServeOptions {
     ServeOptions {
         log_level: config.log_level,
         dependency_log_level: config.dependency_log_level,
@@ -423,8 +423,8 @@ pub struct Checked {
     /// The config file the settings were read from, if any.
     pub config_file: Option<String>,
     pub log_file: Option<String>,
-    pub log_level: LogLevel,
-    pub dependency_log_level: LogLevel,
+    pub log_level: Level,
+    pub dependency_log_level: Level,
 }
 
 /// Runs the startup checks on `settings` and reads the files they name.
@@ -538,16 +538,16 @@ mod tests {
 
     #[test]
     fn dependency_levels_that_would_log_secrets_are_refused() {
-        for level in [LogLevel::Error, LogLevel::Warn, LogLevel::Info] {
+        for level in [Level::Error, Level::Warn, Level::Info] {
             assert_eq!(check_dependency_log_level(level), Ok(()));
         }
-        let refused = check_dependency_log_level(LogLevel::Debug).expect_err("refused");
+        let refused = check_dependency_log_level(Level::Debug).expect_err("refused");
         assert_eq!(
             refused.to_string(),
             "dependency_log_level must be error, warn or info, not debug: at debug and trace \
              the MCP library logs request contents, including tokens"
         );
-        let refused = check_dependency_log_level(LogLevel::Trace).expect_err("refused");
+        let refused = check_dependency_log_level(Level::Trace).expect_err("refused");
         assert_eq!(refused.name, "dependency_log_level");
     }
 
@@ -707,8 +707,8 @@ mod tests {
                 access_key_file: Some(PathBuf::from("/keys/kkt")),
                 no_access_key: Some(false),
                 log_file: Some(PathBuf::from("/home/sam/logs/kkt.log")),
-                log_level: Some(LogLevel::Debug),
-                dependency_log_level: Some(LogLevel::Info),
+                log_level: Some(Level::Debug),
+                dependency_log_level: Some(Level::Info),
             }
         );
         assert_eq!(
@@ -735,7 +735,7 @@ mod tests {
             "max_limit in the config file must be a whole number of zero or more, not \"5\""
         );
         // A level that is not one, worded as kkt-log-tracing words it.
-        let loud = LogLevel::parse("log_level", "loud").unwrap_err();
+        let loud = kkt_log_tracing::parse_level("log_level", "loud").unwrap_err();
         assert_eq!(
             parse("log_level = \"loud\"").unwrap_err().to_string(),
             format!("{} {}", loud.name, loud.rule)
@@ -917,8 +917,8 @@ mod tests {
             web_key: AccessKey::None,
             admin_key: None,
             log_file: None,
-            log_level: LogLevel::Info,
-            dependency_log_level: LogLevel::Debug,
+            log_level: Level::Info,
+            dependency_log_level: Level::Debug,
         };
         let d = kkt_rules::Settings::DEFAULT;
         let fixes: [(&str, Fix); 26] = [
@@ -926,7 +926,7 @@ mod tests {
                 s.bind = "127.0.0.1:7420".parse().expect("an address")
             }),
             ("dependency_log_level", |s| {
-                s.dependency_log_level = LogLevel::Warn
+                s.dependency_log_level = Level::Warn
             }),
             ("default_limit", |s| {
                 s.rules.default_limit = kkt_rules::Settings::DEFAULT.default_limit

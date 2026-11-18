@@ -29,7 +29,7 @@ use kkt_identity_keymode::KeyMode;
 use kkt_keys::AccessKey;
 use kkt_keys::{KeyFiles as _, KeyText, SelectedKeys};
 use kkt_keys_os::OsKeyFiles;
-use kkt_log_tracing::LogLevel;
+use kkt_log::Level;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
@@ -248,8 +248,8 @@ struct Settings {
     access_key: AccessKey,
     web_key: AccessKey,
     admin_key: Option<PathBuf>,
-    log_level: LogLevel,
-    dependency_log_level: LogLevel,
+    log_level: Level,
+    dependency_log_level: Level,
 }
 
 /// The config file's settings, with `--bind` over them, and the defaults
@@ -258,7 +258,7 @@ struct Settings {
 fn settings(args: &Args) -> Result<Settings, String> {
     let text = config_files::read_named(&ConfigDisk, &args.config).map_err(|e| e.to_string())?;
     let dir = args.config.parent().unwrap_or(Path::new("."));
-    let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
+    let level = |name, text: &str| kkt_log_tracing::parse_level(name, text).map_err(|e| e.rule);
     let config = kkt_config_file::parse_file(&text, dir, None, level).map_err(|e| {
         format!(
             "invalid setting in {}: {} {}",
