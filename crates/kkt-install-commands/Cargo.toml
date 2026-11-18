@@ -30,4 +30,5 @@ tokio.workspace = true
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
 kkt-containerized-service = { path = "../kkt-containerized-service", features = ["testing"] }
 kkt-bare-service = { path = "../kkt-bare-service", features = ["testing"] }
+kkt-keys = { path = "../kkt-keys", features = ["testing"] }
 futures.workspace = true

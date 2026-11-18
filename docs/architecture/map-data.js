@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "3b09a28b",
+ "commit": "e5143e3f",
  "crates": [
   {
    "bins": [
@@ -24360,6 +24360,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "ContainerConfig",
+    "KeyCopies",
     "testing::Memory"
    ],
    "to": "kkt-containerized-service"
@@ -24469,7 +24470,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "AccessKey"
+    "AccessKey",
+    "testing::Memory"
    ],
    "to": "kkt-keys"
   },
@@ -24810,8 +24812,12 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "ConfigReader",
+    "Container",
     "ContainerConfig",
+    "Inputs",
+    "KeyCopies",
     "LoginLink",
+    "Sharing",
     "testing::Memory"
    ],
    "kind": "dev",
@@ -24858,6 +24864,37 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-entropy"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-install-commands",
+   "items": [
+    "AccessKey",
+    "KeyFiles",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AccessKey"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
   },
   {
    "features": [],
