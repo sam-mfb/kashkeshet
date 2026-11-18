@@ -4,19 +4,9 @@
 //! [`Settings`]) and its errors ([`ServiceError`]). A wrapper crate named for
 //! each service manager implements it. The program picks one by platform, or
 //! [`Unsupported`] where there is none.
-//!
-//! [`plan`] works out what the service runs and which keys to make, from
-//! plain inputs. [`check_bind`] says whether the service's server could
-//! listen on its address, from the program's answer. Both work on plain
-//! values.
 
-mod bind;
-mod plan;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
-
-pub use bind::check_bind;
-pub use plan::{Plan, PlanError, Request, ServiceSettings, plan};
 
 use kkt_clock::Clock;
 use std::future::Future;

@@ -3,21 +3,26 @@
 //! its data and its Docker files, whether `kkt serve` may run here, and
 //! what `kkt status` and `kkt upgrade` do.
 //!
-//! It also says how a client reaches the server ([`connection`]).
+//! It also says how a client reaches the server ([`connection`]), and what
+//! a service installed on this machine runs ([`plan`]) and whether its
+//! server could listen on its address ([`check_bind`]).
 //!
 //! It works on facts it declares itself ([`Deployment`], [`RecordedDeployment`],
 //! [`UnrecordedDeployment`], [`connection::RecordedServer`]). Its caller reads how the machine is set up, hands it those
 //! facts, and carries out what it returns, so every rule here is tested
 //! directly.
 
+mod bind;
 pub mod connection;
 mod guard;
 mod keys;
 mod lifecycle;
+mod service_plan;
 #[cfg(test)]
 mod tests;
 mod upgrade;
 
+pub use bind::check_bind;
 pub use guard::guard;
 pub use keys::{
     Here, KeyKind, KeyPlace, KeysOff, RecordedServerRead, ServeConfigReads, ServerKeys,
@@ -30,6 +35,7 @@ pub use lifecycle::{
     Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,
     status_looks_for_unrecorded, upgrade_plan,
 };
+pub use service_plan::{Plan, PlanError, Request, ServiceSettings, plan};
 pub use upgrade::{Upgrade, upgrade};
 
 use kkt_machine::{Env, Platform};

@@ -110,4 +110,35 @@ mod tests {
             "{err}"
         );
     }
+
+    /// Every refusal, word for word: in use with and without a config
+    /// file, and another failure with and without one.
+    #[test]
+    fn the_refusals_are_pinned() {
+        let in_use = |_: SocketAddr| Err(io::Error::new(io::ErrorKind::AddrInUse, "in use"));
+        let other = |_: SocketAddr| Err(io::Error::other("no such address"));
+        assert_eq!(
+            check_bind(false, bind(), None, &in_use),
+            Err(
+                "127.0.0.1:7420 is already in use, so the server could not listen there. \
+                 Stop the program using it, or set another address with `bind` in a config \
+                 file, then run `kkt service install` again."
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            check_bind(
+                false,
+                bind(),
+                Some("/home/me/.config/kkt/config.toml"),
+                &other
+            ),
+            Err(
+                "the server could not listen on 127.0.0.1:7420: no such address. To fix it, \
+                 set another address with `bind` in /home/me/.config/kkt/config.toml, then \
+                 run `kkt service install` again."
+                    .to_string()
+            )
+        );
+    }
 }
