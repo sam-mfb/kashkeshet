@@ -311,9 +311,15 @@ impl<D> kkt_install_commands::ImportLanes for SetupLanes<'_, '_, D> {
     }
 }
 
-struct ServeReads<'a> {
+pub(crate) struct ServeReads<'a> {
     env: &'a Env,
     platform: Platform,
+}
+
+impl<'a> ServeReads<'a> {
+    pub(crate) fn new(env: &'a Env, platform: Platform) -> Self {
+        Self { env, platform }
+    }
 }
 
 impl kkt_operator_commands::ServeConfig for ServeReads<'_> {
@@ -337,6 +343,9 @@ impl kkt_operator_commands::ServeConfig for ServeReads<'_> {
     fn default_access_key(&self) -> Option<PathBuf> {
         ServeFacts::default_access_key(self)
     }
+    fn config_dir(&self) -> Option<PathBuf> {
+        ServeFacts::config_dir(self)
+    }
 }
 
 impl ServeFacts for ServeReads<'_> {
@@ -353,6 +362,15 @@ impl ServeFacts for ServeReads<'_> {
     }
     fn default_name_pack(&self) -> String {
         kkt_rules::Settings::DEFAULT.name_pack.name().to_string()
+    }
+    fn config_dir(&self) -> Option<PathBuf> {
+        kkt_config_file::config_dir(self.env.config_home().as_deref())
+    }
+    fn config_file(&self) -> Option<PathBuf> {
+        kkt_config_file::config_file(self.env.config_home().as_deref())
+    }
+    fn config_file_in_home(&self) -> PathBuf {
+        kkt_config_file::config_file_in_home()
     }
     fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
         let (_, options) = settings::read_config(self.env, None)?;
@@ -620,6 +638,9 @@ impl kkt_install_commands::ConfigText for NativeConfigText {
         kkt_config_file::files::write(&super::config_disk::ConfigDisk, path, text)
             .map_err(|e| e.to_string())
     }
+    fn with_allowed_host(&self, text: &str, host: &str) -> Result<String, String> {
+        kkt_config_file::with_allowed_host(text, host).map_err(|e| e.to_string())
+    }
 }
 
 #[cfg(test)]
@@ -658,36 +679,41 @@ mod tests {
     /// config home, which the install's and the operator's commands use.
     #[test]
     fn the_config_paths_the_commands_use_are_pinned() {
+        use kkt_operator_commands::ServeConfig;
         let env = test_env(Some(Path::new("/h")));
-        let config_home = env.config_home();
+        let serve = ServeReads::new(&env, TEST_PLATFORM);
         assert_eq!(
-            kkt_config_file::config_dir(config_home.as_deref()),
+            ServeFacts::config_dir(&serve),
             Some(PathBuf::from("/h/.config/kkt"))
         );
         assert_eq!(
-            kkt_config_file::config_file(config_home.as_deref()),
+            ServeConfig::config_dir(&serve),
+            Some(PathBuf::from("/h/.config/kkt"))
+        );
+        assert_eq!(
+            serve.config_file(),
             Some(PathBuf::from("/h/.config/kkt/config.toml"))
         );
         assert_eq!(
-            kkt_config_file::config_file_in_home(),
+            serve.config_file_in_home(),
             PathBuf::from("kkt/config.toml")
         );
         let homeless = test_env(None);
-        assert_eq!(
-            kkt_config_file::config_dir(homeless.config_home().as_deref()),
-            None
-        );
-        assert_eq!(
-            kkt_config_file::config_file(homeless.config_home().as_deref()),
-            None
-        );
+        let serve = ServeReads::new(&homeless, TEST_PLATFORM);
+        assert_eq!(ServeFacts::config_dir(&serve), None);
+        assert_eq!(ServeConfig::config_dir(&serve), None);
+        assert_eq!(serve.config_file(), None);
     }
 
     #[test]
     fn the_host_edit_is_pinned() {
         for (text, edited) in HOST_EDITS {
             assert_eq!(
-                kkt_config_file::with_allowed_host(text, "h.example").map_err(|e| e.to_string()),
+                kkt_install_commands::ConfigText::with_allowed_host(
+                    &NativeConfigText,
+                    text,
+                    "h.example"
+                ),
                 edited.map(str::to_string).map_err(str::to_string),
                 "{text:?}"
             );
@@ -708,20 +734,22 @@ mod tests {
             key_file: None,
             clients: None,
         };
-        kkt_install_commands::record::write_setup_record(&env, &NativeSetupFiles, &record)
+        let serve = ServeReads::new(&env, TEST_PLATFORM);
+        kkt_install_commands::record::write_setup_record(&serve, &NativeSetupFiles, &record)
             .expect("written");
         assert!(home.join(".config/kkt/setup.toml").is_file());
         assert_eq!(
-            kkt_install_commands::record::read_setup(&env, &NativeSetupFiles),
+            kkt_install_commands::record::read_setup(&serve, &NativeSetupFiles),
             Ok(Some(record.clone()))
         );
         let homeless = test_env(None);
+        let serve = ServeReads::new(&homeless, TEST_PLATFORM);
         assert_eq!(
-            kkt_install_commands::record::read_setup(&homeless, &NativeSetupFiles),
+            kkt_install_commands::record::read_setup(&serve, &NativeSetupFiles),
             Ok(None)
         );
         assert_eq!(
-            kkt_install_commands::record::write_setup_record(&homeless, &NativeSetupFiles, &record),
+            kkt_install_commands::record::write_setup_record(&serve, &NativeSetupFiles, &record),
             Err("set HOME to keep the setup record".to_string())
         );
     }

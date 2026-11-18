@@ -12,7 +12,6 @@ kkt-keys = { path = "../kkt-keys" }
 kkt-backup = { path = "../kkt-backup" }
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-clock = { path = "../kkt-clock" }
-kkt-config-file = { path = "../kkt-config-file" }
 kkt-container = { path = "../kkt-container" }
 kkt-containerized-service = { path = "../kkt-containerized-service" }
 kkt-hash = { path = "../kkt-hash" }

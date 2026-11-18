@@ -667,6 +667,14 @@
       {
        "at": "InstallParts",
        "param": "serve"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "serve"
+      },
+      {
+       "at": "record::read_setup",
+       "param": "serve"
       }
      ],
      "note": "the program's own work"
@@ -1104,10 +1112,6 @@
        "param": "env"
       },
       {
-       "at": "lifecycle::backup",
-       "param": "env"
-      },
-      {
        "at": "lifecycle::status",
        "param": "env"
       },
@@ -1121,14 +1125,6 @@
       },
       {
        "at": "record::InstallReads::new",
-       "param": "env"
-      },
-      {
-       "at": "record::check_setup",
-       "param": "env"
-      },
-      {
-       "at": "record::read_setup",
        "param": "env"
       },
       {
@@ -1170,30 +1166,6 @@
       {
        "at": "setup::run",
        "param": "platform"
-      }
-     ],
-     "note": "asked once at start"
-    },
-    {
-     "produces": "kkt-machine::Env",
-     "by": "kkt-machine-os::OsMachine",
-     "crate": "kkt-operator-commands",
-     "to": [
-      {
-       "at": "key::create",
-       "param": "env"
-      },
-      {
-       "at": "key::header",
-       "param": "env"
-      },
-      {
-       "at": "key::show",
-       "param": "env"
-      },
-      {
-       "at": "keys::selected_key_path",
-       "param": "env"
       }
      ],
      "note": "asked once at start"
@@ -2648,6 +2620,31 @@
       }
      ],
      "note": "doctor, status, setup and upgrade read and write the setup record through these"
+    },
+    {
+     "passes_on": "the serving facts the program gave InstallParts",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "record::read_setup",
+       "param": "serve"
+      },
+      {
+       "at": "record::read_unfinished",
+       "param": "serve"
+      },
+      {
+       "at": "record::write_setup_record",
+       "param": "serve"
+      }
+     ],
+     "note": "the setup record and the note of an unfinished setup, in the config folder the serving facts name",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "serve"
+      }
+     ]
     }
    ]
   },

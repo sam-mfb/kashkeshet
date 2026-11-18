@@ -5,7 +5,6 @@ use crate::OperatorParts;
 use kkt_deployment::{
     self, RecordedServerRead, ServeConfigReads, ServerKeys, UnfinishedSetup, UnrecordedReads,
 };
-use kkt_machine::Env;
 use std::path::PathBuf;
 
 pub use kkt_deployment::{KeyKind, admin_key_collision};
@@ -13,7 +12,6 @@ pub use kkt_deployment::{KeyKind, admin_key_collision};
 /// The reads finding a key makes, over the operator's parts.
 struct Reads<'a, 'p> {
     parts: &'a OperatorParts<'p>,
-    env: &'a Env,
 }
 
 impl RecordedServerRead for Reads<'_, '_> {
@@ -27,7 +25,7 @@ impl ServeConfigReads for Reads<'_, '_> {
         self.parts.serve.configured_access_key()
     }
     fn config_dir(&self) -> Option<PathBuf> {
-        kkt_config_file::config_dir(self.env.config_home().as_deref())
+        self.parts.serve.config_dir()
     }
 }
 
@@ -55,27 +53,25 @@ impl UnrecordedReads for Reads<'_, '_> {
 /// path names the selected key itself; otherwise use this machine's setup.
 pub fn selected_key_path(
     parts: &OperatorParts<'_>,
-    env: &Env,
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<PathBuf, String> {
-    optional_key_path(parts, env, path, kind)?.ok_or_else(|| "there is no admin key".into())
+    optional_key_path(parts, path, kind)?.ok_or_else(|| "there is no admin key".into())
 }
 
 /// None means the access key occupies the implicit admin key's place.
 pub fn optional_key_path(
     parts: &OperatorParts<'_>,
-    env: &Env,
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
-    kkt_deployment::find_key(&Reads { parts, env }, path, kind)
+    kkt_deployment::find_key(&Reads { parts }, path, kind)
 }
 
 /// Whether this machine's server runs in Docker, as recorded or, with no
 /// record and no unfinished setup, as found.
-pub(crate) fn runs_in_docker(parts: &OperatorParts<'_>, env: &Env) -> Result<bool, String> {
-    Ok(kkt_deployment::find_here(&Reads { parts, env })?.runs_in_docker())
+pub(crate) fn runs_in_docker(parts: &OperatorParts<'_>) -> Result<bool, String> {
+    Ok(kkt_deployment::find_here(&Reads { parts })?.runs_in_docker())
 }
 
 /// Where this machine's web or admin key file is, if it runs a server: for
@@ -84,12 +80,11 @@ pub(crate) fn runs_in_docker(parts: &OperatorParts<'_>, env: &Env) -> Result<boo
 /// reads. The file need not exist.
 pub fn local_operator_key(
     parts: &OperatorParts<'_>,
-    env: &Env,
     unfinished: Option<&UnfinishedSetup>,
     unrecorded: Option<&ServerKeys>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
-    kkt_deployment::find_operator_key(&Reads { parts, env }, unfinished, unrecorded, kind)
+    kkt_deployment::find_operator_key(&Reads { parts }, unfinished, unrecorded, kind)
 }
 
 #[cfg(test)]
@@ -120,6 +115,9 @@ mod tests {
         }
         fn default_access_key(&self) -> Option<PathBuf> {
             unreachable!("the key lookups make no key")
+        }
+        fn config_dir(&self) -> Option<PathBuf> {
+            Some(PathBuf::from("/home/me/.config/kkt"))
         }
     }
 
@@ -202,24 +200,18 @@ mod tests {
             clock: Arc::new(clock),
             output: &said,
         };
-        let env = Env {
-            home: Some(PathBuf::from("/home/me")),
-            xdg_config_home: None,
-            xdg_data_home: None,
-            named: Default::default(),
-        };
         let mut lines = String::new();
         for kind in [KeyKind::Access, KeyKind::Web, KeyKind::Admin] {
             lines.push_str(&format!(
                 "{kind:?}: {:?}\n",
-                optional_key_path(&parts, &env, None, kind)
+                optional_key_path(&parts, None, kind)
             ));
             lines.push_str(&format!(
                 "{kind:?} here: {:?}\n",
-                local_operator_key(&parts, &env, None, None, kind)
+                local_operator_key(&parts, None, None, kind)
             ));
         }
-        lines.push_str(&format!("docker: {:?}\n", runs_in_docker(&parts, &env)));
+        lines.push_str(&format!("docker: {:?}\n", runs_in_docker(&parts)));
         lines.push_str(&said.0.borrow());
         lines
     }

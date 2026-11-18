@@ -29,16 +29,16 @@ pub(super) struct OsSteps<'a, 'p, C: ConnectionSource, D> {
 /// if there is none.
 fn allow_host_in_config(
     files: &dyn crate::ConfigText,
-    env: &Env,
+    config_file: Option<PathBuf>,
     host: &str,
 ) -> Result<(), String> {
-    let path = kkt_config_file::config_file(env.config_home().as_deref())
-        .ok_or("set HOME to keep kkt's config file")?;
+    let path = config_file.ok_or("set HOME to keep kkt's config file")?;
     let text = files
         .read(&path)
         .map_err(|e| e.to_string())?
         .unwrap_or_else(String::new);
-    let updated = kkt_config_file::with_allowed_host(&text, host)
+    let updated = files
+        .with_allowed_host(&text, host)
         .map_err(|e| format!("invalid setting: {e} (in {})", path.display()))?;
     if updated == text {
         return Ok(());
@@ -58,10 +58,14 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             false => None,
         };
         if let Some(node) = &node {
-            allow_host_in_config(self.parts.config_file, self.env, &node.dns_name)?;
+            allow_host_in_config(
+                self.parts.config_file,
+                self.parts.serve.config_file(),
+                &node.dns_name,
+            )?;
         }
         for host in allow_hosts {
-            allow_host_in_config(self.parts.config_file, self.env, host)?;
+            allow_host_in_config(self.parts.config_file, self.parts.serve.config_file(), host)?;
         }
         tokio::runtime::Handle::current().block_on(service::run(
             self.parts,
@@ -105,7 +109,10 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     ) -> Result<(setup::Installed, setup::DockerSetup), String> {
         let options = &self.options;
         let folder = docker_folder(self.env, self.platform)?;
-        let key_file = kkt_config_file::config_dir(self.env.config_home().as_deref())
+        let key_file = self
+            .parts
+            .serve
+            .config_dir()
             .ok_or("set HOME to keep the access key")?
             .join(DOCKER_KEY_FILE_NAME);
         let tailscale_inputs = match tailscale {
@@ -156,7 +163,10 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     }
 
     fn stage_key(&self, key: &str) -> Result<PathBuf, String> {
-        let dir = kkt_config_file::config_dir(self.env.config_home().as_deref())
+        let dir = self
+            .parts
+            .serve
+            .config_dir()
             .ok_or("set HOME to keep the key in ~/.config/kkt")?;
         self.parts.key_files.create_dir_all(&dir)?;
         let path = staged_client_key(&dir);
@@ -221,7 +231,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
 
     fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
         read_unfinished(
-            self.env,
+            self.parts.serve,
             self.parts.setup_files,
             self.parts.container,
             self.parts.service,
@@ -229,7 +239,10 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     }
 
     fn save_unfinished(&self, unfinished: &setup::Unfinished) -> Result<(), String> {
-        let config_dir = kkt_config_file::config_dir(self.env.config_home().as_deref())
+        let config_dir = self
+            .parts
+            .serve
+            .config_dir()
             .ok_or("set HOME to note the install")?;
         self.parts
             .setup_files
@@ -237,8 +250,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     }
 
     fn forget_unfinished(&self) -> Result<(), String> {
-        let Some(config_dir) = kkt_config_file::config_dir(self.env.config_home().as_deref())
-        else {
+        let Some(config_dir) = self.parts.serve.config_dir() else {
             return Ok(());
         };
         self.parts.setup_files.remove_unfinished(&config_dir)
@@ -326,11 +338,11 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
     }
 
     fn recorded(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.env, self.parts.setup_files)
+        read_setup(self.parts.serve, self.parts.setup_files)
     }
 
     fn write_record(&self, record: &setup::Record) -> Result<(), String> {
-        write_setup_record(self.env, self.parts.setup_files, record)
+        write_setup_record(self.parts.serve, self.parts.setup_files, record)
     }
 
     fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
@@ -366,11 +378,11 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> 
     }
 
     fn recorded(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.env, self.parts.setup_files)
+        read_setup(self.parts.serve, self.parts.setup_files)
     }
 
     fn write_record(&self, record: &setup::Record) -> Result<(), String> {
-        write_setup_record(self.env, self.parts.setup_files, record)
+        write_setup_record(self.parts.serve, self.parts.setup_files, record)
     }
 
     fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
@@ -466,9 +478,9 @@ fn check_key(
 
 impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::AdoptSteps for OsSteps<'_, '_, C, D> {
     fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, String> {
-        if read_setup(self.env, self.parts.setup_files)?.is_some()
+        if read_setup(self.parts.serve, self.parts.setup_files)?.is_some()
             || read_unfinished(
-                self.env,
+                self.parts.serve,
                 self.parts.setup_files,
                 self.parts.container,
                 self.parts.service,
@@ -562,15 +574,24 @@ mod tests {
                 .push((path.to_path_buf(), text.to_string()));
             Ok(())
         }
+        /// The program's edit, as its own test pins it, for the texts
+        /// these tests give.
+        fn with_allowed_host(&self, text: &str, host: &str) -> Result<String, String> {
+            assert_eq!(host, "h.example");
+            match text {
+                "" => Ok("allow_hosts = [\"h.example\"]\n".to_string()),
+                "allow_hosts = [\"h.example\"]\n" => Ok(text.to_string()),
+                "allow_hosts = [" => {
+                    Err("config is not valid TOML: unclosed array, expected `]`".to_string())
+                }
+                other => panic!("no edit given for {other:?}"),
+            }
+        }
     }
 
-    fn env(home: Option<&str>) -> kkt_machine::Env {
-        kkt_machine::Env {
-            home: home.map(PathBuf::from),
-            named: Default::default(),
-            xdg_config_home: None,
-            xdg_data_home: None,
-        }
+    /// The default config file under the config home `/h/.config`.
+    fn config_file() -> Option<PathBuf> {
+        Some(PathBuf::from("/h/.config/kkt/config.toml"))
     }
 
     /// Setup adds a host to the default config file under the config home:
@@ -581,8 +602,8 @@ mod tests {
     fn the_host_edit_writes_the_config_file_and_says_what_failed() {
         let config = PathBuf::from("/h/.config/kkt/config.toml");
         let none = ConfigFile::holding(None);
-        super::allow_host_in_config(&none, &env(Some("/h")), "h.example").expect("edited");
-        assert_eq!(*none.read.borrow(), [config.clone()]);
+        super::allow_host_in_config(&none, config_file(), "h.example").expect("edited");
+        assert_eq!(*none.read.borrow(), std::slice::from_ref(&config));
         assert_eq!(
             *none.written.borrow(),
             [(
@@ -592,12 +613,12 @@ mod tests {
         );
 
         let listed = ConfigFile::holding(Some("allow_hosts = [\"h.example\"]\n"));
-        super::allow_host_in_config(&listed, &env(Some("/h")), "h.example").expect("edited");
+        super::allow_host_in_config(&listed, config_file(), "h.example").expect("edited");
         assert!(listed.written.borrow().is_empty());
 
         let broken = ConfigFile::holding(Some("allow_hosts = ["));
         assert_eq!(
-            super::allow_host_in_config(&broken, &env(Some("/h")), "h.example"),
+            super::allow_host_in_config(&broken, config_file(), "h.example"),
             Err(
                 "invalid setting: config is not valid TOML: unclosed array, expected `]` \
                  (in /h/.config/kkt/config.toml)"
@@ -608,7 +629,7 @@ mod tests {
 
         let homeless = ConfigFile::holding(None);
         assert_eq!(
-            super::allow_host_in_config(&homeless, &env(None), "h.example"),
+            super::allow_host_in_config(&homeless, None, "h.example"),
             Err("set HOME to keep kkt's config file".to_string())
         );
         assert!(homeless.read.borrow().is_empty());
