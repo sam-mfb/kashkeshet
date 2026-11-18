@@ -149,7 +149,10 @@ mod tests {
             kept.copies,
             [("access-key", PathBuf::from("/k/access-key"), true)]
         );
-        assert!(backups.write(folder, &layout).is_err());
+        assert_eq!(
+            backups.write(folder, &layout),
+            Err(format!("{} already exists", written.display()))
+        );
     }
 
     #[test]

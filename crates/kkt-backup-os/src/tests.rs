@@ -291,3 +291,93 @@ fn pruning_keeps_the_newest_backups_and_nothing_else_is_touched() {
             .is_empty()
     );
 }
+
+/// Every message a person can be shown, pinned exactly: kkt's words around
+/// the operating system's own cause, which each case gets by doing the same
+/// thing itself.
+#[test]
+fn every_backup_message_says_what_it_always_said() {
+    let dir = scratch_dir("messages");
+    let database = dir.join("live.db");
+    std::fs::write(&database, "pages").expect("db");
+    let bare = Contents {
+        database: &database,
+        config: None,
+        access_key: None,
+        web_key: None,
+        admin_key: None,
+        admin_name: None,
+    };
+    let backup = name(at(0), "0.3.0");
+
+    // The folder cannot be made: a file stands where its parent should be.
+    let file = dir.join("a-file");
+    std::fs::write(&file, "").expect("file");
+    let under_file = file.join("backups");
+    let cause = std::fs::create_dir_all(&under_file).expect_err("not a folder");
+    assert_eq!(
+        write(&under_file, at(0), "0.3.0", &bare, copy_text).expect_err("fails"),
+        format!("could not create {}: {cause}", under_file.display())
+    );
+
+    // A backup of that name is already there.
+    let folder = dir.join("taken");
+    std::fs::create_dir_all(folder.join(&backup)).expect("taken");
+    assert_eq!(
+        write(&folder, at(0), "0.3.0", &bare, copy_text).expect_err("fails"),
+        format!("{} already exists", folder.join(&backup).display())
+    );
+
+    // The partial folder cannot be made: a file has its name.
+    let folder = dir.join("partial");
+    std::fs::create_dir_all(&folder).expect("folder");
+    let partial = folder.join(format!("{backup}{PARTIAL}"));
+    std::fs::write(&partial, "").expect("in the way");
+    let cause = std::fs::create_dir(&partial).expect_err("in the way");
+    assert_eq!(
+        write(&folder, at(0), "0.3.0", &bare, copy_text).expect_err("fails"),
+        format!("could not create {}: {cause}", partial.display())
+    );
+
+    // The database copy fails, in the program's words.
+    let folder = dir.join("database");
+    let failing = |_: &Path, _: &Path| Err("disk full".to_string());
+    assert_eq!(
+        write(&folder, at(0), "0.3.0", &bare, failing).expect_err("fails"),
+        format!(
+            "could not copy the database {}: disk full",
+            database.display()
+        )
+    );
+
+    // A file that is not private cannot be copied.
+    let missing = dir.join("no-such-config");
+    let cause = std::fs::copy(&missing, dir.join("copied")).expect_err("missing");
+    let contents = Contents {
+        config: Some(&missing),
+        ..bare
+    };
+    assert_eq!(
+        write(&dir.join("config"), at(0), "0.3.0", &contents, copy_text).expect_err("fails"),
+        format!("could not copy {}: {cause}", missing.display())
+    );
+
+    // A private file cannot be read.
+    let missing = dir.join("no-such-key");
+    let cause = std::fs::read(&missing).expect_err("missing");
+    let contents = Contents {
+        access_key: Some(&missing),
+        ..bare
+    };
+    assert_eq!(
+        write(&dir.join("key"), at(0), "0.3.0", &contents, copy_text).expect_err("fails"),
+        format!("could not read {}: {cause}", missing.display())
+    );
+
+    // The backups' folder cannot be listed: it is a file.
+    let cause = std::fs::read_dir(&file).expect_err("not a folder");
+    assert_eq!(
+        prune(&file, 1).expect_err("fails"),
+        format!("could not list {}: {cause}", file.display())
+    );
+}
