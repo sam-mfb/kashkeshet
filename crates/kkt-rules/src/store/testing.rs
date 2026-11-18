@@ -105,7 +105,7 @@ pub async fn rules_on(db: Db, memory: Memory) -> Result<Rules, StoreError> {
 
 /// A new database in memory, with the core's tables, for other crates'
 /// tests: for a program that starts its own rules, or for the operator's
-/// [`crate::CommandLine`].
+/// [`crate::DirectAccess`].
 pub fn database() -> Result<Db, StoreError> {
     let backend = FastPlace::new()?.open(&[schema()])?;
     let faults = FaultyBackend::new(backend);

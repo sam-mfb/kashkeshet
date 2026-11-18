@@ -110,7 +110,7 @@ async fn rules_world_and_clock(settings: kkt_rules::Settings) -> (Rules, App, Ar
 /// database, as `kkt agent` and `kkt lanes` use them.
 async fn rules_world_and_db(
     settings: kkt_rules::Settings,
-) -> (Rules, App, Arc<FixedClock>, kkt_rules::CommandLine) {
+) -> (Rules, App, Arc<FixedClock>, kkt_rules::DirectAccess) {
     let clock = Arc::new(FixedClock::new(start_time()));
     let db = kkt_rules::testing::database().expect("an in-memory database");
     let startup = |clock: Arc<FixedClock>, settings| kkt_rules::Startup {
@@ -148,7 +148,7 @@ async fn rules_world_and_db(
     .await
     .expect("record run");
     let operator =
-        kkt_rules::CommandLine::new(db.clone(), kkt_api_agent::SwarmId::main(), clock.clone());
+        kkt_rules::DirectAccess::new(db.clone(), kkt_api_agent::SwarmId::main(), clock.clone());
     let mut agents = Vec::new();
     for _ in 0..2 {
         let reg = rules.register().await.expect("register");
