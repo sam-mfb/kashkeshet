@@ -67,12 +67,13 @@ pub trait Admin: Send + Sync {
         cursor: Option<String>,
     ) -> Answer<'a, Members>;
 
-    fn admin_list_memories(
-        &self,
+    fn admin_list_memories<'a>(
+        &'a self,
+        operator: &'a Operator,
         handle: String,
         limit: usize,
         cursor: Option<String>,
-    ) -> Answer<'_, MemoryList>;
+    ) -> Answer<'a, MemoryList>;
 
     fn admin_message<'a>(&'a self, operator: &'a Operator, id: i64) -> Answer<'a, Message>;
 
@@ -92,7 +93,12 @@ pub trait Admin: Send + Sync {
 
     fn admin_read<'a>(&'a self, operator: &'a Operator, q: ReadQuery) -> Answer<'a, MessagePage>;
 
-    fn admin_recall(&self, handle: String, name: String) -> Answer<'_, MemoryEntry>;
+    fn admin_recall<'a>(
+        &'a self,
+        operator: &'a Operator,
+        handle: String,
+        name: String,
+    ) -> Answer<'a, MemoryEntry>;
 }
 
 /// What is server-wide: creating a swarm.

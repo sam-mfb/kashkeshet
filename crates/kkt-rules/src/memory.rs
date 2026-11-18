@@ -113,13 +113,16 @@ impl Rules {
     }
 
     /// The entries in the memory of the avatar `handle`, for an admin agent,
-    /// which reads it for the operator. `not_found` for no such avatar.
+    /// which reads it for the operator. Needs Read; `not_found` for no such
+    /// avatar.
     pub async fn admin_list_memories(
         &self,
+        operator: &Operator,
         handle: String,
         limit: usize,
         cursor: Option<String>,
     ) -> Result<MemoryList> {
+        operator.may(Permission::Read)?;
         let max_chars = self.settings().max_memory_chars;
         self.db()
             .read(move |store, swarm| {
@@ -132,8 +135,14 @@ impl Rules {
     }
 
     /// The entry named `name` in the memory of the avatar `handle`, for an
-    /// admin agent. `not_found` for no such avatar or entry.
-    pub async fn admin_recall(&self, handle: String, name: String) -> Result<MemoryEntry> {
+    /// admin agent. Needs Read; `not_found` for no such avatar or entry.
+    pub async fn admin_recall(
+        &self,
+        operator: &Operator,
+        handle: String,
+        name: String,
+    ) -> Result<MemoryEntry> {
+        operator.may(Permission::Read)?;
         names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
         self.db()
             .read(move |store, swarm| {
