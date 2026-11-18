@@ -203,7 +203,10 @@ pub(super) fn adoptable(
         flag: "--adopt",
         default: Some(DEFAULT_SETUP_ADOPT),
     };
-    Ok(ask.confirm(question)?.then_some(found))
+    Ok(ask
+        .confirm(question)
+        .map_err(|e| e.to_string())?
+        .then_some(found))
 }
 
 #[cfg(test)]

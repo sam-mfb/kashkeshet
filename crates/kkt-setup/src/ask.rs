@@ -13,6 +13,34 @@ pub struct Question<'a> {
     pub default: Option<bool>,
 }
 
+/// Why the terminal could not be read: the caller's own error, passed on
+/// unread.
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct LineError(pub Box<dyn std::error::Error + Send + Sync>);
+
+/// Why a question got no answer.
+#[derive(Debug, thiserror::Error)]
+pub enum AskError {
+    /// There is no terminal to ask on; the flag answers it instead.
+    #[error("{}", no_terminal(text, flag))]
+    NoTerminal { text: String, flag: &'static str },
+    /// The input ended before an answer.
+    #[error("no answer: {}", no_terminal(text, flag))]
+    NoAnswer { text: String, flag: &'static str },
+    /// The terminal could not be read.
+    #[error(transparent)]
+    Read(LineError),
+}
+
+fn no_terminal(text: &str, flag: &str) -> String {
+    if flag.is_empty() {
+        format!("{text} No terminal to ask on.")
+    } else {
+        format!("{text} No terminal to ask on: pass {flag}.")
+    }
+}
+
 /// Asks questions and says what happened. [`Prompter`] asks over the
 /// caller's [`Lines`]; tests can use scripted answers.
 pub trait Ask {
@@ -21,27 +49,28 @@ pub trait Ask {
     fn interactive(&self) -> bool;
     /// The index of the option chosen from `options`. Enter accepts `default`
     /// at a terminal; without a terminal the question still needs its flag.
-    fn choose(&self, question: Question, options: &[&str], default: usize)
-    -> Result<usize, String>;
+    fn choose(
+        &self,
+        question: Question,
+        options: &[&str],
+        default: usize,
+    ) -> Result<usize, AskError>;
     /// Yes or no.
-    fn confirm(&self, question: Question) -> Result<bool, String>;
+    fn confirm(&self, question: Question) -> Result<bool, AskError>;
     /// A line of text. Enter accepts `default` at a terminal; without a
     /// terminal the question still needs its flag.
-    fn text(&self, question: Question, default: &str) -> Result<String, String>;
+    fn text(&self, question: Question, default: &str) -> Result<String, AskError>;
     /// Says something, such as what was just done.
     fn tell(&self, text: &str);
 }
 
 /// The error for a question there is no one to ask: it names the flag that
 /// answers it.
-pub fn unanswered(question: Question) -> String {
-    if question.flag.is_empty() {
-        return format!("{} No terminal to ask on.", question.text);
+pub fn unanswered(question: Question) -> AskError {
+    AskError::NoTerminal {
+        text: question.text.to_string(),
+        flag: question.flag,
     }
-    format!(
-        "{} No terminal to ask on: pass {}.",
-        question.text, question.flag
-    )
 }
 
 /// The caller's line input and output for setup's questions.
@@ -51,7 +80,7 @@ pub trait Lines {
     /// Says one complete line.
     fn say(&self, text: &str);
     /// Shows and flushes the prompt, then reads a line; None means EOF.
-    fn read_line(&self, prompt: &str) -> Result<Option<String>, String>;
+    fn read_line(&self, prompt: &str) -> Result<Option<String>, LineError>;
 }
 
 use crate as setup;
@@ -77,8 +106,8 @@ impl<'a> Prompter<'a> {
         options: &[&str],
         default: usize,
         say: impl Fn(&str),
-        mut line: impl FnMut(&str) -> Result<String, String>,
-    ) -> Result<usize, String> {
+        mut line: impl FnMut(&str) -> Result<String, AskError>,
+    ) -> Result<usize, AskError> {
         let mut prompt = format!("{}\n", question.text);
         for (i, option) in options.iter().enumerate() {
             prompt.push_str(&format!("  {}. {option}\n", i + 1));
@@ -99,8 +128,8 @@ impl<'a> Prompter<'a> {
     fn confirm_with(
         question: setup::Question,
         say: impl Fn(&str),
-        mut line: impl FnMut(&str) -> Result<String, String>,
-    ) -> Result<bool, String> {
+        mut line: impl FnMut(&str) -> Result<String, AskError>,
+    ) -> Result<bool, AskError> {
         let choices = match question.default {
             Some(true) => "[Y/n]",
             Some(false) => "[y/N]",
@@ -126,8 +155,8 @@ impl<'a> Prompter<'a> {
     fn text_with(
         question: setup::Question,
         default: &str,
-        mut line: impl FnMut(&str) -> Result<String, String>,
-    ) -> Result<String, String> {
+        mut line: impl FnMut(&str) -> Result<String, AskError>,
+    ) -> Result<String, AskError> {
         let shown = if default.is_empty() { "none" } else { default };
         let answer = line(&format!("{} [{shown}] ", question.text))?;
         Ok(if answer.trim().is_empty() {
@@ -137,12 +166,15 @@ impl<'a> Prompter<'a> {
         })
     }
 
-    fn line(&self, question: setup::Question, prompt: &str) -> Result<String, String> {
+    fn line(&self, question: setup::Question, prompt: &str) -> Result<String, AskError> {
         if !self.interactive {
             return Err(setup::unanswered(question));
         }
-        let Some(line) = self.lines.read_line(prompt)? else {
-            return Err(format!("no answer: {}", setup::unanswered(question)));
+        let Some(line) = self.lines.read_line(prompt).map_err(AskError::Read)? else {
+            return Err(AskError::NoAnswer {
+                text: question.text.to_string(),
+                flag: question.flag,
+            });
         };
         Ok(line.trim_end_matches(['\r', '\n']).to_string())
     }
@@ -158,7 +190,7 @@ impl setup::Ask for Prompter<'_> {
         question: setup::Question,
         options: &[&str],
         default: usize,
-    ) -> Result<usize, String> {
+    ) -> Result<usize, AskError> {
         Self::choose_with(
             question,
             options,
@@ -168,7 +200,7 @@ impl setup::Ask for Prompter<'_> {
         )
     }
 
-    fn confirm(&self, question: setup::Question) -> Result<bool, String> {
+    fn confirm(&self, question: setup::Question) -> Result<bool, AskError> {
         Self::confirm_with(
             question,
             |text| self.lines.say(text),
@@ -176,7 +208,7 @@ impl setup::Ask for Prompter<'_> {
         )
     }
 
-    fn text(&self, question: setup::Question, default: &str) -> Result<String, String> {
+    fn text(&self, question: setup::Question, default: &str) -> Result<String, AskError> {
         Self::text_with(question, default, |prompt| self.line(question, prompt))
     }
 
@@ -232,7 +264,7 @@ mod terminal_ask_tests {
         fn say(&self, text: &str) {
             self.said.borrow_mut().push(text.to_owned());
         }
-        fn read_line(&self, prompt: &str) -> Result<Option<String>, String> {
+        fn read_line(&self, prompt: &str) -> Result<Option<String>, LineError> {
             self.prompts.borrow_mut().push(prompt.to_owned());
             Ok(self
                 .answers
@@ -246,10 +278,18 @@ mod terminal_ask_tests {
     fn the_prompter_asks_again_through_its_lines_and_keeps_text_whitespace() {
         let lines = ScriptedLines::new([Some("0\n"), Some("2\r\n"), Some("  chosen  \r\n")]);
         let ask = Prompter::new(&lines);
-        assert_eq!(ask.choose(mode_question(), &MODES, 0), Ok(1));
+        assert_eq!(
+            ask.choose(mode_question(), &MODES, 0)
+                .map_err(|e| e.to_string()),
+            Ok(1)
+        );
         assert_eq!(*lines.said.borrow(), ["Type a number from 1 to 3."]);
         assert_eq!(lines.prompts.borrow()[0], lines.prompts.borrow()[1]);
-        assert_eq!(ask.text(question(None), "default"), Ok("  chosen  ".into()));
+        assert_eq!(
+            ask.text(question(None), "default")
+                .map_err(|e| e.to_string()),
+            Ok("  chosen  ".into())
+        );
         ask.tell("finished");
         assert_eq!(
             lines.said.borrow().last().map(String::as_str),
@@ -265,16 +305,21 @@ mod terminal_ask_tests {
             "no answer: {}",
             setup::unanswered(question(Some(true)))
         ));
-        assert_eq!(ask.confirm(question(Some(true))), expected);
         assert_eq!(
-            ask.text(question(Some(true)), "default"),
+            ask.confirm(question(Some(true))).map_err(|e| e.to_string()),
+            expected
+        );
+        assert_eq!(
+            ask.text(question(Some(true)), "default")
+                .map_err(|e| e.to_string()),
             Err(format!(
                 "no answer: {}",
                 setup::unanswered(question(Some(true)))
             ))
         );
         assert_eq!(
-            ask.choose(mode_question(), &MODES, 0),
+            ask.choose(mode_question(), &MODES, 0)
+                .map_err(|e| e.to_string()),
             Err(format!("no answer: {}", setup::unanswered(mode_question())))
         );
     }
@@ -324,8 +369,8 @@ mod terminal_ask_tests {
             true
         }
         fn say(&self, _text: &str) {}
-        fn read_line(&self, _prompt: &str) -> Result<Option<String>, String> {
-            Err("could not read the terminal: closed".into())
+        fn read_line(&self, _prompt: &str) -> Result<Option<String>, LineError> {
+            Err(LineError("could not read the terminal: closed".into()))
         }
     }
 
@@ -337,7 +382,7 @@ mod terminal_ask_tests {
         fn say(&self, _text: &str) {
             panic!("no output before asking");
         }
-        fn read_line(&self, _prompt: &str) -> Result<Option<String>, String> {
+        fn read_line(&self, _prompt: &str) -> Result<Option<String>, LineError> {
             panic!("no input without a terminal");
         }
     }
@@ -352,7 +397,8 @@ mod terminal_ask_tests {
                     let shown = if default.is_empty() { "none" } else { default };
                     assert_eq!(prompt, format!("Connect Codex to kkt? [{shown}] "));
                     Ok(answer.into())
-                });
+                })
+                .map_err(|e| e.to_string());
                 assert_eq!(
                     result,
                     Ok(if answer.trim().is_empty() {
@@ -365,12 +411,15 @@ mod terminal_ask_tests {
             }
             let ask = Prompter::new(&NotInteractive);
             assert_eq!(
-                ask.text(question(None), default),
-                Err(setup::unanswered(question(None)))
+                ask.text(question(None), default).map_err(|e| e.to_string()),
+                Err(setup::unanswered(question(None)).to_string())
             );
             assert_eq!(
-                Prompter::text_with(question(None), default, |_| Err("no answer".into())),
-                Err("no answer".into())
+                Prompter::text_with(question(None), default, |_| Err(setup::unanswered(
+                    question(None)
+                )))
+                .map_err(|e| e.to_string()),
+                Err(setup::unanswered(question(None)).to_string())
             );
         }
     }
@@ -391,7 +440,7 @@ mod terminal_ask_tests {
                         );
                         Ok(answer.into())
                     }
-                ),
+                ).map_err(|e| e.to_string()),
                 Ok(0)
             );
         }
@@ -401,7 +450,8 @@ mod terminal_ask_tests {
     fn explicit_mode_choices_override_the_default() {
         for (answer, expected) in [("1", 0), (" 2 ", 1), ("3", 2)] {
             assert_eq!(
-                Prompter::choose_with(mode_question(), &MODES, 0, |_| {}, |_| Ok(answer.into())),
+                Prompter::choose_with(mode_question(), &MODES, 0, |_| {}, |_| Ok(answer.into()))
+                    .map_err(|e| e.to_string()),
                 Ok(expected)
             );
         }
@@ -417,7 +467,8 @@ mod terminal_ask_tests {
                 0,
                 |_| {},
                 |_| { Ok(answers.next().expect("another answer").into()) }
-            ),
+            )
+            .map_err(|e| e.to_string()),
             Ok(0)
         );
         assert_eq!(answers.next(), None);
@@ -427,8 +478,9 @@ mod terminal_ask_tests {
     fn the_mode_default_never_replaces_a_missing_answer() {
         let ask = Prompter::new(&NotInteractive);
         assert_eq!(
-            ask.choose(mode_question(), &MODES, 0),
-            Err(setup::unanswered(mode_question()))
+            ask.choose(mode_question(), &MODES, 0)
+                .map_err(|e| e.to_string()),
+            Err(setup::unanswered(mode_question()).to_string())
         );
         assert_eq!(
             Prompter::choose_with(
@@ -436,9 +488,10 @@ mod terminal_ask_tests {
                 &MODES,
                 0,
                 |_| {},
-                |_| Err("no answer".into())
-            ),
-            Err("no answer".into())
+                |_| Err(setup::unanswered(question(None)))
+            )
+            .map_err(|e| e.to_string()),
+            Err(setup::unanswered(question(None)).to_string())
         );
     }
 
@@ -456,7 +509,8 @@ mod terminal_ask_tests {
                         assert_eq!(shown, prompt);
                         Ok(answer.to_string())
                     },
-                );
+                )
+                .map_err(|e| e.to_string());
                 assert_eq!(got, Ok(expected));
             }
         }
@@ -468,7 +522,8 @@ mod terminal_ask_tests {
             for (answer, expected) in [("y", true), (" YES ", true), ("n", false), (" No ", false)]
             {
                 assert_eq!(
-                    Prompter::confirm_with(question(default), |_| {}, |_| Ok(answer.into())),
+                    Prompter::confirm_with(question(default), |_| {}, |_| Ok(answer.into()))
+                        .map_err(|e| e.to_string()),
                     Ok(expected)
                 );
             }
@@ -485,7 +540,8 @@ mod terminal_ask_tests {
                 assert_eq!(prompt, "Connect Codex to kkt? [y/n] ");
                 Ok(answers.next().expect("another answer").to_string())
             },
-        );
+        )
+        .map_err(|e| e.to_string());
         assert_eq!(got, Ok(false));
         assert_eq!(answers.next(), None);
     }
@@ -498,7 +554,8 @@ mod terminal_ask_tests {
                 question(Some(true)),
                 |_| {},
                 |_| { Ok(answers.next().expect("another answer").to_string()) }
-            ),
+            )
+            .map_err(|e| e.to_string()),
             Ok(false)
         );
         assert_eq!(answers.next(), None);
@@ -509,8 +566,8 @@ mod terminal_ask_tests {
         let ask = Prompter::new(&NotInteractive);
         for default in [None, Some(true), Some(false)] {
             assert_eq!(
-                ask.confirm(question(default)),
-                Err(setup::unanswered(question(default)))
+                ask.confirm(question(default)).map_err(|e| e.to_string()),
+                Err(setup::unanswered(question(default)).to_string())
             );
         }
     }
@@ -518,8 +575,13 @@ mod terminal_ask_tests {
     #[test]
     fn a_read_failure_is_returned_even_with_a_default() {
         assert_eq!(
-            Prompter::confirm_with(question(Some(true)), |_| {}, |_| Err("no answer".into())),
-            Err("no answer".into())
+            Prompter::confirm_with(
+                question(Some(true)),
+                |_| {},
+                |_| Err(setup::unanswered(question(None)))
+            )
+            .map_err(|e| e.to_string()),
+            Err(setup::unanswered(question(None)).to_string())
         );
     }
 }

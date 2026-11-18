@@ -225,7 +225,7 @@ fn with_no_one_to_ask_a_question_names_its_flag() {
         default: None,
     };
     assert_eq!(
-        unanswered(q),
+        unanswered(q).to_string(),
         "What is this machine for? No terminal to ask on: pass --mode."
     );
 }
@@ -365,7 +365,7 @@ mod flow {
             question: Question,
             options: &[&str],
             default: usize,
-        ) -> Result<usize, String> {
+        ) -> Result<usize, AskError> {
             assert_eq!(Purpose::ALL[default], Purpose::Docker);
             match self.next(question) {
                 Reply::Enter => Ok(default),
@@ -373,7 +373,7 @@ mod flow {
                 _ => panic!("expected a choice for {}", question.text),
             }
         }
-        fn confirm(&self, question: Question) -> Result<bool, String> {
+        fn confirm(&self, question: Question) -> Result<bool, AskError> {
             assert!(
                 question.default.is_some(),
                 "no default for {}",
@@ -385,7 +385,7 @@ mod flow {
                 _ => panic!("expected yes or no for {}", question.text),
             }
         }
-        fn text(&self, question: Question, default: &str) -> Result<String, String> {
+        fn text(&self, question: Question, default: &str) -> Result<String, AskError> {
             match self.next(question) {
                 Reply::Enter => Ok(default.to_string()),
                 Reply::Text(text) => Ok(if text.trim().is_empty() {
@@ -1249,13 +1249,13 @@ mod flow {
         fn interactive(&self) -> bool {
             false
         }
-        fn choose(&self, question: Question, _: &[&str], _: usize) -> Result<usize, String> {
+        fn choose(&self, question: Question, _: &[&str], _: usize) -> Result<usize, AskError> {
             Err(unanswered(question))
         }
-        fn confirm(&self, question: Question) -> Result<bool, String> {
+        fn confirm(&self, question: Question) -> Result<bool, AskError> {
             Err(unanswered(question))
         }
-        fn text(&self, question: Question, _: &str) -> Result<String, String> {
+        fn text(&self, question: Question, _: &str) -> Result<String, AskError> {
             Err(unanswered(question))
         }
         fn tell(&self, _: &str) {}
@@ -2618,17 +2618,17 @@ mod flow {
             fn interactive(&self) -> bool {
                 true
             }
-            fn choose(&self, _: Question, _: &[&str], _: usize) -> Result<usize, String> {
-                Err("no choice expected".into())
+            fn choose(&self, _: Question, _: &[&str], _: usize) -> Result<usize, AskError> {
+                panic!("no choice expected")
             }
-            fn confirm(&self, question: Question) -> Result<bool, String> {
+            fn confirm(&self, question: Question) -> Result<bool, AskError> {
                 // Shown as [Y/n]: Enter adopts.
                 assert_eq!(question.default, Some(true), "{}", question.text);
                 self.0.borrow_mut().push(question.text.to_string());
                 Ok(true)
             }
-            fn text(&self, _: Question, _: &str) -> Result<String, String> {
-                Err("no text expected".into())
+            fn text(&self, _: Question, _: &str) -> Result<String, AskError> {
+                panic!("no text expected")
             }
             fn tell(&self, _: &str) {}
         }

@@ -163,7 +163,7 @@ fn key_file(how: &Switch, current: &Server, ask: &dyn Ask) -> Result<Option<Path
         .map(|path| path.display().to_string())
         .unwrap_or_default();
     loop {
-        let answer = ask.text(KEY_FILE, &offered)?;
+        let answer = ask.text(KEY_FILE, &offered).map_err(|e| e.to_string())?;
         match answer.trim() {
             "" | "none" => return Ok(None),
             path if PathBuf::from(path).is_absolute() => return Ok(Some(PathBuf::from(path))),

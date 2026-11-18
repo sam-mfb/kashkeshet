@@ -646,7 +646,7 @@ fn resumable(
         ask.tell("The answers given now are different, so setup starts over.");
         return Ok(None);
     }
-    if ask.interactive() && !answers.yes && !ask.confirm(CONTINUE)? {
+    if ask.interactive() && !answers.yes && !ask.confirm(CONTINUE).map_err(|e| e.to_string())? {
         return Ok(None);
     }
     ask.tell(match unfinished.record {
@@ -662,7 +662,9 @@ fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan,
         Some(purpose) => purpose,
         None => {
             let options = Purpose::ALL.map(Purpose::describe);
-            Purpose::ALL[ask.choose(MODE, &options, DEFAULT_SETUP_MODE_INDEX)?]
+            Purpose::ALL[ask
+                .choose(MODE, &options, DEFAULT_SETUP_MODE_INDEX)
+                .map_err(|e| e.to_string())?]
         }
     };
     if purpose == Purpose::Client {
@@ -670,11 +672,13 @@ fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan,
     }
     let tailscale = match answers.tailscale {
         Some(answer) => answer,
-        None => ask.confirm(TAILSCALE)?,
+        None => ask.confirm(TAILSCALE).map_err(|e| e.to_string())?,
     };
     let allow_hosts = match &answers.allow_hosts {
         Some(hosts) => hosts.clone(),
-        None if ask.confirm(CONTAINERS)? => vec![SETUP_DOCKER_HOST.to_string()],
+        None if ask.confirm(CONTAINERS).map_err(|e| e.to_string())? => {
+            vec![SETUP_DOCKER_HOST.to_string()]
+        }
         None => Vec::new(),
     };
     Ok(Plan::Server(purpose, tailscale, allow_hosts))
@@ -687,7 +691,7 @@ fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan,
 fn admin_key(answers: &Answers, ask: &dyn Ask) -> Result<Option<AdminName>, String> {
     let make = match answers.admin_key {
         Some(answer) => answer,
-        None if ask.interactive() => ask.confirm(ADMIN_KEY)?,
+        None if ask.interactive() => ask.confirm(ADMIN_KEY).map_err(|e| e.to_string())?,
         None => DEFAULT_SETUP_ADMIN_KEY,
     };
     if !make {
@@ -695,7 +699,9 @@ fn admin_key(answers: &Answers, ask: &dyn Ask) -> Result<Option<AdminName>, Stri
     }
     let given = match &answers.admin_name {
         Some(name) => name.clone(),
-        None if ask.interactive() => ask.text(ADMIN_NAME, DEFAULT_SETUP_ADMIN_NAME)?,
+        None if ask.interactive() => ask
+            .text(ADMIN_NAME, DEFAULT_SETUP_ADMIN_NAME)
+            .map_err(|e| e.to_string())?,
         None => DEFAULT_SETUP_ADMIN_NAME.to_string(),
     };
     AdminName::new(&given, MAX_ADMIN_NAME_CHARS)
@@ -1001,7 +1007,11 @@ fn checked_address(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Resul
     loop {
         let url = match &answers.url {
             Some(url) => url.trim().to_string(),
-            None => ask.text(URL, DEFAULT_SETUP_URL)?.trim().to_string(),
+            None => ask
+                .text(URL, DEFAULT_SETUP_URL)
+                .map_err(|e| e.to_string())?
+                .trim()
+                .to_string(),
         };
         match steps.check_address(&url) {
             Ok(()) => return Ok(url),
@@ -1024,7 +1034,11 @@ fn checked_key(
     loop {
         let key = match &answers.key_file {
             Some(path) => ClientKey::File(path.clone()),
-            None => match typed_key(&ask.text(KEY, DEFAULT_SETUP_KEY)?, steps) {
+            None => match typed_key(
+                &ask.text(KEY, DEFAULT_SETUP_KEY)
+                    .map_err(|e| e.to_string())?,
+                steps,
+            ) {
                 Ok(key) => key,
                 Err(problem) => {
                     ask.tell(&problem);
@@ -1084,7 +1098,7 @@ fn choose(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Chosen,
     let allow_kkt = match answers.allow_kkt {
         Some(answer) => answer,
         None if ask.interactive() && clients.iter().any(|c| c.can_allow_kkt()) => {
-            ask.confirm(ALLOW_KKT)?
+            ask.confirm(ALLOW_KKT).map_err(|e| e.to_string())?
         }
         None => DEFAULT_SETUP_ALLOW_KKT,
     };
@@ -1129,7 +1143,7 @@ fn choose_clients(
             flag: "--clients",
             default: Some(DEFAULT_SETUP_CONNECT_CLIENT),
         };
-        if answers.yes || ask.confirm(question)? {
+        if answers.yes || ask.confirm(question).map_err(|e| e.to_string())? {
             chosen.push(client);
         }
     }
