@@ -17,7 +17,8 @@ impl Rules {
     /// (`invalid_argument`), or the memory would then hold more than
     /// `max_memory_chars` (`limit_reached`).
     pub async fn remember(&self, me: &Agent, name: String, text: String) -> Result<MemorySaved> {
-        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS)
+            .map_err(|e| RuleError::invalid(e.to_string()))?;
         if text.is_empty() {
             return Err(RuleError::invalid(
                 "the entry's text is empty; `forget` deletes an entry",
@@ -73,7 +74,8 @@ impl Rules {
 
     /// `me`'s entry named `name`; `not_found` if there is none.
     pub async fn recall(&self, me: &Agent, name: String) -> Result<MemoryEntry> {
-        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS)
+            .map_err(|e| RuleError::invalid(e.to_string()))?;
         let handle = me.handle.clone();
         self.db()
             .read(move |store, swarm| memory_entry(store, swarm, &handle, &name))
@@ -99,7 +101,8 @@ impl Rules {
 
     /// Deletes `me`'s entry named `name`; `not_found` if there is none.
     pub async fn forget(&self, me: &Agent, name: String) -> Result<()> {
-        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS)
+            .map_err(|e| RuleError::invalid(e.to_string()))?;
         let handle = me.handle.clone();
         self.db()
             .write(move |store, swarm| {
@@ -143,7 +146,8 @@ impl Rules {
         name: String,
     ) -> Result<MemoryEntry> {
         operator.may(Permission::Read)?;
-        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS)
+            .map_err(|e| RuleError::invalid(e.to_string()))?;
         self.db()
             .read(move |store, swarm| {
                 if store.agent(swarm, &handle)?.is_none() {

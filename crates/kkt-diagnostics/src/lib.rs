@@ -98,7 +98,7 @@ impl<'a> Inspector<'a> {
 
     /// Check a server without registering an agent or changing its
     /// database: the key file at `key_path`, then the server with that key.
-    pub async fn server(self, url: &str, key_path: Option<&Path>) -> Result<Vec<Check>, String> {
+    pub async fn server(self, url: &str, key_path: Option<&Path>) -> Result<Vec<Check>, Unprobed> {
         let mut checks = Vec::new();
         let key = self.key_file(key_path, &mut checks);
         checks.extend(server::checks(self.prober, url, key.as_deref()).await?);
@@ -107,7 +107,7 @@ impl<'a> Inspector<'a> {
 
     /// Checks that a server answers at `url`, accepts its host name, and
     /// serves MCP there, without a key: a server that asks for one passes.
-    pub async fn address(self, url: &str) -> Result<Vec<Check>, String> {
+    pub async fn address(self, url: &str) -> Result<Vec<Check>, Unprobed> {
         let mut checks = server::checks(self.prober, url, None).await?;
         checks.retain(|check| check.name != KEY_CHECK);
         Ok(checks)
@@ -115,7 +115,11 @@ impl<'a> Inspector<'a> {
 
     /// Checks a server as [`Inspector::server`] does, with the key given as
     /// text (`None` for no key) rather than in a file.
-    pub async fn server_with_key(self, url: &str, key: Option<&str>) -> Result<Vec<Check>, String> {
+    pub async fn server_with_key(
+        self,
+        url: &str,
+        key: Option<&str>,
+    ) -> Result<Vec<Check>, Unprobed> {
         server::checks(self.prober, url, key).await
     }
 
@@ -214,12 +218,12 @@ pub async fn inspect(
     prober: &dyn Prober,
     url: &str,
     key_path: Option<&Path>,
-) -> Result<Vec<Check>, String> {
+) -> Result<Vec<Check>, Unprobed> {
     Inspector::new(prober).server(url, key_path).await
 }
 
 /// [`Inspector::address`] on this machine.
-pub async fn inspect_address(prober: &dyn Prober, url: &str) -> Result<Vec<Check>, String> {
+pub async fn inspect_address(prober: &dyn Prober, url: &str) -> Result<Vec<Check>, Unprobed> {
     Inspector::new(prober).address(url).await
 }
 
@@ -228,7 +232,7 @@ pub async fn inspect_with_key(
     prober: &dyn Prober,
     url: &str,
     key: Option<&str>,
-) -> Result<Vec<Check>, String> {
+) -> Result<Vec<Check>, Unprobed> {
     Inspector::new(prober).server_with_key(url, key).await
 }
 

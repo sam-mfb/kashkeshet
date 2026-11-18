@@ -200,15 +200,16 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             _ => diagnostics::SetupServer::New,
         };
         let note = waiting_note(&server.url, &mode);
-        let mut checks =
-            tokio::runtime::Handle::current().block_on(diagnostics::until_reachable(
+        let mut checks = tokio::runtime::Handle::current()
+            .block_on(diagnostics::until_reachable(
                 Inspector::new(self.parts.prober),
                 self.parts.clock.as_ref(),
                 &server.url,
                 server.key_file.as_deref(),
                 diagnostics::setup_wait(diagnostics::Settings::DEFAULT, kind),
                 &mut || self.parts.output.output(format_args!("{note}\n")),
-            ))?;
+            ))
+            .map_err(|e| e.to_string())?;
         if let Some(fix) = diagnostics::server_fix(&setup_of(&mode)) {
             point_server_fix_at(&mut checks, &fix);
         }
@@ -415,8 +416,9 @@ fn connect(
 /// server answers there and accepts its host name.
 fn check_address(prober: &dyn kkt_diagnostics::Prober, url: &str) -> Result<(), String> {
     kkt_deployment::connection::server_address(url, None).map_err(|e| e.to_string())?;
-    let mut checks =
-        tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(prober, url))?;
+    let mut checks = tokio::runtime::Handle::current()
+        .block_on(diagnostics::inspect_address(prober, url))
+        .map_err(|e| e.to_string())?;
     point_server_fix_at(
         &mut checks,
         "check the address, and that the server is running on its machine",
@@ -441,7 +443,8 @@ fn check_key(
         setup::ClientKey::File(path) => {
             runtime.block_on(diagnostics::inspect(prober, url, Some(path)))
         }
-    }?;
+    }
+    .map_err(|e| e.to_string())?;
     only_problems(checks)
 }
 

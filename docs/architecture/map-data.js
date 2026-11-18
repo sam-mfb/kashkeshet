@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "842eb877",
+ "commit": "440ce7f3",
  "crates": [
   {
    "bins": [
@@ -7319,7 +7319,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "Why no request could be made at all.",
+     "doc": "Why no request could be made at all, worded for the person.",
      "kind": "enum",
      "path": "Unprobed",
      "variants": [
@@ -7601,6 +7601,7 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
+    "thiserror",
     "url"
    ]
   },
@@ -12594,6 +12595,15 @@ window.KKT_GRAPH = {
      "path": "MAX_MEMORY_NAME_CHARS"
     },
     {
+     "doc": "A name that breaks one of its kind's rules.",
+     "fields": [
+      "of",
+      "broke"
+     ],
+     "kind": "struct",
+     "path": "NameError"
+    },
+    {
      "doc": "A pair of word lists built into the binary.",
      "kind": "struct",
      "methods": [
@@ -12604,6 +12614,17 @@ window.KKT_GRAPH = {
      "path": "NamePack"
     },
     {
+     "doc": "The kind of name a check was given.",
+     "kind": "enum",
+     "path": "Named",
+     "variants": [
+      "Handle",
+      "Lane",
+      "MemoryEntry",
+      "AdminName"
+     ]
+    },
+    {
      "doc": "The name the human operator's messages carry.",
      "kind": "const",
      "path": "OPERATOR"
@@ -12612,6 +12633,16 @@ window.KKT_GRAPH = {
      "doc": "",
      "kind": "const",
      "path": "PACKS"
+    },
+    {
+     "doc": "A rule a name can break.",
+     "kind": "enum",
+     "path": "Rule",
+     "variants": [
+      "Words",
+      "TooLong",
+      "Reserved"
+     ]
     },
     {
      "doc": "A random adjective-animal pair from `ANIMALS`, such as `amber-falcon`.",
@@ -12691,7 +12722,9 @@ window.KKT_GRAPH = {
     }
    ],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
