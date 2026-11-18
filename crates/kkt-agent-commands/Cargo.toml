@@ -13,7 +13,7 @@ kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-machine = { path = "../kkt-machine" }
 kkt-names = { path = "../kkt-names" }
-kkt-setup = { path = "../kkt-setup" }
+kkt-deployment = { path = "../kkt-deployment" }
 kkt-watch = { path = "../kkt-watch" }
 
 [dev-dependencies]

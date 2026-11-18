@@ -1140,11 +1140,11 @@ dependencies = [
  "futures",
  "kkt-agent-client",
  "kkt-clock",
+ "kkt-deployment",
  "kkt-keys",
  "kkt-llm-agent-config",
  "kkt-machine",
  "kkt-names",
- "kkt-setup",
  "kkt-watch",
 ]
 

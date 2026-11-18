@@ -2,7 +2,7 @@
 //! the admin endpoint, printing one line for each.
 
 use crate::{AgentParts, client};
-use kkt_setup::connection::{ConnectionOptions, ConnectionSource};
+use kkt_deployment::connection::{ConnectionOptions, ConnectionSource};
 use std::path::PathBuf;
 use std::process::ExitCode;
 

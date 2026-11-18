@@ -6,8 +6,8 @@ use crate::agent::lane_refused;
 use futures::executor::block_on;
 use futures::future::BoxFuture;
 use kkt_agent_client::{Address, Avatars, Failure, Reclaimed, Registered, Servers, Watched};
+use kkt_deployment::connection::{ConnectionOptions, ServeConnection};
 use kkt_keys::AccessKey;
-use kkt_setup::connection::{ConnectionOptions, ServeConnection};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::io;
@@ -20,7 +20,7 @@ struct NoRecord {
 
 impl ConnectionSource for NoRecord {
     type KeySource = ();
-    fn record(&self) -> Result<Option<kkt_setup::Record>, String> {
+    fn recorded(&self) -> Result<Option<kkt_deployment::connection::RecordedServer>, String> {
         Ok(None)
     }
     fn serve(&self, flags: ConnectionOptions) -> Result<ServeConnection<()>, String> {

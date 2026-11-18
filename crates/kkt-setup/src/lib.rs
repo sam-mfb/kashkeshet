@@ -10,7 +10,6 @@
 
 mod adopt;
 pub mod ask;
-pub mod connection;
 mod program;
 pub use program::{
     admin_key_line, client_key, configured_name_pack_line, docker_status_lines,

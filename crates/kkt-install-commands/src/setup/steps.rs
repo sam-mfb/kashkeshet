@@ -9,12 +9,12 @@ use crate::record::{
     write_setup_record,
 };
 use crate::service::{self, ServiceAction, ServiceInstall};
+use kkt_deployment::connection::{self, ConnectionOptions, ConnectionSource};
 use kkt_diagnostics::{self as diagnostics, Inspector, point_server_fix_at};
 use kkt_llm_agent_config::{self as clients, Client, Setup};
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_setup as setup;
-use kkt_setup::connection::{self, ConnectionOptions, ConnectionSource};
 use setup::waiting_note;
 use std::path::{Path, PathBuf};
 

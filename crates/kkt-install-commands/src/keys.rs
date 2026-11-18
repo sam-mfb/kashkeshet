@@ -4,9 +4,9 @@
 
 use crate::InstallParts;
 use crate::record::read_setup;
+use kkt_deployment::connection::ConnectionSource;
 use kkt_machine::Env;
 use kkt_setup as setup;
-use kkt_setup::connection::ConnectionSource;
 use std::path::PathBuf;
 
 pub(crate) use kkt_deployment::admin_name_line;

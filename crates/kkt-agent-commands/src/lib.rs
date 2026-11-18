@@ -2,7 +2,7 @@
 //! avatar from a server and save its credentials, `kkt watch`, which waits
 //! for new messages from a shell, and `kkt connect`, which writes a client's
 //! MCP config. It decides how a client reaches the server, through
-//! kkt-setup's connection question, and how what the server refuses is
+//! kkt-deployment's connection question, and how what the server refuses is
 //! worded.
 //!
 //! The program passes in every effect and every fact about the local server
@@ -21,7 +21,7 @@ pub use credential_file::{CredentialFileFix, credential_file_check};
 
 use kkt_agent_client::Servers;
 use kkt_clock::Clock;
-use kkt_setup::connection::ConnectionSource;
+use kkt_deployment::connection::ConnectionSource;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
