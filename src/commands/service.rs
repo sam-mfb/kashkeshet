@@ -185,7 +185,8 @@ mod tests {
                 bind,
                 Some("/home/sam/.config/kkt/config.toml"),
                 &try_bind
-            ),
+            )
+            .map_err(|e| e.to_string()),
             Err(format!(
                 "{bind} is already in use, so the server could not listen there. Stop the \
                  program using it, or set another address with `bind` in \
@@ -200,7 +201,10 @@ mod tests {
         let free = TcpListener::bind("127.0.0.1:0").expect("listen");
         let bind = free.local_addr().expect("address");
         drop(free);
-        assert_eq!(check_bind(false, bind, None, &try_bind), Ok(()));
+        assert_eq!(
+            check_bind(false, bind, None, &try_bind).map_err(|e| e.to_string()),
+            Ok(())
+        );
         TcpListener::bind(bind).expect("still free");
     }
 

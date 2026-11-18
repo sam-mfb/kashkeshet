@@ -74,7 +74,8 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             }),
         ))?;
         let connection =
-            connection::serve_connection(self.parts.connection, ConnectionOptions::NONE, false)?;
+            connection::serve_connection(self.parts.connection, ConnectionOptions::NONE, false)
+                .map_err(|e| e.to_string())?;
         let url = match &node {
             Some(node) => {
                 self.parts

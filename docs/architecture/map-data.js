@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a318e5d8",
+ "commit": "b8bf03bb",
  "crates": [
   {
    "bins": [
@@ -6727,6 +6727,15 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
+     "doc": "Why a service's server could not listen on its address, and where to set another: `config_file`, the config file that sets `bind`, if there is one.",
+     "kind": "enum",
+     "path": "BindError",
+     "variants": [
+      "InUse",
+      "CannotListen"
+     ]
+    },
+    {
      "doc": "How kkt is deployed on this machine.",
      "kind": "enum",
      "methods": [
@@ -6747,6 +6756,16 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "DeploymentEndpoint"
+    },
+    {
+     "doc": "Why `kkt serve` may not start here: where this machine's server really is.",
+     "kind": "enum",
+     "path": "GuardError",
+     "variants": [
+      "RunningService",
+      "InDocker",
+      "Client"
+     ]
     },
     {
      "doc": "What is known about the server on this machine, for telling whether it runs in Docker: in order, its record, the note of an unfinished setup, or a server found installed with no record.",
@@ -7025,6 +7044,19 @@ window.KKT_GRAPH = {
      "path": "connection::Connection"
     },
     {
+     "doc": "Why how a client reaches the server could not be worked out: which question asked of the `ConnectionSource` failed, with its error.",
+     "kind": "enum",
+     "path": "connection::ConnectionError",
+     "variants": [
+      "Record",
+      "Serve",
+      "DefaultKey",
+      "Key",
+      "Path",
+      "NoAdminEndpoint"
+     ]
+    },
+    {
      "doc": "Where a client command finds the server, as given: a serve config file, an address and an access key file.",
      "fields": [
       "config",
@@ -7077,6 +7109,11 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "connection::ServerAddress"
+    },
+    {
+     "doc": "Why a `ConnectionSource` could not answer: the implementation's own error, passed on unread.",
+     "kind": "struct",
+     "path": "connection::SourceError"
     },
     {
      "doc": "The local server's connection for admin tools, even when clients were switched.",
@@ -19823,6 +19860,7 @@ window.KKT_GRAPH = {
     "connection::ConnectionSource",
     "connection::RecordedServer",
     "connection::ServeConnection",
+    "connection::SourceError",
     "connection::server_address",
     "default_db",
     "docker_folder"
@@ -19848,6 +19886,7 @@ window.KKT_GRAPH = {
       "connection::ConnectionOptions",
       "connection::RecordedServer",
       "connection::ServeConnection",
+      "connection::SourceError",
       "connection::server_address",
       "default_db",
       "docker_folder"
@@ -21475,6 +21514,7 @@ window.KKT_GRAPH = {
    "from": "kkt-agent-commands",
    "items": [
     "connection",
+    "connection::ConnectionError",
     "connection::ConnectionOptions",
     "connection::ConnectionSource",
     "connection::admin_connection",
@@ -21488,6 +21528,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "connection",
+      "connection::ConnectionError",
       "connection::ConnectionOptions",
       "connection::ConnectionSource",
       "connection::admin_connection",
@@ -21500,7 +21541,8 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "connection::RecordedServer",
-    "connection::ServeConnection"
+    "connection::ServeConnection",
+    "connection::SourceError"
    ],
    "to": "kkt-deployment"
   },
@@ -24960,7 +25002,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "connection::ServeConnection"
+    "connection::ServeConnection",
+    "connection::SourceError"
    ],
    "to": "kkt-deployment"
   },
