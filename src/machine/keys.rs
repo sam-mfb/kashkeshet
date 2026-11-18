@@ -18,7 +18,10 @@ use std::path::Path;
 pub(crate) fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
     let mut generate =
         || OsEntropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS);
-    if let Some(path) = OsKeyFiles.make_default_key(access_key, &mut generate)? {
+    if let Some(path) = OsKeyFiles
+        .make_default_key(access_key, &mut generate)
+        .map_err(|e| e.to_string())?
+    {
         TracingLog.record(
             Level::Info,
             module_path!(),

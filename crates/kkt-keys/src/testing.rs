@@ -1,7 +1,7 @@
 //! What tests outside kkt-keys need: the shortest key, and
 //! [`Memory`], key files in memory.
 
-use crate::{ACCESS_KEY_FILE_MODE, KeyFiles, admin_name_path};
+use crate::{ACCESS_KEY_FILE_MODE, KeyFileAction, KeyFileError, KeyFiles, admin_name_path};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
@@ -139,14 +139,14 @@ impl KeyFiles for Memory {
         }
     }
 
-    fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
+    fn create_dir_all(&self, dir: &Path) -> Result<(), KeyFileError> {
         self.check(dir)
-            .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
+            .map_err(|e| KeyFileError::file(KeyFileAction::Create, dir, e))?;
         self.make_dirs(dir);
         Ok(())
     }
 
-    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String> {
+    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), KeyFileError> {
         // Checked before the staged file is taken, so a refused move leaves
         // it where it was, as a failed rename does.
         let moved = self
@@ -158,8 +158,7 @@ impl KeyFiles for Memory {
                     .remove(staged)
                     .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such file"))
             });
-        let file =
-            moved.map_err(|e| format!("could not move the key to {}: {e}", path.display()))?;
+        let file = moved.map_err(|e| KeyFileError::file(KeyFileAction::Move, path, e))?;
         self.files.borrow_mut().insert(path.to_owned(), file);
         Ok(())
     }
@@ -173,15 +172,14 @@ impl KeyFiles for Memory {
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such file"))
     }
 
-    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String> {
+    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), KeyFileError> {
         self.check(path)
             .and_then(|()| self.in_made_folder(path))
-            .map_err(|e| format!("could not write {}: {e}", path.display()))?;
+            .map_err(|e| KeyFileError::file(KeyFileAction::Write, path, e))?;
         if !force && self.files.borrow().contains_key(path) {
-            return Err(format!(
-                "{} already exists; pass --force to replace it",
-                path.display()
-            ));
+            return Err(KeyFileError::Exists {
+                path: path.to_owned(),
+            });
         }
         self.put(path, &format!("{key}\n"), Some(ACCESS_KEY_FILE_MODE));
         Ok(())

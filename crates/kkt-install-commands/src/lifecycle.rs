@@ -870,11 +870,12 @@ mod tests {
         fn mode(&self, _: &Path) -> std::io::Result<Option<u32>> {
             self.asked("key_files.mode")
         }
-        fn create_dir_all(&self, _: &Path) -> Result<(), String> {
+        fn create_dir_all(&self, _: &Path) -> Result<(), kkt_keys::KeyFileError> {
             self.refused("key_files.create_dir_all")
+                .map_err(not_asked_key)
         }
-        fn keep_staged(&self, _: &Path, _: &Path) -> Result<(), String> {
-            self.refused("key_files.keep_staged")
+        fn keep_staged(&self, _: &Path, _: &Path) -> Result<(), kkt_keys::KeyFileError> {
+            self.refused("key_files.keep_staged").map_err(not_asked_key)
         }
         fn remove(&self, _: &Path) -> std::io::Result<()> {
             self.asked("key_files.remove")
@@ -884,18 +885,19 @@ mod tests {
             _: &Path,
             _: bool,
             _: &mut dyn FnMut() -> String,
-        ) -> Result<String, String> {
-            self.refused("key_files.new_key")
+        ) -> Result<String, kkt_keys::KeyFileError> {
+            self.refused("key_files.new_key").map_err(not_asked_key)
         }
         fn make_default_key(
             &self,
             _: &kkt_keys::AccessKey,
             _: &mut dyn FnMut() -> String,
-        ) -> Result<Option<PathBuf>, String> {
+        ) -> Result<Option<PathBuf>, kkt_keys::KeyFileError> {
             self.refused("key_files.make_default_key")
+                .map_err(not_asked_key)
         }
-        fn write_key(&self, _: &Path, _: &str, _: bool) -> Result<(), String> {
-            self.refused("key_files.write_key")
+        fn write_key(&self, _: &Path, _: &str, _: bool) -> Result<(), kkt_keys::KeyFileError> {
+            self.refused("key_files.write_key").map_err(not_asked_key)
         }
         fn write_admin_name(&self, _: &Path, _: Option<&str>) -> std::io::Result<()> {
             self.asked("key_files.write_admin_name")
@@ -939,6 +941,15 @@ mod tests {
             self.0.borrow_mut().push("database.exists");
             false
         }
+    }
+
+    /// A key file error for a step a test did not expect.
+    fn not_asked_key(said: String) -> kkt_keys::KeyFileError {
+        kkt_keys::KeyFileError::file(
+            kkt_keys::KeyFileAction::Write,
+            "nowhere",
+            std::io::Error::other(said),
+        )
     }
 
     /// A client command error for a call a test did not expect.

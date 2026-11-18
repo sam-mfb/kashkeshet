@@ -12,9 +12,11 @@ pub fn new_key_file(
     path: &Path,
     force: bool,
 ) -> Result<String, String> {
-    files.new_key(path, force, &mut || {
-        entropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS)
-    })
+    files
+        .new_key(path, force, &mut || {
+            entropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS)
+        })
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

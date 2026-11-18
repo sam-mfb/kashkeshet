@@ -112,7 +112,9 @@ fn a_new_key_makes_its_folder_before_the_key_is_drawn() {
 fn a_new_key_replaces_a_file_only_when_forced() {
     let files = Memory::new().with_file("/k/access-key", "old\n");
     let path = Path::new("/k/access-key");
-    let refused = files.new_key(path, false, &mut || "new".to_owned());
+    let refused = files
+        .new_key(path, false, &mut || "new".to_owned())
+        .map_err(|e| e.to_string());
     assert_eq!(
         refused,
         Err("/k/access-key already exists; pass --force to replace it".to_owned())
@@ -142,18 +144,27 @@ fn the_default_key_is_made_only_when_it_is_the_default_and_missing() {
     let mut draw = || "new".to_owned();
     let files = Memory::new();
     for other in [AccessKey::None, AccessKey::File(path.clone())] {
-        assert_eq!(files.make_default_key(&other, &mut draw), Ok(None));
+        assert_eq!(
+            files
+                .make_default_key(&other, &mut draw)
+                .map_err(|e| e.to_string()),
+            Ok(None)
+        );
     }
     assert!(files.file(&path).is_none());
     assert_eq!(
-        files.make_default_key(&AccessKey::Default(path.clone()), &mut draw),
+        files
+            .make_default_key(&AccessKey::Default(path.clone()), &mut draw)
+            .map_err(|e| e.to_string()),
         Ok(Some(path.clone()))
     );
     assert!(files.has_dir(Path::new("/k")));
     assert_eq!(files.file(&path).expect("made").text, "new\n");
     let files = Memory::new().with_file("/k/access-key", "old\n");
     assert_eq!(
-        files.make_default_key(&AccessKey::Default(path.clone()), &mut draw),
+        files
+            .make_default_key(&AccessKey::Default(path.clone()), &mut draw)
+            .map_err(|e| e.to_string()),
         Ok(None)
     );
     assert_eq!(files.file(&path).expect("kept").text, "old\n");
@@ -171,7 +182,7 @@ fn a_default_key_that_cannot_be_looked_at_is_refused_not_made_again() {
         .with_file("/k/access-key", "old\n")
         .failing("/k/access-key");
     let made = files.make_default_key(&AccessKey::Default(path.clone()), &mut draw);
-    let error = made.expect_err("refused");
+    let error = made.expect_err("refused").to_string();
     assert!(
         error.starts_with("could not tell whether /k/access-key is there: "),
         "{error}"
@@ -202,7 +213,10 @@ fn the_admin_name_file_is_written_beside_its_key_or_removed() {
 fn the_stand_in_like_the_disk_writes_only_in_a_folder_that_was_made() {
     let files = Memory::new();
     let path = Path::new("/k/access-key");
-    let refused = files.write_key(path, "key", false).expect_err("no folder");
+    let refused = files
+        .write_key(path, "key", false)
+        .expect_err("no folder")
+        .to_string();
     assert!(
         refused.starts_with("could not write /k/access-key"),
         "{refused}"
@@ -224,7 +238,8 @@ fn a_refused_move_leaves_the_staged_key_in_place() {
     let files = Memory::new().with_file(staged, "key\n");
     let refused = files
         .keep_staged(staged, Path::new("/other/client-key"))
-        .expect_err("no folder");
+        .expect_err("no folder")
+        .to_string();
     assert!(
         refused.starts_with("could not move the key to /other/client-key"),
         "{refused}"
@@ -273,4 +288,49 @@ fn a_read_error_names_the_file_and_keeps_the_systems_reason() {
     assert_eq!(error.to_string(), "could not read /k/access-key: denied");
     let source = std::error::Error::source(&error).expect("the io error");
     assert_eq!(source.to_string(), "denied");
+}
+
+/// Every message the stand-in's steps and the provided writers give,
+/// pinned exactly: the container install's transcripts quote them.
+#[test]
+fn every_key_file_message_says_what_it_always_said() {
+    let files = Memory::new().failing("/k");
+    assert_eq!(
+        files
+            .create_dir_all(Path::new("/k"))
+            .map_err(|e| e.to_string()),
+        Err("could not create /k: refused".to_owned())
+    );
+    let files = Memory::new();
+    assert_eq!(
+        files
+            .write_key(Path::new("/k/access-key"), "key", false)
+            .map_err(|e| e.to_string()),
+        Err("could not write /k/access-key: no such folder".to_owned())
+    );
+    let staged = Path::new("/k/client-key.partial");
+    let files = Memory::new().with_file(staged, "key\n");
+    assert_eq!(
+        files
+            .keep_staged(staged, Path::new("/other/client-key"))
+            .map_err(|e| e.to_string()),
+        Err("could not move the key to /other/client-key: no such folder".to_owned())
+    );
+    let files = Memory::new()
+        .with_dir("/k")
+        .with_file("/k/access-key", "key\n");
+    assert_eq!(
+        files
+            .new_key(Path::new("/k/access-key"), false, &mut || "new".into())
+            .map_err(|e| e.to_string()),
+        Err("/k/access-key already exists; pass --force to replace it".to_owned())
+    );
+    let files = Memory::new().with_dir("/k").failing("/k/access-key");
+    assert_eq!(
+        files
+            .make_default_key(&AccessKey::Default("/k/access-key".into()), &mut || "new"
+                .into())
+            .map_err(|e| e.to_string()),
+        Err("could not tell whether /k/access-key is there: refused".to_owned())
+    );
 }

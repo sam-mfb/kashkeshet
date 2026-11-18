@@ -158,15 +158,24 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     fn stage_key(&self, key: &str) -> Result<PathBuf, String> {
         let dir = kkt_config_file::config_dir(self.env.config_home().as_deref())
             .ok_or("set HOME to keep the key in ~/.config/kkt")?;
-        self.parts.key_files.create_dir_all(&dir)?;
+        self.parts
+            .key_files
+            .create_dir_all(&dir)
+            .map_err(|e| e.to_string())?;
         let path = staged_client_key(&dir);
-        self.parts.key_files.write_key(&path, key, true)?;
+        self.parts
+            .key_files
+            .write_key(&path, key, true)
+            .map_err(|e| e.to_string())?;
         Ok(path)
     }
 
     fn keep_key(&self, staged: &Path, url: &str) -> Result<PathBuf, String> {
         let path = client_key(staged, url)?;
-        self.parts.key_files.keep_staged(staged, &path)?;
+        self.parts
+            .key_files
+            .keep_staged(staged, &path)
+            .map_err(|e| e.to_string())?;
         Ok(path)
     }
 

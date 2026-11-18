@@ -194,7 +194,7 @@ pub(crate) async fn save_keys(
             parts
                 .key_files
                 .create_dir_all(parent)
-                .map_err(ContainerError::KeyFile)?;
+                .map_err(|e| ContainerError::KeyFile(e.to_string()))?;
             made.push(parent);
         }
     }
@@ -203,7 +203,7 @@ pub(crate) async fn save_keys(
         parts
             .key_files
             .write_key(path, key, true)
-            .map_err(ContainerError::KeyFile)
+            .map_err(|e| ContainerError::KeyFile(e.to_string()))
     };
     write(&keys.access, &access)?;
     write(&keys.web, &web_key)?;
