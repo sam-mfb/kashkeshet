@@ -2,7 +2,7 @@
 //! endpoint as kkt-deployment's connection question says, or the local server's
 //! admin endpoint with the admin key.
 
-use crate::AgentParts;
+use crate::{AgentCommandError, AgentParts};
 use kkt_agent_client::Address;
 use kkt_deployment::connection::{self, ConnectionOptions, ConnectionSource};
 
@@ -10,14 +10,18 @@ use kkt_deployment::connection::{self, ConnectionOptions, ConnectionSource};
 pub(crate) fn agent<C: ConnectionSource>(
     parts: &AgentParts<C>,
     flags: ConnectionOptions,
-) -> Result<Address, String> {
-    let connection = connection::client_connection(&parts.connection, flags, false)?;
+) -> Result<Address, AgentCommandError> {
+    let connection = connection::client_connection(&parts.connection, flags, false)
+        .map_err(AgentCommandError::Connection)?;
     let key = match &connection.key_file {
         Some(path) => Some(
             parts
                 .key_files
                 .read(path)
-                .map_err(|e| format!("could not read key file {}: {}", path.display(), e.reason))?
+                .map_err(|e| AgentCommandError::KeyFile {
+                    path: path.clone(),
+                    reason: e.reason,
+                })?
                 .trim()
                 .to_string(),
         ),
@@ -38,17 +42,22 @@ pub(crate) fn agent<C: ConnectionSource>(
 pub(crate) fn admin<C: ConnectionSource>(
     parts: &AgentParts<C>,
     flags: ConnectionOptions,
-) -> Result<Address, String> {
+) -> Result<Address, AgentCommandError> {
     let key_file = flags.key_file.clone();
-    let connection = connection::admin_connection(&parts.connection, flags)?;
-    let url = connection::admin_endpoint(&connection.url, parts.mcp_path, parts.admin_path)?;
-    let path = parts.admin_key.path(key_file)?;
+    let connection = connection::admin_connection(&parts.connection, flags)
+        .map_err(AgentCommandError::Connection)?;
+    let url = connection::admin_endpoint(&connection.url, parts.mcp_path, parts.admin_path)
+        .map_err(AgentCommandError::Connection)?;
+    let path = parts
+        .admin_key
+        .path(key_file)
+        .map_err(AgentCommandError::AdminKey)?;
     let key = parts.key_files.read(&path).map_err(|e| match e.missing {
-        true => format!(
-            "there is no admin key at {}; `kkt key create --admin` makes one on the server",
-            path.display()
-        ),
-        false => format!("could not read key file {}: {}", path.display(), e.reason),
+        true => AgentCommandError::NoAdminKey { path: path.clone() },
+        false => AgentCommandError::KeyFile {
+            path: path.clone(),
+            reason: e.reason,
+        },
     })?;
     Ok(Address {
         url,

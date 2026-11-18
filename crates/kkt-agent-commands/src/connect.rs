@@ -1,7 +1,7 @@
 //! `kkt connect`: writes or prints a client's MCP config for this machine's
 //! server.
 
-use crate::AgentParts;
+use crate::{AgentCommandError, AgentParts};
 use kkt_deployment::connection::{self, ConnectionOptions, ConnectionSource};
 use kkt_llm_agent_config::{self as clients, Client, Setup};
 use kkt_machine::Env;
@@ -17,23 +17,27 @@ pub fn run<C: ConnectionSource>(
     flags: ConnectionOptions,
     client_config: Option<PathBuf>,
     write: bool,
-) -> Result<(), String> {
-    let client = Client::from_name(client).ok_or("unknown client")?;
+) -> Result<(), AgentCommandError> {
+    let client = Client::from_name(client).ok_or(AgentCommandError::UnknownClient)?;
     let (client_config, source) = match client_config {
         Some(path) => (path, "--client-config"),
         None => (
             client
                 .file(env, &*parts.clients)
-                .map_err(|e| e.to_string())?,
+                .map_err(AgentCommandError::ClientConfig)?,
             client.source(env),
         ),
     };
     // Refuse a wrong name before the connection creates a missing key.
     client
         .check_name(&client_config, source)
-        .map_err(|e| e.to_string())?;
-    let connection = connection::client_connection(&parts.connection, flags, true)?;
-    let executable = parts.program.kkt_path()?;
+        .map_err(AgentCommandError::ClientConfig)?;
+    let connection = connection::client_connection(&parts.connection, flags, true)
+        .map_err(AgentCommandError::Connection)?;
+    let executable = parts
+        .program
+        .kkt_path()
+        .map_err(AgentCommandError::Program)?;
     let setup = Setup {
         env,
         url: &connection.url,
@@ -51,7 +55,7 @@ pub fn run<C: ConnectionSource>(
             &*parts.clients,
             &*parts.client_command
         )
-        .map_err(|e| e.to_string())?
+        .map_err(AgentCommandError::ClientConfig)?
     ));
     Ok(())
 }

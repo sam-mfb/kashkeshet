@@ -1146,6 +1146,7 @@ dependencies = [
  "kkt-machine",
  "kkt-names",
  "kkt-watch",
+ "thiserror",
 ]
 
 [[package]]

@@ -1,5 +1,6 @@
 //! The rule for an agent credential file, from facts the caller inspected.
 
+use crate::ForeignCredentialFile;
 use std::path::Path;
 
 /// The change needed to take group and other access off a credential file.
@@ -21,12 +22,14 @@ pub fn credential_file_check(
     owner: u32,
     mode: u32,
     uid: u32,
-) -> Result<Option<CredentialFileFix>, String> {
+) -> Result<Option<CredentialFileFix>, ForeignCredentialFile> {
     if owner != uid {
-        return Err(format!(
-            "credential file {} is owned by another user (uid {owner}); ask its owner or an administrator to run chown {uid} {quoted}, then chmod 600 {quoted}",
-            path.display()
-        ));
+        return Err(ForeignCredentialFile {
+            path: path.to_path_buf(),
+            quoted: quoted.to_string(),
+            owner,
+            uid,
+        });
     }
     if mode & 0o077 == 0 {
         return Ok(None);
