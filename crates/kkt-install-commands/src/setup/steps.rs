@@ -29,10 +29,12 @@ pub(super) struct OsSteps<'a, 'p, C: ConnectionSource, D> {
 /// if there is none.
 fn allow_host_in_config(
     files: &dyn crate::ConfigText,
-    config_file: Option<PathBuf>,
+    serve: &dyn crate::ServeFacts,
     host: &str,
 ) -> Result<(), String> {
-    let path = config_file.ok_or("set HOME to keep kkt's config file")?;
+    let path = serve
+        .config_file()
+        .ok_or("set HOME to keep kkt's config file")?;
     let text = files
         .read(&path)
         .map_err(|e| e.to_string())?
@@ -58,14 +60,10 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             false => None,
         };
         if let Some(node) = &node {
-            allow_host_in_config(
-                self.parts.config_file,
-                self.parts.serve.config_file(),
-                &node.dns_name,
-            )?;
+            allow_host_in_config(self.parts.config_file, self.parts.serve, &node.dns_name)?;
         }
         for host in allow_hosts {
-            allow_host_in_config(self.parts.config_file, self.parts.serve.config_file(), host)?;
+            allow_host_in_config(self.parts.config_file, self.parts.serve, host)?;
         }
         tokio::runtime::Handle::current().block_on(service::run(
             self.parts,
@@ -598,9 +596,45 @@ mod tests {
         }
     }
 
-    /// The default config file under the config home `/h/.config`.
-    fn config_file() -> Option<PathBuf> {
-        Some(PathBuf::from("/h/.config/kkt/config.toml"))
+    /// Serving facts with the config places under the home `/h`, or with
+    /// no home; the host edit asks nothing else.
+    struct Home(bool);
+
+    impl crate::ServeFacts for Home {
+        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, String> {
+            unreachable!("the host edit reads no settings")
+        }
+        fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
+            unreachable!("the host edit reads no settings")
+        }
+        fn database(&self, _: Option<PathBuf>, _: Option<PathBuf>) -> Result<PathBuf, String> {
+            unreachable!("the host edit reads no settings")
+        }
+        fn bind(&self) -> Result<std::net::SocketAddr, String> {
+            unreachable!("the host edit reads no settings")
+        }
+        fn default_access_key(&self) -> Option<PathBuf> {
+            unreachable!("the host edit reads no settings")
+        }
+        fn default_name_pack(&self) -> String {
+            unreachable!("the host edit reads no settings")
+        }
+        fn config_dir(&self) -> Option<PathBuf> {
+            self.0.then(|| PathBuf::from("/h/.config/kkt"))
+        }
+        fn config_file(&self) -> Option<PathBuf> {
+            self.0.then(|| PathBuf::from("/h/.config/kkt/config.toml"))
+        }
+        fn config_file_in_home(&self) -> PathBuf {
+            PathBuf::from("kkt/config.toml")
+        }
+        fn service_settings(
+            &self,
+            _: Option<PathBuf>,
+            _: kkt_deployment::ServiceSettings,
+        ) -> Result<crate::ServiceInputs<'_>, String> {
+            unreachable!("the host edit reads no settings")
+        }
     }
 
     /// Setup adds a host to the default config file under the config home:
@@ -611,7 +645,7 @@ mod tests {
     fn the_host_edit_writes_the_config_file_and_says_what_failed() {
         let config = PathBuf::from("/h/.config/kkt/config.toml");
         let none = ConfigFile::holding(None);
-        super::allow_host_in_config(&none, config_file(), "h.example").expect("edited");
+        super::allow_host_in_config(&none, &Home(true), "h.example").expect("edited");
         assert_eq!(*none.read.borrow(), std::slice::from_ref(&config));
         assert_eq!(
             *none.written.borrow(),
@@ -622,12 +656,12 @@ mod tests {
         );
 
         let listed = ConfigFile::holding(Some("allow_hosts = [\"h.example\"]\n"));
-        super::allow_host_in_config(&listed, config_file(), "h.example").expect("edited");
+        super::allow_host_in_config(&listed, &Home(true), "h.example").expect("edited");
         assert!(listed.written.borrow().is_empty());
 
         let broken = ConfigFile::holding(Some("allow_hosts = ["));
         assert_eq!(
-            super::allow_host_in_config(&broken, config_file(), "h.example"),
+            super::allow_host_in_config(&broken, &Home(true), "h.example"),
             Err(
                 "invalid setting: config is not valid TOML: unclosed array, expected `]` \
                  (in /h/.config/kkt/config.toml)"
@@ -638,7 +672,7 @@ mod tests {
 
         let homeless = ConfigFile::holding(None);
         assert_eq!(
-            super::allow_host_in_config(&homeless, None, "h.example"),
+            super::allow_host_in_config(&homeless, &Home(false), "h.example"),
             Err("set HOME to keep kkt's config file".to_string())
         );
         assert!(homeless.read.borrow().is_empty());
