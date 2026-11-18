@@ -21,10 +21,17 @@ pub fn run<C: ConnectionSource>(
     let client = Client::from_name(client).ok_or("unknown client")?;
     let (client_config, source) = match client_config {
         Some(path) => (path, "--client-config"),
-        None => (client.file(env, &*parts.clients)?, client.source(env)),
+        None => (
+            client
+                .file(env, &*parts.clients)
+                .map_err(|e| e.to_string())?,
+            client.source(env),
+        ),
     };
     // Refuse a wrong name before the connection creates a missing key.
-    client.check_name(&client_config, source)?;
+    client
+        .check_name(&client_config, source)
+        .map_err(|e| e.to_string())?;
     let connection = connection::client_connection(&parts.connection, flags, true)?;
     let executable = parts.program.kkt_path()?;
     let setup = Setup {
@@ -43,7 +50,8 @@ pub fn run<C: ConnectionSource>(
             write,
             &*parts.clients,
             &*parts.client_command
-        )?
+        )
+        .map_err(|e| e.to_string())?
     ));
     Ok(())
 }

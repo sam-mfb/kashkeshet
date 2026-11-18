@@ -5,6 +5,7 @@
 //! should change is changed through the [`ClientCommand`] the caller gives.
 
 mod command;
+mod error;
 mod files;
 mod formats;
 mod host;
@@ -12,6 +13,9 @@ mod order;
 mod permissions;
 
 pub use command::ClientCommand;
+pub use error::{
+    ClientConfigError, Encoded, FileAction, Folder, Shape, Text, TomlProblem, Unresolved,
+};
 pub use host::Host;
 pub use permissions::{KKT_AGENT_TOOLS, allow_kkt};
 
@@ -141,13 +145,16 @@ impl Client {
 
     /// Refuse a config file the client would never read because of its name.
     /// `source` is the setting that chose `path`.
-    pub fn check_name(self, path: &Path, source: &str) -> Result<(), String> {
+    pub fn check_name(self, path: &Path, source: &str) -> Result<(), ClientConfigError> {
         match self.required_name() {
-            Some(name) if path.file_name() != Some(std::ffi::OsStr::new(name)) => Err(format!(
-                "{} config must be named {name}: {} (from {source})",
-                self.display_name(),
-                path.display()
-            )),
+            Some(name) if path.file_name() != Some(std::ffi::OsStr::new(name)) => {
+                Err(ClientConfigError::WrongFile {
+                    client: self,
+                    name,
+                    path: path.to_path_buf(),
+                    setting: source.to_string(),
+                })
+            }
             _ => Ok(()),
         }
     }
@@ -165,7 +172,7 @@ pub(crate) fn shell_word(text: &str) -> String {
 pub(crate) fn claude_config_dir(
     setup: &Setup<'_>,
     host: &dyn Host,
-) -> Result<Option<PathBuf>, String> {
+) -> Result<Option<PathBuf>, ClientConfigError> {
     let directory = |path: &Path| {
         let path = if path.as_os_str().is_empty() {
             Path::new(".")
@@ -181,18 +188,16 @@ pub(crate) fn claude_config_dir(
             Err(e) => Err(e),
         }
     };
-    let unresolved = |problem: String| {
-        format!(
-            "could not resolve the directory of the Claude Code config {} (from {}): {problem}",
-            setup.client_config.display(),
-            setup.source
-        )
+    let unresolved = |problem: Unresolved| ClientConfigError::DirectoryUnresolved {
+        path: setup.client_config.to_path_buf(),
+        setting: setup.source.to_string(),
+        problem,
     };
     let parent = setup
         .client_config
         .parent()
-        .ok_or_else(|| unresolved("it has no parent directory".into()))?;
-    let selected = directory(parent).map_err(|e| unresolved(e.to_string()))?;
+        .ok_or_else(|| unresolved(Unresolved::NoParent))?;
+    let selected = directory(parent).map_err(|e| unresolved(Unresolved::Io(e)))?;
     // Only the selected directory must resolve: an inherited profile or HOME
     // that cannot be resolved is not the selected one.
     let selects = |path: &Path| directory(path).is_ok_and(|dir| dir == selected);
@@ -205,12 +210,17 @@ pub(crate) fn claude_config_dir(
     Ok(Some(selected))
 }
 
-pub(crate) fn helper(setup: &Setup<'_>) -> Result<Option<String>, String> {
+pub(crate) fn helper(setup: &Setup<'_>) -> Result<Option<String>, ClientConfigError> {
     let Some(key) = setup.key_file else {
         return Ok(None);
     };
-    let executable = setup.executable.to_str().ok_or("kkt's path is not UTF-8")?;
-    let key = key.to_str().ok_or("the key path is not UTF-8")?;
+    let executable = setup
+        .executable
+        .to_str()
+        .ok_or(ClientConfigError::NotText(Text::KktPath))?;
+    let key = key
+        .to_str()
+        .ok_or(ClientConfigError::NotText(Text::KeyPath))?;
     Ok(Some(format!(
         "{} key header --json --key-file {}",
         shell_word(executable),
@@ -219,8 +229,8 @@ pub(crate) fn helper(setup: &Setup<'_>) -> Result<Option<String>, String> {
 }
 
 /// The requested plain header, or the JSON header map both helper clients use.
-pub fn header(key: &str, json: bool) -> Result<String, String> {
-    kkt_keys::check_access_key(key).map_err(|e| e.to_string())?;
+pub fn header(key: &str, json: bool) -> Result<String, ClientConfigError> {
+    kkt_keys::check_access_key(key)?;
     if json {
         formats::header_json(key)
     } else {
@@ -230,13 +240,17 @@ pub fn header(key: &str, json: bool) -> Result<String, String> {
 
 /// Whether Codex has kkt configured without an explicit MCP credential store.
 /// This only reads the config; choosing a store belongs to the person using it.
-pub fn codex_password_store_hint(env: &Env, host: &dyn Host) -> Result<bool, String> {
+pub fn codex_password_store_hint(env: &Env, host: &dyn Host) -> Result<bool, ClientConfigError> {
     let path = Client::Codex.file(env, host)?;
     let Some(text) = files::read(host, &path)? else {
         return Ok(false);
     };
-    let document = formats::parse_toml(&text)
-        .map_err(|e| format!("invalid Codex TOML in {}: {e}", path.display()))?;
+    let document = formats::parse_toml(&text).map_err(|problem| {
+        ClientConfigError::Malformed(Shape::TomlIn {
+            path: path.clone(),
+            problem,
+        })
+    })?;
     Ok(
         document.find(&["mcp_servers", "kkt"]) == Some(kkt_toml::Found::Table)
             && document.find(&["mcp_oauth_credentials_store"]).is_none(),
@@ -253,14 +267,14 @@ pub fn configure(
     write: bool,
     host: &dyn Host,
     command: &dyn ClientCommand,
-) -> Result<String, String> {
+) -> Result<String, ClientConfigError> {
     client.check_name(setup.client_config, setup.source)?;
     let claude_config_dir = match client {
         Client::ClaudeCode => claude_config_dir(setup, host)?,
         _ => None,
     };
     // File errors name the setting that chose the path.
-    let from = |error: String| format!("{error} (from {})", setup.source);
+    let from = |error: ClientConfigError| error.with_setting(setup.source);
     let original = files::read(host, setup.client_config).map_err(from)?;
     if !write {
         let entry = formats::preview(client, setup, claude_config_dir.as_deref())?;
@@ -275,11 +289,11 @@ pub fn configure(
         return Ok(out);
     }
     let updated = formats::merge(client, setup, original.as_deref(), host).map_err(|error| {
-        format!(
-            "{} (from {}): {error}",
-            setup.client_config.display(),
-            setup.source
-        )
+        ClientConfigError::InConfig {
+            path: setup.client_config.to_path_buf(),
+            setting: setup.source.to_string(),
+            error: Box::new(error),
+        }
     })?;
     if updated.is_none() {
         if client.copies_key() {
@@ -290,14 +304,14 @@ pub fn configure(
             setup.client_config.display()
         ));
     }
-    let updated = updated.ok_or("missing merged client configuration")?;
+    let updated = updated.ok_or(ClientConfigError::NotMerged)?;
     if client == Client::ClaudeCode {
-        let absolute = host.absolute(setup.client_config).map_err(|e| {
-            format!(
-                "could not resolve the Claude Code config {} (from {}): {e}",
-                setup.client_config.display(),
-                setup.source
-            )
+        let absolute = host.absolute(setup.client_config).map_err(|cause| {
+            ClientConfigError::ConfigUnresolved {
+                path: setup.client_config.to_path_buf(),
+                setting: setup.source.to_string(),
+                cause,
+            }
         })?;
         files::apply_claude(
             host,

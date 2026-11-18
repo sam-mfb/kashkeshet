@@ -31,6 +31,10 @@ pub struct FakeHost {
     pub claude_writes: RefCell<Option<PathBuf>>,
     /// Every rename fails.
     pub rename_fails: Cell<bool>,
+    /// Each operation named here fails, as `refused`: `read`,
+    /// `create_private`, `restrict`, `create_dir_all`, `remove_file`,
+    /// `absolute`, `canonicalize`.
+    pub refused: RefCell<BTreeSet<&'static str>>,
 }
 
 fn not_found() -> io::Error {
@@ -38,11 +42,29 @@ fn not_found() -> io::Error {
 }
 
 impl FakeHost {
+    /// `Err(refused)` when `operation` is set to fail.
+    fn check(&self, operation: &str) -> io::Result<()> {
+        if self.refused.borrow().contains(operation) {
+            return Err(io::Error::other("refused"));
+        }
+        Ok(())
+    }
+
+    /// Makes `operation` fail from now on.
+    pub fn refuse(&self, operation: &'static str) {
+        self.refused.borrow_mut().insert(operation);
+    }
+}
+
+impl FakeHost {
     /// Stores a file that anyone may read, and its directories.
     pub fn put(&self, path: impl Into<PathBuf>, text: &str) {
         let path = path.into();
         if let Some(parent) = path.parent() {
-            self.create_dir_all(parent).expect("dirs");
+            let mut dirs = self.dirs.borrow_mut();
+            for dir in parent.ancestors() {
+                dirs.insert(dir.to_path_buf());
+            }
         }
         self.files.borrow_mut().insert(
             path,
@@ -65,6 +87,7 @@ impl FakeHost {
 
 impl Host for FakeHost {
     fn read(&self, path: &Path) -> io::Result<String> {
+        self.check("read")?;
         self.file(path).map(|f| f.text).ok_or_else(not_found)
     }
 
@@ -73,6 +96,7 @@ impl Host for FakeHost {
     }
 
     fn create_private(&self, path: &Path, text: &str) -> io::Result<()> {
+        self.check("create_private")?;
         if self.exists(path) {
             return Err(io::Error::from(io::ErrorKind::AlreadyExists));
         }
@@ -87,12 +111,14 @@ impl Host for FakeHost {
     }
 
     fn restrict(&self, path: &Path) -> io::Result<()> {
+        self.check("restrict")?;
         let mut files = self.files.borrow_mut();
         files.get_mut(path).ok_or_else(not_found)?.private = true;
         Ok(())
     }
 
     fn create_dir_all(&self, path: &Path) -> io::Result<()> {
+        self.check("create_dir_all")?;
         let mut dirs = self.dirs.borrow_mut();
         for dir in path.ancestors() {
             dirs.insert(dir.to_path_buf());
@@ -111,6 +137,7 @@ impl Host for FakeHost {
     }
 
     fn remove_file(&self, path: &Path) -> io::Result<()> {
+        self.check("remove_file")?;
         self.files
             .borrow_mut()
             .remove(path)
@@ -119,10 +146,12 @@ impl Host for FakeHost {
     }
 
     fn absolute(&self, path: &Path) -> io::Result<PathBuf> {
+        self.check("absolute")?;
         Ok(Path::new(CURRENT_DIR).join(path))
     }
 
     fn canonicalize(&self, path: &Path) -> io::Result<PathBuf> {
+        self.check("canonicalize")?;
         if self.exists(path) {
             Ok(path.to_path_buf())
         } else {

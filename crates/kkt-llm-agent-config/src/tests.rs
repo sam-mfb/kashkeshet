@@ -68,7 +68,7 @@ fn a_client_is_connected_when_its_config_has_a_kkt_entry() {
     // No config at all: not connected.
     for client in Client::ALL {
         assert_eq!(
-            client.connected(&env, &host),
+            client.connected(&env, &host).map_err(|e| e.to_string()),
             Ok(false),
             "{}",
             client.name()
@@ -79,11 +79,34 @@ fn a_client_is_connected_when_its_config_has_a_kkt_entry() {
     write(Client::OpenCode, r#"{"mcp": {"kkt": {"type": "remote"}}}"#);
     write(Client::MuseCode, r#"{"mcpServers": {"kkt": {}}}"#);
     write(Client::Agy, "not json");
-    assert_eq!(Client::Codex.connected(&env, &host), Ok(true));
-    assert_eq!(Client::ClaudeCode.connected(&env, &host), Ok(false));
-    assert_eq!(Client::OpenCode.connected(&env, &host), Ok(true));
-    assert_eq!(Client::MuseCode.connected(&env, &host), Ok(true));
-    let error = Client::Agy.connected(&env, &host).expect_err("bad JSON");
+    assert_eq!(
+        Client::Codex
+            .connected(&env, &host)
+            .map_err(|e| e.to_string()),
+        Ok(true)
+    );
+    assert_eq!(
+        Client::ClaudeCode
+            .connected(&env, &host)
+            .map_err(|e| e.to_string()),
+        Ok(false)
+    );
+    assert_eq!(
+        Client::OpenCode
+            .connected(&env, &host)
+            .map_err(|e| e.to_string()),
+        Ok(true)
+    );
+    assert_eq!(
+        Client::MuseCode
+            .connected(&env, &host)
+            .map_err(|e| e.to_string()),
+        Ok(true)
+    );
+    let error = Client::Agy
+        .connected(&env, &host)
+        .expect_err("bad JSON")
+        .to_string();
     assert!(error.starts_with("Antigravity: "), "{error}");
     assert!(error.contains("invalid client JSON"), "{error}");
 }
@@ -95,7 +118,9 @@ fn a_malformed_codex_config_names_the_parsers_reason() {
     let path = Client::Codex.file(&env, &host).expect("path");
     let text = format!("[mcp_servers.kkt]\ntoken = '{KEY}\n");
     host.put(&path, &text);
-    let error = codex_password_store_hint(&env, &host).expect_err("malformed");
+    let error = codex_password_store_hint(&env, &host)
+        .expect_err("malformed")
+        .to_string();
     let cause = error
         .strip_prefix(&format!("invalid Codex TOML in {}: ", path.display()))
         .unwrap_or_else(|| panic!("{error}"));
@@ -129,11 +154,20 @@ fn antigravity_uses_its_legacy_config_only_when_the_new_one_is_missing() {
     let env = env();
     let new = Path::new(HOME).join(AGY_CONFIG);
     let legacy = Path::new(HOME).join(AGY_LEGACY_CONFIG);
-    assert_eq!(Client::Agy.file(&env, &host), Ok(new.clone()));
+    assert_eq!(
+        Client::Agy.file(&env, &host).map_err(|e| e.to_string()),
+        Ok(new.clone())
+    );
     host.put(&legacy, "{}");
-    assert_eq!(Client::Agy.file(&env, &host), Ok(legacy));
+    assert_eq!(
+        Client::Agy.file(&env, &host).map_err(|e| e.to_string()),
+        Ok(legacy)
+    );
     host.put(&new, "{}");
-    assert_eq!(Client::Agy.file(&env, &host), Ok(new));
+    assert_eq!(
+        Client::Agy.file(&env, &host).map_err(|e| e.to_string()),
+        Ok(new)
+    );
 }
 
 #[test]
@@ -181,7 +215,7 @@ fn a_failed_replacement_removes_its_temporary_file_and_keeps_the_config() {
     let error = configure(Client::Codex, &setup(&env, &path, None), true, &host, &host)
         .expect_err("refused");
     assert_eq!(
-        error,
+        error.to_string(),
         format!(
             "could not write {}: rename refused (from HOME)",
             path.display()
@@ -237,7 +271,7 @@ fn claude_code_is_configured_through_its_command_and_restored_if_it_fails() {
         &host,
     )
     .expect_err("fails");
-    assert_eq!(error, "claude mcp failed");
+    assert_eq!(error.to_string(), "claude mcp failed");
     assert_eq!(host.file(&path), Some(private(old)), "restored whole");
 
     host.claude_fails.set(false);
@@ -279,7 +313,7 @@ fn a_new_claude_code_config_is_removed_if_its_command_fails() {
         &host,
     )
     .expect_err("fails");
-    assert_eq!(error, "claude mcp failed");
+    assert_eq!(error.to_string(), "claude mcp failed");
     assert!(host.file(&path).is_none());
     // Nothing to remove first, and a profile outside HOME is passed as
     // CLAUDE_CONFIG_DIR.
@@ -384,7 +418,9 @@ fn allowing_kkt_in_a_bad_file_names_it_and_changes_nothing() {
     let host = FakeHost::default();
     let env = env();
     host.put("/home/sam/.claude/settings.json", "{ not json");
-    let error = allow_kkt(Client::ClaudeCode, &env, &host).expect_err("bad JSON");
+    let error = allow_kkt(Client::ClaudeCode, &env, &host)
+        .expect_err("bad JSON")
+        .to_string();
     assert!(
         error.starts_with("/home/sam/.claude/settings.json: invalid client JSON"),
         "{error}"
@@ -395,11 +431,15 @@ fn allowing_kkt_in_a_bad_file_names_it_and_changes_nothing() {
         [PathBuf::from("/home/sam/.claude/settings.json")]
     );
 
-    let error = allow_kkt(Client::Codex, &env, &host).expect_err("not connected");
+    let error = allow_kkt(Client::Codex, &env, &host)
+        .expect_err("not connected")
+        .to_string();
     assert!(error.contains("connect it first"), "{error}");
     assert!(host.file("/home/sam/.codex/rules/kkt.rules").is_none());
 
-    let error = allow_kkt(Client::MuseCode, &env, &host).expect_err("no setting");
+    let error = allow_kkt(Client::MuseCode, &env, &host)
+        .expect_err("no setting")
+        .to_string();
     assert!(error.starts_with("Muse Code has no setting"), "{error}");
 }
 
@@ -447,4 +487,301 @@ fn rewriting_a_json_config_keeps_the_order_of_its_keys() {
     assert!(at("\"rm *\"") < at("\"kkt watch *\""), "{text}");
     assert!(at("\"edit\"") < at("\"kkt_activity\""), "{text}");
     assert!(at("\"other\"") < at("\"kkt\": {"), "{text}");
+}
+
+/// Every message the crate can give, in the order of the cases below, as
+/// the code gives it today.
+fn every_message() -> Vec<String> {
+    use std::os::unix::ffi::OsStrExt;
+    let e = env();
+    let no_home = Env {
+        home: None,
+        ..env()
+    };
+    let config = PathBuf::from("/c/config.json");
+    let mut said = Vec::new();
+    let mut push = |result: Result<String, ClientConfigError>| {
+        said.push(match result {
+            Err(e) => e.to_string(),
+            Ok(v) => format!("OK<{v}>"),
+        })
+    };
+    // The files' steps.
+    let refusing = |op: &'static str| {
+        let host = FakeHost::default();
+        host.refuse(op);
+        host
+    };
+    push(files::read(&refusing("read"), &config).map(|_| String::new()));
+    let host = refusing("create_private");
+    host.put(&config, "{}");
+    push(files::replace(&host, &config, Some("{}"), "{}").map(|_| String::new()));
+    push(files::restrict(&refusing("restrict"), &config).map(|_| String::new()));
+    push(files::replace(&refusing("create_dir_all"), &config, None, "{}").map(|_| String::new()));
+    push(files::replace(&refusing("create_private"), &config, None, "{}").map(|_| String::new()));
+    let host = FakeHost::default();
+    host.rename_fails.set(true);
+    push(files::replace(&host, &config, None, "{}").map(|_| String::new()));
+    let host = FakeHost::default();
+    host.rename_fails.set(true);
+    host.refuse("remove_file");
+    push(files::replace(&host, &config, None, "{}").map(|_| String::new()));
+    push(files::replace(&FakeHost::default(), Path::new("/"), None, "{}").map(|_| String::new()));
+    // Naming and finding the client's config.
+    push(
+        Client::Codex
+            .check_name(Path::new("/c/wrong.toml"), "CODEX_HOME")
+            .map(|_| String::new()),
+    );
+    push(
+        Client::ClaudeCode
+            .file(&no_home, &FakeHost::default())
+            .map(|p| p.display().to_string()),
+    );
+    push(
+        Client::OpenCode
+            .file(&no_home, &FakeHost::default())
+            .map(|p| p.display().to_string()),
+    );
+    let host = FakeHost::default();
+    host.put(Client::Codex.file(&e, &host).unwrap(), "a = = b");
+    push(Client::Codex.connected(&e, &host).map(|_| String::new()));
+    // Merging an entry.
+    let merge = |client: Client, text: &str, key: Option<&Path>, host: &FakeHost| {
+        formats::merge(client, &setup(&e, &config, key), Some(text), host).map(|_| String::new())
+    };
+    push(merge(
+        Client::OpenCode,
+        "{not json",
+        None,
+        &FakeHost::default(),
+    ));
+    push(merge(Client::OpenCode, "[]", None, &FakeHost::default()));
+    let key = Path::new("/k/key");
+    push(merge(Client::Agy, "{}", Some(key), &refusing("read")));
+    let host = FakeHost::default();
+    host.put(key, "short");
+    push(merge(Client::Agy, "{}", Some(key), &host));
+    let host = FakeHost::default();
+    let odd = Path::new(std::ffi::OsStr::from_bytes(b"/k/\xff"));
+    host.put(odd, KEY);
+    push(merge(Client::OpenCode, "{}", Some(odd), &host));
+    let host = FakeHost::default();
+    let braces = Path::new("/k/{key}");
+    host.put(braces, KEY);
+    push(merge(Client::OpenCode, "{}", Some(braces), &host));
+    push(merge(
+        Client::Codex,
+        "not = toml = x",
+        None,
+        &FakeHost::default(),
+    ));
+    push(merge(
+        Client::Codex,
+        "mcp_servers = 1\n",
+        None,
+        &FakeHost::default(),
+    ));
+    push(merge(
+        Client::Codex,
+        "[mcp_servers]\nkkt = 1\n",
+        None,
+        &FakeHost::default(),
+    ));
+    let host = FakeHost::default();
+    host.put(key, KEY);
+    push(merge(
+        Client::Codex,
+        "[mcp_servers.kkt]\nhttp_headers = 1\n",
+        Some(key),
+        &host,
+    ));
+    push(formats::claude_entry("{}"));
+    let host = FakeHost::default();
+    host.put(odd, KEY);
+    push(merge(Client::ClaudeCode, "{}", Some(odd), &host));
+    let odd_kkt = Setup {
+        executable: odd,
+        ..setup(&e, &config, Some(key))
+    };
+    push(formats::merge(Client::ClaudeCode, &odd_kkt, Some("{}"), &host).map(|_| String::new()));
+    let odd_dir = Path::new(std::ffi::OsStr::from_bytes(b"/c/\xff"));
+    let in_odd_dir = Env {
+        named: [(CLAUDE_CONFIG_DIR.to_string(), odd_dir.to_path_buf())].into(),
+        ..env()
+    };
+    let odd_claude = odd_dir.join(".claude.json");
+    let host = FakeHost::default();
+    push(configure(
+        Client::ClaudeCode,
+        &setup(&in_odd_dir, &odd_claude, None),
+        false,
+        &host,
+        &host,
+    ));
+    push(formats::has_kkt_entry(Client::Codex, "a = = b").map(|_| String::new()));
+    // Configuring, with the context the errors carry.
+    let claude = PathBuf::from("/c/.claude.json");
+    let claude_setup = setup(&e, &claude, None);
+    let host = refusing("absolute");
+    push(configure(
+        Client::ClaudeCode,
+        &claude_setup,
+        true,
+        &host,
+        &host,
+    ));
+    let host = FakeHost::default();
+    host.put(&claude, "{not json");
+    push(configure(
+        Client::ClaudeCode,
+        &claude_setup,
+        true,
+        &host,
+        &host,
+    ));
+    let host = FakeHost::default();
+    host.claude_fails.set(true);
+    push(configure(
+        Client::ClaudeCode,
+        &claude_setup,
+        true,
+        &host,
+        &host,
+    ));
+    let host = FakeHost::default();
+    host.put(&claude, "{}");
+    host.claude_fails.set(true);
+    host.claude_writes.replace(Some(claude.clone()));
+    host.refuse("create_dir_all");
+    push(configure(
+        Client::ClaudeCode,
+        &claude_setup,
+        true,
+        &host,
+        &host,
+    ));
+    let host = FakeHost::default();
+    host.claude_fails.set(true);
+    host.claude_writes.replace(Some(claude.clone()));
+    host.refuse("remove_file");
+    push(configure(
+        Client::ClaudeCode,
+        &claude_setup,
+        true,
+        &host,
+        &host,
+    ));
+    let host = refusing("read");
+    push(configure(
+        Client::OpenCode,
+        &setup(&e, &config, None),
+        true,
+        &host,
+        &host,
+    ));
+    push(header("short", false));
+    let host = FakeHost::default();
+    host.put(Client::Codex.file(&e, &host).unwrap(), "a = = b");
+    push(codex_password_store_hint(&e, &host).map(|_| String::new()));
+    // Allowing kkt's tools.
+    push(permissions::allow_kkt(
+        Client::MuseCode,
+        &e,
+        &FakeHost::default(),
+    ));
+    push(permissions::allow_kkt(
+        Client::Codex,
+        &e,
+        &FakeHost::default(),
+    ));
+    push(permissions::allow_kkt(
+        Client::ClaudeCode,
+        &no_home,
+        &FakeHost::default(),
+    ));
+    let host = FakeHost::default();
+    host.put(
+        Client::Codex.file(&e, &host).unwrap(),
+        "[mcp_servers]\nkkt = 1\n",
+    );
+    push(permissions::allow_kkt(Client::Codex, &e, &host));
+    let host = FakeHost::default();
+    host.put(Client::Codex.file(&e, &host).unwrap(), "a = = b");
+    push(permissions::allow_kkt(Client::Codex, &e, &host));
+    let settings = PathBuf::from(HOME).join(".claude/settings.json");
+    for text in ["[]", r#"{"permissions":{"allow":1}}"#] {
+        let host = FakeHost::default();
+        host.put(&settings, text);
+        push(permissions::allow_kkt(Client::ClaudeCode, &e, &host));
+    }
+    for text in [r#"{"permission":1}"#, r#"{"permission":{"bash":1}}"#] {
+        let host = FakeHost::default();
+        host.put(Client::OpenCode.file(&e, &host).unwrap(), text);
+        push(permissions::allow_kkt(Client::OpenCode, &e, &host));
+    }
+    push(permissions::allow_kkt(
+        Client::ClaudeCode,
+        &e,
+        &refusing("read"),
+    ));
+    let host = refusing("create_dir_all");
+    push(permissions::allow_kkt(Client::ClaudeCode, &e, &host));
+    said
+}
+
+/// Every message a person can be shown about a client's config, pinned
+/// byte for byte: what `kkt connect`, `kkt setup` and `kkt switch` print
+/// when configuring a client fails.
+#[test]
+fn every_client_config_message_says_what_it_always_said() {
+    let expected = [
+        "could not read /c/config.json: refused",
+        "could not back up /c/config.json: refused",
+        "could not restrict /c/config.json: refused",
+        "could not create /c: refused",
+        "could not prepare /c/config.json: refused",
+        "could not write /c/config.json: rename refused",
+        "could not write /c/config.json: rename refused; could not remove temporary file: refused",
+        "config path has no parent",
+        "Codex config must be named config.toml: /c/wrong.toml (from CODEX_HOME)",
+        "set HOME to find the client's config",
+        "set HOME to find the client's config",
+        "Codex: /home/sam/.codex/config.toml (from HOME): invalid Codex TOML: extra `=`, expected nothing at line 1, column 5",
+        "invalid client JSON at line 1, column 2; the file was not changed",
+        "client configuration must contain objects, not scalars or lists",
+        "could not read /k/key: refused",
+        "access_key_file must hold a key of at least 32 characters",
+        "key path is not UTF-8",
+        "OpenCode file references cannot represent braces, quotes, backslashes or control characters in a key path",
+        "invalid Codex TOML; the file was not changed: unexpected key or value, expected newline, `#` at line 1, column 12",
+        "mcp_servers must be a TOML table",
+        "mcp_servers.kkt must be a TOML table",
+        "Codex HTTP headers must be a table",
+        "missing kkt entry",
+        "the key path is not UTF-8",
+        "kkt's path is not UTF-8",
+        "the Claude Code config directory /c/\u{FFFD} is not UTF-8 (from HOME)",
+        "invalid Codex TOML: extra `=`, expected nothing at line 1, column 5",
+        "could not resolve the directory of the Claude Code config /c/.claude.json (from HOME): refused",
+        "/c/.claude.json (from HOME): invalid client JSON at line 1, column 2; the file was not changed",
+        "claude mcp failed",
+        "claude mcp failed; could not restore: could not create /c: refused (from HOME)",
+        "claude mcp failed; could not restore /c/.claude.json: refused (from HOME)",
+        "could not read /c/config.json: refused (from HOME)",
+        "access_key_file must hold a key of at least 32 characters",
+        "invalid Codex TOML in /home/sam/.codex/config.toml: extra `=`, expected nothing at line 1, column 5",
+        "Muse Code has no setting that allows one MCP server's tools or one command, so it still asks before each",
+        "/home/sam/.codex/config.toml: Codex has no kkt server here; connect it first (from HOME)",
+        "set HOME to find the client's config",
+        "/home/sam/.codex/config.toml: mcp_servers.kkt must be a TOML table (from HOME)",
+        "/home/sam/.codex/config.toml: invalid Codex TOML; the file was not changed: extra `=`, expected nothing at line 1, column 5 (from HOME)",
+        "/home/sam/.claude/settings.json: client configuration must contain objects, not scalars or lists (from HOME)",
+        "/home/sam/.claude/settings.json: permissions.allow must be a list (from HOME)",
+        "/home/sam/.config/opencode/opencode.json: client configuration must contain objects, not scalars or lists (from HOME)",
+        "/home/sam/.config/opencode/opencode.json: permission.bash must be a word or an object (from HOME)",
+        "could not read /home/sam/.claude/settings.json: refused (from HOME)",
+        "could not create /home/sam/.claude: refused (from HOME)",
+    ];
+    assert_eq!(every_message(), expected);
 }

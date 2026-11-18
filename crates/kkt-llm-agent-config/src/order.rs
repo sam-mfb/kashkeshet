@@ -128,11 +128,15 @@ impl Serialize for Ordered<'_> {
 
 /// `document` as pretty JSON ending in a newline, with the key order of
 /// `original`, the text it was read from (`None` for a new file).
-pub(super) fn pretty(original: Option<&str>, document: &Value) -> Result<String, String> {
+pub(super) fn pretty(
+    original: Option<&str>,
+    document: &Value,
+) -> Result<String, crate::error::ClientConfigError> {
+    use crate::error::ClientConfigError;
     let shape = match original {
         Some(text) => Some(
             serde_json::from_str::<Shape>(text)
-                .map_err(|e| format!("could not read the order of the file's keys: {e}"))?,
+                .map_err(|e| ClientConfigError::Malformed(crate::error::Shape::Order(e)))?,
         ),
         None => None,
     };
@@ -142,7 +146,7 @@ pub(super) fn pretty(original: Option<&str>, document: &Value) -> Result<String,
     };
     serde_json::to_string_pretty(&ordered)
         .map(|text| format!("{text}\n"))
-        .map_err(|_| "could not encode the config".to_string())
+        .map_err(|_| ClientConfigError::Encode(crate::error::Encoded::Ordered))
 }
 
 #[cfg(test)]

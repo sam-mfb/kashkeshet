@@ -1,28 +1,28 @@
 //! Vendor formats stay inside the client configuration part.
 
+use super::error::{ClientConfigError, Encoded, FileAction, Shape, Text, TomlProblem};
 use super::{Client, Host, Setup, helper};
 use kkt_toml::{Document, EditError, IfMissing};
 use serde_json::{Map, Value, json};
 use std::path::Path;
 
-pub(super) fn header_json(key: &str) -> Result<String, String> {
+pub(super) fn header_json(key: &str) -> Result<String, ClientConfigError> {
     serde_json::to_string(&json!({"Authorization": format!("Bearer {key}")}))
-        .map_err(|_| "could not encode the header".to_string())
+        .map_err(|_| ClientConfigError::Encode(Encoded::Header))
 }
 
-pub(super) fn object(value: &mut Value) -> Result<&mut Map<String, Value>, String> {
+pub(super) fn object(value: &mut Value) -> Result<&mut Map<String, Value>, ClientConfigError> {
     value
         .as_object_mut()
-        .ok_or("client configuration must contain objects, not scalars or lists".to_string())
+        .ok_or(ClientConfigError::Malformed(Shape::NotObjects))
 }
 
-pub(super) fn parse_json(text: &str) -> Result<Value, String> {
+pub(super) fn parse_json(text: &str) -> Result<Value, ClientConfigError> {
     serde_json::from_str(text).map_err(|e| {
-        format!(
-            "invalid client JSON at line {}, column {}; the file was not changed",
-            e.line(),
-            e.column()
-        )
+        ClientConfigError::Malformed(Shape::Json {
+            line: e.line(),
+            column: e.column(),
+        })
     })
 }
 
@@ -34,7 +34,7 @@ enum KeyFrom<'a> {
     File(&'a dyn Host),
 }
 
-fn key(setup: &Setup<'_>, from: KeyFrom<'_>) -> Result<Option<String>, String> {
+fn key(setup: &Setup<'_>, from: KeyFrom<'_>) -> Result<Option<String>, ClientConfigError> {
     let Some(path) = setup.key_file else {
         return Ok(None);
     };
@@ -49,9 +49,9 @@ fn key(setup: &Setup<'_>, from: KeyFrom<'_>) -> Result<Option<String>, String> {
     };
     let text = host
         .read(path)
-        .map_err(|e| format!("could not read {}: {e}", path.display()))?;
+        .map_err(|e| ClientConfigError::file(FileAction::Read, path, e))?;
     let key = text.trim();
-    kkt_keys::check_access_key(key).map_err(|e| e.to_string())?;
+    kkt_keys::check_access_key(key)?;
     Ok(Some(key.to_string()))
 }
 
@@ -60,7 +60,7 @@ fn json_entry(
     setup: &Setup<'_>,
     from: KeyFrom<'_>,
     original: Option<Value>,
-) -> Result<Value, String> {
+) -> Result<Value, ClientConfigError> {
     let mut entry = original.unwrap_or_else(|| json!({}));
     let fields = object(&mut entry)?;
     // Replace transport/credential fields owned by connect; retain filters,
@@ -112,12 +112,11 @@ fn json_entry(
             fields.insert("url".into(), setup.url.into());
             fields.insert("oauth".into(), false.into());
             if let Some(path) = setup.key_file {
-                let path = path.to_str().ok_or("key path is not UTF-8")?;
+                let path = path
+                    .to_str()
+                    .ok_or(ClientConfigError::NotText(Text::KeyFilePath))?;
                 if path.contains(['{', '}', '"', '\\']) || path.chars().any(char::is_control) {
-                    return Err(
-                        "OpenCode file references cannot represent braces, quotes, backslashes or control characters in a key path"
-                            .into(),
-                    );
+                    return Err(ClientConfigError::Malformed(Shape::KeyPathCharacters));
                 }
                 object(&mut headers)?.insert(
                     "Authorization".into(),
@@ -125,7 +124,7 @@ fn json_entry(
                 );
             }
         }
-        Client::Codex => return Err("Codex uses TOML".into()),
+        Client::Codex => return Err(ClientConfigError::Malformed(Shape::CodexIsToml)),
     }
     if !object(&mut headers)?.is_empty() {
         fields.insert("headers".into(), headers);
@@ -138,7 +137,7 @@ fn json_document(
     setup: &Setup<'_>,
     text: Option<&str>,
     from: KeyFrom<'_>,
-) -> Result<(Value, Value), String> {
+) -> Result<(Value, Value), ClientConfigError> {
     let mut document = match text {
         Some(text) => parse_json(text)?,
         None => json!({}),
@@ -168,31 +167,20 @@ fn json_document(
 
 /// Parse Codex TOML. The error is the parser's reason and where it found the
 /// problem, like `parse_json`'s. It never quotes the file, which may hold a key.
-pub(super) fn parse_toml(text: &str) -> Result<Document, String> {
-    Document::parse(text).map_err(|e| {
-        let reason = e
-            .reason()
-            .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty())
-            .collect::<Vec<_>>()
-            .join("; ");
-        // Without a place in the text, the reason stands alone.
-        match e.place() {
-            Some(place) => format!("{reason} at line {}, column {}", place.line, place.column),
-            None => reason,
-        }
-    })
+pub(super) fn parse_toml(text: &str) -> Result<Document, TomlProblem> {
+    Document::parse(text).map_err(TomlProblem)
 }
 
-fn toml_document(setup: &Setup<'_>, text: Option<&str>) -> Result<String, String> {
+fn toml_document(setup: &Setup<'_>, text: Option<&str>) -> Result<String, ClientConfigError> {
     let mut document = parse_toml(text.unwrap_or(""))
-        .map_err(|e| format!("invalid Codex TOML; the file was not changed: {e}"))?;
+        .map_err(|e| ClientConfigError::Malformed(Shape::TomlUnchanged(e)))?;
     let mut entry = document
         .table_mut(&["mcp_servers", "kkt"], IfMissing::Add)
-        .map_err(|e| match e {
-            EditError::NotATable { path } if path.len() == 1 => "mcp_servers must be a TOML table",
-            _ => "mcp_servers.kkt must be a TOML table",
+        .map_err(|e| {
+            ClientConfigError::Malformed(match e {
+                EditError::NotATable { path } if path.len() == 1 => Shape::McpServersNotTable,
+                _ => Shape::KktNotTable,
+            })
         })?;
     for name in [
         "command",
@@ -207,7 +195,7 @@ fn toml_document(setup: &Setup<'_>, text: Option<&str>) -> Result<String, String
         let mut headers = match entry.table_mut(&[name], IfMissing::Refuse) {
             Ok(headers) => headers,
             Err(EditError::Missing { .. }) => continue,
-            Err(_) => return Err("Codex HTTP headers must be a table".into()),
+            Err(_) => return Err(ClientConfigError::Malformed(Shape::HeadersNotTable)),
         };
         for name in headers.keys() {
             if name.eq_ignore_ascii_case("authorization") {
@@ -228,23 +216,23 @@ pub(super) fn preview(
     client: Client,
     setup: &Setup<'_>,
     claude_config_dir: Option<&Path>,
-) -> Result<String, String> {
+) -> Result<String, ClientConfigError> {
     if client == Client::Codex {
         return toml_document(setup, None);
     }
     let (_, doc) = json_document(client, setup, None, KeyFrom::Preview)?;
     if client == Client::ClaudeCode {
-        let entry =
-            claude_entry(&serde_json::to_string(&doc).map_err(|_| "could not encode config")?)?;
+        let entry = claude_entry(
+            &serde_json::to_string(&doc).map_err(|_| ClientConfigError::Encode(Encoded::Config))?,
+        )?;
         let environment = match claude_config_dir {
             Some(dir) => format!(
                 "CLAUDE_CONFIG_DIR={}",
                 super::shell_word(dir.to_str().ok_or_else(|| {
-                    format!(
-                        "the Claude Code config directory {} is not UTF-8 (from {})",
-                        dir.display(),
-                        setup.source
-                    )
+                    ClientConfigError::ClaudeDirNotText {
+                        dir: dir.to_path_buf(),
+                        setting: setup.source.to_string(),
+                    }
                 })?)
             ),
             None => "env -u CLAUDE_CONFIG_DIR".to_string(),
@@ -254,7 +242,7 @@ pub(super) fn preview(
             super::shell_word(&entry)
         ));
     }
-    serde_json::to_string_pretty(&doc).map_err(|_| "could not encode config".into())
+    serde_json::to_string_pretty(&doc).map_err(|_| ClientConfigError::Encode(Encoded::Config))
 }
 
 /// `text`, the client's config if it has one, with kkt's entry set; `None`
@@ -264,7 +252,7 @@ pub(super) fn merge(
     setup: &Setup<'_>,
     text: Option<&str>,
     host: &dyn Host,
-) -> Result<Option<String>, String> {
+) -> Result<Option<String>, ClientConfigError> {
     if client == Client::Codex {
         let updated = toml_document(setup, text)?;
         return Ok(if text == Some(updated.as_str()) {
@@ -281,9 +269,10 @@ pub(super) fn merge(
 }
 
 /// Whether the config `text` of `client` has a kkt entry.
-pub(super) fn has_kkt_entry(client: Client, text: &str) -> Result<bool, String> {
+pub(super) fn has_kkt_entry(client: Client, text: &str) -> Result<bool, ClientConfigError> {
     if client == Client::Codex {
-        let document = parse_toml(text).map_err(|e| format!("invalid Codex TOML: {e}"))?;
+        let document =
+            parse_toml(text).map_err(|e| ClientConfigError::Malformed(Shape::Toml(e)))?;
         return Ok(document.find(&["mcp_servers", "kkt"]).is_some());
     }
     let group = if client == Client::OpenCode {
@@ -297,20 +286,20 @@ pub(super) fn has_kkt_entry(client: Client, text: &str) -> Result<bool, String> 
         .is_some())
 }
 
-pub(super) fn has_claude_entry(text: &str) -> Result<bool, String> {
+pub(super) fn has_claude_entry(text: &str) -> Result<bool, ClientConfigError> {
     Ok(parse_json(text)?
         .get("mcpServers")
         .and_then(|s| s.get("kkt"))
         .is_some())
 }
 
-pub(super) fn claude_entry(text: &str) -> Result<String, String> {
+pub(super) fn claude_entry(text: &str) -> Result<String, ClientConfigError> {
     let document = parse_json(text)?;
     let entry = document
         .get("mcpServers")
         .and_then(|s| s.get("kkt"))
-        .ok_or("missing kkt entry")?;
-    serde_json::to_string(entry).map_err(|_| "could not encode Claude config".into())
+        .ok_or(ClientConfigError::Malformed(Shape::NoKktEntry))?;
+    serde_json::to_string(entry).map_err(|_| ClientConfigError::Encode(Encoded::ClaudeConfig))
 }
 
 #[cfg(all(test, unix))]
@@ -355,7 +344,9 @@ mod tests {
     #[test]
     fn a_toml_error_says_where_and_counts_columns_in_characters() {
         // The second `=` on line 2 is the 9th character but the 10th byte.
-        let error = parse_toml("a = 1\n'\u{e9}' = 2 = 3\n").expect_err("malformed");
+        let error = parse_toml("a = 1\n'\u{e9}' = 2 = 3\n")
+            .expect_err("malformed")
+            .to_string();
         assert!(error.ends_with(" at line 2, column 9"), "{error}");
     }
 
@@ -376,14 +367,17 @@ mod tests {
             source: "--client-config",
         };
         let host = crate::fake::FakeHost::default();
-        let error =
-            merge(Client::Codex, &setup, Some(MALFORMED_TOML), &host).expect_err("malformed");
+        let error = merge(Client::Codex, &setup, Some(MALFORMED_TOML), &host)
+            .expect_err("malformed")
+            .to_string();
         assert_cause(&error, "invalid Codex TOML; the file was not changed");
     }
 
     #[test]
     fn checking_malformed_codex_toml_names_the_parsers_reason() {
-        let error = has_kkt_entry(Client::Codex, MALFORMED_TOML).expect_err("malformed");
+        let error = has_kkt_entry(Client::Codex, MALFORMED_TOML)
+            .expect_err("malformed")
+            .to_string();
         assert_cause(&error, "invalid Codex TOML");
     }
 
@@ -405,8 +399,9 @@ mod tests {
             client_config: &file,
             source: "--client-config",
         };
-        let error =
-            preview(Client::ClaudeCode, &setup, Some(&dir)).expect_err("non-UTF-8 directory");
+        let error = preview(Client::ClaudeCode, &setup, Some(&dir))
+            .expect_err("non-UTF-8 directory")
+            .to_string();
         assert!(
             error.contains("is not UTF-8 (from --client-config)"),
             "{error}"

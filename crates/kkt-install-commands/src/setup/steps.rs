@@ -187,7 +187,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     }
 
     fn allow_kkt(&self, client: Client) -> Result<String, String> {
-        clients::allow_kkt(client, self.env, self.parts.clients)
+        clients::allow_kkt(client, self.env, self.parts.clients).map_err(|e| e.to_string())
     }
 
     fn doctor(&self, record: &setup::Record) -> Result<String, String> {
@@ -380,7 +380,7 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> 
 fn connected_clients(env: &Env, host: &dyn clients::Host) -> Result<Vec<Client>, String> {
     let mut connected = Vec::new();
     for client in Client::ALL {
-        if client.connected(env, host)? {
+        if client.connected(env, host).map_err(|e| e.to_string())? {
             connected.push(client);
         }
     }
@@ -397,7 +397,7 @@ fn connect(
     record: &setup::Record,
 ) -> Result<String, String> {
     let executable = program.kkt_path()?;
-    let client_config = client.file(env, host)?;
+    let client_config = client.file(env, host).map_err(|e| e.to_string())?;
     let server = record.for_clients();
     let setup = Setup {
         env,
@@ -407,7 +407,7 @@ fn connect(
         client_config: &client_config,
         source: client.source(env),
     };
-    clients::configure(client, &setup, true, host, command)
+    clients::configure(client, &setup, true, host, command).map_err(|e| e.to_string())
 }
 
 /// Checks, changing nothing, that `url` is a server address a client may be
