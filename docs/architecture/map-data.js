@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a0f7c168",
+ "commit": "eff5382f",
  "crates": [
   {
    "bins": [
@@ -4170,43 +4170,6 @@ window.KKT_GRAPH = {
      "path": "Pending"
     },
     {
-     "doc": "The plan for the service, before its arguments are written out.",
-     "fields": [
-      "new_key",
-      "new_web_key",
-      "check",
-      "check_web_key"
-     ],
-     "kind": "struct",
-     "methods": [
-      "spec"
-     ],
-     "path": "Plan"
-    },
-    {
-     "doc": "Why no plan could be made.",
-     "kind": "enum",
-     "path": "PlanError",
-     "variants": [
-      "NoHomeForDb",
-      "NoHomeForKey",
-      "NotText",
-      "KeyFile"
-     ]
-    },
-    {
-     "doc": "What the plan is worked out from.",
-     "fields": [
-      "config_file",
-      "flags",
-      "from_file",
-      "default_db",
-      "default_key"
-     ],
-     "kind": "struct",
-     "path": "Request"
-    },
-    {
      "doc": "How long the service manager waits before starting the server again after it failed.",
      "kind": "const",
      "path": "SERVICE_RESTART_DELAY"
@@ -4255,16 +4218,6 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "The settings the plan needs from one source, the command line or the config file, as that source gives them: each may be missing.",
-     "fields": [
-      "db",
-      "access_key_file",
-      "no_access_key"
-     ],
-     "kind": "struct",
-     "path": "ServiceSettings"
-    },
-    {
      "doc": "Whether the service is installed, and running.",
      "fields": [
       "installed",
@@ -4300,11 +4253,6 @@ window.KKT_GRAPH = {
      "path": "Unsupported"
     },
     {
-     "doc": "Refuses to install a service whose server could not listen on `bind`, such as an address another program has, before anything is written: installed, it would fail and be started again every few seconds.",
-     "kind": "fn",
-     "path": "check_bind"
-    },
-    {
      "doc": "A path as service-file text.",
      "kind": "fn",
      "path": "path_text"
@@ -4313,11 +4261,6 @@ window.KKT_GRAPH = {
      "doc": "Refuses text with control characters (such as newlines), which neither a plist nor a unit file can hold safely.",
      "kind": "fn",
      "path": "plain_text"
-    },
-    {
-     "doc": "Works out the plan.",
-     "kind": "fn",
-     "path": "plan"
     },
     {
      "doc": "A service manager in memory, for consumers' tests: it keeps one service's arguments and whether it is installed and running, writes down what it is asked to change, and never touches the machine.",
@@ -4350,26 +4293,7 @@ window.KKT_GRAPH = {
     }
    ],
    "released_program": false,
-   "slots": [
-    {
-     "at": "check_bind",
-     "foreign": [
-      "core::ops::function::Fn"
-     ],
-     "kind": "param",
-     "name": "try_bind",
-     "traits": []
-    },
-    {
-     "at": "plan",
-     "foreign": [
-      "core::ops::function::Fn"
-     ],
-     "kind": "param",
-     "name": "exists",
-     "traits": []
-    }
-   ],
+   "slots": [],
    "testing_third_party": [],
    "third_party": [
     "thiserror"
@@ -6827,6 +6751,31 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "The plan for the service, before its arguments are written out.",
+     "fields": [
+      "new_key",
+      "new_web_key",
+      "check",
+      "check_web_key"
+     ],
+     "kind": "struct",
+     "methods": [
+      "spec"
+     ],
+     "path": "Plan"
+    },
+    {
+     "doc": "Why no plan could be made.",
+     "kind": "enum",
+     "path": "PlanError",
+     "variants": [
+      "NoHomeForDb",
+      "NoHomeForKey",
+      "NotText",
+      "KeyFile"
+     ]
+    },
+    {
      "doc": "This machine's deployment, as its setup record says.",
      "fields": [
       "deployment",
@@ -6854,6 +6803,18 @@ window.KKT_GRAPH = {
       "Docker",
       "Service"
      ]
+    },
+    {
+     "doc": "What the plan is worked out from.",
+     "fields": [
+      "config_file",
+      "flags",
+      "from_file",
+      "default_db",
+      "default_key"
+     ],
+     "kind": "struct",
+     "path": "Request"
     },
     {
      "doc": "Where `kkt upgrade` finds the version of the server it replaces.",
@@ -6890,6 +6851,16 @@ window.KKT_GRAPH = {
       "Known",
       "NotKnown"
      ]
+    },
+    {
+     "doc": "The settings the plan needs from one source, the command line or the config file, as that source gives them: each may be missing.",
+     "fields": [
+      "db",
+      "access_key_file",
+      "no_access_key"
+     ],
+     "kind": "struct",
+     "path": "ServiceSettings"
     },
     {
      "doc": "What `kkt status` says after the key lines, and what it does next.",
@@ -6969,6 +6940,11 @@ window.KKT_GRAPH = {
      "doc": "The advice after the name file beside the admin key at `path` is written for the admin name `name`, or removed with no name: `written` is how that went.",
      "kind": "fn",
      "path": "admin_name_written"
+    },
+    {
+     "doc": "Refuses to install a service whose server could not listen on `bind`, such as an address another program has, before anything is written: installed, it would fail and be started again every few seconds.",
+     "kind": "fn",
+     "path": "check_bind"
     },
     {
      "doc": "The key of `kind` beside `access`, the access key file the serve config names (`None` when it turns keys off, which `off` decides about).",
@@ -7156,6 +7132,11 @@ window.KKT_GRAPH = {
      "path": "operator_key"
     },
     {
+     "doc": "Works out the plan.",
+     "kind": "fn",
+     "path": "plan"
+    },
+    {
      "doc": "Where the key of `kind` that `kkt key` reads or replaces is, on a machine whose setup record names `server`: for Docker, the host copy.",
      "kind": "fn",
      "path": "recorded_key"
@@ -7203,6 +7184,15 @@ window.KKT_GRAPH = {
        "trait": "KeyFiles"
       }
      ]
+    },
+    {
+     "at": "check_bind",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "try_bind",
+     "traits": []
     },
     {
      "at": "connection::admin_connection",
@@ -7370,6 +7360,15 @@ window.KKT_GRAPH = {
        "trait": "KeyFiles"
       }
      ]
+    },
+    {
+     "at": "plan",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "exists",
+     "traits": []
     }
    ],
    "testing_third_party": [],
@@ -19440,22 +19439,13 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Plan",
-    "Request",
     "Service",
-    "ServiceSettings",
     "Unsupported"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "wires",
    "roles": [
-    {
-     "detail": [
-      "Plan"
-     ],
-     "role": "uses"
-    },
     {
      "detail": [
       "Unsupported"
@@ -19465,8 +19455,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "ServiceError",
-    "check_bind"
+    "ServiceError"
    ],
    "to": "kkt-bare-service"
   },
@@ -19795,7 +19784,10 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Plan",
+    "Request",
     "ServerKeys",
+    "ServiceSettings",
     "UnfinishedSetup",
     "connection",
     "connection::ConnectionOptions",
@@ -19818,7 +19810,10 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "Plan",
+      "Request",
       "ServerKeys",
+      "ServiceSettings",
       "UnfinishedSetup",
       "connection",
       "connection::ConnectionOptions",
@@ -19834,6 +19829,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "KeyKind",
+    "check_bind",
     "connection::Connection",
     "connection::serve_connection"
    ],
@@ -22521,29 +22517,6 @@ window.KKT_GRAPH = {
    "to": "kkt-clock"
   },
   {
-   "features": [],
-   "from": "kkt-bare-service",
-   "items": [
-    "AccessKey",
-    "web_key_path"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AccessKey",
-      "web_key_path"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-keys"
-  },
-  {
    "features": [
     "testing"
    ],
@@ -23421,6 +23394,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-search"
+  },
+  {
+   "features": [],
+   "from": "kkt-deployment",
+   "items": [
+    "Spec"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Spec"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-bare-service"
   },
   {
    "features": [],
@@ -24694,15 +24688,10 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
-    "Plan",
-    "Request",
     "Service",
     "ServiceError",
-    "ServiceSettings",
     "Settings",
-    "Spec",
-    "check_bind",
-    "plan"
+    "Spec"
    ],
    "kind": "normal",
    "optional": false,
@@ -24710,15 +24699,10 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Plan",
-      "Request",
       "Service",
       "ServiceError",
-      "ServiceSettings",
       "Settings",
-      "Spec",
-      "check_bind",
-      "plan"
+      "Spec"
      ],
      "role": "uses"
     }
@@ -24844,19 +24828,23 @@ window.KKT_GRAPH = {
     "Deployment",
     "DeploymentEndpoint",
     "KeyKind",
+    "Plan",
     "RecordedDeployment",
     "RecordedServerRead",
     "Replace",
+    "Request",
     "RunningVersion",
     "ServeConfigReads",
     "ServerKeys",
     "ServerVersion",
+    "ServiceSettings",
     "StatusThen",
     "UnfinishedSetup",
     "UnrecordedDeployment",
     "admin_key_collision",
     "admin_name_line",
     "admin_name_written",
+    "check_bind",
     "connection",
     "connection::ConnectionOptions",
     "connection::ConnectionSource",
@@ -24872,6 +24860,7 @@ window.KKT_GRAPH = {
     "find_operator_key",
     "guard",
     "new_key_file",
+    "plan",
     "running_version",
     "status",
     "status_looks_for_unrecorded",
@@ -24893,17 +24882,21 @@ window.KKT_GRAPH = {
       "Deployment",
       "DeploymentEndpoint",
       "KeyKind",
+      "Plan",
       "RecordedDeployment",
       "Replace",
+      "Request",
       "RunningVersion",
       "ServerKeys",
       "ServerVersion",
+      "ServiceSettings",
       "StatusThen",
       "UnfinishedSetup",
       "UnrecordedDeployment",
       "admin_key_collision",
       "admin_name_line",
       "admin_name_written",
+      "check_bind",
       "connection",
       "connection::ConnectionOptions",
       "connection::ConnectionSource",
@@ -24919,6 +24912,7 @@ window.KKT_GRAPH = {
       "find_operator_key",
       "guard",
       "new_key_file",
+      "plan",
       "running_version",
       "status",
       "status_looks_for_unrecorded",
@@ -25296,7 +25290,6 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-install-commands",
    "items": [
-    "ServiceSettings",
     "testing::Memory"
    ],
    "kind": "dev",
@@ -29759,7 +29752,7 @@ window.KKT_CONCERNS = {
    "layer": "data"
   },
   "kkt-deployment": {
-   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data, Docker files and key files are, whether `kkt serve` may run here, what `kkt status` and `kkt upgrade` do, and how a client reaches the server. It works on facts it declares, which its caller reads from the setup record.",
+   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data, Docker files and key files are, whether `kkt serve` may run here, what `kkt status`, `kkt upgrade` and an installed service do, and how a client reaches the server. It works on facts it declares, which its caller reads from the setup record.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -30401,7 +30394,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-bare-service",
+     "crate": "kkt-deployment",
      "from": [
       {
        "at": "InstallParts",

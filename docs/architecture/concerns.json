@@ -161,7 +161,7 @@
   },
   "kkt-deployment": {
    "layer": "operations",
-   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data, Docker files and key files are, whether `kkt serve` may run here, what `kkt status` and `kkt upgrade` do, and how a client reaches the server. It works on facts it declares, which its caller reads from the setup record.",
+   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data, Docker files and key files are, whether `kkt serve` may run here, what `kkt status`, `kkt upgrade` and an installed service do, and how a client reaches the server. It works on facts it declares, which its caller reads from the setup record.",
    "kind": "logic"
   },
   "kkt-setup": {

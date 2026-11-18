@@ -1222,7 +1222,6 @@ name = "kkt-bare-service"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
- "kkt-keys",
  "thiserror",
 ]
 
@@ -1330,6 +1329,7 @@ dependencies = [
 name = "kkt-deployment"
 version = "0.10.0"
 dependencies = [
+ "kkt-bare-service",
  "kkt-containerized-service",
  "kkt-entropy",
  "kkt-keys",

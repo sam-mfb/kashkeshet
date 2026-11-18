@@ -1,6 +1,7 @@
 //! The operator's service commands and the ordered plan/check/install sequence.
 use crate::keys::new_key_file;
-use kkt_bare_service::{Spec, check_bind};
+use kkt_bare_service::Spec;
+use kkt_deployment::check_bind;
 use kkt_deployment::connection::ConnectionSource;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -182,13 +183,13 @@ pub fn service_plan<D>(
             .absolute(&path)
             .map_err(|e| format!("could not make {} absolute: {e}", path.display()))
     };
-    let flags = kkt_bare_service::ServiceSettings {
+    let flags = kkt_deployment::ServiceSettings {
         db: db.map(absolute).transpose()?,
         access_key_file: access_key_file.map(absolute).transpose()?,
         no_access_key: no_access_key.then_some(true),
     };
     let inputs = parts.serve.service_settings(config, flags)?;
-    let plan = kkt_bare_service::plan(inputs.request, &|path: &Path| {
+    let plan = kkt_deployment::plan(inputs.request, &|path: &Path| {
         parts.key_files.try_exists(path)
     })
     .map_err(|e| e.to_string())?;

@@ -11,7 +11,7 @@
 //! with none given, the default key file is used, and made if it is
 //! missing.
 
-use crate::Spec;
+use kkt_bare_service::Spec;
 use kkt_keys::{AccessKey, web_key_path};
 use std::path::{Path, PathBuf};
 
@@ -536,6 +536,27 @@ mod tests {
         assert_eq!(
             PlanError::NotText(db).to_string(),
             "/srv/\u{fffd}.db is not valid UTF-8"
+        );
+    }
+
+    /// What a person is told for each refusal, word for word.
+    #[test]
+    fn the_refusals_are_pinned() {
+        assert_eq!(
+            PlanError::NoHomeForDb.to_string(),
+            "no home directory to keep the database in: set HOME or pass --db"
+        );
+        assert_eq!(
+            PlanError::NoHomeForKey.to_string(),
+            "no home directory to keep the access key in: set HOME or pass --access-key-file"
+        );
+        assert_eq!(
+            PlanError::KeyFile {
+                path: path("/k/key"),
+                cause: "permission denied".into()
+            }
+            .to_string(),
+            "could not tell whether the key file /k/key is there: permission denied"
         );
     }
 }
