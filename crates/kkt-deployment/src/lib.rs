@@ -3,11 +3,14 @@
 //! its data and its Docker files, whether `kkt serve` may run here, and
 //! what `kkt status` and `kkt upgrade` do.
 //!
+//! It also says how a client reaches the server ([`connection`]).
+//!
 //! It works on facts it declares itself ([`Deployment`], [`RecordedDeployment`],
-//! [`UnrecordedDeployment`]). Its caller reads how the machine is set up, hands it those
+//! [`UnrecordedDeployment`], [`connection::RecordedServer`]). Its caller reads how the machine is set up, hands it those
 //! facts, and carries out what it returns, so every rule here is tested
 //! directly.
 
+pub mod connection;
 mod guard;
 mod lifecycle;
 #[cfg(test)]

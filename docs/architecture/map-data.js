@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "213fbd86",
+ "commit": "ad9c7e7e",
  "crates": [
   {
    "bins": [
@@ -141,6 +141,12 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
+     "trait": "connection::ConnectionSource",
+     "trait_crate": "kkt-deployment",
+     "type": "machine::connection::ConnectionReads"
+    },
+    {
+     "crate": "kashkeshet",
      "trait": "Prober",
      "trait_crate": "kkt-diagnostics",
      "type": "machine::diagnostics::Probe"
@@ -261,12 +267,6 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
-     "trait": "connection::ConnectionSource",
-     "trait_crate": "kkt-setup",
-     "type": "machine::connection::ConnectionReads"
-    },
-    {
-     "crate": "kashkeshet",
      "trait": "Place",
      "trait_crate": "kkt-watch",
      "type": null
@@ -336,12 +336,12 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "setup::connection::ConnectionOptions",
+     "from": "kkt_deployment::connection::ConnectionOptions",
      "kind": "struct",
      "path": "machine::connection::ConnectionOptions"
     },
     {
-     "doc": "kkt-setup's connection question, answered from this machine's setup record and serve settings.",
+     "doc": "kkt-deployment's connection question, answered from this machine's setup record and serve settings.",
      "kind": "struct",
      "methods": [
       "new"
@@ -1890,7 +1890,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -1949,7 +1949,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -2008,7 +2008,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -2067,7 +2067,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -6564,7 +6564,17 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": "machine::connection::ConnectionReads"
+      }
+     ],
+     "trait": "connection::ConnectionSource"
+    }
+   ],
    "crate_doc": "What follows from how kkt is deployed on this machine: as a service, in Docker, or as a client of a server elsewhere.",
    "dev_only": false,
    "features": {},
@@ -6680,6 +6690,99 @@ window.KKT_GRAPH = {
      "path": "UpgradePlan"
     },
     {
+     "doc": "How a client reaches the server: its endpoint and access key file, from the servers this machine's record names, or else from the serve settings.",
+     "kind": "mod",
+     "path": "connection"
+    },
+    {
+     "doc": "",
+     "fields": [
+      "url",
+      "key_file"
+     ],
+     "kind": "struct",
+     "path": "connection::Connection"
+    },
+    {
+     "doc": "Where a client command finds the server, as given: a serve config file, an address and an access key file.",
+     "fields": [
+      "config",
+      "url",
+      "key_file"
+     ],
+     "kind": "struct",
+     "path": "connection::ConnectionOptions"
+    },
+    {
+     "doc": "Reads needed by connection selection, requested only in their original order.",
+     "kind": "trait",
+     "methods": [
+      "absolute",
+      "check_key",
+      "make_default_key",
+      "recorded",
+      "serve"
+     ],
+     "path": "connection::ConnectionSource"
+    },
+    {
+     "doc": "The servers this machine's setup record names: the one set up here (on a client machine, the one it uses), and the other server its clients were switched to, if they were.",
+     "fields": [
+      "server",
+      "switched_to"
+     ],
+     "kind": "struct",
+     "methods": [
+      "for_clients",
+      "own_server"
+     ],
+     "path": "connection::RecordedServer"
+    },
+    {
+     "doc": "The checked endpoint and access-key setting; source context is returned to its reader.",
+     "fields": [
+      "url",
+      "access_key",
+      "key_source"
+     ],
+     "kind": "struct",
+     "path": "connection::ServeConnection"
+    },
+    {
+     "doc": "A server, as this machine's clients reach it: its MCP endpoint, and the file holding its access key, if it has one.",
+     "fields": [
+      "url",
+      "key_file"
+     ],
+     "kind": "struct",
+     "path": "connection::ServerAddress"
+    },
+    {
+     "doc": "The local server's connection for admin tools, even when clients were switched.",
+     "kind": "fn",
+     "path": "connection::admin_connection"
+    },
+    {
+     "doc": "The admin endpoint, from a client endpoint ending in `mcp_path`.",
+     "kind": "fn",
+     "path": "connection::admin_endpoint"
+    },
+    {
+     "doc": "Resolve the same serve settings without creating a database.",
+     "kind": "fn",
+     "path": "connection::client_connection"
+    },
+    {
+     "doc": "How clients reach the recorded `server`, with `--url` and `--key-file` each replacing only their own part of it.",
+     "kind": "fn",
+     "path": "connection::recorded_connection"
+    },
+    {
+     "doc": "How clients reach the server `kkt serve` would run with these settings.",
+     "kind": "fn",
+     "path": "connection::serve_connection"
+    },
+    {
      "doc": "The per-user data directory: `~/Library/Application Support/kashkeshet` on macOS, and `kashkeshet` in the XDG data home (`Env::data_home`) elsewhere.",
      "kind": "fn",
      "path": "data_dir"
@@ -6737,6 +6840,48 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
+    {
+     "at": "connection::admin_connection",
+     "kind": "param",
+     "name": "source",
+     "traits": [
+      {
+       "crate": "kkt-deployment",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "connection::client_connection",
+     "kind": "param",
+     "name": "source",
+     "traits": [
+      {
+       "crate": "kkt-deployment",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "connection::recorded_connection",
+     "foreign": [
+      "core::ops::function::FnOnce"
+     ],
+     "kind": "param",
+     "name": "absolute",
+     "traits": []
+    },
+    {
+     "at": "connection::serve_connection",
+     "kind": "param",
+     "name": "source",
+     "traits": [
+      {
+       "crate": "kkt-deployment",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
     {
      "at": "data_dir",
      "kind": "param",
@@ -8383,6 +8528,11 @@ window.KKT_GRAPH = {
      "path": "deployment::recorded"
     },
     {
+     "doc": "The servers `record` names, for how a client reaches the server: the one set up here (or used, on a client machine), and the one its clients were switched to, if they were.",
+     "kind": "fn",
+     "path": "deployment::recorded_server"
+    },
+    {
      "doc": "The version of kkt a record or a settings file names: not known when it says so (`setup::version_not_known`).",
      "kind": "fn",
      "path": "deployment::server_version"
@@ -8938,7 +9088,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -9055,7 +9205,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -9159,7 +9309,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -9263,7 +9413,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -9367,7 +9517,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -9484,7 +9634,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -9601,7 +9751,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -9930,7 +10080,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -10047,7 +10197,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -10193,7 +10343,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -10288,7 +10438,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -10392,7 +10542,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -10509,7 +10659,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -15861,15 +16011,6 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "ask::Lines"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": "machine::connection::ConnectionReads"
-      }
-     ],
-     "trait": "connection::ConnectionSource"
     }
    ],
    "crate_doc": "`kkt setup`: what this machine is set up as (a server run as a service, a server in Docker, or a client of a server elsewhere), the record that says so, and which server this machine's clients use (`kkt switch` changes it).",
@@ -16312,77 +16453,6 @@ window.KKT_GRAPH = {
      "path": "configured_name_pack_line"
     },
     {
-     "doc": "The ordered choice of a client's endpoint and key, from setup or serve settings.",
-     "kind": "mod",
-     "path": "connection"
-    },
-    {
-     "doc": "",
-     "fields": [
-      "url",
-      "key_file"
-     ],
-     "kind": "struct",
-     "path": "connection::Connection"
-    },
-    {
-     "doc": "Where a client command finds the server, as given: a serve config file, an address and an access key file.",
-     "fields": [
-      "config",
-      "url",
-      "key_file"
-     ],
-     "kind": "struct",
-     "path": "connection::ConnectionOptions"
-    },
-    {
-     "doc": "Reads needed by connection selection, requested only in their original order.",
-     "kind": "trait",
-     "methods": [
-      "absolute",
-      "check_key",
-      "make_default_key",
-      "record",
-      "serve"
-     ],
-     "path": "connection::ConnectionSource"
-    },
-    {
-     "doc": "The checked endpoint and access-key setting; source context is returned to its reader.",
-     "fields": [
-      "url",
-      "access_key",
-      "key_source"
-     ],
-     "kind": "struct",
-     "path": "connection::ServeConnection"
-    },
-    {
-     "doc": "The local server's connection for admin tools, even when clients were switched.",
-     "kind": "fn",
-     "path": "connection::admin_connection"
-    },
-    {
-     "doc": "The admin endpoint, from a client endpoint ending in `mcp_path`.",
-     "kind": "fn",
-     "path": "connection::admin_endpoint"
-    },
-    {
-     "doc": "Resolve the same serve settings without creating a database.",
-     "kind": "fn",
-     "path": "connection::client_connection"
-    },
-    {
-     "doc": "How clients reach the recorded `server`, with `--url` and `--key-file` each replacing only their own part of it.",
-     "kind": "fn",
-     "path": "connection::recorded_connection"
-    },
-    {
-     "doc": "How clients reach the server `kkt serve` would run with these settings.",
-     "kind": "fn",
-     "path": "connection::serve_connection"
-    },
-    {
      "doc": "Whether `kkt key create` must first ask whether the server runs in Docker: for a web or admin key with no path given, as the server in Docker reads those keys inside its container.",
      "kind": "fn",
      "path": "create_asks_for_docker"
@@ -16577,48 +16647,6 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-setup",
        "trait": "ask::Lines"
-      }
-     ]
-    },
-    {
-     "at": "connection::admin_connection",
-     "kind": "param",
-     "name": "source",
-     "traits": [
-      {
-       "crate": "kkt-setup",
-       "trait": "connection::ConnectionSource"
-      }
-     ]
-    },
-    {
-     "at": "connection::client_connection",
-     "kind": "param",
-     "name": "source",
-     "traits": [
-      {
-       "crate": "kkt-setup",
-       "trait": "connection::ConnectionSource"
-      }
-     ]
-    },
-    {
-     "at": "connection::recorded_connection",
-     "foreign": [
-      "core::ops::function::FnOnce"
-     ],
-     "kind": "param",
-     "name": "absolute",
-     "traits": []
-    },
-    {
-     "at": "connection::serve_connection",
-     "kind": "param",
-     "name": "source",
-     "traits": [
-      {
-       "crate": "kkt-setup",
-       "trait": "connection::ConnectionSource"
       }
      ]
     },
@@ -19336,15 +19364,30 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "connection",
+    "connection::ConnectionOptions",
+    "connection::ConnectionSource",
+    "connection::RecordedServer",
+    "connection::ServeConnection",
     "default_db",
     "docker_folder"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
+      "machine::connection::ConnectionReads implements connection::ConnectionSource"
+     ],
+     "role": "adapts"
+    },
+    {
+     "detail": [
+      "connection",
+      "connection::ConnectionOptions",
+      "connection::RecordedServer",
+      "connection::ServeConnection",
       "default_db",
       "docker_folder"
      ],
@@ -19352,7 +19395,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "connection::Connection",
+    "connection::serve_connection"
+   ],
    "to": "kkt-deployment"
   },
   {
@@ -19538,6 +19584,7 @@ window.KKT_GRAPH = {
     "ServiceInputs",
     "SetupFiles",
     "deployment::deployment",
+    "deployment::recorded_server",
     "doctor::run",
     "lifecycle::backup",
     "lifecycle::status",
@@ -19574,6 +19621,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "deployment::deployment",
+      "deployment::recorded_server",
       "doctor::run",
       "lifecycle::backup",
       "lifecycle::status",
@@ -20266,8 +20314,6 @@ window.KKT_GRAPH = {
     "Switch",
     "Target",
     "Unfinished",
-    "connection",
-    "connection::ConnectionOptions",
     "record_path",
     "unfinished_path"
    ],
@@ -20277,8 +20323,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "a type of its own implements ask::Lines",
-      "machine::connection::ConnectionReads implements connection::ConnectionSource"
+      "a type of its own implements ask::Lines"
      ],
      "role": "adapts"
     },
@@ -20293,8 +20338,6 @@ window.KKT_GRAPH = {
       "Switch",
       "Target",
       "Unfinished",
-      "connection",
-      "connection::ConnectionOptions",
       "record_path",
       "unfinished_path"
      ],
@@ -20306,9 +20349,7 @@ window.KKT_GRAPH = {
     "DockerSetup",
     "KeyKind",
     "Server",
-    "Unrecorded",
-    "connection::Connection",
-    "connection::serve_connection"
+    "Unrecorded"
    ],
    "to": "kkt-setup"
   },
@@ -20958,6 +20999,40 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-agent-commands",
    "items": [
+    "connection",
+    "connection::ConnectionOptions",
+    "connection::ConnectionSource",
+    "connection::admin_connection",
+    "connection::admin_endpoint",
+    "connection::client_connection"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "connection",
+      "connection::ConnectionOptions",
+      "connection::ConnectionSource",
+      "connection::admin_connection",
+      "connection::admin_endpoint",
+      "connection::client_connection"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "connection::RecordedServer",
+    "connection::ServeConnection"
+   ],
+   "to": "kkt-deployment"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
     "Client",
     "ClientCommand",
     "Host",
@@ -21032,40 +21107,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-agent-commands",
-   "items": [
-    "connection",
-    "connection::ConnectionOptions",
-    "connection::ConnectionSource",
-    "connection::admin_connection",
-    "connection::admin_endpoint",
-    "connection::client_connection"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "connection",
-      "connection::ConnectionOptions",
-      "connection::ConnectionSource",
-      "connection::admin_connection",
-      "connection::admin_endpoint",
-      "connection::client_connection"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Record",
-    "connection::ServeConnection"
-   ],
-   "to": "kkt-setup"
   },
   {
    "features": [],
@@ -22929,6 +22970,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-deployment",
    "items": [
+    "AccessKey"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AccessKey"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-deployment",
+   "items": [
     "Env",
     "Platform"
    ],
@@ -24175,6 +24237,14 @@ window.KKT_GRAPH = {
     "ServerVersion",
     "StatusThen",
     "UnrecordedDeployment",
+    "connection",
+    "connection::ConnectionOptions",
+    "connection::ConnectionSource",
+    "connection::RecordedServer",
+    "connection::ServerAddress",
+    "connection::client_connection",
+    "connection::recorded_connection",
+    "connection::serve_connection",
     "docker_folder",
     "docker_url",
     "guard",
@@ -24197,6 +24267,14 @@ window.KKT_GRAPH = {
       "ServerVersion",
       "StatusThen",
       "UnrecordedDeployment",
+      "connection",
+      "connection::ConnectionOptions",
+      "connection::ConnectionSource",
+      "connection::RecordedServer",
+      "connection::ServerAddress",
+      "connection::client_connection",
+      "connection::recorded_connection",
+      "connection::serve_connection",
       "docker_folder",
       "docker_url",
       "guard",
@@ -24209,7 +24287,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "connection::ServeConnection"
+   ],
    "to": "kkt-deployment"
   },
   {
@@ -24486,6 +24566,7 @@ window.KKT_GRAPH = {
     "OperatorKeyReads",
     "Purpose",
     "Record",
+    "Server",
     "Steps",
     "Switch",
     "SwitchSteps",
@@ -24498,12 +24579,6 @@ window.KKT_GRAPH = {
     "ask::Prompter",
     "client_key",
     "configured_name_pack_line",
-    "connection",
-    "connection::ConnectionOptions",
-    "connection::ConnectionSource",
-    "connection::client_connection",
-    "connection::recorded_connection",
-    "connection::serve_connection",
     "docker_key_copies",
     "docker_status_lines",
     "find_operator_key",
@@ -24555,11 +24630,6 @@ window.KKT_GRAPH = {
       "admin_name_line",
       "client_key",
       "configured_name_pack_line",
-      "connection",
-      "connection::ConnectionSource",
-      "connection::client_connection",
-      "connection::recorded_connection",
-      "connection::serve_connection",
       "docker_key_copies",
       "docker_status_lines",
       "find_operator_key",
@@ -24591,10 +24661,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [
-    "Server",
-    "connection::ServeConnection"
-   ],
+   "test_items": [],
    "to": "kkt-setup"
   },
   {
@@ -27844,7 +27911,6 @@ window.KKT_GRAPH = {
    "from": "kkt-setup",
    "items": [
     "ADMIN_KEY_COPY_FILE_NAME",
-    "AccessKey",
     "KeyFiles",
     "NEW_KEY_ALPHABET",
     "NEW_KEY_CHARS",
@@ -27864,7 +27930,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ADMIN_KEY_COPY_FILE_NAME",
-      "AccessKey",
       "KeyFiles",
       "NEW_KEY_ALPHABET",
       "NEW_KEY_CHARS",
@@ -28972,7 +29037,7 @@ window.KKT_CONCERNS = {
    "layer": "data"
   },
   "kkt-deployment": {
-   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data and Docker files are, whether `kkt serve` may run here, and what `kkt status` and `kkt upgrade` do. It works on facts it declares, which its caller reads from the setup record.",
+   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data and Docker files are, whether `kkt serve` may run here, what `kkt status` and `kkt upgrade` do, and how a client reaches the server. It works on facts it declares, which its caller reads from the setup record.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -29147,7 +29212,7 @@ window.KKT_CONCERNS = {
    "layer": "assembly"
   },
   "kkt-setup": {
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and where key files are. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to, and where key files are. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -29362,7 +29427,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "from": [
       {
        "at": "register",
@@ -29631,7 +29696,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "from": [
       {
        "at": "doctor::run",
@@ -30467,29 +30532,29 @@ window.KKT_ASSEMBLY = {
    "at": "connection::client_connection",
    "crate": "kashkeshet",
    "param": "source",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "why": "the program gives its ConnectionReads to kkt-install-commands and kkt-agent-commands, which ask it"
   },
   {
    "at": "connection::admin_connection",
    "crate": "kashkeshet",
    "param": "source",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "why": "the program gives its ConnectionReads to kkt-agent-commands, which asks it"
   },
   {
    "at": "connection::serve_connection",
    "crate": "kashkeshet",
    "param": "source",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "why": "it calls serve_connection only in its own tests; kkt-install-commands asks it"
   },
   {
    "at": "connection::recorded_connection",
    "crate": "kashkeshet",
    "param": "absolute",
-   "to": "kkt-setup",
-   "why": "it never calls recorded_connection: kkt-setup's other connection functions do"
+   "to": "kkt-deployment",
+   "why": "it never calls recorded_connection: kkt-deployment's other connection functions do"
   },
   {
    "at": "page",
@@ -30518,14 +30583,14 @@ window.KKT_ASSEMBLY = {
    "at": "connection::serve_connection",
    "crate": "kkt-agent-commands",
    "param": "source",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "why": "it asks client_connection and admin_connection only"
   },
   {
    "at": "connection::admin_connection",
    "crate": "kkt-install-commands",
    "param": "source",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "why": "it asks client_connection and serve_connection only"
   },
   {
@@ -30582,7 +30647,7 @@ window.KKT_ASSEMBLY = {
       "kkt-clock-system::SystemClock",
       "kkt-terminal::Terminal"
      ],
-     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-deployment's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
      "title": "The agents' commands"
     },
     {
@@ -30605,7 +30670,7 @@ window.KKT_ASSEMBLY = {
       "kkt-keys::KeyFiles",
       "kkt-install-commands::Databases",
       "kkt-install-commands::Output",
-      "kkt-setup::connection::ConnectionSource",
+      "kkt-deployment::connection::ConnectionSource",
       "kkt-operator-commands::agent::run",
       "kkt-install-commands::doctor::run",
       "kkt-operator-commands::lanes::run",
@@ -31584,7 +31649,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "note": "in InstallParts' connection, which each command reads",
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
+     "own": "ConnectionReads, answering kkt-deployment's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
      "suppliers": [
       {
        "crate": "kkt-files",
@@ -31782,7 +31847,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "in AgentParts' connection, which each command reads",
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
+     "own": "ConnectionReads, answering kkt-deployment's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
      "suppliers": [
       {
        "crate": "kkt-files",

@@ -1,7 +1,7 @@
 //! The operator's service commands and the ordered plan/check/install sequence.
 use crate::keys::new_key_file;
 use kkt_bare_service::{Spec, check_bind};
-use kkt_setup::connection::ConnectionSource;
+use kkt_deployment::connection::ConnectionSource;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
