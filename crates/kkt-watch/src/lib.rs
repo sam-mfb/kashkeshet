@@ -7,6 +7,7 @@
 //! `Watched` contract, the time (`Clock`), where it keeps its place
 //! (`Place`) and where its output goes (`Report`).
 
+mod error;
 mod filters;
 #[cfg(test)]
 mod tests;
@@ -15,6 +16,8 @@ use futures::future::BoxFuture;
 use kkt_agent_client::{Channel, Failure, Message, NewerLane, Waited, Watched};
 use kkt_clock::{Clock, Span, Time};
 use std::time::Duration;
+
+pub use error::{PlaceError, ReportError, WatchError};
 
 /// The most characters of a message body on its line.
 const WATCH_BODY_CHARS: usize = 300;
@@ -65,14 +68,14 @@ fn passing(failure: &Failure) -> bool {
 /// Where the highest message ID seen is kept between runs.
 pub trait Place {
     /// The kept ID, or `None` if none is kept yet.
-    fn load(&self) -> Result<Option<i64>, String>;
-    fn save(&self, id: i64) -> Result<(), String>;
+    fn load(&self) -> Result<Option<i64>, PlaceError>;
+    fn save(&self, id: i64) -> Result<(), PlaceError>;
 }
 
 /// Where the output goes.
 pub trait Report {
     /// One line for one new message. Nothing else is reported this way.
-    fn message(&mut self, line: &str) -> Result<(), String>;
+    fn message(&mut self, line: &str) -> Result<(), ReportError>;
     /// Anything else: where watching starts, lost connections, a newer
     /// version of the agent's lane.
     fn note(&mut self, text: &str);
@@ -129,14 +132,15 @@ pub async fn run(
     place: Option<&dyn Place>,
     report: &mut dyn Report,
     options: &Options,
-) -> Result<Outcome, String> {
-    let deadline =
-        match options.timeout {
-            Some(timeout) => Some(later(clock.now(), timeout).ok_or_else(|| {
-                format!("the timeout of {} seconds is too long", timeout.as_secs())
-            })?),
-            None => None,
-        };
+) -> Result<Outcome, WatchError> {
+    let deadline = match options.timeout {
+        Some(timeout) => Some(
+            later(clock.now(), timeout).ok_or(WatchError::TimeoutTooLong {
+                seconds: timeout.as_secs(),
+            })?,
+        ),
+        None => None,
+    };
     let me = starting(clock, settings, deadline, server.handle()).await?;
     let visible = if options.channel_names.is_empty() {
         Vec::new()
@@ -149,7 +153,7 @@ pub async fn run(
         &visible,
     )?;
     let saved = match place {
-        Some(place) => place.load()?,
+        Some(place) => place.load().map_err(WatchError::Place)?,
         None => None,
     };
     let mut after = match saved {
@@ -160,7 +164,7 @@ pub async fn run(
                 None => starting(clock, settings, deadline, server.latest_id()).await?,
             };
             if let Some(place) = place {
-                place.save(id)?;
+                place.save(id).map_err(WatchError::Place)?;
             }
             id
         }
@@ -188,7 +192,9 @@ pub async fn run(
                     if message.agent != me
                         && (!options.mentions || filters::mentions(&message.body, &me))
                     {
-                        report.message(&line(message, options.full))?;
+                        report
+                            .message(&line(message, options.full))
+                            .map_err(WatchError::Report)?;
                         shown = true;
                     }
                     after = after.max(message.id);
@@ -196,7 +202,7 @@ pub async fn run(
                 if after != before
                     && let Some(place) = place
                 {
-                    place.save(after)?;
+                    place.save(after).map_err(WatchError::Place)?;
                 }
                 if let Some(lane) = waited.newer_lane
                     && noted_lane.as_ref() != Some(&lane)
@@ -219,7 +225,7 @@ pub async fn run(
                     .await;
                 pause = (pause * 2).min(settings.watch_retry_max);
             }
-            Err(failure) => return Err(failure.to_string()),
+            Err(failure) => return Err(WatchError::Server(failure)),
         }
         if let Some(deadline) = deadline
             && clock.now() >= deadline
@@ -229,7 +235,7 @@ pub async fn run(
     }
 }
 
-const OUT_OF_RANGE: &str = "the clock is out of range";
+const OUT_OF_RANGE: WatchError = WatchError::ClockOutOfRange;
 
 /// A call made before watching starts. It may take
 /// `settings.watch_call_grace`, or until the deadline if that is sooner.
@@ -238,15 +244,15 @@ async fn starting<T>(
     settings: Settings,
     deadline: Option<Time>,
     call: BoxFuture<'_, Result<T, Failure>>,
-) -> Result<T, String> {
+) -> Result<T, WatchError> {
     let grace = later(clock.now(), settings.watch_call_grace).ok_or(OUT_OF_RANGE)?;
     let limit = deadline.map_or(grace, |d| d.min(grace));
     tokio::select! {
-        answer = call => answer.map_err(|e| e.to_string()),
+        answer = call => answer.map_err(WatchError::Server),
         () = clock.sleep_until(limit) => Err(if limit == grace {
-            Failure::Lost("no answer in time".into()).to_string()
+            WatchError::Server(Failure::Lost("no answer in time".into()))
         } else {
-            "no answer from the server before the timeout".into()
+            WatchError::NoAnswerBeforeTimeout
         }),
     }
 }
@@ -272,7 +278,7 @@ async fn fetch(
     wait: Duration,
 ) -> Result<Waited, Failure> {
     let mut waited = if server.polls() {
-        let lost = || Failure::Lost(OUT_OF_RANGE.into());
+        let lost = || Failure::Lost(OUT_OF_RANGE.to_string());
         let end = later(clock.now(), wait).ok_or_else(lost)?;
         let poll = Span::from_std(settings.watch_poll).map_err(|_| lost())?;
         // Asked only before the end: once the next ask would fall at or
