@@ -145,7 +145,11 @@ impl ChatServer {
         let principal = principal(context, self.log.as_ref())?;
         let who = self
             .identify
-            .avatar(self.api.as_ref(), &principal, token.as_deref())
+            .avatar(
+                &kkt_identity::ApiTokens(self.api.as_ref()),
+                &principal,
+                token.as_deref(),
+            )
             .await?;
         Ok((self.api.in_swarm(who.swarm), who.actor))
     }

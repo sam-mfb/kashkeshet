@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "22b10599",
+ "commit": "c7c9703d",
  "crates": [
   {
    "bins": [
@@ -7719,6 +7719,15 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "Identify"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kkt-identity",
+       "type": "ApiTokens"
+      }
+     ],
+     "trait": "Tokens"
     }
    ],
    "crate_doc": "Who a caller is: the `Identify` contract, the one place that decides who someone is and what they may do, for the MCP endpoints and the web page alike.",
@@ -7734,9 +7743,20 @@ window.KKT_GRAPH = {
      "trait": "Identify",
      "trait_crate": "kkt-identity",
      "type": "testing::FixedIdentify"
+    },
+    {
+     "crate": "kkt-identity",
+     "trait": "Tokens",
+     "trait_crate": "kkt-identity",
+     "type": "ApiTokens"
     }
    ],
    "items": [
+    {
+     "doc": "The agent operations as `Tokens`: a token is looked up by `Api::in_swarm`'s `authenticate` in the swarm asked for.",
+     "kind": "struct",
+     "path": "ApiTokens"
+    },
     {
      "doc": "What a caller was identified as: the swarm it acts in, and who acts.",
      "fields": [
@@ -7760,6 +7780,14 @@ window.KKT_GRAPH = {
      "doc": "A future an `Identify` implementation returns.",
      "kind": "type",
      "path": "Identifying"
+    },
+    {
+     "doc": "What `Identify::avatar` looks an agent's token up with.",
+     "kind": "trait",
+     "methods": [
+      "authenticate"
+     ],
+     "path": "Tokens"
     },
     {
      "doc": "",
@@ -23037,7 +23065,6 @@ window.KKT_GRAPH = {
    "from": "kkt-fake-product",
    "items": [
     "Agent",
-    "Api",
     "Audit",
     "Code",
     "Operator",
@@ -23054,7 +23081,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Agent",
-      "Api",
       "Audit",
       "Code",
       "Operator",
@@ -23212,7 +23238,8 @@ window.KKT_GRAPH = {
    "items": [
     "Identified",
     "Identify",
-    "Identifying"
+    "Identifying",
+    "Tokens"
    ],
    "kind": "normal",
    "optional": false,
@@ -23227,7 +23254,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Identified",
-      "Identifying"
+      "Identifying",
+      "Tokens"
      ],
      "role": "uses"
     }
@@ -23713,7 +23741,6 @@ window.KKT_GRAPH = {
    "from": "kkt-identity-keymode",
    "items": [
     "Agent",
-    "Api",
     "Audit",
     "Code",
     "Operator",
@@ -23730,7 +23757,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Agent",
-      "Api",
       "Audit",
       "Code",
       "Operator",
@@ -23753,7 +23779,8 @@ window.KKT_GRAPH = {
    "items": [
     "Identified",
     "Identify",
-    "Identifying"
+    "Identifying",
+    "Tokens"
    ],
    "kind": "normal",
    "optional": false,
@@ -23768,13 +23795,16 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Identified",
-      "Identifying"
+      "Identifying",
+      "Tokens"
      ],
      "role": "uses"
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "ApiTokens"
+   ],
    "to": "kkt-identity"
   },
   {
@@ -25726,6 +25756,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-mcp",
    "items": [
+    "ApiTokens",
     "Identify"
    ],
    "kind": "normal",
@@ -25737,12 +25768,19 @@ window.KKT_GRAPH = {
       "Identify"
      ],
      "role": "uses"
+    },
+    {
+     "detail": [
+      "ApiTokens"
+     ],
+     "role": "wires"
     }
    ],
    "target": null,
    "test_items": [
     "Identified",
-    "Identifying"
+    "Identifying",
+    "Tokens"
    ],
    "to": "kkt-identity"
   },
@@ -27011,7 +27049,6 @@ window.KKT_GRAPH = {
    "test_items": [
     "Actor",
     "Agent",
-    "Api",
     "Audit",
     "Code",
     "LaneSource",
@@ -27140,7 +27177,8 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "Identified",
-    "Identifying"
+    "Identifying",
+    "Tokens"
    ],
    "to": "kkt-identity"
   },
