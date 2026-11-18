@@ -1204,6 +1204,7 @@ name = "kkt-backup"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
+ "kkt-keys",
  "thiserror",
 ]
 
