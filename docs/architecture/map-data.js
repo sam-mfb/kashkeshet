@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "04859962",
+ "commit": "a318e5d8",
  "crates": [
   {
    "bins": [
@@ -11785,6 +11785,16 @@ window.KKT_GRAPH = {
       "remove_server"
      ],
      "path": "Claude"
+    },
+    {
+     "doc": "Why Claude Code's command did not do what was asked.",
+     "kind": "enum",
+     "path": "ClaudeError",
+     "variants": [
+      "NotFound",
+      "NotRun",
+      "Failed"
+     ]
     }
    ],
    "lib": "kkt_llm_agent_command",
@@ -11799,7 +11809,9 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -11905,6 +11917,25 @@ window.KKT_GRAPH = {
       "InConfig",
       "InFile",
       "OfClient"
+     ]
+    },
+    {
+     "doc": "Why a client's own command did not do what was asked: the kind, and the implementation's own error, which says it for people.",
+     "fields": [
+      "kind",
+      "cause"
+     ],
+     "kind": "struct",
+     "path": "CommandError"
+    },
+    {
+     "doc": "How a client's own command failed, in this contract's words.",
+     "kind": "enum",
+     "path": "CommandFailure",
+     "variants": [
+      "NotInstalled",
+      "NotRun",
+      "Failed"
      ]
     },
     {
@@ -20206,7 +20237,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Claude"
+    "Claude",
+    "ClaudeError"
    ],
    "kind": "normal",
    "optional": false,
@@ -20214,7 +20246,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Claude"
+      "Claude",
+      "ClaudeError"
      ],
      "role": "uses"
     }
@@ -20229,6 +20262,8 @@ window.KKT_GRAPH = {
    "items": [
     "Client",
     "ClientCommand",
+    "CommandError",
+    "CommandFailure",
     "ENV_FOLDERS",
     "Host"
    ],
@@ -20246,6 +20281,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Client",
+      "CommandError",
+      "CommandFailure",
       "ENV_FOLDERS"
      ],
      "role": "uses"
@@ -25119,7 +25156,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "CommandError",
+    "CommandFailure"
+   ],
    "to": "kkt-llm-agent-config"
   },
   {
