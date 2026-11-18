@@ -30,9 +30,9 @@ pub struct NativeOperate<'a, D = ()> {
     service: Box<dyn kkt_bare_service::Service>,
     prober: super::diagnostics::Probe,
     login_link: crate::terminal::browser_login::TerminalLink,
-    /// Docker and Compose, opening a sharing setup's login link with the
-    /// system's own opener.
-    docker: kkt_container_docker::Docker,
+    /// kkt's containerized service over Docker and Compose, opening a
+    /// sharing setup's login link with the system's own opener.
+    container: Containerized,
 }
 
 impl<'a> NativeOperate<'a> {
@@ -45,9 +45,7 @@ impl<'a> NativeOperate<'a> {
             service: super::service::for_this_os(env),
             prober: super::diagnostics::prober(),
             login_link: crate::terminal::browser_login::TerminalLink::new(),
-            docker: kkt_container_docker::Docker::new(Box::new(
-                super::browser::OpenerBrowser::new(),
-            )),
+            container: containerized(),
         }
     }
 
@@ -66,7 +64,7 @@ impl<'a> NativeOperate<'a> {
             service: self.service,
             prober: self.prober,
             login_link: self.login_link,
-            docker: self.docker,
+            container: self.container,
         }
     }
 }
@@ -79,7 +77,7 @@ impl<'a, D> NativeOperate<'a, D> {
         import_lanes: &'b dyn kkt_install_commands::ImportLanes,
     ) -> InstallParts<'b, ConnectionReads<'a>, D> {
         InstallParts {
-            container: &self.docker,
+            container: &self.container,
             container_configs: &settings::ContainerConfigs,
             login_link: &self.login_link,
             service: self.service.as_ref(),
@@ -172,7 +170,7 @@ impl<'a, D> NativeOperate<'a, D> {
         match on {
             kkt_setup::LanesOn::Docker(folder) => {
                 Box::new(crate::commands::lanes::ContainerLanes {
-                    container: &self.docker,
+                    container: &self.container,
                     configs: &settings::ContainerConfigs,
                     paths: &NativeSetupFiles,
                     output: &NativeOutput,
@@ -186,6 +184,20 @@ impl<'a, D> NativeOperate<'a, D> {
             )),
         }
     }
+}
+
+/// kkt's containerized service as the program runs it: over Docker as the
+/// general `Projects`, with Docker doing what the service does not do
+/// itself yet.
+type Containerized = kkt_containerized_service::Containerized<
+    kkt_container_docker::Docker,
+    kkt_container_docker::Docker,
+>;
+
+fn containerized() -> Containerized {
+    let docker =
+        || kkt_container_docker::Docker::new(Box::new(super::browser::OpenerBrowser::new()));
+    kkt_containerized_service::Containerized::new(docker(), docker())
 }
 
 /// The server `kkt lanes` acts on: as kkt-setup's `lanes_on` says, from

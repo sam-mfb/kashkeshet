@@ -27,6 +27,7 @@ members = [
     "crates/kkt-config-file",
     "crates/kkt-container",
     "crates/kkt-container-docker",
+    "crates/kkt-containerized-service",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
     "crates/kkt-entropy",
@@ -96,6 +97,7 @@ default-members = [
     "crates/kkt-config-file",
     "crates/kkt-container",
     "crates/kkt-container-docker",
+    "crates/kkt-containerized-service",
     "crates/kkt-db",
     "crates/kkt-db-sqlite",
     "crates/kkt-entropy",
@@ -230,6 +232,7 @@ kkt-clock-system = { path = "crates/kkt-clock-system" }
 kkt-config-file = { path = "crates/kkt-config-file" }
 kkt-container = { path = "crates/kkt-container" }
 kkt-container-docker = { path = "crates/kkt-container-docker" }
+kkt-containerized-service = { path = "crates/kkt-containerized-service" }
 kkt-db = { path = "crates/kkt-db" }
 kkt-db-sqlite = { path = "crates/kkt-db-sqlite" }
 kkt-diagnostics = { path = "crates/kkt-diagnostics" }

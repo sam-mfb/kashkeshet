@@ -418,15 +418,15 @@
        "param": "container"
       }
      ],
-     "impl": "kkt-container-docker::Docker",
-     "note": "Direct injection of the named container implementation into the install commands."
+     "impl": "kkt-containerized-service::Containerized",
+     "note": "kkt's containerized service, over Docker as the general Projects with Docker as its fallback, injected into the install commands."
     },
     {
-     "own": "HereLanes, picking the server kkt lanes acts on from what is installed here: ContainerLanes, kkt lanes run in the container over kkt-container-docker's Docker, or kkt-operator-commands' LocalLanes",
+     "own": "HereLanes, picking the server kkt lanes acts on from what is installed here: ContainerLanes, kkt lanes run in the container over kkt-containerized-service's Containerized, or kkt-operator-commands' LocalLanes",
      "suppliers": [
       {
-       "crate": "kkt-container-docker",
-       "item": "Docker"
+       "crate": "kkt-containerized-service",
+       "item": "Containerized"
       }
      ],
      "crate": "kkt-operator-commands",
@@ -1315,11 +1315,11 @@
      ]
     },
     {
-     "own": "ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-container-docker's Docker",
+     "own": "ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-containerized-service's Containerized",
      "suppliers": [
       {
-       "crate": "kkt-container-docker",
-       "item": "Docker"
+       "crate": "kkt-containerized-service",
+       "item": "Containerized"
       }
      ],
      "crate": "kkt-operator-commands",
@@ -1336,11 +1336,11 @@
      "note": "kkt setup --lanes"
     },
     {
-     "own": "ContainerLanes' read of the lane limit, the container's config file read over kkt-container-docker's Docker and parsed by ContainerConfigs",
+     "own": "ContainerLanes' read of the lane limit, the container's config file read over kkt-containerized-service's Containerized and parsed by ContainerConfigs",
      "suppliers": [
       {
-       "crate": "kkt-container-docker",
-       "item": "Docker"
+       "crate": "kkt-containerized-service",
+       "item": "Containerized"
       }
      ],
      "crate": "kkt-setup",

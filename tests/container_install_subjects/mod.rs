@@ -12,15 +12,36 @@
 use kkt_container::Container;
 use kkt_container_docker::testing::Scripted;
 use kkt_container_docker::{Browser, Docker};
+use kkt_containerized_service::Containerized;
+use std::io;
 
 /// The subjects, by name, in the order they run.
-pub const SUBJECTS: &[&str] = &["Docker"];
+pub const SUBJECTS: &[&str] = &["Docker", "Containerized"];
 
 /// The subject named `name`, over the scripted host `host`, opening a
 /// login link in `browser`.
 pub fn subject(name: &str, browser: Box<dyn Browser>, host: Scripted) -> Box<dyn Container> {
     match name {
         "Docker" => Box::new(Docker::scripted(browser, host)),
+        // kkt's containerized service over Docker as the general
+        // `Projects`, with Docker on the same host doing the rest.
+        "Containerized" => Box::new(Containerized::new(
+            Docker::scripted(Box::new(NoBrowser), host.clone()),
+            Docker::scripted(browser, host),
+        )),
         other => panic!("no subject {other}"),
+    }
+}
+
+/// The browser of the Docker that serves only as `Projects`, which opens
+/// no login link.
+struct NoBrowser;
+
+impl Browser for NoBrowser {
+    fn open(&self, _: &str) -> io::Result<()> {
+        unreachable!("only the fallback opens a login link")
+    }
+    fn open_failure(&self) -> Option<String> {
+        None
     }
 }

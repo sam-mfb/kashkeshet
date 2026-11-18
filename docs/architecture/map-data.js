@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "d6231c82",
+ "commit": "392599e3",
  "crates": [
   {
    "bins": [
@@ -4816,6 +4816,10 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-container-docker",
        "type": "Docker"
+      },
+      {
+       "crate": "kkt-containerized-service",
+       "type": "Containerized"
       }
      ],
      "trait": "Container"
@@ -5456,6 +5460,45 @@ window.KKT_GRAPH = {
     "futures",
     "serde_json",
     "thiserror"
+   ]
+  },
+  {
+   "bins": [],
+   "builds": [],
+   "contracts": [],
+   "crate_doc": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever container tool implements it.",
+   "dev_only": false,
+   "features": {},
+   "foreign_implements": [],
+   "holders": [],
+   "implements": [
+    {
+     "crate": "kkt-containerized-service",
+     "trait": "Container",
+     "trait_crate": "kkt-container",
+     "type": "Containerized"
+    }
+   ],
+   "items": [
+    {
+     "doc": "kkt's containerized service over `projects`, handing the operations it does not do itself to `fallback`.",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "Containerized"
+    }
+   ],
+   "lib": "kkt_containerized_service",
+   "machine_work": {},
+   "name": "kkt-containerized-service",
+   "path": "crates/kkt-containerized-service",
+   "produces": [],
+   "released_program": false,
+   "slots": [],
+   "testing_third_party": [],
+   "third_party": [
+    "futures"
    ]
   },
   {
@@ -19234,6 +19277,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Containerized"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "Containerized"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-containerized-service"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
     "Upgrade"
    ],
    "kind": "normal",
@@ -22598,6 +22662,144 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-scratch"
+  },
+  {
+   "features": [],
+   "from": "kkt-containerized-service",
+   "items": [
+    "Clock"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Clock"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-containerized-service",
+   "items": [
+    "ConfigReader",
+    "Container",
+    "Existing",
+    "FileState",
+    "Folder",
+    "InServer",
+    "Inputs",
+    "KeyCopies",
+    "KeyCopy",
+    "LoginLink",
+    "Output",
+    "Project",
+    "ProjectError",
+    "Projects",
+    "Provisioned",
+    "State"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "implements",
+   "roles": [
+    {
+     "detail": [
+      "Containerized implements Container"
+     ],
+     "role": "implements"
+    },
+    {
+     "detail": [
+      "ConfigReader",
+      "Existing",
+      "FileState",
+      "Folder",
+      "InServer",
+      "Inputs",
+      "KeyCopies",
+      "KeyCopy",
+      "LoginLink",
+      "Output",
+      "Project",
+      "ProjectError",
+      "Projects",
+      "Provisioned",
+      "State"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "FileAction",
+    "ProjectFile",
+    "Ran",
+    "ServiceConfig",
+    "User",
+    "testing",
+    "testing::Memory",
+    "testing::MemoryProjects"
+   ],
+   "to": "kkt-container"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-containerized-service",
+   "items": [
+    "Container",
+    "Existing",
+    "FileAction",
+    "FileState",
+    "Folder",
+    "Output",
+    "Project",
+    "ProjectError",
+    "ProjectFile",
+    "Projects",
+    "Ran",
+    "ServiceConfig",
+    "User",
+    "testing",
+    "testing::Memory",
+    "testing::MemoryProjects"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "FileAction",
+      "FileState",
+      "Folder",
+      "Output",
+      "ProjectError",
+      "Ran",
+      "User",
+      "testing"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Memory",
+      "testing::MemoryProjects"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-container"
   },
   {
    "features": [],
@@ -28931,7 +29133,8 @@ window.KKT_GRAPH = {
    "kkt-clock-system"
   ],
   "kkt-container": [
-   "kkt-container-docker"
+   "kkt-container-docker",
+   "kkt-containerized-service"
   ],
   "kkt-db": [
    "kkt-db-sqlite"
@@ -29068,6 +29271,11 @@ window.KKT_CONCERNS = {
   "kkt-container-docker": {
    "concern": "Implements kkt-container's `Container` with Docker and Compose: the Compose files, the managed folder and the docker commands, among them a run in the container with its work folder made by mktemp and files copied in or out; and kkt-container's general `Projects`, each operation one `docker compose` command in the project's folder. It opens a sharing setup's login link through a `Browser` it declares.",
    "kind": "effect",
+   "layer": "operations"
+  },
+  "kkt-containerized-service": {
+   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, and starting and stopping the service, and hands the operations it does not do itself to a fallback `Container`.",
+   "kind": "logic",
    "layer": "operations"
   },
   "kkt-db": {
@@ -31072,8 +31280,8 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-install-commands",
-     "impl": "kkt-container-docker::Docker",
-     "note": "Direct injection of the named container implementation into the install commands.",
+     "impl": "kkt-containerized-service::Containerized",
+     "note": "kkt's containerized service, over Docker as the general Projects with Docker as its fallback, injected into the install commands.",
      "to": [
       {
        "at": "InstallParts",
@@ -31084,11 +31292,11 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operator-commands",
      "note": "kkt lanes export and import",
-     "own": "HereLanes, picking the server kkt lanes acts on from what is installed here: ContainerLanes, kkt lanes run in the container over kkt-container-docker's Docker, or kkt-operator-commands' LocalLanes",
+     "own": "HereLanes, picking the server kkt lanes acts on from what is installed here: ContainerLanes, kkt lanes run in the container over kkt-containerized-service's Containerized, or kkt-operator-commands' LocalLanes",
      "suppliers": [
       {
-       "crate": "kkt-container-docker",
-       "item": "Docker"
+       "crate": "kkt-containerized-service",
+       "item": "Containerized"
       }
      ],
      "to": [
@@ -31977,11 +32185,11 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operator-commands",
      "note": "kkt setup --lanes",
-     "own": "ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-container-docker's Docker",
+     "own": "ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-containerized-service's Containerized",
      "suppliers": [
       {
-       "crate": "kkt-container-docker",
-       "item": "Docker"
+       "crate": "kkt-containerized-service",
+       "item": "Containerized"
       }
      ],
      "to": [
@@ -31998,11 +32206,11 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-setup",
      "note": "kkt setup --lanes, for kkt in Docker",
-     "own": "ContainerLanes' read of the lane limit, the container's config file read over kkt-container-docker's Docker and parsed by ContainerConfigs",
+     "own": "ContainerLanes' read of the lane limit, the container's config file read over kkt-containerized-service's Containerized and parsed by ContainerConfigs",
      "suppliers": [
       {
-       "crate": "kkt-container-docker",
-       "item": "Docker"
+       "crate": "kkt-containerized-service",
+       "item": "Containerized"
       }
      ],
      "to": [
