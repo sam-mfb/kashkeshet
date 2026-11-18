@@ -20,7 +20,7 @@ mod tests;
 
 pub use commit::LaneCommit;
 use format::EXTENSION;
-pub use format::{LaneFile, parse, render};
+pub use format::{HeaderKey, LaneFile, ParseError, parse, render};
 
 use format::has_header;
 use std::fmt;
@@ -37,6 +37,66 @@ pub trait Disk {
     fn write(&self, path: &Path, contents: &str) -> io::Result<()>;
     /// `path` made absolute, from the current folder.
     fn absolute(&self, path: &Path) -> io::Result<PathBuf>;
+}
+
+/// Why a lane folder could not be read: the step that failed, with the
+/// folder or file it was on.
+#[derive(Debug, thiserror::Error)]
+pub enum ReadError {
+    #[error("could not find {}: {source}", folder.display())]
+    Find {
+        folder: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("could not read the folder {}: {source}", folder.display())]
+    Folder {
+        folder: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("could not read {}: {source}", path.display())]
+    File {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("{}: {source}", path.display())]
+    Lane {
+        path: PathBuf,
+        #[source]
+        source: ParseError,
+    },
+    #[error("could not ask git about {}: {source}", folder.display())]
+    Commit {
+        folder: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+}
+
+/// Why lanes could not be written to a folder: the step that failed, with
+/// the folder or file it was on.
+#[derive(Debug, thiserror::Error)]
+pub enum WriteError {
+    #[error("could not find {}: {source}", folder.display())]
+    Find {
+        folder: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("could not create {}: {source}", folder.display())]
+    Create {
+        folder: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("could not write {}: {source}", path.display())]
+    Write {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
 }
 
 /// The file every folder may hold to describe itself, never read as a lane.
@@ -125,13 +185,17 @@ pub fn read_folder(
     disk: &dyn Disk,
     commits: &dyn LaneCommit,
     folder: &Path,
-) -> Result<Read, String> {
-    let absolute = disk
-        .absolute(folder)
-        .map_err(|e| format!("could not find {}: {e}", folder.display()))?;
+) -> Result<Read, ReadError> {
+    let absolute = disk.absolute(folder).map_err(|source| ReadError::Find {
+        folder: folder.to_path_buf(),
+        source,
+    })?;
     let mut names = disk
         .file_names(&absolute)
-        .map_err(|e| format!("could not read the folder {}: {e}", absolute.display()))?;
+        .map_err(|source| ReadError::Folder {
+            folder: absolute.clone(),
+            source,
+        })?;
     names.sort();
     let mut lanes = Vec::new();
     let mut skipped = Vec::new();
@@ -147,9 +211,10 @@ pub fn read_folder(
             });
             continue;
         }
-        let contents = disk
-            .read(&path)
-            .map_err(|e| format!("could not read {}: {e}", path.display()))?;
+        let contents = disk.read(&path).map_err(|source| ReadError::File {
+            path: path.clone(),
+            source,
+        })?;
         if !has_header(&contents) {
             skipped.push(Skipped {
                 path,
@@ -157,11 +222,14 @@ pub fn read_folder(
             });
             continue;
         }
-        lanes.push(parse(stem, &contents).map_err(|e| format!("{}: {e}", path.display()))?);
+        lanes.push(parse(stem, &contents).map_err(|source| ReadError::Lane { path, source })?);
     }
     let commit = commits
         .commit(&absolute)
-        .map_err(|e| format!("could not ask git about {}: {e}", absolute.display()))?;
+        .map_err(|source| ReadError::Commit {
+            folder: absolute.clone(),
+            source,
+        })?;
     Ok(Read {
         lanes,
         skipped,
@@ -173,16 +241,24 @@ pub fn read_folder(
 /// Writes each lane to `folder` as `<lane>.md`, creating the folder if it
 /// is missing and replacing a file of the same name. Other files are left
 /// alone. Returns the absolute folder.
-pub fn write_folder(disk: &dyn Disk, folder: &Path, lanes: &[LaneFile]) -> Result<PathBuf, String> {
-    let absolute = disk
-        .absolute(folder)
-        .map_err(|e| format!("could not find {}: {e}", folder.display()))?;
+pub fn write_folder(
+    disk: &dyn Disk,
+    folder: &Path,
+    lanes: &[LaneFile],
+) -> Result<PathBuf, WriteError> {
+    let absolute = disk.absolute(folder).map_err(|source| WriteError::Find {
+        folder: folder.to_path_buf(),
+        source,
+    })?;
     disk.create_dir_all(&absolute)
-        .map_err(|e| format!("could not create {}: {e}", absolute.display()))?;
+        .map_err(|source| WriteError::Create {
+            folder: absolute.clone(),
+            source,
+        })?;
     for lane in lanes {
         let path = absolute.join(file_name(&lane.name));
         disk.write(&path, &render(lane))
-            .map_err(|e| format!("could not write {}: {e}", path.display()))?;
+            .map_err(|source| WriteError::Write { path, source })?;
     }
     Ok(absolute)
 }
