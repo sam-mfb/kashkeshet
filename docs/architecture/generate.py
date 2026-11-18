@@ -865,7 +865,8 @@ def main():
                    {c["name"]: c.get("foreign_implements", []) for c in crates},
                    {"not_passed_on": pass_through_candidates(crates, edges)
                     + [v for v in value_candidates(crates, edges, kind_of)
-                       if v not in pass_through_candidates(crates, edges)],
+                       if v not in pass_through_candidates(crates, edges)]
+                    + own_slot_candidates(crates, assembly),
                     "not_filled": program_fill_candidates(crates, edges)},
                    {c["name"]: {p["value"]: p["operations"] for p in c.get("produces", [])} for c in crates},
                    {c["name"]: c["implements"] for c in crates})
@@ -1271,6 +1272,43 @@ def program_fill_candidates(crates, edges):
     return found
 
 
+def own_slot_candidates(crates, assembly):
+    """Where a crate other than a program may put a contract it was given
+    into a slot of its own: wiring fills one of its slots, and another of
+    its slots, on another item and filled by nothing, takes the same
+    contract. A type's constructor and its fields count as one item.
+    Testing slots, and values passed between a crate's own functions, are
+    left out. Each is wired (a passes_on into the crate itself) or listed
+    in not_passed_on with why."""
+    flows = list(assembly["programs"].items()) + list(assembly.get("injectors", {}).items())
+    filled = {(w["crate"], t["at"], t["param"]) for _, flow in flows for w in flow.get("wiring", []) for t in w["to"]}
+    # What another crate gives it; what it puts into its own slots is not.
+    from_outside = {(w["crate"], t["at"], t["param"]) for injector, flow in flows for w in flow.get("wiring", [])
+                    if w["crate"] != injector for t in w["to"]}
+    def owner(at):
+        """The item a slot is on: a type's constructor and fields are the
+        type (`lanes::LocalLanes::new` is on `lanes::LocalLanes`); a function
+        is itself (`lanes::run`)."""
+        parts = at.split("::")
+        return "::".join(parts[:-1]) if len(parts) > 1 and parts[-2][:1].isupper() else at
+
+    def takes(slot):
+        return {f"{t['crate']}::{t['trait']}" for t in slot["traits"]}
+
+    found = []
+    for c in crates:
+        if c["bins"]:
+            continue
+        slots = [s for s in c["slots"] if not s["at"].startswith("testing")]
+        given = [s for s in slots if (c["name"], s["at"], s["name"]) in from_outside]
+        for slot in slots:
+            if (c["name"], slot["at"], slot["name"]) in filled:
+                continue
+            if any(takes(slot) & takes(g) and owner(g["at"]) != owner(slot["at"]) for g in given):
+                found.append({"crate": c["name"], "to": c["name"], "at": slot["at"], "param": slot["name"]})
+    return found
+
+
 def pass_through_candidates(crates, edges):
     """Where a crate may hand on a contract value it was given: crate A, not
     a program, has a slot of trait T and depends in code on crate B, whose
@@ -1410,7 +1448,9 @@ def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candid
                     problems.append(f"{program}: no slot {slot['at']} ({slot['param']}) in {wire['crate']}")
             # What an injector passes on names the slots of its own that
             # fed it, so a path is joined on slots, never on the wording.
-            if wire.get("passes_on") or (wire.get("produces") and wire.get("from")):
+            # An adapter that wraps what the injector was given names those
+            # slots in "from" too, so its route joins theirs.
+            if wire.get("passes_on") or (wire.get("produces") and wire.get("from")) or (wire.get("own") and wire.get("from")):
                 if not wire.get("from"):
                     problems.append(f"{program}: passing on {wire.get('passes_on')} into {wire['crate']} says no \"from\"")
                 for slot in wire.get("from", []):
@@ -1418,7 +1458,7 @@ def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candid
                         problems.append(f"{program}: \"from\" names no slot {slot['at']} ({slot['param']}) of {program}")
                     elif not filled(program, slot):
                         problems.append(f"{program}: no program fills {slot['at']} ({slot['param']}), "
-                                        f"which \"from\" names for {wire.get('passes_on') or wire.get('produces')}")
+                                        f"which \"from\" names for {wire.get('passes_on') or wire.get('produces') or wire.get('own')}")
     for program, flow in assembly["programs"].items():
         if program not in packages:
             problems.append(f"no package {program}")

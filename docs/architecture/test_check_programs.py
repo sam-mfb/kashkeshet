@@ -539,6 +539,66 @@ class PassThroughs(unittest.TestCase):
         self.assertIn("agent_handle (entropy) is no longer a place", str(stop.exception))
 
 
+class OwnSlots(unittest.TestCase):
+    """Where a crate may put a contract it was given into a slot of its
+    own, and the check that each is wired or left out."""
+
+    IDENTIFY = [{"crate": "kkt-identity", "trait": "Identify"}]
+    CRATES = [
+        {"name": "kkt", "bins": ["kkt"], "slots": []},
+        {"name": "kkt-server", "bins": [], "slots": [
+            {"at": "Parts::new", "name": "identify", "traits": IDENTIFY},
+            {"at": "Parts", "name": "identify", "traits": IDENTIFY},
+            {"at": "AdmissionGate::new", "name": "identify", "traits": IDENTIFY},
+            {"at": "testing::gate", "name": "identify", "traits": IDENTIFY}]},
+    ]
+    GIVEN = {"programs": {"kkt": {"steps": [], "wiring": [
+        {"impl": "kkt-identity-keymode::KeyMode", "crate": "kkt-server", "to": [{"at": "Parts::new", "param": "identify"}]}]}}}
+
+    def found(self, assembly):
+        return [(c["at"], c["param"]) for c in generate.own_slot_candidates(self.CRATES, assembly)]
+
+    def test_another_item_of_its_own_that_takes_what_it_was_given_is_found(self):
+        # Parts is the same item as Parts::new; testing slots are left out.
+        self.assertEqual(self.found(self.GIVEN), [("AdmissionGate::new", "identify")])
+
+    def test_two_functions_of_one_module_are_two_items(self):
+        lanes = [{"crate": "kkt-lanes", "trait": "Lanes"}]
+        crates = [{"name": "kkt-ops", "bins": [], "slots": [
+            {"at": "lanes::run", "name": "lanes", "traits": lanes},
+            {"at": "lanes::LocalLanes::new", "name": "lanes", "traits": lanes},
+            {"at": "lanes::LocalLanes", "name": "lanes", "traits": lanes}]}]
+        given = {"programs": {"kkt": {"steps": [], "wiring": [
+            {"impl": "kkt-lanes-os::OsLanes", "crate": "kkt-ops", "to": [{"at": "lanes::run", "param": "lanes"}]}]}}}
+        # The type's constructor and its field are one item, and not the function's.
+        self.assertEqual([(c["at"], c["param"]) for c in generate.own_slot_candidates(crates, given)],
+                         [("lanes::LocalLanes::new", "lanes"), ("lanes::LocalLanes", "lanes")])
+
+    def test_nothing_given_finds_nothing_and_a_filled_slot_is_not_found_again(self):
+        self.assertEqual(self.found({"programs": {"kkt": {"steps": [], "wiring": []}}}), [])
+        passed = dict(self.GIVEN, injectors={"kkt-server": {"wiring": [
+            {"passes_on": "the identity", "crate": "kkt-server", "to": [{"at": "AdmissionGate::new", "param": "identify"}],
+             "from": [{"at": "Parts::new", "param": "identify"}]}]}})
+        # What it puts in its own slot does not count as given to it.
+        self.assertEqual(self.found(passed), [])
+
+    def test_an_adapter_that_wraps_what_it_was_given_names_a_filled_slot(self):
+        slots = {"kkt-server": [s for s in self.CRATES[1]["slots"]],
+                 "kkt-web": [{"at": "router", "name": "gate", "traits": [{"crate": "kkt-web", "trait": "Gate"}]}]}
+        def check(from_slot):
+            assembly = dict(self.GIVEN, injectors={"kkt-server": {"wiring": [
+                {"own": "AdmissionGate", "suppliers": [{"crate": "kkt-admission"}], "crate": "kkt-web",
+                 "to": [{"at": "router", "param": "gate"}], "from": [from_slot]}]}})
+            generate.check_assembly(assembly, {"kkt-identity-keymode": {"KeyMode": {}}},
+                                    {"kkt", "kkt-server", "kkt-web", "kkt-admission", "kkt-identity-keymode"},
+                                    slots, {}, NO_PLACES, {}, {})
+        check({"at": "Parts::new", "param": "identify"})
+        with self.assertRaises(SystemExit) as stop:
+            check({"at": "AdmissionGate::new", "param": "identify"})
+        self.assertIn("no program fills AdmissionGate::new (identify), which \"from\" names for AdmissionGate",
+                      str(stop.exception))
+
+
 class TestCodeSplit(unittest.TestCase):
     """generate.py's split of a file into its real code and its test code:
     anything under #[cfg(test)] or the crate's own `testing` feature is test

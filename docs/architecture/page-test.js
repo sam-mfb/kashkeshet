@@ -335,6 +335,37 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       ["kashkeshet>kkt-agent-commands", "kashkeshet>kkt-install-commands"].every((l) => keys.lines.includes(l)) &&
       keys.hops.includes("kashkeshet>kkt-keys-os>normal") &&
       /OsKeyFiles.* wrapped by .*ConnectionReads/.test(keys.labels["kkt-keys-os>kashkeshet"] || ""), keys);
+    // A value a composition crate is given and passes on is drawn from the
+    // program, through it, to each crate that takes it, its own adapters
+    // included: KeyMode goes from the program into kkt-server, which passes
+    // it to kkt-mcp and wraps it in the web gate it hands kkt-web.
+    const identity = await routeOf("kkt-identity-keymode");
+    const panelSection = async (name, id) => {
+      await onBox(name, "> rect");
+      await openSection(id);
+      return p.$eval(`#panel details[data-section='${id}']`, (d) => d.textContent);
+    };
+    const mcpSlots = await panelSection("kkt-mcp", "slots");
+    const serverPasses = await panelSection("kkt-server", "passes");
+    const keyFilesGo = await panelSection("kkt-keys-os", "goes");
+    check("a passed-on value is drawn and named from the program to every crate that takes it",
+      ["kashkeshet>kkt-server", "kkt-server>kkt-mcp", "kkt-server>kkt-web"].every((l) => identity.lines.includes(l)) &&
+      identity.labels["kashkeshet>kkt-server"] === "KeyMode (kkt-identity-keymode)" &&
+      identity.labels["kkt-server>kkt-mcp"] === "KeyMode (kkt-identity-keymode) · passed on" &&
+      identity.labels["kkt-server>kkt-web"] === "AdmissionGate (over kkt-admission), wrapping KeyMode (kkt-identity-keymode)" &&
+      /filled with KeyMode \(kkt-identity-keymode\), by kashkeshet, passed on by kkt-server/.test(mcpSlots) &&
+      /KeyMode \(kkt-identity-keymode\), from kashkeshet → kkt-mcp's endpoint \(identify\)/.test(serverPasses) &&
+      /wrapping KeyMode \(kkt-identity-keymode\), from kashkeshet → kkt-web's router \(gate\)/.test(serverPasses) &&
+      /OsKeyFiles \(kkt-keys-os\) → kkt-setup's [^;]*by kashkeshet, passed on by kkt-operator-commands/.test(keyFilesGo),
+      { identity, mcp: (mcpSlots.match(/endpoint takes identify[^]{0,120}/) || [""])[0], passes: serverPasses.slice(0, 300) });
+    // With kkt-server and kkt-identity-keymode both ticked, the line into
+    // kkt-server names KeyMode first, so its shortened label keeps it.
+    await onBox("kkt-server", ".pick-hit");
+    await onBox("kkt-identity-keymode", ".pick-hit");
+    const intoServer = await p.$eval("text.delivery-label[data-from='kashkeshet'][data-to='kkt-server']", (x) => x.textContent);
+    await onBox("kkt-identity-keymode", ".pick-hit");
+    await onBox("kkt-server", ".pick-hit");
+    check("a shortened label names the ticked crate's value first", /^KeyMode \(kkt-identity-keymode\)/.test(intoServer), intoServer);
     // Nothing is drawn out of kkt-shutdown-os: the program builds the
     // Shutdown it stops, and StopSignals gives back only which signal came.
     const shutdown = await routeOf("kkt-shutdown-os");
