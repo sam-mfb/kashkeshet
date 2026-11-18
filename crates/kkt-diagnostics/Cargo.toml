@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+thiserror.workspace = true
 kkt-keys = { path = "../kkt-keys" }
 kkt-clock = { path = "../kkt-clock" }
 url.workspace = true

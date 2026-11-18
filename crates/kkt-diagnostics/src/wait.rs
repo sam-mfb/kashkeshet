@@ -1,7 +1,7 @@
 //! Waiting for a server `kkt setup` just set up to answer, and how long
 //! setup waits by kind of setup.
 
-use super::{Check, Inspector, Settings, unreachable};
+use super::{Check, Inspector, Settings, Unprobed, unreachable};
 use kkt_clock::Clock;
 use std::path::Path;
 use std::time::Duration;
@@ -45,7 +45,7 @@ pub async fn until_reachable(
     key_file: Option<&Path>,
     wait: Wait,
     waiting: &mut dyn FnMut(),
-) -> Result<Vec<Check>, String> {
+) -> Result<Vec<Check>, Unprobed> {
     let end = clock.now() + wait.total;
     let mut said = false;
     loop {

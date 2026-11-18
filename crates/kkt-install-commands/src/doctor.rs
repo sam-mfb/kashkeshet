@@ -43,7 +43,8 @@ pub async fn run<D: crate::ServiceDefaults>(
         &connection.url,
         connection.key_file.as_deref(),
     )
-    .await?;
+    .await
+    .map_err(|e| e.to_string())?;
     // A server machine whose clients were switched checks the other server
     // above, and so gets a client's fix.
     let switched = record.as_ref().is_some_and(|r| r.clients.is_some());

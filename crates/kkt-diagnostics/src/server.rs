@@ -13,11 +13,11 @@ pub(crate) async fn checks(
     prober: &dyn Prober,
     url: &str,
     key: Option<&str>,
-) -> Result<Vec<Check>, String> {
+) -> Result<Vec<Check>, Unprobed> {
     let mut checks = Vec::new();
-    let answered = prober.answer(url).await.map_err(unprobed)?;
+    let answered = prober.answer(url).await?;
     // The address as the prober read it, which is how the check names it.
-    let shown = Url::parse(url).map_err(|_| unprobed(Unprobed::BadUrl))?;
+    let shown = Url::parse(url).map_err(|_| Unprobed::BadUrl)?;
     let status = match answered {
         Ok(status) => status,
         Err(e) => {
@@ -42,7 +42,7 @@ pub(crate) async fn checks(
         return Ok(checks);
     }
     checks.push(Check::ok("Host", "accepted"));
-    match prober.initialize(url, key).await.map_err(unprobed)? {
+    match prober.initialize(url, key).await? {
         Initialized::Failed(e) => {
             checks.push(Check::problem(
                 "MCP",
@@ -118,13 +118,5 @@ fn reply_error(error: ReplyError) -> String {
         ReplyError::TooLarge => "MCP response exceeded the diagnostic size limit".into(),
         ReplyError::NoResult => "the endpoint did not return an MCP initialize result".into(),
         ReplyError::Read(e) => format!("could not read MCP response: {e}"),
-    }
-}
-
-/// Why a probe could not be made, in the words `kkt doctor` uses.
-fn unprobed(why: Unprobed) -> String {
-    match why {
-        Unprobed::BadUrl => "invalid diagnostic URL".into(),
-        Unprobed::NoClient(e) => format!("could not construct the diagnostic HTTP client: {e}"),
     }
 }
