@@ -15,7 +15,6 @@ use std::path::PathBuf;
 const DEFAULT_SETUP_ADOPT: bool = true;
 
 /// How setup finds a server to adopt: the part of [`super::Steps`] it uses.
-/// The real implementation is in the program's `src/commands/setup/steps.rs`.
 pub trait AdoptSteps {
     /// A server kkt installed here that no record or note covers, as an
     /// older kkt can leave one; `None` when there is a record, or a note of

@@ -1,7 +1,6 @@
 //! kkt-container's general `Projects` over Docker Compose: `Docker` runs
 //! each operation as the `docker compose` command for it, in the project's
-//! folder (in `projects`). It knows nothing of what runs in the project.
-//! Every command and file goes through the private runner, so it is tested
+//! folder (in `projects`). Every command and file goes through the private runner, so it is tested
 //! against a fake host.
 
 mod projects;

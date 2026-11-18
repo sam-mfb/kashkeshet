@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 /// How much the watch asks for at a time, and how often it asks the admin
-/// endpoint. The program passes [`Settings::DEFAULT`].
+/// endpoint. [`Mcp`](crate::Mcp) watches with [`Settings::DEFAULT`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Settings {
     /// How many messages, or channels, each call asks for.

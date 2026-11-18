@@ -97,9 +97,9 @@ impl ServerSettings {
         })
     }
 
-    /// Each setting's recorded line, in the established run-record order.
-    /// The program supplies its own lines; origins and hosts are sorted as
-    /// before. Unknown program names follow the known names in input order.
+    /// Each setting's recorded line, in the run record's order. The program
+    /// supplies its own lines; origins and hosts are sorted. Program names
+    /// outside that order follow the known names, in the order given.
     pub fn record_lines(
         &self,
         program: impl IntoIterator<Item = (String, String)>,

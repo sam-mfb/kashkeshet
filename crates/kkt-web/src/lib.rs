@@ -7,13 +7,10 @@
 //! (`sessions`). Every change is a form
 //! `POST` checked by `change`.
 //!
-//! The pages read and change through the application's operations, the
-//! kkt-api crates' (`OperatorApi`), in the viewer's swarm, and render their
-//! records. Its own contract is only the gate (`gate`): the server supplies
-//! the operations over the rules and the gate over admission (`web_real`),
-//! and kkt-api-sim both from simulated data, for the page's tests and the
-//! preview program (kkt-webapp-preview), so the page can run and be worked on
-//! without a server.
+//! The pages read and change through the application's operations
+//! (`OperatorApi`), in the viewer's swarm, and render their records. Its own
+//! contract is only the gate (`gate`), which says who is viewing; whoever
+//! mounts the page supplies both the operations and the gate.
 
 mod change;
 mod gate;

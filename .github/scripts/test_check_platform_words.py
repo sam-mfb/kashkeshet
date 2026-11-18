@@ -136,6 +136,57 @@ class DescriptionProblems(unittest.TestCase):
                                      "kkt-core": {"layer": "core", "concern": "Every change, in one swarm."}}), [])
 
 
+class HeaderProblems(unittest.TestCase):
+    def found(self, files):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "docs/architecture").mkdir(parents=True)
+            (root / "docs/architecture/concerns.json").write_text(json.dumps(
+                {"crates": {name: {"layer": "core"} for name in files}}))
+            for name, text in files.items():
+                file = root / "crates" / name / "src/lib.rs"
+                file.parent.mkdir(parents=True)
+                file.write_text(text)
+            return check.header_problems(root)
+
+    def test_history_anywhere_in_a_header_is_found(self):
+        self.assertEqual(self.found({"kkt-a": "//! Files.\n//!\n//! Split out in #563.\nmod x;\n"}),
+                         ["crates/kkt-a/src/lib.rs:3: the crate's header gives history: #563"])
+
+    def test_a_negative_in_the_first_sentence_is_found_and_later_is_fine(self):
+        self.assertEqual(self.found({"kkt-a": "//! Files, never the network.\nmod x;\n"}),
+                         ["crates/kkt-a/src/lib.rs: the crate's header begins with what it is not: never"])
+        self.assertEqual(self.found({"kkt-a": "//! Files. A missing one is not an error.\n//!\n"
+                                              "//! It does not log.\nmod x;\n"}), [])
+
+    def test_the_plainer_marks_of_history_are_found_too(self):
+        for text in ["Kept as before.", "It used to be part of kkt-web.", "It no longer logs.",
+                     "In the established order.", "Previously in kkt-web.", "Originally one crate."]:
+            self.assertEqual(len(self.found({"kkt-a": f"//! Files.\n//! {text}\nmod x;\n"})), 1, text)
+
+    def test_the_root_packages_library_and_binaries_are_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "docs/architecture").mkdir(parents=True)
+            (root / "docs/architecture/concerns.json").write_text(json.dumps({"crates": {"app": {"layer": "program"}}}))
+            (root / "Cargo.toml").write_text('[package]\nname = "app"\n\n[workspace]\n')
+            (root / "src/bin/app").mkdir(parents=True)
+            (root / "src/lib.rs").write_text("//! The app, never a library.\n")
+            (root / "src/bin/app/main.rs").write_text("//! The command.\n//! Split out in #12.\n")
+            self.assertEqual(check.header_problems(root), [
+                "src/lib.rs: the crate's header begins with what it is not: never",
+                "src/bin/app/main.rs:2: the crate's header gives history: #12"])
+
+    def test_only_the_opening_lines_are_the_header(self):
+        self.assertEqual(self.found({"kkt-a": "//! Files.\n\nmod x;\n//! Was in #1.\n"}), [])
+
+    def test_the_first_sentence_reads_across_lines(self):
+        self.assertEqual(self.first("Files on\ndisk. More."), "Files on disk.")
+
+    def first(self, text):
+        return check.first_sentence(text.split("\n"))
+
+
 class Problems(unittest.TestCase):
     def test_only_platform_crates_and_their_code_outside_tests_are_read(self):
         with tempfile.TemporaryDirectory() as tmp:

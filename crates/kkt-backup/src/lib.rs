@@ -1,5 +1,5 @@
 //! Backups, as a contract: layouts, names, file modes and pruning choices,
-//! with no file I/O (the caller supplies the time and source paths), and
+//! worked out from the time and source paths the caller supplies, and
 //! [`Backups`], writing a layout into a folder and pruning old backups
 //! there. kkt-backup-os implements [`Backups`] on disk.
 

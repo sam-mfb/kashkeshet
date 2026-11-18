@@ -195,8 +195,7 @@ async fn serve(
         db_path.display()
     );
     // The address as bound, which names the port the system chose when the
-    // port asked for was 0. A line of its own, so the line above stays as
-    // it was.
+    // port asked for was 0, on a line of its own.
     let bound = listening
         .address()
         .map_err(|e| format!("could not read the address listened on: {e}"))?;

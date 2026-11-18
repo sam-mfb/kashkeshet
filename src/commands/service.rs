@@ -13,7 +13,7 @@ fn service_plan(
     access_key_file: Option<PathBuf>,
     no_access_key: bool,
 ) -> Result<ServicePlan, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform);
+    let native = crate::machine::native::NativeParts::new(env, platform);
     let setup_lanes = native.setup_lanes();
     kkt_install_commands::service::service_plan(
         &native.install_parts(&setup_lanes),
