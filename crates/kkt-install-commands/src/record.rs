@@ -84,7 +84,7 @@ fn unrecorded_service<D: crate::ServiceDefaults>(
     match service.ready() {
         Ok(()) => {}
         // No service can be installed here.
-        Err(ServiceError::NoHome | ServiceError::Unsupported) => return Ok(None),
+        Err(ServiceError::NoHome | ServiceError::Unsupported(_)) => return Ok(None),
         Err(e) => return Err(e.to_string()),
     }
     if !service.state().map_err(|e| e.to_string())?.installed {
@@ -241,9 +241,7 @@ fn state_unknown_warning(error: &ServiceError) -> String {
 /// that a service command's refusal gives.
 pub(crate) fn why_state_unknown(error: &ServiceError) -> String {
     match error {
-        ServiceError::NoLoginSession => {
-            "no one is logged in at this Mac's desktop, so the service cannot be asked".to_string()
-        }
+        ServiceError::NoLoginSession { fact, .. } => fact.clone(),
         other => other.to_string(),
     }
 }
@@ -281,13 +279,16 @@ mod tests {
 
     #[test]
     fn without_a_login_session_serve_warns_with_the_fact_only() {
-        assert_eq!(
-            state_unknown_warning(&ServiceError::NoLoginSession),
-            "warning: could not tell whether the kkt service is running: no one is logged in \
-             at this Mac's desktop, so the service cannot be asked"
-        );
+        let error = ServiceError::NoLoginSession {
+            refusal: "log in at the screen, or run `kkt serve` yourself".to_string(),
+            fact: "no one is logged in at the screen".to_string(),
+        };
         // The advice belongs to the service commands' own refusal.
-        assert!(!state_unknown_warning(&ServiceError::NoLoginSession).contains("kkt serve"));
+        assert_eq!(
+            state_unknown_warning(&error),
+            "warning: could not tell whether the kkt service is running: no one is logged in \
+             at the screen"
+        );
     }
 
     #[test]
