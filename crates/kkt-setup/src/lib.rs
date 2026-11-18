@@ -1,25 +1,21 @@
 //! `kkt setup`: what this machine is set up as (a server run as a service, a
 //! server in Docker, or a client of a server elsewhere), the record that
 //! says so, and which server this machine's clients use (`kkt switch`
-//! changes it). It also decides, by how the machine is set up, which server
-//! `kkt backup` acts on, which key files a local backup
-//! holds, where each key file is, which server installed with no record is
-//! here.
+//! changes it). It also decides, by how the machine is set up, where each
+//! key file is, and which server installed with no record is here.
 //!
 //! The caller reads what is installed, answers questions through [`Ask`],
 //! and carries out what is decided here, so every rule here is tested
 //! directly.
 
-mod acts_on;
 mod adopt;
 pub mod ask;
-mod backup_keys;
 pub mod connection;
 mod program;
 pub use program::{
     admin_key_line, client_key, configured_name_pack_line, docker_status_lines,
-    service_backup_folder, service_upgrade_error, staged_client_key, uninstall_line,
-    uninstall_record, upgrade_backup_folder, waiting_note, web_key_line,
+    service_upgrade_error, staged_client_key, uninstall_line, uninstall_record, waiting_note,
+    web_key_line,
 };
 mod flow;
 mod installed_here;
@@ -34,13 +30,11 @@ pub mod testing;
 #[cfg(test)]
 mod tests;
 
-pub use acts_on::{BackupOf, backup_of};
 pub use adopt::{
     AdoptSteps, Unrecorded, service_runs_defaults, unreadable_service, unrecorded_here,
     unrecorded_service,
 };
 pub use ask::{Ask, Lines, Question, unanswered};
-pub use backup_keys::{AccessKeyFrom, BackupKeys, Found, backup_keys};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use installed_here::InstalledHere;
 pub use key_finders::{KeyReads, OperatorKeyReads, find_here, find_key, find_operator_key};
