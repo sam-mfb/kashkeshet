@@ -356,6 +356,151 @@ mod lock_tests {
         assert_eq!(CHECKS.load(Ordering::SeqCst), 2);
     }
 
+    /// Every message kkt-agent-files words that a test can cause without
+    /// root, pinned exactly: kkt's words around the system's own cause,
+    /// which each case gets by doing the same thing itself.
+    #[test]
+    fn every_agent_file_message_says_what_it_always_said() {
+        fn allow(_: &Path, _: CredentialFileFacts) -> Result<Option<PrivateMode>, String> {
+            Ok(None)
+        }
+        fn quiet(_: &str) {}
+        fn kept(_: &Path, _: &io::Error) {}
+        let dir = kkt_scratch::Dir::new("agent-file-messages");
+
+        // A credential file that is already there is not replaced.
+        let taken = dir.join("taken");
+        std::fs::write(&taken, "old").expect("write");
+        let cause = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&taken)
+            .expect_err("there");
+        assert_eq!(
+            CredentialFile::create(taken.clone(), kept)
+                .err()
+                .expect("there"),
+            format!(
+                "could not create credential file {}: {cause}",
+                taken.display()
+            )
+        );
+
+        // A missing token file cannot be inspected.
+        let missing = dir.join("missing");
+        let cause = std::fs::metadata(&missing).expect_err("missing");
+        #[cfg(unix)]
+        let verb = "inspect";
+        #[cfg(not(unix))]
+        let verb = "open";
+        assert_eq!(
+            watch_token(Some(&missing), allow, quiet),
+            Err(format!(
+                "could not {verb} credential file {}: {cause}",
+                missing.display()
+            ))
+        );
+
+        // A token file that is not text cannot be read.
+        let binary = dir.join("binary");
+        std::fs::write(&binary, b"token\xff").expect("write");
+        let cause = std::fs::read_to_string(&binary).expect_err("not text");
+        assert_eq!(
+            watch_token(Some(&binary), allow, quiet),
+            Err(format!(
+                "could not read credential file {}: {cause}",
+                binary.display()
+            ))
+        );
+
+        // An empty token.
+        let empty = dir.join("empty");
+        std::fs::write(&empty, " \n").expect("write");
+        assert_eq!(
+            watch_token(Some(&empty), allow, quiet),
+            Err("the agent's token is empty".to_string())
+        );
+
+        // A claimed state file.
+        let state = dir.join("state");
+        let _first = StateFile::claim(state.clone()).expect("first claim");
+        assert_eq!(
+            StateFile::claim(state.clone()).err().expect("second claim"),
+            format!(
+                "state file {} is in use by another kkt watch; stop that one, or give each watcher its own --state-file",
+                state.display()
+            )
+        );
+
+        // A state file whose lock cannot be made: its folder is a file.
+        let under_file = taken.join("state");
+        let lock = taken.join("state.lock");
+        let cause = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&lock)
+            .expect_err("not a folder");
+        assert_eq!(
+            StateFile::claim(under_file.clone()).err().expect("no lock"),
+            format!(
+                "could not claim state file {}: could not open lock file {}: {cause}",
+                under_file.display(),
+                lock.display()
+            )
+        );
+
+        // A state file that holds no ID.
+        std::fs::write(&state, "not an id").expect("write");
+        let claimed = StateFile::claim(dir.join("other"))
+            .map(|mut file| {
+                file.path = state.clone();
+                file
+            })
+            .expect("claim");
+        assert_eq!(
+            claimed.load(),
+            Err(format!(
+                "state file {} does not hold a message ID; remove it to start after the latest message",
+                state.display()
+            ))
+        );
+
+        // A state file that cannot be read: it is a folder.
+        let folder = dir.join("folder");
+        std::fs::create_dir(&folder).expect("folder");
+        let cause = std::fs::read_to_string(&folder).expect_err("a folder");
+        let claimed = StateFile::claim(dir.join("third"))
+            .map(|mut file| {
+                file.path = folder.clone();
+                file
+            })
+            .expect("claim");
+        assert_eq!(
+            claimed.load(),
+            Err(format!(
+                "could not read state file {}: {cause}",
+                folder.display()
+            ))
+        );
+
+        // A state file that cannot be written: its folder is a file.
+        let cause = std::fs::write(taken.join("x.tmp"), "1\n").expect_err("not a folder");
+        let claimed = StateFile::claim(dir.join("fourth"))
+            .map(|mut file| {
+                file.path = taken.join("x");
+                file
+            })
+            .expect("claim");
+        assert_eq!(
+            claimed.save(1),
+            Err(format!(
+                "could not write state file {}: {cause}",
+                taken.join("x").display()
+            ))
+        );
+    }
+
     #[test]
     fn a_second_lock_is_refused_until_the_first_is_dropped() {
         let dir = kkt_scratch::Dir::new("file-lock");
