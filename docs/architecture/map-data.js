@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "88e64cdd",
+ "commit": "f460f291",
  "crates": [
   {
    "bins": [
@@ -3717,6 +3717,20 @@ window.KKT_GRAPH = {
      "path": "AccessKeyFrom"
     },
     {
+     "doc": "Why `Backups` could not write or prune.",
+     "kind": "enum",
+     "methods": [
+      "file"
+     ],
+     "path": "BackupError",
+     "variants": [
+      "Exists",
+      "File",
+      "Database",
+      "NotRemoved"
+     ]
+    },
+    {
      "doc": "The key files a backup holds.",
      "fields": [
       "access_key",
@@ -3734,6 +3748,16 @@ window.KKT_GRAPH = {
      "variants": [
       "Docker",
       "Local"
+     ]
+    },
+    {
+     "doc": "Why `backup_of` has no backup to make.",
+     "kind": "enum",
+     "path": "BackupOfError",
+     "variants": [
+      "DockerTakesNoLocalOptions",
+      "OnAClient",
+      "NoFolder"
      ]
     },
     {
@@ -3764,6 +3788,20 @@ window.KKT_GRAPH = {
      "path": "DATABASE_FILE"
     },
     {
+     "doc": "What a backup did to a file or folder when it failed.",
+     "kind": "enum",
+     "path": "FileAction",
+     "variants": [
+      "Create",
+      "Rename",
+      "Copy",
+      "Read",
+      "Write",
+      "List",
+      "Remove"
+     ]
+    },
+    {
      "doc": "One source file and its name and privacy within a backup.",
      "fields": [
       "source",
@@ -3777,6 +3815,24 @@ window.KKT_GRAPH = {
      "doc": "Whether a file is there, as the caller found when it looked, or the error inspecting it.",
      "kind": "type",
      "path": "FileThere"
+    },
+    {
+     "doc": "Why the folder backups go in is not known.",
+     "kind": "enum",
+     "path": "FolderError",
+     "variants": [
+      "NotInFolder",
+      "NoHome"
+     ]
+    },
+    {
+     "doc": "A key file a backup needs could not be inspected.",
+     "fields": [
+      "path",
+      "cause"
+     ],
+     "kind": "struct",
+     "path": "InspectError"
     },
     {
      "doc": "An immutable backup layout.",
@@ -3924,6 +3980,16 @@ window.KKT_GRAPH = {
      "values": [
       "kkt-clock::Time"
      ]
+    },
+    {
+     "at": "testing::Memory::failing",
+     "feature": "testing",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "error",
+     "traits": []
     }
    ],
    "testing_third_party": [],
@@ -3950,7 +4016,12 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
-     "doc": "Backups in folders on this machine's disk, the database copied by `copy_database(from, to)`.",
+     "doc": "Why the database copy failed.",
+     "kind": "type",
+     "path": "CopyError"
+    },
+    {
+     "doc": "Backups in folders on this machine's disk, the database copied by `copy_database(from, to)`, which says why when it fails.",
      "kind": "struct",
      "methods": [
       "new"
@@ -5037,7 +5108,9 @@ window.KKT_GRAPH = {
     }
    ],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -6563,6 +6636,7 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "rusqlite",
+    "thiserror",
     "tokio"
    ]
   },
@@ -7520,7 +7594,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "Why no request could be made at all.",
+     "doc": "Why no request could be made at all, worded for the person.",
      "kind": "enum",
      "path": "Unprobed",
      "variants": [
@@ -7802,6 +7876,7 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
+    "thiserror",
     "url"
    ]
   },
@@ -8232,7 +8307,9 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -11727,9 +11804,72 @@ window.KKT_GRAPH = {
      "path": "ClientCommand"
     },
     {
+     "doc": "Why configuring a client failed.",
+     "kind": "enum",
+     "path": "ClientConfigError",
+     "variants": [
+      "NoHome",
+      "File",
+      "TemporaryLeft",
+      "NoBackupName",
+      "NoFolder",
+      "Malformed",
+      "NotText",
+      "Encode",
+      "WrongFile",
+      "Key",
+      "Command",
+      "NoAllowSetting",
+      "NotConnected",
+      "ClaudeDirNotText",
+      "DirectoryUnresolved",
+      "ConfigUnresolved",
+      "NotRestored",
+      "NotRemoved",
+      "NotMerged",
+      "From",
+      "InConfig",
+      "InFile",
+      "OfClient"
+     ]
+    },
+    {
      "doc": "The environment variables naming the clients' own folders, which the program asks the environment for (kkt-machine's `Env::named`).",
      "kind": "const",
      "path": "ENV_FOLDERS"
+    },
+    {
+     "doc": "A value that could not be written out.",
+     "kind": "enum",
+     "path": "Encoded",
+     "variants": [
+      "Header",
+      "Config",
+      "ClaudeConfig",
+      "Ordered"
+     ]
+    },
+    {
+     "doc": "The step on a file or folder that failed.",
+     "kind": "enum",
+     "path": "FileAction",
+     "variants": [
+      "Read",
+      "BackUp",
+      "Restrict",
+      "Create",
+      "Prepare",
+      "Write"
+     ]
+    },
+    {
+     "doc": "A config path with no folder above it.",
+     "kind": "enum",
+     "path": "Folder",
+     "variants": [
+      "ConfigPath",
+      "CodexConfig"
+     ]
     },
     {
      "doc": "",
@@ -11765,6 +11905,52 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Setup"
+    },
+    {
+     "doc": "The shapes of a client's config kkt refuses to edit.",
+     "kind": "enum",
+     "path": "Shape",
+     "variants": [
+      "NotObjects",
+      "Json",
+      "TomlUnchanged",
+      "Toml",
+      "TomlIn",
+      "McpServersNotTable",
+      "KktNotTable",
+      "HeadersNotTable",
+      "NoKktEntry",
+      "CodexIsToml",
+      "AllowNotList",
+      "PermissionsNotList",
+      "BashNotWordOrObject",
+      "KeyPathCharacters",
+      "Order"
+     ]
+    },
+    {
+     "doc": "A path that is not UTF-8.",
+     "kind": "enum",
+     "path": "Text",
+     "variants": [
+      "KktPath",
+      "KeyPath",
+      "KeyFilePath"
+     ]
+    },
+    {
+     "doc": "Why Codex's TOML could not be read: the parser's reason, its lines joined, and where it found the problem.",
+     "kind": "struct",
+     "path": "TomlProblem"
+    },
+    {
+     "doc": "Why the folder of Claude Code's config could not be resolved.",
+     "kind": "enum",
+     "path": "Unresolved",
+     "variants": [
+      "NoParent",
+      "Io"
+     ]
     },
     {
      "doc": "Lets `client` always use kkt's tools and `kkt watch`, in its default files (following its own variables, as `Client::file` does).",
@@ -11973,7 +12159,8 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "serde",
-    "serde_json"
+    "serde_json",
+    "thiserror"
    ]
   },
   {
@@ -14524,7 +14711,7 @@ window.KKT_GRAPH = {
      "trait": "RemoteAccess"
     }
    ],
-   "crate_doc": "Sharing this machine's server securely with clients on its private network, as a contract: `RemoteAccess`, `Node`, and a stand-in behind `testing`.",
+   "crate_doc": "Sharing this machine's server securely with clients on its private network, as a contract: `RemoteAccess`, `Node`, its errors (`SharingError`, with the kinds a caller can act on in `Sharing`), and a stand-in behind `testing`.",
    "dev_only": false,
    "features": {
     "testing": []
@@ -14560,6 +14747,33 @@ window.KKT_GRAPH = {
      "path": "RemoteAccess"
     },
     {
+     "doc": "The kinds of sharing failure.",
+     "kind": "enum",
+     "path": "Sharing",
+     "variants": [
+      "Unavailable",
+      "NotLoggedIn",
+      "NoName",
+      "NoHttps",
+      "NotLoopback",
+      "Occupied",
+      "Failed",
+      "Unreadable"
+     ]
+    },
+    {
+     "doc": "Why sharing could not be done: the kind, which a caller can act on, and what to tell the person, worded by the implementation, which knows its tool and the advice for it.",
+     "fields": [
+      "kind",
+      "said"
+     ],
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "SharingError"
+    },
+    {
      "doc": "Remote sharing in memory, for consumers' tests.",
      "feature": "testing",
      "kind": "mod",
@@ -14591,7 +14805,9 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -14627,6 +14843,15 @@ window.KKT_GRAPH = {
      "path": "Status"
     },
     {
+     "doc": "Why a status answer could not be read.",
+     "kind": "enum",
+     "path": "StatusError",
+     "variants": [
+      "NoBackendState",
+      "Unreadable"
+     ]
+    },
+    {
      "doc": "Shares this machine's server through its existing Tailscale login.",
      "kind": "struct",
      "methods": [
@@ -14651,7 +14876,8 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "serde",
-    "serde_json"
+    "serde_json",
+    "thiserror"
    ]
   },
   {
@@ -19094,12 +19320,19 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "CopyError",
     "OsBackups"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
+    {
+     "detail": [
+      "CopyError"
+     ],
+     "role": "uses"
+    },
     {
      "detail": [
       "OsBackups"
@@ -22067,8 +22300,10 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-backup-os",
    "items": [
+    "BackupError",
     "Backups",
     "DATABASE_FILE",
+    "FileAction",
     "Layout",
     "old_names"
    ],
@@ -22084,7 +22319,9 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "BackupError",
       "DATABASE_FILE",
+      "FileAction",
       "Layout",
       "old_names"
      ],
@@ -24341,6 +24578,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "BackupError",
+    "FileAction",
     "Layout"
    ],
    "to": "kkt-backup"
@@ -24844,7 +25083,9 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "Node"
+    "Node",
+    "Sharing",
+    "SharingError"
    ],
    "to": "kkt-remote-access"
   },
@@ -25833,6 +26074,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-llm-agent-config",
    "items": [
+    "SettingError",
     "check_access_key"
    ],
    "kind": "normal",
@@ -25841,6 +26083,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "SettingError",
       "check_access_key"
      ],
      "role": "uses"
@@ -25878,7 +26121,8 @@ window.KKT_GRAPH = {
     "Document",
     "EditError",
     "Found",
-    "IfMissing"
+    "IfMissing",
+    "ParseError"
    ],
    "kind": "normal",
    "optional": false,
@@ -25889,7 +26133,8 @@ window.KKT_GRAPH = {
       "Document",
       "EditError",
       "Found",
-      "IfMissing"
+      "IfMissing",
+      "ParseError"
      ],
      "role": "uses"
     }
@@ -26890,7 +27135,9 @@ window.KKT_GRAPH = {
    "from": "kkt-remote-access-tailscale",
    "items": [
     "Node",
-    "RemoteAccess"
+    "RemoteAccess",
+    "Sharing",
+    "SharingError"
    ],
    "kind": "normal",
    "optional": false,
@@ -26904,7 +27151,9 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "Node"
+      "Node",
+      "Sharing",
+      "SharingError"
      ],
      "role": "uses"
     }

@@ -21,7 +21,7 @@ impl SharingNode for TailscaleNode {
     }
 
     fn status(&self, answer: &str) -> Result<NodeStatus, String> {
-        let status = Tailscale::read_status(answer)?;
+        let status = Tailscale::read_status(answer).map_err(|e| e.to_string())?;
         Ok(NodeStatus {
             login: login(&status),
             https: !status.cert_domains.is_empty(),

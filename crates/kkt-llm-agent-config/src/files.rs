@@ -3,6 +3,7 @@
 //! whether it is installed, and whether it is connected. All of it reaches
 //! the machine through [`Host`].
 
+use super::error::{ClientConfigError, FileAction, Folder};
 use super::{
     AGY_CONFIG, AGY_LEGACY_CONFIG, CLAUDE_CONFIG, CLAUDE_PROGRAM, CODEX_CONFIG, CODEX_HOME_DEFAULT,
     CODEX_PROGRAM, Client, Host, MUSE_CONFIG, MUSE_CONFIG_DIR, MUSE_PROGRAM, OPENCODE_CONFIG,
@@ -30,30 +31,24 @@ impl Client {
     /// Whether the client's config ([`Client::file`]) has a kkt entry now,
     /// whatever server it names. A missing config has none; one that
     /// cannot be read or parsed is an error naming it.
-    pub fn connected(self, env: &Env, host: &dyn Host) -> Result<bool, String> {
+    pub fn connected(self, env: &Env, host: &dyn Host) -> Result<bool, ClientConfigError> {
         let path = self.file(env, host)?;
         let Some(text) = read(host, &path)? else {
             return Ok(false);
         };
-        formats::has_kkt_entry(self, &text).map_err(|e| {
-            format!(
-                "{}: {} (from {}): {e}",
-                self.display_name(),
-                path.display(),
-                self.source(env)
-            )
+        formats::has_kkt_entry(self, &text).map_err(|e| ClientConfigError::OfClient {
+            client: self,
+            path: path.clone(),
+            setting: self.source(env).to_string(),
+            error: Box::new(e),
         })
     }
 
     /// The config file the client reads by default, following the client's
     /// own variable (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME`)
     /// when it is set.
-    pub fn file(self, env: &Env, host: &dyn Host) -> Result<PathBuf, String> {
-        let home = || {
-            env.home
-                .as_ref()
-                .ok_or("set HOME to find the client's config")
-        };
+    pub fn file(self, env: &Env, host: &dyn Host) -> Result<PathBuf, ClientConfigError> {
+        let home = || env.home.as_ref().ok_or(ClientConfigError::NoHome);
         Ok(match self {
             Self::ClaudeCode => match env.named(crate::CLAUDE_CONFIG_DIR) {
                 Some(dir) => dir.join(CLAUDE_CONFIG),
@@ -75,29 +70,29 @@ impl Client {
             }
             Self::OpenCode => env
                 .config_home()
-                .ok_or("set HOME to find the client's config")?
+                .ok_or(ClientConfigError::NoHome)?
                 .join(OPENCODE_CONFIG),
             Self::MuseCode => env
                 .config_home()
-                .ok_or("set HOME to find the client's config")?
+                .ok_or(ClientConfigError::NoHome)?
                 .join(MUSE_CONFIG_DIR)
                 .join(MUSE_CONFIG),
         })
     }
 }
 
-pub(super) fn read(host: &dyn Host, path: &Path) -> Result<Option<String>, String> {
+pub(super) fn read(host: &dyn Host, path: &Path) -> Result<Option<String>, ClientConfigError> {
     match host.read(path) {
         Ok(text) => Ok(Some(text)),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(format!("could not read {}: {e}", path.display())),
+        Err(e) => Err(ClientConfigError::file(FileAction::Read, path, e)),
     }
 }
 
 /// Saves `text`, the file's old contents, beside `path` as `<path>.bak`,
 /// or `.bak.1`, `.bak.2` and on if that is taken. Nothing to save, nothing
 /// saved.
-fn backup(host: &dyn Host, path: &Path, text: Option<&str>) -> Result<(), String> {
+fn backup(host: &dyn Host, path: &Path, text: Option<&str>) -> Result<(), ClientConfigError> {
     let Some(text) = text else { return Ok(()) };
     for number in 0u64.. {
         let suffix = if number == 0 {
@@ -110,41 +105,44 @@ fn backup(host: &dyn Host, path: &Path, text: Option<&str>) -> Result<(), String
         match host.create_private(&PathBuf::from(name), text) {
             Ok(()) => return Ok(()),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
-            Err(e) => return Err(format!("could not back up {}: {e}", path.display())),
+            Err(e) => return Err(ClientConfigError::file(FileAction::BackUp, path, e)),
         }
     }
-    Err("no unused backup name".to_string())
+    Err(ClientConfigError::NoBackupName)
 }
 
-pub(super) fn restrict(host: &dyn Host, path: &Path) -> Result<(), String> {
+pub(super) fn restrict(host: &dyn Host, path: &Path) -> Result<(), ClientConfigError> {
     host.restrict(path)
-        .map_err(|e| format!("could not restrict {}: {e}", path.display()))
+        .map_err(|e| ClientConfigError::file(FileAction::Restrict, path, e))
 }
 
 /// Writes `text` to a private temporary file beside `path` and moves it
 /// over `path`, so a reader sees the old file or the new one, never part
 /// of either. A temporary file left by a failure is removed.
-fn atomic(host: &dyn Host, path: &Path, text: &str) -> Result<(), String> {
-    let parent = path.parent().ok_or("config path has no parent")?;
+fn atomic(host: &dyn Host, path: &Path, text: &str) -> Result<(), ClientConfigError> {
+    let parent = path
+        .parent()
+        .ok_or(ClientConfigError::NoFolder(Folder::ConfigPath))?;
     host.create_dir_all(parent)
-        .map_err(|e| format!("could not create {}: {e}", parent.display()))?;
+        .map_err(|e| ClientConfigError::file(FileAction::Create, parent, e))?;
     let mut name = path.as_os_str().to_os_string();
     name.push(format!(".kkt-{}", host.process_id()));
     let temporary = PathBuf::from(name);
     let written = match host.create_private(&temporary, text) {
         Err(e) if !host.exists(&temporary) => {
-            return Err(format!("could not prepare {}: {e}", path.display()));
+            return Err(ClientConfigError::file(FileAction::Prepare, path, e));
         }
         written => written.and_then(|()| host.rename(&temporary, path)),
     };
     if let Err(error) = written {
-        host.remove_file(&temporary).map_err(|cleanup| {
-            format!(
-                "could not write {}: {error}; could not remove temporary file: {cleanup}",
-                path.display()
-            )
-        })?;
-        return Err(format!("could not write {}: {error}", path.display()));
+        if let Err(cleanup) = host.remove_file(&temporary) {
+            return Err(ClientConfigError::TemporaryLeft {
+                path: path.to_path_buf(),
+                error,
+                cleanup,
+            });
+        }
+        return Err(ClientConfigError::file(FileAction::Write, path, error));
     }
     Ok(())
 }
@@ -154,7 +152,7 @@ pub(super) fn replace(
     path: &Path,
     original: Option<&str>,
     updated: &str,
-) -> Result<(), String> {
+) -> Result<(), ClientConfigError> {
     backup(host, path, original)?;
     atomic(host, path, updated)
 }
@@ -170,14 +168,13 @@ pub(super) fn apply_claude(
     updated: &str,
     config_dir: Option<&Path>,
     source: &str,
-) -> Result<(), String> {
-    let from = |error: String| format!("{error} (from {source})");
+) -> Result<(), ClientConfigError> {
     let entry = formats::claude_entry(updated)?;
     let replacing = match original {
         Some(text) => formats::has_claude_entry(text)?,
         None => false,
     };
-    backup(host, client_config, original).map_err(from)?;
+    backup(host, client_config, original).map_err(|e| e.with_setting(source))?;
 
     let applied = (|| {
         if replacing {
@@ -185,19 +182,28 @@ pub(super) fn apply_claude(
         }
         command.add_server(&entry, config_dir)
     })();
-    if let Err(error) = applied {
+    if let Err(said) = applied {
         match original {
-            Some(text) => atomic(host, client_config, text)
-                .map_err(|e| from(format!("{error}; could not restore: {e}")))?,
-            None if host.exists(client_config) => host.remove_file(client_config).map_err(|e| {
-                from(format!(
-                    "{error}; could not restore {}: {e}",
-                    client_config.display()
-                ))
+            Some(text) => atomic(host, client_config, text).map_err(|restore| {
+                ClientConfigError::NotRestored {
+                    error: Box::new(ClientConfigError::Command(said.clone())),
+                    restore: Box::new(restore),
+                }
+                .with_setting(source)
             })?,
+            None if host.exists(client_config) => {
+                host.remove_file(client_config).map_err(|cause| {
+                    ClientConfigError::NotRemoved {
+                        error: Box::new(ClientConfigError::Command(said.clone())),
+                        path: client_config.to_path_buf(),
+                        cause,
+                    }
+                    .with_setting(source)
+                })?
+            }
             None => (),
         }
-        return Err(error);
+        return Err(ClientConfigError::Command(said));
     }
     Ok(())
 }

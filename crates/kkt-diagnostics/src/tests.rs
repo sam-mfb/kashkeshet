@@ -270,7 +270,9 @@ fn inspect_with_key_probes_with_the_key_given() {
 fn a_probe_that_cannot_be_made_is_an_error() {
     let prober = FakeProber::answering(vec![Err(Unprobed::BadUrl)]);
     assert_eq!(
-        at_once(Inspector::new(&prober).server("nonsense", None)).unwrap_err(),
+        at_once(Inspector::new(&prober).server("nonsense", None))
+            .unwrap_err()
+            .to_string(),
         "invalid diagnostic URL"
     );
     assert!(!unreachable(&answering()));
@@ -609,7 +611,7 @@ fn a_probe_that_cannot_be_made_while_waiting_ends_the_wait() {
     assert!(poll(future.as_mut()).is_pending());
     advance(&clock, 2);
     assert_eq!(
-        poll(future.as_mut()),
+        poll(future.as_mut()).map(|done| done.map_err(|e| e.to_string())),
         Poll::Ready(Err("invalid diagnostic URL".to_string()))
     );
 }
@@ -795,7 +797,7 @@ fn a_probe_that_cannot_be_made_says_why() {
     ] {
         let prober = FakeProber::answering(vec![Err(why)]);
         assert_eq!(
-            at_once(Inspector::new(&prober).server_with_key(URL, None)),
+            at_once(Inspector::new(&prober).server_with_key(URL, None)).map_err(|e| e.to_string()),
             Err(said)
         );
     }

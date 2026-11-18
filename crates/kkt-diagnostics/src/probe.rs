@@ -64,12 +64,15 @@ pub enum Initialized {
     },
 }
 
-/// Why no request could be made at all.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Why no request could be made at all, worded for the person.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Unprobed {
     /// The address is not a URL.
+    #[error("invalid diagnostic URL")]
     BadUrl,
-    /// The HTTP client could not be built: the error.
+    /// The HTTP client could not be built: the error, in the words of the
+    /// prober, which keeps its HTTP library's types to itself.
+    #[error("could not construct the diagnostic HTTP client: {0}")]
     NoClient(String),
 }
 

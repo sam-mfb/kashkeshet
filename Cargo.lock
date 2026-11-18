@@ -1277,6 +1277,9 @@ dependencies = [
 [[package]]
 name = "kkt-container"
 version = "0.10.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "kkt-container-docker"
@@ -1317,6 +1320,7 @@ dependencies = [
  "kkt-scratch",
  "kkt-search",
  "rusqlite",
+ "thiserror",
  "tokio",
 ]
 
@@ -1340,6 +1344,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-clock",
  "kkt-keys",
+ "thiserror",
  "url",
 ]
 
@@ -1404,6 +1409,9 @@ dependencies = [
 [[package]]
 name = "kkt-hosts"
 version = "0.10.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "kkt-identity"
@@ -1527,6 +1535,7 @@ dependencies = [
  "kkt-toml",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -1629,6 +1638,9 @@ dependencies = [
 [[package]]
 name = "kkt-remote-access"
 version = "0.10.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "kkt-remote-access-tailscale"
@@ -1637,6 +1649,7 @@ dependencies = [
  "kkt-remote-access",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]

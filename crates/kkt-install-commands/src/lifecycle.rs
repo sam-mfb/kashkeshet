@@ -32,7 +32,9 @@ pub fn backup<D>(
         &server_here(mode.as_ref()),
         folder,
         db.is_some() || config.is_some(),
-    )? {
+    )
+    .map_err(|e| e.to_string())?
+    {
         backup::BackupOf::Docker { folder, into } => {
             let written = parts
                 .container
@@ -199,7 +201,8 @@ pub async fn upgrade<D: ServiceDefaults>(
             let service = service_plan(parts, ServiceInstall::NONE)?;
             let folder = backup::service_backup_folder(kkt_config_file::config_dir(
                 env.config_home().as_deref(),
-            ))?;
+            ))
+            .map_err(|e| e.to_string())?;
             local_backup(parts, &folder, None, None)?;
             if let Some(key) = &service.new_web_key {
                 new_key_file(parts.key_files, parts.entropy, key, false)?;
@@ -289,7 +292,7 @@ fn stop_sharing(
     remote: &dyn kkt_remote_access::RemoteAccess,
 ) -> Result<(), String> {
     if shared {
-        remote.stop(serve.bind()?)?;
+        remote.stop(serve.bind()?).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -333,8 +336,9 @@ fn local_backup<D>(
             no_access_key: config.no_access_key,
             default: default_access_key.as_deref(),
         },
-        &mut |path| parts.key_files.try_exists(path).map_err(|e| e.to_string()),
-    )?;
+        &mut |path| parts.key_files.try_exists(path),
+    )
+    .map_err(|e| e.to_string())?;
     let contents = backup::Contents {
         database: &database,
         config: config.file.as_deref(),
@@ -344,7 +348,10 @@ fn local_backup<D>(
         admin_name: admin_name.as_deref(),
     };
     let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
-    let written = parts.backups.write(folder, &layout)?;
+    let written = parts
+        .backups
+        .write(folder, &layout)
+        .map_err(|e| e.to_string())?;
     let out = parts.output;
     out.output(format_args!("Backed up to {}\n", written.display()));
     out.output(format_args!("  database {}\n", database.display()));
@@ -476,25 +483,32 @@ mod tests {
     struct Tailscale(RefCell<Vec<Vec<String>>>);
 
     impl kkt_remote_access::RemoteAccess for Tailscale {
-        fn prepare(&self) -> Result<kkt_remote_access::Node, String> {
+        fn prepare(&self) -> Result<kkt_remote_access::Node, kkt_remote_access::SharingError> {
             self.0.borrow_mut().push(vec!["prepare".into()]);
-            Err("tailscale is not here".into())
+            Err(not_here())
         }
-        fn serve(&self, _: std::net::SocketAddr) -> Result<(), String> {
+        fn serve(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
             self.0.borrow_mut().push(vec!["serve".into()]);
-            Err("tailscale is not here".into())
+            Err(not_here())
         }
         fn served(
             &self,
             _: std::net::SocketAddr,
-        ) -> Result<Option<kkt_remote_access::Node>, String> {
+        ) -> Result<Option<kkt_remote_access::Node>, kkt_remote_access::SharingError> {
             self.0.borrow_mut().push(vec!["served".into()]);
-            Err("tailscale is not here".into())
+            Err(not_here())
         }
-        fn stop(&self, _: std::net::SocketAddr) -> Result<(), String> {
+        fn stop(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
             self.0.borrow_mut().push(vec!["stop".into()]);
-            Err("tailscale is not here".into())
+            Err(not_here())
         }
+    }
+
+    fn not_here() -> kkt_remote_access::SharingError {
+        kkt_remote_access::SharingError::new(
+            kkt_remote_access::Sharing::Unavailable,
+            "tailscale is not here",
+        )
     }
 
     #[test]
@@ -723,12 +737,21 @@ mod tests {
         }
     }
 
+    /// A backup error for an operation a test did not expect.
+    fn not_asked(said: String) -> backup::BackupError {
+        backup::BackupError::file(
+            backup::FileAction::Write,
+            "nowhere",
+            std::io::Error::other(said),
+        )
+    }
+
     impl kkt_backup::Backups for Untouched {
-        fn write(&self, _: &Path, _: &backup::Layout<'_>) -> Result<PathBuf, String> {
-            self.refused("backups.write")
+        fn write(&self, _: &Path, _: &backup::Layout<'_>) -> Result<PathBuf, backup::BackupError> {
+            self.refused("backups.write").map_err(not_asked)
         }
-        fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, String> {
-            self.refused("backups.prune")
+        fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, backup::BackupError> {
+            self.refused("backups.prune").map_err(not_asked)
         }
     }
 

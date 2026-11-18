@@ -24,9 +24,10 @@ pub fn header(
         .key_files
         .read(&path)
         .map_err(|e| format!("could not read key file {}: {}", path.display(), e))?;
-    parts
-        .output
-        .output(format_args!("{}\n", clients::header(text.trim(), json)?));
+    parts.output.output(format_args!(
+        "{}\n",
+        clients::header(text.trim(), json).map_err(|e| e.to_string())?
+    ));
     Ok(())
 }
 
