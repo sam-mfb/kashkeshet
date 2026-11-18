@@ -223,6 +223,18 @@ async fn advance(clock: &FixedClock, busy: usize, steps: Vec<u64>) {
     }
 }
 
+/// `test`, bounded in real time, so a watch that never ends fails here by
+/// name instead of hanging the run.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "real time only bounds the test's own tasks; the watch itself runs on the fake clock"
+)]
+async fn within<T>(test: impl std::future::Future<Output = T>) -> T {
+    tokio::time::timeout(Duration::from_secs(30), test)
+        .await
+        .expect("the watch did not end within 30 seconds")
+}
+
 #[tokio::test]
 async fn a_server_that_answers_at_once_is_asked_again_every_poll_until_something_comes() {
     let clock = FixedClock::new(start());
@@ -238,17 +250,20 @@ async fn a_server_that_answers_at_once_is_asked_again_every_poll_until_something
     let mut report = FakeReport::default();
     let options = once();
     // The watch's own limit sleeps while it polls, so one sleeper is busy.
-    let (outcome, ()) = tokio::join!(
-        run(
-            &server,
-            &clock,
-            Settings::DEFAULT,
-            None,
-            &mut report,
-            &options
-        ),
-        advance(&clock, 1, vec![2, 2]),
-    );
+    let (outcome, ()) = within(async {
+        tokio::join!(
+            run(
+                &server,
+                &clock,
+                Settings::DEFAULT,
+                None,
+                &mut report,
+                &options
+            ),
+            advance(&clock, 1, vec![2, 2]),
+        )
+    })
+    .await;
     assert_eq!(outcome, Ok(Outcome::Received));
     assert_eq!(report.lines, vec!["[7] #talk other: message 7"]);
     assert_eq!(server.waits().len(), 3);
@@ -265,18 +280,51 @@ async fn a_poll_stops_at_the_end_of_its_wait() {
         timeout: Some(Duration::from_secs(3)),
         ..once()
     };
-    let (outcome, ()) = tokio::join!(
-        run(
-            &server,
-            &clock,
-            Settings::DEFAULT,
-            None,
-            &mut report,
-            &options
-        ),
-        advance(&clock, 1, vec![2, 1]),
-    );
+    let (outcome, ()) = within(async {
+        tokio::join!(
+            run(
+                &server,
+                &clock,
+                Settings::DEFAULT,
+                None,
+                &mut report,
+                &options
+            ),
+            advance(&clock, 1, vec![2, 1]),
+        )
+    })
+    .await;
     assert_eq!(outcome, Ok(Outcome::TimedOut));
+    // Asked at 0 and at 2 seconds, and not at 3: the end of the wait wins.
+    assert_eq!(server.waits().len(), 2);
+    assert_eq!(clock.now(), start() + Span::seconds(3));
+}
+
+#[tokio::test]
+async fn a_polled_wait_asks_only_before_its_end() {
+    // `fetch` alone, with no deadline racing it: the wait is 3 seconds, the
+    // poll 2, so it asks at 0 and 2 and not at 3.
+    let clock = FixedClock::new(start());
+    let mut server = FakeServer::new(&clock, vec![Ok(Vec::new()), Ok(Vec::new()), Ok(Vec::new())]);
+    server.polls = true;
+    let options = once();
+    let (waited, ()) = within(async {
+        tokio::join!(
+            fetch(
+                &server,
+                &clock,
+                Settings::DEFAULT,
+                ME,
+                0,
+                &options,
+                None,
+                Duration::from_secs(3),
+            ),
+            advance(&clock, 0, vec![2, 1]),
+        )
+    })
+    .await;
+    assert!(waited.expect("a wait").messages.is_empty());
     assert_eq!(server.waits().len(), 2);
     assert_eq!(clock.now(), start() + Span::seconds(3));
 }

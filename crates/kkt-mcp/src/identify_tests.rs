@@ -35,12 +35,12 @@ struct Elsewhere {
 impl Identify for Elsewhere {
     fn avatar<'a>(
         &'a self,
-        api: &'a dyn kkt_api_agent::Api,
+        tokens: &'a dyn kkt_identity::Tokens,
         _principal: &'a Principal,
         token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {
         Box::pin(async move {
-            let actor = api.in_swarm(self.swarm.clone()).authenticate(token).await?;
+            let actor = tokens.authenticate(self.swarm.clone(), token).await?;
             Ok(Identified {
                 swarm: self.swarm.clone(),
                 actor,
