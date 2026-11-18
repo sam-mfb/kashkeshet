@@ -2,9 +2,7 @@
 use super::{Client, Settings};
 use futures::future::BoxFuture;
 use kkt_agent_client::{Channel, Failure, Message, NewerLane, Waited, Watched};
-use kkt_clock::{Clock, Span};
 use serde_json::{Map, Value, json};
-use std::sync::Arc;
 use std::time::Duration;
 
 /// The name `kkt watch --admin` watches as. No agent can have it: agent
@@ -107,27 +105,26 @@ impl Watched for Remote {
             })
         })
     }
+
+    /// `wait_for_messages` waits on the server.
+    fn polls(&self) -> bool {
+        false
+    }
 }
 
 /// Message and channel reads over the admin endpoint, `/mcp-admin`, for
 /// `kkt watch --admin`: every channel, closed and hidden ones included. The
-/// admin endpoint does not wait, so `wait` asks again every
-/// `settings.watch_admin_poll` on the injected clock until something comes
-/// or the wait is over.
+/// admin endpoint does not wait, so `wait` answers at once with what is
+/// there ([`Watched::polls`]), and the watcher asks again at its own pace.
 pub(crate) struct AdminRemote {
     client: Client,
-    clock: Arc<dyn Clock>,
     settings: Settings,
 }
 
 impl AdminRemote {
     /// `client` must reach the admin endpoint with the admin key.
-    pub(crate) fn new(client: Client, clock: Arc<dyn Clock>, settings: Settings) -> Self {
-        Self {
-            client,
-            clock,
-            settings,
-        }
+    pub(crate) fn new(client: Client, settings: Settings) -> Self {
+        Self { client, settings }
     }
 
     async fn new_messages(
@@ -196,34 +193,26 @@ impl Watched for AdminRemote {
         })
     }
 
+    /// What is there now; `wait` is not used, since the endpoint does not
+    /// wait.
     fn wait<'a>(
         &'a self,
         after_id: i64,
         channels: Option<&'a [String]>,
-        wait: Duration,
+        _wait: Duration,
     ) -> BoxFuture<'a, Result<Waited, Failure>> {
         Box::pin(async move {
-            let out_of_range = || Failure::Lost("the clock is out of range".into());
-            let end = self
-                .clock
-                .now()
-                .checked_add(Span::from_std(wait).map_err(|_| out_of_range())?)
-                .ok_or_else(out_of_range)?;
-            let poll =
-                Span::from_std(self.settings.watch_admin_poll).map_err(|_| out_of_range())?;
-            loop {
-                let messages = self.new_messages(after_id, channels).await?;
-                let now = self.clock.now();
-                if !messages.is_empty() || now >= end {
-                    // The operator holds no lane.
-                    return Ok(Waited {
-                        messages,
-                        newer_lane: None,
-                    });
-                }
-                self.clock.sleep_until((now + poll).min(end)).await;
-            }
+            let messages = self.new_messages(after_id, channels).await?;
+            // The operator holds no lane.
+            Ok(Waited {
+                messages,
+                newer_lane: None,
+            })
         })
+    }
+
+    fn polls(&self) -> bool {
+        true
     }
 }
 

@@ -484,7 +484,7 @@
      "note": "kkt setup for Docker: the server's key copies on this machine"
     },
     {
-     "own": "HereLanes, picking the server kkt lanes acts on from the deployment the setup record names, by kkt-operator-commands' lanes_on: its ContainerLanes, kkt lanes run in the container over kkt-containerized-service's Containerized, or its LocalLanes",
+     "own": "HereLanes, picking the server kkt lanes acts on from the deployment the setup record names, by kkt-operator-commands' lanes_on: its ContainerLanes, kkt lanes run in the container over the program's LanesInContainer, or its LocalLanes",
      "suppliers": [
       {
        "crate": "kkt-containerized-service",
@@ -1389,6 +1389,13 @@
      "note": "kkt setup --lanes"
     },
     {
+     "own": "LanesInContainer, kkt installed in a container as the lane commands take it: kkt-containerized-service's Containerized in the install's folder, with the program's ContainerConfigs reading kkt's config file there for its lane limit",
+     "suppliers": [
+      {
+       "crate": "kkt-containerized-service",
+       "item": "Containerized"
+      }
+     ],
      "crate": "kkt-operator-commands",
      "to": [
       {
@@ -1396,24 +1403,7 @@
        "param": "container"
       }
      ],
-     "impl": "kkt-containerized-service::Containerized",
      "note": "kkt lanes for kkt in Docker: the lanes run in the container."
-    },
-    {
-     "own": "ContainerConfigs",
-     "suppliers": [
-      {
-       "crate": "kashkeshet"
-      }
-     ],
-     "crate": "kkt-operator-commands",
-     "to": [
-      {
-       "at": "lanes::ContainerLanes",
-       "param": "configs"
-      }
-     ],
-     "note": "the program's own work: the container's config file read as kkt serve in the container reads it, for its lane limit"
     }
    ],
    "inferred": false

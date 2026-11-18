@@ -8,7 +8,7 @@
 mod container;
 mod report;
 
-pub use container::ContainerLanes;
+pub use container::{Carried, ContainerLanes, RunArg, ServerInContainer};
 
 use crate::{LaneParts, OperatorParts};
 use kkt_api_agent::LaneSource;
