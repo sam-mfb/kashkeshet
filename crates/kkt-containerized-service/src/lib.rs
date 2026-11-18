@@ -7,7 +7,8 @@
 //! server's own program in its container, reading its config home, backups
 //! and the web key's comparison. It touches the machine only through
 //! `Projects`, and takes the tool's name and how its commands are typed
-//! from it, never naming a tool itself.
+//! from it, never naming a tool itself. What the sharing node's status
+//! answer means comes from the `SharingNode` it is given.
 //!
 //! The operations it does not do itself it hands to the fallback
 //! `Container` it is given.
@@ -41,12 +42,30 @@ pub trait Tell {
     fn say(&self, line: &str);
 }
 
+/// Reads what the node that shares the server says of itself, whatever
+/// shares it.
+pub trait SharingNode {
+    /// What the node's status answer, `answer`, says of its login, or
+    /// `None` when the answer cannot be read.
+    fn login(&self, answer: &str) -> Option<NodeLogin>;
+}
+
+/// Where a sharing node's login stands, as its status answer says.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NodeLogin {
+    LoggedIn,
+    NeedsLogin,
+    /// Another state, in the node's own word for it.
+    Other(String),
+}
+
 /// kkt's containerized service over `projects`, handing the operations it
 /// does not do itself to `fallback`.
 pub struct Containerized<P, F> {
     projects: P,
     fallback: F,
     tell: Box<dyn Tell>,
+    sharing: Box<dyn SharingNode>,
     /// The folder the person ran kkt in, which paths they type are
     /// relative to, or why it could not be found.
     working_dir: Result<PathBuf, String>,
@@ -54,19 +73,22 @@ pub struct Containerized<P, F> {
 
 impl<P: Projects, F: Container> Containerized<P, F> {
     /// The service over `projects`, with `fallback` for the rest, telling
-    /// the person what they need to know through `tell`. `working_dir` is
+    /// the person what they need to know through `tell`, and reading what
+    /// the sharing node says of itself through `sharing`. `working_dir` is
     /// the folder the person ran kkt in, read once by the caller, or why
     /// it could not be found.
     pub fn new(
         projects: P,
         fallback: F,
         tell: Box<dyn Tell>,
+        sharing: Box<dyn SharingNode>,
         working_dir: Result<PathBuf, String>,
     ) -> Self {
         Containerized {
             projects,
             fallback,
             tell,
+            sharing,
             working_dir,
         }
     }
@@ -111,6 +133,7 @@ impl<P: Projects, F: Container> Container for Containerized<P, F> {
         status::status(
             &self.projects,
             &self.project(folder),
+            &*self.sharing,
             reader,
             default_name_pack,
             config_file,

@@ -204,6 +204,7 @@ fn containerized() -> Containerized {
         docker(),
         docker(),
         Box::new(TerminalTell),
+        Box::new(super::sharing_node::TailscaleNode),
         working_dir,
     )
 }

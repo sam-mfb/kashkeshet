@@ -924,6 +924,30 @@ fn status_tailscale_logins() -> String {
     ])
 }
 
+fn status_tailscale_answers_without_a_state() -> String {
+    let with = |answer: Answer| {
+        let run = Run::new(
+            rules(vec![
+                ("ps --status running", vec![ok("tailscale\n")]),
+                ("tailscale status --json", vec![answer]),
+            ]),
+            installed_tailscale(TAILSCALE_ENV),
+        );
+        run.status();
+        run
+    };
+    cases(&[
+        case(
+            "an answer with no backend state",
+            &with(ok(r#"{"Self":{"DNSName":"kkt.tail1234.ts.net."}}"#)),
+        ),
+        case(
+            "a backend state that is not text",
+            &with(ok(r#"{"BackendState":3}"#)),
+        ),
+    ])
+}
+
 const SERVE_ARGS: &str = r#""Cmd":["serve","--bind","0.0.0.0:7420"],"Entrypoint":["/usr/local/bin/kkt"],"Env":["HOME=/home/kkt","PATH=/usr/bin"],"WorkingDir":"/data""#;
 
 /// A running local install whose container `docker inspect` describes with
@@ -1806,6 +1830,7 @@ pinned! {
     status_not_set_up => super::status_not_set_up();
     status_local => super::status_local();
     status_tailscale_logins => super::status_tailscale_logins();
+    status_tailscale_answers_without_a_state => super::status_tailscale_answers_without_a_state();
     status_name_pack => super::status_name_pack();
     status_name_pack_errors => super::status_name_pack_errors();
     existing => super::existing();

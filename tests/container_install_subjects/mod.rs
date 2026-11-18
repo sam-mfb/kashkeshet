@@ -9,6 +9,7 @@
 //! scenarios, what the scripted host answers, or their files, which all
 //! live in that folder.
 
+use kashkeshet::machine::sharing_node::TailscaleNode;
 use kkt_container::Container;
 use kkt_container_docker::testing::Scripted;
 use kkt_container_docker::{Browser, Docker};
@@ -29,6 +30,7 @@ pub fn subject(name: &str, browser: Box<dyn Browser>, host: Scripted) -> Box<dyn
             Docker::scripted(Box::new(NoBrowser), host.clone()),
             Docker::scripted(browser, host.clone()),
             Box::new(Transcript(host.clone())),
+            Box::new(TailscaleNode),
             host.current_folder().map_err(|e| e.to_string()),
         )),
         other => panic!("no subject {other}"),

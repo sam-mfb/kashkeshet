@@ -16,3 +16,4 @@ mod serve_options;
 pub mod server_run;
 pub(crate) mod service;
 pub mod settings;
+pub mod sharing_node;
