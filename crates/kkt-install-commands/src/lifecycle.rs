@@ -22,12 +22,11 @@ use std::path::{Path, PathBuf};
 /// existing keys it would read, into `folder` or the default folder.
 pub fn backup<D>(
     parts: &InstallParts<'_, impl ConnectionSource, D>,
-    env: &Env,
     folder: Option<&Path>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    let mode = read_setup(env, parts.setup_files)?.map(|record| record.mode);
+    let mode = read_setup(parts.serve, parts.setup_files)?.map(|record| record.mode);
     match backup::backup_of(
         &server_here(mode.as_ref()),
         folder,
@@ -79,8 +78,13 @@ pub async fn status<D: ServiceDefaults>(
     env: &Env,
     platform: Platform,
 ) -> Result<(), String> {
-    let unfinished = read_unfinished(env, parts.setup_files, parts.container, parts.service);
-    let recorded = read_setup(env, parts.setup_files)?;
+    let unfinished = read_unfinished(
+        parts.serve,
+        parts.setup_files,
+        parts.container,
+        parts.service,
+    );
+    let recorded = read_setup(parts.serve, parts.setup_files)?;
     let unrecorded = if kkt_deployment::status_looks_for_unrecorded(recorded.as_ref(), &unfinished)
     {
         read_unrecorded(parts, env, platform).map_err(|(_, e)| e)
@@ -89,16 +93,10 @@ pub async fn status<D: ServiceDefaults>(
     };
     let found_unfinished = unfinished.as_ref().ok().and_then(Option::as_ref);
     let found_unrecorded = unrecorded.as_ref().ok().and_then(Option::as_ref);
-    if let Some(path) = local_web_key(parts, env, found_unfinished, found_unrecorded)? {
+    if let Some(path) = local_web_key(parts, found_unfinished, found_unrecorded)? {
         parts.output.output(format_args!("{}", web_key_line(&path)));
     }
-    let admin_key = local_operator_key(
-        parts,
-        env,
-        found_unfinished,
-        found_unrecorded,
-        KeyKind::Admin,
-    )?;
+    let admin_key = local_operator_key(parts, found_unfinished, found_unrecorded, KeyKind::Admin)?;
     let admin_key = match admin_key {
         Some(path) if !key_file_there(parts.key_files, &path)? => None,
         other => other,
@@ -111,7 +109,9 @@ pub async fn status<D: ServiceDefaults>(
             .key_files
             .read(&path)
             .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
-        if let Some(line) = admin_name_line(parts.key_files, &path, &key, "Admin name")? {
+        if let Some(line) = admin_name_line(parts.key_files, &path, &key, "Admin name")
+            .map_err(|e| e.to_string())?
+        {
             parts.output.output(format_args!("{line}\n"));
         }
     }
@@ -142,7 +142,7 @@ pub async fn status<D: ServiceDefaults>(
                     &folder,
                     parts.container_configs,
                     &parts.serve.default_name_pack(),
-                    &kkt_config_file::config_file_in_home(),
+                    &parts.serve.config_file_in_home(),
                 )
                 .map_err(|e| e.to_string())?;
             for line in docker_status_lines(&state, folder.path()) {
@@ -197,13 +197,12 @@ pub async fn upgrade<D: ServiceDefaults>(
             // Validate the replacement service before doing anything. Its
             // program is this one, the binary just installed by the user.
             let service = service_plan(parts, ServiceInstall::NONE)?;
-            let folder = backup::service_backup_folder(kkt_config_file::config_dir(
-                env.config_home().as_deref(),
-            ))
-            .map_err(|e| e.to_string())?;
+            let folder = backup::service_backup_folder(parts.serve.config_dir())
+                .map_err(|e| e.to_string())?;
             local_backup(parts, &folder, None, None)?;
             if let Some(key) = &service.new_web_key {
-                new_key_file(parts.key_files, parts.entropy, key, false)?;
+                new_key_file(parts.key_files, parts.entropy, key, false)
+                    .map_err(|e| e.to_string())?;
                 parts.output.output(format_args!(
                     "Created a new web key at {}. Read it with `kkt key show --web`.\n",
                     key.display()
@@ -227,7 +226,7 @@ pub async fn upgrade<D: ServiceDefaults>(
     // The record now names the version the server runs.
     let mut record = record;
     record.written_by = Build::CURRENT.version.to_string();
-    write_setup_record(env, parts.setup_files, &record)?;
+    write_setup_record(parts.serve, parts.setup_files, &record)?;
     parts.output.output(format_args!("{}\n", plan.said));
     Ok(())
 }
@@ -266,13 +265,15 @@ pub async fn uninstall<D: ServiceDefaults>(
         setup::Mode::Client => {}
     }
     if let Some(client) = stays_client {
-        write_setup_record(env, parts.setup_files, &client)?;
+        write_setup_record(parts.serve, parts.setup_files, &client)?;
         parts
             .output
             .output(format_args!("{}", uninstall_line(Some(&client))));
         return Ok(());
     }
-    let config_dir = kkt_config_file::config_dir(env.config_home().as_deref())
+    let config_dir = parts
+        .serve
+        .config_dir()
         .ok_or("set HOME to find the setup record")?;
     parts.setup_files.remove_record(&config_dir)?;
     parts
@@ -615,7 +616,9 @@ mod tests {
         );
     }
 
-    /// Serving facts that log each question and answer only `bind`.
+    /// Serving facts that log each question and answer only `bind`. The
+    /// config places, which read no file, are answered for the home
+    /// `/home/k` without a log.
     #[derive(Default)]
     struct Asked(RefCell<Vec<&'static str>>);
 
@@ -643,6 +646,15 @@ mod tests {
         fn default_name_pack(&self) -> String {
             self.0.borrow_mut().push("default_name_pack");
             "default".to_string()
+        }
+        fn config_dir(&self) -> Option<PathBuf> {
+            Some(PathBuf::from("/home/k/.config/kkt"))
+        }
+        fn config_file(&self) -> Option<PathBuf> {
+            Some(PathBuf::from("/home/k/.config/kkt/config.toml"))
+        }
+        fn config_file_in_home(&self) -> PathBuf {
+            PathBuf::from("kkt/config.toml")
         }
         fn service_settings(
             &self,
@@ -759,11 +771,19 @@ mod tests {
         }
     }
     impl kkt_llm_agent_config::ClientCommand for Untouched {
-        fn remove_server(&self, _: Option<&Path>) -> Result<(), String> {
+        fn remove_server(
+            &self,
+            _: Option<&Path>,
+        ) -> Result<(), kkt_llm_agent_config::CommandError> {
             self.refused("client_command.remove_server")
+                .map_err(not_run)
         }
-        fn add_server(&self, _: &str, _: Option<&Path>) -> Result<(), String> {
-            self.refused("client_command.add_server")
+        fn add_server(
+            &self,
+            _: &str,
+            _: Option<&Path>,
+        ) -> Result<(), kkt_llm_agent_config::CommandError> {
+            self.refused("client_command.add_server").map_err(not_run)
         }
     }
 
@@ -799,23 +819,43 @@ mod tests {
 
     impl ConnectionSource for Untouched {
         type KeySource = ();
-        fn recorded(&self) -> Result<Option<kkt_deployment::connection::RecordedServer>, String> {
+        fn recorded(
+            &self,
+        ) -> Result<
+            Option<kkt_deployment::connection::RecordedServer>,
+            kkt_deployment::connection::SourceError,
+        > {
             self.refused("connection.record")
+                .map_err(|said| kkt_deployment::connection::SourceError(said.into()))
         }
         fn serve(
             &self,
             _: kkt_deployment::connection::ConnectionOptions,
-        ) -> Result<kkt_deployment::connection::ServeConnection<()>, String> {
+        ) -> Result<
+            kkt_deployment::connection::ServeConnection<()>,
+            kkt_deployment::connection::SourceError,
+        > {
             self.refused("connection.serve")
+                .map_err(|said| kkt_deployment::connection::SourceError(said.into()))
         }
-        fn make_default_key(&self, _: &kkt_keys::AccessKey) -> Result<(), String> {
+        fn make_default_key(
+            &self,
+            _: &kkt_keys::AccessKey,
+        ) -> Result<(), kkt_deployment::connection::SourceError> {
             self.refused("connection.make_default_key")
+                .map_err(|said| kkt_deployment::connection::SourceError(said.into()))
         }
-        fn check_key(&self, _: &Path, _: &()) -> Result<(), String> {
+        fn check_key(
+            &self,
+            _: &Path,
+            _: &(),
+        ) -> Result<(), kkt_deployment::connection::SourceError> {
             self.refused("connection.check_key")
+                .map_err(|said| kkt_deployment::connection::SourceError(said.into()))
         }
-        fn absolute(&self, _: &Path) -> Result<PathBuf, String> {
+        fn absolute(&self, _: &Path) -> Result<PathBuf, kkt_deployment::connection::SourceError> {
             self.refused("connection.absolute")
+                .map_err(|said| kkt_deployment::connection::SourceError(said.into()))
         }
     }
 
@@ -842,11 +882,12 @@ mod tests {
         fn mode(&self, _: &Path) -> std::io::Result<Option<u32>> {
             self.asked("key_files.mode")
         }
-        fn create_dir_all(&self, _: &Path) -> Result<(), String> {
+        fn create_dir_all(&self, _: &Path) -> Result<(), kkt_keys::KeyFileError> {
             self.refused("key_files.create_dir_all")
+                .map_err(not_asked_key)
         }
-        fn keep_staged(&self, _: &Path, _: &Path) -> Result<(), String> {
-            self.refused("key_files.keep_staged")
+        fn keep_staged(&self, _: &Path, _: &Path) -> Result<(), kkt_keys::KeyFileError> {
+            self.refused("key_files.keep_staged").map_err(not_asked_key)
         }
         fn remove(&self, _: &Path) -> std::io::Result<()> {
             self.asked("key_files.remove")
@@ -856,18 +897,19 @@ mod tests {
             _: &Path,
             _: bool,
             _: &mut dyn FnMut() -> String,
-        ) -> Result<String, String> {
-            self.refused("key_files.new_key")
+        ) -> Result<String, kkt_keys::KeyFileError> {
+            self.refused("key_files.new_key").map_err(not_asked_key)
         }
         fn make_default_key(
             &self,
             _: &kkt_keys::AccessKey,
             _: &mut dyn FnMut() -> String,
-        ) -> Result<Option<PathBuf>, String> {
+        ) -> Result<Option<PathBuf>, kkt_keys::KeyFileError> {
             self.refused("key_files.make_default_key")
+                .map_err(not_asked_key)
         }
-        fn write_key(&self, _: &Path, _: &str, _: bool) -> Result<(), String> {
-            self.refused("key_files.write_key")
+        fn write_key(&self, _: &Path, _: &str, _: bool) -> Result<(), kkt_keys::KeyFileError> {
+            self.refused("key_files.write_key").map_err(not_asked_key)
         }
         fn write_admin_name(&self, _: &Path, _: Option<&str>) -> std::io::Result<()> {
             self.asked("key_files.write_admin_name")
@@ -904,12 +946,32 @@ mod tests {
         fn write(&self, _: &Path, _: &str) -> Result<(), String> {
             self.refused("config_file.write")
         }
+        fn with_allowed_host(&self, _: &str, _: &str) -> Result<String, String> {
+            self.refused("config_file.with_allowed_host")
+        }
     }
 
     impl crate::Databases for Untouched {
         fn exists(&self, _: &Path) -> bool {
             self.0.borrow_mut().push("database.exists");
             false
+        }
+    }
+
+    /// A key file error for a step a test did not expect.
+    fn not_asked_key(said: String) -> kkt_keys::KeyFileError {
+        kkt_keys::KeyFileError::file(
+            kkt_keys::KeyFileAction::Write,
+            "nowhere",
+            std::io::Error::other(said),
+        )
+    }
+
+    /// A client command error for a call a test did not expect.
+    fn not_run(said: String) -> kkt_llm_agent_config::CommandError {
+        kkt_llm_agent_config::CommandError {
+            kind: kkt_llm_agent_config::CommandFailure::NotRun,
+            cause: said.into(),
         }
     }
 

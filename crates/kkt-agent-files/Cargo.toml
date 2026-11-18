@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+thiserror.workspace = true
 libc.workspace = true
 
 [dev-dependencies]

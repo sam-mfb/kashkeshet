@@ -20,8 +20,13 @@ pub async fn run<D: crate::ServiceDefaults>(
 ) -> Result<(), String> {
     // With no record, a server setup installed but did not record stands in
     // for it; with no note of one either, a server kkt installed here anyway.
-    let unfinished = read_unfinished(env, parts.setup_files, parts.container, parts.service);
-    let recorded = read_setup(env, parts.setup_files)?;
+    let unfinished = read_unfinished(
+        parts.serve,
+        parts.setup_files,
+        parts.container,
+        parts.service,
+    );
+    let recorded = read_setup(parts.serve, parts.setup_files)?;
     let unrecorded =
         match kkt_deployment::status_looks_for_unrecorded(recorded.as_ref(), &unfinished) {
             true => read_unrecorded(parts, env, platform),
@@ -34,8 +39,10 @@ pub async fn run<D: crate::ServiceDefaults>(
             |path| parts.connection.absolute(path),
             crate::deployment::recorded_server(record).for_clients(),
             flags,
-        )?,
-        _ => connection::client_connection(parts.connection, flags, false)?,
+        )
+        .map_err(|e| e.to_string())?,
+        _ => connection::client_connection(parts.connection, flags, false)
+            .map_err(|e| e.to_string())?,
     };
     let inspector = diagnostics::Inspector::new(parts.prober);
     let server = diagnostics::ServerLines::inspect(
@@ -59,7 +66,6 @@ pub async fn run<D: crate::ServiceDefaults>(
     let checked_setup = mode.as_ref().map(setup_of);
     let web_key = local_web_key(
         parts,
-        env,
         unfinished.as_ref().ok().and_then(Option::as_ref),
         found,
     )?;
@@ -71,7 +77,6 @@ pub async fn run<D: crate::ServiceDefaults>(
     // that cannot be looked at is checked too, and its check says why.
     let admin_key = local_operator_key(
         parts,
-        env,
         unfinished.as_ref().ok().and_then(Option::as_ref),
         found,
         KeyKind::Admin,
@@ -93,7 +98,7 @@ pub async fn run<D: crate::ServiceDefaults>(
                 &folder,
                 parts.container_configs,
                 &parts.serve.default_name_pack(),
-                &kkt_config_file::config_file_in_home(),
+                &parts.serve.config_file_in_home(),
             );
             let running = matches!(&state, Ok(state) if state.running);
             let tailscale_login = match &state {

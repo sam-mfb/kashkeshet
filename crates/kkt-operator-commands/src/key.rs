@@ -10,17 +10,11 @@ use crate::keys::{
 use kkt_deployment::new_key_file;
 use kkt_deployment::{admin_name_line, admin_name_written};
 use kkt_llm_agent_config as clients;
-use kkt_machine::Env;
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use std::path::{Path, PathBuf};
 
-pub fn header(
-    parts: &OperatorParts<'_>,
-    env: &Env,
-    path: Option<PathBuf>,
-    json: bool,
-) -> Result<(), String> {
-    let path = selected_key_path(parts, env, path, KeyKind::Access)?;
+pub fn header(parts: &OperatorParts<'_>, path: Option<PathBuf>, json: bool) -> Result<(), String> {
+    let path = selected_key_path(parts, path, KeyKind::Access)?;
     let text = parts
         .key_files
         .read(&path)
@@ -37,11 +31,10 @@ pub fn header(
 /// `kkt upgrade` can tell it from a key they failed to read.
 pub fn show(
     parts: &OperatorParts<'_>,
-    env: &Env,
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<std::process::ExitCode, String> {
-    let Some(path) = optional_key_path(parts, env, path, kind)? else {
+    let Some(path) = optional_key_path(parts, path, kind)? else {
         parts.output.errors(format_args!(
             "there is no admin key; `kkt key create --admin` makes one\n"
         ));
@@ -63,7 +56,9 @@ pub fn show(
     parts.output.output(format_args!("{}\n", text.trim()));
     if kind == KeyKind::Admin {
         // On standard error, so standard output stays the key alone.
-        if let Some(line) = admin_name_line(parts.key_files, &path, &text, "admin name")? {
+        if let Some(line) = admin_name_line(parts.key_files, &path, &text, "admin name")
+            .map_err(|e| e.to_string())?
+        {
             parts.output.errors(format_args!("{line}\n"));
         }
     }
@@ -80,7 +75,6 @@ pub struct NewKey<'a> {
 
 pub fn create(
     parts: &OperatorParts<'_>,
-    env: &Env,
     new: NewKey<'_>,
     force: bool,
     show: bool,
@@ -89,11 +83,11 @@ pub fn create(
     // Checked before anything is written, so a refused key or a bad name
     // leaves no key.
     let in_docker =
-        kkt_deployment::create_asks_for_docker(kind, path.is_some()) && runs_in_docker(parts, env)?;
+        kkt_deployment::create_asks_for_docker(kind, path.is_some()) && runs_in_docker(parts)?;
     let name = checked_name(kind, in_docker, name)?;
     if kind == KeyKind::Admin
         && let Some(destination) = path.as_ref()
-        && let Some(access) = local_operator_key(parts, env, None, None, KeyKind::Access)?
+        && let Some(access) = local_operator_key(parts, None, None, KeyKind::Access)?
     {
         // Canonicalize existing files to also catch relative paths and
         // symlinks; a missing destination cannot overwrite an existing key.
@@ -122,15 +116,18 @@ pub fn create(
             };
             (resolve(destination)?, resolve(&access)?)
         };
-        kkt_deployment::create_destination_check(&destination, &access)?;
+        kkt_deployment::create_destination_check(&destination, &access)
+            .map_err(|e| e.to_string())?;
     }
     let path = match kind {
         KeyKind::Access => path
             .or_else(|| parts.serve.default_access_key())
             .ok_or("set HOME or pass --path")?,
-        _ => optional_key_path(parts, env, path, kind)?.ok_or_else(admin_key_collision)?,
+        _ => optional_key_path(parts, path, kind)?
+            .ok_or_else(|| admin_key_collision().to_string())?,
     };
-    let key = new_key_file(parts.key_files, parts.entropy, &path, force)?;
+    let key =
+        new_key_file(parts.key_files, parts.entropy, &path, force).map_err(|e| e.to_string())?;
     match kind {
         KeyKind::Web => parts.output.output(format_args!(
             "Wrote a new web key to {}. Restart the server to use it and end existing web sessions.\n",
@@ -145,7 +142,8 @@ pub fn create(
                     &path,
                     name.as_ref().map(ToString::to_string).as_deref(),
                     write_admin_name(parts.key_files, &path, &key, name.as_ref()),
-                )?));
+                )
+                .map_err(|e| e.to_string())?));
         }
         KeyKind::Access => {}
     }
@@ -195,7 +193,7 @@ fn checked_name(
     in_docker: bool,
     name: Option<&str>,
 ) -> Result<Option<AdminName>, String> {
-    kkt_deployment::create_checks(kind, in_docker, name)?;
+    kkt_deployment::create_checks(kind, in_docker, name).map_err(|e| e.to_string())?;
     name.map(|name| AdminName::new(name, MAX_ADMIN_NAME_CHARS))
         .transpose()
         .map_err(|e| e.to_string())
@@ -211,11 +209,9 @@ fn write_admin_name(
     path: &Path,
     key: &str,
     name: Option<&AdminName>,
-) -> Result<(), String> {
+) -> std::io::Result<()> {
     let bound = name.map(|name| kkt_keys::bound_to(name, key));
-    files
-        .write_admin_name(path, bound.as_deref())
-        .map_err(|e| e.to_string())
+    files.write_admin_name(path, bound.as_deref())
 }
 
 #[cfg(test)]
@@ -267,7 +263,7 @@ mod tests {
         let path = Path::new("/k/admin-key");
         let name = AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("a name");
         assert_eq!(
-            write_admin_name(&files, path, "the-key", Some(&name)),
+            write_admin_name(&files, path, "the-key", Some(&name)).map_err(|e| e.to_string()),
             Ok(())
         );
         let names = kkt_keys::admin_name_path(path);
@@ -275,7 +271,10 @@ mod tests {
             files.file(&names).expect("a name file").text,
             kkt_keys::bound_to(&name, "the-key")
         );
-        assert_eq!(write_admin_name(&files, path, "the-key", None), Ok(()));
+        assert_eq!(
+            write_admin_name(&files, path, "the-key", None).map_err(|e| e.to_string()),
+            Ok(())
+        );
         assert_eq!(files.file(&names), None);
     }
 }

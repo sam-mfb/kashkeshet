@@ -3,6 +3,10 @@
 //! reads, and its state file. The program supplies the credential-file rule
 //! and where its warnings are sent.
 
+mod error;
+
+pub use error::{AgentFileError, CredentialAction, LockError, StateAction};
+use std::error::Error;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -20,7 +24,8 @@ pub struct CredentialFileFacts {
 }
 
 /// The caller's rule over the path and named file/caller facts.
-pub type CredentialCheck = fn(&Path, CredentialFileFacts) -> Result<Option<PrivateMode>, String>;
+pub type CredentialCheck =
+    fn(&Path, CredentialFileFacts) -> Result<Option<PrivateMode>, Box<dyn Error + Send + Sync>>;
 
 /// A checked permission change, with caller-supplied advice and warning.
 pub struct PrivateMode {
@@ -43,7 +48,10 @@ pub struct CredentialFile {
 
 impl CredentialFile {
     /// Reserves a new private file; reports failed cleanup through the callback.
-    pub fn create(path: PathBuf, on_cleanup_error: fn(&Path, &io::Error)) -> Result<Self, String> {
+    pub fn create(
+        path: PathBuf,
+        on_cleanup_error: fn(&Path, &io::Error),
+    ) -> Result<Self, AgentFileError> {
         let mut options = std::fs::OpenOptions::new();
         options.write(true).create_new(true);
         #[cfg(unix)]
@@ -53,7 +61,7 @@ impl CredentialFile {
         }
         let file = options
             .open(&path)
-            .map_err(|e| format!("could not create credential file {}: {e}", path.display()))?;
+            .map_err(|e| AgentFileError::credential(CredentialAction::Create, &path, e))?;
         Ok(Self {
             path,
             file,
@@ -63,16 +71,11 @@ impl CredentialFile {
     }
 
     /// Writes and syncs the secret before keeping the reserved file.
-    pub fn save(&mut self, secret: &str) -> Result<(), String> {
+    pub fn save(&mut self, secret: &str) -> Result<(), AgentFileError> {
         use std::io::Write;
         writeln!(self.file, "{secret}")
             .and_then(|()| self.file.sync_all())
-            .map_err(|e| {
-                format!(
-                    "could not save credential file {}: {e}",
-                    self.path.display()
-                )
-            })?;
+            .map_err(|e| AgentFileError::credential(CredentialAction::Save, &self.path, e))?;
         self.saved = true;
         Ok(())
     }
@@ -95,7 +98,7 @@ pub(crate) fn read_secret(
     path: &Path,
     check: CredentialCheck,
     on_private: fn(&str),
-) -> Result<String, String> {
+) -> Result<String, AgentFileError> {
     use std::io::Read;
     // These callbacks are used only on systems with Unix ownership/modes.
     let _ = (&check, &on_private);
@@ -106,7 +109,7 @@ pub(crate) fn read_secret(
         let uid = unsafe { libc::geteuid() };
         // Give the ownership fix even when opening another user's file would fail.
         let metadata = std::fs::metadata(path)
-            .map_err(|e| format!("could not inspect credential file {}: {e}", path.display()))?;
+            .map_err(|e| AgentFileError::credential(CredentialAction::Inspect, path, e))?;
         // Validate first; permission changes use the opened handle below.
         let _ = check(
             path,
@@ -115,18 +118,19 @@ pub(crate) fn read_secret(
                 mode: metadata.permissions().mode(),
                 caller_uid: uid,
             },
-        )?;
+        )
+        .map_err(AgentFileError::Refused)?;
         uid
     };
     let mut file = std::fs::File::open(path)
-        .map_err(|e| format!("could not open credential file {}: {e}", path.display()))?;
+        .map_err(|e| AgentFileError::credential(CredentialAction::Open, path, e))?;
     #[cfg(unix)]
     if let Some(warning) = make_private(&file, path, uid, check)? {
         on_private(&warning);
     }
     let mut secret = String::new();
     file.read_to_string(&mut secret)
-        .map_err(|e| format!("could not read credential file {}: {e}", path.display()))?;
+        .map_err(|e| AgentFileError::credential(CredentialAction::Read, path, e))?;
     Ok(secret)
 }
 
@@ -138,11 +142,11 @@ pub fn make_private(
     path: &Path,
     uid: u32,
     check: CredentialCheck,
-) -> Result<Option<String>, String> {
+) -> Result<Option<String>, AgentFileError> {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     let metadata = file
         .metadata()
-        .map_err(|e| format!("could not inspect credential file {}: {e}", path.display()))?;
+        .map_err(|e| AgentFileError::credential(CredentialAction::Inspect, path, e))?;
     let Some(change) = check(
         path,
         CredentialFileFacts {
@@ -150,17 +154,16 @@ pub fn make_private(
             mode: metadata.permissions().mode(),
             caller_uid: uid,
         },
-    )?
+    )
+    .map_err(AgentFileError::Refused)?
     else {
         return Ok(None);
     };
     file.set_permissions(std::fs::Permissions::from_mode(change.mode))
-        .map_err(|e| {
-            format!(
-                "could not make credential file {} private: {e}; {}",
-                path.display(),
-                change.advice
-            )
+        .map_err(|cause| AgentFileError::NotPrivate {
+            path: path.to_path_buf(),
+            cause,
+            advice: change.advice,
         })?;
     Ok(Some(change.warning))
 }
@@ -170,19 +173,16 @@ pub fn watch_token(
     file: Option<&Path>,
     check: CredentialCheck,
     on_private: fn(&str),
-) -> Result<String, String> {
+) -> Result<String, AgentFileError> {
     let token = match file {
         Some(path) => read_secret(path, check, on_private)?,
-        None => std::env::var(WATCH_TOKEN_ENV).map_err(|_| {
-            format!(
-                "give the agent's token in --token-file or the {} environment variable",
-                WATCH_TOKEN_ENV
-            )
+        None => std::env::var(WATCH_TOKEN_ENV).map_err(|_| AgentFileError::NoToken {
+            variable: WATCH_TOKEN_ENV,
         })?,
     };
     let token = token.trim();
     if token.is_empty() {
-        return Err("the agent's token is empty".into());
+        return Err(AgentFileError::EmptyToken);
     }
     Ok(token.to_string())
 }
@@ -202,8 +202,8 @@ pub(crate) struct FileLock {
 pub enum LockRefused {
     /// Another process holds it now.
     Held,
-    /// The lock file could not be made or locked; the text says why.
-    Failed(String),
+    /// The lock file could not be made or locked.
+    Failed(LockError),
 }
 
 impl FileLock {
@@ -217,19 +217,19 @@ impl FileLock {
             use std::os::unix::fs::OpenOptionsExt;
             options.mode(0o600);
         }
-        let file = options.open(&lock_path).map_err(|e| {
-            LockRefused::Failed(format!(
-                "could not open lock file {}: {e}",
-                lock_path.display()
-            ))
+        let file = options.open(&lock_path).map_err(|cause| {
+            LockRefused::Failed(LockError::Open {
+                lock: lock_path.clone(),
+                cause,
+            })
         })?;
         match file.try_lock() {
             Ok(()) => Ok(Self { _file: file }),
             Err(std::fs::TryLockError::WouldBlock) => Err(LockRefused::Held),
-            Err(std::fs::TryLockError::Error(e)) => Err(LockRefused::Failed(format!(
-                "could not lock {}: {e}",
-                lock_path.display()
-            ))),
+            Err(std::fs::TryLockError::Error(cause)) => Err(LockRefused::Failed(LockError::Lock {
+                lock: lock_path,
+                cause,
+            })),
         }
     }
 }
@@ -251,32 +251,27 @@ pub struct StateFile {
 
 impl StateFile {
     /// Claim `path` for this watcher, refusing it if another watcher has it.
-    pub fn claim(path: PathBuf) -> Result<Self, String> {
+    pub fn claim(path: PathBuf) -> Result<Self, AgentFileError> {
         match FileLock::take(&path) {
             Ok(lock) => Ok(Self { path, _lock: lock }),
-            Err(LockRefused::Held) => Err(format!(
-                "state file {} is in use by another kkt watch; stop that one, or give each watcher its own --state-file",
-                path.display()
-            )),
-            Err(LockRefused::Failed(cause)) => Err(format!(
-                "could not claim state file {}: {cause}",
-                path.display()
-            )),
+            Err(LockRefused::Held) => Err(AgentFileError::StateInUse { path }),
+            Err(LockRefused::Failed(cause)) => Err(AgentFileError::NotClaimed { path, cause }),
         }
     }
 }
 
 impl StateFile {
     /// Reads the highest seen ID, or None for a missing or empty state file.
-    pub fn load(&self) -> Result<Option<i64>, String> {
+    pub fn load(&self) -> Result<Option<i64>, AgentFileError> {
         let text = match std::fs::read_to_string(&self.path) {
             Ok(text) => text,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(e) => {
-                return Err(format!(
-                    "could not read state file {}: {e}",
-                    self.path.display()
-                ));
+            Err(cause) => {
+                return Err(AgentFileError::State {
+                    action: StateAction::Read,
+                    path: self.path.clone(),
+                    cause,
+                });
             }
         };
         let text = text.trim();
@@ -284,22 +279,23 @@ impl StateFile {
         if text.is_empty() {
             return Ok(None);
         }
-        text.parse().map(Some).map_err(|_| {
-            format!(
-                "state file {} does not hold a message ID; remove it to start after the latest message",
-                self.path.display()
-            )
+        text.parse().map(Some).map_err(|_| AgentFileError::NotAnId {
+            path: self.path.clone(),
         })
     }
 
     /// Writes the ID beside the state file, then renames it into place.
-    pub fn save(&self, id: i64) -> Result<(), String> {
+    pub fn save(&self, id: i64) -> Result<(), AgentFileError> {
         // Written beside it and renamed, so a stop halfway leaves the old ID.
         let mut temporary = self.path.clone().into_os_string();
         temporary.push(".tmp");
         std::fs::write(&temporary, format!("{id}\n"))
             .and_then(|()| std::fs::rename(&temporary, &self.path))
-            .map_err(|e| format!("could not write state file {}: {e}", self.path.display()))
+            .map_err(|cause| AgentFileError::State {
+                action: StateAction::Write,
+                path: self.path.clone(),
+                cause,
+            })
     }
 }
 
@@ -316,7 +312,7 @@ mod lock_tests {
         fn remove_before_open(
             path: &Path,
             _: CredentialFileFacts,
-        ) -> Result<Option<PrivateMode>, String> {
+        ) -> Result<Option<PrivateMode>, Box<dyn Error + Send + Sync>> {
             CHECKS.fetch_add(1, Ordering::SeqCst);
             std::fs::remove_file(path).expect("remove before open");
             Ok(None)
@@ -324,7 +320,7 @@ mod lock_tests {
         fn refuse_opened_handle(
             _: &Path,
             _: CredentialFileFacts,
-        ) -> Result<Option<PrivateMode>, String> {
+        ) -> Result<Option<PrivateMode>, Box<dyn Error + Send + Sync>> {
             if CHECKS.fetch_add(1, Ordering::SeqCst) == 0 {
                 Ok(None)
             } else {
@@ -339,7 +335,8 @@ mod lock_tests {
         let path = dir.join("credential");
         std::fs::write(&path, "private-credential").expect("write");
         let error = read_secret(&path, remove_before_open, no_warning)
-            .expect_err("file removed before open");
+            .expect_err("file removed before open")
+            .to_string();
         assert!(
             error.starts_with("could not open credential file"),
             "{error}"
@@ -350,10 +347,165 @@ mod lock_tests {
         // Reading this as text would fail: the second check must win first.
         std::fs::write(&path, b"private-credential\xff").expect("write");
         assert_eq!(
-            read_secret(&path, refuse_opened_handle, no_warning),
+            read_secret(&path, refuse_opened_handle, no_warning).map_err(|e| e.to_string()),
             Err("the opened handle was refused".into())
         );
         assert_eq!(CHECKS.load(Ordering::SeqCst), 2);
+    }
+
+    /// Every message kkt-agent-files words that a test can cause without
+    /// root, pinned exactly: kkt's words around the system's own cause,
+    /// which each case gets by doing the same thing itself.
+    #[test]
+    fn every_agent_file_message_says_what_it_always_said() {
+        fn allow(
+            _: &Path,
+            _: CredentialFileFacts,
+        ) -> Result<Option<PrivateMode>, Box<dyn Error + Send + Sync>> {
+            Ok(None)
+        }
+        fn quiet(_: &str) {}
+        fn kept(_: &Path, _: &io::Error) {}
+        let dir = kkt_scratch::Dir::new("agent-file-messages");
+
+        // A credential file that is already there is not replaced.
+        let taken = dir.join("taken");
+        std::fs::write(&taken, "old").expect("write");
+        let cause = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&taken)
+            .expect_err("there");
+        assert_eq!(
+            CredentialFile::create(taken.clone(), kept)
+                .err()
+                .expect("there")
+                .to_string(),
+            format!(
+                "could not create credential file {}: {cause}",
+                taken.display()
+            )
+        );
+
+        // A missing token file cannot be inspected.
+        let missing = dir.join("missing");
+        let cause = std::fs::metadata(&missing).expect_err("missing");
+        #[cfg(unix)]
+        let verb = "inspect";
+        #[cfg(not(unix))]
+        let verb = "open";
+        assert_eq!(
+            watch_token(Some(&missing), allow, quiet).map_err(|e| e.to_string()),
+            Err(format!(
+                "could not {verb} credential file {}: {cause}",
+                missing.display()
+            ))
+        );
+
+        // A token file that is not text cannot be read.
+        let binary = dir.join("binary");
+        std::fs::write(&binary, b"token\xff").expect("write");
+        let cause = std::fs::read_to_string(&binary).expect_err("not text");
+        assert_eq!(
+            watch_token(Some(&binary), allow, quiet).map_err(|e| e.to_string()),
+            Err(format!(
+                "could not read credential file {}: {cause}",
+                binary.display()
+            ))
+        );
+
+        // An empty token.
+        let empty = dir.join("empty");
+        std::fs::write(&empty, " \n").expect("write");
+        assert_eq!(
+            watch_token(Some(&empty), allow, quiet).map_err(|e| e.to_string()),
+            Err("the agent's token is empty".to_string())
+        );
+
+        // A claimed state file.
+        let state = dir.join("state");
+        let _first = StateFile::claim(state.clone()).expect("first claim");
+        assert_eq!(
+            StateFile::claim(state.clone())
+                .err()
+                .expect("second claim")
+                .to_string(),
+            format!(
+                "state file {} is in use by another kkt watch; stop that one, or give each watcher its own --state-file",
+                state.display()
+            )
+        );
+
+        // A state file whose lock cannot be made: its folder is a file.
+        let under_file = taken.join("state");
+        let lock = taken.join("state.lock");
+        let cause = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&lock)
+            .expect_err("not a folder");
+        assert_eq!(
+            StateFile::claim(under_file.clone())
+                .err()
+                .expect("no lock")
+                .to_string(),
+            format!(
+                "could not claim state file {}: could not open lock file {}: {cause}",
+                under_file.display(),
+                lock.display()
+            )
+        );
+
+        // A state file that holds no ID.
+        std::fs::write(&state, "not an id").expect("write");
+        let claimed = StateFile::claim(dir.join("other"))
+            .map(|mut file| {
+                file.path = state.clone();
+                file
+            })
+            .expect("claim");
+        assert_eq!(
+            claimed.load().map_err(|e| e.to_string()),
+            Err(format!(
+                "state file {} does not hold a message ID; remove it to start after the latest message",
+                state.display()
+            ))
+        );
+
+        // A state file that cannot be read: it is a folder.
+        let folder = dir.join("folder");
+        std::fs::create_dir(&folder).expect("folder");
+        let cause = std::fs::read_to_string(&folder).expect_err("a folder");
+        let claimed = StateFile::claim(dir.join("third"))
+            .map(|mut file| {
+                file.path = folder.clone();
+                file
+            })
+            .expect("claim");
+        assert_eq!(
+            claimed.load().map_err(|e| e.to_string()),
+            Err(format!(
+                "could not read state file {}: {cause}",
+                folder.display()
+            ))
+        );
+
+        // A state file that cannot be written: its folder is a file.
+        let cause = std::fs::write(taken.join("x.tmp"), "1\n").expect_err("not a folder");
+        let claimed = StateFile::claim(dir.join("fourth"))
+            .map(|mut file| {
+                file.path = taken.join("x");
+                file
+            })
+            .expect("claim");
+        assert_eq!(
+            claimed.save(1).map_err(|e| e.to_string()),
+            Err(format!(
+                "could not write state file {}: {cause}",
+                taken.join("x").display()
+            ))
+        );
     }
 
     #[test]
@@ -372,7 +524,10 @@ mod lock_tests {
         let dir = kkt_scratch::Dir::new("state-file-claim");
         let path = dir.join("state");
         let _first = StateFile::claim(path.clone()).expect("first claim");
-        let error = StateFile::claim(path.clone()).err().expect("second claim");
+        let error = StateFile::claim(path.clone())
+            .err()
+            .expect("second claim")
+            .to_string();
         assert!(error.contains(&path.display().to_string()), "{error}");
         assert!(error.contains("in use by another kkt watch"), "{error}");
     }

@@ -59,10 +59,9 @@ pub enum ClientConfigError {
     /// The access key the config would hold is not a valid key.
     #[error("{0}")]
     Key(#[from] kkt_keys::SettingError),
-    /// The client's own command failed. The text is the `ClientCommand`
-    /// contract's; typing that contract is a later step.
-    #[error("{0}")]
-    Command(String),
+    /// The client's own command failed.
+    #[error(transparent)]
+    Command(crate::CommandError),
     /// The client has no setting that allows kkt's tools.
     #[error(
         "{} has no setting that allows one MCP server's tools or one command, so it still asks before each",

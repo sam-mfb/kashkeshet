@@ -4,25 +4,50 @@
 //! one before leaves the answer open. The caller supplies the reads, in
 //! three parts, and each finder takes only the parts it reads.
 
+use super::places::KeyPlaceError;
 use super::places::{
     Here, KeyKind, KeyPlace, KeysOff, ServerKeys, UnfinishedSetup, configured_key, operator_key,
     recorded_key,
 };
 use std::path::PathBuf;
 
+/// Why one of the reads a key finder makes failed: the reader's own error,
+/// passed on unread.
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct KeyReadError(pub Box<dyn std::error::Error + Send + Sync>);
+
+/// Why a key could not be found: which read failed, or why where it is
+/// could not be said.
+#[derive(Debug, thiserror::Error)]
+pub enum FindKeyError {
+    /// The setup record could not be read.
+    #[error(transparent)]
+    Record(KeyReadError),
+    /// The serve config could not be read.
+    #[error(transparent)]
+    Config(KeyReadError),
+    /// The note of an unfinished setup could not be read.
+    #[error(transparent)]
+    Unfinished(KeyReadError),
+    /// Where the key is could not be said.
+    #[error(transparent)]
+    Place(KeyPlaceError),
+}
+
 /// The read of this machine's setup record, for the server it names. Each
 /// read is made when the one before it leaves the answer open, so the
 /// order is part of the behavior.
 pub trait RecordedServerRead {
     /// The server this machine's setup record names, if there is a record.
-    fn recorded(&self) -> Result<Option<ServerKeys>, String>;
+    fn recorded(&self) -> Result<Option<ServerKeys>, KeyReadError>;
 }
 
 /// The serve config's reads that finding a key beside its access key makes.
 pub trait ServeConfigReads {
     /// The access key file the serve config names; `None` when it turns
     /// keys off.
-    fn configured_access(&self) -> Result<Option<PathBuf>, String>;
+    fn configured_access(&self) -> Result<Option<PathBuf>, KeyReadError>;
     /// kkt's config directory; not a read of any file.
     fn config_dir(&self) -> Option<PathBuf>;
 }
@@ -30,7 +55,7 @@ pub trait ServeConfigReads {
 /// The reads of a server here that has no record.
 pub trait UnrecordedReads {
     /// The note of an unfinished setup, if its install is still here.
-    fn unfinished(&self) -> Result<Option<UnfinishedSetup>, String>;
+    fn unfinished(&self) -> Result<Option<UnfinishedSetup>, KeyReadError>;
     /// A server installed with no record, or `None` when there is none or
     /// it cannot be made out (the reader says why, if it says anything).
     fn unrecorded(&self) -> Option<ServerKeys>;
@@ -47,15 +72,15 @@ pub fn find_key<R: RecordedServerRead + ServeConfigReads + UnrecordedReads + ?Si
     reads: &R,
     path: Option<PathBuf>,
     kind: KeyKind,
-) -> Result<Option<PathBuf>, String> {
+) -> Result<Option<PathBuf>, FindKeyError> {
     if let Some(path) = path {
         return Ok(Some(path));
     }
-    if let Some(server) = reads.recorded()? {
-        return recorded_key(&server, kind);
+    if let Some(server) = reads.recorded().map_err(FindKeyError::Record)? {
+        return recorded_key(&server, kind).map_err(FindKeyError::Place);
     }
     if kind.looks_past_record() {
-        let found = match reads.unfinished()? {
+        let found = match reads.unfinished().map_err(FindKeyError::Unfinished)? {
             Some(unfinished) => find_operator_key(reads, Some(&unfinished), None, kind)?,
             None => match reads.unrecorded() {
                 Some(unrecorded) => find_operator_key(reads, None, Some(&unrecorded), kind)?,
@@ -66,7 +91,15 @@ pub fn find_key<R: RecordedServerRead + ServeConfigReads + UnrecordedReads + ?Si
             return Ok(Some(path));
         }
     }
-    configured_key(reads.configured_access()?.as_deref(), kind, KeysOff::Refuse)
+    configured_key(
+        reads
+            .configured_access()
+            .map_err(FindKeyError::Config)?
+            .as_deref(),
+        kind,
+        KeysOff::Refuse,
+    )
+    .map_err(FindKeyError::Place)
 }
 
 /// Where this machine's key of `kind` is: reads the record, then, only if
@@ -76,20 +109,27 @@ pub fn find_operator_key<R: RecordedServerRead + ServeConfigReads + ?Sized>(
     unfinished: Option<&UnfinishedSetup>,
     unrecorded: Option<&ServerKeys>,
     kind: KeyKind,
-) -> Result<Option<PathBuf>, String> {
-    let recorded = reads.recorded()?;
+) -> Result<Option<PathBuf>, FindKeyError> {
+    let recorded = reads.recorded().map_err(FindKeyError::Record)?;
     let place = operator_key(
         recorded.as_ref(),
         unfinished,
         unrecorded,
         reads.config_dir().as_deref(),
         kind,
-    )?;
+    )
+    .map_err(FindKeyError::Place)?;
     match place {
         KeyPlace::Known(path) => Ok(path),
-        KeyPlace::Configured => {
-            configured_key(reads.configured_access()?.as_deref(), kind, KeysOff::NoKey)
-        }
+        KeyPlace::Configured => configured_key(
+            reads
+                .configured_access()
+                .map_err(FindKeyError::Config)?
+                .as_deref(),
+            kind,
+            KeysOff::NoKey,
+        )
+        .map_err(FindKeyError::Place),
     }
 }
 
@@ -98,11 +138,11 @@ pub fn find_operator_key<R: RecordedServerRead + ServeConfigReads + ?Sized>(
 /// if the one before is not there.
 pub fn find_here<R: RecordedServerRead + UnrecordedReads + ?Sized>(
     reads: &R,
-) -> Result<Here, String> {
-    if let Some(server) = reads.recorded()? {
+) -> Result<Here, FindKeyError> {
+    if let Some(server) = reads.recorded().map_err(FindKeyError::Record)? {
         return Ok(Here::Recorded(server));
     }
-    if let Some(unfinished) = reads.unfinished()? {
+    if let Some(unfinished) = reads.unfinished().map_err(FindKeyError::Unfinished)? {
         return Ok(Here::Unfinished(unfinished));
     }
     Ok(match reads.unrecorded() {
@@ -147,7 +187,7 @@ mod tests {
     }
 
     impl RecordedServerRead for Scripted {
-        fn recorded(&self) -> Result<Option<ServerKeys>, String> {
+        fn recorded(&self) -> Result<Option<ServerKeys>, KeyReadError> {
             self.log.borrow_mut().push("setup");
             Ok(self
                 .setups
@@ -158,7 +198,7 @@ mod tests {
     }
 
     impl ServeConfigReads for Scripted {
-        fn configured_access(&self) -> Result<Option<PathBuf>, String> {
+        fn configured_access(&self) -> Result<Option<PathBuf>, KeyReadError> {
             self.log.borrow_mut().push("config");
             Ok(self.access.clone())
         }
@@ -169,7 +209,7 @@ mod tests {
     }
 
     impl UnrecordedReads for Scripted {
-        fn unfinished(&self) -> Result<Option<UnfinishedSetup>, String> {
+        fn unfinished(&self) -> Result<Option<UnfinishedSetup>, KeyReadError> {
             self.log.borrow_mut().push("unfinished");
             Ok(self.unfinished.clone())
         }
@@ -178,6 +218,30 @@ mod tests {
             self.log.borrow_mut().push("unrecorded");
             self.unrecorded.clone()
         }
+    }
+
+    /// [`super::find_key`], with its error as the text a person sees.
+    fn find_key(
+        reads: &Scripted,
+        path: Option<PathBuf>,
+        kind: KeyKind,
+    ) -> Result<Option<PathBuf>, String> {
+        super::find_key(reads, path, kind).map_err(|e| e.to_string())
+    }
+
+    /// [`super::find_operator_key`], with its error as text.
+    fn find_operator_key(
+        reads: &Scripted,
+        unfinished: Option<&UnfinishedSetup>,
+        unrecorded: Option<&ServerKeys>,
+        kind: KeyKind,
+    ) -> Result<Option<PathBuf>, String> {
+        super::find_operator_key(reads, unfinished, unrecorded, kind).map_err(|e| e.to_string())
+    }
+
+    /// [`super::find_here`], with its error as text.
+    fn find_here(reads: &Scripted) -> Result<Here, String> {
+        super::find_here(reads).map_err(|e| e.to_string())
     }
 
     /// How an unfinished setup was going to deploy the server.

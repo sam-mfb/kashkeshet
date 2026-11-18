@@ -93,7 +93,7 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
             let name = match texts.admin_names().map_err(KeyRefusal::Text)? {
                 None => None,
                 Some(names) => bound_in(&names, &key.text, MAX_ADMIN_NAME_CHARS)
-                    .map_err(KeyRefusal::AdminName)?,
+                    .map_err(|e| KeyRefusal::AdminName(e.to_string()))?,
             };
             (Some(shared), name)
         }

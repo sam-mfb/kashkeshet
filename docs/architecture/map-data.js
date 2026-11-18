@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "83794822",
+ "commit": "34a07a3e",
  "crates": [
   {
    "bins": [
@@ -2152,6 +2152,34 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
+     "doc": "Why a credential or state file could not be used.",
+     "kind": "enum",
+     "path": "AgentFileError",
+     "variants": [
+      "Credential",
+      "NotPrivate",
+      "Refused",
+      "NoToken",
+      "EmptyToken",
+      "StateInUse",
+      "NotClaimed",
+      "State",
+      "NotAnId"
+     ]
+    },
+    {
+     "doc": "What was being done to a credential file when it failed.",
+     "kind": "enum",
+     "path": "CredentialAction",
+     "variants": [
+      "Create",
+      "Save",
+      "Inspect",
+      "Open",
+      "Read"
+     ]
+    },
+    {
      "doc": "The caller's rule over the path and named file/caller facts.",
      "kind": "type",
      "path": "CredentialCheck"
@@ -2176,6 +2204,15 @@ window.KKT_GRAPH = {
      "path": "CredentialFileFacts"
     },
     {
+     "doc": "Why a state file's lock could not be taken, other than another holder.",
+     "kind": "enum",
+     "path": "LockError",
+     "variants": [
+      "Open",
+      "Lock"
+     ]
+    },
+    {
      "doc": "Why a `FileLock` was not taken.",
      "kind": "enum",
      "path": "LockRefused",
@@ -2193,6 +2230,15 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "PrivateMode"
+    },
+    {
+     "doc": "What was being done to a state file when it failed.",
+     "kind": "enum",
+     "path": "StateAction",
+     "variants": [
+      "Read",
+      "Write"
+     ]
     },
     {
      "doc": "`kkt watch --state-file`: the highest message ID seen, as text.",
@@ -2244,7 +2290,8 @@ window.KKT_GRAPH = {
    "slots": [],
    "testing_third_party": [],
    "third_party": [
-    "libc"
+    "libc",
+    "thiserror"
    ]
   },
   {
@@ -6680,6 +6727,34 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
+     "doc": "The admin key's place is the access key's file.",
+     "kind": "struct",
+     "path": "AdminKeyCollision"
+    },
+    {
+     "doc": "The admin key's name file could not be used: kkt-keys says what is wrong with it, after the setting it is.",
+     "kind": "struct",
+     "path": "AdminNameLineError"
+    },
+    {
+     "doc": "Why a service's server could not listen on its address, and where to set another: `config_file`, the config file that sets `bind`, if there is one.",
+     "kind": "enum",
+     "path": "BindError",
+     "variants": [
+      "InUse",
+      "CannotListen"
+     ]
+    },
+    {
+     "doc": "What `kkt key create` refuses before it writes anything.",
+     "kind": "enum",
+     "path": "CreateRefusal",
+     "variants": [
+      "InDocker",
+      "NameWithoutAdmin"
+     ]
+    },
+    {
      "doc": "How kkt is deployed on this machine.",
      "kind": "enum",
      "methods": [
@@ -6700,6 +6775,27 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "DeploymentEndpoint"
+    },
+    {
+     "doc": "Why a key could not be found: which read failed, or why where it is could not be said.",
+     "kind": "enum",
+     "path": "FindKeyError",
+     "variants": [
+      "Record",
+      "Config",
+      "Unfinished",
+      "Place"
+     ]
+    },
+    {
+     "doc": "Why `kkt serve` may not start here: where this machine's server really is.",
+     "kind": "enum",
+     "path": "GuardError",
+     "variants": [
+      "RunningService",
+      "InDocker",
+      "Client"
+     ]
     },
     {
      "doc": "What is known about the server on this machine, for telling whether it runs in Docker: in order, its record, the note of an unfinished setup, or a server found installed with no record.",
@@ -6742,6 +6838,22 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "Why where a key is could not be said.",
+     "kind": "enum",
+     "path": "KeyPlaceError",
+     "variants": [
+      "KeysOffInConfig",
+      "OnServer",
+      "KeysOffForSetup",
+      "NoHome"
+     ]
+    },
+    {
+     "doc": "Why one of the reads a key finder makes failed: the reader's own error, passed on unread.",
+     "kind": "struct",
+     "path": "KeyReadError"
+    },
+    {
      "doc": "What a key is when the serve config turns keys off.",
      "kind": "enum",
      "path": "KeysOff",
@@ -6749,6 +6861,15 @@ window.KKT_GRAPH = {
       "NoKey",
       "Refuse"
      ]
+    },
+    {
+     "doc": "The admin key was written, but its name file could not be.",
+     "fields": [
+      "names",
+      "cause"
+     ],
+     "kind": "struct",
+     "path": "NameNotWritten"
     },
     {
      "doc": "The plan for the service, before its arguments are written out.",
@@ -6978,6 +7099,19 @@ window.KKT_GRAPH = {
      "path": "connection::Connection"
     },
     {
+     "doc": "Why how a client reaches the server could not be worked out: which question asked of the `ConnectionSource` failed, with its error.",
+     "kind": "enum",
+     "path": "connection::ConnectionError",
+     "variants": [
+      "Record",
+      "Serve",
+      "DefaultKey",
+      "Key",
+      "Path",
+      "NoAdminEndpoint"
+     ]
+    },
+    {
      "doc": "Where a client command finds the server, as given: a serve config file, an address and an access key file.",
      "fields": [
       "config",
@@ -7030,6 +7164,11 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "connection::ServerAddress"
+    },
+    {
+     "doc": "Why a `ConnectionSource` could not answer: the implementation's own error, passed on unread.",
+     "kind": "struct",
+     "path": "connection::SourceError"
     },
     {
      "doc": "The local server's connection for admin tools, even when clients were switched.",
@@ -8831,6 +8970,7 @@ window.KKT_GRAPH = {
      "kind": "trait",
      "methods": [
       "read",
+      "with_allowed_host",
       "write"
      ],
      "path": "ConfigText"
@@ -8897,6 +9037,9 @@ window.KKT_GRAPH = {
      "methods": [
       "bind",
       "config",
+      "config_dir",
+      "config_file",
+      "config_file_in_home",
       "configured_access_key",
       "database",
       "default_access_key",
@@ -9560,15 +9703,6 @@ window.KKT_GRAPH = {
     },
     {
      "at": "keys::local_operator_key",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "keys::local_operator_key",
      "holds": [
       {
        "crate": "kkt-install-commands",
@@ -9664,15 +9798,6 @@ window.KKT_GRAPH = {
     },
     {
      "at": "keys::local_web_key",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "keys::local_web_key",
      "holds": [
       {
        "crate": "kkt-install-commands",
@@ -9764,15 +9889,6 @@ window.KKT_GRAPH = {
        "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
-     ]
-    },
-    {
-     "at": "lifecycle::backup",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
      ]
     },
     {
@@ -10332,15 +10448,6 @@ window.KKT_GRAPH = {
     {
      "at": "record::check_setup",
      "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "record::check_setup",
-     "kind": "param",
      "name": "files",
      "traits": [
       {
@@ -10363,6 +10470,17 @@ window.KKT_GRAPH = {
     {
      "at": "record::check_setup",
      "kind": "param",
+     "name": "serve",
+     "traits": [
+      {
+       "crate": "kkt-install-commands",
+       "trait": "ServeFacts"
+      }
+     ]
+    },
+    {
+     "at": "record::check_setup",
+     "kind": "param",
      "name": "service",
      "traits": [
       {
@@ -10374,20 +10492,22 @@ window.KKT_GRAPH = {
     {
      "at": "record::read_setup",
      "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "record::read_setup",
-     "kind": "param",
      "name": "files",
      "traits": [
       {
        "crate": "kkt-install-commands",
        "trait": "SetupFiles"
+      }
+     ]
+    },
+    {
+     "at": "record::read_setup",
+     "kind": "param",
+     "name": "serve",
+     "traits": [
+      {
+       "crate": "kkt-install-commands",
+       "trait": "ServeFacts"
       }
      ]
     },
@@ -10405,20 +10525,22 @@ window.KKT_GRAPH = {
     {
      "at": "record::read_unfinished",
      "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "record::read_unfinished",
-     "kind": "param",
      "name": "files",
      "traits": [
       {
        "crate": "kkt-install-commands",
        "trait": "SetupFiles"
+      }
+     ]
+    },
+    {
+     "at": "record::read_unfinished",
+     "kind": "param",
+     "name": "serve",
+     "traits": [
+      {
+       "crate": "kkt-install-commands",
+       "trait": "ServeFacts"
       }
      ]
     },
@@ -10688,20 +10810,22 @@ window.KKT_GRAPH = {
     {
      "at": "record::write_setup_record",
      "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "record::write_setup_record",
-     "kind": "param",
      "name": "files",
      "traits": [
       {
        "crate": "kkt-install-commands",
        "trait": "SetupFiles"
+      }
+     ]
+    },
+    {
+     "at": "record::write_setup_record",
+     "kind": "param",
+     "name": "serve",
+     "traits": [
+      {
+       "crate": "kkt-install-commands",
+       "trait": "ServeFacts"
       }
      ]
     },
@@ -11215,6 +11339,15 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "Why the name file beside an admin key could not be used.",
+     "kind": "enum",
+     "path": "AdminNameError",
+     "variants": [
+      "Unreadable",
+      "Invalid"
+     ]
+    },
+    {
      "doc": "What the name file beside an admin key says about that key.",
      "kind": "enum",
      "path": "AdminNameFile",
@@ -11222,6 +11355,30 @@ window.KKT_GRAPH = {
       "Named",
       "None",
       "OtherKey"
+     ]
+    },
+    {
+     "doc": "What was being done to a key file or its folder when it failed.",
+     "kind": "enum",
+     "path": "KeyFileAction",
+     "variants": [
+      "Create",
+      "Move",
+      "Write",
+      "Restrict"
+     ]
+    },
+    {
+     "doc": "Why a key file could not be written, worded for the person.",
+     "kind": "enum",
+     "methods": [
+      "file"
+     ],
+     "path": "KeyFileError",
+     "variants": [
+      "Exists",
+      "File",
+      "Unknown"
      ]
     },
     {
@@ -11271,6 +11428,16 @@ window.KKT_GRAPH = {
      "doc": "The exit code of `kkt key show --admin` when the server has no admin key, so a caller, such as setup asking kkt in a container, can tell that from a failure.",
      "kind": "const",
      "path": "NO_ADMIN_KEY_EXIT"
+    },
+    {
+     "doc": "What is wrong with the text of an admin name file.",
+     "kind": "enum",
+     "path": "NameFileError",
+     "variants": [
+      "Name",
+      "NoKeyHash",
+      "Extra"
+     ]
     },
     {
      "doc": "A key file that could not be read: its path and the system's reason.",
@@ -11738,6 +11905,16 @@ window.KKT_GRAPH = {
       "remove_server"
      ],
      "path": "Claude"
+    },
+    {
+     "doc": "Why Claude Code's command did not do what was asked.",
+     "kind": "enum",
+     "path": "ClaudeError",
+     "variants": [
+      "NotFound",
+      "NotRun",
+      "Failed"
+     ]
     }
    ],
    "lib": "kkt_llm_agent_command",
@@ -11752,7 +11929,9 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -11858,6 +12037,25 @@ window.KKT_GRAPH = {
       "InConfig",
       "InFile",
       "OfClient"
+     ]
+    },
+    {
+     "doc": "Why a client's own command did not do what was asked: the kind, and the implementation's own error, which says it for people.",
+     "fields": [
+      "kind",
+      "cause"
+     ],
+     "kind": "struct",
+     "path": "CommandError"
+    },
+    {
+     "doc": "How a client's own command failed, in this contract's words.",
+     "kind": "enum",
+     "path": "CommandFailure",
+     "variants": [
+      "NotInstalled",
+      "NotRun",
+      "Failed"
      ]
     },
     {
@@ -13390,6 +13588,7 @@ window.KKT_GRAPH = {
      "kind": "trait",
      "methods": [
       "config",
+      "config_dir",
       "configured_access_key",
       "database",
       "default_access_key"
@@ -13871,15 +14070,6 @@ window.KKT_GRAPH = {
     },
     {
      "at": "key::create",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "key::create",
      "holds": [
       {
        "crate": "kkt-operator-commands",
@@ -13935,15 +14125,6 @@ window.KKT_GRAPH = {
      "kind": "param",
      "name": "parts",
      "traits": []
-    },
-    {
-     "at": "key::header",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
     },
     {
      "at": "key::header",
@@ -14005,15 +14186,6 @@ window.KKT_GRAPH = {
     },
     {
      "at": "key::show",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "key::show",
      "holds": [
       {
        "crate": "kkt-operator-commands",
@@ -14069,15 +14241,6 @@ window.KKT_GRAPH = {
      "kind": "param",
      "name": "parts",
      "traits": []
-    },
-    {
-     "at": "keys::local_operator_key",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
     },
     {
      "at": "keys::local_operator_key",
@@ -14139,15 +14302,6 @@ window.KKT_GRAPH = {
     },
     {
      "at": "keys::optional_key_path",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "keys::optional_key_path",
      "holds": [
       {
        "crate": "kkt-operator-commands",
@@ -14203,15 +14357,6 @@ window.KKT_GRAPH = {
      "kind": "param",
      "name": "parts",
      "traits": []
-    },
-    {
-     "at": "keys::selected_key_path",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
     },
     {
      "at": "keys::selected_key_path",
@@ -19536,7 +19681,8 @@ window.KKT_GRAPH = {
     "files::read_instructions",
     "files::read_named",
     "files::write",
-    "parse_file"
+    "parse_file",
+    "with_allowed_host"
    ],
    "kind": "normal",
    "optional": false,
@@ -19561,7 +19707,8 @@ window.KKT_GRAPH = {
       "files::read_instructions",
       "files::read_named",
       "files::write",
-      "parse_file"
+      "parse_file",
+      "with_allowed_host"
      ],
      "role": "uses"
     }
@@ -19745,6 +19892,7 @@ window.KKT_GRAPH = {
     "connection::ConnectionSource",
     "connection::RecordedServer",
     "connection::ServeConnection",
+    "connection::SourceError",
     "connection::server_address",
     "default_db",
     "docker_folder"
@@ -19770,6 +19918,7 @@ window.KKT_GRAPH = {
       "connection::ConnectionOptions",
       "connection::RecordedServer",
       "connection::ServeConnection",
+      "connection::SourceError",
       "connection::server_address",
       "default_db",
       "docker_folder"
@@ -20034,6 +20183,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "keys::local_operator_key",
+    "record::write_setup_record",
     "service::ServicePlan",
     "service::service_plan"
    ],
@@ -20080,6 +20230,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "KeyFileAction",
+    "KeyFileError",
     "WEB_KEY_COPY_FILE_NAME",
     "bound_to"
    ],
@@ -20159,7 +20311,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Claude"
+    "Claude",
+    "ClaudeError"
    ],
    "kind": "normal",
    "optional": false,
@@ -20167,7 +20320,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Claude"
+      "Claude",
+      "ClaudeError"
      ],
      "role": "uses"
     }
@@ -20182,6 +20336,8 @@ window.KKT_GRAPH = {
    "items": [
     "Client",
     "ClientCommand",
+    "CommandError",
+    "CommandFailure",
     "ENV_FOLDERS",
     "Host"
    ],
@@ -20199,6 +20355,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Client",
+      "CommandError",
+      "CommandFailure",
       "ENV_FOLDERS"
      ],
      "role": "uses"
@@ -21391,6 +21549,7 @@ window.KKT_GRAPH = {
    "from": "kkt-agent-commands",
    "items": [
     "connection",
+    "connection::ConnectionError",
     "connection::ConnectionOptions",
     "connection::ConnectionSource",
     "connection::admin_connection",
@@ -21404,6 +21563,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "connection",
+      "connection::ConnectionError",
       "connection::ConnectionOptions",
       "connection::ConnectionSource",
       "connection::admin_connection",
@@ -21416,7 +21576,8 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "connection::RecordedServer",
-    "connection::ServeConnection"
+    "connection::ServeConnection",
+    "connection::SourceError"
    ],
    "to": "kkt-deployment"
   },
@@ -22971,6 +23132,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "ACCESS_KEY_FILE_MODE",
+    "KeyFileError",
     "testing::Memory"
    ],
    "to": "kkt-keys"
@@ -23088,6 +23250,7 @@ window.KKT_GRAPH = {
    "from": "kkt-containerized-service",
    "items": [
     "ACCESS_KEY_FILE_MODE",
+    "KeyFileError",
     "KeyFiles",
     "testing::Memory"
    ],
@@ -23097,7 +23260,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "ACCESS_KEY_FILE_MODE"
+      "ACCESS_KEY_FILE_MODE",
+      "KeyFileError"
      ],
      "role": "uses"
     },
@@ -23417,7 +23581,9 @@ window.KKT_GRAPH = {
    "items": [
     "ADMIN_KEY_COPY_FILE_NAME",
     "AccessKey",
+    "AdminNameError",
     "AdminNameFile",
+    "KeyFileError",
     "KeyFiles",
     "NEW_KEY_ALPHABET",
     "NEW_KEY_CHARS",
@@ -23436,7 +23602,9 @@ window.KKT_GRAPH = {
      "detail": [
       "ADMIN_KEY_COPY_FILE_NAME",
       "AccessKey",
+      "AdminNameError",
       "AdminNameFile",
+      "KeyFileError",
       "KeyFiles",
       "NEW_KEY_ALPHABET",
       "NEW_KEY_CHARS",
@@ -24691,33 +24859,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
-    "config_dir",
-    "config_file",
-    "config_file_in_home",
-    "with_allowed_host"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "config_dir",
-      "config_file",
-      "config_file_in_home",
-      "with_allowed_host"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-config-file"
-  },
-  {
-   "features": [],
-   "from": "kkt-install-commands",
-   "items": [
     "Folder"
    ],
    "kind": "normal",
@@ -24781,6 +24922,7 @@ window.KKT_GRAPH = {
     "Deployment",
     "DeploymentEndpoint",
     "KeyKind",
+    "KeyReadError",
     "Plan",
     "RecordedDeployment",
     "RecordedServerRead",
@@ -24835,6 +24977,7 @@ window.KKT_GRAPH = {
       "Deployment",
       "DeploymentEndpoint",
       "KeyKind",
+      "KeyReadError",
       "Plan",
       "RecordedDeployment",
       "Replace",
@@ -24876,7 +25019,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "connection::ServeConnection"
+    "connection::ServeConnection",
+    "connection::SourceError"
    ],
    "to": "kkt-deployment"
   },
@@ -25038,6 +25182,8 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "AccessKey",
+    "KeyFileAction",
+    "KeyFileError",
     "testing::Memory"
    ],
    "to": "kkt-keys"
@@ -25072,7 +25218,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "CommandError",
+    "CommandFailure"
+   ],
    "to": "kkt-llm-agent-config"
   },
   {
@@ -25369,6 +25518,8 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "AccessKey",
+    "KeyFileAction",
+    "KeyFileError",
     "KeyFiles",
     "testing::Memory"
    ],
@@ -25378,7 +25529,9 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "AccessKey"
+      "AccessKey",
+      "KeyFileAction",
+      "KeyFileError"
      ],
      "role": "uses"
     },
@@ -26033,7 +26186,8 @@ window.KKT_GRAPH = {
    "from": "kkt-keys",
    "items": [
     "AdminName",
-    "MAX_ADMIN_NAME_CHARS"
+    "MAX_ADMIN_NAME_CHARS",
+    "NameError"
    ],
    "kind": "normal",
    "optional": false,
@@ -26042,7 +26196,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AdminName",
-      "MAX_ADMIN_NAME_CHARS"
+      "MAX_ADMIN_NAME_CHARS",
+      "NameError"
      ],
      "role": "uses"
     }
@@ -26080,6 +26235,8 @@ window.KKT_GRAPH = {
    "from": "kkt-keys-os",
    "items": [
     "ACCESS_KEY_FILE_MODE",
+    "KeyFileAction",
+    "KeyFileError",
     "KeyFiles",
     "admin_name_path"
    ],
@@ -26096,6 +26253,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ACCESS_KEY_FILE_MODE",
+      "KeyFileAction",
+      "KeyFileError",
       "admin_name_path"
      ],
      "role": "uses"
@@ -26897,29 +27056,9 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operator-commands",
    "items": [
-    "config_dir"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "config_dir"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-config-file"
-  },
-  {
-   "features": [],
-   "from": "kkt-operator-commands",
-   "items": [
     "Deployment",
     "KeyKind",
+    "KeyReadError",
     "RecordedServerRead",
     "ServeConfigReads",
     "ServerKeys",
@@ -26952,6 +27091,7 @@ window.KKT_GRAPH = {
      "detail": [
       "Deployment",
       "KeyKind",
+      "KeyReadError",
       "ServerKeys",
       "UnfinishedSetup",
       "admin_key_collision",
@@ -27080,27 +27220,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-llm-agent-config"
-  },
-  {
-   "features": [],
-   "from": "kkt-operator-commands",
-   "items": [
-    "Env"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Env"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-machine"
   },
   {
    "features": [],
@@ -30576,6 +30695,31 @@ window.KKT_ASSEMBLY = {
        "param": "files"
       }
      ]
+    },
+    {
+     "crate": "kkt-install-commands",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "serve"
+      }
+     ],
+     "note": "the setup record and the note of an unfinished setup, in the config folder the serving facts name",
+     "passes_on": "the serving facts the program gave InstallParts",
+     "to": [
+      {
+       "at": "record::read_setup",
+       "param": "serve"
+      },
+      {
+       "at": "record::read_unfinished",
+       "param": "serve"
+      },
+      {
+       "at": "record::write_setup_record",
+       "param": "serve"
+      }
+     ]
     }
    ]
   },
@@ -31916,6 +32060,14 @@ window.KKT_ASSEMBLY = {
       {
        "at": "InstallParts",
        "param": "serve"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "serve"
+      },
+      {
+       "at": "record::read_setup",
+       "param": "serve"
       }
      ]
     },
@@ -32353,10 +32505,6 @@ window.KKT_ASSEMBLY = {
        "param": "env"
       },
       {
-       "at": "lifecycle::backup",
-       "param": "env"
-      },
-      {
        "at": "lifecycle::status",
        "param": "env"
       },
@@ -32370,14 +32518,6 @@ window.KKT_ASSEMBLY = {
       },
       {
        "at": "record::InstallReads::new",
-       "param": "env"
-      },
-      {
-       "at": "record::check_setup",
-       "param": "env"
-      },
-      {
-       "at": "record::read_setup",
        "param": "env"
       },
       {
@@ -32419,30 +32559,6 @@ window.KKT_ASSEMBLY = {
       {
        "at": "setup::run",
        "param": "platform"
-      }
-     ]
-    },
-    {
-     "by": "kkt-machine-os::OsMachine",
-     "crate": "kkt-operator-commands",
-     "note": "asked once at start",
-     "produces": "kkt-machine::Env",
-     "to": [
-      {
-       "at": "key::create",
-       "param": "env"
-      },
-      {
-       "at": "key::header",
-       "param": "env"
-      },
-      {
-       "at": "key::show",
-       "param": "env"
-      },
-      {
-       "at": "keys::selected_key_path",
-       "param": "env"
       }
      ]
     },

@@ -45,6 +45,16 @@ pub trait ServeFacts {
     fn default_access_key(&self) -> Option<PathBuf>;
     /// The name pack `kkt serve` uses when its settings name none.
     fn default_name_pack(&self) -> String;
+    /// kkt's config folder under the config home: where the setup record,
+    /// the note of an unfinished setup, key files and service backups are.
+    /// `None` when there is no config home.
+    fn config_dir(&self) -> Option<PathBuf>;
+    /// The default config file, in [`Self::config_dir`]; `None` when there
+    /// is no config home.
+    fn config_file(&self) -> Option<PathBuf>;
+    /// Where the default config file is, relative to a config home: for
+    /// asking a container for its own.
+    fn config_file_in_home(&self) -> PathBuf;
     fn service_settings(
         &self,
         config: Option<PathBuf>,
@@ -111,6 +121,10 @@ pub trait SetupFiles {
 pub trait ConfigText {
     fn read(&self, path: &Path) -> Result<Option<String>, String>;
     fn write(&self, path: &Path, text: &str) -> Result<(), String>;
+    /// The config file `text` with `host` added to `allow_hosts`, keeping
+    /// the rest of the file as it was; unchanged if the host is already
+    /// there. Returns why the text could not be edited as an error.
+    fn with_allowed_host(&self, text: &str, host: &str) -> Result<String, String>;
 }
 
 /// The local database chosen by the program.

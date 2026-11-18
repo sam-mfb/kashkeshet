@@ -18,7 +18,7 @@ use kkt_container_docker::Docker;
 use kkt_container_docker::testing::Scripted;
 use kkt_containerized_service::ServiceContainer;
 use kkt_containerized_service::{Browser, Containerized, Tell};
-use kkt_keys::KeyFiles;
+use kkt_keys::{KeyFileAction, KeyFileError, KeyFiles};
 use std::io;
 use std::path::Path;
 
@@ -61,21 +61,20 @@ impl Tell for Transcript {
 struct KeyCopiesOn(Scripted);
 
 impl KeyFiles for KeyCopiesOn {
-    fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
+    fn create_dir_all(&self, dir: &Path) -> Result<(), KeyFileError> {
         self.0
             .make_folder(dir)
-            .map_err(|e| format!("could not create {}: {e}", dir.display()))
+            .map_err(|e| KeyFileError::file(KeyFileAction::Create, dir, e))
     }
-    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String> {
+    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), KeyFileError> {
         if !force && self.0.has(path) {
-            return Err(format!(
-                "{} already exists; pass --force to replace it",
-                path.display()
-            ));
+            return Err(KeyFileError::Exists {
+                path: path.to_owned(),
+            });
         }
         self.0
             .write(path, &format!("{key}\n"), true)
-            .map_err(|e| format!("could not write {}: {e}", path.display()))
+            .map_err(|e| KeyFileError::file(KeyFileAction::Write, path, e))
     }
     fn read(&self, _: &Path) -> io::Result<String> {
         unreachable!("setup only writes key copies")
@@ -89,7 +88,7 @@ impl KeyFiles for KeyCopiesOn {
     fn mode(&self, _: &Path) -> io::Result<Option<u32>> {
         unreachable!("setup only writes key copies")
     }
-    fn keep_staged(&self, _: &Path, _: &Path) -> Result<(), String> {
+    fn keep_staged(&self, _: &Path, _: &Path) -> Result<(), KeyFileError> {
         unreachable!("setup only writes key copies")
     }
     fn remove(&self, _: &Path) -> io::Result<()> {

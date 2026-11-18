@@ -27,18 +27,18 @@ impl Credentials for CredentialFiles {
             );
         })
         .map(|file| Box::new(CredentialFile(file)) as Box<dyn CredentialSlot>)
-        .map_err(|said| CredentialsError(said.into()))
+        .map_err(|e| CredentialsError(Box::new(e)))
     }
 
     fn token(&self, file: Option<&Path>) -> Result<String, CredentialsError> {
         kkt_agent_files::watch_token(file, credential_check, private_warning)
-            .map_err(|said| CredentialsError(said.into()))
+            .map_err(|e| CredentialsError(Box::new(e)))
     }
 
     fn claim_state(&self, path: PathBuf) -> Result<Box<dyn watch::Place>, CredentialsError> {
         kkt_agent_files::StateFile::claim(path)
             .map(|file| Box::new(StateFile(file)) as Box<dyn watch::Place>)
-            .map_err(|said| CredentialsError(said.into()))
+            .map_err(|e| CredentialsError(Box::new(e)))
     }
 }
 
@@ -49,14 +49,14 @@ impl CredentialSlot for CredentialFile {
     fn save(&mut self, secret: &str) -> Result<(), CredentialsError> {
         self.0
             .save(secret)
-            .map_err(|said| CredentialsError(said.into()))
+            .map_err(|e| CredentialsError(Box::new(e)))
     }
 }
 
 fn credential_check(
     path: &Path,
     facts: kkt_agent_files::CredentialFileFacts,
-) -> Result<Option<kkt_agent_files::PrivateMode>, String> {
+) -> Result<Option<kkt_agent_files::PrivateMode>, Box<dyn std::error::Error + Send + Sync>> {
     let quoted = diagnostics::shell_word(&path.to_string_lossy());
     kkt_agent_commands::credential_file_check(
         path,
@@ -65,7 +65,7 @@ fn credential_check(
         facts.mode,
         facts.caller_uid,
     )
-    .map_err(|e| e.to_string())
+    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     .map(|fix| {
         fix.map(|fix| kkt_agent_files::PrivateMode {
             mode: fix.mode,
@@ -84,12 +84,10 @@ struct StateFile(kkt_agent_files::StateFile);
 
 impl watch::Place for StateFile {
     fn load(&self) -> Result<Option<i64>, watch::PlaceError> {
-        self.0.load().map_err(|said| watch::PlaceError(said.into()))
+        self.0.load().map_err(|e| watch::PlaceError(Box::new(e)))
     }
     fn save(&self, id: i64) -> Result<(), watch::PlaceError> {
-        self.0
-            .save(id)
-            .map_err(|said| watch::PlaceError(said.into()))
+        self.0.save(id).map_err(|e| watch::PlaceError(Box::new(e)))
     }
 }
 

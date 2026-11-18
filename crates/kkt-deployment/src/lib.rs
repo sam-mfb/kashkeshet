@@ -22,14 +22,15 @@ mod service_plan;
 mod tests;
 mod upgrade;
 
-pub use bind::check_bind;
-pub use guard::guard;
+pub use bind::{BindError, check_bind};
+pub use guard::{GuardError, guard};
 pub use keys::{
-    Here, KeyKind, KeyPlace, KeysOff, RecordedServerRead, ServeConfigReads, ServerKeys,
-    UnfinishedSetup, UnrecordedReads, admin_key_collision, admin_name_line, admin_name_written,
-    configured_key, create_asks_for_docker, create_checks, create_destination_check,
-    docker_key_copies, find_here, find_key, find_operator_key, new_key_file, operator_key,
-    recorded_key,
+    AdminKeyCollision, AdminNameLineError, CreateRefusal, FindKeyError, Here, KeyKind, KeyPlace,
+    KeyPlaceError, KeyReadError, KeysOff, NameNotWritten, RecordedServerRead, ServeConfigReads,
+    ServerKeys, UnfinishedSetup, UnrecordedReads, admin_key_collision, admin_name_line,
+    admin_name_written, configured_key, create_asks_for_docker, create_checks,
+    create_destination_check, docker_key_copies, find_here, find_key, find_operator_key,
+    new_key_file, operator_key, recorded_key,
 };
 pub use lifecycle::{
     Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,

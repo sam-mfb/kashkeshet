@@ -1155,6 +1155,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-scratch",
  "libc",
+ "thiserror",
 ]
 
 [[package]]
@@ -1445,7 +1446,6 @@ dependencies = [
  "kkt-backup",
  "kkt-bare-service",
  "kkt-clock",
- "kkt-config-file",
  "kkt-container",
  "kkt-containerized-service",
  "kkt-deployment",
@@ -1527,6 +1527,9 @@ dependencies = [
 [[package]]
 name = "kkt-llm-agent-command"
 version = "0.10.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "kkt-llm-agent-config"
@@ -1610,13 +1613,11 @@ dependencies = [
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-clock",
- "kkt-config-file",
  "kkt-deployment",
  "kkt-entropy",
  "kkt-keys",
  "kkt-lane-files",
  "kkt-llm-agent-config",
- "kkt-machine",
  "kkt-names",
  "kkt-rules",
  "tokio",
