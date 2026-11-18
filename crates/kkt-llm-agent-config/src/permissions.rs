@@ -7,6 +7,7 @@
 //! file is backed up before it changes, and allowing again adds nothing
 //! twice.
 
+use super::error::{ClientConfigError, Folder, Shape};
 use super::formats::{object, parse_json, parse_toml};
 use super::order;
 use super::{Client, Host, files};
@@ -100,7 +101,7 @@ impl Client {
 /// what it did, for people. For Codex, kkt must be connected first, since
 /// the setting goes in its server entry. A client with no such setting
 /// ([`Client::can_allow_kkt`]) is an error saying so.
-pub fn allow_kkt(client: Client, env: &Env, host: &dyn Host) -> Result<String, String> {
+pub fn allow_kkt(client: Client, env: &Env, host: &dyn Host) -> Result<String, ClientConfigError> {
     let source = client.source(env);
     let changes = match client {
         Client::ClaudeCode => {
@@ -116,7 +117,7 @@ pub fn allow_kkt(client: Client, env: &Env, host: &dyn Host) -> Result<String, S
             let path = client.file(env, host)?;
             let rules = path
                 .parent()
-                .ok_or("the Codex config has no folder")?
+                .ok_or(ClientConfigError::NoFolder(Folder::CodexConfig))?
                 .join(CODEX_RULES_DIR)
                 .join(CODEX_KKT_RULES);
             vec![
@@ -135,11 +136,7 @@ pub fn allow_kkt(client: Client, env: &Env, host: &dyn Host) -> Result<String, S
             })?]
         }
         Client::MuseCode => {
-            return Err(format!(
-                "{} has no setting that allows one MCP server's tools or one command, so it \
-                 still asks before each",
-                client.display_name()
-            ));
+            return Err(ClientConfigError::NoAllowSetting { client });
         }
     };
     let paths = |changed: bool| {
@@ -180,10 +177,8 @@ pub fn allow_kkt(client: Client, env: &Env, host: &dyn Host) -> Result<String, S
     Ok(out)
 }
 
-fn home(env: &Env) -> Result<&Path, String> {
-    env.home
-        .as_deref()
-        .ok_or_else(|| "set HOME to find the client's config".to_string())
+fn home(env: &Env) -> Result<&Path, ClientConfigError> {
+    env.home.as_deref().ok_or(ClientConfigError::NoHome)
 }
 
 /// What a file needs: its new text, `None` when it needs no change, and
@@ -218,15 +213,19 @@ fn apply(
     host: &dyn Host,
     path: &Path,
     source: &str,
-    change: impl FnOnce(Option<&str>) -> Result<Change, String>,
-) -> Result<Done, String> {
-    let from = |error: String| format!("{}: {error} (from {source})", path.display());
-    let original = files::read(host, path).map_err(|e| format!("{e} (from {source})"))?;
-    let Change { text, kept } = change(original.as_deref()).map_err(from)?;
+    change: impl FnOnce(Option<&str>) -> Result<Change, ClientConfigError>,
+) -> Result<Done, ClientConfigError> {
+    let original = files::read(host, path).map_err(|e| e.with_setting(source))?;
+    let Change { text, kept } =
+        change(original.as_deref()).map_err(|error| ClientConfigError::InFile {
+            path: path.to_path_buf(),
+            setting: source.to_string(),
+            error: Box::new(error),
+        })?;
     let changed = match text {
         Some(updated) => {
             files::replace(host, path, original.as_deref(), &updated)
-                .map_err(|e| format!("{e} (from {source})"))?;
+                .map_err(|e| e.with_setting(source))?;
             true
         }
         None => false,
@@ -245,7 +244,7 @@ fn json_change(
     before: &Value,
     document: &Value,
     kept: Vec<String>,
-) -> Result<Change, String> {
+) -> Result<Change, ClientConfigError> {
     let text = match before == document {
         true => None,
         false => Some(order::pretty(text, document)?),
@@ -261,7 +260,7 @@ fn shown(value: &Value) -> String {
     }
 }
 
-fn json_or_empty(text: Option<&str>) -> Result<Value, String> {
+fn json_or_empty(text: Option<&str>) -> Result<Value, ClientConfigError> {
     match text {
         Some(text) => parse_json(text),
         None => Ok(json!({})),
@@ -272,7 +271,7 @@ fn json_or_empty(text: Option<&str>) -> Result<Value, String> {
 /// Claude Code and the Antigravity CLI keep. A rule the person also lists
 /// under `permissions.deny` or `permissions.ask` is reported as kept, since
 /// that list still applies.
-fn allow_list(text: Option<&str>, rules: &[&str]) -> Result<Change, String> {
+fn allow_list(text: Option<&str>, rules: &[&str]) -> Result<Change, ClientConfigError> {
     let original = json_or_empty(text)?;
     let mut kept = Vec::new();
     for list in ["deny", "ask"] {
@@ -297,7 +296,7 @@ fn allow_list(text: Option<&str>, rules: &[&str]) -> Result<Change, String> {
         .entry("allow")
         .or_insert_with(|| json!([]))
         .as_array_mut()
-        .ok_or("permissions.allow must be a list")?;
+        .ok_or(ClientConfigError::Malformed(Shape::AllowNotList))?;
     for rule in rules {
         if !allow.iter().any(|r| r.as_str() == Some(rule)) {
             allow.push(json!(rule));
@@ -309,18 +308,17 @@ fn allow_list(text: Option<&str>, rules: &[&str]) -> Result<Change, String> {
 /// Sets Codex to approve every tool of the kkt server, in its entry, which
 /// must exist: a server entry with only this setting would stop Codex
 /// from starting. An approval mode the entry has already is kept.
-fn codex_config(text: Option<&str>) -> Result<Change, String> {
-    let missing = || "Codex has no kkt server here; connect it first".to_string();
-    let text = text.ok_or_else(missing)?;
-    let mut document = parse_toml(text)
-        .map_err(|e| format!("invalid Codex TOML; the file was not changed: {e}"))?;
+fn codex_config(text: Option<&str>) -> Result<Change, ClientConfigError> {
+    let text = text.ok_or(ClientConfigError::NotConnected)?;
+    let mut document =
+        parse_toml(text).map_err(|e| ClientConfigError::Malformed(Shape::TomlUnchanged(e)))?;
     let mut entry = document
         .table_mut(&["mcp_servers", SERVER], IfMissing::Refuse)
         .map_err(|e| match e {
             EditError::NotATable { path } if path.len() == 2 => {
-                "mcp_servers.kkt must be a TOML table".to_string()
+                ClientConfigError::Malformed(Shape::KktNotTable)
             }
-            _ => missing(),
+            _ => ClientConfigError::NotConnected,
         })?;
     let (name, approve) = CODEX_APPROVAL;
     if let Some(mode) = entry.find(name) {
@@ -367,7 +365,7 @@ fn codex_rules(text: Option<&str>) -> Change {
 /// `<server>_<tool>`; the shell's is `shell`, called `bash` in
 /// `permission`. A rule already there for the same action and resource,
 /// whatever its effect, is kept, and none is added beside it.
-fn opencode(text: Option<&str>) -> Result<Change, String> {
+fn opencode(text: Option<&str>) -> Result<Change, ClientConfigError> {
     let original = json_or_empty(text)?;
     let mut document = original.clone();
     let mut kept = Vec::new();
@@ -375,7 +373,7 @@ fn opencode(text: Option<&str>) -> Result<Change, String> {
     if let Some(list) = root.get_mut("permissions") {
         let list = list
             .as_array_mut()
-            .ok_or("permissions must be a list of rules")?;
+            .ok_or(ClientConfigError::Malformed(Shape::PermissionsNotList))?;
         let shell = ("shell".to_string(), OPENCODE_SHELL.to_string());
         let tools = KKT_AGENT_TOOLS
             .iter()
@@ -409,7 +407,7 @@ fn opencode(text: Option<&str>) -> Result<Change, String> {
         *bash = json!({"*": every_command});
     }
     let shell = object(bash)
-        .map_err(|_| "permission.bash must be a word or an object".to_string())?
+        .map_err(|_| ClientConfigError::Malformed(Shape::BashNotWordOrObject))?
         .entry(OPENCODE_SHELL)
         .or_insert_with(|| json!("allow"));
     if shell != "allow" {
@@ -453,7 +451,9 @@ mod tests {
             })
         );
         assert_eq!(
-            allow_list(Some(&after), &CLAUDE_RULES).map(|c| c.text),
+            allow_list(Some(&after), &CLAUDE_RULES)
+                .map(|c| c.text)
+                .map_err(|e| e.to_string()),
             Ok(None)
         );
     }
@@ -496,7 +496,12 @@ mod tests {
              default_tools_approval_mode = \"approve\"\n\n\
              [mcp_servers.kkt-admin]\nurl = \"http://a/mcp-admin\"\n"
         );
-        assert_eq!(codex_config(Some(&after)).map(|c| c.text), Ok(None));
+        assert_eq!(
+            codex_config(Some(&after))
+                .map(|c| c.text)
+                .map_err(|e| e.to_string()),
+            Ok(None)
+        );
     }
 
     #[test]
@@ -506,7 +511,7 @@ mod tests {
             Some("model = \"o3\"\n"),
             Some("[mcp_servers.other]\nurl = \"x\"\n"),
         ] {
-            let error = codex_config(text).expect_err("no kkt server");
+            let error = codex_config(text).expect_err("no kkt server").to_string();
             assert!(error.contains("connect it first"), "{error}");
         }
     }
@@ -517,7 +522,11 @@ mod tests {
     /// level.
     #[test]
     fn codex_reports_a_kept_mode_and_refuses_each_level_as_before() {
-        let kept = |text: &str| codex_config(Some(text)).map(|change| change.kept);
+        let kept = |text: &str| {
+            codex_config(Some(text))
+                .map(|change| change.kept)
+                .map_err(|e| e.to_string())
+        };
         let entry = "[mcp_servers.kkt]\nurl = \"http://a/mcp\"\n";
         assert_eq!(
             kept(&format!(
@@ -602,7 +611,12 @@ mod tests {
         assert!(permission.keys().all(|k| !k.contains('*') || k == "*"));
         assert_eq!(document["mcp"], json!({"kkt": {"type": "remote"}}));
         assert!(document.get("permissions").is_none());
-        assert_eq!(opencode(Some(&after)).map(|c| c.text), Ok(None));
+        assert_eq!(
+            opencode(Some(&after))
+                .map(|c| c.text)
+                .map_err(|e| e.to_string()),
+            Ok(None)
+        );
     }
 
     #[test]
@@ -642,7 +656,12 @@ mod tests {
             .collect();
         assert_eq!(actions, opencode_tools());
         assert!(document.get("permission").is_none());
-        assert_eq!(opencode(Some(&after)).map(|c| c.text), Ok(None));
+        assert_eq!(
+            opencode(Some(&after))
+                .map(|c| c.text)
+                .map_err(|e| e.to_string()),
+            Ok(None)
+        );
     }
 
     #[test]
@@ -683,7 +702,7 @@ mod tests {
         let codex = "[mcp_servers.kkt]\nurl = \"http://a/mcp\"\n\
                      default_tools_approval_mode = \"prompt\"\n";
         assert_eq!(
-            codex_config(Some(codex)),
+            codex_config(Some(codex)).map_err(|e| e.to_string()),
             Ok(Change {
                 text: None,
                 kept: vec!["default_tools_approval_mode = \"prompt\"".into()],

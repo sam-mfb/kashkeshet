@@ -68,7 +68,7 @@ fn a_client_is_connected_when_its_config_has_a_kkt_entry() {
     // No config at all: not connected.
     for client in Client::ALL {
         assert_eq!(
-            client.connected(&env, &host),
+            client.connected(&env, &host).map_err(|e| e.to_string()),
             Ok(false),
             "{}",
             client.name()
@@ -79,11 +79,34 @@ fn a_client_is_connected_when_its_config_has_a_kkt_entry() {
     write(Client::OpenCode, r#"{"mcp": {"kkt": {"type": "remote"}}}"#);
     write(Client::MuseCode, r#"{"mcpServers": {"kkt": {}}}"#);
     write(Client::Agy, "not json");
-    assert_eq!(Client::Codex.connected(&env, &host), Ok(true));
-    assert_eq!(Client::ClaudeCode.connected(&env, &host), Ok(false));
-    assert_eq!(Client::OpenCode.connected(&env, &host), Ok(true));
-    assert_eq!(Client::MuseCode.connected(&env, &host), Ok(true));
-    let error = Client::Agy.connected(&env, &host).expect_err("bad JSON");
+    assert_eq!(
+        Client::Codex
+            .connected(&env, &host)
+            .map_err(|e| e.to_string()),
+        Ok(true)
+    );
+    assert_eq!(
+        Client::ClaudeCode
+            .connected(&env, &host)
+            .map_err(|e| e.to_string()),
+        Ok(false)
+    );
+    assert_eq!(
+        Client::OpenCode
+            .connected(&env, &host)
+            .map_err(|e| e.to_string()),
+        Ok(true)
+    );
+    assert_eq!(
+        Client::MuseCode
+            .connected(&env, &host)
+            .map_err(|e| e.to_string()),
+        Ok(true)
+    );
+    let error = Client::Agy
+        .connected(&env, &host)
+        .expect_err("bad JSON")
+        .to_string();
     assert!(error.starts_with("Antigravity: "), "{error}");
     assert!(error.contains("invalid client JSON"), "{error}");
 }
@@ -95,7 +118,9 @@ fn a_malformed_codex_config_names_the_parsers_reason() {
     let path = Client::Codex.file(&env, &host).expect("path");
     let text = format!("[mcp_servers.kkt]\ntoken = '{KEY}\n");
     host.put(&path, &text);
-    let error = codex_password_store_hint(&env, &host).expect_err("malformed");
+    let error = codex_password_store_hint(&env, &host)
+        .expect_err("malformed")
+        .to_string();
     let cause = error
         .strip_prefix(&format!("invalid Codex TOML in {}: ", path.display()))
         .unwrap_or_else(|| panic!("{error}"));
@@ -129,11 +154,20 @@ fn antigravity_uses_its_legacy_config_only_when_the_new_one_is_missing() {
     let env = env();
     let new = Path::new(HOME).join(AGY_CONFIG);
     let legacy = Path::new(HOME).join(AGY_LEGACY_CONFIG);
-    assert_eq!(Client::Agy.file(&env, &host), Ok(new.clone()));
+    assert_eq!(
+        Client::Agy.file(&env, &host).map_err(|e| e.to_string()),
+        Ok(new.clone())
+    );
     host.put(&legacy, "{}");
-    assert_eq!(Client::Agy.file(&env, &host), Ok(legacy));
+    assert_eq!(
+        Client::Agy.file(&env, &host).map_err(|e| e.to_string()),
+        Ok(legacy)
+    );
     host.put(&new, "{}");
-    assert_eq!(Client::Agy.file(&env, &host), Ok(new));
+    assert_eq!(
+        Client::Agy.file(&env, &host).map_err(|e| e.to_string()),
+        Ok(new)
+    );
 }
 
 #[test]
@@ -181,7 +215,7 @@ fn a_failed_replacement_removes_its_temporary_file_and_keeps_the_config() {
     let error = configure(Client::Codex, &setup(&env, &path, None), true, &host, &host)
         .expect_err("refused");
     assert_eq!(
-        error,
+        error.to_string(),
         format!(
             "could not write {}: rename refused (from HOME)",
             path.display()
@@ -237,7 +271,7 @@ fn claude_code_is_configured_through_its_command_and_restored_if_it_fails() {
         &host,
     )
     .expect_err("fails");
-    assert_eq!(error, "claude mcp failed");
+    assert_eq!(error.to_string(), "claude mcp failed");
     assert_eq!(host.file(&path), Some(private(old)), "restored whole");
 
     host.claude_fails.set(false);
@@ -279,7 +313,7 @@ fn a_new_claude_code_config_is_removed_if_its_command_fails() {
         &host,
     )
     .expect_err("fails");
-    assert_eq!(error, "claude mcp failed");
+    assert_eq!(error.to_string(), "claude mcp failed");
     assert!(host.file(&path).is_none());
     // Nothing to remove first, and a profile outside HOME is passed as
     // CLAUDE_CONFIG_DIR.
@@ -384,7 +418,9 @@ fn allowing_kkt_in_a_bad_file_names_it_and_changes_nothing() {
     let host = FakeHost::default();
     let env = env();
     host.put("/home/sam/.claude/settings.json", "{ not json");
-    let error = allow_kkt(Client::ClaudeCode, &env, &host).expect_err("bad JSON");
+    let error = allow_kkt(Client::ClaudeCode, &env, &host)
+        .expect_err("bad JSON")
+        .to_string();
     assert!(
         error.starts_with("/home/sam/.claude/settings.json: invalid client JSON"),
         "{error}"
@@ -395,11 +431,15 @@ fn allowing_kkt_in_a_bad_file_names_it_and_changes_nothing() {
         [PathBuf::from("/home/sam/.claude/settings.json")]
     );
 
-    let error = allow_kkt(Client::Codex, &env, &host).expect_err("not connected");
+    let error = allow_kkt(Client::Codex, &env, &host)
+        .expect_err("not connected")
+        .to_string();
     assert!(error.contains("connect it first"), "{error}");
     assert!(host.file("/home/sam/.codex/rules/kkt.rules").is_none());
 
-    let error = allow_kkt(Client::MuseCode, &env, &host).expect_err("no setting");
+    let error = allow_kkt(Client::MuseCode, &env, &host)
+        .expect_err("no setting")
+        .to_string();
     assert!(error.starts_with("Muse Code has no setting"), "{error}");
 }
 
@@ -460,9 +500,9 @@ fn every_message() -> Vec<String> {
     };
     let config = PathBuf::from("/c/config.json");
     let mut said = Vec::new();
-    let mut push = |result: Result<String, String>| {
+    let mut push = |result: Result<String, ClientConfigError>| {
         said.push(match result {
-            Err(e) => e,
+            Err(e) => e.to_string(),
             Ok(v) => format!("OK<{v}>"),
         })
     };

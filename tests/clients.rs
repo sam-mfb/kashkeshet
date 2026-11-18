@@ -92,7 +92,8 @@ fn clients_with_a_fixed_filename_reject_custom_filenames_before_modifying_files(
         };
         for write in [false, true] {
             let error = clients::configure(client, &setup, write, &ClientHost, &ClaudeCommand)
-                .expect_err("unsupported filename");
+                .expect_err("unsupported filename")
+                .to_string();
             assert!(
                 error.contains(&format!("must be named {required}")),
                 "{error}"
@@ -380,7 +381,8 @@ fn malformed_client_files_are_left_intact_and_errors_do_not_echo_secrets() {
             source: "--client-config",
         };
         let error = clients::configure(client, &setup, true, &ClientHost, &ClaudeCommand)
-            .expect_err("invalid");
+            .expect_err("invalid")
+            .to_string();
         assert!(!error.contains(KEY));
         assert_eq!(std::fs::read_to_string(file).expect("config"), original);
     }
@@ -457,7 +459,8 @@ fn opencode_refuses_key_paths_its_file_substitution_cannot_represent() {
             source: "--client-config",
         };
         let error = clients::configure(Client::OpenCode, &setup, true, &ClientHost, &ClaudeCommand)
-            .expect_err("unsupported reference");
+            .expect_err("unsupported reference")
+            .to_string();
         assert!(error.contains("file references cannot represent"));
         assert!(!home.0.join(".config/opencode/opencode.json").exists());
     }
@@ -629,7 +632,8 @@ fn claude_reports_a_selected_profile_directory_it_cannot_resolve() {
         &ClientHost,
         &ClaudeCommand,
     )
-    .expect_err("unresolvable profile directory");
+    .expect_err("unresolvable profile directory")
+    .to_string();
     assert!(error.contains(&file.display().to_string()), "{error}");
     assert!(error.contains("(from CLAUDE_CONFIG_DIR)"), "{error}");
 }
