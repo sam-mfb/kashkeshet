@@ -176,7 +176,8 @@ impl LaneServer for LocalLanes<'_> {
                     text: l.current.text.clone(),
                 })
                 .collect();
-            let written = lane_files::write_folder(parts.lanes, dest, &files)?;
+            let written =
+                lane_files::write_folder(parts.lanes, dest, &files).map_err(|e| e.to_string())?;
             for l in &lanes {
                 parts.output.output(format_args!(
                     "{} (version {})\n",
@@ -287,7 +288,7 @@ fn read_lanes_warning(
     folder: &Path,
     retire_missing: bool,
 ) -> Result<lane_files::Read, String> {
-    let read = lane_files::read_folder(disk, commits, folder)?;
+    let read = lane_files::read_folder(disk, commits, folder).map_err(|e| e.to_string())?;
     warn_skipped(output, &read.skipped);
     if retire_missing {
         kkt_rules::check_retire_missing(
@@ -337,7 +338,7 @@ pub(crate) fn check_lanes_folder(
     folder: &Path,
     max_lane_chars: usize,
 ) -> Result<usize, String> {
-    let read = lane_files::read_folder(disk, commits, folder)?;
+    let read = lane_files::read_folder(disk, commits, folder).map_err(|e| e.to_string())?;
     warn_skipped(output, &read.skipped);
     let count = read.lanes.len();
     kkt_rules::check_lane_import(&lane_saves(read.lanes), max_lane_chars)
@@ -371,7 +372,8 @@ pub fn import_lanes_for_setup(
     server: &dyn LaneServer,
     folder: &Path,
 ) -> Result<String, String> {
-    let read = lane_files::read_folder(parts.lanes, parts.lane_commit, folder)?;
+    let read = lane_files::read_folder(parts.lanes, parts.lane_commit, folder)
+        .map_err(|e| e.to_string())?;
     let report = tokio::runtime::Handle::current().block_on(server.import(LaneImport {
         read,
         retire_missing: false,
