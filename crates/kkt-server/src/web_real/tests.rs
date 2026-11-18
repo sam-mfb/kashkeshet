@@ -11,7 +11,6 @@ use kkt_api_operator::{ChannelChange, ChannelHidden, Left, Notice};
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::SeqEntropy;
-use kkt_events::Events;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_names as names;
@@ -117,7 +116,7 @@ async fn rules_world_and_db(
     let startup = |clock: Arc<FixedClock>, settings| kkt_rules::Startup {
         db: db.clone(),
         swarm: kkt_api_agent::SwarmId::main(),
-        events: Events::new(kkt_events::Settings::DEFAULT),
+        shutdown: kkt_shutdown::Shutdown::new(),
         clock,
         entropy: Arc::new(SeqEntropy::new(4)),
         settings,

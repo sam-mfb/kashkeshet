@@ -64,8 +64,8 @@ impl Notices for OperatorNotices {
 }
 
 /// The events part's notice, as the operator hears it.
-fn operator_notice(notice: kkt_events::Notice) -> Notice {
-    use kkt_events::Notice as Heard;
+fn operator_notice(notice: crate::events::Notice) -> Notice {
+    use crate::events::Notice as Heard;
     match notice {
         Heard::Message(m) => Notice::Message(Message {
             id: m.id,

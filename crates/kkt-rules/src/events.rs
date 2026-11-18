@@ -1,34 +1,29 @@
-//! Notifications of what happens: new messages, new agents, channels and
-//! channel members, and agents and channels hidden.
+//! The bus the rules publish their notices on: new messages, agents and
+//! channels, members joining and leaving, and agents and channels hidden.
+//! The rules publish every notice, in a swarm, and a subscriber hears only
+//! its own swarm's ([`Events::in_swarm`]). A subscriber that falls behind
+//! is told it missed some, not how many, and can fetch them from the
+//! database. A subscription ends when the server's shutdown signal stops,
+//! when nothing more can be published, or when it is dropped.
 //!
-//! When a message is stored, the sender publishes it here, and the rules do
-//! the same when an agent registers, unregisters or is hidden, a channel is
-//! created or hidden, or an agent joins or leaves one. The web page and any agent waiting for messages subscribe; waiting
-//! agents look only at messages. A subscriber that falls behind is told it
-//! missed some, not how many, and can fetch them from the database.
-//!
-//! There is one bus for the server, and every notice is published in a
-//! swarm: a subscriber hears only its own swarm's ([`Events::in_swarm`]).
-//! A subscription can be closed ([`Closer`]), which ends it.
-//!
-//! Each swarm has a buffer of its own, so a busy swarm cannot make another
-//! swarm's subscribers fall behind, and when a subscriber falls behind says
-//! nothing about other swarms. A swarm's buffer exists only while the swarm
-//! has a subscriber: publishing in a swarm nobody is subscribed to keeps
-//! nothing, and the buffer goes when the last subscription does.
-//!
-//! Tokio's broadcast channel does the work, but stays inside this module.
+//! Each swarm has a buffer of its own, as long as the rules' `event_buffer`
+//! setting says, so a busy swarm cannot make another swarm's subscribers fall behind,
+//! and a subscriber falling behind says nothing about other swarms. A
+//! swarm's buffer exists only while the swarm has a subscriber: publishing
+//! in a swarm nobody is subscribed to keeps nothing, and the buffer goes
+//! when the last subscription does. The channel types stay inside this
+//! module.
 
+#[cfg(test)]
 use futures::Stream;
 use kkt_shutdown::Shutdown;
-use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{broadcast, watch};
 
-#[derive(Clone, Debug, Serialize)]
-pub struct NewMessage {
+#[derive(Clone, Debug)]
+pub(crate) struct NewMessage {
     pub id: i64,
     pub channel_id: String,
     pub channel_name: String,
@@ -40,28 +35,27 @@ pub struct NewMessage {
 }
 
 /// An agent registered.
-#[derive(Clone, Debug, Serialize)]
-pub struct NewAgent {
+#[derive(Clone, Debug)]
+pub(crate) struct NewAgent {
     pub handle: String,
     pub created_at: String,
 }
 
 /// A channel was created. Closed channels are announced too: only the
 /// human's view hears these.
-#[derive(Clone, Debug, Serialize)]
-pub struct NewChannel {
+#[derive(Clone, Debug)]
+pub(crate) struct NewChannel {
     pub id: String,
     pub name: String,
     pub open: bool,
     pub created_by: String,
-    pub created_at: String,
     /// The creator and anyone added at creation.
     pub member_count: i64,
 }
 
 /// An agent joined a channel it was not in, or was added to it.
-#[derive(Clone, Debug, Serialize)]
-pub struct Joined {
+#[derive(Clone, Debug)]
+pub(crate) struct Joined {
     pub agent: String,
     pub channel_id: String,
     pub channel_name: String,
@@ -70,8 +64,8 @@ pub struct Joined {
 }
 
 /// An agent left a channel, or was removed from it.
-#[derive(Clone, Debug, Serialize)]
-pub struct Left {
+#[derive(Clone, Debug)]
+pub(crate) struct Left {
     pub agent: String,
     pub channel_id: String,
     pub channel_name: String,
@@ -86,8 +80,8 @@ pub struct Left {
 
 /// A channel was hidden, by its owner or the operator. Its members were
 /// removed; no `Left` is published for them.
-#[derive(Clone, Debug, Serialize)]
-pub struct ChannelHidden {
+#[derive(Clone, Debug)]
+pub(crate) struct ChannelHidden {
     pub channel_id: String,
     pub channel_name: String,
     /// The owner that hid it, or the operator.
@@ -98,8 +92,8 @@ pub struct ChannelHidden {
 
 /// An agent's avatar was removed: it unregistered itself, or the operator
 /// hid it. It left every channel it was in; no `Left` is published for them.
-#[derive(Clone, Debug, Serialize)]
-pub struct AgentHidden {
+#[derive(Clone, Debug)]
+pub(crate) struct AgentHidden {
     pub agent: String,
     /// The agent itself when it unregistered, or the operator.
     pub by: String,
@@ -110,8 +104,8 @@ pub struct AgentHidden {
 }
 
 /// A channel and its member count.
-#[derive(Clone, Debug, Serialize)]
-pub struct ChannelMembers {
+#[derive(Clone, Debug)]
+pub(crate) struct ChannelMembers {
     pub channel_id: String,
     pub channel_name: String,
     pub member_count: i64,
@@ -132,7 +126,7 @@ enum Published {
 /// The server's one bus. Every notice is published in a swarm and heard
 /// only by subscribers to that swarm: [`Events::in_swarm`].
 #[derive(Clone)]
-pub struct Events {
+pub(crate) struct Events {
     bus: Arc<Bus>,
     shutdown: Option<Shutdown>,
 }
@@ -164,22 +158,25 @@ impl Bus {
     }
 }
 
-/// The bus's own settings.
+/// The bus's own settings, from the rules' [`crate::Settings`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Settings {
+pub(crate) struct Settings {
     /// Notices kept for each swarm for a slow subscriber before it starts
-    /// missing them.
+    /// missing them. At least 1: the rules' settings check it.
     pub buffer: usize,
 }
 
 impl Settings {
-    /// 1024 notices per swarm.
-    pub const DEFAULT: Settings = Settings { buffer: 1024 };
+    /// The rules' default buffer.
+    #[cfg(test)]
+    pub const DEFAULT: Settings = Settings {
+        buffer: crate::Settings::DEFAULT.event_buffer,
+    };
 }
 
 impl Events {
     /// A bus with `settings`.
-    pub fn new(settings: Settings) -> Events {
+    pub(crate) fn new(settings: Settings) -> Events {
         Events {
             bus: Arc::new(Bus {
                 buffer: settings.buffer,
@@ -196,7 +193,7 @@ impl Events {
     }
 
     /// Ends subscriptions when the server stops, even while publishers exist.
-    pub fn until_stopped(mut self, shutdown: Shutdown) -> Self {
+    pub(crate) fn until_stopped(mut self, shutdown: Shutdown) -> Self {
         self.shutdown = Some(shutdown);
         self
     }
@@ -204,7 +201,7 @@ impl Events {
     /// The bus as one swarm sees it: what it publishes is heard only by its
     /// own subscribers, and they hear nothing from any other swarm. `swarm`
     /// is the swarm's ID.
-    pub fn in_swarm(&self, swarm: &str) -> SwarmEvents {
+    pub(crate) fn in_swarm(&self, swarm: &str) -> SwarmEvents {
         SwarmEvents {
             events: self.clone(),
             swarm: swarm.into(),
@@ -214,45 +211,45 @@ impl Events {
 
 /// One swarm's notices: [`Events::in_swarm`].
 #[derive(Clone)]
-pub struct SwarmEvents {
+pub(crate) struct SwarmEvents {
     events: Events,
     swarm: Arc<str>,
 }
 
 impl SwarmEvents {
     /// Tells every current subscriber to this swarm about a new message.
-    pub fn publish(&self, message: NewMessage) {
+    pub(crate) fn publish(&self, message: NewMessage) {
         self.send(Published::Message(message));
     }
 
     /// Tells every current subscriber that an agent registered.
-    pub fn publish_agent(&self, agent: NewAgent) {
+    pub(crate) fn publish_agent(&self, agent: NewAgent) {
         self.send(Published::Agent(agent));
     }
 
     /// Tells every current subscriber that a channel was created.
-    pub fn publish_channel(&self, channel: NewChannel) {
+    pub(crate) fn publish_channel(&self, channel: NewChannel) {
         self.send(Published::Channel(channel));
     }
 
     /// Tells every current subscriber that an agent joined a channel.
-    pub fn publish_joined(&self, joined: Joined) {
+    pub(crate) fn publish_joined(&self, joined: Joined) {
         self.send(Published::Joined(joined));
     }
 
     /// Tells every current subscriber that an agent left a channel.
-    pub fn publish_left(&self, left: Left) {
+    pub(crate) fn publish_left(&self, left: Left) {
         self.send(Published::Left(left));
     }
 
     /// Tells every current subscriber that a channel was hidden.
-    pub fn publish_channel_hidden(&self, hidden: ChannelHidden) {
+    pub(crate) fn publish_channel_hidden(&self, hidden: ChannelHidden) {
         self.send(Published::ChannelHidden(hidden));
     }
 
     /// Tells every current subscriber that an agent was hidden or
     /// unregistered.
-    pub fn publish_agent_hidden(&self, hidden: AgentHidden) {
+    pub(crate) fn publish_agent_hidden(&self, hidden: AgentHidden) {
         self.send(Published::AgentHidden(hidden));
     }
 
@@ -273,7 +270,7 @@ impl SwarmEvents {
 
     /// Hears about everything published in this swarm from now on, until
     /// the subscription is closed ([`Subscription::closer`]).
-    pub fn subscribe(&self) -> Subscription {
+    pub(crate) fn subscribe(&self) -> Subscription {
         let (closed, _) = watch::channel(false);
         let receiver = {
             let mut swarms = self.events.bus.swarms();
@@ -305,7 +302,7 @@ impl SwarmEvents {
 
 /// What a subscriber hears.
 #[derive(Clone, Debug)]
-pub enum Notice {
+pub(crate) enum Notice {
     /// A new message.
     Message(NewMessage),
     /// A new agent.
@@ -327,7 +324,7 @@ pub enum Notice {
 }
 
 /// One subscriber's view of one swarm's notices.
-pub struct Subscription {
+pub(crate) struct Subscription {
     receiver: broadcast::Receiver<Published>,
     /// The bus, to remove the swarm's buffer when this is its last
     /// subscription. Weak, so that the subscription ends once every
@@ -340,12 +337,15 @@ pub struct Subscription {
 
 /// Closes a [`Subscription`]: it then ends, as if nothing more could be
 /// published. Closing twice, or after the subscription is gone, does
-/// nothing.
+/// nothing. Only tests close a subscription; the rules end theirs by
+/// dropping it.
+#[cfg(test)]
 #[derive(Clone)]
-pub struct Closer(Arc<watch::Sender<bool>>);
+pub(crate) struct Closer(Arc<watch::Sender<bool>>);
 
+#[cfg(test)]
 impl Closer {
-    pub fn close(&self) {
+    pub(crate) fn close(&self) {
         self.0.send_replace(true);
     }
 }
@@ -353,14 +353,15 @@ impl Closer {
 impl Subscription {
     /// What closes this subscription, for whoever decides when the
     /// subscriber's right to hear ends.
-    pub fn closer(&self) -> Closer {
+    #[cfg(test)]
+    pub(crate) fn closer(&self) -> Closer {
         Closer(self.closed.clone())
     }
 
     /// The next notice in the subscription's swarm, or `None` once nothing
     /// more can be published (every `Events` handle is gone), the server's
     /// shutdown signal is stopped, or the subscription is closed.
-    pub async fn next(&mut self) -> Option<Notice> {
+    pub(crate) async fn next(&mut self) -> Option<Notice> {
         let mut closed = self.closed.subscribe();
         let received = tokio::select! {
             biased;
@@ -392,7 +393,8 @@ impl Subscription {
     }
 
     /// The notices as a stream, which ends when `next` would return `None`.
-    pub fn into_stream(self) -> impl Stream<Item = Notice> {
+    #[cfg(test)]
+    pub(crate) fn into_stream(self) -> impl Stream<Item = Notice> {
         futures::stream::unfold(self, |mut subscription| async move {
             let notice = subscription.next().await?;
             Some((notice, subscription))
@@ -476,7 +478,6 @@ mod tests {
             name: "test".into(),
             open: false,
             created_by: "amber-falcon".into(),
-            created_at: "2026-10-23T14:00:00Z".into(),
             member_count: 1,
         });
         swarm.publish_joined(Joined {

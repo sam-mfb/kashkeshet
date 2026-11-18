@@ -50,6 +50,9 @@ pub struct Settings {
     pub member_preview: usize,
     /// Characters of a channel purpose shown in `list_channels`.
     pub purpose_preview_chars: usize,
+    /// Notices kept for each swarm for a slow subscriber before it starts
+    /// missing them.
+    pub event_buffer: usize,
 }
 
 impl Settings {
@@ -77,6 +80,7 @@ impl Settings {
         waiting_grace: Duration::from_secs(3),
         member_preview: 3,
         purpose_preview_chars: 120,
+        event_buffer: 1024,
     };
 
     /// Every setting these settings hold that the rules cannot run with, in
@@ -105,6 +109,7 @@ impl Settings {
                 self.registrations_per_minute as usize,
             ),
             ("max_agents", self.max_agents),
+            ("event_buffer", self.event_buffer),
         ];
         let mut problems: Vec<Problem> = at_least_one
             .into_iter()
@@ -149,7 +154,9 @@ impl Settings {
     /// The run record's lines for these settings, a name and a value each,
     /// in the order the record has them: the name pack by name and the
     /// waits in milliseconds. `max_lane_description_chars` is fixed, not a
-    /// setting, so it is not recorded.
+    /// setting a person gives, so it is not recorded. kkt never sets
+    /// `event_buffer`, so it is not recorded either; a product that sets it
+    /// adds its own line, through the lines its program words.
     pub fn record_lines(&self) -> Vec<(String, String)> {
         // Listing every field, with no `..`, makes a new setting fail to
         // compile here until it is recorded or said not to be.
@@ -175,6 +182,7 @@ impl Settings {
             waiting_grace,
             member_preview,
             purpose_preview_chars,
+            event_buffer: _,
         } = self;
         vec![
             line("name_pack", name_pack.name()),
@@ -266,7 +274,7 @@ mod tests {
 
     #[test]
     fn every_count_must_be_at_least_one() {
-        let counts: [(&str, Make); 13] = [
+        let counts: [(&str, Make); 14] = [
             ("default_limit", |s| s.default_limit = 0),
             ("max_body_bytes", |s| s.max_body_bytes = 0),
             ("max_channel_name_chars", |s| s.max_channel_name_chars = 0),
@@ -290,6 +298,7 @@ mod tests {
                 s.registrations_per_minute = 0
             }),
             ("max_agents", |s| s.max_agents = 0),
+            ("event_buffer", |s| s.event_buffer = 0),
         ];
         for (name, zero) in counts {
             let mut settings = Settings::DEFAULT;
@@ -412,5 +421,7 @@ mod tests {
         assert_eq!(value("max_wait_ms"), Some("50000"));
         assert_eq!(value("waiting_grace_ms"), Some("3000"));
         assert_eq!(value("max_lane_description_chars"), None);
+        // kkt never sets it; a product that does words its own line.
+        assert_eq!(value("event_buffer"), None);
     }
 }

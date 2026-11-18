@@ -27,8 +27,6 @@ kkt-web = { path = "../kkt-web" }
 
 [dev-dependencies]
 kkt-backup = { path = "../kkt-backup" }
-# The rules the tests build take an events bus.
-kkt-events = { path = "../kkt-events" }
 kkt-log = { path = "../kkt-log", features = ["testing"] }
 # The simulated application and its gate, for the page served alone.
 kkt-api-sim = { path = "../kkt-api-sim", features = ["testing"] }

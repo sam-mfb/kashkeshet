@@ -71,12 +71,12 @@ async fn a_slow_subscriber_does_not_lag_while_another_swarm_floods() {
             max_body_bytes: BIG,
             sends_per_minute: 1_000_000,
             registrations_per_minute: 1_000,
+            event_buffer: BUFFER,
             ..kkt_rules::Settings::DEFAULT
         },
         fmt: kkt_mcp::result_format::Settings {
             max_response_bytes: 4 * BIG,
         },
-        events: kkt_events::Settings { buffer: BUFFER },
         ..kkt_fake_product::Settings::DEFAULT
     };
     let product = Product::start(memory(), system_clock(), os_entropy(), settings).await;
