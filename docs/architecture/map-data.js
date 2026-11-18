@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "f78bead8",
+ "commit": "2b80e501",
  "crates": [
   {
    "bins": [
@@ -243,15 +243,15 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
-     "trait": "lanes::LaneServer",
-     "trait_crate": "kkt-operator-commands",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
      "trait": "lanes::LaneServers",
      "trait_crate": "kkt-operator-commands",
      "type": "machine::native::HereLanes"
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "lanes::ServerInContainer",
+     "trait_crate": "kkt-operator-commands",
+     "type": null
     },
     {
      "crate": "kashkeshet",
@@ -403,7 +403,7 @@ window.KKT_GRAPH = {
      "path": "machine::native"
     },
     {
-     "doc": "The server `kkt lanes` acts on: as kkt-setup's `lanes_on` says, from this machine's setup record.",
+     "doc": "The server `kkt lanes` acts on: as kkt-operator-commands' `lanes_on` says, from the deployment this machine's setup record names.",
      "kind": "struct",
      "path": "machine::native::HereLanes"
     },
@@ -12281,8 +12281,8 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kashkeshet",
-       "type": null
+       "crate": "kkt-operator-commands",
+       "type": "lanes::ContainerLanes"
       },
       {
        "crate": "kkt-operator-commands",
@@ -12299,6 +12299,15 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "lanes::LaneServers"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "lanes::ServerInContainer"
     }
    ],
    "crate_doc": "The operator's commands on this machine's server: `kkt key` (create, header, show), `kkt lanes` (export, import) and `kkt agent` (list, revoke), and the lane import and check that `kkt setup` asks for.",
@@ -12388,6 +12397,23 @@ window.KKT_GRAPH = {
      "holds": [
       {
        "crate": "kkt-operator-commands",
+       "trait": "lanes::ServerInContainer"
+      },
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Paths"
+      },
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Output"
+      }
+     ],
+     "type": "lanes::ContainerLanes"
+    },
+    {
+     "holds": [
+      {
+       "crate": "kkt-operator-commands",
        "trait": "ServeConfig"
       },
       {
@@ -12415,6 +12441,12 @@ window.KKT_GRAPH = {
     }
    ],
    "implements": [
+    {
+     "crate": "kkt-operator-commands",
+     "trait": "lanes::LaneServer",
+     "trait_crate": "kkt-operator-commands",
+     "type": "lanes::ContainerLanes"
+    },
     {
      "crate": "kkt-operator-commands",
      "trait": "lanes::LaneServer",
@@ -12598,9 +12630,28 @@ window.KKT_GRAPH = {
      "path": "keys::selected_key_path"
     },
     {
-     "doc": "Lanes on this machine's server: `kkt lanes export` and `kkt lanes import`, the server they act on as a contract (`LaneServer`, which the program picks through `LaneServers`), its local implementation (`LocalLanes`), and reading a lane fo...",
+     "doc": "Lanes on this machine's server: `kkt lanes export` and `kkt lanes import`, the server they act on as a contract (`LaneServer`, which the program picks through `LaneServers`), which server that is for a deployment (`lanes_on`), its two im...",
      "kind": "mod",
      "path": "lanes"
+    },
+    {
+     "doc": "The files a run in the container carries.",
+     "kind": "enum",
+     "path": "lanes::Carried",
+     "variants": [
+      "In",
+      "Out"
+     ]
+    },
+    {
+     "doc": "The lanes of kkt installed in a container.",
+     "fields": [
+      "container",
+      "paths",
+      "output"
+     ],
+     "kind": "struct",
+     "path": "lanes::ContainerLanes"
     },
     {
      "doc": "What a `LaneServer` gives back, in time.",
@@ -12646,12 +12697,41 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "The server `kkt lanes` acts on, by how kkt is deployed here.",
+     "kind": "enum",
+     "path": "lanes::LanesOn",
+     "variants": [
+      "Docker",
+      "Local"
+     ]
+    },
+    {
      "doc": "The lanes of the local database `kkt serve` would use, unless `db` names another, with the config file `config` names, else the default.",
      "kind": "struct",
      "methods": [
       "new"
      ],
      "path": "lanes::LocalLanes"
+    },
+    {
+     "doc": "One argument to kkt's program in the container.",
+     "kind": "enum",
+     "path": "lanes::RunArg",
+     "variants": [
+      "Text",
+      "WorkFolder"
+     ]
+    },
+    {
+     "doc": "kkt installed in a container, as the lane commands use it.",
+     "kind": "trait",
+     "methods": [
+      "config_file",
+      "installed",
+      "lane_limit_in",
+      "run_kkt"
+     ],
+     "path": "lanes::ServerInContainer"
     },
     {
      "doc": "Reads the lane files in `folder` and checks them as an import into `server`, the server `kkt setup` sets up, would, changing nothing: against that server's lane limit.",
@@ -12667,6 +12747,11 @@ window.KKT_GRAPH = {
      "doc": "Imports the lanes in `folder` into `server`, the server this machine's setup record says it runs, and returns the report to print.",
      "kind": "fn",
      "path": "lanes::import_lanes_for_setup"
+    },
+    {
+     "doc": "Which server `kkt lanes` acts on, given this machine's `deployment` (`None` with no record) and whether `--db` or `--config` was given (`local_options`).",
+     "kind": "fn",
+     "path": "lanes::lanes_on"
     },
     {
      "doc": "The lane limit from this machine's default serve config, else the owner's default.",
@@ -13337,6 +13422,39 @@ window.KKT_GRAPH = {
      "kind": "param",
      "name": "parts",
      "traits": []
+    },
+    {
+     "at": "lanes::ContainerLanes",
+     "kind": "field",
+     "name": "container",
+     "traits": [
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "lanes::ServerInContainer"
+      }
+     ]
+    },
+    {
+     "at": "lanes::ContainerLanes",
+     "kind": "field",
+     "name": "output",
+     "traits": [
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Output"
+      }
+     ]
+    },
+    {
+     "at": "lanes::ContainerLanes",
+     "kind": "field",
+     "name": "paths",
+     "traits": [
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Paths"
+      }
+     ]
     },
     {
      "at": "lanes::LocalLanes::new",
@@ -15892,15 +16010,6 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "The server `kkt lanes` acts on.",
-     "kind": "enum",
-     "path": "LanesOn",
-     "variants": [
-      "Docker",
-      "Local"
-     ]
-    },
-    {
      "doc": "The caller's line input and output for setup's questions.",
      "kind": "trait",
      "methods": [
@@ -16285,39 +16394,6 @@ window.KKT_GRAPH = {
      "path": "find_operator_key"
     },
     {
-     "doc": "The report of a lane import, and the Docker limit when no install is present.",
-     "kind": "mod",
-     "path": "lane_reports"
-    },
-    {
-     "doc": "The plain import outcome the program adapts from the operator API.",
-     "kind": "enum",
-     "path": "lane_reports::Outcome",
-     "variants": [
-      "Created",
-      "Updated",
-      "Unchanged",
-      "RetiredSkipped",
-      "Retired",
-      "FileSkipped"
-     ]
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "lane_reports::docker_limit"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "lane_reports::import_report"
-    },
-    {
-     "doc": "Which server `kkt lanes` acts on, given the recorded `mode` (`None` with no record) and whether `--db` or `--config` was given (`local_options`).",
-     "kind": "fn",
-     "path": "lanes_on"
-    },
-    {
      "doc": "Makes a new random key and writes it to `path`, creating its folder if needed.",
      "kind": "fn",
      "path": "new_key_file"
@@ -16568,15 +16644,6 @@ window.KKT_GRAPH = {
        "trait": "OperatorKeyReads"
       }
      ]
-    },
-    {
-     "at": "lane_reports::docker_limit",
-     "foreign": [
-      "core::ops::function::FnOnce"
-     ],
-     "kind": "param",
-     "name": "read",
-     "traits": []
     },
     {
      "at": "new_key_file",
@@ -18825,7 +18892,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "LaneSource",
     "SwarmId"
    ],
    "kind": "normal",
@@ -18834,7 +18900,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "LaneSource",
       "SwarmId"
      ],
      "role": "uses"
@@ -19460,6 +19525,7 @@ window.KKT_GRAPH = {
     "ServiceDefaults",
     "ServiceInputs",
     "SetupFiles",
+    "deployment::deployment",
     "doctor::run",
     "lifecycle::backup",
     "lifecycle::status",
@@ -19495,6 +19561,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "deployment::deployment",
       "doctor::run",
       "lifecycle::backup",
       "lifecycle::status",
@@ -19613,9 +19680,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "LaneFile",
-    "Read",
-    "Skip",
-    "Skipped"
+    "Read"
    ],
    "to": "kkt-lane-files"
   },
@@ -19885,14 +19950,18 @@ window.KKT_GRAPH = {
     "keys::KeyKind",
     "keys::selected_key_path",
     "lanes",
-    "lanes::LaneFuture",
-    "lanes::LaneImport",
+    "lanes::Carried",
+    "lanes::ContainerLanes",
     "lanes::LaneServer",
     "lanes::LaneServers",
     "lanes::LanesAction",
+    "lanes::LanesOn",
     "lanes::LocalLanes",
+    "lanes::RunArg",
+    "lanes::ServerInContainer",
     "lanes::check_lanes_for_setup",
     "lanes::import_lanes_for_setup",
+    "lanes::lanes_on",
     "lanes::run"
    ],
    "kind": "normal",
@@ -19905,8 +19974,8 @@ window.KKT_GRAPH = {
       "a type of its own implements Output",
       "a type of its own implements Paths",
       "a type of its own implements ServeConfig",
-      "a type of its own implements lanes::LaneServer",
-      "machine::native::HereLanes implements lanes::LaneServers"
+      "machine::native::HereLanes implements lanes::LaneServers",
+      "a type of its own implements lanes::ServerInContainer"
      ],
      "role": "adapts"
     },
@@ -19921,10 +19990,13 @@ window.KKT_GRAPH = {
       "keys::KeyKind",
       "keys::selected_key_path",
       "lanes",
-      "lanes::LaneFuture",
+      "lanes::Carried",
       "lanes::LanesAction",
+      "lanes::LanesOn",
+      "lanes::RunArg",
       "lanes::check_lanes_for_setup",
       "lanes::import_lanes_for_setup",
+      "lanes::lanes_on",
       "lanes::run"
      ],
      "role": "uses"
@@ -19939,6 +20011,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "keys::optional_key_path",
+    "lanes::LaneImport",
     "lanes::existing_db",
     "lanes::local_lane_limit",
     "lanes::local_operator"
@@ -20174,7 +20247,6 @@ window.KKT_GRAPH = {
    "items": [
     "Answers",
     "InstalledHere",
-    "LanesOn",
     "Lines",
     "Mode",
     "Purpose",
@@ -20184,8 +20256,6 @@ window.KKT_GRAPH = {
     "Unfinished",
     "connection",
     "connection::ConnectionOptions",
-    "lane_reports::docker_limit",
-    "lanes_on",
     "record_path",
     "unfinished_path",
     "upgrade_backup_folder"
@@ -20205,7 +20275,6 @@ window.KKT_GRAPH = {
      "detail": [
       "Answers",
       "InstalledHere",
-      "LanesOn",
       "Lines",
       "Mode",
       "Purpose",
@@ -20215,8 +20284,6 @@ window.KKT_GRAPH = {
       "Unfinished",
       "connection",
       "connection::ConnectionOptions",
-      "lane_reports::docker_limit",
-      "lanes_on",
       "record_path",
       "unfinished_path",
       "upgrade_backup_folder"
@@ -26124,6 +26191,27 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operator-commands",
    "items": [
+    "Deployment"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Deployment"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-deployment"
+  },
+  {
+   "features": [],
+   "from": "kkt-operator-commands",
+   "items": [
     "Entropy"
    ],
    "kind": "normal",
@@ -26196,7 +26284,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "Skip"
+   ],
    "to": "kkt-lane-files"
   },
   {
@@ -26251,6 +26341,7 @@ window.KKT_GRAPH = {
     "LaneImport",
     "LaneOutcome",
     "Revoked",
+    "Settings",
     "check_lane_import",
     "check_retire_missing"
    ],
@@ -26263,6 +26354,7 @@ window.KKT_GRAPH = {
       "Db",
       "LaneOutcome",
       "Revoked",
+      "Settings",
       "check_lane_import",
       "check_retire_missing"
      ],
@@ -26298,8 +26390,6 @@ window.KKT_GRAPH = {
     "find_here",
     "find_key",
     "find_operator_key",
-    "lane_reports::Outcome",
-    "lane_reports::import_report",
     "new_key_file",
     "write_admin_name"
    ],
@@ -26329,8 +26419,6 @@ window.KKT_GRAPH = {
       "find_here",
       "find_key",
       "find_operator_key",
-      "lane_reports::Outcome",
-      "lane_reports::import_report",
       "new_key_file",
       "write_admin_name"
      ],
@@ -28967,7 +29055,7 @@ window.KKT_CONCERNS = {
    "layer": "core"
   },
   "kkt-operator-commands": {
-   "concern": "The operator's commands on a server's keys, agents and lanes, and the lane import setup asks for. A lane server is a contract it declares (`LaneServer`), with its local implementation on the database; the program picks the server (`LaneServers`). It is given what is installed here, and takes every effect it needs as injected parts.",
+   "concern": "The operator's commands on a server's keys, agents and lanes, and the lane import setup asks for. A lane server is a contract it declares (`LaneServer`), with two implementations: the local database, and kkt in a container. The program picks the server (`LaneServers`). It is given what is installed here, and takes every effect it needs as injected parts.",
    "kind": "composition",
    "layer": "assembly"
   },
@@ -29022,7 +29110,7 @@ window.KKT_CONCERNS = {
    "layer": "assembly"
   },
   "kkt-setup": {
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what lanes and backup do. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what backup does. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -30926,7 +31014,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operator-commands",
      "note": "kkt lanes export and import",
-     "own": "HereLanes, picking the server kkt lanes acts on from what is installed here: ContainerLanes, kkt lanes run in the container over kkt-containerized-service's Containerized, or kkt-operator-commands' LocalLanes",
+     "own": "HereLanes, picking the server kkt lanes acts on from the deployment the setup record names, by kkt-operator-commands' lanes_on: its ContainerLanes, kkt lanes run in the container over the program's LanesInContainer, or its LocalLanes",
      "suppliers": [
       {
        "crate": "kkt-containerized-service",
@@ -31171,6 +31259,10 @@ window.KKT_ASSEMBLY = {
       {
        "at": "OperatorParts",
        "param": "paths"
+      },
+      {
+       "at": "lanes::ContainerLanes",
+       "param": "paths"
       }
      ]
     },
@@ -31296,6 +31388,10 @@ window.KKT_ASSEMBLY = {
       },
       {
        "at": "LaneParts",
+       "param": "output"
+      },
+      {
+       "at": "lanes::ContainerLanes",
        "param": "output"
       }
      ]
@@ -31802,7 +31898,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operator-commands",
      "note": "kkt setup --lanes",
-     "own": "ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-containerized-service's Containerized",
+     "own": "kkt-operator-commands' ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-containerized-service's Containerized",
      "suppliers": [
       {
        "crate": "kkt-containerized-service",
@@ -31821,9 +31917,9 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-setup",
-     "note": "kkt setup --lanes, for kkt in Docker",
-     "own": "ContainerLanes' read of the lane limit, the container's config file read over kkt-containerized-service's Containerized and parsed by ContainerConfigs",
+     "crate": "kkt-operator-commands",
+     "note": "kkt lanes for kkt in Docker: the lanes run in the container.",
+     "own": "LanesInContainer, kkt installed in a container as the lane commands take it: kkt-containerized-service's Containerized in the install's folder, with the program's ContainerConfigs reading kkt's config file there for its lane limit",
      "suppliers": [
       {
        "crate": "kkt-containerized-service",
@@ -31832,8 +31928,8 @@ window.KKT_ASSEMBLY = {
      ],
      "to": [
       {
-       "at": "lane_reports::docker_limit",
-       "param": "read"
+       "at": "lanes::ContainerLanes",
+       "param": "container"
       }
      ]
     }

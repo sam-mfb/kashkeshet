@@ -1587,10 +1587,12 @@ dependencies = [
 name = "kkt-operator-commands"
 version = "0.10.0"
 dependencies = [
+ "futures",
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-clock",
  "kkt-config-file",
+ "kkt-deployment",
  "kkt-entropy",
  "kkt-keys",
  "kkt-lane-files",

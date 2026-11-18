@@ -82,7 +82,7 @@
   "kkt-operator-commands": {
    "layer": "assembly",
    "kind": "composition",
-   "concern": "The operator's commands on a server's keys, agents and lanes, and the lane import setup asks for. A lane server is a contract it declares (`LaneServer`), with its local implementation on the database; the program picks the server (`LaneServers`). It is given what is installed here, and takes every effect it needs as injected parts."
+   "concern": "The operator's commands on a server's keys, agents and lanes, and the lane import setup asks for. A lane server is a contract it declares (`LaneServer`), with two implementations: the local database, and kkt in a container. The program picks the server (`LaneServers`). It is given what is installed here, and takes every effect it needs as injected parts."
   },
   "kkt-server": {
    "layer": "assembly",
@@ -166,7 +166,7 @@
   },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what lanes and backup do. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what backup does. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic"
   },
   "kkt-bare-service": {
