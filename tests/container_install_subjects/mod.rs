@@ -1,4 +1,4 @@
-//! The implementations of kkt-container's `ServiceContainer` that the container
+//! The implementations of kkt-containerized-service's `ServiceContainer` that the container
 //! install's pins run (`tests/container_install/main.rs`). Every scenario
 //! runs once for each subject here, and each subject's transcript must
 //! match the same file in `tests/container_install/`.

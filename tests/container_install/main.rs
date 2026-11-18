@@ -1,4 +1,4 @@
-//! The container install, pinned: every scenario drives kkt-container's
+//! The container install, pinned: every scenario drives kkt-containerized-service's
 //! `ServiceContainer` over Docker on a scripted host, and its whole story (each
 //! command line in order with the folder it runs in and what the scripted
 //! host answered, the variables it runs without, the folders made, the files written with their modes and text,
