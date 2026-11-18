@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "ef689967",
+ "commit": "645116da",
  "crates": [
   {
    "bins": [
