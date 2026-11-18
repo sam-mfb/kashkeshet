@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "624d815a",
+ "commit": "cf924786",
  "crates": [
   {
    "bins": [
@@ -849,8 +849,7 @@ window.KKT_GRAPH = {
    "third_party": [
     "clap",
     "futures",
-    "tokio",
-    "tracing"
+    "tokio"
    ]
   },
   {
@@ -11420,6 +11419,9 @@ window.KKT_GRAPH = {
     {
      "doc": "An event's severity, from errors through tracing detail.",
      "kind": "enum",
+     "methods": [
+      "name"
+     ],
      "path": "Level",
      "variants": [
       "Error",
@@ -11513,22 +11515,6 @@ window.KKT_GRAPH = {
      "path": "DEFAULT_LOG_LEVEL"
     },
     {
-     "doc": "How much is logged: the named level and everything more severe.",
-     "kind": "enum",
-     "methods": [
-      "name",
-      "parse"
-     ],
-     "path": "LogLevel",
-     "variants": [
-      "Error",
-      "Warn",
-      "Info",
-      "Debug",
-      "Trace"
-     ]
-    },
-    {
      "doc": "A log level setting refused: the setting's name, as the caller gave it, and why.",
      "fields": [
       "name",
@@ -11554,6 +11540,16 @@ window.KKT_GRAPH = {
      "doc": "Sends the log to stderr: the program's own lines, from `own_targets`, at `own` (see `own_log_filter`).",
      "kind": "fn",
      "path": "init_stderr_logging"
+    },
+    {
+     "doc": "Whether logging has started in this process, by either function above.",
+     "kind": "fn",
+     "path": "logging_started"
+    },
+    {
+     "doc": "The level named `text`, as a setting such as `log_level` gives it, or an error naming `setting` and the choices.",
+     "kind": "fn",
+     "path": "parse_level"
     }
    ],
    "lib": "kkt_log_tracing",
@@ -19677,13 +19673,37 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Level",
+    "Log"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Level",
+      "Log"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-log"
+  },
+  {
+   "features": [],
+   "from": "kashkeshet",
+   "items": [
     "DEFAULT_DEPENDENCY_LOG_LEVEL",
     "DEFAULT_LOG_LEVEL",
-    "LogLevel",
     "SettingError",
     "TracingLog",
     "init_logging",
-    "init_stderr_logging"
+    "init_stderr_logging",
+    "logging_started",
+    "parse_level"
    ],
    "kind": "normal",
    "optional": false,
@@ -19693,10 +19713,11 @@ window.KKT_GRAPH = {
      "detail": [
       "DEFAULT_DEPENDENCY_LOG_LEVEL",
       "DEFAULT_LOG_LEVEL",
-      "LogLevel",
       "SettingError",
       "init_logging",
-      "init_stderr_logging"
+      "init_stderr_logging",
+      "logging_started",
+      "parse_level"
      ],
      "role": "uses"
     },
@@ -24937,10 +24958,31 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-keymode",
    "items": [
+    "Level"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Level"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-log"
+  },
+  {
+   "features": [],
+   "from": "kkt-keymode",
+   "items": [
     "DEFAULT_DEPENDENCY_LOG_LEVEL",
     "DEFAULT_LOG_LEVEL",
-    "LogLevel",
-    "TracingLog"
+    "TracingLog",
+    "parse_level"
    ],
    "kind": "normal",
    "optional": false,
@@ -24950,7 +24992,7 @@ window.KKT_GRAPH = {
      "detail": [
       "DEFAULT_DEPENDENCY_LOG_LEVEL",
       "DEFAULT_LOG_LEVEL",
-      "LogLevel"
+      "parse_level"
      ],
      "role": "uses"
     },
@@ -28511,7 +28553,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-webapp-preview",
    "items": [
-    "LogLevel",
     "TracingLog",
     "init_stderr_logging"
    ],
@@ -28521,7 +28562,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "LogLevel",
       "init_stderr_logging"
      ],
      "role": "uses"
@@ -31654,11 +31694,11 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-config-file",
      "note": "the config file's log levels, as kkt-log-tracing reads them",
-     "own": "the log-level check, a closure over LogLevel::parse",
+     "own": "the log-level check, a closure over parse_level",
      "suppliers": [
       {
        "crate": "kkt-log-tracing",
-       "item": "LogLevel"
+       "item": "parse_level"
       }
      ],
      "to": [
@@ -32107,11 +32147,11 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-config-file",
      "note": "the config file's log levels, as kkt-log-tracing reads them",
-     "own": "the log-level check, a closure over LogLevel::parse",
+     "own": "the log-level check, a closure over parse_level",
      "suppliers": [
       {
        "crate": "kkt-log-tracing",
-       "item": "LogLevel"
+       "item": "parse_level"
       }
      ],
      "to": [
