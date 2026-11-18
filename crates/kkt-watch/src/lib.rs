@@ -275,13 +275,20 @@ async fn fetch(
         let lost = || Failure::Lost(OUT_OF_RANGE.into());
         let end = later(clock.now(), wait).ok_or_else(lost)?;
         let poll = Span::from_std(settings.watch_poll).map_err(|_| lost())?;
+        // Asked only before the end: once the next ask would fall at or
+        // after it, the wait sleeps to its end and gives what it has, so
+        // the end of the wait wins over a last ask. The next wait asks at
+        // once.
         loop {
             let waited = server.wait(after, channels, wait).await?;
-            let now = clock.now();
-            if !waited.messages.is_empty() || now >= end {
+            let next = clock.now() + poll;
+            if !waited.messages.is_empty() || next >= end {
+                if waited.messages.is_empty() {
+                    clock.sleep_until(end).await;
+                }
                 break waited;
             }
-            clock.sleep_until((now + poll).min(end)).await;
+            clock.sleep_until(next).await;
         }
     } else {
         server.wait(after, channels, wait).await?
