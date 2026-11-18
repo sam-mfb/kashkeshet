@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "f460f291",
+ "commit": "440ce7f3",
  "crates": [
   {
    "bins": [
@@ -6647,41 +6647,6 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kkt-install-commands",
-       "type": null
-      },
-      {
-       "crate": "kkt-operator-commands",
-       "type": null
-      }
-     ],
-     "trait": "RecordedServerRead"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kkt-install-commands",
-       "type": null
-      },
-      {
-       "crate": "kkt-operator-commands",
-       "type": null
-      }
-     ],
-     "trait": "ServeConfigReads"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kkt-operator-commands",
-       "type": null
-      }
-     ],
-     "trait": "UnrecordedReads"
-    },
-    {
-     "implementors": [
-      {
        "crate": "kashkeshet",
        "type": "machine::connection::ConnectionReads"
       }
@@ -6719,55 +6684,6 @@ window.KKT_GRAPH = {
      "path": "DeploymentEndpoint"
     },
     {
-     "doc": "What is known about the server on this machine, for telling whether it runs in Docker: in order, its record, the note of an unfinished setup, or a server found installed with no record.",
-     "kind": "enum",
-     "methods": [
-      "runs_in_docker"
-     ],
-     "path": "Here",
-     "variants": [
-      "Recorded",
-      "Unfinished",
-      "Unrecorded",
-      "Nothing"
-     ]
-    },
-    {
-     "doc": "Which of the server's keys a `kkt key` command is about.",
-     "kind": "enum",
-     "methods": [
-      "beside",
-      "docker_copy",
-      "flag",
-      "looks_past_record",
-      "name"
-     ],
-     "path": "KeyKind",
-     "variants": [
-      "Access",
-      "Web",
-      "Admin"
-     ]
-    },
-    {
-     "doc": "Where an operator key file is (`operator_key`).",
-     "kind": "enum",
-     "path": "KeyPlace",
-     "variants": [
-      "Known",
-      "Configured"
-     ]
-    },
-    {
-     "doc": "What a key is when the serve config turns keys off.",
-     "kind": "enum",
-     "path": "KeysOff",
-     "variants": [
-      "NoKey",
-      "Refuse"
-     ]
-    },
-    {
      "doc": "This machine's deployment, as its setup record says.",
      "fields": [
       "deployment",
@@ -6778,14 +6694,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "RecordedDeployment"
-    },
-    {
-     "doc": "The read of this machine's setup record, for the server it names.",
-     "kind": "trait",
-     "methods": [
-      "recorded"
-     ],
-     "path": "RecordedServerRead"
     },
     {
      "doc": "How `kkt upgrade` replaces the server.",
@@ -6804,24 +6712,6 @@ window.KKT_GRAPH = {
       "DockerSettings",
       "Recorded"
      ]
-    },
-    {
-     "doc": "The serve config's reads that finding a key beside its access key makes.",
-     "kind": "trait",
-     "methods": [
-      "config_dir",
-      "configured_access"
-     ],
-     "path": "ServeConfigReads"
-    },
-    {
-     "doc": "A server's deployment and its access key file, as the setup record, the note of an unfinished setup, or a server found installed with no record says.",
-     "fields": [
-      "deployment",
-      "key_file"
-     ],
-     "kind": "struct",
-     "path": "ServerKeys"
     },
     {
      "doc": "The version of kkt that runs the server.",
@@ -6852,15 +6742,6 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "A setup begun and not finished: its server, once the install it made finished, and whether that setup puts the server in Docker.",
-     "fields": [
-      "server",
-      "in_docker"
-     ],
-     "kind": "struct",
-     "path": "UnfinishedSetup"
-    },
-    {
      "doc": "A deployment `kkt status` reports beside the record, or in its place: one an earlier setup began and did not finish, or one found installed with no record.",
      "fields": [
       "summary",
@@ -6868,15 +6749,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "UnrecordedDeployment"
-    },
-    {
-     "doc": "The reads of a server here that has no record.",
-     "kind": "trait",
-     "methods": [
-      "unfinished",
-      "unrecorded"
-     ],
-     "path": "UnrecordedReads"
     },
     {
      "doc": "",
@@ -6897,11 +6769,6 @@ window.KKT_GRAPH = {
      "path": "UpgradePlan"
     },
     {
-     "doc": "An access key may keep its old name, but cannot also be the admin key.",
-     "kind": "fn",
-     "path": "admin_key_collision"
-    },
-    {
      "doc": "What to say, after `label`, about the name tied to the admin key `key` in the file at `path`, if anything, reading the name file beside it from `files`.",
      "kind": "fn",
      "path": "admin_name_line"
@@ -6910,11 +6777,6 @@ window.KKT_GRAPH = {
      "doc": "The advice after the name file beside the admin key at `path` is written for the admin name `name`, or removed with no name: `written` is how that went.",
      "kind": "fn",
      "path": "admin_name_written"
-    },
-    {
-     "doc": "The key of `kind` beside `access`, the access key file the serve config names (`None` when it turns keys off, which `off` decides about).",
-     "kind": "fn",
-     "path": "configured_key"
     },
     {
      "doc": "How a client reaches the server: its endpoint and access key file, from the servers this machine's record names, or else from the serve settings.",
@@ -7027,21 +6889,6 @@ window.KKT_GRAPH = {
      "path": "connection::server_address"
     },
     {
-     "doc": "Whether `kkt key create` must first ask whether the server runs in Docker: for a web or admin key with no path given, as the server in Docker reads those keys inside its container.",
-     "kind": "fn",
-     "path": "create_asks_for_docker"
-    },
-    {
-     "doc": "What `kkt key create` refuses before it writes anything, in order: a web or admin key of a server `in_docker` (as `create_asks_for_docker` says to ask), whose host copies only mirror the container's; and a `name` for any key but the admi...",
-     "kind": "fn",
-     "path": "create_checks"
-    },
-    {
-     "doc": "What `kkt key create --admin --path` refuses before it writes anything, after `create_checks`: a `destination` that is the access key's file, `access`.",
-     "kind": "fn",
-     "path": "create_destination_check"
-    },
-    {
      "doc": "The per-user data directory: `~/Library/Application Support/kashkeshet` on macOS, and `kashkeshet` in the XDG data home (`Env::data_home`) elsewhere.",
      "kind": "fn",
      "path": "data_dir"
@@ -7057,49 +6904,14 @@ window.KKT_GRAPH = {
      "path": "docker_folder"
     },
     {
-     "doc": "Where a Docker setup keeps its host copies of the keys, given the access key's copy: each beside it, as `KeyKind::docker_copy` names them.",
-     "kind": "fn",
-     "path": "docker_key_copies"
-    },
-    {
      "doc": "The MCP endpoint of kkt in Docker, at `mcp_path`: published on the host's `port`, or served over Tailscale as `node`, `(hostname, tailnet)`.",
      "kind": "fn",
      "path": "docker_url"
     },
     {
-     "doc": "What is known about the server here: its record, else a note of an unfinished setup, else a server installed with no record, each read only if the one before is not there.",
-     "kind": "fn",
-     "path": "find_here"
-    },
-    {
-     "doc": "The key of `kind` that `kkt key` reads or replaces: `path` if given, else as the record says.",
-     "kind": "fn",
-     "path": "find_key"
-    },
-    {
-     "doc": "Where this machine's key of `kind` is: reads the record, then, only if it does not say, the serve config.",
-     "kind": "fn",
-     "path": "find_operator_key"
-    },
-    {
      "doc": "Whether `kkt serve` may start here.",
      "kind": "fn",
      "path": "guard"
-    },
-    {
-     "doc": "Makes a new random key and writes it to `path`, creating its folder if needed.",
-     "kind": "fn",
-     "path": "new_key_file"
-    },
-    {
-     "doc": "Where this machine's key of `kind` is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
-     "kind": "fn",
-     "path": "operator_key"
-    },
-    {
-     "doc": "Where the key of `kind` that `kkt key` reads or replaces is, on a machine whose setup record names `server`: for Docker, the host copy.",
-     "kind": "fn",
-     "path": "recorded_key"
     },
     {
      "doc": "Where the version of the server `recorded` describes is, for `kkt upgrade`.",
@@ -7125,11 +6937,6 @@ window.KKT_GRAPH = {
      "doc": "What `kkt upgrade` does to the server `recorded` describes, which runs kkt `running`, to bring it to `target`.",
      "kind": "fn",
      "path": "upgrade_plan"
-    },
-    {
-     "doc": "Ties `name` to the new admin key `key`, just written to the file at `path`, in the name file beside it.",
-     "kind": "fn",
-     "path": "write_admin_name"
     }
    ],
    "lib": "kkt_deployment",
@@ -7244,88 +7051,6 @@ window.KKT_GRAPH = {
      "traits": [],
      "values": [
       "kkt-machine::Platform"
-     ]
-    },
-    {
-     "at": "find_here",
-     "kind": "param",
-     "name": "reads",
-     "traits": [
-      {
-       "crate": "kkt-deployment",
-       "trait": "RecordedServerRead"
-      },
-      {
-       "crate": "kkt-deployment",
-       "trait": "UnrecordedReads"
-      }
-     ]
-    },
-    {
-     "at": "find_key",
-     "kind": "param",
-     "name": "reads",
-     "traits": [
-      {
-       "crate": "kkt-deployment",
-       "trait": "RecordedServerRead"
-      },
-      {
-       "crate": "kkt-deployment",
-       "trait": "ServeConfigReads"
-      },
-      {
-       "crate": "kkt-deployment",
-       "trait": "UnrecordedReads"
-      }
-     ]
-    },
-    {
-     "at": "find_operator_key",
-     "kind": "param",
-     "name": "reads",
-     "traits": [
-      {
-       "crate": "kkt-deployment",
-       "trait": "RecordedServerRead"
-      },
-      {
-       "crate": "kkt-deployment",
-       "trait": "ServeConfigReads"
-      }
-     ]
-    },
-    {
-     "at": "new_key_file",
-     "kind": "param",
-     "name": "entropy",
-     "traits": [
-      {
-       "crate": "kkt-entropy",
-       "trait": "Entropy"
-      }
-     ]
-    },
-    {
-     "at": "new_key_file",
-     "kind": "param",
-     "name": "files",
-     "traits": [
-      {
-       "crate": "kkt-keys",
-       "trait": "KeyFiles"
-      }
-     ]
-    },
-    {
-     "at": "write_admin_name",
-     "kind": "param",
-     "name": "files",
-     "traits": [
-      {
-       "crate": "kkt-keys",
-       "trait": "KeyFiles"
-      }
      ]
     }
    ],
@@ -8724,18 +8449,6 @@ window.KKT_GRAPH = {
    "implements": [
     {
      "crate": "kkt-install-commands",
-     "trait": "RecordedServerRead",
-     "trait_crate": "kkt-deployment",
-     "type": null
-    },
-    {
-     "crate": "kkt-install-commands",
-     "trait": "ServeConfigReads",
-     "trait_crate": "kkt-deployment",
-     "type": null
-    },
-    {
-     "crate": "kkt-install-commands",
      "trait": "AdoptSteps",
      "trait_crate": "kkt-setup",
      "type": null
@@ -8745,6 +8458,12 @@ window.KKT_GRAPH = {
      "trait": "InstalledHere",
      "trait_crate": "kkt-setup",
      "type": "record::InstallReads"
+    },
+    {
+     "crate": "kkt-install-commands",
+     "trait": "OperatorKeyReads",
+     "trait_crate": "kkt-setup",
+     "type": null
     },
     {
      "crate": "kkt-install-commands",
@@ -8916,11 +8635,6 @@ window.KKT_GRAPH = {
      "path": "deployment::deployment"
     },
     {
-     "doc": "The server `found` installed with no record, and its access key file, for finding keys.",
-     "kind": "fn",
-     "path": "deployment::found_server_keys"
-    },
-    {
      "doc": "A server found installed with no record, for `kkt status`.",
      "kind": "fn",
      "path": "deployment::found_without_record"
@@ -8936,11 +8650,6 @@ window.KKT_GRAPH = {
      "path": "deployment::recorded_server"
     },
     {
-     "doc": "The server `record` names and its access key file, for finding keys.",
-     "kind": "fn",
-     "path": "deployment::server_keys"
-    },
-    {
      "doc": "The version of kkt a record or a settings file names: not known when it says so (`setup::version_not_known`).",
      "kind": "fn",
      "path": "deployment::server_version"
@@ -8949,11 +8658,6 @@ window.KKT_GRAPH = {
      "doc": "The note of an unfinished setup, for `kkt status`: from its record when the install finished, otherwise from where it puts the server, in the folder `kkt setup` keeps kkt's Docker files in.",
      "kind": "fn",
      "path": "deployment::setup_not_finished"
-    },
-    {
-     "doc": "An unfinished setup, for finding keys: its server once its install finished, and whether it puts the server in Docker.",
-     "kind": "fn",
-     "path": "deployment::unfinished_setup"
     },
     {
      "doc": "`kkt doctor`: checks the server this machine's clients use, its keys, and how this machine runs kkt, and prints a line for each with a fix for each problem.",
@@ -8966,12 +8670,12 @@ window.KKT_GRAPH = {
      "path": "doctor::run"
     },
     {
-     "doc": "Where this machine's web and admin keys are, for the install's commands, as kkt-deployment's key finder decides over the setup record and the serve config.",
+     "doc": "Where this machine's web and admin keys are, for the install's commands, as kkt-setup's key finder decides over the setup record and the serve config.",
      "kind": "mod",
      "path": "keys"
     },
     {
-     "doc": "Where this machine's key of `kind` is, if it runs a server, as kkt-deployment's `kkt_deployment::find_operator_key` decides over this machine's reads and the setup facts given.",
+     "doc": "Where this machine's web or admin key file is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
      "kind": "fn",
      "path": "keys::local_operator_key"
     },
@@ -11176,12 +10880,6 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "",
-     "from": "kkt_names::AdminName",
-     "kind": "struct",
-     "path": "AdminName"
-    },
-    {
      "doc": "What the name file beside an admin key says about that key.",
      "kind": "enum",
      "path": "AdminNameFile",
@@ -11223,12 +10921,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "KeyText"
-    },
-    {
-     "doc": "",
-     "from": "kkt_names::MAX_ADMIN_NAME_CHARS",
-     "kind": "const",
-     "path": "MAX_ADMIN_NAME_CHARS"
     },
     {
      "doc": "The characters a new key is drawn from: lowercase ASCII letters and digits, as kkt-names drew them before.",
@@ -12903,6 +12595,15 @@ window.KKT_GRAPH = {
      "path": "MAX_MEMORY_NAME_CHARS"
     },
     {
+     "doc": "A name that breaks one of its kind's rules.",
+     "fields": [
+      "of",
+      "broke"
+     ],
+     "kind": "struct",
+     "path": "NameError"
+    },
+    {
      "doc": "A pair of word lists built into the binary.",
      "kind": "struct",
      "methods": [
@@ -12913,6 +12614,17 @@ window.KKT_GRAPH = {
      "path": "NamePack"
     },
     {
+     "doc": "The kind of name a check was given.",
+     "kind": "enum",
+     "path": "Named",
+     "variants": [
+      "Handle",
+      "Lane",
+      "MemoryEntry",
+      "AdminName"
+     ]
+    },
+    {
      "doc": "The name the human operator's messages carry.",
      "kind": "const",
      "path": "OPERATOR"
@@ -12921,6 +12633,16 @@ window.KKT_GRAPH = {
      "doc": "",
      "kind": "const",
      "path": "PACKS"
+    },
+    {
+     "doc": "A rule a name can break.",
+     "kind": "enum",
+     "path": "Rule",
+     "variants": [
+      "Words",
+      "TooLong",
+      "Reserved"
+     ]
     },
     {
      "doc": "A random adjective-animal pair from `ANIMALS`, such as `amber-falcon`.",
@@ -13000,7 +12722,9 @@ window.KKT_GRAPH = {
     }
    ],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -13207,24 +12931,6 @@ window.KKT_GRAPH = {
    "implements": [
     {
      "crate": "kkt-operator-commands",
-     "trait": "RecordedServerRead",
-     "trait_crate": "kkt-deployment",
-     "type": null
-    },
-    {
-     "crate": "kkt-operator-commands",
-     "trait": "ServeConfigReads",
-     "trait_crate": "kkt-deployment",
-     "type": null
-    },
-    {
-     "crate": "kkt-operator-commands",
-     "trait": "UnrecordedReads",
-     "trait_crate": "kkt-deployment",
-     "type": null
-    },
-    {
-     "crate": "kkt-operator-commands",
      "trait": "lanes::LaneServer",
      "trait_crate": "kkt-operator-commands",
      "type": "lanes::ContainerLanes"
@@ -13234,6 +12940,18 @@ window.KKT_GRAPH = {
      "trait": "lanes::LaneServer",
      "trait_crate": "kkt-operator-commands",
      "type": "lanes::LocalLanes"
+    },
+    {
+     "crate": "kkt-operator-commands",
+     "trait": "KeyReads",
+     "trait_crate": "kkt-setup",
+     "type": null
+    },
+    {
+     "crate": "kkt-operator-commands",
+     "trait": "OperatorKeyReads",
+     "trait_crate": "kkt-setup",
+     "type": null
     }
    ],
    "items": [
@@ -13368,19 +13086,19 @@ window.KKT_GRAPH = {
      "path": "key::show"
     },
     {
-     "doc": "Where this machine's access, web and admin keys are, as kkt-deployment's key finders decide over what is installed here and the serve config.",
+     "doc": "Where this machine's access, web and admin keys are, as kkt-setup's key finders decide over what is installed here and the serve config.",
      "kind": "mod",
      "path": "keys"
     },
     {
      "doc": "",
-     "from": "kkt_deployment::KeyKind",
+     "from": "kkt_setup::KeyKind",
      "kind": "enum",
      "path": "keys::KeyKind"
     },
     {
      "doc": "",
-     "from": "kkt_deployment::admin_key_collision",
+     "from": "kkt_setup::admin_key_collision",
      "kind": "fn",
      "path": "keys::admin_key_collision"
     },
@@ -16536,8 +16254,30 @@ window.KKT_GRAPH = {
      "trait": "InstalledHere"
     },
     {
+     "implementors": [
+      {
+       "crate": "kkt-operator-commands",
+       "type": null
+      }
+     ],
+     "trait": "KeyReads"
+    },
+    {
      "implementors": [],
      "trait": "Lines"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kkt-install-commands",
+       "type": null
+      },
+      {
+       "crate": "kkt-operator-commands",
+       "type": null
+      }
+     ],
+     "trait": "OperatorKeyReads"
     },
     {
      "implementors": [
@@ -16665,6 +16405,20 @@ window.KKT_GRAPH = {
      "path": "DockerSetup"
     },
     {
+     "doc": "What is known about the server on this machine, for telling whether it runs in Docker: in order, its record, the note of an unfinished setup, or a server found installed with no record.",
+     "kind": "enum",
+     "methods": [
+      "runs_in_docker"
+     ],
+     "path": "Here",
+     "variants": [
+      "Recorded",
+      "Unfinished",
+      "Unrecorded",
+      "Nothing"
+     ]
+    },
+    {
      "doc": "What tells whether the install an unfinished setup notes is still here.",
      "kind": "enum",
      "path": "InstallCheck",
@@ -16695,6 +16449,50 @@ window.KKT_GRAPH = {
      "path": "InstalledHere"
     },
     {
+     "doc": "Which of the server's keys a `kkt key` command is about.",
+     "kind": "enum",
+     "methods": [
+      "beside",
+      "docker_copy",
+      "flag",
+      "looks_past_record",
+      "name"
+     ],
+     "path": "KeyKind",
+     "variants": [
+      "Access",
+      "Web",
+      "Admin"
+     ]
+    },
+    {
+     "doc": "Where an operator key file is (`operator_key`).",
+     "kind": "enum",
+     "path": "KeyPlace",
+     "variants": [
+      "Known",
+      "Configured"
+     ]
+    },
+    {
+     "doc": "The reads that finding any key from `kkt key` makes, beyond `OperatorKeyReads`.",
+     "kind": "trait",
+     "methods": [
+      "unfinished",
+      "unrecorded"
+     ],
+     "path": "KeyReads"
+    },
+    {
+     "doc": "What a key is when the serve config turns keys off.",
+     "kind": "enum",
+     "path": "KeysOff",
+     "variants": [
+      "NoKey",
+      "Refuse"
+     ]
+    },
+    {
      "doc": "The caller's line input and output for setup's questions.",
      "kind": "trait",
      "methods": [
@@ -16716,6 +16514,16 @@ window.KKT_GRAPH = {
       "Docker",
       "Client"
      ]
+    },
+    {
+     "doc": "The reads that finding an operator key makes.",
+     "kind": "trait",
+     "methods": [
+      "config_dir",
+      "configured_access",
+      "setup"
+     ],
+     "path": "OperatorKeyReads"
     },
     {
      "doc": "What this machine is for, as chosen with `--mode` or asked.",
@@ -16868,6 +16676,11 @@ window.KKT_GRAPH = {
      "path": "Unrecorded"
     },
     {
+     "doc": "An access key may keep its old name, but cannot also be the admin key.",
+     "kind": "fn",
+     "path": "admin_key_collision"
+    },
+    {
      "doc": "",
      "kind": "fn",
      "path": "admin_key_line"
@@ -16928,9 +16741,34 @@ window.KKT_GRAPH = {
      "path": "client_key"
     },
     {
+     "doc": "The key of `kind` beside `access`, the access key file the serve config names (`None` when it turns keys off, which `off` decides about).",
+     "kind": "fn",
+     "path": "configured_key"
+    },
+    {
      "doc": "",
      "kind": "fn",
      "path": "configured_name_pack_line"
+    },
+    {
+     "doc": "Whether `kkt key create` must first ask whether the server runs in Docker: for a web or admin key with no path given, as the server in Docker reads those keys inside its container.",
+     "kind": "fn",
+     "path": "create_asks_for_docker"
+    },
+    {
+     "doc": "What `kkt key create` refuses before it writes anything, in order: a web or admin key of a server `in_docker` (as `create_asks_for_docker` says to ask), whose host copies only mirror the container's; and a `name` for any key but the admi...",
+     "kind": "fn",
+     "path": "create_checks"
+    },
+    {
+     "doc": "What `kkt key create --admin --path` refuses before it writes anything, after `create_checks`: a `destination` that is the access key's file, `access`.",
+     "kind": "fn",
+     "path": "create_destination_check"
+    },
+    {
+     "doc": "Where a Docker setup keeps its host copies of the keys, given the access key's copy: each beside it, as `KeyKind::docker_copy` names them.",
+     "kind": "fn",
+     "path": "docker_key_copies"
     },
     {
      "doc": "",
@@ -16938,9 +16776,39 @@ window.KKT_GRAPH = {
      "path": "docker_status_lines"
     },
     {
+     "doc": "What is known about the server here: its record, else a note of an unfinished setup, else a server installed with no record, each read only if the one before is not there.",
+     "kind": "fn",
+     "path": "find_here"
+    },
+    {
+     "doc": "The key of `kind` that `kkt key` reads or replaces: `path` if given, else as the record says.",
+     "kind": "fn",
+     "path": "find_key"
+    },
+    {
+     "doc": "Where this machine's key of `kind` is: reads the record, then, only if it does not say, the serve config.",
+     "kind": "fn",
+     "path": "find_operator_key"
+    },
+    {
+     "doc": "Makes a new random key and writes it to `path`, creating its folder if needed.",
+     "kind": "fn",
+     "path": "new_key_file"
+    },
+    {
+     "doc": "Where this machine's key of `kind` is, if it runs a server: for Docker, the host copy `kkt setup` saves, even while that setup is `unfinished` or the server is `unrecorded`; otherwise the file the server reads.",
+     "kind": "fn",
+     "path": "operator_key"
+    },
+    {
      "doc": "Where the setup record is: `setup.toml` in kkt's config directory, `config_dir`, beside the config file and the access key.",
      "kind": "fn",
      "path": "record_path"
+    },
+    {
+     "doc": "Where the key of `kind` that `kkt key` reads or replaces is, on a machine with the setup `record`: for Docker, the host copy.",
+     "kind": "fn",
+     "path": "recorded_key"
     },
     {
      "doc": "This machine's setup record.",
@@ -17039,6 +16907,16 @@ window.KKT_GRAPH = {
      "doc": "",
      "kind": "fn",
      "path": "web_key_line"
+    },
+    {
+     "doc": "Ties `name` to the new admin key `key`, just written to the file at `path`, in the name file beside it.",
+     "kind": "fn",
+     "path": "write_admin_name"
+    },
+    {
+     "doc": "",
+     "kind": "fn",
+     "path": "write_key_file"
     }
    ],
    "lib": "kkt_setup",
@@ -17056,6 +16934,61 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-setup",
        "trait": "ask::Lines"
+      }
+     ]
+    },
+    {
+     "at": "find_here",
+     "kind": "param",
+     "name": "reads",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "KeyReads"
+      }
+     ]
+    },
+    {
+     "at": "find_key",
+     "kind": "param",
+     "name": "reads",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "KeyReads"
+      }
+     ]
+    },
+    {
+     "at": "find_operator_key",
+     "kind": "param",
+     "name": "reads",
+     "traits": [
+      {
+       "crate": "kkt-setup",
+       "trait": "OperatorKeyReads"
+      }
+     ]
+    },
+    {
+     "at": "new_key_file",
+     "kind": "param",
+     "name": "entropy",
+     "traits": [
+      {
+       "crate": "kkt-entropy",
+       "trait": "Entropy"
+      }
+     ]
+    },
+    {
+     "at": "new_key_file",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-keys",
+       "trait": "KeyFiles"
       }
      ]
     },
@@ -17118,6 +17051,28 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-setup",
        "trait": "SwitchSteps"
+      }
+     ]
+    },
+    {
+     "at": "write_admin_name",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-keys",
+       "trait": "KeyFiles"
+      }
+     ]
+    },
+    {
+     "at": "write_key_file",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-keys",
+       "trait": "KeyFiles"
       }
      ]
     }
@@ -19737,7 +19692,6 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "KeyKind",
     "connection::Connection",
     "connection::serve_connection"
    ],
@@ -20687,6 +20641,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "DockerSetup",
+    "KeyKind",
     "Server",
     "Unrecorded"
    ],
@@ -21083,6 +21038,7 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "DockerSetup",
+    "KeyKind",
     "Mode",
     "Purpose",
     "Record",
@@ -21097,6 +21053,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "DockerSetup",
+      "KeyKind",
       "Mode",
       "Purpose",
       "Record",
@@ -23311,65 +23268,12 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-deployment",
    "items": [
-    "KeyCopies"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "KeyCopies"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-containerized-service"
-  },
-  {
-   "features": [],
-   "from": "kkt-deployment",
-   "items": [
-    "Entropy"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Entropy"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "testing::SeqEntropy"
-   ],
-   "to": "kkt-entropy"
-  },
-  {
-   "features": [],
-   "from": "kkt-deployment",
-   "items": [
     "ADMIN_KEY_COPY_FILE_NAME",
     "AccessKey",
-    "AdminName",
     "AdminNameFile",
     "KeyFiles",
-    "MAX_ADMIN_NAME_CHARS",
-    "NEW_KEY_ALPHABET",
-    "NEW_KEY_CHARS",
-    "WEB_KEY_COPY_FILE_NAME",
-    "access_key_file",
-    "admin_key_path",
     "admin_name_path",
-    "bound_to",
-    "read_admin_name",
-    "web_key_path"
+    "read_admin_name"
    ],
    "kind": "normal",
    "optional": false,
@@ -23379,26 +23283,17 @@ window.KKT_GRAPH = {
      "detail": [
       "ADMIN_KEY_COPY_FILE_NAME",
       "AccessKey",
-      "AdminName",
       "AdminNameFile",
       "KeyFiles",
-      "MAX_ADMIN_NAME_CHARS",
-      "NEW_KEY_ALPHABET",
-      "NEW_KEY_CHARS",
-      "WEB_KEY_COPY_FILE_NAME",
-      "access_key_file",
-      "admin_key_path",
       "admin_name_path",
-      "bound_to",
-      "read_admin_name",
-      "web_key_path"
+      "read_admin_name"
      ],
      "role": "uses"
     }
    ],
    "target": null,
    "test_items": [
-    "ACCESS_KEY_FILE_MODE",
+    "bound_to",
     "testing::Memory"
    ],
    "to": "kkt-keys"
@@ -23432,35 +23327,7 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-deployment",
    "items": [
-    "testing::SeqEntropy"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "wires",
-   "roles": [
-    {
-     "detail": [
-      "testing::SeqEntropy"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-entropy"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-deployment",
-   "items": [
-    "ACCESS_KEY_FILE_MODE",
     "ADMIN_KEY_COPY_FILE_NAME",
-    "MAX_ADMIN_NAME_CHARS",
-    "NEW_KEY_ALPHABET",
-    "NEW_KEY_CHARS",
-    "admin_name_path",
     "bound_to",
     "testing::Memory"
    ],
@@ -23470,12 +23337,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "ACCESS_KEY_FILE_MODE",
       "ADMIN_KEY_COPY_FILE_NAME",
-      "MAX_ADMIN_NAME_CHARS",
-      "NEW_KEY_ALPHABET",
-      "NEW_KEY_CHARS",
-      "admin_name_path",
       "bound_to"
      ],
      "role": "uses"
@@ -24737,18 +24599,12 @@ window.KKT_GRAPH = {
    "items": [
     "Deployment",
     "DeploymentEndpoint",
-    "KeyKind",
     "RecordedDeployment",
-    "RecordedServerRead",
     "Replace",
     "RunningVersion",
-    "ServeConfigReads",
-    "ServerKeys",
     "ServerVersion",
     "StatusThen",
-    "UnfinishedSetup",
     "UnrecordedDeployment",
-    "admin_key_collision",
     "admin_name_line",
     "admin_name_written",
     "connection",
@@ -24761,42 +24617,27 @@ window.KKT_GRAPH = {
     "connection::serve_connection",
     "connection::server_address",
     "docker_folder",
-    "docker_key_copies",
     "docker_url",
-    "find_operator_key",
     "guard",
-    "new_key_file",
     "running_version",
     "status",
     "status_looks_for_unrecorded",
-    "upgrade_plan",
-    "write_admin_name"
+    "upgrade_plan"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "adapts",
+   "role": "uses",
    "roles": [
-    {
-     "detail": [
-      "a type of its own implements RecordedServerRead",
-      "a type of its own implements ServeConfigReads"
-     ],
-     "role": "adapts"
-    },
     {
      "detail": [
       "Deployment",
       "DeploymentEndpoint",
-      "KeyKind",
       "RecordedDeployment",
       "Replace",
       "RunningVersion",
-      "ServerKeys",
       "ServerVersion",
       "StatusThen",
-      "UnfinishedSetup",
       "UnrecordedDeployment",
-      "admin_key_collision",
       "admin_name_line",
       "admin_name_written",
       "connection",
@@ -24809,16 +24650,12 @@ window.KKT_GRAPH = {
       "connection::serve_connection",
       "connection::server_address",
       "docker_folder",
-      "docker_key_copies",
       "docker_url",
-      "find_operator_key",
       "guard",
-      "new_key_file",
       "running_version",
       "status",
       "status_looks_for_unrecorded",
-      "upgrade_plan",
-      "write_admin_name"
+      "upgrade_plan"
      ],
      "role": "uses"
     }
@@ -25100,8 +24937,10 @@ window.KKT_GRAPH = {
     "InstallCheck",
     "Installed",
     "InstalledHere",
+    "KeyKind",
     "Lines",
     "Mode",
+    "OperatorKeyReads",
     "Purpose",
     "Record",
     "Server",
@@ -25111,11 +24950,15 @@ window.KKT_GRAPH = {
     "TailscaleLogin",
     "Unfinished",
     "Unrecorded",
+    "admin_key_collision",
     "admin_key_line",
     "ask::Prompter",
     "client_key",
     "configured_name_pack_line",
+    "docker_key_copies",
     "docker_status_lines",
+    "find_operator_key",
+    "new_key_file",
     "recorded_setup",
     "run",
     "service_runs_defaults",
@@ -25129,7 +24972,9 @@ window.KKT_GRAPH = {
     "unrecorded_service",
     "version_not_known",
     "waiting_note",
-    "web_key_line"
+    "web_key_line",
+    "write_admin_name",
+    "write_key_file"
    ],
    "kind": "normal",
    "optional": false,
@@ -25139,6 +24984,7 @@ window.KKT_GRAPH = {
      "detail": [
       "a type of its own implements AdoptSteps",
       "record::InstallReads implements InstalledHere",
+      "a type of its own implements OperatorKeyReads",
       "a type of its own implements Steps",
       "a type of its own implements SwitchSteps"
      ],
@@ -25148,16 +24994,21 @@ window.KKT_GRAPH = {
      "detail": [
       "ClientKey",
       "InstallCheck",
+      "KeyKind",
       "Lines",
       "Mode",
       "Purpose",
       "Record",
       "Unfinished",
       "Unrecorded",
+      "admin_key_collision",
       "admin_key_line",
       "client_key",
       "configured_name_pack_line",
+      "docker_key_copies",
       "docker_status_lines",
+      "find_operator_key",
+      "new_key_file",
       "recorded_setup",
       "run",
       "service_runs_defaults",
@@ -25171,7 +25022,9 @@ window.KKT_GRAPH = {
       "unrecorded_service",
       "version_not_known",
       "waiting_note",
-      "web_key_line"
+      "web_key_line",
+      "write_admin_name",
+      "write_key_file"
      ],
      "role": "uses"
     },
@@ -26860,53 +26713,18 @@ window.KKT_GRAPH = {
    "from": "kkt-operator-commands",
    "items": [
     "Deployment",
-    "KeyKind",
-    "RecordedServerRead",
-    "ServeConfigReads",
-    "ServerKeys",
-    "UnfinishedSetup",
-    "UnrecordedReads",
-    "admin_key_collision",
     "admin_name_line",
-    "admin_name_written",
-    "create_asks_for_docker",
-    "create_checks",
-    "create_destination_check",
-    "find_here",
-    "find_key",
-    "find_operator_key",
-    "new_key_file",
-    "write_admin_name"
+    "admin_name_written"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "adapts",
+   "role": "uses",
    "roles": [
     {
      "detail": [
-      "a type of its own implements RecordedServerRead",
-      "a type of its own implements ServeConfigReads",
-      "a type of its own implements UnrecordedReads"
-     ],
-     "role": "adapts"
-    },
-    {
-     "detail": [
       "Deployment",
-      "KeyKind",
-      "ServerKeys",
-      "UnfinishedSetup",
-      "admin_key_collision",
       "admin_name_line",
-      "admin_name_written",
-      "create_asks_for_docker",
-      "create_checks",
-      "create_destination_check",
-      "find_here",
-      "find_key",
-      "find_operator_key",
-      "new_key_file",
-      "write_admin_name"
+      "admin_name_written"
      ],
      "role": "uses"
     }
@@ -27083,24 +26901,49 @@ window.KKT_GRAPH = {
    "from": "kkt-operator-commands",
    "items": [
     "InstalledHere",
-    "Mode",
-    "Purpose",
+    "KeyKind",
+    "KeyReads",
+    "OperatorKeyReads",
     "Record",
     "Unfinished",
-    "Unrecorded"
+    "Unrecorded",
+    "admin_key_collision",
+    "create_asks_for_docker",
+    "create_checks",
+    "create_destination_check",
+    "find_here",
+    "find_key",
+    "find_operator_key",
+    "new_key_file",
+    "write_admin_name"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
+      "a type of its own implements KeyReads",
+      "a type of its own implements OperatorKeyReads"
+     ],
+     "role": "adapts"
+    },
+    {
+     "detail": [
       "InstalledHere",
-      "Mode",
-      "Purpose",
+      "KeyKind",
       "Record",
       "Unfinished",
-      "Unrecorded"
+      "Unrecorded",
+      "admin_key_collision",
+      "create_asks_for_docker",
+      "create_checks",
+      "create_destination_check",
+      "find_here",
+      "find_key",
+      "find_operator_key",
+      "new_key_file",
+      "write_admin_name"
      ],
      "role": "uses"
     }
@@ -28421,6 +28264,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
+    "KeyCopies",
     "Login",
     "State"
    ],
@@ -28430,6 +28274,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "KeyCopies",
       "Login",
       "State"
      ],
@@ -28439,6 +28284,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-containerized-service"
+  },
+  {
+   "features": [],
+   "from": "kkt-setup",
+   "items": [
+    "Entropy"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Entropy"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-entropy"
   },
   {
    "features": [],
@@ -28465,7 +28331,16 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
-    "check_access_key"
+    "ADMIN_KEY_COPY_FILE_NAME",
+    "KeyFiles",
+    "NEW_KEY_ALPHABET",
+    "NEW_KEY_CHARS",
+    "WEB_KEY_COPY_FILE_NAME",
+    "access_key_file",
+    "admin_key_path",
+    "bound_to",
+    "check_access_key",
+    "web_key_path"
    ],
    "kind": "normal",
    "optional": false,
@@ -28473,7 +28348,16 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "check_access_key"
+      "ADMIN_KEY_COPY_FILE_NAME",
+      "KeyFiles",
+      "NEW_KEY_ALPHABET",
+      "NEW_KEY_CHARS",
+      "WEB_KEY_COPY_FILE_NAME",
+      "access_key_file",
+      "admin_key_path",
+      "bound_to",
+      "check_access_key",
+      "web_key_path"
      ],
      "role": "uses"
     }
@@ -29570,7 +29454,7 @@ window.KKT_CONCERNS = {
    "layer": "data"
   },
   "kkt-deployment": {
-   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data, Docker files and key files are, whether `kkt serve` may run here, what `kkt status` and `kkt upgrade` do, and how a client reaches the server. It works on facts it declares, which its caller reads from the setup record.",
+   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data and Docker files are, whether `kkt serve` may run here, what `kkt status` and `kkt upgrade` do, and how a client reaches the server. It works on facts it declares, which its caller reads from the setup record.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -29745,7 +29629,7 @@ window.KKT_CONCERNS = {
    "layer": "assembly"
   },
   "kkt-setup": {
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to. It declares what is installed here (`InstalledHere`).",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to, and where key files are. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -30406,6 +30290,31 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
+     "crate": "kkt-setup",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "key_files"
+      }
+     ],
+     "note": "kkt setup, kkt service install, kkt upgrade, kkt status",
+     "passes_on": "the key files the program gave InstallParts",
+     "to": [
+      {
+       "at": "new_key_file",
+       "param": "files"
+      },
+      {
+       "at": "write_admin_name",
+       "param": "files"
+      },
+      {
+       "at": "write_key_file",
+       "param": "files"
+      }
+     ]
+    },
+    {
      "crate": "kkt-deployment",
      "from": [
       {
@@ -30419,19 +30328,11 @@ window.KKT_ASSEMBLY = {
       {
        "at": "admin_name_line",
        "param": "files"
-      },
-      {
-       "at": "new_key_file",
-       "param": "files"
-      },
-      {
-       "at": "write_admin_name",
-       "param": "files"
       }
      ]
     },
     {
-     "crate": "kkt-deployment",
+     "crate": "kkt-setup",
      "from": [
       {
        "at": "InstallParts",
@@ -30569,6 +30470,27 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
+     "crate": "kkt-setup",
+     "from": [
+      {
+       "at": "OperatorParts",
+       "param": "key_files"
+      }
+     ],
+     "note": "kkt key",
+     "passes_on": "the key files the program gave OperatorParts",
+     "to": [
+      {
+       "at": "new_key_file",
+       "param": "files"
+      },
+      {
+       "at": "write_admin_name",
+       "param": "files"
+      }
+     ]
+    },
+    {
      "crate": "kkt-deployment",
      "from": [
       {
@@ -30582,19 +30504,11 @@ window.KKT_ASSEMBLY = {
       {
        "at": "admin_name_line",
        "param": "files"
-      },
-      {
-       "at": "new_key_file",
-       "param": "files"
-      },
-      {
-       "at": "write_admin_name",
-       "param": "files"
       }
      ]
     },
     {
-     "crate": "kkt-deployment",
+     "crate": "kkt-setup",
      "from": [
       {
        "at": "OperatorParts",

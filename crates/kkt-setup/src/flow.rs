@@ -695,7 +695,9 @@ fn admin_key(answers: &Answers, ask: &dyn Ask) -> Result<Option<AdminName>, Stri
         None if ask.interactive() => ask.text(ADMIN_NAME, DEFAULT_SETUP_ADMIN_NAME)?,
         None => DEFAULT_SETUP_ADMIN_NAME.to_string(),
     };
-    AdminName::new(&given, MAX_ADMIN_NAME_CHARS).map(Some)
+    AdminName::new(&given, MAX_ADMIN_NAME_CHARS)
+        .map(Some)
+        .map_err(|e| e.to_string())
 }
 
 /// The admin key to add when continuing a setup: only `--admin-key` adds
@@ -709,7 +711,9 @@ fn resumed_admin_key(answers: &Answers) -> Result<Option<AdminName>, String> {
         .admin_name
         .as_deref()
         .unwrap_or(DEFAULT_SETUP_ADMIN_NAME);
-    AdminName::new(given, MAX_ADMIN_NAME_CHARS).map(Some)
+    AdminName::new(given, MAX_ADMIN_NAME_CHARS)
+        .map(Some)
+        .map_err(|e| e.to_string())
 }
 
 /// What [`finish`] completes.

@@ -251,6 +251,7 @@ pub fn create_checks(
     }
     name.map(|name| AdminName::new(name, MAX_ADMIN_NAME_CHARS))
         .transpose()
+        .map_err(|e| e.to_string())
 }
 
 /// What `kkt key create --admin --path` refuses before it writes anything,

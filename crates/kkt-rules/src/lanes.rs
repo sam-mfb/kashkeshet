@@ -51,7 +51,8 @@ pub(super) fn checked_save(
     max_description_chars: usize,
     max_text_chars: usize,
 ) -> Result<LaneSave> {
-    names::check_lane_name(&save.name, MAX_LANE_NAME_CHARS).map_err(RuleError::invalid)?;
+    names::check_lane_name(&save.name, MAX_LANE_NAME_CHARS)
+        .map_err(|e| RuleError::invalid(e.to_string()))?;
     let description = save.description.trim().to_string();
     if description.is_empty() {
         return Err(RuleError::invalid("the lane needs a description"));
@@ -388,7 +389,8 @@ impl Rules {
     /// changes nothing. An agent changes only its own lane.
     pub async fn take_lane(&self, me: &Agent, lane: Option<String>) -> Result<LaneTaking> {
         if let Some(name) = &lane {
-            names::check_lane_name(name, MAX_LANE_NAME_CHARS).map_err(RuleError::invalid)?;
+            names::check_lane_name(name, MAX_LANE_NAME_CHARS)
+                .map_err(|e| RuleError::invalid(e.to_string()))?;
         }
         let rules = self.clone();
         let handle = me.handle.clone();

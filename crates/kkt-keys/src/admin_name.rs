@@ -17,7 +17,7 @@ pub fn bound_to(name: &AdminName, key: &str) -> String {
 /// `max_chars`.
 pub fn bound_in(text: &str, key: &str, max_chars: usize) -> Result<Option<AdminName>, String> {
     let mut lines = text.lines();
-    let name = AdminName::new(lines.next().unwrap_or(""), max_chars)?;
+    let name = AdminName::new(lines.next().unwrap_or(""), max_chars).map_err(|e| e.to_string())?;
     let Some(hash) = lines.next().and_then(|l| l.strip_prefix(KEY_HASH_LABEL)) else {
         return Err(format!(
             "its second line must be `{KEY_HASH_LABEL}` and a hash of the admin key"

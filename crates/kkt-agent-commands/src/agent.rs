@@ -32,10 +32,10 @@ pub async fn register<C: ConnectionSource>(
     // The server checks the handle and lane too; checking first gives the
     // reason, and leaves no files behind.
     if let Some(handle) = handle {
-        names::check_proposed_handle(handle, names::MAX_HANDLE_CHARS)?;
+        names::check_proposed_handle(handle, names::MAX_HANDLE_CHARS).map_err(|e| e.to_string())?;
     }
     if let Some(lane) = lane {
-        names::check_lane_name(lane, names::MAX_LANE_NAME_CHARS)?;
+        names::check_lane_name(lane, names::MAX_LANE_NAME_CHARS).map_err(|e| e.to_string())?;
     }
     let server = parts.servers.avatars(client::agent(parts, connection)?);
     let mut token = parts.credentials.reserve(token_file)?;
