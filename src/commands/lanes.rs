@@ -31,7 +31,7 @@ fn local_operator(
     platform: Platform,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
-) -> Result<(kkt_rules::CommandLine, usize), String> {
+) -> Result<(kkt_rules::DirectAccess, usize), String> {
     let native = crate::machine::native::NativeParts::new(env, platform);
     kkt_operator_commands::lanes::local_operator(&native.lane_parts(), db, config)
 }

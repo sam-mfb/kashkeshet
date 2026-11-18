@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "475e1860",
+ "commit": "4839ac92",
  "crates": [
   {
    "bins": [
@@ -2487,7 +2487,8 @@ window.KKT_GRAPH = {
      "path": "Audit",
      "variants": [
       "WebPage",
-      "AdminEndpoint"
+      "AdminEndpoint",
+      "CommandLine"
      ]
     },
     {
@@ -14333,19 +14334,6 @@ window.KKT_GRAPH = {
     {
      "holds": [
       {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      },
-      {
-       "crate": "kkt-db",
-       "trait": "Backend"
-      }
-     ],
-     "type": "CommandLine"
-    },
-    {
-     "holds": [
-      {
        "crate": "kkt-db",
        "trait": "Backend"
       }
@@ -14372,6 +14360,19 @@ window.KKT_GRAPH = {
       }
      ],
      "type": "Deps"
+    },
+    {
+     "holds": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      },
+      {
+       "crate": "kkt-db",
+       "trait": "Backend"
+      }
+     ],
+     "type": "DirectAccess"
     },
     {
      "holds": [
@@ -14538,18 +14539,6 @@ window.KKT_GRAPH = {
      "path": "CORE"
     },
     {
-     "doc": "The operator's view of the agents of one swarm.",
-     "kind": "struct",
-     "methods": [
-      "agents",
-      "current_lanes",
-      "import_lanes",
-      "new",
-      "revoke"
-     ],
-     "path": "CommandLine"
-    },
-    {
      "doc": "A database the store reads and changes.",
      "kind": "struct",
      "methods": [
@@ -14576,6 +14565,18 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Deps"
+    },
+    {
+     "doc": "The operator's direct access to the agents of one swarm.",
+     "kind": "struct",
+     "methods": [
+      "agents",
+      "current_lanes",
+      "import_lanes",
+      "new",
+      "revoke"
+     ],
+     "path": "DirectAccess"
     },
     {
      "doc": "The name of the check that a count must be at least 1.",
@@ -14799,7 +14800,7 @@ window.KKT_GRAPH = {
      "path": "StoreResult"
     },
     {
-     "doc": "Checks lanes as `CommandLine::import_lanes` does before it changes anything, without a database: each lane against the lane rules with `max_lane_chars`, and no lane named twice.",
+     "doc": "Checks lanes as `DirectAccess::import_lanes` does before it changes anything, without a database: each lane against the lane rules with `max_lane_chars`, and no lane named twice.",
      "kind": "fn",
      "path": "check_lane_import"
     },
@@ -14860,7 +14861,7 @@ window.KKT_GRAPH = {
      "path": "testing::Probes"
     },
     {
-     "doc": "A new database in memory, with the core's tables, for other crates' tests: for a program that starts its own rules, or for the operator's `crate::CommandLine`.",
+     "doc": "A new database in memory, with the core's tables, for other crates' tests: for a program that starts its own rules, or for the operator's `crate::DirectAccess`.",
      "feature": "testing",
      "kind": "fn",
      "path": "testing::database"
@@ -14915,35 +14916,6 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
-    {
-     "at": "CommandLine::new",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    },
-    {
-     "at": "CommandLine::new",
-     "holds": [
-      {
-       "crate": "kkt-rules",
-       "traits": [
-        {
-         "crate": "kkt-db",
-         "trait": "Backend"
-        }
-       ],
-       "type": "Db"
-      }
-     ],
-     "kind": "param",
-     "name": "db",
-     "traits": []
-    },
     {
      "at": "Db::new",
      "kind": "param",
@@ -15005,6 +14977,35 @@ window.KKT_GRAPH = {
        "trait": "OperatorWording"
       }
      ]
+    },
+    {
+     "at": "DirectAccess::new",
+     "kind": "param",
+     "name": "clock",
+     "traits": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      }
+     ]
+    },
+    {
+     "at": "DirectAccess::new",
+     "holds": [
+      {
+       "crate": "kkt-rules",
+       "traits": [
+        {
+         "crate": "kkt-db",
+         "trait": "Backend"
+        }
+       ],
+       "type": "Db"
+      }
+     ],
+     "kind": "param",
+     "name": "db",
+     "traits": []
     },
     {
      "at": "Rules::new",
@@ -20229,7 +20230,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "CommandLine",
+    "DirectAccess",
     "Rules",
     "testing",
     "testing::Memory",
@@ -20650,9 +20651,9 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
-    "CommandLine",
     "Db",
     "DefaultWording",
+    "DirectAccess",
     "Rules",
     "Settings",
     "Startup",
@@ -20672,7 +20673,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "CommandLine",
+      "DirectAccess",
       "Rules",
       "Settings",
       "schema",
@@ -26205,7 +26206,11 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operator-commands",
    "items": [
+    "Audit",
     "LaneSource",
+    "Operator",
+    "Permission",
+    "Permissions",
     "SwarmId"
    ],
    "kind": "normal",
@@ -26214,7 +26219,11 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Audit",
       "LaneSource",
+      "Operator",
+      "Permission",
+      "Permissions",
       "SwarmId"
      ],
      "role": "uses"
@@ -26435,8 +26444,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operator-commands",
    "items": [
-    "CommandLine",
     "Db",
+    "DirectAccess",
     "ImportedLane",
     "LaneImport",
     "LaneOutcome",
@@ -26462,7 +26471,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "CommandLine"
+      "DirectAccess"
      ],
      "role": "wires"
     }
@@ -27684,8 +27693,8 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-server",
    "items": [
-    "CommandLine",
     "DefaultWording",
+    "DirectAccess",
     "LaneImport",
     "NewServerRun",
     "Rules",
@@ -27710,8 +27719,8 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "CommandLine",
       "DefaultWording",
+      "DirectAccess",
       "start",
       "testing::Memory",
       "testing::memory"
@@ -30022,7 +30031,7 @@ window.KKT_ASSEMBLY = {
      "passes_on": "the clock the program gave OperatorParts",
      "to": [
       {
-       "at": "CommandLine::new",
+       "at": "DirectAccess::new",
        "param": "clock"
       }
      ]

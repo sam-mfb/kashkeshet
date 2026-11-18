@@ -56,7 +56,7 @@
 //! permissions. Any agent may take one, and changes only its own; taking,
 //! switching, updating or dropping a lane is announced by the agent in
 //! every channel it is in. The operator can also import lanes from files on
-//! the server machine ([`CommandLine::import_lanes`]), as the human; each
+//! the server machine ([`DirectAccess::import_lanes`]), as the human; each
 //! version imported records the folder and git commit it came from.
 
 mod access;
@@ -79,7 +79,7 @@ pub use lane_import::{
 
 mod memory;
 
-mod command_line;
+mod direct_access;
 mod messages;
 mod operator;
 mod operator_api;
@@ -102,7 +102,7 @@ mod scenarios;
 #[cfg(test)]
 mod tests;
 
-pub use command_line::{CommandLine, Revoked};
+pub use direct_access::{DirectAccess, Revoked};
 
 /// Storage: the [`Reader`] and [`Writer`] contract, its implementation in
 /// kkt-db's terms, and the core's tables ([`schema`]).
