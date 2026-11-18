@@ -15,6 +15,9 @@ mod tool_text;
 pub use mcp_admin::MCP_ADMIN_PATH;
 pub use mcp_transport::Settings;
 
+/// The path of the agents' MCP endpoint.
+pub const MCP_PATH: &str = "/mcp";
+
 use crate::format_choice::{FormatChoice, chosen};
 use crate::mcp_transport::Transport;
 use crate::result_format::{Format, Formatter};
@@ -84,7 +87,7 @@ pub fn endpoint(
 ) -> Router {
     let tools = tools(&api.limits());
     transport.serve(
-        "/mcp",
+        MCP_PATH,
         ChatServer::new(api, identify, log, fmt, instructions, server_version, tools),
     )
 }

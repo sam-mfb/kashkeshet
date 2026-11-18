@@ -29,6 +29,7 @@ pub fn agent_parts(
             platform,
             serve_args,
         }),
+        mcp_path: kkt_mcp::MCP_PATH,
         admin_path: kkt_mcp::MCP_ADMIN_PATH,
         servers: Box::new(kkt_agent_client_mcp::Mcp),
         credentials: Box::new(CredentialFiles),

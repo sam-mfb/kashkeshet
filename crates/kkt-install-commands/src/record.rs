@@ -61,7 +61,7 @@ fn unrecorded_docker<D>(
     }
     let (hostname, tailnet) = existing.node.clone().unzip();
     Ok(Some(setup::Unrecorded {
-        url: docker_url(existing.port, existing.node.as_ref()),
+        url: docker_url(existing.port, existing.node.as_ref(), parts.mcp_path),
         mode: setup::Mode::Docker(setup::DockerSetup {
             folder,
             tailscale: existing.sharing,
@@ -116,6 +116,7 @@ fn unrecorded_service<D: crate::ServiceDefaults>(
         shared.as_ref().map(|node| node.dns_name.as_str()),
         connection.url,
         connection.key_file,
+        parts.mcp_path,
     )))
 }
 

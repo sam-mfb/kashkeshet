@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 
 /// `$XDG_CONFIG_HOME` when it is not set, under the home directory.
 pub const XDG_CONFIG_HOME_DEFAULT: &str = ".config";
+/// `$XDG_DATA_HOME` when it is not set, under the home directory.
+const XDG_DATA_HOME_DEFAULT: &str = ".local/share";
 
 /// The platform, which decides where per-user data goes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -23,7 +25,8 @@ pub enum Platform {
 /// that names them ([`Env::named`]). Unset or empty values are absent. The
 /// XDG values count only when absolute, as the XDG base directory
 /// specification says: read them through [`Env::config_home`],
-/// [`Env::absolute_xdg_config_home`] and [`Env::absolute_xdg_data_home`].
+/// [`Env::data_home`], [`Env::absolute_xdg_config_home`] and
+/// [`Env::absolute_xdg_data_home`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Env {
     /// `$HOME`.
@@ -51,6 +54,16 @@ impl Env {
         match self.absolute_xdg_config_home() {
             Some(dir) => Some(dir.to_path_buf()),
             None => Some(self.home.as_ref()?.join(XDG_CONFIG_HOME_DEFAULT)),
+        }
+    }
+
+    /// The base of per-user data under the XDG base directories:
+    /// `$XDG_DATA_HOME`, or `~/.local/share`. `None` with neither. Where a
+    /// platform keeps data elsewhere is the caller's choice.
+    pub fn data_home(&self) -> Option<PathBuf> {
+        match self.absolute_xdg_data_home() {
+            Some(dir) => Some(dir.to_path_buf()),
+            None => Some(self.home.as_ref()?.join(XDG_DATA_HOME_DEFAULT)),
         }
     }
 
@@ -179,6 +192,32 @@ mod tests {
         let e = env(None, None);
         assert_eq!(e.absolute_xdg_config_home(), None);
         assert_eq!(e.absolute_xdg_data_home(), None);
+    }
+
+    #[test]
+    fn data_goes_under_xdg_data_home_else_dot_local_share() {
+        assert_eq!(
+            env(None, Some("/xdg/data")).data_home(),
+            Some(PathBuf::from("/xdg/data"))
+        );
+        assert_eq!(
+            env(None, Some("relative/data")).data_home(),
+            Some(PathBuf::from("/home/sam/.local/share"))
+        );
+        assert_eq!(
+            env(None, None).data_home(),
+            Some(PathBuf::from("/home/sam/.local/share"))
+        );
+        let homeless = Env {
+            home: None,
+            ..env(None, None)
+        };
+        assert_eq!(homeless.data_home(), None);
+        let homeless = Env {
+            home: None,
+            ..env(None, Some("/xdg/data"))
+        };
+        assert_eq!(homeless.data_home(), Some(PathBuf::from("/xdg/data")));
     }
 
     #[test]

@@ -131,19 +131,20 @@ pub fn service_runs_defaults(args: &[String], runs_defaults: bool) -> Result<(),
 }
 
 /// The installed kkt service with no record: shared over Tailscale as the
-/// node `shared` names (its DNS name), else reached at `url`, with the
-/// access key in `key_file`.
+/// node `shared` names (its DNS name), at `mcp_path`, else reached at `url`,
+/// with the access key in `key_file`.
 pub fn unrecorded_service(
     shared: Option<&str>,
     url: String,
     key_file: Option<PathBuf>,
+    mcp_path: &str,
 ) -> Unrecorded {
     Unrecorded {
         mode: Mode::Service {
             tailscale: shared.is_some(),
         },
         url: match shared {
-            Some(dns_name) => format!("https://{dns_name}/mcp"),
+            Some(dns_name) => format!("https://{dns_name}{mcp_path}"),
             None => url,
         },
         key_file,
@@ -281,7 +282,12 @@ mod tests {
     fn a_service_is_reached_over_tailscale_if_shared_else_as_configured() {
         let key = Some(PathBuf::from("/k/access-key"));
         assert_eq!(
-            unrecorded_service(None, "http://127.0.0.1:7880/mcp".into(), key.clone()),
+            unrecorded_service(
+                None,
+                "http://127.0.0.1:7880/mcp".into(),
+                key.clone(),
+                "/mcp"
+            ),
             Unrecorded {
                 mode: Mode::Service { tailscale: false },
                 url: "http://127.0.0.1:7880/mcp".into(),
@@ -292,7 +298,8 @@ mod tests {
             unrecorded_service(
                 Some("box.tail1234.ts.net"),
                 "http://127.0.0.1:7880/mcp".into(),
-                None
+                None,
+                "/mcp"
             ),
             Unrecorded {
                 mode: Mode::Service { tailscale: true },

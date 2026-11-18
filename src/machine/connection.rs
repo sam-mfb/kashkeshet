@@ -49,7 +49,7 @@ impl ConnectionSource for ConnectionReads<'_> {
                 ..ServeOptions::NONE
             },
         )?;
-        let url = diagnostics::endpoint(settings.bind, flags.url.as_deref())?;
+        let url = diagnostics::endpoint(settings.bind, flags.url.as_deref(), kkt_mcp::MCP_PATH)?;
         Ok(ServeConnection {
             url,
             access_key: settings.access_key,

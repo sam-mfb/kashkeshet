@@ -250,6 +250,44 @@ fn the_database_goes_in_the_platform_data_directory() {
 }
 
 #[test]
+fn the_data_directory_needs_a_home_unless_xdg_names_one() {
+    // macOS keeps data under the home folder, whatever XDG_DATA_HOME says.
+    let e = data_env(Some("/Users/sam"), Some("/xdg/data"));
+    assert_eq!(
+        data_dir(&e, Platform::MacOs),
+        Some(PathBuf::from(
+            "/Users/sam/Library/Application Support/kashkeshet"
+        ))
+    );
+    assert_eq!(data_dir(&data_env(None, None), Platform::MacOs), None);
+    assert_eq!(data_dir(&data_env(None, None), Platform::Xdg), None);
+    assert_eq!(default_db(&data_env(None, None), Platform::Xdg), None);
+    // An absolute XDG_DATA_HOME is enough without a home folder; a relative
+    // one is not.
+    assert_eq!(
+        data_dir(&data_env(None, Some("/xdg/data")), Platform::Xdg),
+        Some(PathBuf::from("/xdg/data/kashkeshet"))
+    );
+    assert_eq!(
+        data_dir(&data_env(None, Some("relative/data")), Platform::Xdg),
+        None
+    );
+}
+
+#[test]
+fn a_docker_install_is_reached_on_its_port_or_at_its_tailscale_name() {
+    assert_eq!(docker_url(7420, None, "/mcp"), "http://127.0.0.1:7420/mcp");
+    assert_eq!(
+        docker_url(
+            7420,
+            Some(&("kkt-1".into(), "tail1234.ts.net".into())),
+            "/mcp"
+        ),
+        "https://kkt-1.tail1234.ts.net/mcp"
+    );
+}
+
+#[test]
 fn a_relative_xdg_data_home_is_ignored() {
     let e = data_env(Some("/home/sam"), Some("relative/data"));
     assert_eq!(
@@ -824,7 +862,7 @@ mod flow {
     #[test]
     fn with_every_flag_given_nothing_is_asked() {
         let (ask, steps) = (Script::default(), Fake::default());
-        let record = run(&client_flags(), "0.4.0", &ask, &steps).expect("setup");
+        let record = run(&client_flags(), "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(
             record,
             Record {
@@ -871,7 +909,7 @@ mod flow {
             clients: vec![Client::Codex],
             ..Fake::default()
         };
-        let record = run(&Answers::default(), "0.6.0", &ask, &steps).expect("server setup");
+        let record = run(&Answers::default(), "0.6.0", "/mcp", &ask, &steps).expect("server setup");
         assert!(matches!(record.mode, Mode::Docker(_)));
         // Enter leaves the clients asking before they use kkt.
         assert!(!steps.done().iter().any(|d| d.starts_with("allow kkt")));
@@ -898,7 +936,7 @@ mod flow {
 
         let ask = Script::with(vec![Reply::Choose(2), Reply::Enter, Reply::Enter]);
         let steps = Fake::default();
-        let record = run(&Answers::default(), "0.6.0", &ask, &steps).expect("client setup");
+        let record = run(&Answers::default(), "0.6.0", "/mcp", &ask, &steps).expect("client setup");
         assert_eq!(record.url, flow::DEFAULT_SETUP_URL);
         assert_eq!(record.key_file, None);
         assert_eq!(
@@ -914,7 +952,7 @@ mod flow {
             fail_once: RefCell::new(vec!["doctor"]),
             ..Fake::default()
         });
-        run(&Answers::default(), "0.6.0", &ask, &steps).expect("continue and retry");
+        run(&Answers::default(), "0.6.0", "/mcp", &ask, &steps).expect("continue and retry");
         assert_eq!(*ask.asked.borrow(), ["Continue that setup?", "Try again?"]);
         assert_eq!(*ask.defaults.borrow(), [Some(true), Some(true)]);
     }
@@ -939,7 +977,7 @@ mod flow {
             lanes: Some(Some("/home/sam/lanes".into())),
             ..Answers::default()
         };
-        let record = run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        let record = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(record.mode, Mode::Service { tailscale: true });
         assert_eq!(
             *ask.defaults.borrow(),
@@ -1013,7 +1051,7 @@ mod flow {
             yes: true,
             ..Answers::default()
         };
-        let record = run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        let record = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert!(matches!(record.mode, Mode::Docker(ref d) if !d.tailscale));
         assert!(ask.asked.borrow().is_empty());
         assert!(
@@ -1045,7 +1083,7 @@ mod flow {
             allow_kkt: None,
             ..client_flags()
         };
-        run(&answers, "0.11.0", &ask, &steps).expect("setup");
+        run(&answers, "0.11.0", "/mcp", &ask, &steps).expect("setup");
         assert!(ask.asked.borrow().is_empty());
         assert!(allowed(&steps).is_empty());
     }
@@ -1059,7 +1097,7 @@ mod flow {
             allow_kkt: Some(true),
             ..client_flags()
         };
-        run(&answers, "0.11.0", &ask, &steps).expect("setup");
+        run(&answers, "0.11.0", "/mcp", &ask, &steps).expect("setup");
         assert!(ask.asked.borrow().is_empty());
         assert_eq!(
             steps.done(),
@@ -1090,7 +1128,7 @@ mod flow {
             allow_kkt: None,
             ..client_flags()
         };
-        run(&answers, "0.11.0", &ask, &steps).expect("setup");
+        run(&answers, "0.11.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(*ask.asked.borrow(), ["--allow-kkt or --no-allow-kkt"]);
         assert!(allowed(&steps).is_empty());
     }
@@ -1105,7 +1143,7 @@ mod flow {
                 allow_kkt: None,
                 ..client_flags()
             };
-            run(&answers, "0.11.0", &ask, &steps).expect("setup");
+            run(&answers, "0.11.0", "/mcp", &ask, &steps).expect("setup");
             assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
             assert!(allowed(&steps).is_empty());
         }
@@ -1123,7 +1161,7 @@ mod flow {
             allow_kkt: Some(true),
             ..client_flags()
         };
-        run(&answers, "0.11.0", &ask, &steps).expect("setup finishes");
+        run(&answers, "0.11.0", "/mcp", &ask, &steps).expect("setup finishes");
         assert_eq!(
             allowed(&steps),
             ["allow kkt in claude-code", "allow kkt in codex"]
@@ -1149,7 +1187,7 @@ mod flow {
             allow_kkt: Some(true),
             ..client_flags()
         };
-        run(&answers, "0.11.0", &ask, &steps).expect("setup finishes");
+        run(&answers, "0.11.0", "/mcp", &ask, &steps).expect("setup finishes");
         assert_eq!(*ask.asked.borrow(), ["Try again?"]);
         assert!(steps.recorded());
         let told = ask.told.borrow();
@@ -1172,7 +1210,7 @@ mod flow {
                 allow_kkt: flag,
                 ..Answers::default()
             };
-            run(&answers, "0.11.0", &ask, &steps).expect("continued");
+            run(&answers, "0.11.0", "/mcp", &ask, &steps).expect("continued");
             assert!(ask.asked.borrow().is_empty());
             assert_eq!(allowed(&steps).len(), expected, "{flag:?}");
             // Without the flag, setup says permissions were left alone and
@@ -1196,7 +1234,7 @@ mod flow {
             clients: Some(Vec::new()),
             ..Answers::default()
         };
-        run(&answers, "0.6.0", &ask, &steps).expect("setup");
+        run(&answers, "0.6.0", "/mcp", &ask, &steps).expect("setup");
         assert!(ask.asked.borrow().is_empty());
         assert!(!steps.done().iter().any(|d| d.starts_with("admin key")));
     }
@@ -1208,7 +1246,7 @@ mod flow {
             admin_key: Some(true),
             ..docker_flags()
         };
-        run(&answers, "0.6.0", &Script::default(), &steps).expect("setup");
+        run(&answers, "0.6.0", "/mcp", &Script::default(), &steps).expect("setup");
         // Without a terminal or --admin-name, the default name.
         assert_eq!(*steps.admin_names.borrow(), ["admin-supervisor"]);
         let done = steps.done();
@@ -1227,7 +1265,7 @@ mod flow {
             admin_name: Some("night-owl".into()),
             ..docker_flags()
         };
-        run(&answers, "0.6.0", &Script::default(), &steps).expect("setup");
+        run(&answers, "0.6.0", "/mcp", &Script::default(), &steps).expect("setup");
         assert_eq!(steps.done()[..2], ["admin key for docker", "doctor"]);
         assert_eq!(*steps.admin_names.borrow(), ["admin-night-owl"]);
     }
@@ -1240,7 +1278,8 @@ mod flow {
             admin_name: Some("Night Owl".into()),
             ..docker_flags()
         };
-        let error = run(&answers, "0.6.0", &Script::default(), &steps).expect_err("refused");
+        let error =
+            run(&answers, "0.6.0", "/mcp", &Script::default(), &steps).expect_err("refused");
         assert!(error.contains("admin name"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
@@ -1255,7 +1294,7 @@ mod flow {
             admin_key: Some(true),
             ..docker_flags()
         };
-        let error = run(&answers, "0.6.0", &Script::default(), &steps).expect_err("fails");
+        let error = run(&answers, "0.6.0", "/mcp", &Script::default(), &steps).expect_err("fails");
         assert!(error.contains("kkt did not answer"), "{error}");
         assert!(error.contains("Run `kkt setup` again to finish"), "{error}");
         assert!(!steps.recorded());
@@ -1263,7 +1302,7 @@ mod flow {
 
         // Continuing the setup with the flag runs the admin key step again,
         // without installing again, and records it once that works.
-        run(&answers, "0.6.0", &Script::default(), &steps).expect("continued");
+        run(&answers, "0.6.0", "/mcp", &Script::default(), &steps).expect("continued");
         let done = steps.done();
         assert_eq!(
             done.iter().filter(|d| *d == "admin key for docker").count(),
@@ -1290,7 +1329,7 @@ mod flow {
             lanes: Some(None),
             ..Answers::default()
         };
-        run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(
             *ask.asked.borrow(),
             ["--allow-host host.docker.internal, or --allow-host none"]
@@ -1312,7 +1351,7 @@ mod flow {
             clients: Some(Vec::new()),
             ..client_flags()
         };
-        run(&answers, "0.4.0", &Script::default(), &steps).expect("setup");
+        run(&answers, "0.4.0", "/mcp", &Script::default(), &steps).expect("setup");
         assert_eq!(steps.done()[..1], ["doctor"]);
         assert!(!steps.done().iter().any(|d| d.starts_with("connect")));
     }
@@ -1330,7 +1369,7 @@ mod flow {
             ..client_flags()
         };
         let ask = Refusing;
-        let error = run(&answers, "0.4.0", &ask, &steps).expect_err("unanswered");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("unanswered");
         assert!(error.contains("pass --clients"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
@@ -1367,7 +1406,7 @@ mod flow {
             clients: Some(Vec::new()),
             ..Answers::default()
         };
-        let error = run(&answers, "0.4.0", &Script::default(), &steps).expect_err("fails");
+        let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps).expect_err("fails");
         assert!(error.starts_with("launchctl failed\n"), "{error}");
         assert!(error.contains("continues from the install"), "{error}");
         assert_eq!(
@@ -1393,7 +1432,7 @@ mod flow {
             allow_kkt: Some(false),
             ..Answers::default()
         };
-        let record = run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        let record = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(record.url, "https://kkt.example/mcp");
         assert_eq!(
             record.key_file,
@@ -1424,7 +1463,7 @@ mod flow {
             key_file: None,
             ..client_flags()
         };
-        let error = run(&answers, "0.4.0", &ask, &steps).expect_err("rejected");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("rejected");
         assert!(error.contains("nothing was recorded"), "{error}");
         assert!(error.ends_with("run `kkt setup` again"), "{error}");
         assert_eq!(*ask.asked.borrow(), ["--key-file", "Try again?"]);
@@ -1452,7 +1491,7 @@ mod flow {
             key_file: None,
             ..client_flags()
         };
-        run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(*ask.asked.borrow(), ["--key-file", "--key-file"]);
         assert!(
             ask.told.borrow()[0].starts_with("that key is not valid"),
@@ -1482,7 +1521,7 @@ mod flow {
             url: None,
             ..client_flags()
         };
-        let record = run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        let record = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(record.url, "https://kkt.tail1234.ts.net/mcp");
         assert_eq!(*ask.asked.borrow(), ["--url", "--url"]);
         assert_eq!(
@@ -1510,7 +1549,7 @@ mod flow {
             url: None,
             ..client_flags()
         };
-        run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert!(
             ask.told.borrow()[0].contains("http:// or https://"),
             "{:?}",
@@ -1534,7 +1573,7 @@ mod flow {
             key_file: None,
             ..client_flags()
         };
-        run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(*ask.asked.borrow(), ["--key-file", "--key-file"]);
         assert_eq!(
             ask.told.borrow()[0],
@@ -1555,7 +1594,7 @@ mod flow {
             key_file: None,
             ..client_flags()
         };
-        let record = run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        let record = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert!(record.key_file.is_some());
         assert_eq!(*ask.asked.borrow(), ["--key-file", "--key-file"]);
     }
@@ -1577,7 +1616,7 @@ mod flow {
             key_file: None,
             ..client_flags()
         };
-        let record = run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        let record = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(record.url, "https://kkt.tail1234.ts.net/mcp");
         assert_eq!(
             *ask.asked.borrow(),
@@ -1595,7 +1634,8 @@ mod flow {
             flaky: Some("https://kkt.tail1234.ts.net/mcp"),
             ..Fake::default()
         };
-        let error = run(&client_flags(), "0.4.0", &Script::default(), &steps).expect_err("flaky");
+        let error =
+            run(&client_flags(), "0.4.0", "/mcp", &Script::default(), &steps).expect_err("flaky");
         assert!(error.contains("given with --url"), "{error}");
         assert!(!error.contains("--key-file"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
@@ -1607,8 +1647,8 @@ mod flow {
             bad_addresses: vec!["https://kkt.tail1234.ts.net/mcp"],
             ..Fake::default()
         };
-        let error =
-            run(&client_flags(), "0.4.0", &Script::default(), &steps).expect_err("bad address");
+        let error = run(&client_flags(), "0.4.0", "/mcp", &Script::default(), &steps)
+            .expect_err("bad address");
         assert!(error.contains("--url"), "{error}");
         assert!(error.contains("connection refused"), "{error}");
         assert_eq!(steps.checked(), ["address https://kkt.tail1234.ts.net/mcp"]);
@@ -1621,7 +1661,8 @@ mod flow {
             bad_keys: vec!["file /keys/kkt".into()],
             ..Fake::default()
         };
-        let error = run(&client_flags(), "0.4.0", &Script::default(), &steps).expect_err("bad key");
+        let error =
+            run(&client_flags(), "0.4.0", "/mcp", &Script::default(), &steps).expect_err("bad key");
         assert!(error.contains("--key-file"), "{error}");
         assert!(error.contains("401"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
@@ -1636,7 +1677,7 @@ mod flow {
             clients: Some(Vec::new()),
             ..client_flags()
         };
-        let record = run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        let record = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(record.key_file, None);
         assert!(!steps.done().iter().any(|d| d.contains("key")));
     }
@@ -1648,7 +1689,8 @@ mod flow {
             url: Some("kkt.example".into()),
             ..client_flags()
         };
-        let error = run(&answers, "0.4.0", &Script::default(), &steps).expect_err("bad url");
+        let error =
+            run(&answers, "0.4.0", "/mcp", &Script::default(), &steps).expect_err("bad url");
         assert!(error.contains("--url"), "{error}");
         assert!(error.contains("http:// or https://"), "{error}");
         assert!(steps.checked().is_empty());
@@ -1666,7 +1708,7 @@ mod flow {
             ..client_flags()
         };
         let ask = Script::default();
-        let error = run(&answers, "0.4.0", &ask, &steps).expect_err("one failed");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("one failed");
         assert!(error.contains("Claude Code"), "{error}");
         assert!(error.contains("nothing was recorded"), "{error}");
         // The others are still tried, so one run shows every problem.
@@ -1694,7 +1736,7 @@ mod flow {
             ..Fake::default()
         };
         let ask = Script::default();
-        let error = run(&client_flags(), "0.4.0", &ask, &steps).expect_err("doctor");
+        let error = run(&client_flags(), "0.4.0", "/mcp", &ask, &steps).expect_err("doctor");
         assert!(error.contains("nothing was recorded"), "{error}");
         assert_eq!(steps.done(), ["doctor"]);
         assert!(
@@ -1763,7 +1805,7 @@ mod flow {
             fail_once: RefCell::new(vec!["doctor"]),
             ..Fake::default()
         };
-        let record = run(&docker_flags(), "0.4.0", &ask, &steps).expect("setup");
+        let record = run(&docker_flags(), "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert!(matches!(record.mode, Mode::Docker(_)));
         assert_eq!(*ask.asked.borrow(), ["Try again?"]);
         assert_eq!(*ask.defaults.borrow(), [Some(true)]);
@@ -1792,7 +1834,7 @@ mod flow {
             fail_once: RefCell::new(vec!["doctor"]),
             ..Fake::default()
         };
-        let error = run(&docker_flags(), "0.4.0", &ask, &steps).expect_err("no retry");
+        let error = run(&docker_flags(), "0.4.0", "/mcp", &ask, &steps).expect_err("no retry");
         assert!(ask.asked.borrow().is_empty());
         assert!(error.contains("nothing was recorded"), "{error}");
         assert!(
@@ -1827,7 +1869,7 @@ mod flow {
             purpose: Some(Purpose::Service),
             ..docker_flags()
         };
-        run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(
             steps.done()[..4],
             [
@@ -1850,7 +1892,7 @@ mod flow {
             clients: Some(vec![Client::ClaudeCode, Client::Codex]),
             ..docker_flags()
         };
-        run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         let key = "key=/home/sam/.config/kkt/docker-access-key";
         assert_eq!(
             steps.done(),
@@ -1882,7 +1924,7 @@ mod flow {
             clients: Some(vec![Client::Codex]),
             ..docker_flags()
         };
-        let error = run(&answers, "0.4.0", &ask, &steps).expect_err("declined");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("declined");
         assert!(error.starts_with("could not connect Codex"), "{error}");
         assert!(error.contains("Run `kkt setup` again to finish"), "{error}");
         assert!(!steps.recorded());
@@ -1893,7 +1935,7 @@ mod flow {
     fn setup_after_a_stopped_docker_setup_continues_without_installing_or_asking_again() {
         let ask = Script::with(vec![Reply::Confirm(true)]);
         let steps = with_left_over(Fake::default());
-        let record = run(&Answers::default(), "0.4.1", &ask, &steps).expect("setup");
+        let record = run(&Answers::default(), "0.4.1", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(Some(record), left_over().record);
         assert_eq!(*ask.asked.borrow(), ["Continue that setup?"]);
         assert_eq!(
@@ -1917,7 +1959,7 @@ mod flow {
     #[test]
     fn without_a_terminal_the_same_flags_continue_a_stopped_setup() {
         let steps = with_left_over(Fake::default());
-        run(&docker_flags(), "0.4.0", &Script::default(), &steps).expect("setup");
+        run(&docker_flags(), "0.4.0", "/mcp", &Script::default(), &steps).expect("setup");
         assert_eq!(steps.done()[0], "doctor");
         assert!(!steps.done().iter().any(|d| d.starts_with("install")));
     }
@@ -1936,7 +1978,7 @@ mod flow {
         ] {
             let ask = Script::default();
             let steps = with_left_over(Fake::default());
-            run(&answers, "0.4.0", &ask, &steps).expect("setup");
+            run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
             assert!(steps.done()[1].starts_with("install"), "{:?}", steps.done());
             assert!(
                 ask.told.borrow()[1].contains("starts over"),
@@ -1961,7 +2003,7 @@ mod flow {
             lanes: Some(None),
             ..Answers::default()
         };
-        run(&answers, "0.4.0", &ask, &steps).expect("setup");
+        run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(
             *ask.asked.borrow(),
             [
@@ -2000,7 +2042,8 @@ mod flow {
             purpose: Some(Purpose::Service),
             ..docker_flags()
         };
-        let error = run(&answers, "0.8.0", &Script::default(), &steps).expect_err("refused");
+        let error =
+            run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
         assert!(
             error.contains("installed a server here in Docker"),
             "{error}"
@@ -2013,7 +2056,8 @@ mod flow {
         // A service install noted, then a Docker setup.
         let steps = Fake::default();
         *steps.unfinished.borrow_mut() = Some(left_over_service());
-        let error = run(&docker_flags(), "0.8.0", &Script::default(), &steps).expect_err("refused");
+        let error =
+            run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
         assert!(
             error.contains("installed a server here as a service"),
             "{error}"
@@ -2037,7 +2081,7 @@ mod flow {
             lanes: Some(None),
             ..Answers::default()
         };
-        let error = run(&answers, "0.8.0", &ask, &steps).expect_err("refused");
+        let error = run(&answers, "0.8.0", "/mcp", &ask, &steps).expect_err("refused");
         assert!(error.contains("nothing was changed"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
@@ -2054,7 +2098,7 @@ mod flow {
             purpose: Some(Purpose::Service),
             ..docker_flags()
         };
-        let record = run(&answers, "0.8.0", &Script::default(), &steps).expect("setup");
+        let record = run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect("setup");
         assert!(matches!(record.mode, Mode::Service { .. }));
     }
 
@@ -2068,7 +2112,7 @@ mod flow {
                 url: Some(OTHER.into()),
                 ..client_flags()
             };
-            let record = run(&answers, "0.8.0", &ask, &steps).expect("setup");
+            let record = run(&answers, "0.8.0", "/mcp", &ask, &steps).expect("setup");
             let local = noted.record.expect("installed");
             assert_eq!(
                 record,
@@ -2109,7 +2153,7 @@ mod flow {
             url: Some(OTHER.into()),
             ..client_flags()
         };
-        run(&answers, "0.8.0", &Script::default(), &steps).expect_err("check fails");
+        run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect_err("check fails");
         assert!(!steps.recorded(), "{:?}", steps.done());
         assert_eq!(*steps.unfinished.borrow(), Some(left_over()));
     }
@@ -2127,7 +2171,7 @@ mod flow {
             yes: true,
             ..Answers::default()
         };
-        let error = run(&answers, "0.4.0", &ask, &steps).expect_err("fails");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("fails");
         assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
         assert!(error.contains("nothing was recorded"), "{error}");
         assert_eq!(steps.done(), ["doctor"]);
@@ -2164,7 +2208,7 @@ mod flow {
                 clients: Some(vec![Client::Codex]),
                 ..docker_flags()
             };
-            let error = run(&answers, "0.4.0", &ask, &steps).expect_err("fails");
+            let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("fails");
             assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
             assert!(error.contains(failed), "{error}");
         }
@@ -2183,7 +2227,7 @@ mod flow {
                 clients: vec![Client::Codex],
                 ..left_over()
             });
-            run(&Answers::default(), "0.4.1", &ask, &steps).expect("setup");
+            run(&Answers::default(), "0.4.1", "/mcp", &ask, &steps).expect("setup");
             let asked = ask.asked.borrow().clone();
             assert!(!asked.contains(&"--clients".to_string()), "{asked:?}");
             assert_eq!(
@@ -2212,7 +2256,7 @@ mod flow {
             yes: true,
             ..Answers::default()
         };
-        run(&answers, "0.4.1", &Script::default(), &steps).expect("setup");
+        run(&answers, "0.4.1", "/mcp", &Script::default(), &steps).expect("setup");
         let connected: Vec<_> = steps
             .done()
             .into_iter()
@@ -2231,7 +2275,7 @@ mod flow {
             clients: Some(vec![Client::ClaudeCode]),
             ..Answers::default()
         };
-        run(&answers, "0.4.1", &Script::default(), &steps).expect("setup");
+        run(&answers, "0.4.1", "/mcp", &Script::default(), &steps).expect("setup");
         assert_eq!(
             steps.done()[..3],
             [
@@ -2260,7 +2304,7 @@ mod flow {
             yes: true,
             ..Answers::default()
         };
-        let error = run(&answers, "0.4.0", &ask, &steps).expect_err("fails");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("fails");
         assert!(
             error.contains("began to install a server here in Docker"),
             "{error}"
@@ -2307,7 +2351,7 @@ mod flow {
             ts_authkey_file: Some("/home/sam/tailscale-key".into()),
             ..docker_flags()
         };
-        run(&answers, "0.4.0", &Script::default(), &steps).expect_err("fails");
+        run(&answers, "0.4.0", "/mcp", &Script::default(), &steps).expect_err("fails");
         assert_eq!(*steps.unfinished.borrow(), Some(begun_with_login()));
         assert_eq!(
             steps.done()[1],
@@ -2328,7 +2372,7 @@ mod flow {
             let steps = Fake::default();
             *steps.unfinished.borrow_mut() = Some(begun_with_login());
             let ask = Script::default();
-            run(&answers, "0.4.1", &ask, &steps).expect("setup");
+            run(&answers, "0.4.1", "/mcp", &ask, &steps).expect("setup");
             assert_eq!(
                 steps.done()[0],
                 "install docker tailscale=true hostname=kkt-work authkey=/home/sam/tailscale-key"
@@ -2364,7 +2408,7 @@ mod flow {
                 lanes: Some(None),
                 ..answers
             };
-            run(&answers, "0.4.1", &ask, &steps).expect("setup");
+            run(&answers, "0.4.1", "/mcp", &ask, &steps).expect("setup");
             assert!(
                 ask.told.borrow().iter().any(|t| t.contains("starts over")),
                 "{:?}",
@@ -2384,7 +2428,14 @@ mod flow {
     #[test]
     fn lanes_given_are_checked_first_and_imported_once_the_setup_is_recorded() {
         let (ask, steps) = (Script::default(), Fake::default());
-        run(&lanes_flag("/home/sam/lanes"), "0.8.0", &ask, &steps).expect("setup");
+        run(
+            &lanes_flag("/home/sam/lanes"),
+            "0.8.0",
+            "/mcp",
+            &ask,
+            &steps,
+        )
+        .expect("setup");
         assert_eq!(steps.checked(), ["lanes /home/sam/lanes for Docker"]);
         assert_eq!(
             steps.done(),
@@ -2420,6 +2471,7 @@ mod flow {
         let error = run(
             &lanes_flag("/home/sam/lanes"),
             "0.8.0",
+            "/mcp",
             &Script::default(),
             &steps,
         )
@@ -2441,7 +2493,7 @@ mod flow {
             lanes: None,
             ..docker_flags()
         };
-        run(&answers, "0.8.0", &ask, &steps).expect("setup");
+        run(&answers, "0.8.0", "/mcp", &ask, &steps).expect("setup");
         assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
         assert!(steps.checked().is_empty(), "{:?}", steps.checked());
         assert!(!steps.done().iter().any(|d| d.starts_with("import lanes")));
@@ -2454,13 +2506,14 @@ mod flow {
             lanes: Some(Some("/home/sam/lanes".into())),
             ..client_flags()
         };
-        let error = run(&answers, "0.8.0", &Script::default(), &steps).expect_err("refused");
+        let error =
+            run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
         assert!(error.contains("--lanes is for a server"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
         // A client setup is not asked about lanes.
         let ask = Script::with(vec![Reply::Choose(2), Reply::Enter, Reply::Enter]);
         let steps = Fake::default();
-        run(&Answers::default(), "0.8.0", &ask, &steps).expect("client setup");
+        run(&Answers::default(), "0.8.0", "/mcp", &ask, &steps).expect("client setup");
         assert!(!ask.asked.borrow().iter().any(|a| a == "--lanes"));
     }
 
@@ -2473,6 +2526,7 @@ mod flow {
         let error = run(
             &lanes_flag("/home/sam/lanes"),
             "0.8.0",
+            "/mcp",
             &Script::default(),
             &steps,
         )
@@ -2497,7 +2551,14 @@ mod flow {
             fail_once: RefCell::new(vec!["lanes"]),
             ..Fake::default()
         };
-        run(&lanes_flag("/home/sam/lanes"), "0.8.0", &ask, &steps).expect("setup");
+        run(
+            &lanes_flag("/home/sam/lanes"),
+            "0.8.0",
+            "/mcp",
+            &ask,
+            &steps,
+        )
+        .expect("setup");
         assert_eq!(*ask.asked.borrow(), ["Try again?"]);
         let imports = steps
             .done()
@@ -2515,7 +2576,7 @@ mod flow {
             lanes: Some(Some("/home/sam/lanes".into())),
             ..Answers::default()
         };
-        run(&answers, "0.8.0", &ask, &steps).expect("continued");
+        run(&answers, "0.8.0", "/mcp", &ask, &steps).expect("continued");
         // Checked against the kind of server being continued.
         assert_eq!(steps.checked(), ["lanes /home/sam/lanes for Docker"]);
         assert_eq!(
@@ -2526,7 +2587,7 @@ mod flow {
         // Continuing asks nothing about lanes: without the flag, none.
         let ask = Script::with(vec![Reply::Confirm(true)]);
         let steps = with_left_over(Fake::default());
-        run(&Answers::default(), "0.8.0", &ask, &steps).expect("continued");
+        run(&Answers::default(), "0.8.0", "/mcp", &ask, &steps).expect("continued");
         assert_eq!(*ask.asked.borrow(), ["Continue that setup?"]);
         assert!(!steps.done().iter().any(|d| d.starts_with("import lanes")));
 
@@ -2538,7 +2599,7 @@ mod flow {
             lanes: Some(Some("/home/sam/lanes".into())),
             ..Answers::default()
         };
-        run(&answers, "0.8.0", &Script::default(), &steps).expect("adopted");
+        run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect("adopted");
         assert_eq!(steps.checked(), ["lanes /home/sam/lanes for Docker"]);
         let done = steps.done();
         assert!(!done.iter().any(|d| d.starts_with("install")), "{done:?}");
@@ -2563,7 +2624,7 @@ mod flow {
             record: None,
         });
         let ask = Script::default();
-        let record = run(&Answers::default(), "0.4.1", &ask, &steps).expect("setup");
+        let record = run(&Answers::default(), "0.4.1", "/mcp", &ask, &steps).expect("setup");
         assert!(matches!(record.mode, Mode::Docker(_)));
         assert!(ask.asked.borrow().is_empty());
         assert!(
@@ -2623,7 +2684,7 @@ mod flow {
             clients: vec![Client::Codex],
             ..with_found(Ok(found_docker()))
         };
-        let record = run(&Answers::default(), "0.5.1", &ask, &steps).expect("setup");
+        let record = run(&Answers::default(), "0.5.1", "/mcp", &ask, &steps).expect("setup");
         // What setup 0.4.2 would have written, by this version.
         let mut expected = left_over().record.expect("record");
         expected.written_by = "0.5.1".into();
@@ -2671,7 +2732,7 @@ mod flow {
         }
         let ask = Asked(RefCell::new(Vec::new()));
         let steps = with_found(Ok(found_docker()));
-        run(&Answers::default(), "0.5.1", &ask, &steps).expect("setup");
+        run(&Answers::default(), "0.5.1", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(
             *ask.0.borrow(),
             [
@@ -2686,7 +2747,7 @@ mod flow {
     fn declining_to_adopt_sets_up_as_usual() {
         let ask = Script::with(vec![Reply::Confirm(false)]);
         let steps = with_found(Ok(found_docker()));
-        run(&docker_flags(), "0.5.1", &ask, &steps).expect("setup");
+        run(&docker_flags(), "0.5.1", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(*ask.asked.borrow(), ["--adopt"]);
         assert_eq!(steps.done()[1], "install docker tailscale=true");
     }
@@ -2695,7 +2756,8 @@ mod flow {
     fn without_a_terminal_setup_adopts_only_with_the_flag() {
         // No flags: the first question fails, and nothing is recorded.
         let steps = with_found(Ok(found_docker()));
-        let error = run(&Answers::default(), "0.5.1", &Refusing, &steps).expect_err("unanswered");
+        let error =
+            run(&Answers::default(), "0.5.1", "/mcp", &Refusing, &steps).expect_err("unanswered");
         assert!(error.contains("--mode"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
 
@@ -2703,7 +2765,7 @@ mod flow {
         // before this version.
         let ask = Script::default();
         let steps = with_found(Ok(found_docker()));
-        run(&docker_flags(), "0.5.1", &ask, &steps).expect("setup");
+        run(&docker_flags(), "0.5.1", "/mcp", &ask, &steps).expect("setup");
         assert!(
             ask.told
                 .borrow()
@@ -2721,7 +2783,7 @@ mod flow {
             clients: Some(Vec::new()),
             ..Answers::default()
         };
-        let record = run(&answers, "0.5.1", &ask, &steps).expect("setup");
+        let record = run(&answers, "0.5.1", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(record.url, "https://kkt.tail1234.ts.net/mcp");
         assert!(ask.asked.borrow().is_empty());
         assert_eq!(steps.done(), ADOPTED);
@@ -2738,7 +2800,7 @@ mod flow {
             clients: Some(vec![Client::Codex]),
             ..Answers::default()
         };
-        let error = run(&answers, "0.5.1", &Script::default(), &steps).expect_err("check");
+        let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("check");
         assert!(error.contains("so setup stopped there"), "{error}");
         assert!(!error.contains("nothing was recorded"), "{error}");
         assert!(error.contains("The server is recorded"), "{error}");
@@ -2756,7 +2818,7 @@ mod flow {
             ..docker_flags()
         };
         let steps = Fake::default();
-        let error = run(&answers, "0.5.1", &Script::default(), &steps).expect_err("none");
+        let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("none");
         assert!(
             error.contains("no kkt server without a setup record"),
             "{error}"
@@ -2766,7 +2828,7 @@ mod flow {
         let missing = "Found a kkt server in Docker from /srv, not recorded, but its Tailscale \
                        login never finished, so its address is not known.";
         let steps = with_found(Err(missing.into()));
-        let error = run(&answers, "0.5.1", &Script::default(), &steps).expect_err("unread");
+        let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("unread");
         assert_eq!(error, format!("--adopt: {missing}"));
         assert!(steps.done().is_empty());
     }
@@ -2777,7 +2839,7 @@ mod flow {
                        login never finished, so its address is not known.";
         let ask = Script::default();
         let steps = with_found(Err(missing.into()));
-        run(&docker_flags(), "0.5.1", &ask, &steps).expect("setup");
+        run(&docker_flags(), "0.5.1", "/mcp", &ask, &steps).expect("setup");
         assert!(
             ask.told.borrow()[0].starts_with(missing),
             "{:?}",
@@ -2800,7 +2862,7 @@ mod flow {
             // Not asked at a terminal: the answers say what to set up.
             let ask = Script::default();
             let steps = with_found(Ok(found_docker()));
-            run(&answers, "0.5.1", &ask, &steps).expect("setup");
+            run(&answers, "0.5.1", "/mcp", &ask, &steps).expect("setup");
             assert!(ask.asked.borrow().is_empty());
             assert!(steps.done()[1].starts_with("install"), "{:?}", steps.done());
 
@@ -2809,7 +2871,8 @@ mod flow {
                 ..answers
             };
             let steps = with_found(Ok(found_docker()));
-            let error = run(&adopt, "0.5.1", &Script::default(), &steps).expect_err("differs");
+            let error =
+                run(&adopt, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("differs");
             assert!(error.contains("answers given now are different"), "{error}");
             assert!(steps.done().is_empty());
         }
@@ -2828,7 +2891,7 @@ mod flow {
             ..Answers::default()
         };
         let steps = with_found(Ok(found));
-        let record = run(&answers, "0.5.1", &Script::default(), &steps).expect("setup");
+        let record = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps).expect("setup");
         assert_eq!(record.written_by, SETUP_UNKNOWN_VERSION);
         assert_eq!(record.mode, Mode::Service { tailscale: false });
         assert_eq!(
@@ -2845,7 +2908,7 @@ mod flow {
     fn a_noted_unfinished_setup_is_continued_not_adopted() {
         let steps = with_left_over(with_found(Ok(found_docker())));
         let ask = Script::with(vec![Reply::Confirm(true)]);
-        run(&docker_flags(), "0.5.1", &ask, &steps).expect("setup");
+        run(&docker_flags(), "0.5.1", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(*ask.asked.borrow(), ["Continue that setup?"]);
     }
 
@@ -2865,7 +2928,7 @@ mod flow {
                 interactive,
                 ..Script::default()
             };
-            let error = run(&answers, "0.5.1", &ask, &steps).expect_err("not adopted");
+            let error = run(&answers, "0.5.1", "/mcp", &ask, &steps).expect_err("not adopted");
             assert!(error.contains("--adopt installs nothing"), "{error}");
             assert!(ask.asked.borrow().is_empty());
             assert!(steps.done().is_empty(), "{:?}", steps.done());
@@ -2884,7 +2947,7 @@ mod flow {
                 ..docker_flags()
             };
             let steps = with_left_over(Fake::default());
-            run(&answers, "0.5.1", &Script::default(), &steps).expect("setup");
+            run(&answers, "0.5.1", "/mcp", &Script::default(), &steps).expect("setup");
             let done = steps.done();
             assert!(
                 done.iter()
@@ -2922,7 +2985,7 @@ mod flow {
             url: Some(OTHER.into()),
             ..client_flags()
         };
-        let record = run(&answers, "0.8.0", &ask, &steps).expect("setup");
+        let record = run(&answers, "0.8.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(
             record,
             Record {
@@ -2962,7 +3025,7 @@ mod flow {
             key_file: None,
             ..client_flags()
         };
-        let record = run(&answers, "0.8.0", &ask, &steps).expect("setup");
+        let record = run(&answers, "0.8.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(record.key_file, docker_record().key_file);
         assert_eq!(
             record.clients.and_then(|c| c.key_file),
@@ -2982,7 +3045,7 @@ mod flow {
         };
         let steps = on(switched);
         let ask = Script::default();
-        let record = run(&client_flags(), "0.8.0", &ask, &steps).expect("setup");
+        let record = run(&client_flags(), "0.8.0", "/mcp", &ask, &steps).expect("setup");
         assert_eq!(record, docker_record());
         assert!(
             steps
@@ -3000,20 +3063,23 @@ mod flow {
             ..docker_flags()
         };
         let steps = on(docker_record());
-        let error = run(&answers, "0.8.0", &Script::default(), &steps).expect_err("refused");
+        let error =
+            run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
         assert!(error.contains("kkt runs here in Docker"), "{error}");
         assert!(error.contains("kkt uninstall"), "{error}");
         assert!(error.contains("kkt switch"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
 
         let steps = on(super::record(Mode::Service { tailscale: true }));
-        let error = run(&docker_flags(), "0.8.0", &Script::default(), &steps).expect_err("refused");
+        let error =
+            run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
         assert!(error.contains("kkt runs here as a service"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
 
         // Continuing a stopped setup of the other kind is refused too.
         let steps = with_left_over(on(super::record(Mode::Service { tailscale: false })));
-        let error = run(&docker_flags(), "0.8.0", &Script::default(), &steps).expect_err("refused");
+        let error =
+            run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
         assert!(error.contains("kkt runs here as a service"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
@@ -3021,7 +3087,8 @@ mod flow {
     #[test]
     fn setting_up_the_same_kind_of_server_again_installs_it_again() {
         let steps = on(docker_record());
-        let record = run(&docker_flags(), "0.8.0", &Script::default(), &steps).expect("setup");
+        let record =
+            run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps).expect("setup");
         assert!(matches!(record.mode, Mode::Docker(_)));
         assert!(steps.done().iter().any(|d| d.starts_with("install docker")));
     }
@@ -3033,7 +3100,7 @@ mod flow {
             ..Fake::default()
         };
         let ask = Script::default();
-        run(&client_flags(), "0.8.0", &ask, &steps).expect("setup");
+        run(&client_flags(), "0.8.0", "/mcp", &ask, &steps).expect("setup");
         assert!(
             told(&ask).contains("the setup record /x is not valid; setup replaces it."),
             "{}",

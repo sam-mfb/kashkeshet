@@ -84,13 +84,13 @@ pub fn admin_connection(
     }
 }
 
-/// The admin endpoint, from a client endpoint ending in /mcp.
-/// The program supplies the transport's admin path constant.
-pub fn admin_endpoint(url: &str, admin_path: &str) -> Result<String, String> {
-    match url.strip_suffix("/mcp") {
+/// The admin endpoint, from a client endpoint ending in `mcp_path`. The
+/// program supplies the transport's two path constants.
+pub fn admin_endpoint(url: &str, mcp_path: &str, admin_path: &str) -> Result<String, String> {
+    match url.strip_suffix(mcp_path) {
         Some(base) => Ok(format!("{base}{admin_path}")),
         None => Err(format!(
-            "the server address {url} does not end in /mcp, so the admin endpoint's cannot be worked out; pass --url ending in /mcp"
+            "the server address {url} does not end in {mcp_path}, so the admin endpoint's cannot be worked out; pass --url ending in {mcp_path}"
         )),
     }
 }
@@ -217,6 +217,18 @@ mod tests {
             Err("bad key".into())
         );
         assert_eq!(*source.calls.borrow(), ["serve", "make key", "check key"]);
+    }
+
+    #[test]
+    fn the_admin_endpoint_replaces_the_mcp_path() {
+        assert_eq!(
+            admin_endpoint("https://kkt.tail1234.ts.net/mcp", "/mcp", "/mcp-admin"),
+            Ok("https://kkt.tail1234.ts.net/mcp-admin".into())
+        );
+        assert_eq!(
+            admin_endpoint("http://127.0.0.1:7420/other", "/mcp", "/mcp-admin"),
+            Err("the server address http://127.0.0.1:7420/other does not end in /mcp, so the admin endpoint's cannot be worked out; pass --url ending in /mcp".into())
+        );
     }
 
     #[test]
