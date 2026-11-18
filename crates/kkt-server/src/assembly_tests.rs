@@ -54,8 +54,7 @@ async fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum
     let clock = Arc::new(FixedClock::new(start_time()));
     let entropy = Arc::new(SeqEntropy::new(1));
     let rules = kkt_rules::testing::memory(kkt_rules::testing::Memory {
-        events: kkt_events::Events::new(kkt_events::Settings::DEFAULT)
-            .until_stopped(shutdown.clone()),
+        shutdown: shutdown.clone(),
         ..kkt_rules::testing::Memory::new(clock.clone(), entropy.clone())
     })
     .await

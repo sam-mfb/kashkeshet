@@ -14,7 +14,6 @@ use kkt_backup_os::OsBackups;
 use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
 use kkt_entropy_os::OsEntropy;
-use kkt_events::Events;
 use kkt_identity_keymode::KeyMode;
 use kkt_log_tracing::init_logging;
 use kkt_machine::{Env, Platform};
@@ -163,7 +162,7 @@ async fn serve(
             db,
             // Each call acts in the swarm its caller is in; key mode has one.
             swarm: SwarmId::main(),
-            events: Events::new(kkt_events::Settings::DEFAULT).until_stopped(shutdown.clone()),
+            shutdown: shutdown.clone(),
             clock: clock.clone(),
             entropy: entropy.clone(),
             settings: rules,

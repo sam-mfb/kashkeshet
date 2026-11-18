@@ -1062,7 +1062,6 @@ dependencies = [
  "kkt-diagnostics",
  "kkt-entropy",
  "kkt-entropy-os",
- "kkt-events",
  "kkt-files",
  "kkt-hash",
  "kkt-hosts",
@@ -1192,7 +1191,6 @@ dependencies = [
  "kkt-api-operator",
  "kkt-clock",
  "kkt-entropy",
- "kkt-events",
  "kkt-keys",
  "kkt-names",
  "kkt-shutdown",
@@ -1344,16 +1342,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kkt-events"
-version = "0.10.0"
-dependencies = [
- "futures",
- "kkt-shutdown",
- "serde",
- "tokio",
-]
-
-[[package]]
 name = "kkt-fake-product"
 version = "0.10.0"
 dependencies = [
@@ -1367,7 +1355,6 @@ dependencies = [
  "kkt-db-sqlite",
  "kkt-entropy",
  "kkt-entropy-os",
- "kkt-events",
  "kkt-hosts",
  "kkt-identity",
  "kkt-identity-keymode",
@@ -1463,7 +1450,6 @@ dependencies = [
  "kkt-config-file",
  "kkt-db-sqlite",
  "kkt-entropy-os",
- "kkt-events",
  "kkt-files",
  "kkt-hosts",
  "kkt-identity-keymode",
@@ -1660,9 +1646,9 @@ dependencies = [
  "kkt-clock",
  "kkt-db",
  "kkt-entropy",
- "kkt-events",
  "kkt-hash",
  "kkt-names",
+ "kkt-shutdown",
  "serde",
  "thiserror",
  "tokio",
@@ -1690,7 +1676,6 @@ dependencies = [
  "kkt-backup",
  "kkt-clock",
  "kkt-entropy",
- "kkt-events",
  "kkt-hosts",
  "kkt-identity",
  "kkt-identity-keymode",

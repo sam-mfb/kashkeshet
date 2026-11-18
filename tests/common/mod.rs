@@ -242,8 +242,7 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
         kkt_rules::Startup {
             db,
             swarm: kkt_api_agent::SwarmId::main(),
-            events: kkt_events::Events::new(kkt_events::Settings::DEFAULT)
-                .until_stopped(shutdown.clone()),
+            shutdown: shutdown.clone(),
             clock: clock.clone(),
             entropy: entropy.clone(),
             settings: rules,

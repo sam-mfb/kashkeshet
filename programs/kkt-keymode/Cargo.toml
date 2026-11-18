@@ -32,7 +32,6 @@ kkt-clock-system = { path = "../../crates/kkt-clock-system" }
 kkt-config-file = { path = "../../crates/kkt-config-file" }
 kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite" }
 kkt-entropy-os = { path = "../../crates/kkt-entropy-os" }
-kkt-events = { path = "../../crates/kkt-events" }
 kkt-files = { path = "../../crates/kkt-files" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }

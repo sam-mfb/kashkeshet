@@ -72,6 +72,7 @@ mod announcement;
 mod auth;
 mod channels;
 mod error;
+mod events;
 mod human;
 mod lane_import;
 mod lanes;
@@ -126,15 +127,15 @@ pub(crate) use store::{
 
 use access::{Decision, Need, Viewer, Who};
 use agents::may_change;
+use events::{
+    AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent,
+    NewChannel as NewChannelEvent, Subscription, SwarmEvents,
+};
 use kkt_api_admin::AdminChannel;
 use kkt_api_agent::*;
 use kkt_api_operator::*;
 use kkt_clock::{self as clock, Clock, Span, Time};
 use kkt_entropy::Entropy;
-use kkt_events::{
-    AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent,
-    NewChannel as NewChannelEvent, Subscription, SwarmEvents,
-};
 use kkt_names as names;
 use std::sync::Arc;
 
@@ -145,8 +146,9 @@ pub struct Deps {
     /// list or change is in it; to them, nothing outside it exists.
     /// [`Rules::in_swarm`] gives the same rules in another swarm.
     pub swarm: SwarmId,
-    /// The server's one bus, which every swarm's notices go through.
-    pub events: Events,
+    /// The server's shutdown signal. When it stops, every subscription to
+    /// the rules' notices ends.
+    pub shutdown: kkt_shutdown::Shutdown,
     pub clock: Arc<dyn Clock>,
     pub entropy: Arc<dyn Entropy>,
     /// This server run, which [`start`] records. New agents and messages
@@ -176,6 +178,9 @@ pub struct Rules {
 /// sends are counted per agent, a handle in a swarm.
 struct Inner {
     deps: Deps,
+    /// The server's one bus, which every swarm's notices go through, built
+    /// from `deps.settings` and `deps.shutdown`.
+    events: Events,
     /// Who is waiting for messages now, and who stopped a moment ago.
     waiting: Waiting,
     /// Counts each agent's sends against `settings.sends_per_minute`.
@@ -192,8 +197,13 @@ impl Rules {
         let sends = SendLimiter::new(deps.settings.sends_per_minute);
         let registrations = RegisterLimiter::new(deps.settings.registrations_per_minute);
         let swarm = deps.swarm.clone();
+        let events = Events::new(events::Settings {
+            buffer: deps.settings.event_buffer,
+        })
+        .until_stopped(deps.shutdown.clone());
         let inner = Arc::new(Inner {
             deps,
+            events,
             waiting: Waiting::default(),
             sends,
             registrations,
@@ -211,7 +221,7 @@ impl Rules {
     fn bound(inner: Arc<Inner>, swarm: SwarmId) -> Rules {
         Rules {
             store: Bound::new(inner.deps.db.clone(), swarm.clone()),
-            events: inner.deps.events.in_swarm(swarm.as_str()),
+            events: inner.events.in_swarm(swarm.as_str()),
             inner,
             swarm,
         }
@@ -229,7 +239,8 @@ impl Rules {
 
     /// Hears what happens in this swarm from now on: new messages, agents
     /// and channels, members coming and going, and what is hidden. It hears
-    /// nothing from another swarm. Its [`Subscription::closer`] ends it.
+    /// nothing from another swarm. It ends when it is dropped, or when the
+    /// server's shutdown signal stops.
     /// The operator hears the same through `Views::subscribe`.
     pub(crate) fn subscribe(&self) -> Subscription {
         self.events.subscribe()

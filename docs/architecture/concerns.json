@@ -141,12 +141,7 @@
   },
   "kkt-rules": {
    "layer": "core",
-   "concern": "Every permission decision and every change, for agents and the operator, each within one swarm, with the core's data and its tables. It implements the agent, operator and admin API contracts, and records each server run as it starts.",
-   "kind": "logic"
-  },
-  "kkt-events": {
-   "layer": "core",
-   "concern": "A bus of notices: new messages, agents, channels and members, and hidden agents and channels. Each notice is heard only in its own swarm.",
+   "concern": "Every permission decision and every change, for agents and the operator, each within one swarm, with the core's data and its tables. It implements the agent, operator and admin API contracts, records each server run as it starts, and publishes its notices on a bus where each is heard only in its own swarm.",
    "kind": "logic"
   },
   "kkt-db": {

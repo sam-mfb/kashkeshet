@@ -17,9 +17,9 @@ kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-db = { path = "../kkt-db" }
 kkt-entropy = { path = "../kkt-entropy" }
-kkt-events = { path = "../kkt-events" }
 kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
+kkt-shutdown = { path = "../kkt-shutdown" }
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

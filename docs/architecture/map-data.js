@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "729a900a",
+ "commit": "bb73d731",
  "crates": [
   {
    "bins": [
@@ -7183,190 +7183,6 @@ window.KKT_GRAPH = {
    ]
   },
   {
-   "bins": [],
-   "builds": [],
-   "contracts": [],
-   "crate_doc": "Notifications of what happens: new messages, new agents, channels and channel members, and agents and channels hidden.",
-   "dev_only": false,
-   "features": {},
-   "foreign_implements": [],
-   "holders": [],
-   "implements": [],
-   "items": [
-    {
-     "doc": "An agent's avatar was removed: it unregistered itself, or the operator hid it.",
-     "fields": [
-      "agent",
-      "by",
-      "by_operator",
-      "channels"
-     ],
-     "kind": "struct",
-     "path": "AgentHidden"
-    },
-    {
-     "doc": "A channel was hidden, by its owner or the operator.",
-     "fields": [
-      "channel_id",
-      "channel_name",
-      "by",
-      "by_operator"
-     ],
-     "kind": "struct",
-     "path": "ChannelHidden"
-    },
-    {
-     "doc": "A channel and its member count.",
-     "fields": [
-      "channel_id",
-      "channel_name",
-      "member_count"
-     ],
-     "kind": "struct",
-     "path": "ChannelMembers"
-    },
-    {
-     "doc": "Closes a `Subscription`: it then ends, as if nothing more could be published.",
-     "kind": "struct",
-     "methods": [
-      "close"
-     ],
-     "path": "Closer"
-    },
-    {
-     "doc": "The server's one bus.",
-     "kind": "struct",
-     "methods": [
-      "in_swarm",
-      "new",
-      "until_stopped"
-     ],
-     "path": "Events"
-    },
-    {
-     "doc": "An agent joined a channel it was not in, or was added to it.",
-     "fields": [
-      "agent",
-      "channel_id",
-      "channel_name",
-      "member_count"
-     ],
-     "kind": "struct",
-     "path": "Joined"
-    },
-    {
-     "doc": "An agent left a channel, or was removed from it.",
-     "fields": [
-      "agent",
-      "channel_id",
-      "channel_name",
-      "member_count",
-      "by",
-      "by_operator"
-     ],
-     "kind": "struct",
-     "path": "Left"
-    },
-    {
-     "doc": "An agent registered.",
-     "fields": [
-      "handle",
-      "created_at"
-     ],
-     "kind": "struct",
-     "path": "NewAgent"
-    },
-    {
-     "doc": "A channel was created.",
-     "fields": [
-      "id",
-      "name",
-      "open",
-      "created_by",
-      "created_at",
-      "member_count"
-     ],
-     "kind": "struct",
-     "path": "NewChannel"
-    },
-    {
-     "doc": "",
-     "fields": [
-      "id",
-      "channel_id",
-      "channel_name",
-      "agent",
-      "body",
-      "created_at",
-      "run_id"
-     ],
-     "kind": "struct",
-     "path": "NewMessage"
-    },
-    {
-     "doc": "What a subscriber hears.",
-     "kind": "enum",
-     "path": "Notice",
-     "variants": [
-      "Message",
-      "Agent",
-      "Channel",
-      "Joined",
-      "Left",
-      "ChannelHidden",
-      "AgentHidden",
-      "Missed"
-     ]
-    },
-    {
-     "doc": "The bus's own settings.",
-     "fields": [
-      "buffer"
-     ],
-     "kind": "struct",
-     "path": "Settings"
-    },
-    {
-     "doc": "One subscriber's view of one swarm's notices.",
-     "kind": "struct",
-     "methods": [
-      "closer",
-      "into_stream",
-      "next"
-     ],
-     "path": "Subscription"
-    },
-    {
-     "doc": "One swarm's notices: `Events::in_swarm`.",
-     "kind": "struct",
-     "methods": [
-      "publish",
-      "publish_agent",
-      "publish_agent_hidden",
-      "publish_channel",
-      "publish_channel_hidden",
-      "publish_joined",
-      "publish_left",
-      "subscribe"
-     ],
-     "path": "SwarmEvents"
-    }
-   ],
-   "lib": "kkt_events",
-   "machine_work": {},
-   "name": "kkt-events",
-   "path": "crates/kkt-events",
-   "produces": [],
-   "released_program": false,
-   "slots": [],
-   "testing_third_party": [],
-   "third_party": [
-    "futures",
-    "serde",
-    "tokio"
-   ]
-  },
-  {
    "bins": [
     "kkt-fake-product"
    ],
@@ -7427,8 +7243,7 @@ window.KKT_GRAPH = {
       "rules",
       "fmt",
       "web",
-      "mcp",
-      "events"
+      "mcp"
      ],
      "kind": "struct",
      "path": "Settings"
@@ -14261,7 +14076,7 @@ window.KKT_GRAPH = {
      "fields": [
       "db",
       "swarm",
-      "events",
+      "shutdown",
       "clock",
       "entropy",
       "run_id",
@@ -14451,7 +14266,8 @@ window.KKT_GRAPH = {
       "max_wait",
       "waiting_grace",
       "member_preview",
-      "purpose_preview_chars"
+      "purpose_preview_chars",
+      "event_buffer"
      ],
      "kind": "struct",
      "methods": [
@@ -14467,7 +14283,7 @@ window.KKT_GRAPH = {
      "fields": [
       "db",
       "swarm",
-      "events",
+      "shutdown",
       "clock",
       "entropy",
       "settings",
@@ -14528,7 +14344,7 @@ window.KKT_GRAPH = {
      "feature": "testing",
      "fields": [
       "swarm",
-      "events",
+      "shutdown",
       "clock",
       "entropy",
       "settings",
@@ -19545,29 +19361,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Events",
-    "Settings"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Events",
-      "Settings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-events"
-  },
-  {
-   "features": [],
-   "from": "kashkeshet",
-   "items": [
     "Files"
    ],
    "kind": "normal",
@@ -21719,51 +21512,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-api-sim",
    "items": [
-    "AgentHidden",
-    "ChannelHidden",
-    "ChannelMembers",
-    "Events",
-    "Joined",
-    "Left",
-    "NewAgent",
-    "NewChannel",
-    "NewMessage",
-    "Notice",
-    "Settings",
-    "Subscription",
-    "SwarmEvents"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AgentHidden",
-      "ChannelHidden",
-      "ChannelMembers",
-      "Events",
-      "Joined",
-      "Left",
-      "NewAgent",
-      "NewChannel",
-      "NewMessage",
-      "Notice",
-      "Settings",
-      "Subscription",
-      "SwarmEvents"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-events"
-  },
-  {
-   "features": [],
-   "from": "kkt-api-sim",
-   "items": [
     "check_access_key"
    ],
    "kind": "normal",
@@ -23208,27 +22956,6 @@ window.KKT_GRAPH = {
   },
   {
    "features": [],
-   "from": "kkt-events",
-   "items": [
-    "Shutdown"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Shutdown"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-shutdown"
-  },
-  {
-   "features": [],
    "from": "kkt-fake-product",
    "items": [
     "AdminAdmission",
@@ -23429,29 +23156,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-entropy-os"
-  },
-  {
-   "features": [],
-   "from": "kkt-fake-product",
-   "items": [
-    "Events",
-    "Settings"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Events",
-      "Settings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-events"
   },
   {
    "features": [],
@@ -25046,29 +24750,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-entropy-os"
-  },
-  {
-   "features": [],
-   "from": "kkt-keymode",
-   "items": [
-    "Events",
-    "Settings"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Events",
-      "Settings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-events"
   },
   {
    "features": [],
@@ -26985,51 +26666,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-rules",
    "items": [
-    "AgentHidden",
-    "ChannelHidden",
-    "ChannelMembers",
-    "Events",
-    "Joined",
-    "Left",
-    "NewAgent",
-    "NewChannel",
-    "NewMessage",
-    "Notice",
-    "Subscription",
-    "SwarmEvents"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AgentHidden",
-      "ChannelHidden",
-      "ChannelMembers",
-      "Events",
-      "Joined",
-      "Left",
-      "NewAgent",
-      "NewChannel",
-      "NewMessage",
-      "Notice",
-      "Subscription",
-      "SwarmEvents"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Settings"
-   ],
-   "to": "kkt-events"
-  },
-  {
-   "features": [],
-   "from": "kkt-rules",
-   "items": [
     "sha256"
    ],
    "kind": "normal",
@@ -27094,6 +26730,27 @@ window.KKT_GRAPH = {
     "MAX_ADMIN_NAME_CHARS"
    ],
    "to": "kkt-names"
+  },
+  {
+   "features": [],
+   "from": "kkt-rules",
+   "items": [
+    "Shutdown"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Shutdown"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-shutdown"
   },
   {
    "features": [
@@ -27720,29 +27377,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-entropy"
-  },
-  {
-   "features": [],
-   "from": "kkt-server",
-   "items": [
-    "Events",
-    "Settings"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Events",
-      "Settings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-events"
   },
   {
    "features": [],
@@ -29207,11 +28841,6 @@ window.KKT_CONCERNS = {
    "kind": "effect",
    "layer": "platform"
   },
-  "kkt-events": {
-   "concern": "A bus of notices: new messages, agents, channels and members, and hidden agents and channels. Each notice is heard only in its own swarm.",
-   "kind": "logic",
-   "layer": "core"
-  },
   "kkt-fake-product": {
    "concern": "The shared crates assembled as a different product, with two swarms and made-up bearers mapped to a swarm and a role. It shows that each swarm sees only its own data. For development only.",
    "kind": "composition",
@@ -29348,7 +28977,7 @@ window.KKT_CONCERNS = {
    "layer": "platform"
   },
   "kkt-rules": {
-   "concern": "Every permission decision and every change, for agents and the operator, each within one swarm, with the core's data and its tables. It implements the agent, operator and admin API contracts, and records each server run as it starts.",
+   "concern": "Every permission decision and every change, for agents and the operator, each within one swarm, with the core's data and its tables. It implements the agent, operator and admin API contracts, records each server run as it starts, and publishes its notices on a bus where each is heard only in its own swarm.",
    "kind": "logic",
    "layer": "core"
   },
