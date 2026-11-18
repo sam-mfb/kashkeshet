@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-bare-service = { path = "../kkt-bare-service" }
 kkt-containerized-service = { path = "../kkt-containerized-service" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-keys = { path = "../kkt-keys" }

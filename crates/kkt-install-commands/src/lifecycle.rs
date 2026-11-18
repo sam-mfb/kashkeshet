@@ -471,7 +471,7 @@ mod tests {
         fn service_settings(
             &self,
             _: Option<PathBuf>,
-            _: kkt_bare_service::ServiceSettings,
+            _: kkt_deployment::ServiceSettings,
         ) -> Result<crate::ServiceInputs<'_>, String> {
             self.0.borrow_mut().push("service_settings");
             Err("not asked here".into())
