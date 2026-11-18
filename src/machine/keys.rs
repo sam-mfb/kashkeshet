@@ -131,8 +131,8 @@ mod tests {
     use crate::machine::settings::{ServeArgs, ServeOptions};
     use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};
     use crate::scratch;
+    use kkt_deployment::KeyKind;
     use kkt_machine::{Env, Platform};
-    use kkt_setup::KeyKind;
     use std::path::PathBuf;
 
     // The key finders, over this program's real parts.

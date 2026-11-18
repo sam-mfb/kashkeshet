@@ -3,7 +3,7 @@
 
 use super::InstallOptions;
 use crate::doctor::{clients_server_mode, setup_of};
-use crate::keys::{admin_key_collision, new_key_file, write_admin_name, write_key_file};
+use crate::keys::{admin_key_collision, new_key_file};
 use crate::record::{
     DOCKER_KEY_FILE_NAME, docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded,
     write_setup_record,
@@ -132,7 +132,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 self.parts.login_link,
                 &kkt_container::Folder(folder.clone()),
                 &inputs,
-                &setup::docker_key_copies(&key_file),
+                &kkt_deployment::docker_key_copies(&key_file),
             ))
             .map_err(|e| e.to_string())?;
         let url = docker_url(
@@ -160,7 +160,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             .ok_or("set HOME to keep the key in ~/.config/kkt")?;
         self.parts.key_files.create_dir_all(&dir)?;
         let path = setup::staged_client_key(&dir);
-        write_key_file(self.parts.key_files, &path, key, true)?;
+        self.parts.key_files.write_key(&path, key, true)?;
         Ok(path)
     }
 
@@ -254,7 +254,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 .block_on(self.parts.container.add_admin_key(
                     self.parts.clock.as_ref(),
                     &kkt_container::Folder(install.folder.clone()),
-                    &setup::docker_key_copies(access),
+                    &kkt_deployment::docker_key_copies(access),
                     name.as_str(),
                 ))
                 .map_err(|e| e.to_string()),
@@ -277,7 +277,13 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                             kkt_deployment::admin_name_written(
                                 path,
                                 Some(&name.to_string()),
-                                write_admin_name(self.parts.key_files, path, &key, Some(name)),
+                                self.parts
+                                    .key_files
+                                    .write_admin_name(
+                                        path,
+                                        Some(kkt_keys::bound_to(name, &key).as_str()),
+                                    )
+                                    .map_err(|e| e.to_string()),
                             )
                             .map(drop)
                         })

@@ -18,9 +18,12 @@ kkt-deployment = { path = "../kkt-deployment" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-lane-files = { path = "../kkt-lane-files" }
 kkt-machine = { path = "../kkt-machine" }
+kkt-names = { path = "../kkt-names" }
 kkt-rules = { path = "../kkt-rules" }
 kkt-setup = { path = "../kkt-setup" }
 tokio.workspace = true
 
 [dev-dependencies]
 futures.workspace = true
+# Key files in memory, for the admin name file's pin.
+kkt-keys = { path = "../kkt-keys", features = ["testing"] }
