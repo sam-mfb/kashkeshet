@@ -29,14 +29,13 @@ pub struct Identified<A> {
 /// [`kkt_api_agent::RuleError`]; each surface gives it to the caller in its own way.
 pub trait Identify: Send + Sync {
     /// An agent tool call carrying `token`, from a caller admitted as
-    /// `principal`: the avatar it acts as, and in which swarm. `api` is
-    /// the endpoint's operations, to look the token up with, in whichever
-    /// swarm the implementation chooses ([`Api::in_swarm`]). The swarm
-    /// returned must be the one the avatar was found in: the call acts
-    /// there.
+    /// `principal`: the avatar it acts as, and in which swarm. `tokens`
+    /// looks the token up, in whichever swarm the implementation chooses.
+    /// The swarm returned must be the one the avatar was found in: the call
+    /// acts there.
     fn avatar<'a>(
         &'a self,
-        api: &'a dyn Api,
+        tokens: &'a dyn Tokens,
         principal: &'a Principal,
         token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>>;
@@ -50,6 +49,28 @@ pub trait Identify: Send + Sync {
     /// swarm, or why it is not an operator. Asked by the admin endpoint for
     /// each call, and by the web page for each request.
     fn operator<'a>(&'a self, principal: &'a Principal) -> Identifying<'a, Identified<Operator>>;
+}
+
+/// What [`Identify::avatar`] looks an agent's token up with.
+pub trait Tokens: Send + Sync {
+    /// The avatar `token` names in `swarm`, or the refusal the agent
+    /// operations give for it, such as `unauthenticated`.
+    fn authenticate<'a>(&'a self, swarm: SwarmId, token: Option<&'a str>)
+    -> Identifying<'a, Agent>;
+}
+
+/// The agent operations as [`Tokens`]: a token is looked up by
+/// [`Api::in_swarm`]'s `authenticate` in the swarm asked for.
+pub struct ApiTokens<'a>(pub &'a dyn Api);
+
+impl Tokens for ApiTokens<'_> {
+    fn authenticate<'a>(
+        &'a self,
+        swarm: SwarmId,
+        token: Option<&'a str>,
+    ) -> Identifying<'a, Agent> {
+        Box::pin(async move { self.0.in_swarm(swarm).authenticate(token).await })
+    }
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -78,7 +99,7 @@ pub mod testing {
     impl Identify for FixedIdentify {
         fn avatar<'a>(
             &'a self,
-            _api: &'a dyn Api,
+            _tokens: &'a dyn Tokens,
             _principal: &'a Principal,
             _token: Option<&'a str>,
         ) -> Identifying<'a, Identified<Agent>> {
