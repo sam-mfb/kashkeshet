@@ -53,8 +53,7 @@ impl RecordedSettings<'_> {
             lines.push(line("admin_key_file", file));
             lines.extend(admin_name.iter().map(|name| line("admin_name", name)));
         }
-        lines.extend(server.record_lines());
-        in_record_order(lines)
+        in_record_order(server.record_lines(lines))
     }
 }
 

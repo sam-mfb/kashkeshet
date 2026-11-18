@@ -226,7 +226,7 @@ pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Serv
         allowed_origins: config.allowed_origins.clone(),
         allowed_hosts: config.allowed_hosts.clone(),
     };
-    let server_settings = server_settings.check().expect("valid server settings");
+    let server_settings = server_settings.check([]).expect("valid server settings");
     let config = config.app_config();
     let run = ServerRun::new(
         Build::CURRENT,

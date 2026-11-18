@@ -516,7 +516,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     if let Some(problem) = first_problem(problems) {
         return Err(sources.invalid(problem));
     }
-    let server_settings = server_settings.check().map_err(|e| sources.invalid(e))?;
+    let server_settings = server_settings.check([]).map_err(|e| sources.invalid(e))?;
     // None configured: the server sends its built-in instructions.
     let instructions = instructions
         .as_ref()

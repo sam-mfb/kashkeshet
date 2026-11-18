@@ -72,11 +72,17 @@ impl ServerSettings {
         problems
     }
 
-    /// One checked snapshot for `Parts::new`, or the first of
-    /// [`ServerSettings::problems`]. The program asks this once it has found
-    /// no problem of its own or of these settings, in its own order.
-    pub fn check(self) -> Result<CheckedSettings, SettingError> {
-        if let Some((name, _, rule)) = self.problems().into_iter().next() {
+    /// One checked snapshot for `Parts::new`, or the first problem: of
+    /// `program`'s, each (setting, owner's check, rule), in the order given,
+    /// and then of [`ServerSettings::problems`]. The order is the
+    /// program's: a program that orders its checks with these settings'
+    /// problems puts them in order first, or passes none.
+    pub fn check(
+        self,
+        program: impl IntoIterator<Item = (&'static str, &'static str, String)>,
+    ) -> Result<CheckedSettings, SettingError> {
+        let problems = program.into_iter().chain(self.problems());
+        if let Some((name, _, rule)) = problems.into_iter().next() {
             return Err(SettingError { name, rule });
         }
         let hosts = AllowedHosts::new(&self.allowed_hosts).map_err(|error| SettingError {
@@ -89,10 +95,14 @@ impl ServerSettings {
         })
     }
 
-    /// These settings' recorded lines: the result formatter's, the web
-    /// page's, then the allowed origins and hosts, each sorted. The program
-    /// puts them in the run record's order with its own.
-    pub fn record_lines(&self) -> Vec<(String, String)> {
+    /// `program`'s lines as given, then these settings' recorded lines: the
+    /// result formatter's, the web page's, then the allowed origins and
+    /// hosts, each sorted. The run record's order is the program's: it puts
+    /// these lines in it.
+    pub fn record_lines(
+        &self,
+        program: impl IntoIterator<Item = (String, String)>,
+    ) -> Vec<(String, String)> {
         let Self {
             formatter,
             web,
@@ -100,7 +110,8 @@ impl ServerSettings {
             allowed_origins,
             allowed_hosts,
         } = self;
-        let mut lines = formatter.record_lines();
+        let mut lines: Vec<_> = program.into_iter().collect();
+        lines.extend(formatter.record_lines());
         lines.extend(web.record_lines());
         for (name, values) in [
             ("allowed_origin", allowed_origins),
@@ -130,7 +141,7 @@ mod tests {
             "{problems:?}"
         );
         assert!(ServerSettings::DEFAULT.problems().is_empty());
-        let error = settings.check().expect_err("a bad host");
+        let error = settings.check([]).expect_err("a bad host");
         assert_eq!(error.name, problems[0].0);
     }
 
@@ -141,7 +152,7 @@ mod tests {
             ..ServerSettings::DEFAULT
         };
         let expected = settings.allowed_hosts.clone();
-        let checked = settings.check().expect("checked snapshot");
+        let checked = settings.check([]).expect("checked snapshot");
         assert_eq!(checked.settings().allowed_hosts, expected);
         let (settings, hosts) = checked.into_parts();
         assert!(hosts.allows("host.example:7420"));
@@ -156,7 +167,7 @@ mod tests {
             allowed_hosts: vec!["b.example".into(), "a.example".into()],
             ..ServerSettings::DEFAULT
         };
-        let lines = settings.record_lines();
+        let lines = settings.record_lines([]);
         let tail: Vec<_> = lines[lines.len() - 4..]
             .iter()
             .map(|(name, value)| format!("{name}={value}"))

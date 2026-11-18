@@ -71,8 +71,7 @@ impl RecordedSettings<'_> {
                 line("log_max_age_ms", max_age.as_millis()),
             ]);
         }
-        lines.extend(server.record_lines());
-        in_record_order(lines)
+        in_record_order(server.record_lines(lines))
     }
 }
 

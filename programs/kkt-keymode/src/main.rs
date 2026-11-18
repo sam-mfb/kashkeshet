@@ -124,7 +124,7 @@ async fn run(args: &[String]) -> Result<(), String> {
     if let Some(problem) = first_problem(problems) {
         return Err(invalid(problem));
     }
-    let server_settings = server_settings.check().map_err(invalid)?;
+    let server_settings = server_settings.check([]).map_err(invalid)?;
     let instructions = instructions
         .as_deref()
         .map(|path| config_files::read_instructions(&ConfigDisk, path).map_err(|e| e.to_string()))
