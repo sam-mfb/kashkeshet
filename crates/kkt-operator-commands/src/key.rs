@@ -8,10 +8,9 @@ use crate::keys::{
     selected_key_path,
 };
 use kkt_deployment::{admin_name_line, admin_name_written};
+use kkt_deployment::{new_key_file, write_admin_name};
 use kkt_llm_agent_config as clients;
 use kkt_machine::Env;
-use kkt_setup as setup;
-use kkt_setup::{new_key_file, write_admin_name};
 use std::path::{Path, PathBuf};
 
 pub fn header(
@@ -88,8 +87,8 @@ pub fn create(
     // Checked before anything is written, so a refused key or a bad name
     // leaves no key.
     let in_docker =
-        setup::create_asks_for_docker(kind, path.is_some()) && runs_in_docker(parts, env)?;
-    let name = setup::create_checks(kind, in_docker, name)?;
+        kkt_deployment::create_asks_for_docker(kind, path.is_some()) && runs_in_docker(parts, env)?;
+    let name = kkt_deployment::create_checks(kind, in_docker, name)?;
     if kind == KeyKind::Admin
         && let Some(destination) = path.as_ref()
         && let Some(access) = local_operator_key(parts, env, None, None, KeyKind::Access)?
@@ -121,7 +120,7 @@ pub fn create(
             };
             (resolve(destination)?, resolve(&access)?)
         };
-        setup::create_destination_check(&destination, &access)?;
+        kkt_deployment::create_destination_check(&destination, &access)?;
     }
     let path = match kind {
         KeyKind::Access => path

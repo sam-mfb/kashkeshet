@@ -185,7 +185,10 @@ pub async fn upgrade<D: ServiceDefaults>(
                     parts.clock.as_ref(),
                     &kkt_container::Folder(folder),
                     Build::CURRENT.version,
-                    key_file.as_deref().map(setup::docker_key_copies).as_ref(),
+                    key_file
+                        .as_deref()
+                        .map(kkt_deployment::docker_key_copies)
+                        .as_ref(),
                 )
                 .await
                 .map_err(|e| e.to_string())?;

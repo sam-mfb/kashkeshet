@@ -355,7 +355,7 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       /filled with KeyMode \(kkt-identity-keymode\), by kashkeshet, passed on by kkt-server/.test(mcpSlots) &&
       /KeyMode \(kkt-identity-keymode\), from kashkeshet → kkt-mcp's endpoint \(identify\)/.test(serverPasses) &&
       /wrapping KeyMode \(kkt-identity-keymode\), from kashkeshet → kkt-web's router \(gate\)/.test(serverPasses) &&
-      /OsKeyFiles \(kkt-keys-os\) → kkt-setup's [^;]*by kashkeshet, passed on by kkt-operator-commands/.test(keyFilesGo),
+      /OsKeyFiles \(kkt-keys-os\) → kkt-deployment's [^;]*by kashkeshet, passed on by kkt-operator-commands/.test(keyFilesGo),
       { identity, mcp: (mcpSlots.match(/endpoint takes identify[^]{0,120}/) || [""])[0], passes: serverPasses.slice(0, 300) });
     // With kkt-server and kkt-identity-keymode both ticked, the line into
     // kkt-server names KeyMode first, so its shortened label keeps it.

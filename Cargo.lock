@@ -1324,6 +1324,8 @@ dependencies = [
 name = "kkt-deployment"
 version = "0.10.0"
 dependencies = [
+ "kkt-containerized-service",
+ "kkt-entropy",
  "kkt-keys",
  "kkt-machine",
  "kkt-names",
@@ -1711,7 +1713,6 @@ name = "kkt-setup"
 version = "0.10.0"
 dependencies = [
  "kkt-containerized-service",
- "kkt-entropy",
  "kkt-hash",
  "kkt-keys",
  "kkt-llm-agent-config",

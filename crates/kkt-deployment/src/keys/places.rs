@@ -1,19 +1,33 @@
-//! Where this machine's access, web and admin key files are, decided from
-//! the setup record, the note of an unfinished setup, a server found
-//! installed with no record, or the serve config, with the host copies a
-//! Docker setup keeps; and what `kkt key create` refuses before it writes.
-//! The program reads the record and the rest, one at a time, and hands each
-//! result to these functions; it also reads and writes the key files.
+//! Where this machine's access, web and admin key files are, for each way
+//! kkt is deployed here, with the host copies a Docker setup keeps; and what
+//! `kkt key create` refuses before it writes. The caller reads how the
+//! machine is set up and hands each fact to these functions; it also reads
+//! and writes the key files.
 
-use super::adopt::Unrecorded;
-use super::flow::Purpose;
-use super::record::{Mode, Record, Unfinished};
+use crate::Deployment;
 use kkt_containerized_service::KeyCopies;
 use kkt_keys::access_key_file;
 use kkt_keys::{ADMIN_KEY_COPY_FILE_NAME, WEB_KEY_COPY_FILE_NAME};
+use kkt_keys::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_keys::{admin_key_path, web_key_path};
-use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use std::path::{Path, PathBuf};
+
+/// A server's deployment and its access key file, as the setup record, the
+/// note of an unfinished setup, or a server found installed with no record
+/// says. `key_file` is `None` when its keys are off.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerKeys {
+    pub deployment: Deployment,
+    pub key_file: Option<PathBuf>,
+}
+
+/// A setup begun and not finished: its server, once the install it made
+/// finished, and whether that setup puts the server in Docker.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnfinishedSetup {
+    pub server: Option<ServerKeys>,
+    pub in_docker: bool,
+}
 
 /// Which of the server's keys a `kkt key` command is about.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -88,9 +102,9 @@ pub fn docker_key_copies(access: &Path) -> KeyCopies {
 /// or a server found installed with no record.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Here {
-    Recorded(Record),
-    Unfinished(Unfinished),
-    Unrecorded(Unrecorded),
+    Recorded(ServerKeys),
+    Unfinished(UnfinishedSetup),
+    Unrecorded(ServerKeys),
     Nothing,
 }
 
@@ -99,8 +113,9 @@ impl Here {
     /// unfinished setup does not say.
     pub fn runs_in_docker(&self) -> bool {
         match self {
-            Here::Recorded(record) => matches!(record.mode, Mode::Docker(_)),
-            Here::Unrecorded(found) => matches!(found.mode, Mode::Docker(_)),
+            Here::Recorded(server) | Here::Unrecorded(server) => {
+                matches!(server.deployment, Deployment::Docker { .. })
+            }
             Here::Unfinished(_) | Here::Nothing => false,
         }
     }
@@ -140,22 +155,22 @@ pub fn configured_key(
 }
 
 /// Where the key of `kind` that `kkt key` reads or replaces is, on a
-/// machine with the setup `record`: for Docker, the host copy. A client
-/// machine has only the access key, and a record with no access key has no
-/// keys.
-pub fn recorded_key(record: &Record, kind: KeyKind) -> Result<Option<PathBuf>, String> {
-    if kind != KeyKind::Access && matches!(record.mode, Mode::Client) {
+/// machine whose setup record names `server`: for Docker, the host copy. A
+/// client machine has only the access key, and a record with no access key
+/// has no keys.
+pub fn recorded_key(server: &ServerKeys, kind: KeyKind) -> Result<Option<PathBuf>, String> {
+    if kind != KeyKind::Access && matches!(server.deployment, Deployment::Client) {
         return Err(format!(
             "the {} is on the server's machine; run `kkt key show{}` there",
             kind.name(),
             kind.flag()
         ));
     }
-    let access = record
+    let access = server
         .key_file
         .as_deref()
         .ok_or("keys are disabled for this setup")?;
-    if matches!(record.mode, Mode::Docker(_)) {
+    if matches!(server.deployment, Deployment::Docker { .. }) {
         return Ok(Some(kind.docker_copy(access)));
     }
     Ok(kind.beside(access))
@@ -164,36 +179,36 @@ pub fn recorded_key(record: &Record, kind: KeyKind) -> Result<Option<PathBuf>, S
 /// Where this machine's key of `kind` is, if it runs a server: for Docker,
 /// the host copy `kkt setup` saves, even while that setup is `unfinished` or
 /// the server is `unrecorded`; otherwise the file the server reads. The file
-/// need not exist. `recorded` is the setup record; `config_dir` is kkt's
-/// config directory, `None` without a home.
+/// need not exist. `recorded` is the server the setup record names;
+/// `config_dir` is kkt's config directory, `None` without a home.
 pub fn operator_key(
-    recorded: Option<&Record>,
-    unfinished: Option<&Unfinished>,
-    unrecorded: Option<&Unrecorded>,
+    recorded: Option<&ServerKeys>,
+    unfinished: Option<&UnfinishedSetup>,
+    unrecorded: Option<&ServerKeys>,
     config_dir: Option<&Path>,
     kind: KeyKind,
 ) -> Result<KeyPlace, String> {
-    let server = match recorded {
-        Some(record) => Some((&record.mode, record.key_file.as_deref())),
-        None => unfinished
-            .and_then(|unfinished| unfinished.record.as_ref())
-            .map(|record| (&record.mode, record.key_file.as_deref()))
-            .or_else(|| unrecorded.map(|found| (&found.mode, found.key_file.as_deref()))),
-    };
-    if let Some((mode, key_file)) = server {
-        if matches!(mode, Mode::Client) {
+    let server = recorded.or_else(|| {
+        unfinished
+            .and_then(|unfinished| unfinished.server.as_ref())
+            .or(unrecorded)
+    });
+    if let Some(server) = server {
+        if matches!(server.deployment, Deployment::Client) {
             return Ok(KeyPlace::Known(None));
         }
-        return Ok(KeyPlace::Known(key_file.and_then(|access| {
-            if matches!(mode, Mode::Docker(_)) {
-                Some(kind.docker_copy(access))
-            } else {
-                kind.beside(access)
-            }
-        })));
+        return Ok(KeyPlace::Known(server.key_file.as_deref().and_then(
+            |access| {
+                if matches!(server.deployment, Deployment::Docker { .. }) {
+                    Some(kind.docker_copy(access))
+                } else {
+                    kind.beside(access)
+                }
+            },
+        )));
     }
     if let Some(unfinished) = unfinished
-        && unfinished.purpose == Purpose::Docker
+        && unfinished.in_docker
     {
         let access = access_key_file(
             config_dir.ok_or_else(|| format!("set HOME to find the {}", kind.name()))?,
@@ -252,46 +267,45 @@ pub fn create_destination_check(destination: &Path, access: &Path) -> Result<(),
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DockerSetup;
 
     const KINDS: [KeyKind; 3] = [KeyKind::Access, KeyKind::Web, KeyKind::Admin];
 
-    fn docker_mode() -> Mode {
-        Mode::Docker(DockerSetup {
+    /// How a setup was going to deploy the server: in Docker, or not.
+    #[derive(Clone, Copy, PartialEq)]
+    enum Purpose {
+        Service,
+        Docker,
+    }
+
+    fn docker_mode() -> Deployment {
+        Deployment::Docker {
             folder: PathBuf::from("/data/docker"),
             tailscale: false,
             hostname: None,
             tailnet: None,
-        })
-    }
-
-    fn record(mode: Mode, key_file: Option<&str>) -> Record {
-        Record {
-            mode,
-            written_by: "0.5.0".into(),
-            url: "http://127.0.0.1:8080/mcp".into(),
-            key_file: key_file.map(PathBuf::from),
-            clients: None,
         }
     }
 
-    fn unfinished(purpose: Purpose, record: Option<Record>) -> Unfinished {
-        Unfinished {
-            purpose,
-            tailscale: false,
-            allow_hosts: Vec::new(),
-            clients: Vec::new(),
-            tailscale_login: None,
-            record,
-        }
+    fn service_mode() -> Deployment {
+        Deployment::Service { tailscale: false }
     }
 
-    fn unrecorded(mode: Mode, key_file: Option<&str>) -> Unrecorded {
-        Unrecorded {
-            mode,
-            url: "http://127.0.0.1:9000/mcp".into(),
+    fn record(deployment: Deployment, key_file: Option<&str>) -> ServerKeys {
+        ServerKeys {
+            deployment,
             key_file: key_file.map(PathBuf::from),
         }
+    }
+
+    fn unfinished(purpose: Purpose, server: Option<ServerKeys>) -> UnfinishedSetup {
+        UnfinishedSetup {
+            server,
+            in_docker: purpose == Purpose::Docker,
+        }
+    }
+
+    fn unrecorded(deployment: Deployment, key_file: Option<&str>) -> ServerKeys {
+        record(deployment, key_file)
     }
 
     fn path(path: &str) -> Option<PathBuf> {
@@ -364,13 +378,10 @@ mod tests {
     #[test]
     fn the_server_runs_in_docker_as_recorded_or_found() {
         assert!(Here::Recorded(record(docker_mode(), None)).runs_in_docker());
-        assert!(!Here::Recorded(record(Mode::Service { tailscale: false }, None)).runs_in_docker());
-        assert!(!Here::Recorded(record(Mode::Client, None)).runs_in_docker());
+        assert!(!Here::Recorded(record(service_mode(), None)).runs_in_docker());
+        assert!(!Here::Recorded(record(Deployment::Client, None)).runs_in_docker());
         assert!(Here::Unrecorded(unrecorded(docker_mode(), None)).runs_in_docker());
-        assert!(
-            !Here::Unrecorded(unrecorded(Mode::Service { tailscale: false }, None))
-                .runs_in_docker()
-        );
+        assert!(!Here::Unrecorded(unrecorded(service_mode(), None)).runs_in_docker());
         let noted = unfinished(Purpose::Docker, Some(record(docker_mode(), None)));
         assert!(!Here::Unfinished(noted).runs_in_docker());
         assert!(!Here::Nothing.runs_in_docker());
@@ -412,7 +423,7 @@ mod tests {
 
     #[test]
     fn a_recorded_key_of_a_service_is_beside_its_access_key() {
-        let service = record(Mode::Service { tailscale: false }, Some("/k/access-key"));
+        let service = record(service_mode(), Some("/k/access-key"));
         assert_eq!(
             recorded_key(&service, KeyKind::Access),
             Ok(path("/k/access-key"))
@@ -422,7 +433,7 @@ mod tests {
             recorded_key(&service, KeyKind::Admin),
             Ok(path("/k/admin-key"))
         );
-        let collision = record(Mode::Service { tailscale: false }, Some("/k/admin-key"));
+        let collision = record(service_mode(), Some("/k/admin-key"));
         assert_eq!(recorded_key(&collision, KeyKind::Admin), Ok(None));
     }
 
@@ -445,11 +456,7 @@ mod tests {
 
     #[test]
     fn a_record_with_no_access_key_has_no_keys() {
-        for mode in [
-            Mode::Service { tailscale: false },
-            docker_mode(),
-            Mode::Client,
-        ] {
+        for mode in [service_mode(), docker_mode(), Deployment::Client] {
             assert_eq!(
                 recorded_key(&record(mode, None), KeyKind::Access),
                 Err("keys are disabled for this setup".to_string())
@@ -459,7 +466,7 @@ mod tests {
 
     #[test]
     fn on_a_client_only_the_access_key_has_a_place() {
-        let client = record(Mode::Client, Some("/k/client-access-key"));
+        let client = record(Deployment::Client, Some("/k/client-access-key"));
         assert_eq!(
             recorded_key(&client, KeyKind::Access),
             Ok(path("/k/client-access-key"))
@@ -478,7 +485,7 @@ mod tests {
 
     #[test]
     fn an_operator_key_of_a_recorded_server() {
-        let service = record(Mode::Service { tailscale: false }, Some("/keys/access-key"));
+        let service = record(service_mode(), Some("/keys/access-key"));
         assert_eq!(
             operator_key(Some(&service), None, None, home(), KeyKind::Access),
             Ok(known("/keys/access-key"))
@@ -505,7 +512,7 @@ mod tests {
             Ok(known("/d/docker-admin-key"))
         );
         for kind in KINDS {
-            let client = record(Mode::Client, Some("/k"));
+            let client = record(Deployment::Client, Some("/k"));
             assert_eq!(
                 operator_key(Some(&client), None, None, home(), kind),
                 Ok(KeyPlace::Known(None))
@@ -520,7 +527,7 @@ mod tests {
 
     #[test]
     fn the_record_comes_before_an_unfinished_or_unrecorded_server() {
-        let service = record(Mode::Service { tailscale: false }, Some("/keys/access-key"));
+        let service = record(service_mode(), Some("/keys/access-key"));
         let noted = unfinished(Purpose::Docker, Some(record(docker_mode(), Some("/d/k"))));
         let found = unrecorded(docker_mode(), Some("/d/k"));
         assert_eq!(
@@ -545,7 +552,10 @@ mod tests {
             operator_key(None, Some(&noted), None, None, KeyKind::Admin),
             Ok(known("/d/docker-admin-key"))
         );
-        let client = unfinished(Purpose::Service, Some(record(Mode::Client, Some("/k"))));
+        let client = unfinished(
+            Purpose::Service,
+            Some(record(Deployment::Client, Some("/k"))),
+        );
         assert_eq!(
             operator_key(None, Some(&client), None, home(), KeyKind::Web),
             Ok(KeyPlace::Known(None))
@@ -595,12 +605,12 @@ mod tests {
             operator_key(None, None, Some(&docker), None, KeyKind::Web),
             Ok(known("/d/docker-web-key"))
         );
-        let service = unrecorded(Mode::Service { tailscale: false }, Some("/k/access-key"));
+        let service = unrecorded(service_mode(), Some("/k/access-key"));
         assert_eq!(
             operator_key(None, None, Some(&service), None, KeyKind::Admin),
             Ok(known("/k/admin-key"))
         );
-        let keyless = unrecorded(Mode::Service { tailscale: false }, None);
+        let keyless = unrecorded(service_mode(), None);
         assert_eq!(
             operator_key(None, None, Some(&keyless), None, KeyKind::Web),
             Ok(KeyPlace::Known(None))

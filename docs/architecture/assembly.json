@@ -2575,35 +2575,18 @@
     },
     {
      "passes_on": "the key files the program gave InstallParts",
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "to": [
+      {
+       "at": "admin_name_line",
+       "param": "files"
+      },
       {
        "at": "new_key_file",
        "param": "files"
       },
       {
        "at": "write_admin_name",
-       "param": "files"
-      },
-      {
-       "at": "write_key_file",
-       "param": "files"
-      }
-     ],
-     "note": "kkt setup, kkt service install, kkt upgrade, kkt status",
-     "from": [
-      {
-       "at": "InstallParts",
-       "param": "key_files"
-      }
-     ]
-    },
-    {
-     "passes_on": "the key files the program gave InstallParts",
-     "crate": "kkt-deployment",
-     "to": [
-      {
-       "at": "admin_name_line",
        "param": "files"
       }
      ],
@@ -2617,7 +2600,7 @@
     },
     {
      "passes_on": "the entropy the program gave InstallParts",
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "to": [
       {
        "at": "new_key_file",
@@ -2755,8 +2738,12 @@
     },
     {
      "passes_on": "the key files the program gave OperatorParts",
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "to": [
+      {
+       "at": "admin_name_line",
+       "param": "files"
+      },
       {
        "at": "new_key_file",
        "param": "files"
@@ -2775,25 +2762,8 @@
      ]
     },
     {
-     "passes_on": "the key files the program gave OperatorParts",
-     "crate": "kkt-deployment",
-     "to": [
-      {
-       "at": "admin_name_line",
-       "param": "files"
-      }
-     ],
-     "note": "kkt key",
-     "from": [
-      {
-       "at": "OperatorParts",
-       "param": "key_files"
-      }
-     ]
-    },
-    {
      "passes_on": "the entropy the program gave OperatorParts",
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "to": [
       {
        "at": "new_key_file",

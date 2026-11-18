@@ -15,6 +15,9 @@ pub mod testing;
 
 pub use admin_name::{AdminNameFile, bound_in, bound_to, read_admin_name};
 pub use files::{KeyFiles, ReadError, SelectedKeys};
+/// The admin name a key is bound to, and its longest length, as kkt-names
+/// has them, for the callers that bind one without naming kkt-names.
+pub use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 pub use place::{
     ACCESS_KEY_FILE_MODE, ADMIN_KEY_COPY_FILE_NAME, NO_ADMIN_KEY_EXIT, WEB_KEY_COPY_FILE_NAME,
     access_key_file, admin_key_path, admin_name_path, web_key_path,
