@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "04882082",
+ "commit": "b9be7969",
  "crates": [
   {
    "bins": [
@@ -5360,13 +5360,26 @@ window.KKT_GRAPH = {
      "path": "ContainerConfig"
     },
     {
-     "doc": "Why a `Container` operation failed: a message for the person running kkt, which names what failed and why.",
-     "kind": "struct",
-     "methods": [
-      "message",
-      "new"
-     ],
-     "path": "ContainerError"
+     "doc": "Why a `Container` operation failed.",
+     "kind": "enum",
+     "path": "ContainerError",
+     "variants": [
+      "NotAvailable",
+      "ToolMissing",
+      "CannotRun",
+      "Command",
+      "Io",
+      "Unexpected",
+      "NoContainer",
+      "Refused",
+      "KeyFile",
+      "StartTimeout",
+      "LoginTimeout",
+      "HttpsDisabled",
+      "NotPlain",
+      "Incomplete",
+      "NotRestored"
+     ]
     },
     {
      "doc": "kkt's containerized service over `projects`.",
@@ -22672,6 +22685,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-containerized-service",
    "items": [
+    "FileAction",
     "FileState",
     "Folder",
     "Output",
@@ -22687,6 +22701,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "FileAction",
       "FileState",
       "Folder",
       "Output",
@@ -22701,7 +22716,6 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "FileAction",
     "Ran",
     "ServiceConfig",
     "testing",
@@ -29420,7 +29434,7 @@ window.KKT_CONCERNS = {
    "layer": "platform"
   },
   "kkt-containerized-service": {
-   "concern": "kkt's server installed as a service in a container: setting it up, starting and stopping it, its status, upgrades, backups and its key copies. `Container` is the contract the install commands use; `Containerized` implements it over any container tool's `Projects`.",
+   "concern": "kkt's server installed as a service in a container: setting it up, starting and stopping it, its status, upgrades, backups and its key copies. `Container` is the contract the install commands use, with its failures as kinds (`ContainerError`); `Containerized` implements it over any container tool's `Projects`.",
    "kind": "logic",
    "layer": "operations"
   },

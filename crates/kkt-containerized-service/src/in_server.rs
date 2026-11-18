@@ -4,7 +4,7 @@
 //! only that folder afterwards, so two runs at the same time never see or
 //! remove each other's files.
 
-use crate::services::worded;
+use crate::ContainerError;
 use crate::{Arg, Carry, InServer};
 use crate::{Tell, here};
 use kkt_container::{Output, Project, Projects, User};
@@ -22,7 +22,7 @@ pub(crate) fn run_in_server(
     tell: &dyn Tell,
     project: &Project,
     command: &InServer<'_>,
-) -> Result<String, String> {
+) -> Result<String, ContainerError> {
     let dir = make_dir(projects, project, command.folder_prefix)?;
     let done = match &command.carry {
         Carry::In(files) => copy_in_and_run(projects, project, &dir, command.args, files),
@@ -37,15 +37,14 @@ fn copy_in_and_run(
     dir: &str,
     args: &[Arg],
     files: &[PathBuf],
-) -> Result<String, String> {
+) -> Result<String, ContainerError> {
     for file in files {
-        let name = file
-            .file_name()
-            .and_then(|n| n.to_str())
-            .ok_or_else(|| unexpected("a file's name", &file.display().to_string()))?;
+        let name = file.file_name().and_then(|n| n.to_str()).ok_or_else(|| {
+            ContainerError::unexpected("a file's name", &file.display().to_string())
+        })?;
         projects
             .copy_in(project, SERVER, file, &format!("{dir}/{name}"))
-            .map_err(|e| worded(projects, e))?;
+            .map_err(|e| ContainerError::from_tool(projects, e))?;
     }
     // Copied files keep their host modes, and belong to root in the
     // container; the server's user must be able to read them.
@@ -59,15 +58,15 @@ fn run_and_copy_out(
     dir: &str,
     args: &[Arg],
     dest: &Path,
-) -> Result<String, String> {
+) -> Result<String, ContainerError> {
     let said = run_kkt(projects, project, dir, args)?;
     let here_folder = here();
     projects
         .make_folders(&host(&here_folder), &[dest])
-        .map_err(|e| e.to_string())?;
+        .map_err(ContainerError::from)?;
     projects
         .copy_out(project, SERVER, &format!("{dir}/."), dest)
-        .map_err(|e| worded(projects, e))?;
+        .map_err(|e| ContainerError::from_tool(projects, e))?;
     Ok(said)
 }
 
@@ -78,7 +77,7 @@ fn run_kkt(
     project: &Project,
     dir: &str,
     args: &[Arg],
-) -> Result<String, String> {
+) -> Result<String, ContainerError> {
     let mut line = vec!["kkt"];
     line.extend(args.iter().map(|arg| match arg {
         Arg::Text(text) => text.as_str(),
@@ -103,7 +102,7 @@ pub(crate) fn config_home_file(
     projects: &dyn Projects,
     project: &Project,
     relative: &Path,
-) -> Result<String, String> {
+) -> Result<String, ContainerError> {
     let script = config_script(relative)?;
     projects
         .run_once(
@@ -115,7 +114,7 @@ pub(crate) fn config_home_file(
             Output::Captured,
         )
         .and_then(|ran| ran.succeeded())
-        .map_err(|e| worded(projects, e))
+        .map_err(|e| ContainerError::from_tool(projects, e))
 }
 
 /// A shell script that prints the file at `relative` under the config home
@@ -123,15 +122,12 @@ pub(crate) fn config_home_file(
 /// `$XDG_CONFIG_HOME` when it is absolute, else `$HOME/.config`. `relative`
 /// goes into the script as it is, so it must be plain: a path that is not
 /// UTF-8 is refused like any other that is not.
-pub(crate) fn config_script(relative: &Path) -> Result<String, String> {
+pub(crate) fn config_script(relative: &Path) -> Result<String, ContainerError> {
     let text = relative
         .to_str()
         .filter(|text| plain(text))
-        .ok_or_else(|| {
-            format!(
-                "{} is not a plain path under the config home",
-                relative.display()
-            )
+        .ok_or_else(|| ContainerError::NotPlain {
+            path: relative.display().to_string(),
         })?;
     Ok(format!(
         "case \"$XDG_CONFIG_HOME\" in /*) base=\"$XDG_CONFIG_HOME\" ;; *) base=\"$HOME/{XDG_CONFIG_HOME_DEFAULT}\" ;; esac; \
@@ -154,7 +150,11 @@ fn plain(text: &str) -> bool {
 /// Makes a new, empty folder in the server's container whose name starts
 /// with `prefix` and a dot, as the server's user, and returns its path.
 /// `mktemp` picks a name no other folder has, so this run owns it.
-fn make_dir(projects: &dyn Projects, project: &Project, prefix: &str) -> Result<String, String> {
+fn make_dir(
+    projects: &dyn Projects,
+    project: &Project,
+    prefix: &str,
+) -> Result<String, ContainerError> {
     let template = format!("{prefix}.XXXXXXXXXX");
     let said = exec(
         projects,
@@ -170,7 +170,10 @@ fn make_dir(projects: &dyn Projects, project: &Project, prefix: &str) -> Result<
             .chars()
             .all(|c| c.is_ascii_alphanumeric());
     if !named_well {
-        return Err(unexpected("the folder mktemp made in the container", &said));
+        return Err(ContainerError::unexpected(
+            "the folder mktemp made in the container",
+            &said,
+        ));
     }
     Ok(dir.to_string())
 }
@@ -183,8 +186,8 @@ fn finish(
     tell: &dyn Tell,
     project: &Project,
     dir: &str,
-    done: Result<String, String>,
-) -> Result<String, String> {
+    done: Result<String, ContainerError>,
+) -> Result<String, ContainerError> {
     match (done, remove(projects, project, dir)) {
         (Ok(said), Ok(())) => Ok(said),
         (Ok(_), Err(e)) => Err(e),
@@ -199,7 +202,7 @@ fn finish(
 }
 
 /// Removes `dir` in the server's container, if it is there.
-fn remove(projects: &dyn Projects, project: &Project, dir: &str) -> Result<(), String> {
+fn remove(projects: &dyn Projects, project: &Project, dir: &str) -> Result<(), ContainerError> {
     exec(projects, project, User::Root, &["rm", "-rf", dir]).map(|_| ())
 }
 
@@ -210,16 +213,11 @@ fn exec(
     project: &Project,
     user: User,
     args: &[&str],
-) -> Result<String, String> {
+) -> Result<String, ContainerError> {
     projects
         .exec(project, SERVER, user, args, Output::Captured)
         .and_then(|ran| ran.succeeded())
-        .map_err(|e| worded(projects, e))
-}
-
-/// An answer that is not what was asked for, as the person is told it.
-pub(crate) fn unexpected(what: &str, detail: &str) -> String {
-    format!("unexpected output from {what}: {detail}")
+        .map_err(|e| ContainerError::from_tool(projects, e))
 }
 
 /// Files on this machine, outside the managed folder, as a project with no

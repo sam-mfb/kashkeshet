@@ -3,11 +3,11 @@
 //! image and a start; the settings put back if that fails; then the keys'
 //! copies saved again.
 
+use crate::ContainerError;
 use crate::KeyCopies;
 use crate::backup::backup_in_container;
 use crate::files::{ENV_FILE, is_shared, set_version};
 use crate::in_server::SERVER;
-use crate::services::worded;
 use crate::setup::{Parts, save_keys, say_saved, write_embedded, write_env};
 use kkt_container::{Output, Project};
 use std::path::Path;
@@ -24,27 +24,28 @@ pub(crate) async fn upgrade(
     project: &Project<'_>,
     new_version: &str,
     keys: Option<&KeyCopies>,
-) -> Result<(), String> {
+) -> Result<(), ContainerError> {
     let projects = parts.projects;
     let tell = parts.tell;
     let env = projects
         .read(project, Path::new(ENV_FILE))
-        .map_err(|e| e.to_string())?;
+        .map_err(ContainerError::from)?;
     backup_in_container(projects, project)?;
     write_embedded(projects, project, is_shared(&env))?;
     write_env(projects, project, &set_version(&env, new_version))?;
     let result = projects
         .pull(project, Output::Terminal)
         .and_then(|()| projects.up(project, &[], Output::Terminal))
-        .map_err(|e| worded(projects, e));
+        .map_err(|e| ContainerError::from_tool(projects, e));
     if let Err(error) = result {
         // Do not leave the selected version claiming that a failed upgrade
         // succeeded: the caller's version check must allow a later retry.
-        write_env(projects, project, &env).map_err(|restore| {
-            format!(
-                "unexpected output from upgrade recovery: {error}; could not restore the previous settings: {restore}"
-            )
-        })?;
+        if let Err(restore) = write_env(projects, project, &env) {
+            return Err(ContainerError::NotRestored {
+                error: Box::new(error),
+                restore: Box::new(restore),
+            });
+        }
         return Err(error);
     }
     let Some(keys) = keys else {

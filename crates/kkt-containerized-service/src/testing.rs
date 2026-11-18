@@ -83,9 +83,12 @@ impl Memory {
         change: impl FnOnce(&mut Install) -> T,
     ) -> Result<T, ContainerError> {
         let mut installs = self.installs.borrow_mut();
-        let install = installs
-            .get_mut(folder.path())
-            .ok_or_else(|| ContainerError::new("container is not installed"))?;
+        let install =
+            installs
+                .get_mut(folder.path())
+                .ok_or_else(|| ContainerError::Incomplete {
+                    reason: "container is not installed".to_string(),
+                })?;
         Ok(change(install))
     }
 }
@@ -101,14 +104,15 @@ impl Container for Memory {
     ) -> LocalBoxFuture<'a, Result<Provisioned, ContainerError>> {
         self.note("provision");
         Box::pin(async move {
-            let node =
-                if inputs.sharing.is_some() {
-                    Some(self.node.clone().ok_or_else(|| {
-                        ContainerError::new("the test must supply a sharing name")
-                    })?)
-                } else {
-                    None
-                };
+            let node = if inputs.sharing.is_some() {
+                Some(
+                    self.node
+                        .clone()
+                        .expect("the test must supply a sharing name"),
+                )
+            } else {
+                None
+            };
             self.installs.borrow_mut().insert(
                 folder.0.clone(),
                 Install {
@@ -248,7 +252,10 @@ impl Container for Memory {
             .borrow()
             .get(path)
             .map(|k| k.trim().into())
-            .ok_or_else(|| ContainerError::new("sharing key is not supplied"))
+            .ok_or_else(|| ContainerError::Io {
+                what: format!("could not read {}", path.display()),
+                detail: "the test supplied no sharing key here".to_string(),
+            })
     }
 }
 

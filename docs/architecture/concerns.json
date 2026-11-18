@@ -201,7 +201,7 @@
   },
   "kkt-containerized-service": {
    "layer": "operations",
-   "concern": "kkt's server installed as a service in a container: setting it up, starting and stopping it, its status, upgrades, backups and its key copies. `Container` is the contract the install commands use; `Containerized` implements it over any container tool's `Projects`.",
+   "concern": "kkt's server installed as a service in a container: setting it up, starting and stopping it, its status, upgrades, backups and its key copies. `Container` is the contract the install commands use, with its failures as kinds (`ContainerError`); `Containerized` implements it over any container tool's `Projects`.",
    "kind": "logic"
   },
   "kkt-remote-access": {

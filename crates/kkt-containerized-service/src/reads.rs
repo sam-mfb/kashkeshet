@@ -2,6 +2,7 @@
 //! anything: whether its settings file is there, the version it selects,
 //! the install it describes, and the Tailscale auth key a person names.
 
+use crate::ContainerError;
 use crate::Existing;
 use crate::files::{ENV_FILE, PENDING_TAILNET, TAILSCALE_COMPOSE_FILE, embedded, version_in_env};
 use kkt_container::{FileState, Folder, Project, Projects};
@@ -18,18 +19,22 @@ pub(crate) fn settings_file(projects: &dyn Projects, project: &Project) -> bool 
 }
 
 /// The version the settings file selects.
-pub(crate) fn version(projects: &dyn Projects, project: &Project) -> Result<String, String> {
+pub(crate) fn version(
+    projects: &dyn Projects,
+    project: &Project,
+) -> Result<String, ContainerError> {
     let text = projects
         .read(project, Path::new(ENV_FILE))
-        .map_err(|e| e.to_string())?;
-    version_in_env(&text)
-        .ok_or_else(|| format!("{} has no KKT_VERSION", env_path(project).display()))
+        .map_err(ContainerError::from)?;
+    version_in_env(&text).ok_or_else(|| ContainerError::Incomplete {
+        reason: format!("{} has no KKT_VERSION", env_path(project).display()),
+    })
 }
 
 /// The Tailscale auth key in the file at `path`, trimmed as setup's inputs
 /// require. `path` is as the person gave it, so it is read where they are,
 /// not in a project's folder.
-pub(crate) fn sharing_key(projects: &dyn Projects, path: &Path) -> Result<String, String> {
+pub(crate) fn sharing_key(projects: &dyn Projects, path: &Path) -> Result<String, ContainerError> {
     let here = Folder(PathBuf::new());
     let project = Project {
         folder: &here,
@@ -38,7 +43,7 @@ pub(crate) fn sharing_key(projects: &dyn Projects, path: &Path) -> Result<String
     projects
         .read(&project, path)
         .map(|key| key.trim().to_string())
-        .map_err(|e| e.to_string())
+        .map_err(ContainerError::from)
 }
 
 fn env_path(project: &Project) -> PathBuf {
@@ -51,25 +56,31 @@ fn env_path(project: &Project) -> PathBuf {
 pub(crate) fn existing(
     projects: &dyn Projects,
     project: &Project,
-) -> Result<Option<Existing>, String> {
+) -> Result<Option<Existing>, ContainerError> {
     if !has_settings(projects, project) {
         return Ok(None);
     }
     let env_path = env_path(project);
     let env = projects
         .read(project, Path::new(ENV_FILE))
-        .map_err(|e| e.to_string())?;
+        .map_err(ContainerError::from)?;
     let value = |name: &str| {
         env.lines()
             .find_map(|l| l.trim().strip_prefix(name)?.strip_prefix('='))
             .map(|v| v.trim().to_string())
     };
-    let missing = |what: &str| format!("its settings file {} has no {what}", env_path.display());
+    let incomplete = |reason: String| ContainerError::Incomplete { reason };
+    let missing = |what: &str| {
+        incomplete(format!(
+            "its settings file {} has no {what}",
+            env_path.display()
+        ))
+    };
     let unknown = |line: String| {
-        format!(
+        incomplete(format!(
             "its settings file {} has {line}, which kkt setup does not write",
             env_path.display()
-        )
+        ))
     };
     // Setup writes no COMPOSE_FILE for a local install, and only this one
     // for Tailscale; anything else is some other setup, not kkt's.
@@ -80,20 +91,20 @@ pub(crate) fn existing(
     };
     for (name, _) in embedded(tailscale) {
         if projects.file(project, Path::new(name)) == FileState::Missing {
-            return Err(format!(
+            return Err(incomplete(format!(
                 "its Compose file {} is missing",
                 project.folder.path().join(name).display()
-            ));
+            )));
         }
     }
     let port = value("KKT_PORT").ok_or_else(|| missing("KKT_PORT"))?;
     let port = match port.parse::<u16>() {
         Ok(port) if port != 0 => port,
         _ => {
-            return Err(format!(
+            return Err(incomplete(format!(
                 "its settings file {} has KKT_PORT={port}, which is not a port",
                 env_path.display()
-            ));
+            )));
         }
     };
     let node = match tailscale {
@@ -101,9 +112,9 @@ pub(crate) fn existing(
             let hostname = value("TS_HOSTNAME").ok_or_else(|| missing("TS_HOSTNAME"))?;
             let tailnet = value("TS_TAILNET").ok_or_else(|| missing("TS_TAILNET"))?;
             if tailnet == PENDING_TAILNET {
-                return Err(
-                    "its Tailscale login never finished, so its address is not known".into(),
-                );
+                return Err(incomplete(
+                    "its Tailscale login never finished, so its address is not known".to_string(),
+                ));
             }
             // The two make the address https://{hostname}.{tailnet}/mcp, so
             // each must be a DNS name: a label, and labels joined by dots.

@@ -40,8 +40,9 @@ The shared crates are reorganized so that every dependency is injected and each 
   `KeyCopies`, `Provisioned`, `State`, `Login`, `Existing`, `KeyCopy`,
   `InServer`, `Arg`, `Carry`), `ConfigReader` with `ContainerConfig`,
   `LoginLink` and `testing::Memory`, all under `kkt_containerized_service`.
-  Its methods return `ContainerError` in place of `String`; its text is the
-  same, and `String::from` gives it. `kkt_containerized_service::Containerized`
+  Its methods return `ContainerError`, an enum of the kinds of failure, in
+  place of `String`; each kind's text is the same as before, and
+  `String::from` gives it. `kkt_containerized_service::Containerized`
   implements it over kkt-container's general `Projects`, which
   `kkt_container_docker::Docker` implements with Docker Compose;
   `kkt-container-os` goes. `Docker` does not implement `Container`, and

@@ -125,11 +125,15 @@ fn the_version_is_the_settings_files_kkt_version() {
         Ok("0.4.0".into())
     );
     assert_eq!(
-        service(local("KKT_PORT=7420\n")).version(&folder()),
+        service(local("KKT_PORT=7420\n"))
+            .version(&folder())
+            .map_err(|e| e.to_string()),
         Err("/data/docker/.env has no KKT_VERSION".into())
     );
     assert_eq!(
-        service(MemoryProjects::new(&["kkt"])).version(&folder()),
+        service(MemoryProjects::new(&["kkt"]))
+            .version(&folder())
+            .map_err(|e| e.to_string()),
         Err("could not read /data/docker/.env: no such file".into())
     );
 }
@@ -143,7 +147,9 @@ fn a_sharing_key_is_read_where_the_person_named_it_and_trimmed() {
         Ok("tskey-abc".into())
     );
     assert_eq!(
-        service.sharing_key(Path::new("/home/me/none")),
+        service
+            .sharing_key(Path::new("/home/me/none"))
+            .map_err(|e| e.to_string()),
         Err("could not read /home/me/none: no such file".into())
     );
 }
@@ -231,7 +237,12 @@ fn an_unfinished_or_foreign_install_is_refused_saying_why() {
         ),
     ];
     for (projects, refusal) in cases {
-        assert_eq!(service(projects).existing(&folder()), Err(refusal.into()));
+        assert_eq!(
+            service(projects)
+                .existing(&folder())
+                .map_err(|e| e.to_string()),
+            Err(refusal.into())
+        );
     }
 }
 
@@ -335,7 +346,7 @@ fn a_tool_that_cannot_run_is_not_available_by_its_name_and_a_failure_says_how() 
         cause: "no such file".into(),
     });
     assert_eq!(
-        missing.up(&folder()),
+        missing.up(&folder()).map_err(|e| e.to_string()),
         Err("Tool is not available: could not run `tool compose up -d`: no such file".into())
     );
     let failed = failing(ProjectError::Failed {
@@ -345,7 +356,7 @@ fn a_tool_that_cannot_run_is_not_available_by_its_name_and_a_failure_says_how() 
         stderr: "no network\n".into(),
     });
     assert_eq!(
-        failed.down(&folder(), false),
+        failed.down(&folder(), false).map_err(|e| e.to_string()),
         Err("`tool compose down` failed (exit 1: no network)".into())
     );
     let file = failing(ProjectError::file(
@@ -353,7 +364,10 @@ fn a_tool_that_cannot_run_is_not_available_by_its_name_and_a_failure_says_how() 
         Path::new("/x"),
         &io::Error::other("gone"),
     ));
-    assert_eq!(file.up(&folder()), Err("could not read /x: gone".into()));
+    assert_eq!(
+        file.up(&folder()).map_err(|e| e.to_string()),
+        Err("could not read /x: gone".into())
+    );
 }
 
 // ----------------------------------------------------------------- runs in the server
@@ -433,11 +447,12 @@ fn a_run_refuses_a_folder_mktemp_did_not_make_as_asked() {
             _ => None,
         }));
         assert_eq!(
-            service.run_in_server(&folder(), &command(Carry::In(vec![]))),
-            Err(
-                format!("unexpected output from the folder mktemp made in the container: {said}")
-                    .into()
-            )
+            service
+                .run_in_server(&folder(), &command(Carry::In(vec![])))
+                .map_err(|e| e.to_string()),
+            Err(format!(
+                "unexpected output from the folder mktemp made in the container: {said}"
+            ))
         );
     }
 }
@@ -457,7 +472,9 @@ fn a_failed_run_whose_folder_cannot_be_removed_says_so_and_gives_the_runs_error(
         Ok(PathBuf::from("/home/me")),
     );
     assert_eq!(
-        service.run_in_server(&folder(), &command(Carry::In(vec![]))),
+        service
+            .run_in_server(&folder(), &command(Carry::In(vec![])))
+            .map_err(|e| e.to_string()),
         Err("`tool compose exec kkt kkt lanes /tmp/run.Abc123` failed (exit 1: no title)".into())
     );
     assert_eq!(
@@ -480,8 +497,12 @@ fn a_config_home_file_is_read_in_a_new_container_and_only_a_plain_path_is_taken(
     assert!(service.projects.log()[0].starts_with("tool compose run --rm --entrypoint sh kkt -c "));
     for refused in ["/etc/passwd", "kkt/../x", "a b", "", "kkt//x"] {
         assert_eq!(
-            service.config_home_file(&folder(), Path::new(refused)),
-            Err(format!("{refused} is not a plain path under the config home").into())
+            service
+                .config_home_file(&folder(), Path::new(refused))
+                .map_err(|e| e.to_string()),
+            Err(format!(
+                "{refused} is not a plain path under the config home"
+            ))
         );
     }
 }
@@ -493,7 +514,7 @@ fn a_path_that_is_not_utf8_is_refused_as_not_plain_or_as_an_unreadable_config_pa
     use std::os::unix::ffi::OsStrExt;
     let odd = Path::new(OsStr::from_bytes(b"kkt/\xff.toml"));
     assert_eq!(
-        crate::in_server::config_script(odd),
+        crate::in_server::config_script(odd).map_err(|e| e.to_string()),
         Err(format!(
             "{} is not a plain path under the config home",
             odd.display()
@@ -541,17 +562,18 @@ fn a_backup_says_what_went_wrong() {
         Err("no such folder".into()),
     );
     assert_eq!(
-        lost.backup(&folder(), Some(Path::new("saved"))),
+        lost.backup(&folder(), Some(Path::new("saved")))
+            .map_err(|e| e.to_string()),
         Err("could not find the current folder: no such folder".into())
     );
     let odd = service(backing_up("Done.\n"));
     assert_eq!(
-        odd.backup(&folder(), None),
+        odd.backup(&folder(), None).map_err(|e| e.to_string()),
         Err("unexpected output from `kkt backup`: Done.".into())
     );
     let nameless = service(backing_up("Backed up to /\n"));
     assert_eq!(
-        nameless.backup(&folder(), None),
+        nameless.backup(&folder(), None).map_err(|e| e.to_string()),
         Err("unexpected output from `kkt backup`: /".into())
     );
 }
@@ -577,11 +599,15 @@ fn the_web_keys_copy_is_compared_without_showing_either_key() {
         Ok(KeyCopy::Differs)
     );
     assert_eq!(
-        with("web-key-2\n", Some(1)).compare_web_key(&folder(), key),
+        with("web-key-2\n", Some(1))
+            .compare_web_key(&folder(), key)
+            .map_err(|e| e.to_string()),
         Err("`tool compose exec kkt kkt key show --web` failed (exit 1, no key)".into())
     );
     assert_eq!(
-        with("web-key-2\n", None).compare_web_key(&folder(), key),
+        with("web-key-2\n", None)
+            .compare_web_key(&folder(), key)
+            .map_err(|e| e.to_string()),
         Err("`tool compose exec kkt kkt key show --web` failed (ended by a signal)".into())
     );
 }
@@ -1312,4 +1338,20 @@ fn set_version_replaces_or_adds_the_version_line_and_keeps_the_rest() {
         "KKT_VERSION=1\n COMPOSE_FILE=compose.tailscale.yaml \n"
     ));
     assert!(!crate::files::is_shared("KKT_VERSION=1\n"));
+}
+
+#[test]
+fn a_tools_unexpected_answer_is_said_as_unexpected_output_from_its_command() {
+    // No install path reaches this arm today (Docker answers `Unexpected`
+    // only from `inspect`, which the name pack words itself), so it is
+    // pinned here: the kind, and the text the old code gave.
+    let error = crate::ContainerError::from(ProjectError::Unexpected {
+        command: "tool compose ps".into(),
+        detail: "no lines".into(),
+    });
+    assert!(matches!(error, crate::ContainerError::Unexpected { .. }));
+    assert_eq!(
+        error.to_string(),
+        "unexpected output from `tool compose ps`: no lines"
+    );
 }

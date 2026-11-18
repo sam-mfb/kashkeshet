@@ -3,9 +3,9 @@
 //! the running server uses, and, when it is shared over Tailscale, whether
 //! the Tailscale container is logged in.
 
+use crate::ContainerError;
 use crate::files::{ENV_FILE, TAILSCALE_COMPOSE_FILE, version_in_env};
 use crate::in_server::SERVER;
-use crate::services::worded;
 use crate::{ConfigReader, Login, State};
 use crate::{NodeLogin, SharingNode};
 use kkt_container::{FileState, Output, Project, ProjectError, Projects, User};
@@ -26,7 +26,7 @@ pub(crate) fn status(
     reader: &dyn ConfigReader,
     default_name_pack: &str,
     config_file: &Path,
-) -> Result<State, String> {
+) -> Result<State, ContainerError> {
     if projects.file(project, Path::new(ENV_FILE)) == FileState::Missing {
         return Ok(State {
             files_present: false,
@@ -39,9 +39,11 @@ pub(crate) fn status(
     }
     let env = projects
         .read(project, Path::new(ENV_FILE))
-        .map_err(|e| e.to_string())?;
+        .map_err(ContainerError::from)?;
     // Not knowing is not the same as stopped.
-    let running = projects.running(project).map_err(|e| worded(projects, e))?;
+    let running = projects
+        .running(project)
+        .map_err(|e| ContainerError::from_tool(projects, e))?;
     let tailscale = env
         .lines()
         .any(|l| l.trim() == format!("COMPOSE_FILE={TAILSCALE_COMPOSE_FILE}"));
@@ -71,7 +73,7 @@ fn login_state(
     projects: &dyn Projects,
     project: &Project,
     sharing: &dyn SharingNode,
-) -> Result<Login, String> {
+) -> Result<Login, ContainerError> {
     let ran = projects
         .exec(
             project,
@@ -80,7 +82,7 @@ fn login_state(
             &["tailscale", "status", "--json"],
             Output::Captured,
         )
-        .map_err(|e| worded(projects, e))?;
+        .map_err(|e| ContainerError::from_tool(projects, e))?;
     if !ran.success() {
         return Ok(Login::Unreachable);
     }
