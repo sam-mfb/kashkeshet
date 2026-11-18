@@ -1411,7 +1411,7 @@
       "kkt-files::Files",
       "kkt-config-file::parse_file",
       "kkt-rules::Settings",
-      "kkt-result-format::Settings",
+      "kkt-mcp::result_format::Settings",
       "kkt-web::Settings",
       "kkt-backup::Settings",
       "kkt-admission::server_keys::check"
@@ -1914,6 +1914,12 @@
        "crate": "kkt-admission",
        "item": "WebAdmission"
       }
+     ],
+     "from": [
+      {
+       "at": "AdmissionGate::new",
+       "param": "identify"
+      }
      ]
     },
     {
@@ -1937,10 +1943,10 @@
      ]
     },
     {
-     "crate": "kkt-result-format",
+     "crate": "kkt-mcp",
      "to": [
       {
-       "at": "Formatter::new",
+       "at": "result_format::Formatter::new",
        "param": "clock"
       }
      ],
@@ -1951,7 +1957,7 @@
        "param": "clock"
       }
      ],
-     "note": "kkt-server builds the Formatter it hands kkt-mcp's endpoints; the Formatter is kkt-result-format's own type, so the injection is the clock that goes into it"
+     "note": "kkt-server builds the Formatter it hands kkt-mcp's endpoints; the Formatter is kkt-mcp's own type, so the injection is the clock that goes into it"
     },
     {
      "crate": "kkt-mcp",
@@ -2032,6 +2038,23 @@
        "param": "log"
       }
      ]
+    },
+    {
+     "passes_on": "the identity the program gave Parts",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "AdmissionGate::new",
+       "param": "identify"
+      }
+     ],
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "identify"
+      }
+     ],
+     "note": "its own web gate, which it hands to kkt-web"
     }
    ]
   },
@@ -2587,6 +2610,43 @@
        "param": "entropy"
       }
      ]
+    },
+    {
+     "passes_on": "the setup files, container and service the program gave InstallParts",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "record::read_unfinished",
+       "param": "files"
+      },
+      {
+       "at": "record::read_unfinished",
+       "param": "container"
+      },
+      {
+       "at": "record::read_unfinished",
+       "param": "service"
+      },
+      {
+       "at": "record::write_setup_record",
+       "param": "files"
+      }
+     ],
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "setup_files"
+      },
+      {
+       "at": "InstallParts",
+       "param": "container"
+      },
+      {
+       "at": "InstallParts",
+       "param": "service"
+      }
+     ],
+     "note": "doctor, status, setup and upgrade read and write the setup record through these"
     }
    ]
   },
@@ -2738,6 +2798,31 @@
       }
      ],
      "note": "on each call that draws a handle or a channel ID"
+    },
+    {
+     "passes_on": "the clock and entropy the program gave Startup",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Deps",
+       "param": "clock"
+      },
+      {
+       "at": "Deps",
+       "param": "entropy"
+      }
+     ],
+     "from": [
+      {
+       "at": "Startup",
+       "param": "clock"
+      },
+      {
+       "at": "Startup",
+       "param": "entropy"
+      }
+     ],
+     "note": "start builds the rules' Deps from Startup"
     }
    ]
   },
@@ -2763,6 +2848,26 @@
       }
      ],
      "note": "on each call that draws a handle or a channel ID in the simulated world"
+    }
+   ]
+  },
+  "kkt-rolling-file": {
+   "wiring": [
+    {
+     "passes_on": "the clock the program gave open_log_file",
+     "crate": "kkt-rolling-file",
+     "to": [
+      {
+       "at": "RotatingFile::open",
+       "param": "clock"
+      }
+     ],
+     "from": [
+      {
+       "at": "open_log_file",
+       "param": "clock"
+      }
+     ]
     }
    ]
   }
@@ -2795,13 +2900,6 @@
    "at": "connection::admin_connection",
    "param": "source",
    "why": "it asks client_connection and serve_connection only"
-  },
-  {
-   "crate": "kkt-mcp",
-   "to": "kkt-result-format",
-   "at": "Formatter::new",
-   "param": "clock",
-   "why": "it takes a built Formatter; it builds one only in its own tests, with a fixed clock"
   },
   {
    "crate": "kkt-server",
@@ -2851,6 +2949,20 @@
    "at": "Client::installed",
    "param": "env",
    "why": "it calls Client::file and Client::source only"
+  },
+  {
+   "crate": "kkt-server",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "log",
+   "why": "page builds no Parts: it hands its log to kkt-web's router"
+  },
+  {
+   "crate": "kkt-diagnostics",
+   "to": "kkt-diagnostics",
+   "at": "inspect_admin_key",
+   "param": "prober",
+   "why": "only the program's tests call inspect_admin_key"
   }
  ],
  "not_filled": [

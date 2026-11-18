@@ -34,7 +34,6 @@ kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite" }
 kkt-events = { path = "../../crates/kkt-events" }
 kkt-listen = { path = "../../crates/kkt-listen" }
 kkt-log-tracing = { path = "../../crates/kkt-log-tracing" }
-kkt-result-format = { path = "../../crates/kkt-result-format" }
 kkt-hosts = { path = "../../crates/kkt-hosts" }
 kkt-identity = { path = "../../crates/kkt-identity" }
 kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }

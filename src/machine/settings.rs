@@ -895,7 +895,7 @@ mod tests {
                 ..kkt_rules::Settings::DEFAULT
             },
             server: ServerSettings {
-                formatter: kkt_result_format::Settings {
+                formatter: kkt_mcp::result_format::Settings {
                     max_response_bytes: 0,
                 },
                 web: kkt_web::Settings {
@@ -981,7 +981,7 @@ mod tests {
             }),
             ("max_response_bytes", |s| {
                 s.server.formatter.max_response_bytes =
-                    kkt_result_format::Settings::DEFAULT.max_response_bytes
+                    kkt_mcp::result_format::Settings::DEFAULT.max_response_bytes
             }),
             ("max_limit", |s| {
                 s.rules.max_limit = kkt_rules::Settings::DEFAULT.max_limit

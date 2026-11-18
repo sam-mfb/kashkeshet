@@ -17,7 +17,6 @@ kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-log = { path = "../kkt-log" }
-kkt-result-format = { path = "../kkt-result-format" }
 kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity = { path = "../kkt-identity" }
 kkt-mcp = { path = "../kkt-mcp" }

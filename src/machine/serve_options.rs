@@ -1,7 +1,7 @@
 //! The `kkt serve` surface: the settings a server may be given, from one
 //! source (the command line or the config file), how a flag wins over the
 //! file and the file over the defaults, and the settings to run with. Each
-//! default is its owner's (kkt-rules, kkt-result-format, kkt-web,
+//! default is its owner's (kkt-rules, kkt-mcp, kkt-web,
 //! kkt-backup, kkt-hosts, kkt-log-tracing). Callers pass in what the file
 //! gives and the defaults that depend on the machine.
 //! Its items are public as [`crate::machine::settings`]'s.
@@ -286,10 +286,10 @@ impl ServeOptions {
 /// their owners' defaults.
 pub fn server_settings(options: &ServeOptions) -> ServerSettings {
     ServerSettings {
-        formatter: kkt_result_format::Settings {
+        formatter: kkt_mcp::result_format::Settings {
             max_response_bytes: options
                 .max_response_bytes
-                .unwrap_or(kkt_result_format::Settings::DEFAULT.max_response_bytes),
+                .unwrap_or(kkt_mcp::result_format::Settings::DEFAULT.max_response_bytes),
         },
         web: kkt_web::Settings::DEFAULT,
         mcp: kkt_mcp::Settings::DEFAULT,
