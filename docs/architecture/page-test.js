@@ -308,13 +308,13 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
     await openSection("goes");
     const machinePanel = await p.$eval("#panel", (x) => x.textContent);
     check("Env and Platform are traced from OsMachine through the program to the crates that take them",
-      ["kashkeshet>kkt-install-commands", "kashkeshet>kkt-setup", "kashkeshet>kkt-agent-commands", "kkt-install-commands>kkt-setup",
+      ["kashkeshet>kkt-install-commands", "kashkeshet>kkt-deployment", "kashkeshet>kkt-agent-commands", "kkt-install-commands>kkt-deployment",
         "kkt-agent-commands>kkt-llm-agent-config"].every((l) => machine.lines.includes(l)) &&
       machine.hops.includes("kashkeshet>kkt-machine-os>normal") &&
       // The line into kkt-install-commands also carries ClientHost and
       // NativeSetupFiles, so its label is shortened; the line into
-      // kkt-setup carries only the values.
-      /Env, from OsMachine/.test(machine.labels["kashkeshet>kkt-setup"] || "") &&
+      // kkt-deployment carries only the values.
+      /Env, from OsMachine/.test(machine.labels["kashkeshet>kkt-deployment"] || "") &&
       /Env, from OsMachine.* · passed on$/.test(machine.labels["kkt-agent-commands>kkt-llm-agent-config"] || "") &&
       /filled with Env, from OsMachine, by kashkeshet/.test(operatePanel) &&
       /Env, from OsMachine → kkt-install-commands's/.test(machinePanel) &&

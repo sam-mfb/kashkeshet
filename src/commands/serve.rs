@@ -301,7 +301,7 @@ mod tests {
     async fn the_default_database_folder_is_made_before_the_settings_are_checked() {
         let home = scratch::Dir::new("serve-makes-db-folder");
         let env = test_env(Some(&home));
-        let folder = kkt_setup::default_db(&env, TEST_PLATFORM)
+        let folder = kkt_deployment::default_db(&env, TEST_PLATFORM)
             .and_then(|db| db.parent().map(PathBuf::from))
             .expect("a folder");
         let err = run(&env, TEST_PLATFORM, None, bad_pack())

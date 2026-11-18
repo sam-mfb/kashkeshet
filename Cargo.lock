@@ -1059,6 +1059,7 @@ dependencies = [
  "kkt-containerized-service",
  "kkt-db",
  "kkt-db-sqlite",
+ "kkt-deployment",
  "kkt-diagnostics",
  "kkt-entropy",
  "kkt-entropy-os",
@@ -1321,6 +1322,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kkt-deployment"
+version = "0.10.0"
+dependencies = [
+ "kkt-machine",
+ "semver",
+]
+
+[[package]]
 name = "kkt-diagnostics"
 version = "0.10.0"
 dependencies = [
@@ -1425,6 +1434,7 @@ dependencies = [
  "kkt-config-file",
  "kkt-container",
  "kkt-containerized-service",
+ "kkt-deployment",
  "kkt-diagnostics",
  "kkt-entropy",
  "kkt-keys",
@@ -1701,10 +1711,8 @@ dependencies = [
  "kkt-hash",
  "kkt-keys",
  "kkt-llm-agent-config",
- "kkt-machine",
  "kkt-names",
  "kkt-toml",
- "semver",
  "serde",
 ]
 

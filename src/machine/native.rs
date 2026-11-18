@@ -247,10 +247,9 @@ impl<D> kkt_install_commands::ImportLanes for SetupLanes<'_, '_, D> {
         let native = self.0;
         let on = match purpose {
             kkt_setup::Purpose::Service => kkt_setup::LanesOn::Local,
-            kkt_setup::Purpose::Docker => kkt_setup::LanesOn::Docker(kkt_setup::docker_folder(
-                native.serve.env,
-                native.serve.platform,
-            )?),
+            kkt_setup::Purpose::Docker => kkt_setup::LanesOn::Docker(
+                kkt_deployment::docker_folder(native.serve.env, native.serve.platform)?,
+            ),
             kkt_setup::Purpose::Client => return Err(LANES_ON_THE_SERVER.into()),
         };
         let server = native.lanes_on(on, None, None);
@@ -359,7 +358,7 @@ impl ServeFacts for ServeReads<'_> {
             config_file: loaded.config_file.clone(),
             flags: service_settings(&loaded.flags),
             from_file: service_settings(&loaded.from_file),
-            default_db: kkt_setup::default_db(self.env, self.platform),
+            default_db: kkt_deployment::default_db(self.env, self.platform),
             default_key: settings::default_access_key(self.env),
         };
         Ok(kkt_install_commands::ServiceInputs {

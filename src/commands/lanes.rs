@@ -77,7 +77,7 @@ mod tests {
                 missing.display()
             ))
         );
-        let default = kkt_setup::default_db(&env, TEST_PLATFORM).expect("default");
+        let default = kkt_deployment::default_db(&env, TEST_PLATFORM).expect("default");
         assert_eq!(
             existing_db(&env, TEST_PLATFORM, None, None),
             Err(format!(

@@ -96,7 +96,7 @@ mod tests {
         let home = scratch::Dir::new("service-defaults");
         let env = test_env(Some(&home));
         let plan = service_plan(&env, TEST_PLATFORM, None, None, None, false).expect("valid");
-        let db = kkt_setup::default_db(&env, TEST_PLATFORM).expect("db");
+        let db = kkt_deployment::default_db(&env, TEST_PLATFORM).expect("db");
         let key = crate::machine::settings::default_access_key(&env).expect("key");
         assert_eq!(
             args(&plan),
