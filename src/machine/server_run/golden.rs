@@ -1,17 +1,18 @@
-//! The run record's settings text, pinned byte for byte for each kind of
-//! server: with and without a config file, each key file, an admin name and
-//! a log file, and one with every setting given. A changed text changes what
-//! every existing install records, so these texts change only on purpose.
+//! The run record's settings text, pinned byte for byte through this
+//! program's own lines for each kind of server: with and without a config
+//! file, each key file, an admin name and a log file, and one with every
+//! setting given. A changed text changes what every existing install
+//! records, so these texts change only on purpose.
 
 use super::*;
 use kkt_names::AdminName;
-use kkt_provenance::{Build, RunSettings, ServerRun};
+use kkt_provenance::{Build, RunSettings};
 use std::time::Duration;
 
 /// The settings a test server runs with, in the record's own terms.
 struct Case {
     allow_any_bind: bool,
-    limits: FixtureLimits,
+    rules: kkt_rules::Settings,
     log_level: &'static str,
     dependency_log_level: &'static str,
     origins: &'static [&'static str],
@@ -29,7 +30,7 @@ struct Case {
 /// A server with nothing given: every setting at its default.
 const PLAIN: Case = Case {
     allow_any_bind: false,
-    limits: FixtureLimits::DEFAULT,
+    rules: kkt_rules::Settings::DEFAULT,
     log_level: "info",
     dependency_log_level: "warn",
     origins: &[],
@@ -48,16 +49,29 @@ const BUILD: Build = Build {
     commit: "abc123",
 };
 
-/// The run a test server records: its settings worded here, then stored
-/// by kkt-provenance as it stores every run's.
+fn level(name: &str) -> Level {
+    Level::ALL
+        .iter()
+        .find(|(_, n)| *n == name)
+        .map(|(level, _)| *level)
+        .expect("a log level")
+}
+
+/// The run a test server records: its settings worded by this program,
+/// then stored by kkt-provenance as it stores every run's.
 fn run_of(case: &Case) -> ServerRun {
-    let settings = RecordedSettings {
-        allow_any_bind: case.allow_any_bind,
-        limits: case.limits.clone(),
-        log_level: case.log_level,
-        dependency_log_level: case.dependency_log_level,
+    let server = ServerSettings {
         allowed_origins: case.origins.iter().map(|o| o.to_string()).collect(),
         allowed_hosts: case.hosts.iter().map(|h| h.to_string()).collect(),
+        ..ServerSettings::DEFAULT
+    };
+    let settings = RecordedSettings {
+        server: &server,
+        rules: case.rules.clone(),
+        backup: kkt_backup::Settings::DEFAULT,
+        allow_any_bind: case.allow_any_bind,
+        log_level: level(case.log_level),
+        dependency_log_level: level(case.dependency_log_level),
         config_file: case.config_file.map(str::to_string),
         access_key_file: case.access_key_file.map(str::to_string),
         web_key_file: case.web_key_file.map(str::to_string),
@@ -80,7 +94,7 @@ fn run_of(case: &Case) -> ServerRun {
     )
 }
 
-/// The lines for [`FixtureLimits::DEFAULT`].
+/// The lines for the default rules, formatter, web page and backups.
 const DEFAULT_LIMITS: &str = "name_pack=animals\n\
      max_response_bytes=8192\n\
      default_limit=20\n\
@@ -213,13 +227,10 @@ fn a_server_with_a_log_file_records_it_and_its_policy() {
 fn a_server_with_every_setting_given_records_them_all() {
     let run = run_of(&Case {
         allow_any_bind: true,
-        limits: FixtureLimits {
-            rules: kkt_rules::Settings {
-                max_limit: 99,
-                default_wait: Duration::from_secs(12),
-                ..kkt_rules::Settings::DEFAULT
-            },
-            ..FixtureLimits::DEFAULT
+        rules: kkt_rules::Settings {
+            max_limit: 99,
+            default_wait: Duration::from_secs(12),
+            ..kkt_rules::Settings::DEFAULT
         },
         log_level: "debug",
         dependency_log_level: "error",

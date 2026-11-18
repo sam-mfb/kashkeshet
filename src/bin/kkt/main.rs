@@ -19,6 +19,8 @@ use kkt_agent_commands::{self as agent_commands, connect, watch::WatchTask};
 use kkt_install_commands::record::InstallReads;
 use kkt_install_commands::service::{ServiceAction, ServiceInstall};
 use kkt_install_commands::setup::InstallOptions;
+use kkt_log::{Level, Log};
+use kkt_log_tracing::TracingLog;
 use kkt_log_tracing::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
 use kkt_log_tracing::{init_logging, init_stderr_logging};
 use kkt_machine::{Env, Machine, Platform};
@@ -67,7 +69,7 @@ async fn main() -> std::process::ExitCode {
         Ok(code) => code,
         Err(e) => {
             // An error from before logging started still needs saying.
-            if tracing::dispatcher::has_been_set()
+            if kkt_log_tracing::logging_started()
                 || init_logging(
                     None,
                     LOG_OWN_TARGETS,
@@ -76,7 +78,7 @@ async fn main() -> std::process::ExitCode {
                 )
                 .is_ok()
             {
-                tracing::error!("{e}");
+                TracingLog.record(Level::Error, module_path!(), format_args!("{e}"), &[]);
             } else {
                 Terminal.errors(format_args!("error: {e}\n"));
             }

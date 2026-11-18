@@ -4,6 +4,8 @@
 
 use kkt_agent_commands::{CredentialSlot, Credentials};
 use kkt_diagnostics as diagnostics;
+use kkt_log::{Level, Log};
+use kkt_log_tracing::TracingLog;
 use kkt_terminal::Terminal;
 use kkt_watch as watch;
 use std::path::{Path, PathBuf};
@@ -14,9 +16,14 @@ pub(crate) struct CredentialFiles;
 impl Credentials for CredentialFiles {
     fn reserve(&self, path: PathBuf) -> Result<Box<dyn CredentialSlot>, String> {
         kkt_agent_files::CredentialFile::create(path, |path, e| {
-            tracing::warn!(
-                "could not remove incomplete credential file {}: {e}",
-                path.display()
+            TracingLog.record(
+                Level::Warn,
+                module_path!(),
+                format_args!(
+                    "could not remove incomplete credential file {}: {e}",
+                    path.display()
+                ),
+                &[],
             );
         })
         .map(|file| Box::new(CredentialFile(file)) as Box<dyn CredentialSlot>)

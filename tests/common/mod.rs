@@ -25,7 +25,7 @@ use kkt_clock_system::SystemClock;
 use kkt_entropy::Entropy;
 use kkt_entropy_os::OsEntropy;
 use kkt_identity_keymode::KeyMode;
-use kkt_log_tracing::LogLevel;
+use kkt_log::Level;
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rolling_file::LogPolicy;
@@ -153,8 +153,8 @@ fn run_settings(
             server,
             rules: rules.clone(),
             backup: backups,
-            log_level: LogLevel::Info,
-            dependency_log_level: LogLevel::Warn,
+            log_level: Level::Info,
+            dependency_log_level: Level::Warn,
             config_file: None,
             access_key_file: config.admission.key_source().map(str::to_string),
             web_key_file: config.web_admission.key_source().map(str::to_string),

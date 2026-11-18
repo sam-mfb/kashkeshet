@@ -9,6 +9,8 @@ use kkt_entropy::Entropy;
 use kkt_entropy_os::OsEntropy;
 use kkt_keys::{AccessKey, KeyFiles, KeyText, ReadError, SelectedKeys};
 use kkt_keys_os::OsKeyFiles;
+use kkt_log::{Level, Log};
+use kkt_log_tracing::TracingLog;
 use std::path::Path;
 
 /// Makes the default key file if it is the one in use and does not exist
@@ -17,7 +19,12 @@ pub(crate) fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(),
     let mut generate =
         || OsEntropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS);
     if let Some(path) = OsKeyFiles.make_default_key(access_key, &mut generate)? {
-        tracing::info!("created a new {kind} key at {}", path.display());
+        TracingLog.record(
+            Level::Info,
+            module_path!(),
+            format_args!("created a new {kind} key at {}", path.display()),
+            &[],
+        );
     }
     Ok(())
 }
