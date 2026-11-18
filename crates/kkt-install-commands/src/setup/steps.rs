@@ -336,19 +336,19 @@ fn check_typed_key(key: &str) -> Result<(), String> {
 }
 
 impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
-    fn connected_clients(&self) -> Result<Vec<Client>, String> {
-        connected_clients(self.env, self.parts.clients)
+    fn connected_clients(&self) -> Result<Vec<Client>, setup::StepError> {
+        connected_clients(self.env, self.parts.clients).map_err(step_error)
     }
 
-    fn recorded(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.parts.serve, self.parts.setup_files)
+    fn recorded(&self) -> Result<Option<setup::Record>, setup::StepError> {
+        read_setup(self.parts.serve, self.parts.setup_files).map_err(step_error)
     }
 
-    fn write_record(&self, record: &setup::Record) -> Result<(), String> {
-        write_setup_record(self.parts.serve, self.parts.setup_files, record)
+    fn write_record(&self, record: &setup::Record) -> Result<(), setup::StepError> {
+        write_setup_record(self.parts.serve, self.parts.setup_files, record).map_err(step_error)
     }
 
-    fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
+    fn connect(&self, client: Client, record: &setup::Record) -> Result<String, setup::StepError> {
         connect(
             self.env,
             self.parts.clients,
@@ -357,14 +357,15 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
             client,
             record,
         )
+        .map_err(step_error)
     }
 
-    fn check_address(&self, url: &str) -> Result<(), String> {
-        check_address(self.parts.prober, url)
+    fn check_address(&self, url: &str) -> Result<(), setup::StepError> {
+        check_address(self.parts.prober, url).map_err(step_error)
     }
 
-    fn check_key(&self, url: &str, key: &setup::ClientKey) -> Result<(), String> {
-        check_key(self.parts.prober, url, key)
+    fn check_key(&self, url: &str, key: &setup::ClientKey) -> Result<(), setup::StepError> {
+        check_key(self.parts.prober, url, key).map_err(step_error)
     }
 }
 
@@ -376,19 +377,19 @@ pub(super) struct OsSwitchSteps<'a, 'p, C: ConnectionSource, D> {
 }
 
 impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> {
-    fn connected_clients(&self) -> Result<Vec<Client>, String> {
-        connected_clients(self.env, self.parts.clients)
+    fn connected_clients(&self) -> Result<Vec<Client>, setup::StepError> {
+        connected_clients(self.env, self.parts.clients).map_err(step_error)
     }
 
-    fn recorded(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.parts.serve, self.parts.setup_files)
+    fn recorded(&self) -> Result<Option<setup::Record>, setup::StepError> {
+        read_setup(self.parts.serve, self.parts.setup_files).map_err(step_error)
     }
 
-    fn write_record(&self, record: &setup::Record) -> Result<(), String> {
-        write_setup_record(self.parts.serve, self.parts.setup_files, record)
+    fn write_record(&self, record: &setup::Record) -> Result<(), setup::StepError> {
+        write_setup_record(self.parts.serve, self.parts.setup_files, record).map_err(step_error)
     }
 
-    fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
+    fn connect(&self, client: Client, record: &setup::Record) -> Result<String, setup::StepError> {
         connect(
             self.env,
             self.parts.clients,
@@ -397,14 +398,15 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> 
             client,
             record,
         )
+        .map_err(step_error)
     }
 
-    fn check_address(&self, url: &str) -> Result<(), String> {
-        check_address(self.parts.prober, url)
+    fn check_address(&self, url: &str) -> Result<(), setup::StepError> {
+        check_address(self.parts.prober, url).map_err(step_error)
     }
 
-    fn check_key(&self, url: &str, key: &setup::ClientKey) -> Result<(), String> {
-        check_key(self.parts.prober, url, key)
+    fn check_key(&self, url: &str, key: &setup::ClientKey) -> Result<(), setup::StepError> {
+        check_key(self.parts.prober, url, key).map_err(step_error)
     }
 }
 
@@ -480,7 +482,15 @@ fn check_key(
 }
 
 impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::AdoptSteps for OsSteps<'_, '_, C, D> {
-    fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, String> {
+    fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, setup::StepError> {
+        self.find_unrecorded().map_err(step_error)
+    }
+}
+
+impl<C: ConnectionSource, D: crate::ServiceDefaults> OsSteps<'_, '_, C, D> {
+    /// A server kkt installed here that no record or note covers, as the
+    /// adopt step finds it, in this crate's words.
+    fn find_unrecorded(&self) -> Result<Option<setup::Unrecorded>, String> {
         if read_setup(self.parts.serve, self.parts.setup_files)?.is_some()
             || read_unfinished(
                 self.parts.serve,
@@ -494,6 +504,11 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::AdoptSteps for OsSte
         }
         read_unrecorded(self.parts, self.env, self.platform).map_err(|(_, e)| e)
     }
+}
+
+/// A step's text, as kkt-setup's steps carry it.
+fn step_error(said: String) -> setup::StepError {
+    setup::StepError(said.into())
 }
 
 /// The doctor's lines for the problems in `checks` as an error, if any.

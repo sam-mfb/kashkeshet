@@ -55,7 +55,9 @@ pub async fn run_switch<D>(
     let ask = Prompter::new(parts.lines);
     let steps = OsSwitchSteps { env, parts };
     tokio::task::block_in_place(|| {
-        setup::switch(&how, Build::CURRENT.version, &ask, &steps).map(|_| ())
+        setup::switch(&how, Build::CURRENT.version, &ask, &steps)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
     })
 }
 

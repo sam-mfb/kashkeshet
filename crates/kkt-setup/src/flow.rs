@@ -319,7 +319,7 @@ pub fn run(
                 false => resumed_admin_key(answers)?,
             },
         ),
-        None => match adoptable(answers, ask, steps)? {
+        None => match adoptable(answers, ask, steps).map_err(|e| e.to_string())? {
             // Adopting installs nothing, an admin key included.
             Some(found) => (Plan::Adopt(found), None),
             None => match ask_plan(answers, ask, steps)? {
@@ -450,7 +450,7 @@ setup notes the install before starting it, so nothing was changed"
             // that fails below (such as one an upgrade would fix) leaves
             // `kkt upgrade` able to manage the server.
             retried(offer, ask, "Writing the setup record", || {
-                steps.write_record(&record)
+                steps.write_record(&record).map_err(|e| e.to_string())
             })?;
             let record =
                 finish(record, None, chosen, Finish::Adopted, offer, ask, steps).map_err(|e| {
@@ -786,7 +786,9 @@ fn finish(
     let mut failed = Vec::new();
     for &client in &chosen.clients {
         let what = format!("Connecting {}", client.display_name());
-        match retried(offer, ask, &what, || steps.connect(client, &record)) {
+        match retried(offer, ask, &what, || {
+            steps.connect(client, &record).map_err(|e| e.to_string())
+        }) {
             Ok(done) => ask.tell(&done),
             Err(e) => {
                 if !offer {
@@ -808,7 +810,7 @@ fn finish(
 
     if kind != Finish::Adopted {
         retried(offer, ask, "Writing the setup record", || {
-            steps.write_record(&record)
+            steps.write_record(&record).map_err(|e| e.to_string())
         })?;
     }
     if kind != Finish::Clients
@@ -1013,7 +1015,7 @@ fn checked_address(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Resul
                 .trim()
                 .to_string(),
         };
-        match steps.check_address(&url) {
+        match steps.check_address(&url).map_err(|e| e.to_string()) {
             Ok(()) => return Ok(url),
             Err(problem) if answers.url.is_some() => return Err(flag_failed(URL.flag, &problem)),
             Err(problem) => ask.tell(&format!("That address did not work:\n{problem}")),
@@ -1046,10 +1048,10 @@ fn checked_key(
                 }
             },
         };
-        let Err(problem) = steps.check_key(url, &key) else {
+        let Err(problem) = steps.check_key(url, &key).map_err(|e| e.to_string()) else {
             return Ok(Some(key));
         };
-        match steps.check_address(url) {
+        match steps.check_address(url).map_err(|e| e.to_string()) {
             Err(problem) if answers.url.is_some() => return Err(flag_failed(URL.flag, &problem)),
             Err(problem) => {
                 ask.tell(&format!("That address no longer works:\n{problem}"));

@@ -13,6 +13,7 @@ pub mod ask;
 mod flow;
 mod local;
 mod record;
+mod step;
 mod switch;
 #[cfg(feature = "testing")]
 pub mod testing;
@@ -20,8 +21,8 @@ pub mod testing;
 mod tests;
 
 pub use adopt::{
-    AdoptSteps, Unrecorded, service_runs_defaults, unreadable_service, unrecorded_here,
-    unrecorded_service,
+    AdoptError, AdoptSteps, BothInstalled, NotDefaults, Unrecorded, service_runs_defaults,
+    unreadable_service, unrecorded_here, unrecorded_service,
 };
 pub use ask::{Ask, AskError, LineError, Lines, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
@@ -30,7 +31,8 @@ pub use record::{
     DockerSetup, InstallCheck, Mode, Record, RecordError, RecordProblem, RenderError, Server,
     SetupFile, TailscaleLogin, Unfinished,
 };
-pub use switch::{Switch, SwitchSteps, Target, switch};
+pub use step::StepError;
+pub use switch::{Switch, SwitchError, SwitchSteps, Target, switch};
 
 use std::path::{Path, PathBuf};
 
