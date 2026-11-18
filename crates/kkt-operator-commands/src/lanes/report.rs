@@ -1,7 +1,8 @@
-//! The report of a lane import, and the Docker limit when no install is present.
+//! The report of a lane import: a line for each lane it touched, then the
+//! totals.
 
-/// The plain import outcome the program adapts from the operator API.
-pub enum Outcome {
+/// What an import did to one lane.
+pub(crate) enum Outcome {
     Created,
     Updated(i64),
     Unchanged(i64),
@@ -10,18 +11,7 @@ pub enum Outcome {
     FileSkipped,
 }
 
-pub fn docker_limit(
-    present: bool,
-    default: usize,
-    read: impl FnOnce() -> Result<usize, String>,
-) -> Result<usize, String> {
-    if !present {
-        return Ok(default);
-    }
-    read().map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
-}
-
-pub fn import_report<'a>(
+pub(crate) fn import_report<'a>(
     done: impl IntoIterator<Item = (&'a str, Outcome)>,
     folder: &str,
     commit: Option<&str>,
@@ -80,15 +70,36 @@ pub fn import_report<'a>(
 
 #[cfg(test)]
 mod tests {
+    use super::Outcome;
+
     #[test]
-    fn a_new_docker_install_uses_the_default_without_reading_container_settings() {
+    fn the_import_report_names_each_lane_then_the_totals() {
+        let done = [
+            ("orchestrator", Outcome::Created),
+            ("reviewer", Outcome::Updated(3)),
+            ("builder", Outcome::Unchanged(2)),
+            ("old", Outcome::RetiredSkipped),
+            ("gone", Outcome::Retired),
+            ("writer", Outcome::FileSkipped),
+        ];
         assert_eq!(
-            super::docker_limit(false, 123, || panic!("no install to read")),
-            Ok(123)
+            super::import_report(done, "/home/me/lanes", Some("abc123")),
+            "created orchestrator (version 1)\n\
+             updated reviewer (version 3)\n\
+             unchanged builder (version 2)\n\
+             left old alone: it is retired\n\
+             retired gone: it has no file in the folder\n\
+             left writer alone: its file was skipped, so it is not retired\n\
+             Imported from /home/me/lanes (git commit abc123): 1 created, 1 updated, \
+             1 unchanged, 1 retired left alone, 1 retired, 1 left alone for a skipped file\n"
         );
         assert_eq!(
-            super::docker_limit(true, 123, || Err("unreadable".into())),
-            Err("could not read the lane text limit of kkt in Docker: unreadable".into())
+            super::import_report([("a", Outcome::Created)], "/l", None),
+            "created a (version 1)\nImported from /l: 1 created, 0 updated, 0 unchanged\n"
+        );
+        assert_eq!(
+            super::import_report([], "/l", None),
+            "Imported from /l: 0 created, 0 updated, 0 unchanged\n"
         );
     }
 }

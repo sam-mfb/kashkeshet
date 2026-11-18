@@ -1,39 +1,9 @@
-//! Which server `kkt lanes` and `kkt backup` act on, by how this machine is
-//! set up: kkt in Docker in its managed folder, or the local database
-//! `kkt serve` would use. A client machine has no server to act on.
+//! Which server `kkt backup` acts on, by how this machine is set up: kkt in
+//! Docker in its managed folder, or the local database `kkt serve` would
+//! use. A client machine has no server to act on.
 
 use super::record::Mode;
 use std::path::{Path, PathBuf};
-
-/// The server `kkt lanes` acts on.
-#[derive(Debug, PartialEq, Eq)]
-pub enum LanesOn {
-    /// kkt in Docker, run from this folder.
-    Docker(PathBuf),
-    /// The local database `kkt serve` would use, or the one `--db` names.
-    Local,
-}
-
-/// Which server `kkt lanes` acts on, given the recorded `mode` (`None` with
-/// no record) and whether `--db` or `--config` was given (`local_options`).
-pub fn lanes_on(mode: Option<&Mode>, local_options: bool) -> Result<LanesOn, String> {
-    match mode {
-        Some(Mode::Docker(install)) => {
-            if local_options {
-                return Err(
-                    "kkt in Docker keeps its lanes in the container; --db and --config \
-                            apply only to a local server"
-                        .into(),
-                );
-            }
-            Ok(LanesOn::Docker(install.folder.clone()))
-        }
-        Some(Mode::Client) => Err("this machine is a client; run `kkt lanes` on the \
-                                   machine where the server runs"
-            .into()),
-        Some(Mode::Service { .. }) | None => Ok(LanesOn::Local),
-    }
-}
 
 /// What `kkt backup` backs up, and where to.
 #[derive(Debug, PartialEq, Eq)]
@@ -98,37 +68,6 @@ mod tests {
     }
 
     const SERVICE: Mode = Mode::Service { tailscale: false };
-
-    #[test]
-    fn lanes_act_on_docker_in_its_folder_without_local_options() {
-        assert_eq!(
-            lanes_on(Some(&docker()), false),
-            Ok(LanesOn::Docker(PathBuf::from("/data/docker")))
-        );
-        assert_eq!(
-            lanes_on(Some(&docker()), true),
-            Err("kkt in Docker keeps its lanes in the container; --db and --config apply only to a local server".into())
-        );
-    }
-
-    #[test]
-    fn lanes_act_on_the_local_database_for_a_service_or_no_record() {
-        for local_options in [false, true] {
-            assert_eq!(lanes_on(Some(&SERVICE), local_options), Ok(LanesOn::Local));
-            assert_eq!(lanes_on(None, local_options), Ok(LanesOn::Local));
-        }
-    }
-
-    #[test]
-    fn lanes_are_refused_on_a_client() {
-        assert_eq!(
-            lanes_on(Some(&Mode::Client), false),
-            Err(
-                "this machine is a client; run `kkt lanes` on the machine where the server runs"
-                    .into()
-            )
-        );
-    }
 
     #[test]
     fn a_docker_backup_uses_its_folder_and_any_folder_given() {
