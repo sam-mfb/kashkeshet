@@ -6,6 +6,7 @@ use kkt_deployment::connection::{RecordedServer, ServerAddress};
 use kkt_deployment::{
     Deployment, DeploymentEndpoint, RecordedDeployment, ServerVersion, UnrecordedDeployment,
 };
+use kkt_deployment::{ServerKeys, UnfinishedSetup};
 use kkt_machine::{Env, Platform};
 use kkt_setup as setup;
 
@@ -103,6 +104,32 @@ pub fn found_without_record(
                 url: Some(found.url.clone()),
             }),
         }))
+}
+
+/// The server `record` names and its access key file, for finding keys.
+pub fn server_keys(record: &setup::Record) -> ServerKeys {
+    ServerKeys {
+        deployment: deployment(&record.mode),
+        key_file: record.key_file.clone(),
+    }
+}
+
+/// The server `found` installed with no record, and its access key file,
+/// for finding keys.
+pub fn found_server_keys(found: &setup::Unrecorded) -> ServerKeys {
+    ServerKeys {
+        deployment: deployment(&found.mode),
+        key_file: found.key_file.clone(),
+    }
+}
+
+/// An unfinished setup, for finding keys: its server once its install
+/// finished, and whether it puts the server in Docker.
+pub fn unfinished_setup(unfinished: &setup::Unfinished) -> UnfinishedSetup {
+    UnfinishedSetup {
+        server: unfinished.record.as_ref().map(server_keys),
+        in_docker: unfinished.purpose == setup::Purpose::Docker,
+    }
 }
 
 #[cfg(test)]

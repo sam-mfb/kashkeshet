@@ -7,11 +7,11 @@ use crate::keys::{
     KeyKind, admin_key_collision, local_operator_key, optional_key_path, runs_in_docker,
     selected_key_path,
 };
+use kkt_deployment::new_key_file;
 use kkt_deployment::{admin_name_line, admin_name_written};
 use kkt_llm_agent_config as clients;
 use kkt_machine::Env;
-use kkt_setup as setup;
-use kkt_setup::{new_key_file, write_admin_name};
+use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use std::path::{Path, PathBuf};
 
 pub fn header(
@@ -89,8 +89,8 @@ pub fn create(
     // Checked before anything is written, so a refused key or a bad name
     // leaves no key.
     let in_docker =
-        setup::create_asks_for_docker(kind, path.is_some()) && runs_in_docker(parts, env)?;
-    let name = setup::create_checks(kind, in_docker, name)?;
+        kkt_deployment::create_asks_for_docker(kind, path.is_some()) && runs_in_docker(parts, env)?;
+    let name = checked_name(kind, in_docker, name)?;
     if kind == KeyKind::Admin
         && let Some(destination) = path.as_ref()
         && let Some(access) = local_operator_key(parts, env, None, None, KeyKind::Access)?
@@ -122,7 +122,7 @@ pub fn create(
             };
             (resolve(destination)?, resolve(&access)?)
         };
-        setup::create_destination_check(&destination, &access)?;
+        kkt_deployment::create_destination_check(&destination, &access)?;
     }
     let path = match kind {
         KeyKind::Access => path
@@ -185,4 +185,97 @@ pub fn create(
         parts.output.output(format_args!("{key}\n"));
     }
     Ok(())
+}
+
+/// What `kkt key create` checks of its key and name before it writes
+/// anything, in order: kkt-deployment's `create_checks`, then whether `name`
+/// is a valid admin name. Returns the admin name to tie to the new key.
+fn checked_name(
+    kind: KeyKind,
+    in_docker: bool,
+    name: Option<&str>,
+) -> Result<Option<AdminName>, String> {
+    kkt_deployment::create_checks(kind, in_docker, name)?;
+    name.map(|name| AdminName::new(name, MAX_ADMIN_NAME_CHARS))
+        .transpose()
+        .map_err(|e| e.to_string())
+}
+
+/// Ties `name` to the new admin key `key`, just written to the file at
+/// `path`, in the name file beside it. The name file holds a hash of the
+/// key, so a name never passes to another key: one left from an earlier key
+/// names nothing. With no name, such a file is removed. Returns how the
+/// write went; the caller words it.
+fn write_admin_name(
+    files: &dyn kkt_keys::KeyFiles,
+    path: &Path,
+    key: &str,
+    name: Option<&AdminName>,
+) -> Result<(), String> {
+    let bound = name.map(|name| kkt_keys::bound_to(name, key));
+    files
+        .write_admin_name(path, bound.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    //! `kkt key create`'s own checks of the name and its name file, pinned:
+    //! the order and texts of the refusals, and what the name file holds.
+
+    use super::*;
+    use kkt_keys::testing::Memory;
+
+    #[test]
+    fn key_create_checks_the_name_after_the_key() {
+        assert_eq!(
+            checked_name(KeyKind::Admin, true, Some("Bad Name")),
+            Err(
+                "make or rotate the admin key inside the container: `docker compose exec kkt \
+                 kkt key create --admin --force --name <name>`, then restart kkt and rerun \
+                 setup with --admin-key to save the host copy"
+                    .to_string()
+            )
+        );
+        for kind in [KeyKind::Access, KeyKind::Web] {
+            assert_eq!(
+                checked_name(kind, false, Some("sentinel")),
+                Err("--name names the admin agent, so it goes with --admin".to_string())
+            );
+            assert_eq!(checked_name(kind, false, None), Ok(None));
+        }
+        assert_eq!(
+            checked_name(KeyKind::Admin, false, Some("sentinel")),
+            Ok(Some(
+                AdminName::new("admin-sentinel", MAX_ADMIN_NAME_CHARS).unwrap()
+            ))
+        );
+        assert_eq!(checked_name(KeyKind::Admin, false, None), Ok(None));
+        assert_eq!(
+            checked_name(KeyKind::Admin, false, Some("Bad Name")),
+            Err(
+                "the admin name must be lowercase letters and digits, in words joined by single \
+                 hyphens, such as `sentinel` (which becomes `admin-sentinel`); got \"Bad Name\""
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn an_admin_name_is_bound_to_its_key_and_removed_with_none() {
+        let files = Memory::new().with_dir("/k");
+        let path = Path::new("/k/admin-key");
+        let name = AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("a name");
+        assert_eq!(
+            write_admin_name(&files, path, "the-key", Some(&name)),
+            Ok(())
+        );
+        let names = kkt_keys::admin_name_path(path);
+        assert_eq!(
+            files.file(&names).expect("a name file").text,
+            kkt_keys::bound_to(&name, "the-key")
+        );
+        assert_eq!(write_admin_name(&files, path, "the-key", None), Ok(()));
+        assert_eq!(files.file(&names), None);
+    }
 }

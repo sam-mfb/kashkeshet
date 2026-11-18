@@ -1,12 +1,16 @@
-//! Where this machine's access, web and admin keys are, as kkt-setup's key
-//! finders decide over what is installed here and the serve config.
+//! Where this machine's access, web and admin keys are, as kkt-deployment's
+//! key finders decide over what is installed here and the serve config.
 
 use crate::OperatorParts;
+use kkt_deployment::Deployment;
+use kkt_deployment::{
+    self, RecordedServerRead, ServeConfigReads, ServerKeys, UnfinishedSetup, UnrecordedReads,
+};
 use kkt_machine::Env;
 use kkt_setup as setup;
 use std::path::PathBuf;
 
-pub use kkt_setup::{KeyKind, admin_key_collision};
+pub use kkt_deployment::{KeyKind, admin_key_collision};
 
 /// The reads finding a key makes, over the operator's parts.
 struct Reads<'a, 'p> {
@@ -14,10 +18,13 @@ struct Reads<'a, 'p> {
     env: &'a Env,
 }
 
-impl setup::OperatorKeyReads for Reads<'_, '_> {
-    fn setup(&self) -> Result<Option<setup::Record>, String> {
-        self.parts.installed.record()
+impl RecordedServerRead for Reads<'_, '_> {
+    fn recorded(&self) -> Result<Option<ServerKeys>, String> {
+        Ok(self.parts.installed.record()?.as_ref().map(server_keys))
     }
+}
+
+impl ServeConfigReads for Reads<'_, '_> {
     fn configured_access(&self) -> Result<Option<PathBuf>, String> {
         self.parts.serve.configured_access_key()
     }
@@ -26,16 +33,21 @@ impl setup::OperatorKeyReads for Reads<'_, '_> {
     }
 }
 
-impl setup::KeyReads for Reads<'_, '_> {
-    fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
-        self.parts.installed.unfinished()
+impl UnrecordedReads for Reads<'_, '_> {
+    fn unfinished(&self) -> Result<Option<UnfinishedSetup>, String> {
+        Ok(self
+            .parts
+            .installed
+            .unfinished()?
+            .as_ref()
+            .map(unfinished_setup))
     }
     /// A server kkt installed here with no record. One that cannot be made
     /// out is said on standard error, as `kkt status` says it, and the keys
     /// are then looked for as the serve config says.
-    fn unrecorded(&self) -> Option<setup::Unrecorded> {
+    fn unrecorded(&self) -> Option<ServerKeys> {
         match self.parts.installed.unrecorded() {
-            Ok(found) => found,
+            Ok(found) => found.as_ref().map(found_server_keys),
             Err((_, e)) => {
                 self.parts
                     .output
@@ -64,13 +76,13 @@ pub fn optional_key_path(
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
-    setup::find_key(&Reads { parts, env }, path, kind)
+    kkt_deployment::find_key(&Reads { parts, env }, path, kind)
 }
 
 /// Whether this machine's server runs in Docker, as recorded or, with no
 /// record and no unfinished setup, as found.
 pub(crate) fn runs_in_docker(parts: &OperatorParts<'_>, env: &Env) -> Result<bool, String> {
-    Ok(setup::find_here(&Reads { parts, env })?.runs_in_docker())
+    Ok(kkt_deployment::find_here(&Reads { parts, env })?.runs_in_docker())
 }
 
 /// Where this machine's web or admin key file is, if it runs a server: for
@@ -84,5 +96,52 @@ pub fn local_operator_key(
     unrecorded: Option<&setup::Unrecorded>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
-    setup::find_operator_key(&Reads { parts, env }, unfinished, unrecorded, kind)
+    kkt_deployment::find_operator_key(
+        &Reads { parts, env },
+        unfinished.map(unfinished_setup).as_ref(),
+        unrecorded.map(found_server_keys).as_ref(),
+        kind,
+    )
+}
+
+// What the setup record says, as kkt-deployment's key facts. The program
+// hands this crate kkt-setup's records through `InstalledHere` until that
+// contract is this crate's own (the kkt-setup breakup's pull request 8),
+// so the mapping that kkt-install-commands' `deployment` module makes is
+// made here too until then.
+
+fn deployment(mode: &setup::Mode) -> Deployment {
+    match mode {
+        setup::Mode::Service { tailscale } => Deployment::Service {
+            tailscale: *tailscale,
+        },
+        setup::Mode::Docker(docker) => Deployment::Docker {
+            folder: docker.folder.clone(),
+            tailscale: docker.tailscale,
+            hostname: docker.hostname.clone(),
+            tailnet: docker.tailnet.clone(),
+        },
+        setup::Mode::Client => Deployment::Client,
+    }
+}
+
+fn server_keys(record: &setup::Record) -> ServerKeys {
+    ServerKeys {
+        deployment: deployment(&record.mode),
+        key_file: record.key_file.clone(),
+    }
+}
+
+fn found_server_keys(found: &setup::Unrecorded) -> ServerKeys {
+    ServerKeys {
+        deployment: deployment(&found.mode),
+        key_file: found.key_file.clone(),
+    }
+}
+
+fn unfinished_setup(unfinished: &setup::Unfinished) -> UnfinishedSetup {
+    UnfinishedSetup {
+        server: unfinished.record.as_ref().map(server_keys),
+        in_docker: unfinished.purpose == setup::Purpose::Docker,
+    }
 }
