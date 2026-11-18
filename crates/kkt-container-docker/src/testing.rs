@@ -77,7 +77,7 @@ struct Inner {
 
 impl Scripted {
     /// A host answering commands with `script` and moving `clock` on as
-    /// they run. The person runs kkt in `/home/me`.
+    /// they run. The program runs in `/home/me`.
     pub fn new(
         clock: Arc<FixedClock>,
         script: impl Fn(&str) -> io::Result<Reply> + 'static,
@@ -130,13 +130,13 @@ impl Scripted {
         self
     }
 
-    /// The folder the person runs kkt in cannot be found.
+    /// The folder the program runs in cannot be found.
     pub fn without_working_dir(mut self) -> Scripted {
         self.inner_mut().working_dir = None;
         self
     }
 
-    /// The folder the person runs kkt in, as this host answers it: `/home/me`
+    /// The folder the program runs in, as this host answers it: `/home/me`
     /// unless [`Self::without_working_dir`] took it away.
     pub fn current_folder(&self) -> io::Result<PathBuf> {
         self.0

@@ -2,7 +2,7 @@
 //! login-link contract. Opening the link is kkt-browser's `SystemBrowser`,
 //! which the program adapts to the Docker crate's `Browser`.
 
-use kkt_container::LoginLink;
+use kkt_containerized_service::LoginLink;
 use kkt_terminal::BrowserLink;
 
 /// The terminal's login link supplied to Docker setup.

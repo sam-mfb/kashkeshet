@@ -2,8 +2,9 @@
 //! anything: whether its settings file is there, the version it selects,
 //! the install it describes, and the Tailscale auth key a person names.
 
+use crate::Existing;
 use crate::files::{ENV_FILE, PENDING_TAILNET, TAILSCALE_COMPOSE_FILE, embedded, version_in_env};
-use kkt_container::{Existing, FileState, Folder, Project, Projects};
+use kkt_container::{FileState, Folder, Project, Projects};
 use std::path::{Path, PathBuf};
 
 /// Whether anything is at the settings file's path, a folder included.

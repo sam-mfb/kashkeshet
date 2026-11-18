@@ -3,7 +3,7 @@
 //! terminal. Opening it in a browser, when the person asks, is the
 //! implementation's.
 
-/// What setup does with the login link. [`Container::provision`](super::Container::provision) shows
+/// What setup does with the login link. [`Container::provision`](crate::Container::provision) shows
 /// the link once, then at each check for the login asks `open_requested`, so
 /// waiting for a key press never stops it watching for the login.
 pub trait LoginLink {

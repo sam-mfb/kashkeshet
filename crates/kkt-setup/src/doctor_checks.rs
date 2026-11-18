@@ -140,16 +140,16 @@ fn docker_admin_key_fix(folder: &Path) -> String {
 }
 
 /// The doctor's line about whether the web key's host copy is the Docker
-/// server's key, from what `kkt_container::Container::compare_web_key` found.
+/// server's key, from what `kkt_containerized_service::Container::compare_web_key` found.
 pub fn docker_web_key_check(
-    compared: Result<kkt_container::KeyCopy, String>,
+    compared: Result<kkt_containerized_service::KeyCopy, String>,
     folder: &kkt_container::Folder,
 ) -> DoctorCheck {
     match compared {
-        Ok(kkt_container::KeyCopy::Same) => {
+        Ok(kkt_containerized_service::KeyCopy::Same) => {
             DoctorCheck::ok(DOCKER_WEB_KEY_CHECK, "the same as the server's")
         }
-        Ok(kkt_container::KeyCopy::Differs) => DoctorCheck::problem(
+        Ok(kkt_containerized_service::KeyCopy::Differs) => DoctorCheck::problem(
             DOCKER_WEB_KEY_CHECK,
             "differs from the server's web key, which was changed after the copy was saved; it no longer logs in",
             docker_web_key_fix(folder.path()),
@@ -167,17 +167,19 @@ pub fn docker_web_key_check(
 
 /// The doctor's line about the Tailscale container's login.
 pub fn tailscale_login_check(
-    login: &kkt_container::Login,
+    login: &kkt_containerized_service::Login,
     folder: &kkt_container::Folder,
 ) -> DoctorCheck {
     match login {
-        kkt_container::Login::LoggedIn => DoctorCheck::ok(DOCKER_TAILSCALE_CHECK, "logged in"),
-        kkt_container::Login::NeedsLogin => DoctorCheck::problem(
+        kkt_containerized_service::Login::LoggedIn => {
+            DoctorCheck::ok(DOCKER_TAILSCALE_CHECK, "logged in")
+        }
+        kkt_containerized_service::Login::NeedsLogin => DoctorCheck::problem(
             DOCKER_TAILSCALE_CHECK,
             "not logged in: the machine's key expired, or it was logged out, so it is off the tailnet and its HTTPS address does not answer",
             "run `kkt setup` again and log in with the link it shows",
         ),
-        kkt_container::Login::Unreachable => DoctorCheck::problem(
+        kkt_containerized_service::Login::Unreachable => DoctorCheck::problem(
             DOCKER_TAILSCALE_CHECK,
             "the Tailscale container does not answer",
             format!(
@@ -185,7 +187,7 @@ pub fn tailscale_login_check(
                 shell_word(&folder.path().display().to_string())
             ),
         ),
-        kkt_container::Login::Other(state) => DoctorCheck::problem(
+        kkt_containerized_service::Login::Other(state) => DoctorCheck::problem(
             DOCKER_TAILSCALE_CHECK,
             format!("Tailscale says: {state}"),
             "check the machine in the Tailscale admin console, or run `kkt setup` again",
@@ -193,10 +195,10 @@ pub fn tailscale_login_check(
     }
 }
 
-/// The doctor's line about kkt in Docker, from what `kkt_container::Container::status` found
+/// The doctor's line about kkt in Docker, from what `kkt_containerized_service::Container::status` found
 /// in the managed `folder`.
 pub fn docker_check(
-    state: Result<kkt_container::State, String>,
+    state: Result<kkt_containerized_service::State, String>,
     folder: &kkt_container::Folder,
 ) -> DoctorCheck {
     let shown = folder.path().display().to_string();

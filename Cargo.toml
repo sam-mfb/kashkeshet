@@ -271,12 +271,12 @@ tracing.workspace = true
 # What the unit and integration tests use beyond the program's own
 # dependencies, which they also use. `kkt-db-sqlite`'s `testing` gives
 # them `MemoryPlace`, a database in memory; `kkt-setup`'s gives them the
-# defaults setup's questions accept; `kkt-container`'s gives them
-# `Memory`, installations in memory; every other `kkt-*` crate comes
+# defaults setup's questions accept; `kkt-containerized-service`'s gives
+# them `Memory`, installations in memory; every other `kkt-*` crate comes
 # through [dependencies].
 [dev-dependencies]
 kkt-clock = { path = "crates/kkt-clock", features = ["testing"] }
-kkt-container = { path = "crates/kkt-container", features = ["testing"] }
+kkt-containerized-service = { path = "crates/kkt-containerized-service", features = ["testing"] }
 # The container install's pins (tests/container_install/) run Docker
 # over its scripted host.
 kkt-container-docker = { path = "crates/kkt-container-docker", features = ["testing"] }

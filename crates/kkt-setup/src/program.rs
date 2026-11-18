@@ -82,7 +82,7 @@ pub fn admin_key_line(path: &Path) -> String {
 pub fn configured_name_pack_line(name: &str) -> String {
     format!("Name pack (configured; serve flags may override): {name}\n")
 }
-pub fn docker_status_lines(state: &kkt_container::State, folder: &Path) -> Vec<String> {
+pub fn docker_status_lines(state: &kkt_containerized_service::State, folder: &Path) -> Vec<String> {
     let mut lines = Vec::new();
     lines.push(match &state.name_pack {
         Ok(pack) => format!("Name pack: {pack}\n"),
@@ -97,10 +97,10 @@ pub fn docker_status_lines(state: &kkt_container::State, folder: &Path) -> Vec<S
         state.sharing
     ));
     match &state.login {
-        Some(kkt_container::Login::LoggedIn) => lines.push("Tailscale login: logged in\n".into()),
-        Some(kkt_container::Login::NeedsLogin) => lines.push("Tailscale login: needed. The machine's key expired, or it was logged out, so it is off the tailnet. Run `kkt setup` to log in again.\n".into()),
-        Some(kkt_container::Login::Unreachable) => lines.push("Tailscale login: unknown; the Tailscale container does not answer\n".into()),
-        Some(kkt_container::Login::Other(state)) => lines.push(format!("Tailscale login: {state}\n")),
+        Some(kkt_containerized_service::Login::LoggedIn) => lines.push("Tailscale login: logged in\n".into()),
+        Some(kkt_containerized_service::Login::NeedsLogin) => lines.push("Tailscale login: needed. The machine's key expired, or it was logged out, so it is off the tailnet. Run `kkt setup` to log in again.\n".into()),
+        Some(kkt_containerized_service::Login::Unreachable) => lines.push("Tailscale login: unknown; the Tailscale container does not answer\n".into()),
+        Some(kkt_containerized_service::Login::Other(state)) => lines.push(format!("Tailscale login: {state}\n")),
         None => {}
     }
     lines

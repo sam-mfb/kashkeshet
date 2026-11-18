@@ -17,12 +17,13 @@
 use futures::executor::block_on;
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
-use kkt_container::{
-    Arg, Carry, ConfigReader, Container, ContainerConfig, Folder, InServer, Inputs, KeyCopies,
-    LoginLink, Sharing,
-};
+use kkt_container::Folder;
 use kkt_container_docker::testing::{Reply, Scripted};
 use kkt_containerized_service::Browser;
+use kkt_containerized_service::{
+    Arg, Carry, ConfigReader, Container, ContainerConfig, InServer, Inputs, KeyCopies, LoginLink,
+    Sharing,
+};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::fmt::Debug;
@@ -241,7 +242,7 @@ impl Run {
         }
     }
 
-    fn result<T: Debug>(&self, result: Result<T, String>) {
+    fn result<T: Debug, E: std::fmt::Display>(&self, result: Result<T, E>) {
         match result {
             Ok(value) => self.host.note(&format!("result   {value:?}")),
             Err(error) => self.host.note(&format!("error    {error}")),

@@ -14,6 +14,7 @@ kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-config-file = { path = "../kkt-config-file" }
 kkt-container = { path = "../kkt-container" }
+kkt-containerized-service = { path = "../kkt-containerized-service" }
 kkt-diagnostics = { path = "../kkt-diagnostics" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-machine = { path = "../kkt-machine" }
@@ -27,6 +28,6 @@ tokio.workspace = true
 
 [dev-dependencies]
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
-kkt-container = { path = "../kkt-container", features = ["testing"] }
+kkt-containerized-service = { path = "../kkt-containerized-service", features = ["testing"] }
 kkt-bare-service = { path = "../kkt-bare-service", features = ["testing"] }
 futures.workspace = true

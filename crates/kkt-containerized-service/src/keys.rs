@@ -1,10 +1,11 @@
 //! The server's keys as the running container shows them, beside their
 //! copies on this machine.
 
+use crate::KeyCopy;
 use crate::here;
 use crate::in_server::{SERVER, host};
 use crate::services::worded;
-use kkt_container::{KeyCopy, Output, Project, Projects, User};
+use kkt_container::{Output, Project, Projects, User};
 use std::path::Path;
 
 /// Compares the web key's host copy at `web_key_file` with the running

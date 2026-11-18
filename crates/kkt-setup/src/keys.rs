@@ -8,7 +8,7 @@
 use super::adopt::Unrecorded;
 use super::flow::Purpose;
 use super::record::{Mode, Record, Unfinished};
-use kkt_container::KeyCopies;
+use kkt_containerized_service::KeyCopies;
 use kkt_keys::access_key_file;
 use kkt_keys::{ADMIN_KEY_COPY_FILE_NAME, WEB_KEY_COPY_FILE_NAME};
 use kkt_keys::{admin_key_path, web_key_path};

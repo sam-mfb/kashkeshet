@@ -1,15 +1,17 @@
 //! Containerized over projects in memory: each operation it does, and how
 //! each can fail.
 
+use crate::{
+    Arg, Carry, ConfigReader, Container, ContainerConfig, Existing, InServer, KeyCopy, Login, State,
+};
 use crate::{Containerized, NodeLogin, NodeStatus, SharingNode, Tell};
 use futures::executor::block_on;
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
 use kkt_container::testing::{MemoryProjects, Request};
 use kkt_container::{
-    Arg, Carry, ConfigReader, Container, ContainerConfig, Existing, FileAction, Folder, InServer,
-    KeyCopy, Login, Output, Project, ProjectError, ProjectFile, Projects, Ran, ServiceConfig,
-    State, User,
+    FileAction, Folder, Output, Project, ProjectError, ProjectFile, Projects, Ran, ServiceConfig,
+    User,
 };
 use std::cell::RefCell;
 use std::io;
@@ -432,9 +434,10 @@ fn a_run_refuses_a_folder_mktemp_did_not_make_as_asked() {
         }));
         assert_eq!(
             service.run_in_server(&folder(), &command(Carry::In(vec![]))),
-            Err(format!(
-                "unexpected output from the folder mktemp made in the container: {said}"
-            ))
+            Err(
+                format!("unexpected output from the folder mktemp made in the container: {said}")
+                    .into()
+            )
         );
     }
 }
@@ -478,9 +481,7 @@ fn a_config_home_file_is_read_in_a_new_container_and_only_a_plain_path_is_taken(
     for refused in ["/etc/passwd", "kkt/../x", "a b", "", "kkt//x"] {
         assert_eq!(
             service.config_home_file(&folder(), Path::new(refused)),
-            Err(format!(
-                "{refused} is not a plain path under the config home"
-            ))
+            Err(format!("{refused} is not a plain path under the config home").into())
         );
     }
 }
@@ -800,7 +801,7 @@ impl kkt_keys::KeyFiles for KeysIn {
 #[derive(Default)]
 struct Shown(RefCell<Vec<String>>);
 
-impl kkt_container::LoginLink for Shown {
+impl crate::LoginLink for Shown {
     fn show(&self, url: &str) {
         self.0.borrow_mut().push(url.to_string());
     }
@@ -813,21 +814,21 @@ const ACCESS: &str = "access-key-0123456789";
 const WEB: &str = "web-key-0123456789";
 const ADMIN: &str = "admin-key-0123456789";
 
-fn key_copies() -> kkt_container::KeyCopies {
-    kkt_container::KeyCopies {
+fn key_copies() -> crate::KeyCopies {
+    crate::KeyCopies {
         access: PathBuf::from("/home/me/.config/kkt/docker-access-key"),
         web: PathBuf::from("/home/me/.config/kkt/docker-web-key"),
         admin: PathBuf::from("/home/me/.config/kkt-admin/docker-admin-key"),
     }
 }
 
-fn inputs(sharing: bool) -> kkt_container::Inputs {
-    kkt_container::Inputs {
+fn inputs(sharing: bool) -> crate::Inputs {
+    crate::Inputs {
         version: "0.4.0".into(),
         project: "kkt".into(),
         port: 7420,
         allow_hosts: vec![],
-        sharing: sharing.then(|| kkt_container::Sharing {
+        sharing: sharing.then(|| crate::Sharing {
             hostname: "kkt".into(),
             auth_key: None,
         }),
@@ -837,7 +838,7 @@ fn inputs(sharing: bool) -> kkt_container::Inputs {
 /// What one setup did: its result, what it said, the links it showed, the
 /// key files, and the projects' log.
 struct SetUp {
-    result: Result<kkt_container::Provisioned, String>,
+    result: Result<crate::Provisioned, String>,
     said: Vec<String>,
     shown: Vec<String>,
     keys: Rc<kkt_keys::testing::Memory>,
@@ -875,7 +876,7 @@ fn set_up(
     let log = service.projects.log();
     let said = said.0.borrow().clone();
     SetUp {
-        result,
+        result: result.map_err(|e| e.to_string()),
         said,
         shown: shown.0.into_inner(),
         keys,
@@ -932,7 +933,7 @@ fn setup_writes_the_files_starts_kkt_and_replaces_each_key_copy() {
         old,
         server((Some(0), "admin-key-0123456789\n", ""), vec![]),
     );
-    assert_eq!(done.result, Ok(kkt_container::Provisioned { node: None }));
+    assert_eq!(done.result, Ok(crate::Provisioned { node: None }));
     for (path, key) in [
         ("/home/me/.config/kkt/docker-access-key", ACCESS),
         ("/home/me/.config/kkt/docker-web-key", WEB),
@@ -1016,7 +1017,7 @@ fn a_shared_setup_shows_the_link_once_restarts_a_node_with_none_and_names_the_no
     );
     assert_eq!(
         done.result,
-        Ok(kkt_container::Provisioned {
+        Ok(crate::Provisioned {
             node: Some(("kkt-1".into(), "tail1.ts.net".into()))
         })
     );
@@ -1072,7 +1073,8 @@ fn a_missing_tool_is_said_by_its_name_with_what_to_do() {
         &inputs(false),
         &key_copies(),
     ))
-    .unwrap_err();
+    .unwrap_err()
+    .to_string();
     assert!(
         error.starts_with("tool is not available: could not run `tool compose version`"),
         "{error}"
@@ -1205,7 +1207,8 @@ fn no_admin_key_reaches_an_error_or_a_line_said_when_its_read_fails_after_printi
             },
         );
         let error = block_on(service.add_admin_key(&*clock, &folder(), &key_copies(), "kkt-admin"))
-            .unwrap_err();
+            .unwrap_err()
+            .to_string();
         assert!(keyless(&error), "{error}");
         assert!(
             error.ends_with("(exit 1, could not read the admin key)")

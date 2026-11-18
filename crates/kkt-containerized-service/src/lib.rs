@@ -1,5 +1,8 @@
-//! kkt's server installed as a containerized service: `Containerized`
-//! implements kkt-container's `Container` over the general `Projects`,
+//! kkt's server installed as a containerized service. `Container` is the
+//! contract its install commands use, with its records, what it is given
+//! (`ConfigReader`, `LoginLink`) and its error (`ContainerError`), and a
+//! stand-in in memory behind `testing`. `Containerized` implements it over
+//! kkt-container's general `Projects`,
 //! whatever container tool implements it. It owns what is kkt's in such an
 //! install: the Compose files that come with this program, the settings
 //! file's name and the variables it sets, what the managed folder's files
@@ -14,24 +17,34 @@
 
 mod admin_key;
 mod backup;
+mod config;
+mod container;
+mod error;
 mod files;
 mod in_server;
 mod keys;
+mod login;
 mod reads;
 mod services;
 mod setup;
 mod status;
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 #[cfg(test)]
 mod tests;
 mod upgrade;
 
+pub use config::{ConfigReader, ContainerConfig};
+pub use container::{
+    Arg, Carry, Container, Existing, InServer, Inputs, KeyCopies, KeyCopy, Login, Provisioned,
+    Sharing, State,
+};
+pub use error::ContainerError;
 use futures::future::LocalBoxFuture;
 use kkt_clock::Clock;
-use kkt_container::{
-    ConfigReader, Container, Existing, Folder, InServer, Inputs, KeyCopies, KeyCopy, LoginLink,
-    Project, Projects, Provisioned, State,
-};
+use kkt_container::{Folder, Project, Projects};
 use kkt_keys::KeyFiles;
+pub use login::LoginLink;
 use std::path::{Path, PathBuf};
 
 /// The login link of the operations that never log a sharing node in
@@ -175,10 +188,12 @@ impl<P: Projects> Container for Containerized<P> {
         folder: &'a Folder,
         inputs: &'a Inputs,
         keys: &'a KeyCopies,
-    ) -> LocalBoxFuture<'a, Result<Provisioned, String>> {
+    ) -> LocalBoxFuture<'a, Result<Provisioned, ContainerError>> {
         Box::pin(async move {
             let parts = self.setup_parts(clock, login);
-            setup::provision(&parts, &self.project(folder), inputs, keys).await
+            setup::provision(&parts, &self.project(folder), inputs, keys)
+                .await
+                .map_err(ContainerError::from)
         })
     }
     fn add_admin_key<'a>(
@@ -187,10 +202,12 @@ impl<P: Projects> Container for Containerized<P> {
         folder: &'a Folder,
         keys: &'a KeyCopies,
         name: &'a str,
-    ) -> LocalBoxFuture<'a, Result<PathBuf, String>> {
+    ) -> LocalBoxFuture<'a, Result<PathBuf, ContainerError>> {
         Box::pin(async move {
             let parts = self.setup_parts(clock, &NoLogin);
-            admin_key::add_admin_key(&parts, &self.project(folder), keys, name).await
+            admin_key::add_admin_key(&parts, &self.project(folder), keys, name)
+                .await
+                .map_err(ContainerError::from)
         })
     }
     fn status(
@@ -199,7 +216,7 @@ impl<P: Projects> Container for Containerized<P> {
         reader: &dyn ConfigReader,
         default_name_pack: &str,
         config_file: &Path,
-    ) -> Result<State, String> {
+    ) -> Result<State, ContainerError> {
         status::status(
             &self.projects,
             &self.project(folder),
@@ -208,26 +225,34 @@ impl<P: Projects> Container for Containerized<P> {
             default_name_pack,
             config_file,
         )
+        .map_err(ContainerError::from)
     }
-    fn existing(&self, folder: &Folder) -> Result<Option<Existing>, String> {
-        reads::existing(&self.projects, &self.project(folder))
+    fn existing(&self, folder: &Folder) -> Result<Option<Existing>, ContainerError> {
+        reads::existing(&self.projects, &self.project(folder)).map_err(ContainerError::from)
     }
-    fn compare_web_key(&self, folder: &Folder, web_key_file: &Path) -> Result<KeyCopy, String> {
+    fn compare_web_key(
+        &self,
+        folder: &Folder,
+        web_key_file: &Path,
+    ) -> Result<KeyCopy, ContainerError> {
         keys::compare_web_key(&self.projects, &self.project(folder), web_key_file)
+            .map_err(ContainerError::from)
     }
-    fn up(&self, folder: &Folder) -> Result<(), String> {
-        services::up(&self.projects, &self.project(folder))
+    fn up(&self, folder: &Folder) -> Result<(), ContainerError> {
+        services::up(&self.projects, &self.project(folder)).map_err(ContainerError::from)
     }
-    fn down(&self, folder: &Folder, remove_data: bool) -> Result<(), String> {
+    fn down(&self, folder: &Folder, remove_data: bool) -> Result<(), ContainerError> {
         services::down(&self.projects, &self.project(folder), remove_data)
+            .map_err(ContainerError::from)
     }
-    fn backup(&self, folder: &Folder, dest: Option<&Path>) -> Result<PathBuf, String> {
+    fn backup(&self, folder: &Folder, dest: Option<&Path>) -> Result<PathBuf, ContainerError> {
         backup::backup(
             &self.projects,
             &self.project(folder),
             self.working_dir.as_deref(),
             dest,
         )
+        .map_err(ContainerError::from)
     }
     fn upgrade<'a>(
         &'a self,
@@ -235,17 +260,25 @@ impl<P: Projects> Container for Containerized<P> {
         folder: &'a Folder,
         new_version: &'a str,
         keys: Option<&'a KeyCopies>,
-    ) -> LocalBoxFuture<'a, Result<(), String>> {
+    ) -> LocalBoxFuture<'a, Result<(), ContainerError>> {
         Box::pin(async move {
             let parts = self.setup_parts(clock, &NoLogin);
-            upgrade::upgrade(&parts, &self.project(folder), new_version, keys).await
+            upgrade::upgrade(&parts, &self.project(folder), new_version, keys)
+                .await
+                .map_err(ContainerError::from)
         })
     }
-    fn run_in_server(&self, folder: &Folder, command: &InServer<'_>) -> Result<String, String> {
+    fn run_in_server(
+        &self,
+        folder: &Folder,
+        command: &InServer<'_>,
+    ) -> Result<String, ContainerError> {
         in_server::run_in_server(&self.projects, &*self.tell, &self.project(folder), command)
+            .map_err(ContainerError::from)
     }
-    fn config_home_file(&self, folder: &Folder, relative: &Path) -> Result<String, String> {
+    fn config_home_file(&self, folder: &Folder, relative: &Path) -> Result<String, ContainerError> {
         in_server::config_home_file(&self.projects, &self.project(folder), relative)
+            .map_err(ContainerError::from)
     }
     fn has_settings(&self, folder: &Folder) -> bool {
         reads::has_settings(&self.projects, &self.project(folder))
@@ -253,10 +286,10 @@ impl<P: Projects> Container for Containerized<P> {
     fn settings_file(&self, folder: &Folder) -> bool {
         reads::settings_file(&self.projects, &self.project(folder))
     }
-    fn version(&self, folder: &Folder) -> Result<String, String> {
-        reads::version(&self.projects, &self.project(folder))
+    fn version(&self, folder: &Folder) -> Result<String, ContainerError> {
+        reads::version(&self.projects, &self.project(folder)).map_err(ContainerError::from)
     }
-    fn sharing_key(&self, path: &Path) -> Result<String, String> {
-        reads::sharing_key(&self.projects, path)
+    fn sharing_key(&self, path: &Path) -> Result<String, ContainerError> {
+        reads::sharing_key(&self.projects, path).map_err(ContainerError::from)
     }
 }

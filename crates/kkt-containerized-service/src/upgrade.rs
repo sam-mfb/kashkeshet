@@ -3,12 +3,13 @@
 //! image and a start; the settings put back if that fails; then the keys'
 //! copies saved again.
 
+use crate::KeyCopies;
 use crate::backup::backup_in_container;
 use crate::files::{ENV_FILE, is_shared, set_version};
 use crate::in_server::SERVER;
 use crate::services::worded;
 use crate::setup::{Parts, save_keys, say_saved, write_embedded, write_env};
-use kkt_container::{KeyCopies, Output, Project};
+use kkt_container::{Output, Project};
 use std::path::Path;
 
 /// Backs the server up, writes this program's Compose files and selects

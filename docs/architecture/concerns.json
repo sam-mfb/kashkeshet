@@ -190,18 +190,18 @@
    "concern": "Implements kkt-bare-service's `Service` as a systemd user unit on Linux, running the server directly on the machine: the unit file, and systemctl's and journalctl's commands."
   },
   "kkt-container": {
-   "layer": "operations",
-   "concern": "Running the server in a container, as a contract: `Container` sets up, reports on and removes a container install, runs the server's own program inside it with a private work folder carried in or out, and reads a file under its config home. The caller names the key copies' paths, the admin name and the config file's path. A container tool implements it. Beside it, `Projects`: the operations a container tool offers on any Compose project, its files, services and commands in them, which knows nothing of what runs in the project.",
+   "layer": "platform",
+   "concern": "A Compose project, as a contract for any program: `Projects`, the operations a container tool offers on a folder of Compose files and the services they describe (whether the tool is there, its name and how a person types its commands, the project's files and folders, starting, stopping, pulling and restarting its services, which are running, a command in a running service or in a new container of one, copies in and out, and how a running service was started), with its records and its error, `ProjectError`. It knows nothing of what runs in a project. A container tool implements it.",
    "kind": "contract"
   },
   "kkt-container-docker": {
-   "layer": "operations",
-   "concern": "Implements kkt-container's general `Projects` with Docker Compose: each operation one `docker compose` command in the project's folder, and the project's files. It knows nothing of what runs in the project.",
+   "layer": "platform",
+   "concern": "Implements the general Compose project contract, `Projects`, with Docker Compose: each operation one `docker compose` command in the project's folder, without Compose's own variables or the ones the project shields, and the project's files. It knows nothing of what runs in the project.",
    "kind": "effect"
   },
   "kkt-containerized-service": {
    "layer": "operations",
-   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, setting the service up (its files, the Tailscale container's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`), starting and stopping it, its status and name pack, runs of the server's program in its container, reading its config home, backups, the web key's comparison, the admin key and upgrades, with the settings put back when an upgrade fails. What a sharing node's status answer says comes from the `SharingNode` it declares, and a login link opens in the `Browser` it declares.",
+   "concern": "kkt's server installed as a containerized service. `Container` is the contract its install commands use: setting the service up, its status and name pack, discovering an install, starting and stopping it, runs of the server's program in its container, reading its config home, backups, upgrades, the admin key and the web key's comparison, with its records, its error (`ContainerError`) and what it is given (`ConfigReader`, `LoginLink`). `Containerized` implements it over kkt-container's general `Projects`, whatever tool implements it: the Compose files that come with this program, the settings file and what its files say, the sharing node's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`. It never names a container tool.",
    "kind": "logic"
   },
   "kkt-remote-access": {

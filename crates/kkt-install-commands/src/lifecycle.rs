@@ -455,13 +455,13 @@ mod tests {
         }
     }
 
-    impl kkt_container::ConfigReader for Untouched {
+    impl kkt_containerized_service::ConfigReader for Untouched {
         fn settings(
             &self,
             _: &str,
             _: &Path,
             _: Option<&Path>,
-        ) -> Result<kkt_container::ContainerConfig, String> {
+        ) -> Result<kkt_containerized_service::ContainerConfig, String> {
             self.refused("container_configs.settings")
         }
     }
@@ -620,7 +620,7 @@ mod tests {
         }
     }
 
-    impl kkt_container::LoginLink for Untouched {
+    impl kkt_containerized_service::LoginLink for Untouched {
         fn show(&self, _: &str) {
             self.0.borrow_mut().push("login_link.show");
         }
@@ -770,7 +770,7 @@ mod tests {
         let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> {
             panic!("uninstall tried an address")
         };
-        let container = kkt_container::testing::Memory::new(None, String::new());
+        let container = kkt_containerized_service::testing::Memory::new(None, String::new());
         let parts = InstallParts {
             container: &container,
             container_configs: &untouched,

@@ -1,10 +1,11 @@
 //! Giving the installed server an admin key for `/mcp-admin`, and saving
 //! its copy on this machine.
 
+use crate::KeyCopies;
 use crate::in_server::SERVER;
 use crate::services::worded;
 use crate::setup::{Parts, ServerKey, read_admin_key, save_keys, say_saved, wait_for_key};
-use kkt_container::{KeyCopies, Output, Project, User};
+use kkt_container::{Output, Project, User};
 use std::path::PathBuf;
 
 /// Gives the running server an admin key named `name`, unless it has one,
