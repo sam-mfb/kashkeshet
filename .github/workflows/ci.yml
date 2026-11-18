@@ -184,6 +184,31 @@ jobs:
       - name: Build the crate map from the code; check the programs, the kinds and the rules
         run: python3 docs/architecture/check-programs.py
 
+  crate-map-page:
+    name: The crate map's page passes its headless test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      # Playwright and its Chromium, at the version the lock file pins, as
+      # the script installs them.
+      - name: Cache Playwright and its Chromium
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            target/tmp/page-test
+            ~/.cache/ms-playwright
+          key: page-test-${{ runner.os }}-${{ hashFiles('docs/architecture/page-test/package-lock.json', 'docs/architecture/run-page-test.sh') }}
+
+      # Draws the committed map-data.js in a headless Chromium, in both
+      # themes, and checks the page: routes, labels, panels and layout.
+      - name: Run the page test
+        run: docs/architecture/run-page-test.sh --with-system-deps
+
   crate-map:
     name: The crate map in docs/architecture is current
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
