@@ -47,7 +47,7 @@ pub fn recorded(record: &setup::Record) -> RecordedDeployment {
 /// The note of an unfinished setup, for `kkt status`: from its record when
 /// the install finished, otherwise from where it puts the server, in the
 /// folder `kkt setup` keeps kkt's Docker files in.
-pub fn noted_unfinished(
+pub fn setup_not_finished(
     unfinished: &Result<Option<setup::Unfinished>, String>,
     env: &Env,
     platform: Platform,
@@ -74,7 +74,7 @@ pub fn noted_unfinished(
 }
 
 /// A server found installed with no record, for `kkt status`.
-pub fn noted_unrecorded(
+pub fn found_without_record(
     unrecorded: &Result<Option<setup::Unrecorded>, String>,
 ) -> Result<Option<UnrecordedDeployment>, String> {
     Ok(unrecorded

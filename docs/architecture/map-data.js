@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "7c8163bc",
+ "commit": "047b9bc0",
  "crates": [
   {
    "bins": [
@@ -8172,14 +8172,9 @@ window.KKT_GRAPH = {
      "path": "deployment::deployment"
     },
     {
-     "doc": "The note of an unfinished setup, for `kkt status`: from its record when the install finished, otherwise from where it puts the server, in the folder `kkt setup` keeps kkt's Docker files in.",
-     "kind": "fn",
-     "path": "deployment::noted_unfinished"
-    },
-    {
      "doc": "A server found installed with no record, for `kkt status`.",
      "kind": "fn",
-     "path": "deployment::noted_unrecorded"
+     "path": "deployment::found_without_record"
     },
     {
      "doc": "This machine's deployment, as `record` says.",
@@ -8190,6 +8185,11 @@ window.KKT_GRAPH = {
      "doc": "The version of kkt a record or a settings file names: not known when it says so (`setup::version_not_known`).",
      "kind": "fn",
      "path": "deployment::server_version"
+    },
+    {
+     "doc": "The note of an unfinished setup, for `kkt status`: from its record when the install finished, otherwise from where it puts the server, in the folder `kkt setup` keeps kkt's Docker files in.",
+     "kind": "fn",
+     "path": "deployment::setup_not_finished"
     },
     {
      "doc": "`kkt doctor`: checks the server this machine's clients use, its keys, and how this machine runs kkt, and prints a line for each with a fix for each problem.",
@@ -8621,7 +8621,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "at": "deployment::noted_unfinished",
+     "at": "deployment::setup_not_finished",
      "kind": "param",
      "name": "env",
      "traits": [],
@@ -8630,7 +8630,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "at": "deployment::noted_unfinished",
+     "at": "deployment::setup_not_finished",
      "kind": "param",
      "name": "platform",
      "traits": [],

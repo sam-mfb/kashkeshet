@@ -100,8 +100,8 @@ pub async fn status<D: ServiceDefaults>(
     }
     let said = kkt_deployment::status(
         recorded.as_ref().map(deployment::recorded).as_ref(),
-        &deployment::noted_unfinished(&unfinished, env, platform),
-        &deployment::noted_unrecorded(&unrecorded),
+        &deployment::setup_not_finished(&unfinished, env, platform),
+        &deployment::found_without_record(&unrecorded),
     );
     for line in &said.lines {
         parts.output.output(format_args!("{line}\n"));
