@@ -876,9 +876,10 @@ mod tests {
             panic!("finding an install tried an address")
         };
         let with_copy = kkt_keys::testing::Memory::new().with_file(key_file.clone(), "key\n");
-        let read = |key_files: &dyn kkt_keys::KeyFiles| {
+        let read = |container: &dyn kkt_containerized_service::Container,
+                    key_files: &dyn kkt_keys::KeyFiles| {
             let parts = InstallParts {
-                container: &container,
+                container,
                 container_configs: &untouched,
                 service: &service,
                 try_bind: &try_bind,
@@ -903,7 +904,7 @@ mod tests {
             };
             read_unrecorded(&parts, &env, Platform::Xdg)
         };
-        let found = read(&with_copy)
+        let found = read(&container, &with_copy)
             .expect("found")
             .expect("an install in Docker");
         assert_eq!(found.url, "https://kkt-1.tail1234.ts.net/mcp");
@@ -917,7 +918,8 @@ mod tests {
                 tailnet: Some("tail1234.ts.net".into()),
             })
         );
-        let (purpose, refused) = read(&untouched).expect_err("refused without the key's copy");
+        let (purpose, refused) =
+            read(&container, &untouched).expect_err("refused without the key's copy");
         assert_eq!(purpose, setup::Purpose::Docker);
         assert_eq!(
             refused,
@@ -926,6 +928,41 @@ mod tests {
                 folder.display(),
                 key_file.display()
             )
+        );
+
+        // An install that is not shared: no node, and the address is the
+        // port it was given on this machine.
+        let local = kkt_containerized_service::testing::Memory::new(
+            Some(("kkt-1".into(), "tail1234.ts.net".into())),
+            String::new(),
+        );
+        let unshared = kkt_containerized_service::Inputs {
+            port: 7431,
+            sharing: None,
+            ..shared.clone()
+        };
+        futures::executor::block_on(kkt_containerized_service::Container::provision(
+            &local,
+            &NoClock,
+            &untouched,
+            &kkt_container::Folder(folder.clone()),
+            &unshared,
+            &copies,
+        ))
+        .expect("installed");
+        let found = read(&local, &with_copy)
+            .expect("found")
+            .expect("an install in Docker");
+        assert_eq!(found.url, "http://127.0.0.1:7431/mcp");
+        assert_eq!(found.key_file, Some(key_file.clone()));
+        assert_eq!(
+            found.mode,
+            setup::Mode::Docker(setup::DockerSetup {
+                folder: folder.clone(),
+                tailscale: false,
+                hostname: None,
+                tailnet: None,
+            })
         );
     }
 }
