@@ -2,9 +2,14 @@
 //! contract: `Container`, what it is given (`ConfigReader`, `LoginLink`) and
 //! its records, with a stand-in behind `testing`. Implementations own their
 //! container tool, managed files and output; callers supply requests.
+//!
+//! Beside it, a general contract for any Compose project (`Projects`,
+//! `Project`, `ProjectError` and the records they use), which knows nothing
+//! of what runs in the project, with a stand-in in memory behind `testing`.
 
 mod config;
 mod login;
+mod projects;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
@@ -12,6 +17,10 @@ pub use config::{ConfigReader, ContainerConfig};
 use futures::future::LocalBoxFuture;
 use kkt_clock::Clock;
 pub use login::LoginLink;
+pub use projects::{
+    FileAction, FileState, Output, Project, ProjectError, ProjectFile, Projects, Ran,
+    ServiceConfig, User,
+};
 use std::path::{Path, PathBuf};
 
 /// The folder managed for a container installation and its backups.

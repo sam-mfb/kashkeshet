@@ -1,5 +1,5 @@
 //! kkt-container over Docker and Compose: `Docker` implements its
-//! `Container`. It holds the Compose files that come with this program, the
+//! `Container`, and its general `Projects` (in `projects`). It holds the Compose files that come with this program, the
 //! folder kkt manages for them, and the commands that set it up, start it,
 //! back it up, run kkt in it, upgrade it and remove it. All of
 //! it goes through the private runner, so it is tested against a fake host. A sharing setup's login link opens in
@@ -18,6 +18,7 @@ mod files;
 mod in_server;
 mod lifecycle;
 mod name_pack;
+mod projects;
 mod provision;
 mod tailscale;
 #[cfg(feature = "testing")]
