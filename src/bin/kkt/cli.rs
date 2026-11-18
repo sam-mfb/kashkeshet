@@ -10,7 +10,7 @@ use clap::{Args, Parser, Subcommand};
 use kashkeshet::machine::settings::ServeOptions;
 use kkt_hosts::DEFAULT_BIND;
 use kkt_llm_agent_config::Client;
-use kkt_log_tracing::LogLevel;
+use kkt_log::Level;
 use kkt_provenance::Build;
 use kkt_setup as setup;
 use kkt_watch as watch;
@@ -963,14 +963,14 @@ struct ServeFlags {
     log_file: Option<PathBuf>,
     /// How much kkt's own code logs: error, warn, info, debug or trace
     /// [default: info]
-    #[arg(long, value_parser = |text: &str| LogLevel::parse("log_level", text))]
-    log_level: Option<LogLevel>,
+    #[arg(long, value_parser = |text: &str| kkt_log_tracing::parse_level("log_level", text))]
+    log_level: Option<Level>,
     /// How much the libraries kkt uses (the MCP library, the web server)
     /// log: error, warn or info. At info, the MCP library logs several lines
     /// for every request; debug and trace are refused, because there it logs
     /// request contents, tokens included [default: warn]
-    #[arg(long, value_parser = |text: &str| LogLevel::parse("dependency_log_level", text))]
-    dependency_log_level: Option<LogLevel>,
+    #[arg(long, value_parser = |text: &str| kkt_log_tracing::parse_level("dependency_log_level", text))]
+    dependency_log_level: Option<Level>,
 }
 
 impl ServeFlags {

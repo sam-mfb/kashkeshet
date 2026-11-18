@@ -22,6 +22,7 @@ dev-only = true
 [dependencies]
 kkt-backup = { path = "../../crates/kkt-backup" }
 kkt-listen = { path = "../../crates/kkt-listen" }
+kkt-log = { path = "../../crates/kkt-log" }
 kkt-log-tracing = { path = "../../crates/kkt-log-tracing" }
 kkt-admission = { path = "../../crates/kkt-admission" }
 kkt-api-agent = { path = "../../crates/kkt-api-agent" }

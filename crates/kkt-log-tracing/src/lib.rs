@@ -3,12 +3,13 @@
 //! and [`init_stderr_logging`] start that subscriber, to stdout, stderr or a
 //! writer the program gives, such as a rolling log file, with the program's
 //! own lines (by the targets it names) and its libraries' at their own
-//! levels. It also owns the log level setting: [`LogLevel`] and its
+//! levels. It also owns the log level setting: [`parse_level`] and its
 //! defaults.
 
 mod level;
 mod record;
-pub use level::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, LogLevel, SettingError};
+use kkt_log::Level;
+pub use level::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, SettingError, parse_level};
 pub use record::TracingLog;
 
 use std::io::{IsTerminal, Write};
@@ -25,8 +26,8 @@ use tracing_subscriber::util::SubscriberInitExt;
 pub fn init_logging(
     log_file: Option<Box<dyn Write + Send>>,
     own_targets: &[&str],
-    own: LogLevel,
-    dependencies: LogLevel,
+    own: Level,
+    dependencies: Level,
 ) -> Result<(), String> {
     let filter = log_filter(own_targets, own, dependencies);
     let format = tracing_subscriber::fmt::layer().with_target(false);
@@ -44,10 +45,14 @@ pub fn init_logging(
     };
     started.map_err(|e| format!("could not start logging: {e}"))
 }
+/// Whether logging has started in this process, by either function above.
+pub fn logging_started() -> bool {
+    tracing::dispatcher::has_been_set()
+}
 
 /// Sends the log to stderr: the program's own lines, from `own_targets`, at
 /// `own` (see [`own_log_filter`]).
-pub fn init_stderr_logging(own_targets: &[&str], own: LogLevel) -> Result<(), String> {
+pub fn init_stderr_logging(own_targets: &[&str], own: Level) -> Result<(), String> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()
@@ -64,27 +69,27 @@ pub fn init_stderr_logging(own_targets: &[&str], own: LogLevel) -> Result<(), St
 /// For a client command whose output is for a person or a script: a
 /// library may log errors of its own when a call is dropped on purpose, as
 /// at a timeout, and they are not the command's to print.
-fn own_log_filter(own_targets: &[&str], own: LogLevel) -> Targets {
+fn own_log_filter(own_targets: &[&str], own: Level) -> Targets {
     own_targets.iter().fold(
         Targets::new().with_default(LevelFilter::OFF),
         |filter, target| filter.with_target(*target, level_filter(own)),
     )
 }
 
-fn log_filter(own_targets: &[&str], own: LogLevel, dependencies: LogLevel) -> Targets {
+fn log_filter(own_targets: &[&str], own: Level, dependencies: Level) -> Targets {
     own_targets.iter().fold(
         Targets::new().with_default(level_filter(dependencies)),
         |filter, target| filter.with_target(*target, level_filter(own)),
     )
 }
 
-fn level_filter(level: LogLevel) -> LevelFilter {
+fn level_filter(level: Level) -> LevelFilter {
     match level {
-        LogLevel::Error => LevelFilter::ERROR,
-        LogLevel::Warn => LevelFilter::WARN,
-        LogLevel::Info => LevelFilter::INFO,
-        LogLevel::Debug => LevelFilter::DEBUG,
-        LogLevel::Trace => LevelFilter::TRACE,
+        Level::Error => LevelFilter::ERROR,
+        Level::Warn => LevelFilter::WARN,
+        Level::Info => LevelFilter::INFO,
+        Level::Debug => LevelFilter::DEBUG,
+        Level::Trace => LevelFilter::TRACE,
     }
 }
 
@@ -99,7 +104,7 @@ mod tests {
 
     #[test]
     fn watch_logs_only_kkts_own_lines() {
-        let filter = own_log_filter(LOG_OWN_TARGETS, LogLevel::Info);
+        let filter = own_log_filter(LOG_OWN_TARGETS, kkt_log::Level::Info);
         for target in ["rmcp", "rmcp::transport::worker", "reqwest", "hyper_util"] {
             assert!(!filter.would_enable(target, &Level::ERROR), "{target}");
         }
@@ -114,7 +119,7 @@ mod tests {
     /// module path; check-crates.sh makes every crate name start with `kkt-`.
     #[test]
     fn log_filter_keeps_kkt_crate_paths_at_the_own_level() {
-        let filter = log_filter(LOG_OWN_TARGETS, LogLevel::Debug, LogLevel::Warn);
+        let filter = log_filter(LOG_OWN_TARGETS, kkt_log::Level::Debug, kkt_log::Level::Warn);
         for target in [
             "kashkeshet",
             "kashkeshet::x",
