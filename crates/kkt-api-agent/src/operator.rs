@@ -36,16 +36,19 @@ pub enum Audit {
     /// An admin agent at the admin endpoint, under the name tied to its
     /// admin key, if the key has one.
     AdminEndpoint { key_name: Option<String> },
+    /// Someone running a command against the database file directly, with
+    /// no server, such as `kkt agent revoke`.
+    CommandLine,
 }
 
 impl Audit {
     /// What is stored as the author of a change the operator makes, where
     /// the store keeps one (`saved_by_admin`, `retired_by_admin`): the
-    /// admin key's name, or `None` for the web page, as kkt has always
+    /// admin key's name, or `None` for the web page and the command line, as kkt has always
     /// stored them.
     pub fn author(&self) -> Option<String> {
         match self {
-            Audit::WebPage => None,
+            Audit::WebPage | Audit::CommandLine => None,
             Audit::AdminEndpoint { key_name } => key_name.clone(),
         }
     }

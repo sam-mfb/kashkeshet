@@ -196,11 +196,16 @@ async fn unreachable_server_reports_how_to_start_it() {
 fn endpoint_validation_keeps_keys_out_of_urls_and_preserves_forwarding_paths() {
     let bind = "[::1]:7420".parse().expect("bind");
     assert_eq!(
-        diagnostics::endpoint(bind, None, "/mcp").expect("default"),
+        kashkeshet::machine::connection::serve_endpoint(bind, None, "/mcp").expect("default"),
         "http://[::1]:7420/mcp"
     );
     assert_eq!(
-        diagnostics::endpoint(bind, Some("https://tail.example/prefix/mcp"), "/mcp").expect("url"),
+        kashkeshet::machine::connection::serve_endpoint(
+            bind,
+            Some("https://tail.example/prefix/mcp"),
+            "/mcp"
+        )
+        .expect("url"),
         "https://tail.example/prefix/mcp"
     );
     for bad in [
@@ -210,7 +215,8 @@ fn endpoint_validation_keeps_keys_out_of_urls_and_preserves_forwarding_paths() {
         "http://localhost/mcp#secret",
         "http://localhost/\nmcp",
     ] {
-        let error = diagnostics::endpoint(bind, Some(bad), "/mcp").expect_err("refused");
+        let error = kashkeshet::machine::connection::serve_endpoint(bind, Some(bad), "/mcp")
+            .expect_err("refused");
         assert!(!error.contains("secret"));
     }
 }

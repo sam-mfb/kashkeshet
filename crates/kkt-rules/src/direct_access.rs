@@ -1,6 +1,7 @@
-//! What the server's operator can do from the command line, against the
-//! database file directly, while a server may be running on it: list agents
-//! and revoke an agent's token. Importing and exporting lanes is in
+//! What the operator can read and change on the database file directly,
+//! with no server, while a server may be running on it: list agents and
+//! revoke an agent's token, as an [`Operator`] whose permissions are
+//! checked like every other change's. Importing and exporting lanes is in
 //! `lane_import.rs`.
 //!
 //! A running server looks a token up in the database on every call and
@@ -8,9 +9,9 @@
 
 use super::*;
 
-/// The operator's view of the agents of one swarm. Needs only the database,
-/// the swarm and a clock, not a running server.
-pub struct CommandLine {
+/// The operator's direct access to the agents of one swarm. Needs only the
+/// database, the swarm and a clock, not a running server.
+pub struct DirectAccess {
     pub(super) db: Bound,
     pub(super) clock: Arc<dyn Clock>,
 }
@@ -24,20 +25,21 @@ pub enum Revoked {
     Already { at: String },
 }
 
-impl CommandLine {
+impl DirectAccess {
     /// The operator of the avatars and channels of `swarm` in `db`. Lanes
     /// belong to the server, not to a swarm: importing them reaches every
     /// swarm's avatars alike.
-    pub fn new(db: Db, swarm: SwarmId, clock: Arc<dyn Clock>) -> CommandLine {
-        CommandLine {
+    pub fn new(db: Db, swarm: SwarmId, clock: Arc<dyn Clock>) -> DirectAccess {
+        DirectAccess {
             db: Bound::new(db, swarm),
             clock,
         }
     }
 
     /// Every agent of the swarm, most recently seen first, revoked ones
-    /// included.
-    pub async fn agents(&self) -> Result<Vec<AgentStatus>> {
+    /// included. Needs Read.
+    pub async fn agents(&self, operator: &Operator) -> Result<Vec<AgentStatus>> {
+        operator.may(Permission::Read)?;
         self.db
             .read(|store, swarm| {
                 Ok(store
@@ -57,8 +59,9 @@ impl CommandLine {
     /// Revokes the token of the agent with the handle `handle`, so every
     /// later call with it is refused as `unauthenticated`. The agent's
     /// handle, memberships and messages are kept. `not_found` if there is no
-    /// such agent.
-    pub async fn revoke(&self, handle: String) -> Result<Revoked> {
+    /// such agent. Needs Change.
+    pub async fn revoke(&self, operator: &Operator, handle: String) -> Result<Revoked> {
+        operator.may(Permission::Change)?;
         let now = clock::to_text(self.clock.now());
         self.db
             .write(move |store, swarm| {

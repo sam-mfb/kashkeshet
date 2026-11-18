@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "c8404a9f",
+ "commit": "53e37208",
  "crates": [
   {
    "bins": [
@@ -141,6 +141,12 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
+     "trait": "connection::ConnectionSource",
+     "trait_crate": "kkt-deployment",
+     "type": "machine::connection::ConnectionReads"
+    },
+    {
+     "crate": "kashkeshet",
      "trait": "Prober",
      "trait_crate": "kkt-diagnostics",
      "type": "machine::diagnostics::Probe"
@@ -243,27 +249,21 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
-     "trait": "lanes::LaneServer",
-     "trait_crate": "kkt-operator-commands",
-     "type": null
-    },
-    {
-     "crate": "kashkeshet",
      "trait": "lanes::LaneServers",
      "trait_crate": "kkt-operator-commands",
      "type": "machine::native::HereLanes"
     },
     {
      "crate": "kashkeshet",
-     "trait": "ask::Lines",
-     "trait_crate": "kkt-setup",
+     "trait": "lanes::ServerInContainer",
+     "trait_crate": "kkt-operator-commands",
      "type": null
     },
     {
      "crate": "kashkeshet",
-     "trait": "connection::ConnectionSource",
+     "trait": "ask::Lines",
      "trait_crate": "kkt-setup",
-     "type": "machine::connection::ConnectionReads"
+     "type": null
     },
     {
      "crate": "kashkeshet",
@@ -336,17 +336,22 @@ window.KKT_GRAPH = {
     },
     {
      "doc": "",
-     "from": "setup::connection::ConnectionOptions",
+     "from": "kkt_deployment::connection::ConnectionOptions",
      "kind": "struct",
      "path": "machine::connection::ConnectionOptions"
     },
     {
-     "doc": "kkt-setup's connection question, answered from this machine's setup record and serve settings.",
+     "doc": "kkt-deployment's connection question, answered from this machine's setup record and serve settings.",
      "kind": "struct",
      "methods": [
       "new"
      ],
      "path": "machine::connection::ConnectionReads"
+    },
+    {
+     "doc": "The MCP endpoint a client of the serve settings reaches: `given`, as kkt-deployment's address rule takes it, or with none given the server on `bind`.",
+     "kind": "fn",
+     "path": "machine::connection::serve_endpoint"
     },
     {
      "doc": "The database file: opening it with the core's tables, what opening it would upgrade, and copying it.",
@@ -403,7 +408,7 @@ window.KKT_GRAPH = {
      "path": "machine::native"
     },
     {
-     "doc": "The server `kkt lanes` acts on: as kkt-setup's `lanes_on` says, from this machine's setup record.",
+     "doc": "The server `kkt lanes` acts on: as kkt-operator-commands' `lanes_on` says, from the deployment this machine's setup record names.",
      "kind": "struct",
      "path": "machine::native::HereLanes"
     },
@@ -1890,7 +1895,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -1949,7 +1954,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -2008,7 +2013,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -2067,7 +2072,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -2487,7 +2492,8 @@ window.KKT_GRAPH = {
      "path": "Audit",
      "variants": [
       "WebPage",
-      "AdminEndpoint"
+      "AdminEndpoint",
+      "CommandLine"
      ]
     },
     {
@@ -3701,6 +3707,36 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
+     "doc": "Where the access key may be, from the serve config and the defaults.",
+     "fields": [
+      "configured",
+      "no_access_key",
+      "default"
+     ],
+     "kind": "struct",
+     "path": "AccessKeyFrom"
+    },
+    {
+     "doc": "The key files a backup holds.",
+     "fields": [
+      "access_key",
+      "web_key",
+      "admin_key",
+      "admin_name"
+     ],
+     "kind": "struct",
+     "path": "BackupKeys"
+    },
+    {
+     "doc": "What `kkt backup` backs up, and where to.",
+     "kind": "enum",
+     "path": "BackupOf",
+     "variants": [
+      "Docker",
+      "Local"
+     ]
+    },
+    {
      "doc": "Where backups are written and pruned.",
      "kind": "trait",
      "methods": [
@@ -3738,6 +3774,11 @@ window.KKT_GRAPH = {
      "path": "FileCopy"
     },
     {
+     "doc": "Whether a file is there, as the caller found when it looked, or the error inspecting it.",
+     "kind": "type",
+     "path": "FileThere"
+    },
+    {
      "doc": "An immutable backup layout.",
      "kind": "struct",
      "methods": [
@@ -3763,6 +3804,16 @@ window.KKT_GRAPH = {
      "path": "Problem"
     },
     {
+     "doc": "Where this machine's server is, as the caller reads it from how the machine is set up.",
+     "kind": "enum",
+     "path": "ServerHere",
+     "variants": [
+      "ThisMachine",
+      "InDocker",
+      "Elsewhere"
+     ]
+    },
+    {
      "doc": "How many completed backups to keep when upgrading a database.",
      "fields": [
       "upgrade_backups_kept"
@@ -3773,6 +3824,16 @@ window.KKT_GRAPH = {
       "record_lines"
      ],
      "path": "Settings"
+    },
+    {
+     "doc": "The key files a backup holds, given where the access key may be (`from`).",
+     "kind": "fn",
+     "path": "backup_keys"
+    },
+    {
+     "doc": "What `kkt backup` backs up, given where this machine's server is (`server`), the folder given (`into`) and whether `--db` or `--config` was given (`local_options`).",
+     "kind": "fn",
+     "path": "backup_of"
     },
     {
      "doc": "The names, copies, metadata and privacy for a backup, without reading or writing its files.",
@@ -3788,6 +3849,11 @@ window.KKT_GRAPH = {
      "doc": "Finished backup names to remove, oldest first.",
      "kind": "fn",
      "path": "old_names"
+    },
+    {
+     "doc": "The folder for a service's backups, in kkt's config folder (`config_dir`, `None` without a home).",
+     "kind": "fn",
+     "path": "service_backup_folder"
     },
     {
      "doc": "`Memory`, backups in memory, for tests.",
@@ -3818,6 +3884,11 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "testing::Written"
+    },
+    {
+     "doc": "The folder for the backups made before an upgrade, beside `database`.",
+     "kind": "fn",
+     "path": "upgrade_backup_folder"
     }
    ],
    "lib": "kkt_backup",
@@ -3827,6 +3898,15 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
+    {
+     "at": "backup_keys",
+     "foreign": [
+      "core::ops::function::FnMut"
+     ],
+     "kind": "param",
+     "name": "found",
+     "traits": []
+    },
     {
      "at": "layout",
      "kind": "param",
@@ -6492,7 +6572,17 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": "machine::connection::ConnectionReads"
+      }
+     ],
+     "trait": "connection::ConnectionSource"
+    }
+   ],
    "crate_doc": "What follows from how kkt is deployed on this machine: as a service, in Docker, or as a client of a server elsewhere.",
    "dev_only": false,
    "features": {},
@@ -6608,6 +6698,126 @@ window.KKT_GRAPH = {
      "path": "UpgradePlan"
     },
     {
+     "doc": "What to say, after `label`, about the name tied to the admin key `key` in the file at `path`, if anything, reading the name file beside it from `files`.",
+     "kind": "fn",
+     "path": "admin_name_line"
+    },
+    {
+     "doc": "The advice after the name file beside the admin key at `path` is written for the admin name `name`, or removed with no name: `written` is how that went.",
+     "kind": "fn",
+     "path": "admin_name_written"
+    },
+    {
+     "doc": "How a client reaches the server: its endpoint and access key file, from the servers this machine's record names, or else from the serve settings.",
+     "kind": "mod",
+     "path": "connection"
+    },
+    {
+     "doc": "Why an address is not a server address a client may be given.",
+     "kind": "enum",
+     "path": "connection::AddressError",
+     "variants": [
+      "ControlCharacter",
+      "NotAbsolute",
+      "Credentials",
+      "Query",
+      "Fragment"
+     ]
+    },
+    {
+     "doc": "",
+     "fields": [
+      "url",
+      "key_file"
+     ],
+     "kind": "struct",
+     "path": "connection::Connection"
+    },
+    {
+     "doc": "Where a client command finds the server, as given: a serve config file, an address and an access key file.",
+     "fields": [
+      "config",
+      "url",
+      "key_file"
+     ],
+     "kind": "struct",
+     "path": "connection::ConnectionOptions"
+    },
+    {
+     "doc": "Reads needed by connection selection, requested only in their original order.",
+     "kind": "trait",
+     "methods": [
+      "absolute",
+      "check_key",
+      "make_default_key",
+      "recorded",
+      "serve"
+     ],
+     "path": "connection::ConnectionSource"
+    },
+    {
+     "doc": "The servers this machine's setup record names: the one set up here (on a client machine, the one it uses), and the other server its clients were switched to, if they were.",
+     "fields": [
+      "server",
+      "switched_to"
+     ],
+     "kind": "struct",
+     "methods": [
+      "for_clients",
+      "own_server"
+     ],
+     "path": "connection::RecordedServer"
+    },
+    {
+     "doc": "The checked endpoint and access-key setting; source context is returned to its reader.",
+     "fields": [
+      "url",
+      "access_key",
+      "key_source"
+     ],
+     "kind": "struct",
+     "path": "connection::ServeConnection"
+    },
+    {
+     "doc": "A server, as this machine's clients reach it: its MCP endpoint, and the file holding its access key, if it has one.",
+     "fields": [
+      "url",
+      "key_file"
+     ],
+     "kind": "struct",
+     "path": "connection::ServerAddress"
+    },
+    {
+     "doc": "The local server's connection for admin tools, even when clients were switched.",
+     "kind": "fn",
+     "path": "connection::admin_connection"
+    },
+    {
+     "doc": "The admin endpoint, from a client endpoint ending in `mcp_path`.",
+     "kind": "fn",
+     "path": "connection::admin_endpoint"
+    },
+    {
+     "doc": "Resolve the same serve settings without creating a database.",
+     "kind": "fn",
+     "path": "connection::client_connection"
+    },
+    {
+     "doc": "How clients reach the recorded `server`, with `--url` and `--key-file` each replacing only their own part of it.",
+     "kind": "fn",
+     "path": "connection::recorded_connection"
+    },
+    {
+     "doc": "How clients reach the server `kkt serve` would run with these settings.",
+     "kind": "fn",
+     "path": "connection::serve_connection"
+    },
+    {
+     "doc": "`given` as a server address a client may be given: an absolute http:// or https:// address with a host, and no control character, user name, password, query or fragment, so no secret is kept in it.",
+     "kind": "fn",
+     "path": "connection::server_address"
+    },
+    {
      "doc": "The per-user data directory: `~/Library/Application Support/kashkeshet` on macOS, and `kashkeshet` in the XDG data home (`Env::data_home`) elsewhere.",
      "kind": "fn",
      "path": "data_dir"
@@ -6666,6 +6876,59 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [
     {
+     "at": "admin_name_line",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-keys",
+       "trait": "KeyFiles"
+      }
+     ]
+    },
+    {
+     "at": "connection::admin_connection",
+     "kind": "param",
+     "name": "source",
+     "traits": [
+      {
+       "crate": "kkt-deployment",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "connection::client_connection",
+     "kind": "param",
+     "name": "source",
+     "traits": [
+      {
+       "crate": "kkt-deployment",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
+     "at": "connection::recorded_connection",
+     "foreign": [
+      "core::ops::function::FnOnce"
+     ],
+     "kind": "param",
+     "name": "absolute",
+     "traits": []
+    },
+    {
+     "at": "connection::serve_connection",
+     "kind": "param",
+     "name": "source",
+     "traits": [
+      {
+       "crate": "kkt-deployment",
+       "trait": "connection::ConnectionSource"
+      }
+     ]
+    },
+    {
      "at": "data_dir",
      "kind": "param",
      "name": "env",
@@ -6722,7 +6985,9 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
-    "semver"
+    "semver",
+    "thiserror",
+    "url"
    ]
   },
   {
@@ -7032,11 +7297,6 @@ window.KKT_GRAPH = {
      "doc": "The doctor's line about whether the web key's host copy is the key of kkt in Docker in `folder`, or why it could not be compared.",
      "kind": "fn",
      "path": "docker_web_key_check"
-    },
-    {
-     "doc": "Validate an HTTP MCP endpoint without allowing secrets in its URL.",
-     "kind": "fn",
-     "path": "endpoint"
     },
     {
      "doc": "`Inspector::server` on this machine.",
@@ -8313,6 +8573,11 @@ window.KKT_GRAPH = {
      "path": "deployment::recorded"
     },
     {
+     "doc": "The servers `record` names, for how a client reaches the server: the one set up here (or used, on a client machine), and the one its clients were switched to, if they were.",
+     "kind": "fn",
+     "path": "deployment::recorded_server"
+    },
+    {
      "doc": "The version of kkt a record or a settings file names: not known when it says so (`setup::version_not_known`).",
      "kind": "fn",
      "path": "deployment::server_version"
@@ -8868,7 +9133,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -8985,7 +9250,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -9089,7 +9354,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -9193,7 +9458,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -9297,7 +9562,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -9414,7 +9679,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -9531,7 +9796,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -9860,7 +10125,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -9977,7 +10242,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -10123,7 +10388,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -10218,7 +10483,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -10322,7 +10587,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       },
       {
@@ -10439,7 +10704,7 @@ window.KKT_GRAPH = {
      "name": "parts",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
      ]
@@ -10543,6 +10808,16 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "What the name file beside an admin key says about that key.",
+     "kind": "enum",
+     "path": "AdminNameFile",
+     "variants": [
+      "Named",
+      "None",
+      "OtherKey"
+     ]
+    },
+    {
      "doc": "Private key files: the server's, and the client key copies setup writes.",
      "kind": "trait",
      "methods": [
@@ -10637,19 +10912,9 @@ window.KKT_GRAPH = {
      "path": "admin_key_path"
     },
     {
-     "doc": "What to say, after `label`, about the name tied to the admin key `key` in the file at `path`, if anything: a Docker setup's host copy has no name beside it, as the name is kept in the container.",
-     "kind": "fn",
-     "path": "admin_name_line"
-    },
-    {
      "doc": "The admin agent's name, if the admin key has one, lives beside the admin key, in a file of its own: each key file has its own name file.",
      "kind": "fn",
      "path": "admin_name_path"
-    },
-    {
-     "doc": "The advice after the name file is written or removed.",
-     "kind": "fn",
-     "path": "admin_name_written"
     },
     {
      "doc": "The name in the name file `text` if it is tied to the admin key `key`; `None` if it is tied to another key, as when the key file was replaced without its name.",
@@ -10665,6 +10930,11 @@ window.KKT_GRAPH = {
      "doc": "Checks an access key, as read from `--access-key-file` without surrounding whitespace.",
      "kind": "fn",
      "path": "check_access_key"
+    },
+    {
+     "doc": "The name tied to the admin key `key`, kept in the file at `path`, from the name file beside it, which `read` reads (`None` when there is none).",
+     "kind": "fn",
+     "path": "read_admin_name"
     },
     {
      "doc": "What tests outside kkt-keys need: the shortest key, and `Memory`, key files in memory.",
@@ -10725,7 +10995,7 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [
     {
-     "at": "admin_name_line",
+     "at": "read_admin_name",
      "foreign": [
       "core::ops::function::FnOnce"
      ],
@@ -12285,8 +12555,8 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kashkeshet",
-       "type": null
+       "crate": "kkt-operator-commands",
+       "type": "lanes::ContainerLanes"
       },
       {
        "crate": "kkt-operator-commands",
@@ -12303,6 +12573,15 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "lanes::LaneServers"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "lanes::ServerInContainer"
     }
    ],
    "crate_doc": "The operator's commands on this machine's server: `kkt key` (create, header, show), `kkt lanes` (export, import) and `kkt agent` (list, revoke), and the lane import and check that `kkt setup` asks for.",
@@ -12392,6 +12671,23 @@ window.KKT_GRAPH = {
      "holds": [
       {
        "crate": "kkt-operator-commands",
+       "trait": "lanes::ServerInContainer"
+      },
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Paths"
+      },
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Output"
+      }
+     ],
+     "type": "lanes::ContainerLanes"
+    },
+    {
+     "holds": [
+      {
+       "crate": "kkt-operator-commands",
        "trait": "ServeConfig"
       },
       {
@@ -12419,6 +12715,12 @@ window.KKT_GRAPH = {
     }
    ],
    "implements": [
+    {
+     "crate": "kkt-operator-commands",
+     "trait": "lanes::LaneServer",
+     "trait_crate": "kkt-operator-commands",
+     "type": "lanes::ContainerLanes"
+    },
     {
      "crate": "kkt-operator-commands",
      "trait": "lanes::LaneServer",
@@ -12602,9 +12904,28 @@ window.KKT_GRAPH = {
      "path": "keys::selected_key_path"
     },
     {
-     "doc": "Lanes on this machine's server: `kkt lanes export` and `kkt lanes import`, the server they act on as a contract (`LaneServer`, which the program picks through `LaneServers`), its local implementation (`LocalLanes`), and reading a lane fo...",
+     "doc": "Lanes on this machine's server: `kkt lanes export` and `kkt lanes import`, the server they act on as a contract (`LaneServer`, which the program picks through `LaneServers`), which server that is for a deployment (`lanes_on`), its two im...",
      "kind": "mod",
      "path": "lanes"
+    },
+    {
+     "doc": "The files a run in the container carries.",
+     "kind": "enum",
+     "path": "lanes::Carried",
+     "variants": [
+      "In",
+      "Out"
+     ]
+    },
+    {
+     "doc": "The lanes of kkt installed in a container.",
+     "fields": [
+      "container",
+      "paths",
+      "output"
+     ],
+     "kind": "struct",
+     "path": "lanes::ContainerLanes"
     },
     {
      "doc": "What a `LaneServer` gives back, in time.",
@@ -12650,12 +12971,41 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "The server `kkt lanes` acts on, by how kkt is deployed here.",
+     "kind": "enum",
+     "path": "lanes::LanesOn",
+     "variants": [
+      "Docker",
+      "Local"
+     ]
+    },
+    {
      "doc": "The lanes of the local database `kkt serve` would use, unless `db` names another, with the config file `config` names, else the default.",
      "kind": "struct",
      "methods": [
       "new"
      ],
      "path": "lanes::LocalLanes"
+    },
+    {
+     "doc": "One argument to kkt's program in the container.",
+     "kind": "enum",
+     "path": "lanes::RunArg",
+     "variants": [
+      "Text",
+      "WorkFolder"
+     ]
+    },
+    {
+     "doc": "kkt installed in a container, as the lane commands use it.",
+     "kind": "trait",
+     "methods": [
+      "config_file",
+      "installed",
+      "lane_limit_in",
+      "run_kkt"
+     ],
+     "path": "lanes::ServerInContainer"
     },
     {
      "doc": "Reads the lane files in `folder` and checks them as an import into `server`, the server `kkt setup` sets up, would, changing nothing: against that server's lane limit.",
@@ -12671,6 +13021,11 @@ window.KKT_GRAPH = {
      "doc": "Imports the lanes in `folder` into `server`, the server this machine's setup record says it runs, and returns the report to print.",
      "kind": "fn",
      "path": "lanes::import_lanes_for_setup"
+    },
+    {
+     "doc": "Which server `kkt lanes` acts on, given this machine's `deployment` (`None` with no record) and whether `--db` or `--config` was given (`local_options`).",
+     "kind": "fn",
+     "path": "lanes::lanes_on"
     },
     {
      "doc": "The lane limit from this machine's default serve config, else the owner's default.",
@@ -13341,6 +13696,39 @@ window.KKT_GRAPH = {
      "kind": "param",
      "name": "parts",
      "traits": []
+    },
+    {
+     "at": "lanes::ContainerLanes",
+     "kind": "field",
+     "name": "container",
+     "traits": [
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "lanes::ServerInContainer"
+      }
+     ]
+    },
+    {
+     "at": "lanes::ContainerLanes",
+     "kind": "field",
+     "name": "output",
+     "traits": [
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Output"
+      }
+     ]
+    },
+    {
+     "at": "lanes::ContainerLanes",
+     "kind": "field",
+     "name": "paths",
+     "traits": [
+      {
+       "crate": "kkt-operator-commands",
+       "trait": "Paths"
+      }
+     ]
     },
     {
      "at": "lanes::LocalLanes::new",
@@ -14122,19 +14510,6 @@ window.KKT_GRAPH = {
     {
      "holds": [
       {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      },
-      {
-       "crate": "kkt-db",
-       "trait": "Backend"
-      }
-     ],
-     "type": "CommandLine"
-    },
-    {
-     "holds": [
-      {
        "crate": "kkt-db",
        "trait": "Backend"
       }
@@ -14161,6 +14536,19 @@ window.KKT_GRAPH = {
       }
      ],
      "type": "Deps"
+    },
+    {
+     "holds": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      },
+      {
+       "crate": "kkt-db",
+       "trait": "Backend"
+      }
+     ],
+     "type": "DirectAccess"
     },
     {
      "holds": [
@@ -14327,18 +14715,6 @@ window.KKT_GRAPH = {
      "path": "CORE"
     },
     {
-     "doc": "The operator's view of the agents of one swarm.",
-     "kind": "struct",
-     "methods": [
-      "agents",
-      "current_lanes",
-      "import_lanes",
-      "new",
-      "revoke"
-     ],
-     "path": "CommandLine"
-    },
-    {
      "doc": "A database the store reads and changes.",
      "kind": "struct",
      "methods": [
@@ -14365,6 +14741,18 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Deps"
+    },
+    {
+     "doc": "The operator's direct access to the agents of one swarm.",
+     "kind": "struct",
+     "methods": [
+      "agents",
+      "current_lanes",
+      "import_lanes",
+      "new",
+      "revoke"
+     ],
+     "path": "DirectAccess"
     },
     {
      "doc": "The name of the check that a count must be at least 1.",
@@ -14588,7 +14976,7 @@ window.KKT_GRAPH = {
      "path": "StoreResult"
     },
     {
-     "doc": "Checks lanes as `CommandLine::import_lanes` does before it changes anything, without a database: each lane against the lane rules with `max_lane_chars`, and no lane named twice.",
+     "doc": "Checks lanes as `DirectAccess::import_lanes` does before it changes anything, without a database: each lane against the lane rules with `max_lane_chars`, and no lane named twice.",
      "kind": "fn",
      "path": "check_lane_import"
     },
@@ -14649,7 +15037,7 @@ window.KKT_GRAPH = {
      "path": "testing::Probes"
     },
     {
-     "doc": "A new database in memory, with the core's tables, for other crates' tests: for a program that starts its own rules, or for the operator's `crate::CommandLine`.",
+     "doc": "A new database in memory, with the core's tables, for other crates' tests: for a program that starts its own rules, or for the operator's `crate::DirectAccess`.",
      "feature": "testing",
      "kind": "fn",
      "path": "testing::database"
@@ -14704,35 +15092,6 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
-    {
-     "at": "CommandLine::new",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    },
-    {
-     "at": "CommandLine::new",
-     "holds": [
-      {
-       "crate": "kkt-rules",
-       "traits": [
-        {
-         "crate": "kkt-db",
-         "trait": "Backend"
-        }
-       ],
-       "type": "Db"
-      }
-     ],
-     "kind": "param",
-     "name": "db",
-     "traits": []
-    },
     {
      "at": "Db::new",
      "kind": "param",
@@ -14794,6 +15153,35 @@ window.KKT_GRAPH = {
        "trait": "OperatorWording"
       }
      ]
+    },
+    {
+     "at": "DirectAccess::new",
+     "kind": "param",
+     "name": "clock",
+     "traits": [
+      {
+       "crate": "kkt-clock",
+       "trait": "Clock"
+      }
+     ]
+    },
+    {
+     "at": "DirectAccess::new",
+     "holds": [
+      {
+       "crate": "kkt-rules",
+       "traits": [
+        {
+         "crate": "kkt-db",
+         "trait": "Backend"
+        }
+       ],
+       "type": "Db"
+      }
+     ],
+     "kind": "param",
+     "name": "db",
+     "traits": []
     },
     {
      "at": "Rules::new",
@@ -15673,15 +16061,6 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "ask::Lines"
-    },
-    {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": "machine::connection::ConnectionReads"
-      }
-     ],
-     "trait": "connection::ConnectionSource"
     }
    ],
    "crate_doc": "`kkt setup`: what this machine is set up as (a server run as a service, a server in Docker, or a client of a server elsewhere), the record that says so, and which server this machine's clients use (`kkt switch` changes it).",
@@ -15710,16 +16089,6 @@ window.KKT_GRAPH = {
     }
    ],
    "items": [
-    {
-     "doc": "Where the access key may be, from the serve config and the defaults.",
-     "fields": [
-      "configured",
-      "no_access_key",
-      "default"
-     ],
-     "kind": "struct",
-     "path": "AccessKeyFrom"
-    },
     {
      "doc": "How setup finds a server to adopt: the part of `super::Steps` it uses.",
      "kind": "trait",
@@ -15762,26 +16131,6 @@ window.KKT_GRAPH = {
      "path": "Ask"
     },
     {
-     "doc": "The key files a backup holds.",
-     "fields": [
-      "access_key",
-      "web_key",
-      "admin_key",
-      "admin_name"
-     ],
-     "kind": "struct",
-     "path": "BackupKeys"
-    },
-    {
-     "doc": "What `kkt backup` backs up, and where to.",
-     "kind": "enum",
-     "path": "BackupOf",
-     "variants": [
-      "Docker",
-      "Local"
-     ]
-    },
-    {
      "doc": "The key a client-only machine uses for its server.",
      "kind": "enum",
      "path": "ClientKey",
@@ -15801,11 +16150,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "DockerSetup"
-    },
-    {
-     "doc": "What the program found when it looked for a file: whether it exists, or the error inspecting it.",
-     "kind": "type",
-     "path": "Found"
     },
     {
      "doc": "What is known about the server on this machine, for telling whether it runs in Docker: in order, its record, the note of an unfinished setup, or a server found installed with no record.",
@@ -15893,15 +16237,6 @@ window.KKT_GRAPH = {
      "variants": [
       "NoKey",
       "Refuse"
-     ]
-    },
-    {
-     "doc": "The server `kkt lanes` acts on.",
-     "kind": "enum",
-     "path": "LanesOn",
-     "variants": [
-      "Docker",
-      "Local"
      ]
     },
     {
@@ -16098,11 +16433,6 @@ window.KKT_GRAPH = {
      "path": "admin_key_line"
     },
     {
-     "doc": "What to say, after `label`, about the name tied to the admin key `key` in the file at `path`, if anything.",
-     "kind": "fn",
-     "path": "admin_name_line"
-    },
-    {
      "doc": "Talking with the person running `kkt setup`.",
      "kind": "mod",
      "path": "ask"
@@ -16153,16 +16483,6 @@ window.KKT_GRAPH = {
      "path": "ask::unanswered"
     },
     {
-     "doc": "The key files a backup holds, given where the access key may be (`from`).",
-     "kind": "fn",
-     "path": "backup_keys"
-    },
-    {
-     "doc": "What `kkt backup` backs up, given the recorded `mode` (`None` with no record), the folder given (`into`) and whether `--db` or `--config` was given (`local_options`).",
-     "kind": "fn",
-     "path": "backup_of"
-    },
-    {
      "doc": "One key per server, so another server's saved key is never replaced.",
      "kind": "fn",
      "path": "client_key"
@@ -16176,77 +16496,6 @@ window.KKT_GRAPH = {
      "doc": "",
      "kind": "fn",
      "path": "configured_name_pack_line"
-    },
-    {
-     "doc": "The ordered choice of a client's endpoint and key, from setup or serve settings.",
-     "kind": "mod",
-     "path": "connection"
-    },
-    {
-     "doc": "",
-     "fields": [
-      "url",
-      "key_file"
-     ],
-     "kind": "struct",
-     "path": "connection::Connection"
-    },
-    {
-     "doc": "Where a client command finds the server, as given: a serve config file, an address and an access key file.",
-     "fields": [
-      "config",
-      "url",
-      "key_file"
-     ],
-     "kind": "struct",
-     "path": "connection::ConnectionOptions"
-    },
-    {
-     "doc": "Reads needed by connection selection, requested only in their original order.",
-     "kind": "trait",
-     "methods": [
-      "absolute",
-      "check_key",
-      "make_default_key",
-      "record",
-      "serve"
-     ],
-     "path": "connection::ConnectionSource"
-    },
-    {
-     "doc": "The checked endpoint and access-key setting; source context is returned to its reader.",
-     "fields": [
-      "url",
-      "access_key",
-      "key_source"
-     ],
-     "kind": "struct",
-     "path": "connection::ServeConnection"
-    },
-    {
-     "doc": "The local server's connection for admin tools, even when clients were switched.",
-     "kind": "fn",
-     "path": "connection::admin_connection"
-    },
-    {
-     "doc": "The admin endpoint, from a client endpoint ending in `mcp_path`.",
-     "kind": "fn",
-     "path": "connection::admin_endpoint"
-    },
-    {
-     "doc": "Resolve the same serve settings without creating a database.",
-     "kind": "fn",
-     "path": "connection::client_connection"
-    },
-    {
-     "doc": "How clients reach the recorded `server`, with `--url` and `--key-file` each replacing only their own part of it.",
-     "kind": "fn",
-     "path": "connection::recorded_connection"
-    },
-    {
-     "doc": "How clients reach the server `kkt serve` would run with these settings.",
-     "kind": "fn",
-     "path": "connection::serve_connection"
     },
     {
      "doc": "Whether `kkt key create` must first ask whether the server runs in Docker: for a web or admin key with no path given, as the server in Docker reads those keys inside its container.",
@@ -16289,39 +16538,6 @@ window.KKT_GRAPH = {
      "path": "find_operator_key"
     },
     {
-     "doc": "The report of a lane import, and the Docker limit when no install is present.",
-     "kind": "mod",
-     "path": "lane_reports"
-    },
-    {
-     "doc": "The plain import outcome the program adapts from the operator API.",
-     "kind": "enum",
-     "path": "lane_reports::Outcome",
-     "variants": [
-      "Created",
-      "Updated",
-      "Unchanged",
-      "RetiredSkipped",
-      "Retired",
-      "FileSkipped"
-     ]
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "lane_reports::docker_limit"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "lane_reports::import_report"
-    },
-    {
-     "doc": "Which server `kkt lanes` acts on, given the recorded `mode` (`None` with no record) and whether `--db` or `--config` was given (`local_options`).",
-     "kind": "fn",
-     "path": "lanes_on"
-    },
-    {
      "doc": "Makes a new random key and writes it to `path`, creating its folder if needed.",
      "kind": "fn",
      "path": "new_key_file"
@@ -16350,11 +16566,6 @@ window.KKT_GRAPH = {
      "doc": "Runs `kkt setup`: asks what `answers` leaves open, sets the machine up, checks the connection, connects clients, and records it.",
      "kind": "fn",
      "path": "run"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "service_backup_folder"
     },
     {
      "doc": "Refuses an installed kkt service with no record unless its service file, which runs `kkt <args>`, runs it with the default config file's settings (`runs_defaults`): those are what `kkt setup` and `kkt upgrade` install, so a record could ...",
@@ -16430,11 +16641,6 @@ window.KKT_GRAPH = {
      "path": "unrecorded_service"
     },
     {
-     "doc": "The folder for the backups made before an upgrade, beside `database`.",
-     "kind": "fn",
-     "path": "upgrade_backup_folder"
-    },
-    {
      "doc": "Whether `written_by`, the version a record names, says that version is not known: the record adopts a service whose version nothing says.",
      "kind": "fn",
      "path": "version_not_known"
@@ -16468,17 +16674,6 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [
     {
-     "at": "admin_name_line",
-     "kind": "param",
-     "name": "files",
-     "traits": [
-      {
-       "crate": "kkt-keys",
-       "trait": "KeyFiles"
-      }
-     ]
-    },
-    {
      "at": "ask::Prompter::new",
      "kind": "param",
      "name": "lines",
@@ -16486,57 +16681,6 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-setup",
        "trait": "ask::Lines"
-      }
-     ]
-    },
-    {
-     "at": "backup_keys",
-     "foreign": [
-      "core::ops::function::FnMut"
-     ],
-     "kind": "param",
-     "name": "found",
-     "traits": []
-    },
-    {
-     "at": "connection::admin_connection",
-     "kind": "param",
-     "name": "source",
-     "traits": [
-      {
-       "crate": "kkt-setup",
-       "trait": "connection::ConnectionSource"
-      }
-     ]
-    },
-    {
-     "at": "connection::client_connection",
-     "kind": "param",
-     "name": "source",
-     "traits": [
-      {
-       "crate": "kkt-setup",
-       "trait": "connection::ConnectionSource"
-      }
-     ]
-    },
-    {
-     "at": "connection::recorded_connection",
-     "foreign": [
-      "core::ops::function::FnOnce"
-     ],
-     "kind": "param",
-     "name": "absolute",
-     "traits": []
-    },
-    {
-     "at": "connection::serve_connection",
-     "kind": "param",
-     "name": "source",
-     "traits": [
-      {
-       "crate": "kkt-setup",
-       "trait": "connection::ConnectionSource"
       }
      ]
     },
@@ -16572,15 +16716,6 @@ window.KKT_GRAPH = {
        "trait": "OperatorKeyReads"
       }
      ]
-    },
-    {
-     "at": "lane_reports::docker_limit",
-     "foreign": [
-      "core::ops::function::FnOnce"
-     ],
-     "kind": "param",
-     "name": "read",
-     "traits": []
     },
     {
      "at": "new_key_file",
@@ -18829,7 +18964,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "LaneSource",
     "SwarmId"
    ],
    "kind": "normal",
@@ -18838,7 +18972,6 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "LaneSource",
       "SwarmId"
      ],
      "role": "uses"
@@ -18863,7 +18996,8 @@ window.KKT_GRAPH = {
     "Backups",
     "Contents",
     "Settings",
-    "layout"
+    "layout",
+    "upgrade_backup_folder"
    ],
    "kind": "normal",
    "optional": false,
@@ -18874,7 +19008,8 @@ window.KKT_GRAPH = {
       "Backups",
       "Contents",
       "Settings",
-      "layout"
+      "layout",
+      "upgrade_backup_folder"
      ],
      "role": "uses"
     }
@@ -19263,15 +19398,32 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "connection",
+    "connection::ConnectionOptions",
+    "connection::ConnectionSource",
+    "connection::RecordedServer",
+    "connection::ServeConnection",
+    "connection::server_address",
     "default_db",
     "docker_folder"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "uses",
+   "role": "adapts",
    "roles": [
     {
      "detail": [
+      "machine::connection::ConnectionReads implements connection::ConnectionSource"
+     ],
+     "role": "adapts"
+    },
+    {
+     "detail": [
+      "connection",
+      "connection::ConnectionOptions",
+      "connection::RecordedServer",
+      "connection::ServeConnection",
+      "connection::server_address",
       "default_db",
       "docker_folder"
      ],
@@ -19279,7 +19431,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "connection::Connection",
+    "connection::serve_connection"
+   ],
    "to": "kkt-deployment"
   },
   {
@@ -19298,7 +19453,6 @@ window.KKT_GRAPH = {
     "Settings",
     "Status",
     "Unprobed",
-    "endpoint",
     "shell_word"
    ],
    "kind": "normal",
@@ -19324,7 +19478,6 @@ window.KKT_GRAPH = {
       "Settings",
       "Status",
       "Unprobed",
-      "endpoint",
       "shell_word"
      ],
      "role": "uses"
@@ -19464,6 +19617,8 @@ window.KKT_GRAPH = {
     "ServiceDefaults",
     "ServiceInputs",
     "SetupFiles",
+    "deployment::deployment",
+    "deployment::recorded_server",
     "doctor::run",
     "lifecycle::backup",
     "lifecycle::status",
@@ -19499,6 +19654,8 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "deployment::deployment",
+      "deployment::recorded_server",
       "doctor::run",
       "lifecycle::backup",
       "lifecycle::status",
@@ -19617,9 +19774,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "LaneFile",
-    "Read",
-    "Skip",
-    "Skipped"
+    "Read"
    ],
    "to": "kkt-lane-files"
   },
@@ -19889,14 +20044,18 @@ window.KKT_GRAPH = {
     "keys::KeyKind",
     "keys::selected_key_path",
     "lanes",
-    "lanes::LaneFuture",
-    "lanes::LaneImport",
+    "lanes::Carried",
+    "lanes::ContainerLanes",
     "lanes::LaneServer",
     "lanes::LaneServers",
     "lanes::LanesAction",
+    "lanes::LanesOn",
     "lanes::LocalLanes",
+    "lanes::RunArg",
+    "lanes::ServerInContainer",
     "lanes::check_lanes_for_setup",
     "lanes::import_lanes_for_setup",
+    "lanes::lanes_on",
     "lanes::run"
    ],
    "kind": "normal",
@@ -19909,8 +20068,8 @@ window.KKT_GRAPH = {
       "a type of its own implements Output",
       "a type of its own implements Paths",
       "a type of its own implements ServeConfig",
-      "a type of its own implements lanes::LaneServer",
-      "machine::native::HereLanes implements lanes::LaneServers"
+      "machine::native::HereLanes implements lanes::LaneServers",
+      "a type of its own implements lanes::ServerInContainer"
      ],
      "role": "adapts"
     },
@@ -19925,10 +20084,13 @@ window.KKT_GRAPH = {
       "keys::KeyKind",
       "keys::selected_key_path",
       "lanes",
-      "lanes::LaneFuture",
+      "lanes::Carried",
       "lanes::LanesAction",
+      "lanes::LanesOn",
+      "lanes::RunArg",
       "lanes::check_lanes_for_setup",
       "lanes::import_lanes_for_setup",
+      "lanes::lanes_on",
       "lanes::run"
      ],
      "role": "uses"
@@ -19943,6 +20105,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "keys::optional_key_path",
+    "lanes::LaneImport",
     "lanes::existing_db",
     "lanes::local_lane_limit",
     "lanes::local_operator"
@@ -20125,7 +20288,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "CommandLine",
+    "DirectAccess",
     "Rules",
     "testing",
     "testing::Memory",
@@ -20178,7 +20341,6 @@ window.KKT_GRAPH = {
    "items": [
     "Answers",
     "InstalledHere",
-    "LanesOn",
     "Lines",
     "Mode",
     "Purpose",
@@ -20186,13 +20348,8 @@ window.KKT_GRAPH = {
     "Switch",
     "Target",
     "Unfinished",
-    "connection",
-    "connection::ConnectionOptions",
-    "lane_reports::docker_limit",
-    "lanes_on",
     "record_path",
-    "unfinished_path",
-    "upgrade_backup_folder"
+    "unfinished_path"
    ],
    "kind": "normal",
    "optional": false,
@@ -20200,8 +20357,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "a type of its own implements ask::Lines",
-      "machine::connection::ConnectionReads implements connection::ConnectionSource"
+      "a type of its own implements ask::Lines"
      ],
      "role": "adapts"
     },
@@ -20209,7 +20365,6 @@ window.KKT_GRAPH = {
      "detail": [
       "Answers",
       "InstalledHere",
-      "LanesOn",
       "Lines",
       "Mode",
       "Purpose",
@@ -20217,13 +20372,8 @@ window.KKT_GRAPH = {
       "Switch",
       "Target",
       "Unfinished",
-      "connection",
-      "connection::ConnectionOptions",
-      "lane_reports::docker_limit",
-      "lanes_on",
       "record_path",
-      "unfinished_path",
-      "upgrade_backup_folder"
+      "unfinished_path"
      ],
      "role": "uses"
     }
@@ -20233,9 +20383,7 @@ window.KKT_GRAPH = {
     "DockerSetup",
     "KeyKind",
     "Server",
-    "Unrecorded",
-    "connection::Connection",
-    "connection::serve_connection"
+    "Unrecorded"
    ],
    "to": "kkt-setup"
   },
@@ -20554,9 +20702,9 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
-    "CommandLine",
     "Db",
     "DefaultWording",
+    "DirectAccess",
     "Rules",
     "Settings",
     "Startup",
@@ -20576,7 +20724,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "CommandLine",
+      "DirectAccess",
       "Rules",
       "Settings",
       "schema",
@@ -20885,6 +21033,40 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-agent-commands",
    "items": [
+    "connection",
+    "connection::ConnectionOptions",
+    "connection::ConnectionSource",
+    "connection::admin_connection",
+    "connection::admin_endpoint",
+    "connection::client_connection"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "connection",
+      "connection::ConnectionOptions",
+      "connection::ConnectionSource",
+      "connection::admin_connection",
+      "connection::admin_endpoint",
+      "connection::client_connection"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "connection::RecordedServer",
+    "connection::ServeConnection"
+   ],
+   "to": "kkt-deployment"
+  },
+  {
+   "features": [],
+   "from": "kkt-agent-commands",
+   "items": [
     "Client",
     "ClientCommand",
     "Host",
@@ -20959,40 +21141,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-agent-commands",
-   "items": [
-    "connection",
-    "connection::ConnectionOptions",
-    "connection::ConnectionSource",
-    "connection::admin_connection",
-    "connection::admin_endpoint",
-    "connection::client_connection"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "connection",
-      "connection::ConnectionOptions",
-      "connection::ConnectionSource",
-      "connection::admin_connection",
-      "connection::admin_endpoint",
-      "connection::client_connection"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "Record",
-    "connection::ServeConnection"
-   ],
-   "to": "kkt-setup"
   },
   {
    "features": [],
@@ -21794,6 +21942,31 @@ window.KKT_GRAPH = {
     "Span"
    ],
    "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-backup",
+   "items": [
+    "admin_key_path",
+    "admin_name_path",
+    "web_key_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "admin_key_path",
+      "admin_name_path",
+      "web_key_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
   },
   {
    "features": [
@@ -22831,6 +23004,40 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-deployment",
    "items": [
+    "ADMIN_KEY_COPY_FILE_NAME",
+    "AccessKey",
+    "AdminNameFile",
+    "KeyFiles",
+    "admin_name_path",
+    "read_admin_name"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ADMIN_KEY_COPY_FILE_NAME",
+      "AccessKey",
+      "AdminNameFile",
+      "KeyFiles",
+      "admin_name_path",
+      "read_admin_name"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "bound_to",
+    "testing::Memory"
+   ],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-deployment",
+   "items": [
     "Env",
     "Platform"
    ],
@@ -22849,6 +23056,61 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-machine"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-deployment",
+   "items": [
+    "ADMIN_KEY_COPY_FILE_NAME",
+    "bound_to",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ADMIN_KEY_COPY_FILE_NAME",
+      "bound_to"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-deployment",
+   "items": [
+    "AdminName",
+    "MAX_ADMIN_NAME_CHARS"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AdminName",
+      "MAX_ADMIN_NAME_CHARS"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-names"
   },
   {
    "features": [],
@@ -23881,9 +24143,16 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
+    "AccessKeyFrom",
+    "BackupKeys",
+    "BackupOf",
     "Backups",
     "Contents",
-    "layout"
+    "ServerHere",
+    "backup_keys",
+    "backup_of",
+    "layout",
+    "service_backup_folder"
    ],
    "kind": "normal",
    "optional": false,
@@ -23891,9 +24160,16 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "AccessKeyFrom",
+      "BackupKeys",
+      "BackupOf",
       "Backups",
       "Contents",
-      "layout"
+      "ServerHere",
+      "backup_keys",
+      "backup_of",
+      "layout",
+      "service_backup_folder"
      ],
      "role": "uses"
     }
@@ -24063,6 +24339,17 @@ window.KKT_GRAPH = {
     "ServerVersion",
     "StatusThen",
     "UnrecordedDeployment",
+    "admin_name_line",
+    "admin_name_written",
+    "connection",
+    "connection::ConnectionOptions",
+    "connection::ConnectionSource",
+    "connection::RecordedServer",
+    "connection::ServerAddress",
+    "connection::client_connection",
+    "connection::recorded_connection",
+    "connection::serve_connection",
+    "connection::server_address",
     "docker_folder",
     "docker_url",
     "guard",
@@ -24085,6 +24372,17 @@ window.KKT_GRAPH = {
       "ServerVersion",
       "StatusThen",
       "UnrecordedDeployment",
+      "admin_name_line",
+      "admin_name_written",
+      "connection",
+      "connection::ConnectionOptions",
+      "connection::ConnectionSource",
+      "connection::RecordedServer",
+      "connection::ServerAddress",
+      "connection::client_connection",
+      "connection::recorded_connection",
+      "connection::serve_connection",
+      "connection::server_address",
       "docker_folder",
       "docker_url",
       "guard",
@@ -24097,7 +24395,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "connection::ServeConnection"
+   ],
    "to": "kkt-deployment"
   },
   {
@@ -24181,7 +24481,8 @@ window.KKT_GRAPH = {
     "Answered",
     "Initialized",
     "KeyFile",
-    "Probing"
+    "Probing",
+    "testing::Memory"
    ],
    "to": "kkt-diagnostics"
   },
@@ -24361,11 +24662,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
-    "AccessKeyFrom",
     "AdoptSteps",
     "Answers",
-    "BackupKeys",
-    "BackupOf",
     "ClientKey",
     "DockerSetup",
     "InstallCheck",
@@ -24377,6 +24675,7 @@ window.KKT_GRAPH = {
     "OperatorKeyReads",
     "Purpose",
     "Record",
+    "Server",
     "Steps",
     "Switch",
     "SwitchSteps",
@@ -24385,25 +24684,15 @@ window.KKT_GRAPH = {
     "Unrecorded",
     "admin_key_collision",
     "admin_key_line",
-    "admin_name_line",
     "ask::Prompter",
-    "backup_keys",
-    "backup_of",
     "client_key",
     "configured_name_pack_line",
-    "connection",
-    "connection::ConnectionOptions",
-    "connection::ConnectionSource",
-    "connection::client_connection",
-    "connection::recorded_connection",
-    "connection::serve_connection",
     "docker_key_copies",
     "docker_status_lines",
     "find_operator_key",
     "new_key_file",
     "recorded_setup",
     "run",
-    "service_backup_folder",
     "service_runs_defaults",
     "service_upgrade_error",
     "staged_client_key",
@@ -24435,7 +24724,6 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "BackupOf",
       "ClientKey",
       "InstallCheck",
       "KeyKind",
@@ -24447,23 +24735,14 @@ window.KKT_GRAPH = {
       "Unrecorded",
       "admin_key_collision",
       "admin_key_line",
-      "admin_name_line",
-      "backup_keys",
-      "backup_of",
       "client_key",
       "configured_name_pack_line",
-      "connection",
-      "connection::ConnectionSource",
-      "connection::client_connection",
-      "connection::recorded_connection",
-      "connection::serve_connection",
       "docker_key_copies",
       "docker_status_lines",
       "find_operator_key",
       "new_key_file",
       "recorded_setup",
       "run",
-      "service_backup_folder",
       "service_runs_defaults",
       "service_upgrade_error",
       "staged_client_key",
@@ -24489,10 +24768,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [
-    "Server",
-    "connection::ServeConnection"
-   ],
+   "test_items": [],
    "to": "kkt-setup"
   },
   {
@@ -24555,6 +24831,42 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-containerized-service"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-install-commands",
+   "items": [
+    "Answered",
+    "Initialized",
+    "KeyFile",
+    "Prober",
+    "Probing",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Answered",
+      "Initialized",
+      "Probing"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-diagnostics"
   },
   {
    "features": [
@@ -26034,7 +26346,11 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operator-commands",
    "items": [
+    "Audit",
     "LaneSource",
+    "Operator",
+    "Permission",
+    "Permissions",
     "SwarmId"
    ],
    "kind": "normal",
@@ -26043,7 +26359,11 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Audit",
       "LaneSource",
+      "Operator",
+      "Permission",
+      "Permissions",
       "SwarmId"
      ],
      "role": "uses"
@@ -26115,6 +26435,31 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-config-file"
+  },
+  {
+   "features": [],
+   "from": "kkt-operator-commands",
+   "items": [
+    "Deployment",
+    "admin_name_line",
+    "admin_name_written"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Deployment",
+      "admin_name_line",
+      "admin_name_written"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-deployment"
   },
   {
    "features": [],
@@ -26192,7 +26537,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "Skip"
+   ],
    "to": "kkt-lane-files"
   },
   {
@@ -26241,12 +26588,13 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operator-commands",
    "items": [
-    "CommandLine",
     "Db",
+    "DirectAccess",
     "ImportedLane",
     "LaneImport",
     "LaneOutcome",
     "Revoked",
+    "Settings",
     "check_lane_import",
     "check_retire_missing"
    ],
@@ -26259,6 +26607,7 @@ window.KKT_GRAPH = {
       "Db",
       "LaneOutcome",
       "Revoked",
+      "Settings",
       "check_lane_import",
       "check_retire_missing"
      ],
@@ -26266,7 +26615,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "CommandLine"
+      "DirectAccess"
      ],
      "role": "wires"
     }
@@ -26287,15 +26636,12 @@ window.KKT_GRAPH = {
     "Unfinished",
     "Unrecorded",
     "admin_key_collision",
-    "admin_name_line",
     "create_asks_for_docker",
     "create_checks",
     "create_destination_check",
     "find_here",
     "find_key",
     "find_operator_key",
-    "lane_reports::Outcome",
-    "lane_reports::import_report",
     "new_key_file",
     "write_admin_name"
    ],
@@ -26318,15 +26664,12 @@ window.KKT_GRAPH = {
       "Unfinished",
       "Unrecorded",
       "admin_key_collision",
-      "admin_name_line",
       "create_asks_for_docker",
       "create_checks",
       "create_destination_check",
       "find_here",
       "find_key",
       "find_operator_key",
-      "lane_reports::Outcome",
-      "lane_reports::import_report",
       "new_key_file",
       "write_admin_name"
      ],
@@ -27492,8 +27835,8 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-server",
    "items": [
-    "CommandLine",
     "DefaultWording",
+    "DirectAccess",
     "LaneImport",
     "NewServerRun",
     "Rules",
@@ -27518,8 +27861,8 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "CommandLine",
       "DefaultWording",
+      "DirectAccess",
       "start",
       "testing::Memory",
       "testing::memory"
@@ -27713,16 +28056,12 @@ window.KKT_GRAPH = {
    "from": "kkt-setup",
    "items": [
     "ADMIN_KEY_COPY_FILE_NAME",
-    "AccessKey",
     "KeyFiles",
     "NEW_KEY_ALPHABET",
     "NEW_KEY_CHARS",
     "WEB_KEY_COPY_FILE_NAME",
     "access_key_file",
     "admin_key_path",
-    "admin_name_line",
-    "admin_name_path",
-    "admin_name_written",
     "bound_to",
     "check_access_key",
     "web_key_path"
@@ -27734,16 +28073,12 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ADMIN_KEY_COPY_FILE_NAME",
-      "AccessKey",
       "KeyFiles",
       "NEW_KEY_ALPHABET",
       "NEW_KEY_CHARS",
       "WEB_KEY_COPY_FILE_NAME",
       "access_key_file",
       "admin_key_path",
-      "admin_name_line",
-      "admin_name_path",
-      "admin_name_written",
       "bound_to",
       "check_access_key",
       "web_key_path"
@@ -28773,7 +29108,7 @@ window.KKT_CONCERNS = {
    "layer": "dev"
   },
   "kkt-backup": {
-   "concern": "Backups, as a contract: each backup's name, contents, file modes and retention. `Backups` writes a backup into a folder and prunes old ones, and an operating-system crate implements it.",
+   "concern": "Backups, as a contract: each backup's name, contents, file modes and retention, which server a backup acts on, which key files it holds, and where it goes. `Backups` writes a backup into a folder and prunes old ones, and an operating-system crate implements it.",
    "kind": "contract",
    "layer": "operations"
   },
@@ -28843,7 +29178,7 @@ window.KKT_CONCERNS = {
    "layer": "data"
   },
   "kkt-deployment": {
-   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data and Docker files are, whether `kkt serve` may run here, and what `kkt status` and `kkt upgrade` do. It works on facts it declares, which its caller reads from the setup record.",
+   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data and Docker files are, whether `kkt serve` may run here, what `kkt status` and `kkt upgrade` do, and how a client reaches the server. It works on facts it declares, which its caller reads from the setup record.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -28963,7 +29298,7 @@ window.KKT_CONCERNS = {
    "layer": "core"
   },
   "kkt-operator-commands": {
-   "concern": "The operator's commands on a server's keys, agents and lanes, and the lane import setup asks for. A lane server is a contract it declares (`LaneServer`), with its local implementation on the database; the program picks the server (`LaneServers`). It is given what is installed here, and takes every effect it needs as injected parts.",
+   "concern": "The operator's commands on a server's keys, agents and lanes, and the lane import setup asks for. A lane server is a contract it declares (`LaneServer`), with two implementations: the local database, and kkt in a container. The program picks the server (`LaneServers`). It is given what is installed here, and takes every effect it needs as injected parts.",
    "kind": "composition",
    "layer": "assembly"
   },
@@ -29018,7 +29353,7 @@ window.KKT_CONCERNS = {
    "layer": "assembly"
   },
   "kkt-setup": {
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what lanes and backup do. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to, and where key files are. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -29233,7 +29568,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "from": [
       {
        "at": "register",
@@ -29502,7 +29837,7 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "from": [
       {
        "at": "doctor::run",
@@ -29690,10 +30025,6 @@ window.KKT_ASSEMBLY = {
      "passes_on": "the key files the program gave InstallParts",
      "to": [
       {
-       "at": "admin_name_line",
-       "param": "files"
-      },
-      {
        "at": "new_key_file",
        "param": "files"
       },
@@ -29703,6 +30034,23 @@ window.KKT_ASSEMBLY = {
       },
       {
        "at": "write_key_file",
+       "param": "files"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-deployment",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "key_files"
+      }
+     ],
+     "note": "kkt setup, kkt service install, kkt upgrade, kkt status",
+     "passes_on": "the key files the program gave InstallParts",
+     "to": [
+      {
+       "at": "admin_name_line",
        "param": "files"
       }
      ]
@@ -29781,7 +30129,7 @@ window.KKT_ASSEMBLY = {
      "passes_on": "the clock the program gave OperatorParts",
      "to": [
       {
-       "at": "CommandLine::new",
+       "at": "DirectAccess::new",
        "param": "clock"
       }
      ]
@@ -29857,15 +30205,28 @@ window.KKT_ASSEMBLY = {
      "passes_on": "the key files the program gave OperatorParts",
      "to": [
       {
-       "at": "admin_name_line",
-       "param": "files"
-      },
-      {
        "at": "new_key_file",
        "param": "files"
       },
       {
        "at": "write_admin_name",
+       "param": "files"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-deployment",
+     "from": [
+      {
+       "at": "OperatorParts",
+       "param": "key_files"
+      }
+     ],
+     "note": "kkt key",
+     "passes_on": "the key files the program gave OperatorParts",
+     "to": [
+      {
+       "at": "admin_name_line",
        "param": "files"
       }
      ]
@@ -30338,29 +30699,29 @@ window.KKT_ASSEMBLY = {
    "at": "connection::client_connection",
    "crate": "kashkeshet",
    "param": "source",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "why": "the program gives its ConnectionReads to kkt-install-commands and kkt-agent-commands, which ask it"
   },
   {
    "at": "connection::admin_connection",
    "crate": "kashkeshet",
    "param": "source",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "why": "the program gives its ConnectionReads to kkt-agent-commands, which asks it"
   },
   {
    "at": "connection::serve_connection",
    "crate": "kashkeshet",
    "param": "source",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "why": "it calls serve_connection only in its own tests; kkt-install-commands asks it"
   },
   {
    "at": "connection::recorded_connection",
    "crate": "kashkeshet",
    "param": "absolute",
-   "to": "kkt-setup",
-   "why": "it never calls recorded_connection: kkt-setup's other connection functions do"
+   "to": "kkt-deployment",
+   "why": "it never calls recorded_connection: kkt-deployment's other connection functions do"
   },
   {
    "at": "page",
@@ -30389,14 +30750,14 @@ window.KKT_ASSEMBLY = {
    "at": "connection::serve_connection",
    "crate": "kkt-agent-commands",
    "param": "source",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "why": "it asks client_connection and admin_connection only"
   },
   {
    "at": "connection::admin_connection",
    "crate": "kkt-install-commands",
    "param": "source",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "why": "it asks client_connection and serve_connection only"
   },
   {
@@ -30453,7 +30814,7 @@ window.KKT_ASSEMBLY = {
       "kkt-clock-system::SystemClock",
       "kkt-terminal::Terminal"
      ],
-     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-deployment's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
      "title": "The agents' commands"
     },
     {
@@ -30476,7 +30837,7 @@ window.KKT_ASSEMBLY = {
       "kkt-keys::KeyFiles",
       "kkt-install-commands::Databases",
       "kkt-install-commands::Output",
-      "kkt-setup::connection::ConnectionSource",
+      "kkt-deployment::connection::ConnectionSource",
       "kkt-operator-commands::agent::run",
       "kkt-install-commands::doctor::run",
       "kkt-operator-commands::lanes::run",
@@ -30922,7 +31283,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operator-commands",
      "note": "kkt lanes export and import",
-     "own": "HereLanes, picking the server kkt lanes acts on from what is installed here: ContainerLanes, kkt lanes run in the container over kkt-containerized-service's Containerized, or kkt-operator-commands' LocalLanes",
+     "own": "HereLanes, picking the server kkt lanes acts on from the deployment the setup record names, by kkt-operator-commands' lanes_on: its ContainerLanes, kkt lanes run in the container over the program's LanesInContainer, or its LocalLanes",
      "suppliers": [
       {
        "crate": "kkt-containerized-service",
@@ -31167,6 +31528,10 @@ window.KKT_ASSEMBLY = {
       {
        "at": "OperatorParts",
        "param": "paths"
+      },
+      {
+       "at": "lanes::ContainerLanes",
+       "param": "paths"
       }
      ]
     },
@@ -31292,6 +31657,10 @@ window.KKT_ASSEMBLY = {
       },
       {
        "at": "LaneParts",
+       "param": "output"
+      },
+      {
+       "at": "lanes::ContainerLanes",
        "param": "output"
       }
      ]
@@ -31447,7 +31816,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "note": "in InstallParts' connection, which each command reads",
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
+     "own": "ConnectionReads, answering kkt-deployment's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
      "suppliers": [
       {
        "crate": "kkt-files",
@@ -31645,7 +32014,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-agent-commands",
      "note": "in AgentParts' connection, which each command reads",
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
+     "own": "ConnectionReads, answering kkt-deployment's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
      "suppliers": [
       {
        "crate": "kkt-files",
@@ -31798,7 +32167,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-operator-commands",
      "note": "kkt setup --lanes",
-     "own": "ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-containerized-service's Containerized",
+     "own": "kkt-operator-commands' ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-containerized-service's Containerized",
      "suppliers": [
       {
        "crate": "kkt-containerized-service",
@@ -31817,9 +32186,9 @@ window.KKT_ASSEMBLY = {
      ]
     },
     {
-     "crate": "kkt-setup",
-     "note": "kkt setup --lanes, for kkt in Docker",
-     "own": "ContainerLanes' read of the lane limit, the container's config file read over kkt-containerized-service's Containerized and parsed by ContainerConfigs",
+     "crate": "kkt-operator-commands",
+     "note": "kkt lanes for kkt in Docker: the lanes run in the container.",
+     "own": "LanesInContainer, kkt installed in a container as the lane commands take it: kkt-containerized-service's Containerized in the install's folder, with the program's ContainerConfigs reading kkt's config file there for its lane limit",
      "suppliers": [
       {
        "crate": "kkt-containerized-service",
@@ -31828,8 +32197,8 @@ window.KKT_ASSEMBLY = {
      ],
      "to": [
       {
-       "at": "lane_reports::docker_limit",
-       "param": "read"
+       "at": "lanes::ContainerLanes",
+       "param": "container"
       }
      ]
     }

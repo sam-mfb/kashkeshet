@@ -4,11 +4,11 @@
 
 mod steps;
 
+use kkt_deployment::connection::ConnectionSource;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_setup as setup;
 use kkt_setup::ask::Prompter;
-use kkt_setup::connection::ConnectionSource;
 use steps::{OsSteps, OsSwitchSteps};
 
 /// `kkt setup`: asks on the terminal if there is one, and does the work

@@ -1,7 +1,7 @@
 //! The operator's list and revoke commands, on the local server database.
 use crate::OperatorParts;
 use crate::lanes::existing_db;
-use kkt_rules::{CommandLine, Revoked};
+use kkt_rules::{DirectAccess, Revoked};
 use std::path::PathBuf;
 
 /// What `kkt agent` does.
@@ -26,10 +26,19 @@ pub async fn run(
     let path = existing_db(&parts.lane_parts(), db, config_db)?;
     let db = parts.database.open(&path)?;
     // Key mode: the one swarm, which every avatar is in.
-    let operator = CommandLine::new(db, kkt_api_agent::SwarmId::main(), parts.clock.clone());
+    let access = DirectAccess::new(db, kkt_api_agent::SwarmId::main(), parts.clock.clone());
+    // Whoever can open the database file may do anything to it already.
+    let operator = kkt_api_agent::Operator::new(
+        kkt_api_agent::Permissions::of(&[
+            kkt_api_agent::Permission::Read,
+            kkt_api_agent::Permission::Change,
+            kkt_api_agent::Permission::IssueRecoveryCodes,
+        ]),
+        kkt_api_agent::Audit::CommandLine,
+    );
     match command {
         AgentAction::List => {
-            let agents = operator.agents().await.map_err(|e| e.to_string())?;
+            let agents = access.agents(&operator).await.map_err(|e| e.to_string())?;
             if agents.is_empty() {
                 parts
                     .output
@@ -48,8 +57,8 @@ pub async fn run(
             }
         }
         AgentAction::Revoke { handle } => {
-            match operator
-                .revoke(handle.clone())
+            match access
+                .revoke(&operator, handle.clone())
                 .await
                 .map_err(|e| e.to_string())?
             {

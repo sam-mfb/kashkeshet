@@ -996,7 +996,7 @@ fn checked_address(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Resul
             Some(url) => url.trim().to_string(),
             None => ask.text(URL, DEFAULT_SETUP_URL)?.trim().to_string(),
         };
-        match check_address(&url, steps) {
+        match steps.check_address(&url) {
             Ok(()) => return Ok(url),
             Err(problem) if answers.url.is_some() => return Err(flag_failed(URL.flag, &problem)),
             Err(problem) => ask.tell(&format!("That address did not work:\n{problem}")),
@@ -1038,16 +1038,6 @@ fn checked_key(
             Ok(()) => ask.tell(&format!("The server did not accept that key:\n{problem}")),
         }
     }
-}
-
-/// Checks that `url` is an address and that a server answers there.
-pub(super) fn check_address(url: &str, steps: &dyn SwitchSteps) -> Result<(), String> {
-    if !(url.starts_with("http://") || url.starts_with("https://")) {
-        return Err(format!(
-            "{url:?} is not a server address: it starts with http:// or https://"
-        ));
-    }
-    steps.check_address(url)
 }
 
 /// The key typed in answer to [`KEY`]: none when blank.

@@ -11,10 +11,10 @@ use crate::service::{self, ServiceAction, ServiceInstall, service_plan};
 use crate::{InstallParts, ServeFacts, ServiceDefaults};
 use kkt_backup as backup;
 use kkt_bare_service::ServiceError;
+use kkt_deployment::connection::ConnectionSource;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_setup as setup;
-use kkt_setup::connection::ConnectionSource;
 use std::path::{Path, PathBuf};
 
 /// `kkt backup`: backs up the Docker server through its container, or the
@@ -28,8 +28,12 @@ pub fn backup<D>(
     config: Option<PathBuf>,
 ) -> Result<(), String> {
     let mode = read_setup(env, parts.setup_files)?.map(|record| record.mode);
-    match setup::backup_of(mode.as_ref(), folder, db.is_some() || config.is_some())? {
-        setup::BackupOf::Docker { folder, into } => {
+    match backup::backup_of(
+        &server_here(mode.as_ref()),
+        folder,
+        db.is_some() || config.is_some(),
+    )? {
+        backup::BackupOf::Docker { folder, into } => {
             let written = parts
                 .container
                 .backup(&kkt_container::Folder(folder), into.as_deref())
@@ -39,7 +43,20 @@ pub fn backup<D>(
                 .output(format_args!("Backed up to {}\n", written.display()));
             Ok(())
         }
-        setup::BackupOf::Local { into } => local_backup(parts, &into, db, config),
+        backup::BackupOf::Local { into } => local_backup(parts, &into, db, config),
+    }
+}
+
+/// Where this machine's server is, for a backup, from the recorded `mode`
+/// (`None` with no record): with no record, the local database `kkt serve`
+/// would use.
+fn server_here(mode: Option<&setup::Mode>) -> backup::ServerHere {
+    match mode {
+        Some(setup::Mode::Docker(install)) => backup::ServerHere::InDocker {
+            folder: install.folder.clone(),
+        },
+        Some(setup::Mode::Client) => backup::ServerHere::Elsewhere,
+        Some(setup::Mode::Service { .. }) | None => backup::ServerHere::ThisMachine,
     }
 }
 
@@ -177,7 +194,7 @@ pub async fn upgrade<D: ServiceDefaults>(
             // Validate the replacement service before doing anything. Its
             // program is this one, the binary just installed by the user.
             let service = service_plan(parts, ServiceInstall::NONE)?;
-            let folder = setup::service_backup_folder(kkt_config_file::config_dir(
+            let folder = backup::service_backup_folder(kkt_config_file::config_dir(
                 env.config_home().as_deref(),
             ))?;
             local_backup(parts, &folder, None, None)?;
@@ -302,13 +319,13 @@ fn local_backup<D>(
     let config = parts.serve.config(config)?;
     let database = existing_db(parts, db, config.db.clone())?;
     let default_access_key = parts.serve.default_access_key();
-    let setup::BackupKeys {
+    let backup::BackupKeys {
         access_key,
         web_key,
         admin_key,
         admin_name,
-    } = setup::backup_keys(
-        setup::AccessKeyFrom {
+    } = backup::backup_keys(
+        backup::AccessKeyFrom {
             configured: config.access_key_file.as_deref(),
             no_access_key: config.no_access_key,
             default: default_access_key.as_deref(),
@@ -351,6 +368,31 @@ fn local_backup<D>(
 mod tests {
     use super::*;
     use std::cell::RefCell;
+
+    #[test]
+    fn a_backup_acts_on_the_server_the_record_names() {
+        let docker = setup::Mode::Docker(setup::DockerSetup {
+            folder: PathBuf::from("/data/docker"),
+            tailscale: false,
+            hostname: None,
+            tailnet: None,
+        });
+        assert_eq!(
+            server_here(Some(&docker)),
+            backup::ServerHere::InDocker {
+                folder: PathBuf::from("/data/docker")
+            }
+        );
+        assert_eq!(
+            server_here(Some(&setup::Mode::Client)),
+            backup::ServerHere::Elsewhere
+        );
+        assert_eq!(
+            server_here(Some(&setup::Mode::Service { tailscale: true })),
+            backup::ServerHere::ThisMachine
+        );
+        assert_eq!(server_here(None), backup::ServerHere::ThisMachine);
+    }
 
     #[test]
     fn an_upgrade_whose_service_would_not_load_says_to_run_it_again() {
@@ -564,13 +606,13 @@ mod tests {
 
     impl ConnectionSource for Untouched {
         type KeySource = ();
-        fn record(&self) -> Result<Option<setup::Record>, String> {
+        fn recorded(&self) -> Result<Option<kkt_deployment::connection::RecordedServer>, String> {
             self.refused("connection.record")
         }
         fn serve(
             &self,
-            _: kkt_setup::connection::ConnectionOptions,
-        ) -> Result<kkt_setup::connection::ServeConnection<()>, String> {
+            _: kkt_deployment::connection::ConnectionOptions,
+        ) -> Result<kkt_deployment::connection::ServeConnection<()>, String> {
             self.refused("connection.serve")
         }
         fn make_default_key(&self, _: &kkt_keys::AccessKey) -> Result<(), String> {

@@ -15,7 +15,7 @@ use kkt_keys::AccessKey;
 use kkt_machine::{Env, Machine, Platform};
 use kkt_machine_os::OsMachine;
 use kkt_operator_commands::OperatorParts;
-use kkt_operator_commands::lanes::{LaneServer, LaneServers};
+use kkt_operator_commands::lanes::{LaneServer, LaneServers, LanesOn};
 use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -164,21 +164,21 @@ impl<'a, D> NativeParts<'a, D> {
     /// command asks.
     fn lanes_on(
         &self,
-        on: kkt_setup::LanesOn,
+        on: LanesOn,
         db: Option<PathBuf>,
         config: Option<PathBuf>,
     ) -> Box<dyn LaneServer + '_> {
         match on {
-            kkt_setup::LanesOn::Docker(folder) => {
-                Box::new(crate::commands::lanes::ContainerLanes {
+            LanesOn::Docker(folder) => Box::new(kkt_operator_commands::lanes::ContainerLanes {
+                container: Box::new(crate::commands::lanes::LanesInContainer {
                     container: &self.container,
                     configs: &settings::ContainerConfigs,
-                    paths: &NativeSetupFiles,
-                    output: &NativeOutput,
                     folder: kkt_container::Folder(folder),
-                })
-            }
-            kkt_setup::LanesOn::Local => Box::new(kkt_operator_commands::lanes::LocalLanes::new(
+                }),
+                paths: &NativeSetupFiles,
+                output: &NativeOutput,
+            }),
+            LanesOn::Local => Box::new(kkt_operator_commands::lanes::LocalLanes::new(
                 self.lane_parts(),
                 db,
                 config,
@@ -214,8 +214,8 @@ impl kkt_containerized_service::Tell for TerminalTell {
     }
 }
 
-/// The server `kkt lanes` acts on: as kkt-setup's `lanes_on` says, from
-/// this machine's setup record.
+/// The server `kkt lanes` acts on: as kkt-operator-commands' `lanes_on`
+/// says, from the deployment this machine's setup record names.
 pub struct HereLanes<'n, 'a, D> {
     native: &'n NativeParts<'a, D>,
     installed: &'n dyn kkt_setup::InstalledHere,
@@ -227,8 +227,14 @@ impl<D> LaneServers for HereLanes<'_, '_, D> {
         db: Option<PathBuf>,
         config: Option<PathBuf>,
     ) -> Result<Box<dyn LaneServer + '_>, String> {
-        let mode = self.installed.record()?.map(|record| record.mode);
-        let on = kkt_setup::lanes_on(mode.as_ref(), db.is_some() || config.is_some())?;
+        let deployment = self
+            .installed
+            .record()?
+            .map(|record| kkt_install_commands::deployment::deployment(&record.mode));
+        let on = kkt_operator_commands::lanes::lanes_on(
+            deployment.as_ref(),
+            db.is_some() || config.is_some(),
+        )?;
         Ok(self.native.lanes_on(on, db, config))
     }
 }
@@ -246,10 +252,11 @@ impl<D> kkt_install_commands::ImportLanes for SetupLanes<'_, '_, D> {
     fn check(&self, folder: &Path, purpose: kkt_setup::Purpose) -> Result<usize, String> {
         let native = self.0;
         let on = match purpose {
-            kkt_setup::Purpose::Service => kkt_setup::LanesOn::Local,
-            kkt_setup::Purpose::Docker => kkt_setup::LanesOn::Docker(
-                kkt_deployment::docker_folder(native.serve.env, native.serve.platform)?,
-            ),
+            kkt_setup::Purpose::Service => LanesOn::Local,
+            kkt_setup::Purpose::Docker => LanesOn::Docker(kkt_deployment::docker_folder(
+                native.serve.env,
+                native.serve.platform,
+            )?),
             kkt_setup::Purpose::Client => return Err(LANES_ON_THE_SERVER.into()),
         };
         let server = native.lanes_on(on, None, None);
@@ -260,8 +267,8 @@ impl<D> kkt_install_commands::ImportLanes for SetupLanes<'_, '_, D> {
     fn import(&self, record: &kkt_setup::Record, folder: &Path) -> Result<String, String> {
         let native = self.0;
         let on = match &record.mode {
-            kkt_setup::Mode::Docker(install) => kkt_setup::LanesOn::Docker(install.folder.clone()),
-            kkt_setup::Mode::Service { .. } => kkt_setup::LanesOn::Local,
+            kkt_setup::Mode::Docker(install) => LanesOn::Docker(install.folder.clone()),
+            kkt_setup::Mode::Service { .. } => LanesOn::Local,
             kkt_setup::Mode::Client => return Err(LANES_ON_THE_SERVER.into()),
         };
         let server = native.lanes_on(on, None, None);

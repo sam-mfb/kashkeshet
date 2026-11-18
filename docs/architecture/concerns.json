@@ -82,7 +82,7 @@
   "kkt-operator-commands": {
    "layer": "assembly",
    "kind": "composition",
-   "concern": "The operator's commands on a server's keys, agents and lanes, and the lane import setup asks for. A lane server is a contract it declares (`LaneServer`), with its local implementation on the database; the program picks the server (`LaneServers`). It is given what is installed here, and takes every effect it needs as injected parts."
+   "concern": "The operator's commands on a server's keys, agents and lanes, and the lane import setup asks for. A lane server is a contract it declares (`LaneServer`), with two implementations: the local database, and kkt in a container. The program picks the server (`LaneServers`). It is given what is installed here, and takes every effect it needs as injected parts."
   },
   "kkt-server": {
    "layer": "assembly",
@@ -161,12 +161,12 @@
   },
   "kkt-deployment": {
    "layer": "operations",
-   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data and Docker files are, whether `kkt serve` may run here, and what `kkt status` and `kkt upgrade` do. It works on facts it declares, which its caller reads from the setup record.",
+   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data and Docker files are, whether `kkt serve` may run here, what `kkt status` and `kkt upgrade` do, and how a client reaches the server. It works on facts it declares, which its caller reads from the setup record.",
    "kind": "logic"
   },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what lanes and backup do. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to, and where key files are. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic"
   },
   "kkt-bare-service": {
@@ -226,7 +226,7 @@
   },
   "kkt-backup": {
    "layer": "operations",
-   "concern": "Backups, as a contract: each backup's name, contents, file modes and retention. `Backups` writes a backup into a folder and prunes old ones, and an operating-system crate implements it.",
+   "concern": "Backups, as a contract: each backup's name, contents, file modes and retention, which server a backup acts on, which key files it holds, and where it goes. `Backups` writes a backup into a folder and prunes old ones, and an operating-system crate implements it.",
    "kind": "contract"
   },
   "kkt-backup-os": {

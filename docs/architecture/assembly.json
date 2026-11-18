@@ -89,7 +89,7 @@
    "also": [
     {
      "title": "The agents' commands",
-     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-setup's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-deployment's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
      "items": [
       "kashkeshet::machine::agent_parts::agent_parts",
       "kkt-agent-commands::AgentParts",
@@ -127,7 +127,7 @@
       "kkt-keys::KeyFiles",
       "kkt-install-commands::Databases",
       "kkt-install-commands::Output",
-      "kkt-setup::connection::ConnectionSource",
+      "kkt-deployment::connection::ConnectionSource",
       "kkt-operator-commands::agent::run",
       "kkt-install-commands::doctor::run",
       "kkt-operator-commands::lanes::run",
@@ -484,7 +484,7 @@
      "note": "kkt setup for Docker: the server's key copies on this machine"
     },
     {
-     "own": "HereLanes, picking the server kkt lanes acts on from what is installed here: ContainerLanes, kkt lanes run in the container over kkt-containerized-service's Containerized, or kkt-operator-commands' LocalLanes",
+     "own": "HereLanes, picking the server kkt lanes acts on from the deployment the setup record names, by kkt-operator-commands' lanes_on: its ContainerLanes, kkt lanes run in the container over the program's LanesInContainer, or its LocalLanes",
      "suppliers": [
       {
        "crate": "kkt-containerized-service",
@@ -731,6 +731,10 @@
       {
        "at": "OperatorParts",
        "param": "paths"
+      },
+      {
+       "at": "lanes::ContainerLanes",
+       "param": "paths"
       }
      ]
     },
@@ -856,6 +860,10 @@
       },
       {
        "at": "LaneParts",
+       "param": "output"
+      },
+      {
+       "at": "lanes::ContainerLanes",
        "param": "output"
       }
      ]
@@ -1009,7 +1017,7 @@
      "note": "whether the service's server could listen on its address"
     },
     {
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
+     "own": "ConnectionReads, answering kkt-deployment's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
      "suppliers": [
       {
        "crate": "kkt-files",
@@ -1207,7 +1215,7 @@
      "note": "kkt connect: Claude Code's own command"
     },
     {
-     "own": "ConnectionReads, answering kkt-setup's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
+     "own": "ConnectionReads, answering kkt-deployment's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
      "suppliers": [
       {
        "crate": "kkt-files",
@@ -1360,7 +1368,7 @@
      ]
     },
     {
-     "own": "ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-containerized-service's Containerized",
+     "own": "kkt-operator-commands' ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-containerized-service's Containerized",
      "suppliers": [
       {
        "crate": "kkt-containerized-service",
@@ -1381,21 +1389,21 @@
      "note": "kkt setup --lanes"
     },
     {
-     "own": "ContainerLanes' read of the lane limit, the container's config file read over kkt-containerized-service's Containerized and parsed by ContainerConfigs",
+     "own": "LanesInContainer, kkt installed in a container as the lane commands take it: kkt-containerized-service's Containerized in the install's folder, with the program's ContainerConfigs reading kkt's config file there for its lane limit",
      "suppliers": [
       {
        "crate": "kkt-containerized-service",
        "item": "Containerized"
       }
      ],
-     "crate": "kkt-setup",
+     "crate": "kkt-operator-commands",
      "to": [
       {
-       "at": "lane_reports::docker_limit",
-       "param": "read"
+       "at": "lanes::ContainerLanes",
+       "param": "container"
       }
      ],
-     "note": "kkt setup --lanes, for kkt in Docker"
+     "note": "kkt lanes for kkt in Docker: the lanes run in the container."
     }
    ],
    "inferred": false
@@ -2145,7 +2153,7 @@
      ]
     },
     {
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "to": [
       {
        "at": "connection::client_connection",
@@ -2390,7 +2398,7 @@
     },
     {
      "passes_on": "the connection question the program gave each command",
-     "crate": "kkt-setup",
+     "crate": "kkt-deployment",
      "to": [
       {
        "at": "connection::client_connection",
@@ -2570,10 +2578,6 @@
      "crate": "kkt-setup",
      "to": [
       {
-       "at": "admin_name_line",
-       "param": "files"
-      },
-      {
        "at": "new_key_file",
        "param": "files"
       },
@@ -2583,6 +2587,23 @@
       },
       {
        "at": "write_key_file",
+       "param": "files"
+      }
+     ],
+     "note": "kkt setup, kkt service install, kkt upgrade, kkt status",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "key_files"
+      }
+     ]
+    },
+    {
+     "passes_on": "the key files the program gave InstallParts",
+     "crate": "kkt-deployment",
+     "to": [
+      {
+       "at": "admin_name_line",
        "param": "files"
       }
      ],
@@ -2657,7 +2678,7 @@
      "crate": "kkt-rules",
      "to": [
       {
-       "at": "CommandLine::new",
+       "at": "DirectAccess::new",
        "param": "clock"
       }
      ],
@@ -2737,15 +2758,28 @@
      "crate": "kkt-setup",
      "to": [
       {
-       "at": "admin_name_line",
-       "param": "files"
-      },
-      {
        "at": "new_key_file",
        "param": "files"
       },
       {
        "at": "write_admin_name",
+       "param": "files"
+      }
+     ],
+     "note": "kkt key",
+     "from": [
+      {
+       "at": "OperatorParts",
+       "param": "key_files"
+      }
+     ]
+    },
+    {
+     "passes_on": "the key files the program gave OperatorParts",
+     "crate": "kkt-deployment",
+     "to": [
+      {
+       "at": "admin_name_line",
        "param": "files"
       }
      ],
@@ -2869,14 +2903,14 @@
   },
   {
    "crate": "kkt-agent-commands",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "at": "connection::serve_connection",
    "param": "source",
    "why": "it asks client_connection and admin_connection only"
   },
   {
    "crate": "kkt-install-commands",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "at": "connection::admin_connection",
    "param": "source",
    "why": "it asks client_connection and serve_connection only"
@@ -3137,31 +3171,31 @@
   },
   {
    "crate": "kashkeshet",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "at": "connection::client_connection",
    "param": "source",
    "why": "the program gives its ConnectionReads to kkt-install-commands and kkt-agent-commands, which ask it"
   },
   {
    "crate": "kashkeshet",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "at": "connection::admin_connection",
    "param": "source",
    "why": "the program gives its ConnectionReads to kkt-agent-commands, which asks it"
   },
   {
    "crate": "kashkeshet",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "at": "connection::serve_connection",
    "param": "source",
    "why": "it calls serve_connection only in its own tests; kkt-install-commands asks it"
   },
   {
    "crate": "kashkeshet",
-   "to": "kkt-setup",
+   "to": "kkt-deployment",
    "at": "connection::recorded_connection",
    "param": "absolute",
-   "why": "it never calls recorded_connection: kkt-setup's other connection functions do"
+   "why": "it never calls recorded_connection: kkt-deployment's other connection functions do"
   },
   {
    "crate": "kkt-webapp-preview",

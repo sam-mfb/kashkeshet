@@ -3,8 +3,8 @@
 
 use crate::{AgentParts, client};
 use kkt_agent_client::Failure;
+use kkt_deployment::connection::{ConnectionOptions, ConnectionSource};
 use kkt_names as names;
-use kkt_setup::connection::{ConnectionOptions, ConnectionSource};
 use std::path::PathBuf;
 
 /// What `kkt register` asks the server for: a handle, a lane to take, and

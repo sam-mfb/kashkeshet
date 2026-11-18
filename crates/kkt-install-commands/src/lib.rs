@@ -13,7 +13,7 @@ pub mod record;
 pub mod service;
 pub mod setup;
 
-use kkt_setup::connection::ConnectionSource;
+use kkt_deployment::connection::ConnectionSource;
 use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -76,7 +76,7 @@ pub struct CheckedService {
 /// ```compile_fail,E0277
 /// use kkt_machine::{Env, Platform};
 /// use kkt_install_commands::InstallParts;
-/// use kkt_setup::connection::ConnectionSource;
+/// use kkt_deployment::connection::ConnectionSource;
 /// fn inspect<C: ConnectionSource>(parts: &InstallParts<'_, C>, env: &Env, platform: Platform) {
 ///     let _ = kkt_install_commands::record::read_unrecorded(parts, env, platform);
 /// }

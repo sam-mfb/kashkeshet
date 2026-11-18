@@ -1140,11 +1140,11 @@ dependencies = [
  "futures",
  "kkt-agent-client",
  "kkt-clock",
+ "kkt-deployment",
  "kkt-keys",
  "kkt-llm-agent-config",
  "kkt-machine",
  "kkt-names",
- "kkt-setup",
  "kkt-watch",
 ]
 
@@ -1202,6 +1202,7 @@ name = "kkt-backup"
 version = "0.10.0"
 dependencies = [
  "kkt-clock",
+ "kkt-keys",
  "thiserror",
 ]
 
@@ -1327,8 +1328,12 @@ dependencies = [
 name = "kkt-deployment"
 version = "0.10.0"
 dependencies = [
+ "kkt-keys",
  "kkt-machine",
+ "kkt-names",
  "semver",
+ "thiserror",
+ "url",
 ]
 
 [[package]]
@@ -1594,10 +1599,12 @@ dependencies = [
 name = "kkt-operator-commands"
 version = "0.10.0"
 dependencies = [
+ "futures",
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-clock",
  "kkt-config-file",
+ "kkt-deployment",
  "kkt-entropy",
  "kkt-keys",
  "kkt-lane-files",

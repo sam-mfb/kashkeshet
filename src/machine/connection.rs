@@ -1,5 +1,5 @@
 //! How a client reaches the server: its address and access key file, from
-//! the setup record or the serve settings. kkt-setup's connection question,
+//! the setup record or the serve settings. kkt-deployment's connection question,
 //! answered on this machine (`ConnectionReads`).
 
 use crate::machine::keys::{make_default_key, read_key};
@@ -7,17 +7,28 @@ use crate::machine::native::NativeSetupFiles;
 use crate::machine::settings::ServeOptions;
 use crate::machine::settings::Sources;
 use crate::machine::settings::serve_settings_and_sources;
-use kkt_diagnostics as diagnostics;
+/// The MCP endpoint a client of the serve settings reaches: `given`, as
+/// kkt-deployment's address rule takes it, or with none given the server on
+/// `bind`. A bare address is given `mcp_path`.
+pub fn serve_endpoint(
+    bind: std::net::SocketAddr,
+    given: Option<&str>,
+    mcp_path: &str,
+) -> Result<String, String> {
+    let default = format!("http://{bind}{mcp_path}");
+    kkt_deployment::connection::server_address(given.unwrap_or(&default), Some(mcp_path))
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+use kkt_deployment::connection::Connection;
+pub use kkt_deployment::connection::ConnectionOptions;
+use kkt_deployment::connection::{ConnectionSource, RecordedServer, ServeConnection};
 use kkt_keys::AccessKey;
 use kkt_machine::{Env, Platform};
-use kkt_setup as setup;
-#[cfg(test)]
-use setup::connection::Connection;
-pub use setup::connection::ConnectionOptions;
-use setup::connection::{ConnectionSource, ServeConnection};
 use std::path::Path;
 
-/// kkt-setup's connection question, answered from this machine's setup
+/// kkt-deployment's connection question, answered from this machine's setup
 /// record and serve settings.
 pub struct ConnectionReads<'a> {
     pub(crate) env: &'a Env,
@@ -33,8 +44,11 @@ impl<'a> ConnectionReads<'a> {
 impl ConnectionSource for ConnectionReads<'_> {
     type KeySource = Sources;
 
-    fn record(&self) -> Result<Option<setup::Record>, String> {
-        kkt_install_commands::record::read_setup(self.env, &NativeSetupFiles)
+    fn recorded(&self) -> Result<Option<RecordedServer>, String> {
+        Ok(
+            kkt_install_commands::record::read_setup(self.env, &NativeSetupFiles)?
+                .map(|record| kkt_install_commands::deployment::recorded_server(&record)),
+        )
     }
 
     fn serve(&self, flags: ConnectionOptions) -> Result<ServeConnection<Sources>, String> {
@@ -49,7 +63,7 @@ impl ConnectionSource for ConnectionReads<'_> {
                 ..ServeOptions::NONE
             },
         )?;
-        let url = diagnostics::endpoint(settings.bind, flags.url.as_deref(), kkt_mcp::MCP_PATH)?;
+        let url = serve_endpoint(settings.bind, flags.url.as_deref(), kkt_mcp::MCP_PATH)?;
         Ok(ServeConnection {
             url,
             access_key: settings.access_key,
@@ -82,7 +96,7 @@ fn serve_connection(
     flags: ConnectionOptions,
     create: bool,
 ) -> Result<Connection, String> {
-    setup::connection::serve_connection(&ConnectionReads { env, platform }, flags, create)
+    kkt_deployment::connection::serve_connection(&ConnectionReads { env, platform }, flags, create)
 }
 
 #[cfg(test)]

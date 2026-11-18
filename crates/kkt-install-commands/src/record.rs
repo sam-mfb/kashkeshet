@@ -3,9 +3,9 @@
 
 use crate::{Output, SetupFiles};
 use kkt_bare_service::ServiceError;
+use kkt_deployment::connection::{self, ConnectionOptions, ConnectionSource};
 use kkt_machine::{Env, Platform};
 use kkt_setup as setup;
-use kkt_setup::connection::{self, ConnectionOptions, ConnectionSource};
 
 /// Where `kkt setup` saves the Docker server's access key, in the config
 /// directory.
