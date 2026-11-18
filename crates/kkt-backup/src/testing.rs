@@ -1,6 +1,6 @@
 //! [`Memory`], backups in memory, for tests.
 
-use crate::{Backups, Layout, old_names};
+use crate::{BackupError, Backups, Layout, old_names};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 #[derive(Default)]
 pub struct Memory {
     folders: RefCell<BTreeMap<PathBuf, BTreeMap<String, Written>>>,
-    failing: RefCell<Option<String>>,
+    failing: RefCell<Option<Box<dyn Fn() -> BackupError>>>,
 }
 
 /// A backup [`Memory`] holds: what its layout said to copy.
@@ -49,9 +49,9 @@ impl Memory {
         self
     }
 
-    /// Makes every write and prune fail with `reason`.
-    pub fn failing(self, reason: &str) -> Memory {
-        *self.failing.borrow_mut() = Some(reason.to_owned());
+    /// Makes every write and prune fail with the error `error` makes.
+    pub fn failing(self, error: impl Fn() -> BackupError + 'static) -> Memory {
+        *self.failing.borrow_mut() = Some(Box::new(error));
         self
     }
 
@@ -69,22 +69,22 @@ impl Memory {
         self.folders.borrow().get(folder)?.get(name).cloned()
     }
 
-    fn check(&self) -> Result<(), String> {
+    fn check(&self) -> Result<(), BackupError> {
         match self.failing.borrow().as_ref() {
-            Some(reason) => Err(reason.clone()),
+            Some(error) => Err(error()),
             None => Ok(()),
         }
     }
 }
 
 impl Backups for Memory {
-    fn write(&self, folder: &Path, layout: &Layout<'_>) -> Result<PathBuf, String> {
+    fn write(&self, folder: &Path, layout: &Layout<'_>) -> Result<PathBuf, BackupError> {
         self.check()?;
         let done = folder.join(layout.name());
         let mut folders = self.folders.borrow_mut();
         let backups = folders.entry(folder.to_owned()).or_default();
         if backups.contains_key(layout.name()) {
-            return Err(format!("{} already exists", done.display()));
+            return Err(BackupError::Exists { path: done });
         }
         backups.insert(
             layout.name().to_owned(),
@@ -101,7 +101,7 @@ impl Backups for Memory {
         Ok(done)
     }
 
-    fn prune(&self, folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String> {
+    fn prune(&self, folder: &Path, keep: usize) -> Result<Vec<PathBuf>, BackupError> {
         self.check()?;
         let mut folders = self.folders.borrow_mut();
         let Some(backups) = folders.get_mut(folder) else {
@@ -150,7 +150,7 @@ mod tests {
             [("access-key", PathBuf::from("/k/access-key"), true)]
         );
         assert_eq!(
-            backups.write(folder, &layout),
+            backups.write(folder, &layout).map_err(|e| e.to_string()),
             Err(format!("{} already exists", written.display()))
         );
     }
@@ -168,12 +168,23 @@ mod tests {
         let removed = backups.prune(folder, 2).expect("pruned");
         assert_eq!(removed, [folder.join(day(14))]);
         assert_eq!(backups.names(folder).len(), 4);
-        assert_eq!(backups.prune(Path::new("/none"), 1), Ok(Vec::new()));
+        assert_eq!(
+            backups
+                .prune(Path::new("/none"), 1)
+                .map_err(|e| e.to_string()),
+            Ok(Vec::new())
+        );
     }
 
     #[test]
     fn a_failure_on_cue_fails_both_operations() {
-        let backups = Memory::new().failing("disk full");
+        let backups = Memory::new().failing(|| {
+            BackupError::file(
+                crate::FileAction::Write,
+                "/b",
+                std::io::Error::other("disk full"),
+            )
+        });
         let contents = Contents {
             database: Path::new("/d/kashkeshet.db"),
             config: None,
@@ -184,13 +195,15 @@ mod tests {
         };
         let layout = layout(at("2026-11-16T10:00:00Z"), "1.0.0", &contents);
         assert_eq!(
-            backups.write(Path::new("/b"), &layout),
-            Err("disk full".to_owned())
+            backups
+                .write(Path::new("/b"), &layout)
+                .map_err(|e| e.to_string()),
+            Err("could not write /b: disk full".to_owned())
         );
         assert!(backups.names(Path::new("/b")).is_empty());
         assert_eq!(
-            backups.prune(Path::new("/b"), 1),
-            Err("disk full".to_owned())
+            backups.prune(Path::new("/b"), 1).map_err(|e| e.to_string()),
+            Err("could not write /b: disk full".to_owned())
         );
     }
 }

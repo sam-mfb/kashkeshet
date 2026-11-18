@@ -1,4 +1,4 @@
-use super::OsBackups;
+use super::{CopyError, OsBackups};
 use kkt_backup::{Backups, Contents, DATABASE_FILE, layout, name};
 use kkt_clock::{Span, Time};
 use std::path::{Path, PathBuf};
@@ -17,14 +17,18 @@ fn write(
     at: Time,
     version: &str,
     contents: &Contents<'_>,
-    copy_database: impl Fn(&Path, &Path) -> Result<(), String>,
+    copy_database: impl Fn(&Path, &Path) -> Result<(), CopyError>,
 ) -> Result<PathBuf, String> {
-    OsBackups::new(copy_database).write(folder, &layout(at, version, contents))
+    OsBackups::new(copy_database)
+        .write(folder, &layout(at, version, contents))
+        .map_err(|e| e.to_string())
 }
 
 /// Pruning, as the program's backups do it: the database copy is not used.
 fn prune(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String> {
-    OsBackups::new(|_: &Path, _: &Path| Err("not copied".to_owned())).prune(folder, keep)
+    OsBackups::new(|_: &Path, _: &Path| Err("not copied".into()))
+        .prune(folder, keep)
+        .map_err(|e| e.to_string())
 }
 
 fn at(seconds: u32) -> Time {
@@ -38,10 +42,8 @@ fn scratch_dir(test: &str) -> kkt_scratch::Dir {
 
 /// A database "copy" that writes the source's text, as the store's would
 /// write its pages.
-fn copy_text(from: &Path, to: &Path) -> Result<(), String> {
-    std::fs::copy(from, to)
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+fn copy_text(from: &Path, to: &Path) -> Result<(), CopyError> {
+    std::fs::copy(from, to).map(|_| ()).map_err(CopyError::from)
 }
 
 #[cfg(unix)]
@@ -244,7 +246,7 @@ fn a_failed_backup_leaves_nothing_behind() {
     assert!(error.contains("no-such-key"), "{error}");
     assert_eq!(std::fs::read_dir(&folder).expect("list").count(), 0);
 
-    let failing = |_: &Path, _: &Path| Err("disk full".to_string());
+    let failing = |_: &Path, _: &Path| Err("disk full".into());
     let error = write(&folder, at(1), "0.3.0", &contents, failing).expect_err("fails");
     assert!(error.contains("disk full"), "{error}");
     assert_eq!(std::fs::read_dir(&folder).expect("list").count(), 0);
@@ -341,7 +343,7 @@ fn every_backup_message_says_what_it_always_said() {
 
     // The database copy fails, in the program's words.
     let folder = dir.join("database");
-    let failing = |_: &Path, _: &Path| Err("disk full".to_string());
+    let failing = |_: &Path, _: &Path| Err("disk full".into());
     assert_eq!(
         write(&folder, at(0), "0.3.0", &bare, failing).expect_err("fails"),
         format!(

@@ -247,7 +247,9 @@ fn write_backup(
     contents: &backup::Contents,
 ) -> Result<PathBuf, String> {
     let layout = backup::layout(clock.now(), Build::CURRENT.version, contents);
-    OsBackups::new(crate::machine::database::copy).write(folder, &layout)
+    OsBackups::new(crate::machine::database::copy)
+        .write(folder, &layout)
+        .map_err(|e| e.to_string())
 }
 
 /// Before the server upgrades the tables in `database`, backs it up beside
@@ -259,7 +261,7 @@ fn backup_before_upgrade(database: &Path, keep: usize, clock: &dyn Clock) -> Res
     let Some(upgrade) = crate::machine::database::pending_upgrade(database)? else {
         return Ok(());
     };
-    let folder = backup::upgrade_backup_folder(database)?;
+    let folder = backup::upgrade_backup_folder(database).map_err(|e| e.to_string())?;
     let contents = backup::Contents {
         database,
         config: None,
