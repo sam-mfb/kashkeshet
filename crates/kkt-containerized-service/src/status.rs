@@ -143,11 +143,12 @@ pub(crate) fn name_pack(
             .map(|home| home.join(config_file))
             .ok_or("container has no config path")?,
     };
-    let working = config.working_dir.as_str();
+    // A container whose image names no folder runs in `/`.
+    let working = config.working_dir.as_deref().unwrap_or("/");
     let path = if path.is_absolute() {
         path
     } else {
-        Path::new(if working.is_empty() { "/" } else { working }).join(path)
+        Path::new(working).join(path)
     };
     let path_text = config_path_text(&path)?;
     if explicit.is_none() {

@@ -80,9 +80,6 @@ impl KeyFiles for KeyCopiesOn {
     fn read(&self, _: &Path) -> io::Result<String> {
         unreachable!("setup only writes key copies")
     }
-    fn exists(&self, path: &Path) -> bool {
-        self.0.has(path)
-    }
     fn try_exists(&self, path: &Path) -> io::Result<bool> {
         Ok(self.0.has(path))
     }

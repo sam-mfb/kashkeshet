@@ -67,6 +67,10 @@ pub enum PlanError {
     /// A path the service is given is not valid UTF-8.
     #[error("{} is not valid UTF-8", .0.display())]
     NotText(PathBuf),
+    /// Whether a key file is there could not be told, so whether to make
+    /// one is unknown.
+    #[error("could not tell whether the key file {} is there: {cause}", path.display())]
+    KeyFile { path: PathBuf, cause: String },
 }
 
 /// The plan for the service, before its arguments are written out.
@@ -90,8 +94,18 @@ pub struct Plan {
     dirs: Vec<PathBuf>,
 }
 
-/// Works out the plan. `exists` says whether a key file is already there.
-pub fn plan(request: Request, exists: &dyn Fn(&Path) -> bool) -> Result<Plan, PlanError> {
+/// Works out the plan. `exists` says whether a key file is already there,
+/// or why that cannot be told.
+pub fn plan(
+    request: Request,
+    exists: &dyn Fn(&Path) -> std::io::Result<bool>,
+) -> Result<Plan, PlanError> {
+    let exists = |path: &Path| {
+        exists(path).map_err(|e| PlanError::KeyFile {
+            path: path.to_path_buf(),
+            cause: e.to_string(),
+        })
+    };
     let Request {
         config_file,
         flags,
@@ -115,7 +129,7 @@ pub fn plan(request: Request, exists: &dyn Fn(&Path) -> bool) -> Result<Plan, Pl
         (None, None) if key_off => (None, None),
         (None, None) => {
             let key = default_key.clone().ok_or(PlanError::NoHomeForKey)?;
-            let new = (!exists(&key)).then(|| key.clone());
+            let new = (!exists(&key)?).then(|| key.clone());
             (Some(key), new)
         }
     };
@@ -140,7 +154,7 @@ pub fn plan(request: Request, exists: &dyn Fn(&Path) -> bool) -> Result<Plan, Pl
         _ => AccessKey::None,
     };
     let new_web_key = match &web_key {
-        AccessKey::Default(path) if !exists(path) => Some(path.clone()),
+        AccessKey::Default(path) if !exists(path)? => Some(path.clone()),
         _ => None,
     };
     match &new_key {
@@ -231,12 +245,12 @@ mod tests {
         }
     }
 
-    fn none_exist(_: &Path) -> bool {
-        false
+    fn none_exist(_: &Path) -> std::io::Result<bool> {
+        Ok(false)
     }
 
-    fn all_exist(_: &Path) -> bool {
-        true
+    fn all_exist(_: &Path) -> std::io::Result<bool> {
+        Ok(true)
     }
 
     fn args(plan: &Plan) -> Vec<String> {
@@ -294,7 +308,7 @@ mod tests {
 
     #[test]
     fn a_missing_web_key_is_made_beside_an_existing_access_key() {
-        let plan = plan(request(), &|p: &Path| p == Path::new(DEFAULT_KEY)).expect("plan");
+        let plan = plan(request(), &|p: &Path| Ok(p == Path::new(DEFAULT_KEY))).expect("plan");
         assert_eq!(plan.new_key, None);
         assert_eq!(plan.new_web_key, Some(path(DEFAULT_WEB_KEY)));
         assert_eq!(plan.check.access_key_file, Some(path(DEFAULT_KEY)));
@@ -302,8 +316,32 @@ mod tests {
     }
 
     #[test]
+    fn a_key_file_that_cannot_be_looked_at_is_refused_not_taken_as_missing() {
+        let unreadable = |_: &Path| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "permission denied",
+            ))
+        };
+        let error = plan(request(), &unreadable).expect_err("refused");
+        assert_eq!(
+            error,
+            PlanError::KeyFile {
+                path: path(DEFAULT_KEY),
+                cause: "permission denied".into()
+            }
+        );
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "could not tell whether the key file {DEFAULT_KEY} is there: permission denied"
+            )
+        );
+    }
+
+    #[test]
     fn a_missing_access_key_is_made_and_an_existing_web_key_still_checked() {
-        let plan = plan(request(), &|p: &Path| p == Path::new(DEFAULT_WEB_KEY)).expect("plan");
+        let plan = plan(request(), &|p: &Path| Ok(p == Path::new(DEFAULT_WEB_KEY))).expect("plan");
         assert_eq!(plan.new_key, Some(path(DEFAULT_KEY)));
         assert_eq!(plan.new_web_key, None);
         assert_eq!(plan.check.no_access_key, Some(true));
