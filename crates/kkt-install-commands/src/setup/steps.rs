@@ -15,7 +15,6 @@ use kkt_llm_agent_config::{self as clients, Client, Setup};
 use kkt_machine::{Env, Platform};
 use kkt_names::AdminName;
 use kkt_setup as setup;
-use setup::waiting_note;
 use std::path::{Path, PathBuf};
 
 /// What `kkt setup` does to this machine.
@@ -159,13 +158,13 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         let dir = kkt_config_file::config_dir(self.env.config_home().as_deref())
             .ok_or("set HOME to keep the key in ~/.config/kkt")?;
         self.parts.key_files.create_dir_all(&dir)?;
-        let path = setup::staged_client_key(&dir);
+        let path = staged_client_key(&dir);
         self.parts.key_files.write_key(&path, key, true)?;
         Ok(path)
     }
 
     fn keep_key(&self, staged: &Path, url: &str) -> Result<PathBuf, String> {
-        let path = setup::client_key(staged, url)?;
+        let path = client_key(staged, url)?;
         self.parts.key_files.keep_staged(staged, &path)?;
         Ok(path)
     }
@@ -308,6 +307,16 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         // `check_lanes` warned of the skipped files before setup began.
         self.parts.import_lanes.import(record, folder)
     }
+
+    fn check_typed_key(&self, key: &str) -> Result<(), String> {
+        check_typed_key(key)
+    }
+}
+
+/// Checks that `key`, typed in for a client, is a valid access key, by
+/// kkt-keys' rule. Returns why not.
+fn check_typed_key(key: &str) -> Result<(), String> {
+    kkt_keys::check_access_key(key).map_err(|e| e.to_string())
 }
 
 impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
@@ -480,8 +489,120 @@ fn only_problems(checks: Vec<kkt_diagnostics::Check>) -> Result<(), String> {
     Err(diagnostics::report(problems).0.trim_end().to_string())
 }
 
+/// The client key file's name, beside the config file.
+const CLIENT_KEY_FILE_NAME: &str = "client-access-key";
+
+pub(crate) fn staged_client_key(dir: &Path) -> PathBuf {
+    dir.join(format!("{CLIENT_KEY_FILE_NAME}.partial"))
+}
+
+/// One key per server, so another server's saved key is never replaced. It
+/// goes beside the staged key; a staged path in no folder is refused.
+pub(crate) fn client_key(staged: &Path, url: &str) -> Result<PathBuf, String> {
+    let dir = staged
+        .parent()
+        .ok_or_else(|| format!("{} is not in a folder to keep keys in", staged.display()))?;
+    let server: String = kkt_hash::sha256(url.as_bytes())
+        .iter()
+        .take(6)
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    Ok(dir.join(format!("{CLIENT_KEY_FILE_NAME}-{server}")))
+}
+
+/// What setup says while it waits for the server at `url`, set up as `mode`,
+/// to answer.
+pub(crate) fn waiting_note(url: &str, mode: &setup::Mode) -> String {
+    let tailscale = match mode {
+        setup::Mode::Docker(install) => install.tailscale,
+        setup::Mode::Service { tailscale } => *tailscale,
+        setup::Mode::Client => false,
+    };
+    if tailscale {
+        format!(
+            "Waiting for the server to answer at {url} (a new Tailscale node gets its \
+             HTTPS certificate on first use)..."
+        )
+    } else {
+        format!("Waiting for the server to answer at {url}...")
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_malformed_typed_key_is_refused_with_kkt_keys_words() {
+        assert_eq!(
+            super::check_typed_key("short"),
+            Err("access_key_file must hold a key of at least 32 characters".to_string())
+        );
+        assert_eq!(
+            super::check_typed_key("0123456789abcdef 0123456789abcdef"),
+            Err("access_key_file must hold only printable ASCII with no spaces".to_string())
+        );
+        assert_eq!(
+            super::check_typed_key("0123456789abcdefghijklmnopqrstuvwxyz"),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn the_client_key_names_and_the_waiting_note_are_pinned() {
+        // The client key names, hash and all.
+        let staged = staged_client_key(Path::new("/c/kkt"));
+        assert_eq!(staged, PathBuf::from("/c/kkt/client-access-key.partial"));
+        assert_eq!(
+            client_key(&staged, "https://a.example/mcp").expect("in a folder"),
+            PathBuf::from("/c/kkt/client-access-key-42c16f3bfd38")
+        );
+        // The waiting note, plain and over Tailscale.
+        assert_eq!(
+            waiting_note("http://h/mcp", &setup::Mode::Service { tailscale: false }),
+            "Waiting for the server to answer at http://h/mcp..."
+        );
+        assert_eq!(
+            waiting_note("https://h/mcp", &setup::Mode::Service { tailscale: true }),
+            "Waiting for the server to answer at https://h/mcp (a new Tailscale node gets its \
+             HTTPS certificate on first use)..."
+        );
+        assert_eq!(
+            waiting_note(
+                "https://h/mcp",
+                &setup::Mode::Docker(setup::DockerSetup {
+                    folder: PathBuf::from("/d"),
+                    tailscale: true,
+                    hostname: None,
+                    tailnet: None,
+                })
+            ),
+            "Waiting for the server to answer at https://h/mcp (a new Tailscale node gets its \
+             HTTPS certificate on first use)..."
+        );
+        assert_eq!(
+            waiting_note("http://h/mcp", &setup::Mode::Client),
+            "Waiting for the server to answer at http://h/mcp..."
+        );
+    }
+
+    #[test]
+    fn a_client_key_goes_beside_the_staged_one_named_for_its_server() {
+        let staged = staged_client_key(Path::new("/c/kkt"));
+        let kept = client_key(&staged, "https://a.example/mcp").expect("in a folder");
+        assert_eq!(kept.parent(), Some(Path::new("/c/kkt")));
+        assert_ne!(
+            kept,
+            client_key(&staged, "https://b.example/mcp").expect("in a folder")
+        );
+    }
+
+    #[test]
+    fn a_path_in_no_folder_is_refused_not_taken_as_here() {
+        assert_eq!(
+            client_key(Path::new("/"), "https://a.example/mcp"),
+            Err("/ is not in a folder to keep keys in".to_string())
+        );
+    }
+
     use super::*;
 
     fn docker(tailscale: bool) -> setup::Mode {

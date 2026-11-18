@@ -179,6 +179,9 @@ pub trait Steps: SwitchSteps + AdoptSteps {
     /// Imports the lane files in `folder` into the server installed as
     /// `record`, as `kkt lanes import` does. Returns its report.
     fn import_lanes(&self, record: &Record, folder: &Path) -> Result<String, String>;
+    /// Checks, changing nothing, that `key`, typed in for a client and
+    /// trimmed, is a valid access key. Returns why not as an error.
+    fn check_typed_key(&self, key: &str) -> Result<(), String>;
 }
 
 const MODE: Question = Question {
@@ -1021,7 +1024,7 @@ fn checked_key(
     loop {
         let key = match &answers.key_file {
             Some(path) => ClientKey::File(path.clone()),
-            None => match typed_key(&ask.text(KEY, DEFAULT_SETUP_KEY)?) {
+            None => match typed_key(&ask.text(KEY, DEFAULT_SETUP_KEY)?, steps) {
                 Ok(key) => key,
                 Err(problem) => {
                     ask.tell(&problem);
@@ -1044,12 +1047,15 @@ fn checked_key(
     }
 }
 
-/// The key typed in answer to [`KEY`]: none when blank.
-fn typed_key(text: &str) -> Result<ClientKey, String> {
+/// The key typed in answer to [`KEY`]: none when blank. A key the steps
+/// find malformed is refused before any server is asked.
+fn typed_key(text: &str, steps: &dyn Steps) -> Result<ClientKey, String> {
     match text.trim() {
         "" => Ok(ClientKey::None),
         key => {
-            kkt_keys::check_access_key(key).map_err(|e| format!("that key is not valid: {e}"))?;
+            steps
+                .check_typed_key(key)
+                .map_err(|e| format!("that key is not valid: {e}"))?;
             Ok(ClientKey::Typed(key.to_string()))
         }
     }

@@ -10,12 +10,6 @@
 
 mod adopt;
 pub mod ask;
-mod program;
-pub use program::{
-    admin_key_line, client_key, configured_name_pack_line, docker_status_lines,
-    service_upgrade_error, staged_client_key, uninstall_line, uninstall_record, waiting_note,
-    web_key_line,
-};
 mod flow;
 mod local;
 mod record;
