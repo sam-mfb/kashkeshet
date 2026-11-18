@@ -238,7 +238,7 @@ impl Product {
             mcp: settings.mcp,
             ..kkt_server::ServerSettings::DEFAULT
         };
-        let server_settings = server_settings.check([]).expect("valid server settings");
+        let server_settings = server_settings.check().expect("valid server settings");
         let parts = Parts::new(
             Arc::new(rules),
             clock,

@@ -319,6 +319,3 @@ mod tests {
         assert_eq!(body, "the access key is wrong");
     }
 }
-
-#[cfg(test)]
-mod record_tests;

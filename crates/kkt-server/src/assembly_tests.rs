@@ -66,7 +66,7 @@ async fn router_with(shutdown: &Shutdown, admin: Option<AdminAdmission>) -> axum
         Arc::new(RefusesEveryone),
         Arc::new(kkt_log::testing::CapturedLog::default()),
         crate::ServerSettings::DEFAULT
-            .check([])
+            .check()
             .expect("default settings"),
     );
     let config = AppConfig {

@@ -427,6 +427,56 @@ pub struct Checked {
     pub dependency_log_level: LogLevel,
 }
 
+/// The order the startup checks report bad settings in: the first problem
+/// in this list wins, whichever owner found it. A problem the list does not
+/// name comes after every one it does, in the order given.
+const CHECK_ORDER: &[(&str, &str)] = &[
+    ("bind", "check_bind"),
+    ("allow_any_bind", "check_bind"),
+    ("dependency_log_level", "check_dependency_log_level"),
+    ("default_limit", "floor"),
+    ("max_body_bytes", "floor"),
+    ("max_channel_name_chars", "floor"),
+    ("max_purpose_chars", "floor"),
+    ("max_description_chars", "floor"),
+    ("max_note_chars", "floor"),
+    ("max_server_announcement_chars", "floor"),
+    ("max_memory_entry_chars", "floor"),
+    ("max_memory_chars", "floor"),
+    ("max_lane_chars", "floor"),
+    ("sends_per_minute", "floor"),
+    ("registrations_per_minute", "floor"),
+    ("max_agents", "floor"),
+    ("web_page_messages", "floor"),
+    ("web_member_excerpt_chars", "floor"),
+    ("upgrade_backups_kept", "floor"),
+    ("max_response_bytes", "floor"),
+    ("max_limit", "default_limit"),
+    ("max_memory_chars", "max_memory_entry_chars"),
+    ("web_page_messages", "ceiling"),
+    ("web_session_lifetime", "floor"),
+    ("waiting_grace", "max_wait"),
+    ("max_wait", "default_wait"),
+    ("allow_host", "host"),
+];
+
+/// The first of `problems`, each (setting, owner's check, rule), in
+/// [`CHECK_ORDER`], or none.
+fn first_problem(
+    problems: Vec<(&'static str, &'static str, String)>,
+) -> Option<kkt_server::SettingError> {
+    let index = CHECK_ORDER
+        .iter()
+        .find_map(|key| {
+            problems
+                .iter()
+                .position(|(name, check, _)| (*name, *check) == *key)
+        })
+        .or_else(|| (!problems.is_empty()).then_some(0))?;
+    let (name, _, rule) = problems.into_iter().nth(index)?;
+    Some(kkt_server::SettingError { name, rule })
+}
+
 /// Runs the startup checks on `settings` and reads the files they name.
 /// The errors name the bad setting, and the config file if it set it.
 pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Checked, String> {
@@ -462,9 +512,11 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     if let Err(p) = check_dependency_log_level(dependency_log_level) {
         problems.push((p.name, "check_dependency_log_level", p.rule));
     }
-    let server_settings = server_settings
-        .check(problems)
-        .map_err(|e| sources.invalid(e))?;
+    problems.extend(server_settings.problems());
+    if let Some(problem) = first_problem(problems) {
+        return Err(sources.invalid(problem));
+    }
+    let server_settings = server_settings.check().map_err(|e| sources.invalid(e))?;
     // None configured: the server sends its built-in instructions.
     let instructions = instructions
         .as_ref()
@@ -539,10 +591,7 @@ mod tests {
     /// Which bad setting the startup checks report, of all those given, as
     /// `check_settings` asks it.
     fn first_reported(problems: Vec<(&'static str, &'static str, String)>) -> String {
-        ServerSettings::DEFAULT
-            .check(problems)
-            .expect_err("a problem")
-            .rule
+        first_problem(problems).expect("a problem").rule
     }
 
     /// The order bad settings are reported in, pinned: given every kind of

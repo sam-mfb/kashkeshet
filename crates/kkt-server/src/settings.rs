@@ -1,5 +1,5 @@
-//! Settings for the parts this assembly builds, and the order in which a
-//! run checks and records settings, including the program's plain values.
+//! Settings for the parts this assembly builds: their problems, the checked
+//! snapshot `Parts::new` takes, and their run-record lines.
 
 use kkt_hosts::AllowedHosts;
 
@@ -50,44 +50,36 @@ impl ServerSettings {
         allowed_hosts: Vec::new(),
     };
 
-    /// The first problem in the startup order, or one checked snapshot
-    /// for Parts::new. Program problems are (setting, owner's check, rule).
-    /// All checks stay with their owners; this method only orders them.
-    /// Problems outside the known order follow it, in the order supplied.
-    pub fn check(
-        self,
-        program: impl IntoIterator<Item = (&'static str, &'static str, String)>,
-    ) -> Result<CheckedSettings, SettingError> {
-        let mut problems: Vec<_> = program.into_iter().collect();
-        problems.extend(
-            self.formatter
-                .problems()
-                .into_iter()
-                .map(|p| (p.name, p.check, p.rule)),
-        );
+    /// The problems of these settings, each as (setting, owner's check,
+    /// rule): the result formatter's, the web page's and the host list's.
+    /// The program orders them with its own (see [`ServerSettings::check`]).
+    pub fn problems(&self) -> Vec<(&'static str, &'static str, String)> {
+        let mut problems: Vec<_> = self
+            .formatter
+            .problems()
+            .into_iter()
+            .map(|p| (p.name, p.check, p.rule))
+            .collect();
         problems.extend(
             self.web
                 .problems()
                 .into_iter()
                 .map(|p| (p.name, p.check, p.rule)),
         );
-        let hosts = AllowedHosts::new(&self.allowed_hosts);
-        if let Err(error) = &hosts {
-            problems.push((error.name, "host", error.rule.clone()));
+        if let Err(error) = AllowedHosts::new(&self.allowed_hosts) {
+            problems.push((error.name, "host", error.rule));
         }
-        if let Some(index) = CHECK_ORDER
-            .iter()
-            .find_map(|key| {
-                problems
-                    .iter()
-                    .position(|(name, check, _)| (*name, *check) == *key)
-            })
-            .or_else(|| (!problems.is_empty()).then_some(0))
-        {
-            let (name, _, rule) = problems.swap_remove(index);
+        problems
+    }
+
+    /// One checked snapshot for `Parts::new`, or the first of
+    /// [`ServerSettings::problems`]. The program asks this once it has found
+    /// no problem of its own or of these settings, in its own order.
+    pub fn check(self) -> Result<CheckedSettings, SettingError> {
+        if let Some((name, _, rule)) = self.problems().into_iter().next() {
             return Err(SettingError { name, rule });
         }
-        let hosts = hosts.map_err(|error| SettingError {
+        let hosts = AllowedHosts::new(&self.allowed_hosts).map_err(|error| SettingError {
             name: error.name,
             rule: error.rule,
         })?;
@@ -97,13 +89,10 @@ impl ServerSettings {
         })
     }
 
-    /// Each setting's recorded line, in the run record's order. The program
-    /// supplies its own lines; origins and hosts are sorted. Program names
-    /// outside that order follow the known names, in the order given.
-    pub fn record_lines(
-        &self,
-        program: impl IntoIterator<Item = (String, String)>,
-    ) -> Vec<(String, String)> {
+    /// These settings' recorded lines: the result formatter's, the web
+    /// page's, then the allowed origins and hosts, each sorted. The program
+    /// puts them in the run record's order with its own.
+    pub fn record_lines(&self) -> Vec<(String, String)> {
         let Self {
             formatter,
             web,
@@ -111,8 +100,7 @@ impl ServerSettings {
             allowed_origins,
             allowed_hosts,
         } = self;
-        let mut lines: Vec<_> = program.into_iter().collect();
-        lines.extend(formatter.record_lines());
+        let mut lines = formatter.record_lines();
         lines.extend(web.record_lines());
         for (name, values) in [
             ("allowed_origin", allowed_origins),
@@ -122,107 +110,28 @@ impl ServerSettings {
             values.sort();
             lines.extend(values.into_iter().map(|value| (name.to_owned(), value)));
         }
-        lines.sort_by_key(|(name, _)| {
-            RECORD_ORDER
-                .iter()
-                .position(|known| *known == name)
-                .unwrap_or(usize::MAX)
-        });
         lines
     }
 }
-
-// Some names belong to the program. Naming them keeps one
-// ordering without making the assembly depend on their owning crates.
-const CHECK_ORDER: &[(&str, &str)] = &[
-    ("bind", "check_bind"),
-    ("allow_any_bind", "check_bind"),
-    ("dependency_log_level", "check_dependency_log_level"),
-    ("default_limit", "floor"),
-    ("max_body_bytes", "floor"),
-    ("max_channel_name_chars", "floor"),
-    ("max_purpose_chars", "floor"),
-    ("max_description_chars", "floor"),
-    ("max_note_chars", "floor"),
-    ("max_server_announcement_chars", "floor"),
-    ("max_memory_entry_chars", "floor"),
-    ("max_memory_chars", "floor"),
-    ("max_lane_chars", "floor"),
-    ("sends_per_minute", "floor"),
-    ("registrations_per_minute", "floor"),
-    ("max_agents", "floor"),
-    ("web_page_messages", "floor"),
-    ("web_member_excerpt_chars", "floor"),
-    ("upgrade_backups_kept", "floor"),
-    ("max_response_bytes", "floor"),
-    ("max_limit", "default_limit"),
-    ("max_memory_chars", "max_memory_entry_chars"),
-    ("web_page_messages", "ceiling"),
-    ("web_session_lifetime", "floor"),
-    ("waiting_grace", "max_wait"),
-    ("max_wait", "default_wait"),
-    ("allow_host", "host"),
-];
-
-const RECORD_ORDER: &[&str] = &[
-    "allow_any_bind",
-    "name_pack",
-    "max_response_bytes",
-    "default_limit",
-    "max_limit",
-    "max_body_bytes",
-    "max_channel_name_chars",
-    "max_purpose_chars",
-    "max_description_chars",
-    "max_note_chars",
-    "max_server_announcement_chars",
-    "max_memory_entry_chars",
-    "max_memory_chars",
-    "max_lane_chars",
-    "sends_per_minute",
-    "registrations_per_minute",
-    "max_agents",
-    "default_wait_ms",
-    "max_wait_ms",
-    "waiting_grace_ms",
-    "member_preview",
-    "purpose_preview_chars",
-    "web_session_lifetime_ms",
-    "web_page_messages",
-    "web_member_excerpt_chars",
-    "upgrade_backups_kept",
-    "log_level",
-    "dependency_log_level",
-    "allowed_origin",
-    "allowed_host",
-    "config_file",
-    "access_key_file",
-    "web_key_file",
-    "admin_key_file",
-    "admin_name",
-    "log_file",
-    "log_max_bytes",
-    "log_rotated_files",
-    "log_max_age_ms",
-];
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn a_program_problem_outside_the_known_order_is_not_lost() {
-        let error = ServerSettings::DEFAULT
-            .check([("product_setting", "floor", "must be positive".into())])
-            .expect_err("program refusal");
-        assert_eq!(
-            error,
-            SettingError {
-                name: "product_setting",
-                rule: "must be positive".into()
-            }
+    fn the_problems_are_each_owners_and_the_host_lists() {
+        let settings = ServerSettings {
+            allowed_hosts: vec!["bad host/".into()],
+            ..ServerSettings::DEFAULT
+        };
+        let problems = settings.problems();
+        assert!(
+            problems.iter().any(|(_, check, _)| *check == "host"),
+            "{problems:?}"
         );
-        assert_eq!(error.to_string(), "product_setting must be positive");
+        assert!(ServerSettings::DEFAULT.problems().is_empty());
+        let error = settings.check().expect_err("a bad host");
+        assert_eq!(error.name, problems[0].0);
     }
 
     #[test]
@@ -232,11 +141,34 @@ mod tests {
             ..ServerSettings::DEFAULT
         };
         let expected = settings.allowed_hosts.clone();
-        let checked = settings.check([]).expect("checked snapshot");
+        let checked = settings.check().expect("checked snapshot");
         assert_eq!(checked.settings().allowed_hosts, expected);
         let (settings, hosts) = checked.into_parts();
         assert!(hosts.allows("host.example:7420"));
         assert!(!hosts.allows("host.example:7421"));
         assert_eq!(hosts.extra(), settings.allowed_hosts);
+    }
+
+    #[test]
+    fn origins_and_hosts_are_recorded_sorted_after_the_owners_lines() {
+        let settings = ServerSettings {
+            allowed_origins: vec!["http://b.example".into(), "http://a.example".into()],
+            allowed_hosts: vec!["b.example".into(), "a.example".into()],
+            ..ServerSettings::DEFAULT
+        };
+        let lines = settings.record_lines();
+        let tail: Vec<_> = lines[lines.len() - 4..]
+            .iter()
+            .map(|(name, value)| format!("{name}={value}"))
+            .collect();
+        assert_eq!(
+            tail,
+            [
+                "allowed_origin=http://a.example",
+                "allowed_origin=http://b.example",
+                "allowed_host=a.example",
+                "allowed_host=b.example"
+            ]
+        );
     }
 }
