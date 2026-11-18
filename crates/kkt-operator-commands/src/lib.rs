@@ -15,6 +15,12 @@ use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+/// Why one of the program's parts could not answer: the implementation's
+/// own error, passed on unread.
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct PartError(pub Box<dyn std::error::Error + Send + Sync>);
+
 /// The facts these commands read from the serve config.
 pub struct Config {
     pub db: Option<PathBuf>,
@@ -24,16 +30,16 @@ pub struct Config {
 /// Questions about serving; no file is read until a command asks.
 pub trait ServeConfig {
     /// The serve config's facts, from `file` if given, else the default.
-    fn config(&self, file: Option<PathBuf>) -> Result<Config, String>;
+    fn config(&self, file: Option<PathBuf>) -> Result<Config, PartError>;
     /// The access key file the serve config names; `None` when it turns
     /// keys off.
-    fn configured_access_key(&self) -> Result<Option<PathBuf>, String>;
+    fn configured_access_key(&self) -> Result<Option<PathBuf>, PartError>;
     /// The database `kkt serve` would use: `given`, else the config's.
     fn database(
         &self,
         given: Option<PathBuf>,
         from_config: Option<PathBuf>,
-    ) -> Result<PathBuf, String>;
+    ) -> Result<PathBuf, PartError>;
     /// Where `kkt key create` writes an access key with no `--path`.
     fn default_access_key(&self) -> Option<PathBuf>;
     /// kkt's config folder under the config home, where key files are kept
@@ -50,7 +56,7 @@ pub trait Paths {
 /// The local database chosen by the program, opened only after its path is checked.
 pub trait Databases {
     fn exists(&self, path: &Path) -> bool;
-    fn open(&self, path: &Path) -> Result<kkt_rules::Db, String>;
+    fn open(&self, path: &Path) -> Result<kkt_rules::Db, PartError>;
 }
 
 /// Command output, with standard output and standard error kept separate.
@@ -65,12 +71,12 @@ pub trait Output {
 pub trait InstalledHere {
     /// The server this machine's setup record names, with its access key
     /// file, if `kkt setup` wrote a record.
-    fn recorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String>;
+    fn recorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, PartError>;
     /// A setup that did not finish, if the install it noted is still here.
-    fn unfinished(&self) -> Result<Option<kkt_deployment::UnfinishedSetup>, String>;
+    fn unfinished(&self) -> Result<Option<kkt_deployment::UnfinishedSetup>, PartError>;
     /// A server kkt installed here, in Docker or as a service, with no
     /// record. An error says why the server cannot be made out.
-    fn unrecorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String>;
+    fn unrecorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, PartError>;
 }
 
 /// Implementations chosen by the program.
