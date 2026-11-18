@@ -295,7 +295,13 @@ async fn a_poll_stops_at_the_end_of_its_wait() {
     })
     .await;
     assert_eq!(outcome, Ok(Outcome::TimedOut));
-    assert_eq!(server.waits().len(), 2);
+    // Asked at 0 and at 2 seconds. At 3 the poll's sleep and the timeout end
+    // together, so one more ask may start before the timeout cuts it off.
+    assert!(
+        matches!(server.waits().len(), 2 | 3),
+        "{:?}",
+        server.waits()
+    );
     assert_eq!(clock.now(), start() + Span::seconds(3));
 }
 
