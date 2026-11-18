@@ -1,7 +1,7 @@
 //! Containerized over projects in memory: the managed folder's reads, the
 //! service's start and stop, and what it hands to its fallback.
 
-use crate::{Containerized, NodeLogin, SharingNode, Tell};
+use crate::{Containerized, NodeLogin, NodeStatus, SharingNode, Tell};
 use futures::executor::block_on;
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
@@ -60,6 +60,8 @@ fn over<P: Projects>(
         Memory::new(None, String::new()),
         Box::new(said),
         Box::new(Node),
+        Box::new(NoBrowser),
+        Box::new(KeysIn(Rc::new(kkt_keys::testing::Memory::new()))),
         working_dir,
     )
 }
@@ -254,7 +256,7 @@ fn up_and_down_run_the_projects_services_and_down_may_remove_the_data() {
 struct Failing(ProjectError);
 
 impl Projects for Failing {
-    fn available(&self) -> Result<(), ProjectError> {
+    fn available(&self, _: &Project) -> Result<(), ProjectError> {
         Ok(())
     }
     fn tool(&self) -> &str {
@@ -703,6 +705,30 @@ impl SharingNode for Node {
             other => Some(NodeLogin::Other(other.to_string())),
         }
     }
+
+    /// `in <name> <https|plain>`, `out`, `out <link>`, or another word, a
+    /// state; anything empty cannot be read.
+    fn status(&self, answer: &str) -> Result<NodeStatus, String> {
+        let words: Vec<&str> = answer.split_whitespace().collect();
+        let node = |login, link: Option<&str>, name: Option<&str>, https| NodeStatus {
+            login,
+            link: link.map(str::to_string),
+            name: name.map(str::to_string),
+            https,
+        };
+        match words.as_slice() {
+            [] => Err("no BackendState".into()),
+            ["in", name, https] => Ok(node(
+                NodeLogin::LoggedIn,
+                None,
+                Some(name).filter(|n| **n != "-").copied(),
+                *https == "https",
+            )),
+            ["out"] => Ok(node(NodeLogin::NeedsLogin, None, None, false)),
+            ["out", link] => Ok(node(NodeLogin::NeedsLogin, Some(link), None, false)),
+            [other, ..] => Ok(node(NodeLogin::Other(other.to_string()), None, None, false)),
+        }
+    }
 }
 
 #[test]
@@ -731,4 +757,343 @@ fn the_service_files_are_the_repositorys_own() {
             assert_eq!(text, file, "{name}");
         }
     }
+}
+
+// ---------------------------------------------------------------- setup
+
+/// A browser that opens nothing and records each link asked for.
+#[derive(Clone, Default)]
+struct NoBrowser;
+
+impl kkt_container::Browser for NoBrowser {
+    fn open(&self, _: &str) -> io::Result<()> {
+        Err(io::Error::new(io::ErrorKind::NotFound, "no opener"))
+    }
+    fn open_failure(&self) -> Option<String> {
+        None
+    }
+}
+
+/// kkt-keys' key files in memory, shared so a test can look after.
+struct KeysIn(Rc<kkt_keys::testing::Memory>);
+
+impl kkt_keys::KeyFiles for KeysIn {
+    fn read(&self, path: &Path) -> io::Result<String> {
+        self.0.read(path)
+    }
+    fn exists(&self, path: &Path) -> bool {
+        self.0.exists(path)
+    }
+    fn try_exists(&self, path: &Path) -> io::Result<bool> {
+        self.0.try_exists(path)
+    }
+    fn is_file(&self, path: &Path) -> bool {
+        self.0.is_file(path)
+    }
+    fn mode(&self, path: &Path) -> io::Result<Option<u32>> {
+        self.0.mode(path)
+    }
+    fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
+        self.0.create_dir_all(dir)
+    }
+    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String> {
+        self.0.keep_staged(staged, path)
+    }
+    fn remove(&self, path: &Path) -> io::Result<()> {
+        self.0.remove(path)
+    }
+    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String> {
+        self.0.write_key(path, key, force)
+    }
+    fn write_admin_name(&self, admin_key: &Path, bound: Option<&str>) -> io::Result<()> {
+        self.0.write_admin_name(admin_key, bound)
+    }
+}
+
+/// A login link that records what it was shown.
+#[derive(Default)]
+struct Shown(RefCell<Vec<String>>);
+
+impl kkt_container::LoginLink for Shown {
+    fn show(&self, url: &str) {
+        self.0.borrow_mut().push(url.to_string());
+    }
+    fn open_requested(&self) -> bool {
+        false
+    }
+}
+
+const ACCESS: &str = "access-key-0123456789";
+const WEB: &str = "web-key-0123456789";
+const ADMIN: &str = "admin-key-0123456789";
+
+fn key_copies() -> kkt_container::KeyCopies {
+    kkt_container::KeyCopies {
+        access: PathBuf::from("/home/me/.config/kkt/docker-access-key"),
+        web: PathBuf::from("/home/me/.config/kkt/docker-web-key"),
+        admin: PathBuf::from("/home/me/.config/kkt-admin/docker-admin-key"),
+    }
+}
+
+fn inputs(sharing: bool) -> kkt_container::Inputs {
+    kkt_container::Inputs {
+        version: "0.4.0".into(),
+        project: "kkt".into(),
+        port: 7420,
+        allow_hosts: vec![],
+        sharing: sharing.then(|| kkt_container::Sharing {
+            hostname: "kkt".into(),
+            auth_key: None,
+        }),
+    }
+}
+
+/// What one setup did: its result, what it said, the links it showed, the
+/// key files, and the projects' log.
+struct SetUp {
+    result: Result<kkt_container::Provisioned, String>,
+    said: Vec<String>,
+    shown: Vec<String>,
+    keys: Rc<kkt_keys::testing::Memory>,
+    log: Vec<String>,
+}
+
+/// Sets up over projects whose commands in a service `answer` answers;
+/// each answer moves the clock on three seconds, so waits end.
+fn set_up(
+    sharing: bool,
+    keys: kkt_keys::testing::Memory,
+    answer: impl Fn(&Request) -> Result<(Option<i32>, String, String), ProjectError> + 'static,
+) -> SetUp {
+    let clock = std::sync::Arc::new(FixedClock::new(
+        Time::from_parts(2026, 11, 17, 12, 0, 0).unwrap(),
+    ));
+    let ticking = clock.clone();
+    let projects = MemoryProjects::new(&["kkt", "tailscale"]).answering(move |request| {
+        ticking.advance(kkt_clock::Span::seconds(3));
+        answer(request)
+    });
+    let said = Said::default();
+    let keys = Rc::new(keys);
+    let service = Containerized::new(
+        projects,
+        Memory::new(None, String::new()),
+        Box::new(said.clone()),
+        Box::new(Node),
+        Box::new(NoBrowser),
+        Box::new(KeysIn(keys.clone())),
+        Ok(PathBuf::from("/home/me")),
+    );
+    let shown = Shown::default();
+    let result =
+        block_on(service.provision(&*clock, &shown, &folder(), &inputs(sharing), &key_copies()));
+    let log = service.projects.log();
+    let said = said.0.borrow().clone();
+    SetUp {
+        result,
+        said,
+        shown: shown.0.into_inner(),
+        keys,
+        log,
+    }
+}
+
+/// The running server's answers: its keys, with `admin` for the admin key
+/// show, and `tailscale` for the Tailscale container's status.
+fn server(
+    admin: (Option<i32>, &'static str, &'static str),
+    tailscale: Vec<&'static str>,
+) -> impl Fn(&Request) -> Result<(Option<i32>, String, String), ProjectError> {
+    let tailscale = RefCell::new(tailscale);
+    move |request| {
+        let Request::Exec { service, args, .. } = request else {
+            return Ok((Some(0), String::new(), String::new()));
+        };
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        Ok(match (service.as_str(), args.as_slice()) {
+            ("tailscale", _) => {
+                let mut answers = tailscale.borrow_mut();
+                let next = if answers.len() > 1 {
+                    answers.remove(0)
+                } else {
+                    answers[0]
+                };
+                (Some(0), next.to_string(), String::new())
+            }
+            (_, [.., "--admin"]) => (admin.0, admin.1.to_string(), admin.2.to_string()),
+            (_, [.., "--web"]) => (Some(0), format!("{WEB}\n"), String::new()),
+            _ => (Some(0), format!("{ACCESS}\n"), String::new()),
+        })
+    }
+}
+
+fn no_admin() -> (Option<i32>, &'static str, &'static str) {
+    (Some(4), "", "there is no admin key")
+}
+
+/// No key is in `text`.
+fn keyless(text: &str) -> bool {
+    [ACCESS, WEB, ADMIN].iter().all(|key| !text.contains(key))
+}
+
+#[test]
+fn setup_writes_the_files_starts_kkt_and_replaces_each_key_copy() {
+    let old = kkt_keys::testing::Memory::new()
+        .with_file("/home/me/.config/kkt/docker-access-key", "old\n")
+        .with_file("/home/me/.config/kkt/docker-web-key", "old\n")
+        .with_file("/home/me/.config/kkt-admin/docker-admin-key", "old\n");
+    let done = set_up(
+        false,
+        old,
+        server((Some(0), "admin-key-0123456789\n", ""), vec![]),
+    );
+    assert_eq!(done.result, Ok(kkt_container::Provisioned { node: None }));
+    for (path, key) in [
+        ("/home/me/.config/kkt/docker-access-key", ACCESS),
+        ("/home/me/.config/kkt/docker-web-key", WEB),
+        ("/home/me/.config/kkt-admin/docker-admin-key", ADMIN),
+    ] {
+        let file = done.keys.file(Path::new(path)).expect("a copy");
+        assert_eq!(file.text, format!("{key}\n"), "{path}");
+        assert_eq!(file.mode, Some(kkt_keys::ACCESS_KEY_FILE_MODE), "{path}");
+    }
+    let commands: Vec<&String> = done.log.iter().filter(|l| l.starts_with("tool ")).collect();
+    assert_eq!(
+        commands[..4],
+        [
+            "tool compose version",
+            "tool compose run --rm --user root --entrypoint chown kkt 10001 /backups",
+            "tool compose up -d",
+            "tool compose exec kkt kkt key show",
+        ]
+    );
+    assert!(done.said.iter().all(|line| keyless(line)));
+}
+
+#[test]
+fn no_key_reaches_an_error_or_a_line_said_even_when_a_key_show_fails_after_printing_one() {
+    for admin in [
+        (
+            Some(1),
+            "admin-key-0123456789\n",
+            "partial admin-key-0123456789",
+        ),
+        (None, "admin-key-0123456789\n", ""),
+        (Some(0), "  \n", ""),
+    ] {
+        let done = set_up(
+            false,
+            kkt_keys::testing::Memory::new(),
+            server(admin, vec![]),
+        );
+        let error = done.result.unwrap_err();
+        assert!(keyless(&error), "{error}");
+        assert!(
+            error.contains("could not read the admin key") || error.contains("ended by a signal"),
+            "{error}"
+        );
+        assert!(done.said.iter().all(|line| keyless(line)));
+    }
+    // The access key's show keeps failing after printing the key: setup
+    // waits, then says so without it.
+    let done = set_up(false, kkt_keys::testing::Memory::new(), |request| {
+        Ok(match request {
+            Request::Exec { .. } => (Some(1), format!("{ACCESS}\n"), ACCESS.to_string()),
+            _ => (Some(0), String::new(), String::new()),
+        })
+    });
+    let error = done.result.unwrap_err();
+    assert_eq!(
+        error,
+        "kkt did not start or did not make its keys in time; `tool compose logs kkt` shows why"
+    );
+}
+
+#[test]
+fn a_shared_setup_shows_the_link_once_restarts_a_node_with_none_and_names_the_node() {
+    let done = set_up(
+        true,
+        kkt_keys::testing::Memory::new(),
+        server(
+            no_admin(),
+            vec![
+                "out",
+                "out",
+                "out",
+                "out",
+                "out",
+                "out",
+                "out https://login/a",
+                "out https://login/a",
+                "in kkt-1.tail1.ts.net https",
+            ],
+        ),
+    );
+    assert_eq!(
+        done.result,
+        Ok(kkt_container::Provisioned {
+            node: Some(("kkt-1".into(), "tail1.ts.net".into()))
+        })
+    );
+    assert_eq!(done.shown, ["https://login/a"]);
+    assert_eq!(
+        done.log
+            .iter()
+            .filter(|l| l.contains("restart tailscale"))
+            .count(),
+        1
+    );
+    assert!(
+        done.said
+            .contains(&"Logged in to Tailscale as kkt-1.tail1.ts.net.".to_string())
+    );
+}
+
+#[test]
+fn a_shared_setup_says_why_it_cannot_finish() {
+    for (answer, error) in [
+        (
+            "in kkt-1.tail1.ts.net plain",
+            "HTTPS certificates are not enabled",
+        ),
+        ("in - https", "logged in, but the node has no name"),
+        (
+            "in kkt-1 https",
+            "the node name \"kkt-1\" has no tailnet part",
+        ),
+        (
+            "",
+            "unexpected output from `tailscale status --json`: no BackendState",
+        ),
+    ] {
+        let done = set_up(
+            true,
+            kkt_keys::testing::Memory::new(),
+            server(no_admin(), vec![answer]),
+        );
+        let said = done.result.unwrap_err();
+        assert!(said.contains(error), "{answer}: {said}");
+    }
+}
+
+#[test]
+fn a_missing_tool_is_said_by_its_name_with_what_to_do() {
+    let clock = FixedClock::new(Time::from_parts(2026, 11, 17, 12, 0, 0).unwrap());
+    let service = service(MemoryProjects::new(&["kkt"]).unavailable());
+    let error = block_on(service.provision(
+        &clock,
+        &Shown::default(),
+        &folder(),
+        &inputs(false),
+        &key_copies(),
+    ))
+    .unwrap_err();
+    assert!(
+        error.starts_with("tool is not available: could not run `tool compose version`"),
+        "{error}"
+    );
+    assert!(
+        error.ends_with(". Install tool with Compose and run setup again"),
+        "{error}"
+    );
 }

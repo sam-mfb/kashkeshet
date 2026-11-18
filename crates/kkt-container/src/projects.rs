@@ -224,8 +224,9 @@ impl std::error::Error for ProjectError {}
 /// A container tool's operations on Compose projects. Each command runs in
 /// the project's folder, without the project's shielded variables.
 pub trait Projects {
-    /// Whether the tool is installed and answers.
-    fn available(&self) -> Result<(), ProjectError>;
+    /// Whether the tool is installed and answers, asked anywhere but, like
+    /// the project's commands, without its shielded variables.
+    fn available(&self, project: &Project) -> Result<(), ProjectError>;
     /// The tool's name, as a person knows it.
     fn tool(&self) -> &str;
     /// How a person would type the tool's project command with `args`, in

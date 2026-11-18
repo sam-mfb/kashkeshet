@@ -11,8 +11,10 @@ publish = false
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
 kkt-container = { path = "../kkt-container" }
+kkt-keys = { path = "../kkt-keys" }
 kkt-machine = { path = "../kkt-machine" }
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-container = { path = "../kkt-container", features = ["testing"] }
+kkt-keys = { path = "../kkt-keys", features = ["testing"] }

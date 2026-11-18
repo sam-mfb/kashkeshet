@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "3cccb583",
+ "commit": "3c52ae38",
  "crates": [
   {
    "bins": [
@@ -111,6 +111,12 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
+     "trait": "Browser",
+     "trait_crate": "kkt-container",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
      "trait": "ConfigReader",
      "trait_crate": "kkt-container",
      "type": null
@@ -120,12 +126,6 @@ window.KKT_GRAPH = {
      "trait": "LoginLink",
      "trait_crate": "kkt-container",
      "type": "terminal::browser_login::TerminalLink"
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "Browser",
-     "trait_crate": "kkt-container-docker",
-     "type": null
     },
     {
      "crate": "kashkeshet",
@@ -4827,6 +4827,15 @@ window.KKT_GRAPH = {
        "type": null
       }
      ],
+     "trait": "Browser"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
      "trait": "ConfigReader"
     },
     {
@@ -4899,6 +4908,15 @@ window.KKT_GRAPH = {
       "Text",
       "Folder"
      ]
+    },
+    {
+     "doc": "The person's browser.",
+     "kind": "trait",
+     "methods": [
+      "open",
+      "open_failure"
+     ],
+     "path": "Browser"
     },
     {
      "doc": "What a run inside the container carries across.",
@@ -5313,12 +5331,7 @@ window.KKT_GRAPH = {
    "builds": [],
    "contracts": [
     {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": null
-      }
-     ],
+     "implementors": [],
      "trait": "Browser"
     }
    ],
@@ -5334,7 +5347,7 @@ window.KKT_GRAPH = {
     {
      "holds": [
       {
-       "crate": "kkt-container-docker",
+       "crate": "kkt-container",
        "trait": "Browser"
       }
      ],
@@ -5357,12 +5370,9 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
-     "doc": "The person's browser.",
+     "doc": "",
+     "from": "kkt_container::Browser",
      "kind": "trait",
-     "methods": [
-      "open",
-      "open_failure"
-     ],
      "path": "Browser"
     },
     {
@@ -5408,13 +5418,16 @@ window.KKT_GRAPH = {
       "current_folder",
       "failing_dir",
       "failing_write",
+      "has",
       "knowing",
+      "make_folder",
       "new",
       "note",
       "transcript",
       "with_dir",
       "with_file",
-      "without_working_dir"
+      "without_working_dir",
+      "write"
      ],
      "path": "testing::Scripted"
     }
@@ -5451,7 +5464,7 @@ window.KKT_GRAPH = {
      "name": "browser",
      "traits": [
       {
-       "crate": "kkt-container-docker",
+       "crate": "kkt-container",
        "trait": "Browser"
       }
      ]
@@ -5463,7 +5476,7 @@ window.KKT_GRAPH = {
      "name": "browser",
      "traits": [
       {
-       "crate": "kkt-container-docker",
+       "crate": "kkt-container",
        "trait": "Browser"
       }
      ]
@@ -5523,6 +5536,14 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-containerized-service",
        "trait": "SharingNode"
+      },
+      {
+       "crate": "kkt-container",
+       "trait": "Browser"
+      },
+      {
+       "crate": "kkt-keys",
+       "trait": "KeyFiles"
       }
      ],
      "type": "Containerized"
@@ -5556,10 +5577,22 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "What a sharing node's status answer says of it.",
+     "fields": [
+      "login",
+      "link",
+      "name",
+      "https"
+     ],
+     "kind": "struct",
+     "path": "NodeStatus"
+    },
+    {
      "doc": "Reads what the node that shares the server says of itself, whatever shares it.",
      "kind": "trait",
      "methods": [
-      "login"
+      "login",
+      "status"
      ],
      "path": "SharingNode"
     },
@@ -5579,6 +5612,28 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
+    {
+     "at": "Containerized::new",
+     "kind": "param",
+     "name": "browser",
+     "traits": [
+      {
+       "crate": "kkt-container",
+       "trait": "Browser"
+      }
+     ]
+    },
+    {
+     "at": "Containerized::new",
+     "kind": "param",
+     "name": "key_files",
+     "traits": [
+      {
+       "crate": "kkt-keys",
+       "trait": "KeyFiles"
+      }
+     ]
+    },
     {
      "at": "Containerized::new",
      "kind": "param",
@@ -19338,6 +19393,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "a type of its own implements Browser",
       "a type of its own implements ConfigReader",
       "terminal::browser_login::TerminalLink implements LoginLink"
      ],
@@ -19375,13 +19431,13 @@ window.KKT_GRAPH = {
    ],
    "kind": "normal",
    "optional": false,
-   "role": "adapts",
+   "role": "uses",
    "roles": [
     {
      "detail": [
-      "a type of its own implements Browser"
+      "Browser"
      ],
-     "role": "adapts"
+     "role": "uses"
     },
     {
      "detail": [
@@ -19404,6 +19460,7 @@ window.KKT_GRAPH = {
    "items": [
     "Containerized",
     "NodeLogin",
+    "NodeStatus",
     "SharingNode",
     "Tell"
    ],
@@ -20209,12 +20266,19 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Status",
     "Tailscale"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
+    {
+     "detail": [
+      "Status"
+     ],
+     "role": "uses"
+    },
     {
      "detail": [
       "Tailscale"
@@ -20697,6 +20761,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Browser",
       "testing",
       "testing::Reply",
       "testing::Scripted"
@@ -22658,6 +22723,7 @@ window.KKT_GRAPH = {
    "from": "kkt-container-docker",
    "items": [
     "Arg",
+    "Browser",
     "Carry",
     "ConfigReader",
     "Container",
@@ -22696,6 +22762,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Arg",
+      "Browser",
       "Carry",
       "ConfigReader",
       "Existing",
@@ -22808,7 +22875,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-containerized-service",
    "items": [
-    "Clock"
+    "Clock",
+    "Span"
    ],
    "kind": "normal",
    "optional": false,
@@ -22816,7 +22884,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Clock"
+      "Clock",
+      "Span"
      ],
      "role": "uses"
     }
@@ -22833,6 +22902,7 @@ window.KKT_GRAPH = {
    "from": "kkt-containerized-service",
    "items": [
     "Arg",
+    "Browser",
     "Carry",
     "ConfigReader",
     "Container",
@@ -22848,6 +22918,7 @@ window.KKT_GRAPH = {
     "Output",
     "Project",
     "ProjectError",
+    "ProjectFile",
     "Projects",
     "Provisioned",
     "State",
@@ -22866,6 +22937,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Arg",
+      "Browser",
       "Carry",
       "ConfigReader",
       "Existing",
@@ -22880,6 +22952,7 @@ window.KKT_GRAPH = {
       "Output",
       "Project",
       "ProjectError",
+      "ProjectFile",
       "Projects",
       "Provisioned",
       "State",
@@ -22892,15 +22965,41 @@ window.KKT_GRAPH = {
    "test_items": [
     "ContainerConfig",
     "FileAction",
-    "ProjectFile",
     "Ran",
     "ServiceConfig",
+    "Sharing",
     "testing",
     "testing::Memory",
     "testing::MemoryProjects",
     "testing::Request"
    ],
    "to": "kkt-container"
+  },
+  {
+   "features": [],
+   "from": "kkt-containerized-service",
+   "items": [
+    "KeyFiles",
+    "NO_ADMIN_KEY_EXIT"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "KeyFiles",
+      "NO_ADMIN_KEY_EXIT"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [
+    "ACCESS_KEY_FILE_MODE",
+    "testing::Memory"
+   ],
+   "to": "kkt-keys"
   },
   {
    "features": [],
@@ -22931,6 +23030,7 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-containerized-service",
    "items": [
+    "Span",
     "Time",
     "testing::FixedClock"
    ],
@@ -22940,6 +23040,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Span",
       "Time"
      ],
      "role": "uses"
@@ -22962,6 +23063,7 @@ window.KKT_GRAPH = {
    "from": "kkt-containerized-service",
    "items": [
     "Arg",
+    "Browser",
     "Carry",
     "ConfigReader",
     "Container",
@@ -22971,15 +23073,20 @@ window.KKT_GRAPH = {
     "FileState",
     "Folder",
     "InServer",
+    "Inputs",
+    "KeyCopies",
     "KeyCopy",
     "Login",
+    "LoginLink",
     "Output",
     "Project",
     "ProjectError",
     "ProjectFile",
     "Projects",
+    "Provisioned",
     "Ran",
     "ServiceConfig",
+    "Sharing",
     "State",
     "User",
     "testing",
@@ -22994,6 +23101,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Arg",
+      "Browser",
       "Carry",
       "ConfigReader",
       "FileAction",
@@ -23001,6 +23109,7 @@ window.KKT_GRAPH = {
       "Folder",
       "KeyCopy",
       "Login",
+      "LoginLink",
       "Output",
       "ProjectError",
       "Ran",
@@ -23021,6 +23130,37 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-container"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-containerized-service",
+   "items": [
+    "ACCESS_KEY_FILE_MODE",
+    "KeyFiles",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ACCESS_KEY_FILE_MODE"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
   },
   {
    "features": [],
@@ -29485,17 +29625,17 @@ window.KKT_CONCERNS = {
    "layer": "operations"
   },
   "kkt-container": {
-   "concern": "Running the server in a container, as a contract: `Container` sets up, reports on and removes a container install, runs the server's own program inside it with a private work folder carried in or out, and reads a file under its config home. The caller names the key copies' paths, the admin name and the config file's path. A container tool implements it. Beside it, `Projects`: the operations a container tool offers on any Compose project, its files, services and commands in them, which knows nothing of what runs in the project.",
+   "concern": "Running the server in a container, as a contract: `Container` sets up, reports on and removes a container install, runs the server's own program inside it with a private work folder carried in or out, and reads a file under its config home. The caller names the key copies' paths, the admin name and the config file's path. A container tool implements it. A login link opens in the person's `Browser`, which the program supplies. Beside it, `Projects`: the operations a container tool offers on any Compose project, its files, services and commands in them, which knows nothing of what runs in the project.",
    "kind": "contract",
    "layer": "operations"
   },
   "kkt-container-docker": {
-   "concern": "Implements kkt-container's `Container` with Docker and Compose: the Compose files, the managed folder and the docker commands, among them a run in the container with its work folder made by mktemp and files copied in or out; and kkt-container's general `Projects`, each operation one `docker compose` command in the project's folder. It opens a sharing setup's login link through a `Browser` it declares.",
+   "concern": "Implements kkt-container's `Container` with Docker and Compose: the Compose files, the managed folder and the docker commands, among them a run in the container with its work folder made by mktemp and files copied in or out; and kkt-container's general `Projects`, each operation one `docker compose` command in the project's folder. It opens a sharing setup's login link through kkt-container's `Browser`.",
    "kind": "effect",
    "layer": "operations"
   },
   "kkt-containerized-service": {
-   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, starting and stopping the service, its status and name pack, runs of the server's program in its container, reading its config home, backups and the web key's comparison, and hands the operations it does not do itself to a fallback `Container`. What a sharing node's status answer says of its login comes from the `SharingNode` it declares.",
+   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, setting the service up (its files, the Tailscale container's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`), starting and stopping it, its status and name pack, runs of the server's program in its container, reading its config home, backups and the web key's comparison, and hands the operations it does not do itself to a fallback `Container`. What a sharing node's status answer says comes from the `SharingNode` it declares, and a login link opens in kkt-container's `Browser`.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -31529,7 +31669,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-containerized-service",
-     "note": "kkt status, for a shared install: whether its Tailscale container is logged in",
+     "note": "kkt status, for a shared install: whether its Tailscale container is logged in; kkt setup, for a shared install: its login link, its name and whether HTTPS is on",
      "own": "TailscaleNode, a shared install's Tailscale login read from the Tailscale container's status answer by kkt-remote-access-tailscale's reader",
      "suppliers": [
       {
@@ -31541,6 +31681,34 @@ window.KKT_ASSEMBLY = {
       {
        "at": "Containerized::new",
        "param": "sharing"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-containerized-service",
+     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener",
+     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container's Browser",
+     "suppliers": [
+      {
+       "crate": "kkt-browser",
+       "item": "SystemBrowser"
+      }
+     ],
+     "to": [
+      {
+       "at": "Containerized::new",
+       "param": "browser"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-containerized-service",
+     "impl": "kkt-keys-os::OsKeyFiles",
+     "note": "kkt setup for Docker: the server's key copies on this machine",
+     "to": [
+      {
+       "at": "Containerized::new",
+       "param": "key_files"
       }
      ]
     },
@@ -32307,7 +32475,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-container-docker",
      "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener",
-     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container-docker's Browser",
+     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container's Browser, as kkt-container-docker names it",
      "suppliers": [
       {
        "crate": "kkt-browser",

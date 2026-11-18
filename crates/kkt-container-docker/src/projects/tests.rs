@@ -170,21 +170,16 @@ fn asked(host: &Host) -> Vec<Asked> {
 }
 
 #[test]
-fn available_asks_compose_for_its_version_anywhere() {
+fn available_asks_compose_for_its_version_anywhere_without_the_projects_variables() {
     let (docker, host) = over(vec![]);
-    docker.available().unwrap();
-    let mut compose_only: Vec<String> = unset()
-        .into_iter()
-        .filter(|v| v.starts_with("COMPOSE_"))
-        .collect();
-    compose_only.sort();
+    docker.available(&project(&folder())).unwrap();
     assert_eq!(
         asked(&host),
         vec![Asked {
             attached: false,
             line: "docker compose version".into(),
             cwd: None,
-            unset: compose_only,
+            unset: unset(),
         }]
     );
 }
@@ -450,7 +445,7 @@ fn a_command_that_cannot_run_is_missing_and_one_that_fails_is_failed() {
         io::ErrorKind::NotFound,
         "No such file or directory (os error 2)",
     ))]);
-    let missing = docker.available().unwrap_err();
+    let missing = docker.available(&project(&folder)).unwrap_err();
     assert_eq!(
         missing,
         ProjectError::Missing {

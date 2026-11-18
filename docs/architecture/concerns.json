@@ -191,17 +191,17 @@
   },
   "kkt-container": {
    "layer": "operations",
-   "concern": "Running the server in a container, as a contract: `Container` sets up, reports on and removes a container install, runs the server's own program inside it with a private work folder carried in or out, and reads a file under its config home. The caller names the key copies' paths, the admin name and the config file's path. A container tool implements it. Beside it, `Projects`: the operations a container tool offers on any Compose project, its files, services and commands in them, which knows nothing of what runs in the project.",
+   "concern": "Running the server in a container, as a contract: `Container` sets up, reports on and removes a container install, runs the server's own program inside it with a private work folder carried in or out, and reads a file under its config home. The caller names the key copies' paths, the admin name and the config file's path. A container tool implements it. A login link opens in the person's `Browser`, which the program supplies. Beside it, `Projects`: the operations a container tool offers on any Compose project, its files, services and commands in them, which knows nothing of what runs in the project.",
    "kind": "contract"
   },
   "kkt-container-docker": {
    "layer": "operations",
-   "concern": "Implements kkt-container's `Container` with Docker and Compose: the Compose files, the managed folder and the docker commands, among them a run in the container with its work folder made by mktemp and files copied in or out; and kkt-container's general `Projects`, each operation one `docker compose` command in the project's folder. It opens a sharing setup's login link through a `Browser` it declares.",
+   "concern": "Implements kkt-container's `Container` with Docker and Compose: the Compose files, the managed folder and the docker commands, among them a run in the container with its work folder made by mktemp and files copied in or out; and kkt-container's general `Projects`, each operation one `docker compose` command in the project's folder. It opens a sharing setup's login link through kkt-container's `Browser`.",
    "kind": "effect"
   },
   "kkt-containerized-service": {
    "layer": "operations",
-   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, starting and stopping the service, its status and name pack, runs of the server's program in its container, reading its config home, backups and the web key's comparison, and hands the operations it does not do itself to a fallback `Container`. What a sharing node's status answer says of its login comes from the `SharingNode` it declares.",
+   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, setting the service up (its files, the Tailscale container's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`), starting and stopping it, its status and name pack, runs of the server's program in its container, reading its config home, backups and the web key's comparison, and hands the operations it does not do itself to a fallback `Container`. What a sharing node's status answer says comes from the `SharingNode` it declares, and a login link opens in kkt-container's `Browser`.",
    "kind": "logic"
   },
   "kkt-remote-access": {

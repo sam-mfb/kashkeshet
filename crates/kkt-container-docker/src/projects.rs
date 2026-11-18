@@ -82,8 +82,8 @@ impl Docker {
 }
 
 impl Projects for Docker {
-    fn available(&self) -> Result<(), ProjectError> {
-        let command = docker(&[], vec!["compose".into(), "version".into()]);
+    fn available(&self, project: &Project) -> Result<(), ProjectError> {
+        let command = docker(project.shielded, vec!["compose".into(), "version".into()]);
         self.succeed(&command, Output::Captured).map(|_| ())
     }
 

@@ -12,7 +12,6 @@
 //! `Inputs.allow_hosts` is written to `.env` as `KKT_ALLOW_HOSTS`;
 //! `Inputs.sharing` starts the Tailscale sidecar and waits for its login.
 
-mod browser;
 mod compose;
 mod files;
 mod in_server;
@@ -26,7 +25,9 @@ pub mod testing;
 #[cfg(test)]
 mod tests;
 
-pub use browser::Browser;
+/// The person's browser, which a sharing setup's login link opens in:
+/// kkt-container's, named here too for this crate's callers.
+pub use kkt_container::Browser;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};

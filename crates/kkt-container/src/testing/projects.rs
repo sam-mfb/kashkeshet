@@ -142,7 +142,7 @@ fn user_args(user: User) -> Vec<&'static str> {
 }
 
 impl Projects for MemoryProjects {
-    fn available(&self) -> Result<(), ProjectError> {
+    fn available(&self, _: &Project) -> Result<(), ProjectError> {
         let command = self.command(&["version"]);
         if self.available {
             Ok(())
@@ -437,7 +437,7 @@ mod tests {
             );
         let folder = Folder("/p".into());
         let p = project(&folder);
-        projects.available().unwrap();
+        projects.available(&p).unwrap();
         assert!(projects.running(&p).unwrap().is_empty());
         assert!(projects.restart(&p, "web", Output::Terminal).is_err());
         assert!(projects.inspect(&p, "web").is_err());
@@ -501,8 +501,9 @@ mod tests {
     #[test]
     fn a_missing_tool_says_so() {
         let projects = MemoryProjects::new(&[]).unavailable();
+        let folder = Folder("/p".into());
         assert!(matches!(
-            projects.available(),
+            projects.available(&project(&folder)),
             Err(ProjectError::Missing { .. })
         ));
         assert_eq!(projects.tool(), "tool");

@@ -7,12 +7,14 @@
 //! `Project`, `ProjectError` and the records they use), which knows nothing
 //! of what runs in the project, with a stand-in in memory behind `testing`.
 
+mod browser;
 mod config;
 mod login;
 mod projects;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
+pub use browser::Browser;
 pub use config::{ConfigReader, ContainerConfig};
 use futures::future::LocalBoxFuture;
 use kkt_clock::Clock;

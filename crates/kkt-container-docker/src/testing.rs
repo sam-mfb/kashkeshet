@@ -145,6 +145,24 @@ impl Scripted {
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no current folder"))
     }
 
+    /// Makes the folder `path` and those above it, as Docker's own writes
+    /// do, with the same transcript line, for a test's other parts that
+    /// write on this host.
+    pub fn make_folder(&self, path: &Path) -> io::Result<()> {
+        Runner::create_dir_all(self, path)
+    }
+
+    /// Writes `text` to `path`, replacing any file there, as Docker's own
+    /// writes do, with the same transcript lines.
+    pub fn write(&self, path: &Path, text: &str, private: bool) -> io::Result<()> {
+        Runner::write_file(self, path, text, private)
+    }
+
+    /// Whether a file or folder is at `path`.
+    pub fn has(&self, path: &Path) -> bool {
+        Runner::exists(self, path)
+    }
+
     /// A write of exactly `text` is shown as `name`, not line by line.
     pub fn knowing(self, name: &str, text: &str) -> Scripted {
         self.0

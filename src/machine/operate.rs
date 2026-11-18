@@ -205,6 +205,8 @@ fn containerized() -> Containerized {
         docker(),
         Box::new(TerminalTell),
         Box::new(super::sharing_node::TailscaleNode),
+        Box::new(super::browser::OpenerBrowser::new()),
+        Box::new(kkt_keys_os::OsKeyFiles),
         working_dir,
     )
 }

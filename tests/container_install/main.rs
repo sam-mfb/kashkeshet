@@ -376,6 +376,7 @@ fn cases(all: &[String]) -> String {
 /// `UPDATE_GOLDEN` is set; and checks no key reaches a command, a line said
 /// or an error.
 fn golden(name: &str, actual: String) {
+    keys_only_where_handled(name, &actual);
     for line in actual.lines() {
         let kind = line.split_whitespace().next().unwrap_or("");
         if matches!(kind, "run" | "attached" | "say" | "error" | "link") {
@@ -1808,6 +1809,145 @@ fn status_name_pack_cannot_run() -> String {
     ])
 }
 
+/// A key appears in a transcript only where the install handles it: in
+/// what the scripted host answered (`  -> `, such as `kkt key show`
+/// printing it) and in the text of a file written (`  | `, a key copy).
+/// Never in a command, a line said, a link, an error or a result, nor in a
+/// failure's text, however a failed command's output reached it.
+fn keys_only_where_handled(name: &str, actual: &str) {
+    for line in actual.lines() {
+        if line.starts_with("  -> ") || line.starts_with("  | ") {
+            continue;
+        }
+        for secret in SECRETS {
+            assert!(
+                !line.contains(secret),
+                "{name}: a key is outside an answer or a file written: {line}"
+            );
+        }
+    }
+}
+
+// ---------------------------------------------------------------- setup, before it moves
+
+fn setup_cannot_run() -> String {
+    let local_with = |extra: Vec<(&'static str, Vec<Answer>)>| {
+        let run = Run::new(rules(extra), nothing);
+        run.provision(&local());
+        run
+    };
+    let shared_with = |extra: Vec<(&'static str, Vec<Answer>)>| {
+        let mut all = extra;
+        all.push(("tailscale status --json", vec![needs_login(None)]));
+        let run = Run::new(rules(all), nothing);
+        run.provision(&tailscale(None));
+        run
+    };
+    cases(&[
+        case(
+            "the backups folder's owner cannot be set",
+            &local_with(vec![(
+                "--entrypoint chown",
+                vec![cannot_run("broken pipe")],
+            )]),
+        ),
+        case(
+            "the web key cannot be asked for",
+            &local_with(vec![("key show --web", vec![cannot_run("broken pipe")])]),
+        ),
+        case(
+            "the admin key cannot be asked for",
+            &local_with(vec![("key show --admin", vec![cannot_run("broken pipe")])]),
+        ),
+        case(
+            "Tailscale cannot be started",
+            &shared_with(vec![("up -d tailscale", vec![cannot_run("broken pipe")])]),
+        ),
+        case(
+            "Tailscale cannot be restarted for a link",
+            &shared_with(vec![("restart tailscale", vec![cannot_run("broken pipe")])]),
+        ),
+    ])
+}
+
+fn setup_tailscale_file_failures() -> String {
+    let with = |files: fn(Scripted) -> Scripted| {
+        let run = Run::new(
+            rules(vec![("tailscale status --json", vec![logged_in()])]),
+            files,
+        );
+        run.provision(&tailscale(None));
+        run
+    };
+    cases(&[
+        case(
+            "the Tailscale Compose file cannot be written",
+            &with(|host| host.failing_write("/data/docker/compose.tailscale.yaml", 0)),
+        ),
+        case(
+            "the serve settings' folder cannot be made",
+            &with(|host| host.failing_dir("/data/docker/tailscale")),
+        ),
+        case(
+            "the serve settings cannot be written",
+            &with(|host| host.failing_write("/data/docker/tailscale/serve.json", 0)),
+        ),
+    ])
+}
+
+fn setup_tailscale_link_lost() -> String {
+    // A link was shown; then the answers carry none for longer than the
+    // restart waits for, and no restart comes, since the person has the link.
+    let mut answers = vec![needs_login(Some(LINK))];
+    answers.extend((0..7).map(|_| needs_login(None)));
+    answers.push(logged_in());
+    let run = Run::new(rules(vec![("tailscale status --json", answers)]), nothing);
+    run.provision(&tailscale(None));
+    run.transcript()
+}
+
+fn setup_key_copy_without_a_folder() -> String {
+    // A key copy's path with no folder above it: nothing is made for it.
+    let run = Run::new(rules(vec![]), nothing);
+    let keys = KeyCopies {
+        access: PathBuf::new(),
+        ..keys()
+    };
+    let done = block_on(
+        run.docker
+            .provision(&*run.clock, &*run.login, &folder(), &local(), &keys),
+    );
+    run.result(done);
+    run.transcript()
+}
+
+/// A folder set up before, with old copies of all three keys on this
+/// machine.
+fn installed_with_old_copies(host: Scripted) -> Scripted {
+    installed_local(LOCAL_ENV)(host)
+        .with_file("/home/me/.config/kkt/docker-access-key", "old-access\n")
+        .with_file(WEB_COPY, "old-web\n")
+        .with_file("/home/me/.config/kkt-admin/docker-admin-key", "old-admin\n")
+}
+
+fn setup_replaces_key_copies() -> String {
+    let run = Run::new(
+        rules(vec![("key show --admin", vec![ok(&format!("{ADMIN}\n"))])]),
+        installed_with_old_copies,
+    );
+    run.provision(&local());
+    run.transcript()
+}
+
+fn upgrade_replaces_key_copies() -> String {
+    let run = Run::new(
+        rules(vec![("key show --admin", vec![ok(&format!("{ADMIN}\n"))])]),
+        installed_with_old_copies,
+    );
+    run.upgrade(Some(&keys()));
+    run.transcript()
+}
+
 pinned! {
     setup_local => super::setup_local();
     setup_local_with_an_admin_key => super::setup_local_with_an_admin_key();
@@ -1850,4 +1990,10 @@ pinned! {
     run_in_server_cannot_run => super::run_in_server_cannot_run();
     config_home_file_cannot_run => super::config_home_file_cannot_run();
     status_name_pack_cannot_run => super::status_name_pack_cannot_run();
+    setup_cannot_run => super::setup_cannot_run();
+    setup_tailscale_file_failures => super::setup_tailscale_file_failures();
+    setup_tailscale_link_lost => super::setup_tailscale_link_lost();
+    setup_key_copy_without_a_folder => super::setup_key_copy_without_a_folder();
+    setup_replaces_key_copies => super::setup_replaces_key_copies();
+    upgrade_replaces_key_copies => super::upgrade_replaces_key_copies();
 }
