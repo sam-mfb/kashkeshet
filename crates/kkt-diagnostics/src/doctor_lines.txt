@@ -1,0 +1,31 @@
+web key fix: check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server
+admin key fix: check the admin key on the server; `kkt key create --admin --force` replaces it, then restart the server
+web key fix: check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server
+admin key fix: check the admin key on the server; `kkt key create --admin --force` replaces it, then restart the server
+web key fix: check the operator web key on the server; `kkt key create --web` creates it if missing, then restart the server
+admin key fix: check the admin key on the server; `kkt key create --admin --force` replaces it, then restart the server
+web key fix: `kkt setup` (run again with the same answers) or `kkt upgrade` (to a new version) saves the server's web key here; to read it now, run `cd '/data/it'\''s kkt' && docker compose exec kkt kkt key show --web`
+admin key fix: `kkt setup --admin-key` (run again with the same answers) saves the server's admin key here; to read it now, run `cd '/data/it'\''s kkt' && docker compose exec kkt kkt key show --admin`
+server fix: the server runs on another machine: check its URL and key (running `kkt setup` again can change them)
+server fix: this machine runs kkt in Docker: run `kkt status`, or start it with `cd '/data/it'\''s kkt' && docker compose up -d`
+unrecorded: none
+this machine's setup | false | Found a kkt server in Docker from /data/it's kkt, for clients at http://127.0.0.1:9000/mcp, not recorded. | Some("run `kkt setup` to record it (`kkt setup --adopt` with no terminal), so `kkt upgrade` manages it")
+this machine's setup | true | Found a kkt server as a service, for clients at http://127.0.0.1:9000/mcp, not recorded. To have `kkt upgrade` manage it, run `kkt setup` to record it. | None
+this machine's setup | false | could not read the Docker folder | Some("run `kkt setup`, which sets it up again")
+this machine's setup | true | could not ask the service | None
+this machine's kkt service | true | not installed; optional when running `kkt serve` in a terminal | None
+this machine's kkt service | true | installed and running | None
+this machine's kkt service | false | installed but not running | Some("run `kkt service start`")
+this machine's kkt service | false | no session | Some("check `kkt service status` and your user service manager")
+web key host copy | true | the same as the server's | None
+web key host copy | false | differs from the server's web key, which was changed after the copy was saved; it no longer logs in | Some("`kkt setup` (run again with the same answers) or `kkt upgrade` (to a new version) saves the server's web key here; to read it now, run `cd '/data/it'\\''s kkt' && docker compose exec kkt kkt key show --web`")
+web key host copy | false | could not compare it with the server's web key: docker is not running | Some("check kkt with `cd '/data/it'\\''s kkt' && docker compose logs kkt`")
+this machine's Tailscale login | true | logged in | None
+this machine's Tailscale login | false | not logged in: the machine's key expired, or it was logged out, so it is off the tailnet and its HTTPS address does not answer | Some("run `kkt setup` again and log in with the link it shows")
+this machine's Tailscale login | false | the Tailscale container does not answer | Some("start it with `cd '/data/it'\\''s kkt' && docker compose up -d`")
+this machine's Tailscale login | false | Tailscale says: Stopped | Some("check the machine in the Tailscale admin console, or run `kkt setup` again")
+this machine's kkt in Docker | false | its files are missing from /data/it's kkt | Some("run `kkt setup` again")
+this machine's kkt in Docker | true | running kkt 0.10.0 | None
+this machine's kkt in Docker | true | running kkt (version unknown) | None
+this machine's kkt in Docker | false | not running | Some("start it with `cd '/data/it'\\''s kkt' && docker compose up -d`")
+this machine's kkt in Docker | false | Docker is not available | Some("check that Docker is running, then run `kkt status`")

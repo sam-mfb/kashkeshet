@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 kkt-keys = { path = "../kkt-keys" }
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
-kkt-container = { path = "../kkt-container" }
 kkt-containerized-service = { path = "../kkt-containerized-service" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-hash = { path = "../kkt-hash" }

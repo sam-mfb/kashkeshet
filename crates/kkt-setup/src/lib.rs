@@ -4,7 +4,7 @@
 //! changes it). It also decides, by how the machine is set up, which server
 //! `kkt lanes` and `kkt backup` act on, which key files a local backup
 //! holds, where each key file is, which server installed with no record is
-//! here, and which setup `kkt doctor` goes by and which fixes it gives.
+//! here.
 //!
 //! The caller reads what is installed, answers questions through [`Ask`],
 //! and carries out what is decided here, so every rule here is tested
@@ -15,8 +15,6 @@ mod adopt;
 pub mod ask;
 mod backup_keys;
 pub mod connection;
-mod doctor;
-pub mod doctor_checks;
 mod program;
 pub use program::{
     admin_key_line, client_key, configured_name_pack_line, docker_status_lines,
@@ -44,9 +42,6 @@ pub use adopt::{
 };
 pub use ask::{Ask, Lines, Question, unanswered};
 pub use backup_keys::{AccessKeyFrom, BackupKeys, Found, backup_keys};
-pub use doctor::{
-    KeyFix, ServerFix, clients_server_fix, clients_server_mode, doctor_record, key_fix, server_fix,
-};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use installed_here::InstalledHere;
 pub use key_finders::{KeyReads, OperatorKeyReads, find_here, find_key, find_operator_key};

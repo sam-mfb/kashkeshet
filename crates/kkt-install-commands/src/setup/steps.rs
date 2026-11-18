@@ -2,7 +2,7 @@
 //! to this machine, composed from the program's supplied providers.
 
 use super::InstallOptions;
-use crate::doctor::server_fix;
+use crate::doctor::{clients_server_mode, setup_of};
 use crate::keys::{admin_key_collision, new_key_file, write_admin_name, write_key_file};
 use crate::record::{
     DOCKER_KEY_FILE_NAME, docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded,
@@ -191,7 +191,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         // The server the clients use: on a machine whose clients were
         // switched, another machine's, checked as a client's.
         let server = record.for_clients();
-        let mode = setup::clients_server_mode(record.clients.is_some(), &record.mode);
+        let mode = clients_server_mode(record.clients.is_some(), &record.mode);
         let kind = match mode {
             setup::Mode::Client => diagnostics::SetupServer::Elsewhere,
             _ => diagnostics::SetupServer::New,
@@ -206,8 +206,8 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 diagnostics::setup_wait(diagnostics::Settings::DEFAULT, kind),
                 &mut || self.parts.output.output(format_args!("{note}\n")),
             ))?;
-        if let Some(fix) = setup::server_fix(&mode) {
-            point_server_fix_at(&mut checks, &server_fix(&fix));
+        if let Some(fix) = diagnostics::server_fix(&setup_of(&mode)) {
+            point_server_fix_at(&mut checks, &fix);
         }
         match diagnostics::report(checks) {
             (report, true) => Ok(report.trim_end().to_string()),

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a3ff5f30",
+ "commit": "cf924786",
  "crates": [
   {
    "bins": [
@@ -6796,6 +6796,16 @@ window.KKT_GRAPH = {
      "path": "DOCTOR_PROTOCOL_VERSION"
     },
     {
+     "doc": "What was found of kkt in Docker in its managed folder.",
+     "fields": [
+      "files_present",
+      "running",
+      "version"
+     ],
+     "kind": "struct",
+     "path": "DockerKkt"
+    },
+    {
      "doc": "What an MCP `initialize` request gave.",
      "kind": "enum",
      "path": "Initialized",
@@ -6901,6 +6911,15 @@ window.KKT_GRAPH = {
      "path": "ServerLines"
     },
     {
+     "doc": "What the service manager says of the kkt service.",
+     "fields": [
+      "installed",
+      "running"
+     ],
+     "kind": "struct",
+     "path": "ServiceSeen"
+    },
+    {
      "doc": "How long the probes and setup's wait for a new server take.",
      "fields": [
       "doctor_timeout",
@@ -6909,6 +6928,16 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Settings"
+    },
+    {
+     "doc": "How the server this machine's clients use is run, as the doctor checks it.",
+     "kind": "enum",
+     "path": "Setup",
+     "variants": [
+      "Service",
+      "Docker",
+      "Client"
+     ]
     },
     {
      "doc": "Where the server setup checks runs.",
@@ -6927,6 +6956,17 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Status"
+    },
+    {
+     "doc": "The Tailscale login of kkt in Docker.",
+     "kind": "enum",
+     "path": "TailscaleLogin",
+     "variants": [
+      "LoggedIn",
+      "NeedsLogin",
+      "Unreachable",
+      "Other"
+     ]
     },
     {
      "doc": "The lines about how this machine runs kkt.",
@@ -6948,6 +6988,15 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "A server kkt installed here with no record, or why looking for one failed.",
+     "kind": "enum",
+     "path": "UnrecordedServer",
+     "variants": [
+      "Found",
+      "Unreadable"
+     ]
+    },
+    {
      "doc": "How long to keep trying a server that does not answer, and how often.",
      "fields": [
       "total",
@@ -6955,6 +7004,30 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Wait"
+    },
+    {
+     "doc": "Whether the web key's host copy is the key kkt in Docker runs with.",
+     "kind": "enum",
+     "path": "WebKeyCopy",
+     "variants": [
+      "Same",
+      "Differs"
+     ]
+    },
+    {
+     "doc": "The fix for an admin key that does not work, on a machine run as `setup` (`None` when not known).",
+     "kind": "fn",
+     "path": "admin_key_fix"
+    },
+    {
+     "doc": "The doctor's line about kkt in Docker in the managed `folder`, or why it could not be asked.",
+     "kind": "fn",
+     "path": "docker_check"
+    },
+    {
+     "doc": "The doctor's line about whether the web key's host copy is the key of kkt in Docker in `folder`, or why it could not be compared.",
+     "kind": "fn",
+     "path": "docker_web_key_check"
     },
     {
      "doc": "Validate an HTTP MCP endpoint without allowing secrets in its URL.",
@@ -6992,6 +7065,16 @@ window.KKT_GRAPH = {
      "path": "report"
     },
     {
+     "doc": "The fix for a server that does not answer, run as `setup`; `None` where starting the kkt service is how kkt runs.",
+     "kind": "fn",
+     "path": "server_fix"
+    },
+    {
+     "doc": "The doctor's line about the kkt service on this machine, or why it could not be asked.",
+     "kind": "fn",
+     "path": "service_check"
+    },
+    {
      "doc": "How long setup waits for `server` to answer, by `settings`.",
      "kind": "fn",
      "path": "setup_wait"
@@ -7000,6 +7083,11 @@ window.KKT_GRAPH = {
      "doc": "`text` as one shell word, for fix text the operator copies into a shell (not for running a process here).",
      "kind": "fn",
      "path": "shell_word"
+    },
+    {
+     "doc": "The doctor's line about the login of the Tailscale container of kkt in Docker in `folder`.",
+     "kind": "fn",
+     "path": "tailscale_login_check"
     },
     {
      "doc": "A prober in memory, a stand-in `Prober` for tests: key files and what each address answers are given up front, and nothing touches the machine or a network.",
@@ -7024,9 +7112,19 @@ window.KKT_GRAPH = {
      "path": "unreachable"
     },
     {
+     "doc": "The doctor's line about a server kkt installed here with no record, if one was looked for (`None` when none was found).",
+     "kind": "fn",
+     "path": "unrecorded_check"
+    },
+    {
      "doc": "Checks the server at `url` with the key file at `key_file`, again every `wait.every` while it does not answer at all, for up to `wait.total` on `clock`.",
      "kind": "fn",
      "path": "until_reachable"
+    },
+    {
+     "doc": "The fix for an operator web key that does not work, on a machine run as `setup` (`None` when not known).",
+     "kind": "fn",
+     "path": "web_key_fix"
     }
    ],
    "lib": "kkt_diagnostics",
@@ -15720,15 +15818,6 @@ window.KKT_GRAPH = {
      "path": "InstalledHere"
     },
     {
-     "doc": "The fix for a key (the operator web key or the admin key) that does not work.",
-     "kind": "enum",
-     "path": "KeyFix",
-     "variants": [
-      "OnServer",
-      "Docker"
-     ]
-    },
-    {
      "doc": "Which of the server's keys a `kkt key` command is about.",
      "kind": "enum",
      "methods": [
@@ -15867,15 +15956,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Server"
-    },
-    {
-     "doc": "The fix for a server that does not answer, where starting the kkt service is not how kkt runs.",
-     "kind": "enum",
-     "path": "ServerFix",
-     "variants": [
-      "Elsewhere",
-      "Docker"
-     ]
     },
     {
      "doc": "What `kkt setup` does to the machine.",
@@ -16054,16 +16134,6 @@ window.KKT_GRAPH = {
      "path": "client_key"
     },
     {
-     "doc": "The fix doctor gives for a server that does not answer, on a machine set up as `mode` (`None` when not known) whose clients may have been `switched`: see `clients_server_mode` and `server_fix`.",
-     "kind": "fn",
-     "path": "clients_server_fix"
-    },
-    {
-     "doc": "How the server this machine's clients use is checked, on a machine set up as `mode`: as a client's when the clients were `switched` to another machine's server, otherwise as `mode` says.",
-     "kind": "fn",
-     "path": "clients_server_mode"
-    },
-    {
      "doc": "The key of `kind` beside `access`, the access key file the serve config names (`None` when it turns keys off, which `off` decides about).",
      "kind": "fn",
      "path": "configured_key"
@@ -16170,67 +16240,6 @@ window.KKT_GRAPH = {
      "path": "docker_status_lines"
     },
     {
-     "doc": "The doctor's checks and fixes, from facts read by the program.",
-     "kind": "mod",
-     "path": "doctor_checks"
-    },
-    {
-     "doc": "Setup's check result, adapted by the program to the diagnostic report.",
-     "fields": [
-      "name",
-      "ok",
-      "detail",
-      "fix"
-     ],
-     "kind": "struct",
-     "path": "doctor_checks::DoctorCheck"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "doctor_checks::admin_key_fix"
-    },
-    {
-     "doc": "The doctor's line about kkt in Docker, from what `kkt_containerized_service::ServiceContainer::status` found in the managed `folder`.",
-     "kind": "fn",
-     "path": "doctor_checks::docker_check"
-    },
-    {
-     "doc": "The doctor's line about whether the web key's host copy is the Docker server's key, from what `kkt_containerized_service::ServiceContainer::compare_web_key` found.",
-     "kind": "fn",
-     "path": "doctor_checks::docker_web_key_check"
-    },
-    {
-     "doc": "The text of `fix`, kkt-setup's fix for a server that does not answer.",
-     "kind": "fn",
-     "path": "doctor_checks::server_fix_text"
-    },
-    {
-     "doc": "The doctor's line about the kkt service on this machine.",
-     "kind": "fn",
-     "path": "doctor_checks::service_check"
-    },
-    {
-     "doc": "The doctor's line about the Tailscale container's login.",
-     "kind": "fn",
-     "path": "doctor_checks::tailscale_login_check"
-    },
-    {
-     "doc": "The doctor's line about a server kkt installed here with no record, if one was looked for and found.",
-     "kind": "fn",
-     "path": "doctor_checks::unrecorded_check"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "doctor_checks::web_key_fix"
-    },
-    {
-     "doc": "The setup `kkt doctor` goes by: the `recorded` one; else the one an `unfinished` setup installed but did not record; else, with no note of one, a server `found` installed here with no record, adopted as kkt `version` would record it.",
-     "kind": "fn",
-     "path": "doctor_record"
-    },
-    {
      "doc": "What is known about the server here: its record, else a note of an unfinished setup, else a server installed with no record, each read only if the one before is not there.",
      "kind": "fn",
      "path": "find_here"
@@ -16244,11 +16253,6 @@ window.KKT_GRAPH = {
      "doc": "Where this machine's key of `kind` is: reads the record, then, only if it does not say, the serve config.",
      "kind": "fn",
      "path": "find_operator_key"
-    },
-    {
-     "doc": "The fix for a key on a machine set up as `mode` (`None` when not known).",
-     "kind": "fn",
-     "path": "key_fix"
     },
     {
      "doc": "The report of a lane import, and the Docker limit when no install is present.",
@@ -16312,11 +16316,6 @@ window.KKT_GRAPH = {
      "doc": "Runs `kkt setup`: asks what `answers` leaves open, sets the machine up, checks the connection, connects clients, and records it.",
      "kind": "fn",
      "path": "run"
-    },
-    {
-     "doc": "The fix for a server that does not answer, checked as `mode`; `None` where starting the kkt service is how kkt runs.",
-     "kind": "fn",
-     "path": "server_fix"
     },
     {
      "doc": "",
@@ -24030,6 +24029,8 @@ window.KKT_GRAPH = {
    "items": [
     "ConfigReader",
     "Inputs",
+    "KeyCopy",
+    "Login",
     "LoginLink",
     "ServiceContainer",
     "Sharing"
@@ -24042,6 +24043,8 @@ window.KKT_GRAPH = {
      "detail": [
       "ConfigReader",
       "Inputs",
+      "KeyCopy",
+      "Login",
       "LoginLink",
       "ServiceContainer",
       "Sharing"
@@ -24111,21 +24114,35 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "Check",
+    "DockerKkt",
     "Inspector",
     "KeyToCheck",
     "Plan",
     "Prober",
     "ServerLines",
+    "ServiceSeen",
     "Settings",
+    "Setup",
     "SetupServer",
+    "TailscaleLogin",
     "ThisMachine",
+    "UnrecordedServer",
+    "WebKeyCopy",
+    "admin_key_fix",
+    "docker_check",
+    "docker_web_key_check",
     "inspect",
     "inspect_address",
     "inspect_with_key",
     "point_server_fix_at",
     "report",
+    "server_fix",
+    "service_check",
     "setup_wait",
-    "until_reachable"
+    "tailscale_login_check",
+    "unrecorded_check",
+    "until_reachable",
+    "web_key_fix"
    ],
    "kind": "normal",
    "optional": false,
@@ -24137,15 +24154,27 @@ window.KKT_GRAPH = {
       "Plan",
       "Prober",
       "ServerLines",
+      "Setup",
       "SetupServer",
+      "TailscaleLogin",
       "ThisMachine",
+      "UnrecordedServer",
+      "WebKeyCopy",
+      "admin_key_fix",
+      "docker_check",
+      "docker_web_key_check",
       "inspect",
       "inspect_address",
       "inspect_with_key",
       "point_server_fix_at",
       "report",
+      "server_fix",
+      "service_check",
       "setup_wait",
-      "until_reachable"
+      "tailscale_login_check",
+      "unrecorded_check",
+      "until_reachable",
+      "web_key_fix"
      ],
      "role": "uses"
     },
@@ -24370,8 +24399,6 @@ window.KKT_GRAPH = {
     "backup_keys",
     "backup_of",
     "client_key",
-    "clients_server_fix",
-    "clients_server_mode",
     "configured_name_pack_line",
     "connection",
     "connection::ConnectionOptions",
@@ -24381,13 +24408,10 @@ window.KKT_GRAPH = {
     "connection::serve_connection",
     "docker_key_copies",
     "docker_status_lines",
-    "doctor_checks",
-    "doctor_record",
     "find_operator_key",
     "new_key_file",
     "recorded_setup",
     "run",
-    "server_fix",
     "service_backup_folder",
     "service_runs_defaults",
     "service_upgrade_error",
@@ -24436,8 +24460,6 @@ window.KKT_GRAPH = {
       "backup_keys",
       "backup_of",
       "client_key",
-      "clients_server_fix",
-      "clients_server_mode",
       "configured_name_pack_line",
       "connection",
       "connection::ConnectionSource",
@@ -24446,13 +24468,10 @@ window.KKT_GRAPH = {
       "connection::serve_connection",
       "docker_key_copies",
       "docker_status_lines",
-      "doctor_checks",
-      "doctor_record",
       "find_operator_key",
       "new_key_file",
       "recorded_setup",
       "run",
-      "server_fix",
       "service_backup_folder",
       "service_runs_defaults",
       "service_upgrade_error",
@@ -24481,7 +24500,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "Server",
-    "ServerFix",
     "connection::ServeConnection"
    ],
    "to": "kkt-setup"
@@ -27628,29 +27646,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
-    "Folder"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Folder"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-container"
-  },
-  {
-   "features": [],
-   "from": "kkt-setup",
-   "items": [
     "KeyCopies",
-    "KeyCopy",
     "Login",
     "State"
    ],
@@ -27661,7 +27657,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "KeyCopies",
-      "KeyCopy",
       "Login",
       "State"
      ],
@@ -28854,7 +28849,7 @@ window.KKT_CONCERNS = {
    "layer": "operations"
   },
   "kkt-diagnostics": {
-   "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It makes its checks, with their fixes, from the facts a `Prober` it declares reports.",
+   "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It makes its checks and fixes from the facts a `Prober` it declares reports, and from facts it declares about how this machine runs kkt.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -29024,7 +29019,7 @@ window.KKT_CONCERNS = {
    "layer": "assembly"
   },
   "kkt-setup": {
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what lanes, backup and doctor do. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what lanes and backup do. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic",
    "layer": "operations"
   },

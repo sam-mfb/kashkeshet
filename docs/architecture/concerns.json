@@ -166,7 +166,7 @@
   },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what lanes, backup and doctor do. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what lanes and backup do. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic"
   },
   "kkt-bare-service": {
@@ -221,7 +221,7 @@
   },
   "kkt-diagnostics": {
    "layer": "operations",
-   "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It makes its checks, with their fixes, from the facts a `Prober` it declares reports.",
+   "concern": "The checks `kkt doctor` runs and their plan, and a wait until a new server answers. It makes its checks and fixes from the facts a `Prober` it declares reports, and from facts it declares about how this machine runs kkt.",
    "kind": "logic"
   },
   "kkt-backup": {
