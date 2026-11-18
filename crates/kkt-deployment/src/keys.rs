@@ -3,7 +3,6 @@
 //! create` print these lines.
 
 use kkt_keys::{AdminNameFile, admin_name_path, read_admin_name};
-use kkt_names::AdminName;
 use std::path::Path;
 
 /// What to say, after `label`, about the name tied to the admin key `key`
@@ -31,10 +30,11 @@ pub fn admin_name_line(
 }
 
 /// The advice after the name file beside the admin key at `path` is
-/// written for `name`, or removed with no name: `written` is how that went.
+/// written for the admin name `name`, or removed with no name: `written` is
+/// how that went.
 pub fn admin_name_written(
     path: &Path,
-    name: Option<&AdminName>,
+    name: Option<&str>,
     written: Result<(), String>,
 ) -> Result<String, String> {
     let names = admin_name_path(path);

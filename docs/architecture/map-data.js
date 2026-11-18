@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "4839ac92",
+ "commit": "fa2cf75c",
  "crates": [
   {
    "bins": [
@@ -6685,7 +6685,7 @@ window.KKT_GRAPH = {
      "path": "admin_name_line"
     },
     {
-     "doc": "The advice after the name file beside the admin key at `path` is written for `name`, or removed with no name: `written` is how that went.",
+     "doc": "The advice after the name file beside the admin key at `path` is written for the admin name `name`, or removed with no name: `written` is how that went.",
      "kind": "fn",
      "path": "admin_name_written"
     },
@@ -22996,27 +22996,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-machine"
-  },
-  {
-   "features": [],
-   "from": "kkt-deployment",
-   "items": [
-    "AdminName"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "AdminName"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-names"
   },
   {
    "features": [],
