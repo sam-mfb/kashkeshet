@@ -402,6 +402,38 @@ mod tests {
         }
     }
 
+    /// Every sentence a check says about a name's words, and the reserved
+    /// handles, pinned exactly: agents and the person read them.
+    #[test]
+    fn every_name_check_says_what_it_always_said() {
+        assert_eq!(
+            check_proposed_handle("two--hyphens", MAX_CHARS),
+            Err("the handle must be letters, digits and underscores, in words joined by single hyphens, such as `api-reviewer-2` or `Api_Reviewer-2`; got \"two--hyphens\"".to_string())
+        );
+        for reserved in ["Operator", "ADMIN-x"] {
+            assert_eq!(
+                check_proposed_handle(reserved, MAX_CHARS),
+                Err(
+                    "`operator` and handles starting `admin-` are reserved, in any case"
+                        .to_string()
+                ),
+                "{reserved}"
+            );
+        }
+        assert_eq!(
+            check_lane_name("Big_Lane", MAX_CHARS),
+            Err("the lane name must be lowercase letters and digits, in words joined by single hyphens, such as `orchestrator` or `code-reviewer`; got \"Big_Lane\"".to_string())
+        );
+        assert_eq!(
+            check_memory_name("", MAX_CHARS),
+            Err("the entry name must be lowercase letters and digits, in words joined by single hyphens, such as `handoff` or `open-questions`; got \"\"".to_string())
+        );
+        assert_eq!(
+            AdminName::new(" admin-Night ", MAX_CHARS),
+            Err("the admin name must be lowercase letters and digits, in words joined by single hyphens, such as `sentinel` (which becomes `admin-sentinel`); got \"admin-Night\"".to_string())
+        );
+    }
+
     #[test]
     fn each_check_takes_its_maximum_from_the_caller() {
         // At the maximum given, and one over it, with the number in the text.
