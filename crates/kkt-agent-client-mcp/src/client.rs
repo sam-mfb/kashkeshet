@@ -10,7 +10,6 @@ pub use watching::Remote;
 use crate::Settings;
 use futures::future::BoxFuture;
 use kkt_agent_client::{Address, Avatars, Failure, Reclaimed, Registered, Servers, Watched};
-use kkt_clock::Clock;
 use rmcp::model::CallToolRequestParams;
 use rmcp::service::{ClientInitializeError, RoleClient, RunningService};
 use rmcp::transport::streamable_http_client::{
@@ -19,7 +18,6 @@ use rmcp::transport::streamable_http_client::{
 use rmcp::transport::{DynamicTransportError, StreamableHttpClientTransport};
 use rmcp::{ClientLifecycleMode, ClientServiceExt, ServiceError};
 use serde_json::{Map, Value, json};
-use std::sync::Arc;
 use tokio::sync::Mutex;
 
 type Session = RunningService<RoleClient, ()>;
@@ -49,8 +47,8 @@ impl Servers for Mcp {
             Settings::DEFAULT,
         ))
     }
-    fn admin(&self, at: Address, clock: Arc<dyn Clock>) -> Box<dyn Watched> {
-        Box::new(AdminRemote::new(Mcp::client(at), clock, Settings::DEFAULT))
+    fn admin(&self, at: Address) -> Box<dyn Watched> {
+        Box::new(AdminRemote::new(Mcp::client(at), Settings::DEFAULT))
     }
 }
 
