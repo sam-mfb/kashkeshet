@@ -1,5 +1,5 @@
-//! The container install, pinned: every scenario drives kkt-container's
-//! `Container` over Docker on a scripted host, and its whole story (each
+//! The container install, pinned: every scenario drives kkt-containerized-service's
+//! `ServiceContainer` over Docker on a scripted host, and its whole story (each
 //! command line in order with the folder it runs in and what the scripted
 //! host answered, the variables it runs without, the folders made, the files written with their modes and text,
 //! the lines said, the login link, and the result or the error's text) must
@@ -21,8 +21,8 @@ use kkt_container::Folder;
 use kkt_container_docker::testing::{Reply, Scripted};
 use kkt_containerized_service::Browser;
 use kkt_containerized_service::{
-    Arg, Carry, ConfigReader, Container, ContainerConfig, InServer, Inputs, KeyCopies, LoginLink,
-    Sharing,
+    Arg, Carry, ConfigReader, ContainerConfig, InServer, Inputs, KeyCopies, LoginLink,
+    ServiceContainer, Sharing,
 };
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
@@ -197,7 +197,7 @@ struct Run {
     clock: Arc<FixedClock>,
     host: Scripted,
     login: Rc<Login>,
-    docker: Box<dyn Container>,
+    docker: Box<dyn ServiceContainer>,
 }
 
 /// How the login link is used in a scenario.

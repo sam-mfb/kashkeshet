@@ -873,7 +873,7 @@ mod tests {
             web: home.join("web"),
             admin: home.join("admin"),
         };
-        futures::executor::block_on(kkt_containerized_service::Container::provision(
+        futures::executor::block_on(kkt_containerized_service::ServiceContainer::provision(
             &container,
             &NoClock,
             &untouched,
@@ -890,7 +890,7 @@ mod tests {
             panic!("finding an install tried an address")
         };
         let with_copy = kkt_keys::testing::Memory::new().with_file(key_file.clone(), "key\n");
-        let read = |container: &dyn kkt_containerized_service::Container,
+        let read = |container: &dyn kkt_containerized_service::ServiceContainer,
                     key_files: &dyn kkt_keys::KeyFiles| {
             let parts = InstallParts {
                 container,
@@ -956,7 +956,7 @@ mod tests {
             sharing: None,
             ..shared.clone()
         };
-        futures::executor::block_on(kkt_containerized_service::Container::provision(
+        futures::executor::block_on(kkt_containerized_service::ServiceContainer::provision(
             &local,
             &NoClock,
             &untouched,

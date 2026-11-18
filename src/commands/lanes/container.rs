@@ -5,7 +5,7 @@
 
 use kkt_api_agent::LaneSource;
 use kkt_container::Folder;
-use kkt_containerized_service::{Arg, Carry, ConfigReader, Container, InServer};
+use kkt_containerized_service::{Arg, Carry, ConfigReader, InServer, ServiceContainer};
 use kkt_operator_commands::lanes::{LaneFuture, LaneImport, LaneServer};
 use kkt_operator_commands::{Output, Paths};
 use std::path::Path;
@@ -22,7 +22,7 @@ const LANES_EXPORT_FOLDER: &str = "/tmp/kkt-lanes-export";
 
 /// The lanes of kkt installed in a container in `folder`.
 pub(crate) struct ContainerLanes<'a> {
-    pub container: &'a dyn Container,
+    pub container: &'a dyn ServiceContainer,
     /// Reads the container's config file.
     pub configs: &'a dyn ConfigReader,
     /// Makes an export's folder absolute, as the person typed it here.
