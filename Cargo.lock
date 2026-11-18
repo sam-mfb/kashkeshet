@@ -1683,7 +1683,6 @@ dependencies = [
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-api-sim",
- "kkt-backup",
  "kkt-clock",
  "kkt-entropy",
  "kkt-hosts",
