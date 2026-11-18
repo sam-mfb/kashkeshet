@@ -631,7 +631,7 @@ struct Lines {
 }
 
 impl watch::Report for Lines {
-    fn message(&mut self, line: &str) -> Result<(), String> {
+    fn message(&mut self, line: &str) -> Result<(), watch::ReportError> {
         self.lines.push(line.into());
         Ok(())
     }
@@ -695,7 +695,11 @@ async fn recovers_from(stall: Stall) {
     })
     .await
     .unwrap_or_else(|_| panic!("{stall:?}: the watch did not recover"));
-    assert_eq!(outcome, Ok(watch::Outcome::Received), "{stall:?}");
+    assert_eq!(
+        outcome.map_err(|e| e.to_string()),
+        Ok(watch::Outcome::Received),
+        "{stall:?}"
+    );
     let sent = sent.get().expect("a message was sent");
     assert_eq!(
         report.lines,
@@ -835,7 +839,10 @@ async fn a_key_refused_after_watching_started_ends_it() {
     })
     .await;
     let outcome = outcome.unwrap_or_else(|_| panic!("the watch kept going: {:?}", report.notes));
-    assert_eq!(outcome, Err("the server refused the access key".into()));
+    assert_eq!(
+        outcome.map_err(|e| e.to_string()),
+        Err("the server refused the access key".into())
+    );
 }
 
 #[tokio::test]

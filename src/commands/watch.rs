@@ -9,10 +9,10 @@ use kkt_watch as watch;
 pub(crate) struct WatchOutput;
 
 impl watch::Report for WatchOutput {
-    fn message(&mut self, line: &str) -> Result<(), String> {
+    fn message(&mut self, line: &str) -> Result<(), watch::ReportError> {
         Terminal
             .message(line)
-            .map_err(|e| format!("could not print a message: {e}"))
+            .map_err(|e| watch::ReportError(format!("could not print a message: {e}").into()))
     }
 
     fn note(&mut self, text: &str) {
