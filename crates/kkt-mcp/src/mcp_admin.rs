@@ -663,7 +663,7 @@ impl AdminServer {
         let out = async {
             let list = call
                 .rules
-                .admin_list_memories(p.handle, self.limit(p.limit), p.cursor)
+                .admin_list_memories(&call.operator, p.handle, self.limit(p.limit), p.cursor)
                 .await?;
             Ok(self.fmt.memory_list(f, &list))
         }
@@ -683,7 +683,10 @@ impl AdminServer {
             Err(e) => return self.refuse(f, e),
         };
         let out = async {
-            let entry = call.rules.admin_recall(p.handle, p.name).await?;
+            let entry = call
+                .rules
+                .admin_recall(&call.operator, p.handle, p.name)
+                .await?;
             let offset = mcp_tools::offset(
                 p.offset,
                 entry.text.chars().count(),
