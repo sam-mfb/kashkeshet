@@ -153,9 +153,10 @@ impl Settings {
 
     /// The run record's lines for these settings, a name and a value each,
     /// in the order the record has them: the name pack by name and the
-    /// waits in milliseconds. `max_lane_description_chars` and
-    /// `event_buffer` are fixed, not settings a person gives, so they are not
-    /// recorded.
+    /// waits in milliseconds. `max_lane_description_chars` is fixed, not a
+    /// setting a person gives, so it is not recorded. kkt never sets
+    /// `event_buffer`, so it is not recorded either; a product that sets it
+    /// adds its own line, through the lines its program words.
     pub fn record_lines(&self) -> Vec<(String, String)> {
         // Listing every field, with no `..`, makes a new setting fail to
         // compile here until it is recorded or said not to be.
@@ -420,6 +421,7 @@ mod tests {
         assert_eq!(value("max_wait_ms"), Some("50000"));
         assert_eq!(value("waiting_grace_ms"), Some("3000"));
         assert_eq!(value("max_lane_description_chars"), None);
+        // kkt never sets it; a product that does words its own line.
         assert_eq!(value("event_buffer"), None);
     }
 }
