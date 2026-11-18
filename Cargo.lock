@@ -1773,6 +1773,7 @@ dependencies = [
  "futures",
  "kkt-agent-client",
  "kkt-clock",
+ "thiserror",
  "tokio",
 ]
 

@@ -6,6 +6,21 @@ use std::sync::Mutex;
 
 const ME: &str = "me";
 
+/// [`super::run`], with its error as the text a person sees, which the
+/// tests pin.
+async fn run(
+    server: &dyn Watched,
+    clock: &dyn Clock,
+    settings: Settings,
+    place: Option<&dyn Place>,
+    report: &mut dyn Report,
+    options: &Options,
+) -> Result<Outcome, String> {
+    super::run(server, clock, settings, place, report, options)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 fn start() -> Time {
     Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap()
 }
@@ -117,11 +132,11 @@ struct FakePlace {
 }
 
 impl Place for FakePlace {
-    fn load(&self) -> Result<Option<i64>, String> {
+    fn load(&self) -> Result<Option<i64>, PlaceError> {
         Ok(*self.id.lock().unwrap())
     }
 
-    fn save(&self, id: i64) -> Result<(), String> {
+    fn save(&self, id: i64) -> Result<(), PlaceError> {
         *self.id.lock().unwrap() = Some(id);
         self.saves.lock().unwrap().push(id);
         Ok(())
@@ -135,7 +150,7 @@ struct FakeReport {
 }
 
 impl Report for FakeReport {
-    fn message(&mut self, line: &str) -> Result<(), String> {
+    fn message(&mut self, line: &str) -> Result<(), ReportError> {
         self.lines.push(line.into());
         Ok(())
     }
@@ -1019,11 +1034,11 @@ fn a_channel_name_that_picks_none_or_several_says_so() {
         },
     ];
     assert_eq!(
-        filters::channels(None, &["nope".into()], &visible),
+        filters::channels(None, &["nope".into()], &visible).map_err(|e| e.to_string()),
         Err("no visible channel named \"nope\"".to_string())
     );
     assert_eq!(
-        filters::channels(None, &["talk".into()], &visible),
+        filters::channels(None, &["talk".into()], &visible).map_err(|e| e.to_string()),
         Err(
             "several visible channels named \"talk\": ch_a, ch_b; use --channel with an ID"
                 .to_string()
@@ -1054,17 +1069,17 @@ async fn a_clock_at_its_end_is_out_of_range() {
 async fn a_failing_place_or_report_ends_the_watch_with_its_words() {
     struct Unreadable;
     impl Place for Unreadable {
-        fn load(&self) -> Result<Option<i64>, String> {
-            Err("could not read state file /s: denied".into())
+        fn load(&self) -> Result<Option<i64>, PlaceError> {
+            Err(PlaceError("could not read state file /s: denied".into()))
         }
-        fn save(&self, _: i64) -> Result<(), String> {
+        fn save(&self, _: i64) -> Result<(), PlaceError> {
             Ok(())
         }
     }
     struct Closed;
     impl Report for Closed {
-        fn message(&mut self, _: &str) -> Result<(), String> {
-            Err("could not print a message: Broken pipe".into())
+        fn message(&mut self, _: &str) -> Result<(), ReportError> {
+            Err(ReportError("could not print a message: Broken pipe".into()))
         }
         fn note(&mut self, _: &str) {}
     }
