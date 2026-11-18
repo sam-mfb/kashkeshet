@@ -11,7 +11,7 @@ pub(crate) mod credentials;
 pub mod database;
 pub mod diagnostics;
 pub mod keys;
-pub mod operate;
+pub mod native;
 mod serve_options;
 pub mod server_run;
 pub(crate) mod service;

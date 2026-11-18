@@ -1,5 +1,5 @@
-//! What client configuration needs from the machine: files, paths and the
-//! `claude` command. The program adapts the real host; unit tests use a fake.
+//! What client configuration needs from the machine: files and paths. The
+//! program adapts the real host; unit tests use a fake.
 
 use std::io;
 use std::path::{Path, PathBuf};

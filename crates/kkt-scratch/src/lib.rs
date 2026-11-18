@@ -1,6 +1,5 @@
 //! Where tests put their scratch files: a folder inside Cargo's `target/`
-//! folder, never the system temporary folder, so a test run writes only
-//! inside the clone.
+//! folder, so a test run writes only inside the clone.
 //!
 //! Integration tests and unit tests take this crate as a dev-dependency, so
 //! they all find the folder the same way: from where Cargo put the test

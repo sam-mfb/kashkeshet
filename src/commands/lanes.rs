@@ -20,7 +20,7 @@ fn existing_db(
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform);
+    let native = crate::machine::native::NativeParts::new(env, platform);
     kkt_operator_commands::lanes::existing_db(&native.lane_parts(), db, config_db)
 }
 
@@ -31,14 +31,14 @@ fn local_operator(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(kkt_rules::CommandLine, usize), String> {
-    let native = crate::machine::operate::NativeOperate::new(env, platform);
+    let native = crate::machine::native::NativeParts::new(env, platform);
     kkt_operator_commands::lanes::local_operator(&native.lane_parts(), db, config)
 }
 
 #[cfg(test)]
 fn local_lane_limit(env: &Env) -> Result<usize, String> {
     let native =
-        crate::machine::operate::NativeOperate::new(env, crate::machine::settings::TEST_PLATFORM);
+        crate::machine::native::NativeParts::new(env, crate::machine::settings::TEST_PLATFORM);
     kkt_operator_commands::lanes::local_lane_limit(&native.lane_parts())
 }
 

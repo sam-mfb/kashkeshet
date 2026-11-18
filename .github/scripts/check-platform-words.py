@@ -24,6 +24,12 @@ carry the plainest marks of history (HISTORY) or the plainest negatives
 (NEGATIVE). A crate's description is one to three short sentences, so one
 longer than MAX_DESCRIPTION characters fails.
 
+Each crate's header, the `//!` lines that open its lib.rs (or main.rs), keeps
+to the same rules: no line of it carries the marks of history, and its
+first sentence, which the map shows, says no plain negative. The rest of
+a header may say what its code does not do, such as a refusal a rule
+makes.
+
 Usage: check-platform-words.py [ROOT]   (the workspace root; default: here)
 Tested by test_check_platform_words.py.
 """
@@ -181,8 +187,57 @@ def description_problems(root):
     return found
 
 
+def header(text):
+    """The `//!` lines that open a file, without the marks, up to the first
+    line of code."""
+    lines = []
+    for line in text.split("\n"):
+        if line.startswith("//!"):
+            lines.append(line[3:].strip())
+        elif line.strip() and not line.startswith("#!"):
+            break
+        elif lines and not line.strip():
+            break
+    return lines
+
+
+def first_sentence(lines):
+    """The first sentence of a header's first paragraph, as the map shows it."""
+    paragraph = []
+    for line in lines:
+        if not line:
+            break
+        paragraph.append(line)
+    text = " ".join(paragraph)
+    match = re.match(r"(.+?[.!?])(\s|$)", text)
+    return match.group(1) if match else text
+
+
+def header_problems(root):
+    """History in any crate's header, and a negative in its first sentence."""
+    concerns = json.loads((root / "docs/architecture/concerns.json").read_text())
+    found = []
+    for name in sorted(concerns["crates"]):
+        for path in (root / "crates" / name / "src/lib.rs", root / "crates" / name / "src/main.rs",
+                     root / "programs" / name / "src/lib.rs", root / "programs" / name / "src/main.rs"):
+            if path.exists():
+                break
+        else:
+            continue
+        lines = header(path.read_text())
+        where = str(path.relative_to(root))
+        for number, line in enumerate(lines, start=1):
+            history = HISTORY.search(line)
+            if history:
+                found.append(f"{where}:{number}: the crate's header gives history: {history.group(0)}")
+        negative = NEGATIVE.search(first_sentence(lines))
+        if negative:
+            found.append(f"{where}: the crate's header begins with what it is not: {negative.group(0)}")
+    return found
+
+
 def problems(root):
-    found = description_problems(root)
+    found = description_problems(root) + header_problems(root)
     concerns = json.loads((root / "docs/architecture/concerns.json").read_text())
     for crate in platform_crates(root):
         own = {t.lower() for t in TOOL.findall(concerns["crates"][crate].get("concern", ""))}
@@ -203,8 +258,8 @@ def main():
     if found:
         print("check-platform-words: a platform crate names kkt (it must know nothing of kkt, "
               "so the caller passes kkt's words in), or a tool its description does not name, "
-              "or a crate's map description says kkt where it may not, gives history, says "
-              "what it is not, or runs long:", file=sys.stderr)
+              "or a crate's map description or header says kkt where it may not, gives history, "
+              "says what it is not, or runs long:", file=sys.stderr)
         for line in found:
             print(line, file=sys.stderr)
         sys.exit(1)

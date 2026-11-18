@@ -46,9 +46,6 @@
 //! clears the ownership first. [`Permission::IssueRecoveryCodes`] lets it
 //! issue a new recovery code for an avatar.
 //!
-//! In key mode the web page's human holds all three permissions, an admin
-//! key with a name read and change, and one with no name read only.
-//!
 //! An avatar's memory, its named entries, is read and changed through MCP
 //! only by the avatar itself; the operator, the human or an admin agent, may
 //! read it, and nobody else may.

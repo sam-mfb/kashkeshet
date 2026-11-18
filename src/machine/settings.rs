@@ -479,7 +479,7 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     let config = AppConfig {
         admission,
         web_admission,
-        // kkt's admin endpoint takes its admin key, as before.
+        // kkt's admin endpoint takes its admin key.
         admin_admission: admin_key.map(AdminAdmission::SharedKey),
         instructions,
     };
