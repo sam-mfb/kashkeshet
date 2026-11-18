@@ -3,6 +3,27 @@
 use super::ServerVersion;
 use std::cmp::Ordering;
 
+/// Why `kkt upgrade` will not replace the server.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum UpgradeError {
+    /// This machine is a client: its server runs elsewhere.
+    #[error("this machine is a client; upgrade the server on the machine where it runs")]
+    OnAClient,
+    /// This program's own version is not a version.
+    #[error("this kkt has an invalid version {target:?}")]
+    InvalidVersion { target: String },
+    /// The server's version cannot be compared with this program's.
+    #[error(
+        "cannot compare server version {current:?} with {target}; pass --allow-downgrade to replace it explicitly"
+    )]
+    Incomparable { current: String, target: String },
+    /// This program is older than the server.
+    #[error(
+        "refusing to downgrade the server from {current} to {target}; pass --allow-downgrade to override"
+    )]
+    Downgrade { current: String, target: String },
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Upgrade {
     Already,
@@ -18,9 +39,11 @@ pub fn upgrade(
     current: &ServerVersion,
     target: &str,
     allow_downgrade: bool,
-) -> Result<Upgrade, String> {
-    let target_version = semver::Version::parse(target)
-        .map_err(|_| format!("this kkt has an invalid version {target:?}"))?;
+) -> Result<Upgrade, UpgradeError> {
+    let target_version =
+        semver::Version::parse(target).map_err(|_| UpgradeError::InvalidVersion {
+            target: target.to_string(),
+        })?;
     let current = match current {
         ServerVersion::NotKnown => return Ok(Upgrade::Proceed),
         ServerVersion::Known(current) => current,
@@ -29,18 +52,20 @@ pub fn upgrade(
         Ok(version) => version,
         Err(_) if allow_downgrade => return Ok(Upgrade::Proceed),
         Err(_) => {
-            return Err(format!(
-                "cannot compare server version {current:?} with {target}; pass --allow-downgrade to replace it explicitly"
-            ));
+            return Err(UpgradeError::Incomparable {
+                current: current.clone(),
+                target: target.to_string(),
+            });
         }
     };
     match target_version.cmp_precedence(&current_version) {
         Ordering::Equal => Ok(Upgrade::Already),
         Ordering::Greater => Ok(Upgrade::Proceed),
         Ordering::Less if allow_downgrade => Ok(Upgrade::Proceed),
-        Ordering::Less => Err(format!(
-            "refusing to downgrade the server from {current} to {target}; pass --allow-downgrade to override"
-        )),
+        Ordering::Less => Err(UpgradeError::Downgrade {
+            current: current.clone(),
+            target: target.to_string(),
+        }),
     }
 }
 
@@ -80,6 +105,7 @@ mod tests {
             assert!(
                 upgrade(&known(target), current, false)
                     .unwrap_err()
+                    .to_string()
                     .contains("--allow-downgrade")
             );
             assert_eq!(
@@ -94,6 +120,7 @@ mod tests {
         assert!(
             upgrade(&known("local-test"), "0.4.0", false)
                 .unwrap_err()
+                .to_string()
                 .contains("cannot compare")
         );
         assert_eq!(

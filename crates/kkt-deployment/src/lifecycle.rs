@@ -3,7 +3,7 @@
 //! and what it finds installed, hands their facts here, and carries out
 //! what these functions return.
 
-use super::upgrade::{Upgrade, upgrade};
+use super::upgrade::{Upgrade, UpgradeError, upgrade};
 use super::{Deployment, RecordedDeployment, ServerVersion, UnrecordedDeployment};
 use std::path::PathBuf;
 
@@ -122,11 +122,6 @@ pub fn status(
     }
 }
 
-/// The refusal to upgrade on a client machine.
-fn client_upgrade() -> String {
-    "this machine is a client; upgrade the server on the machine where it runs".into()
-}
-
 /// Where `kkt upgrade` finds the version of the server it replaces.
 #[derive(Debug, PartialEq, Eq)]
 pub enum RunningVersion {
@@ -138,9 +133,9 @@ pub enum RunningVersion {
 
 /// Where the version of the server `recorded` describes is, for `kkt
 /// upgrade`. A client machine has no server to upgrade.
-pub fn running_version(recorded: &RecordedDeployment) -> Result<RunningVersion, String> {
+pub fn running_version(recorded: &RecordedDeployment) -> Result<RunningVersion, UpgradeError> {
     match &recorded.deployment {
-        Deployment::Client => Err(client_upgrade()),
+        Deployment::Client => Err(UpgradeError::OnAClient),
         Deployment::Docker { folder, .. } => Ok(RunningVersion::DockerSettings(folder.clone())),
         Deployment::Service { .. } => Ok(RunningVersion::Recorded(recorded.version.clone())),
     }
@@ -177,9 +172,9 @@ pub fn upgrade_plan(
     running: &ServerVersion,
     target: &str,
     allow_downgrade: bool,
-) -> Result<UpgradePlan, String> {
+) -> Result<UpgradePlan, UpgradeError> {
     let how = match &recorded.deployment {
-        Deployment::Client => return Err(client_upgrade()),
+        Deployment::Client => return Err(UpgradeError::OnAClient),
         Deployment::Docker { folder, .. } => Replace::Docker {
             folder: folder.clone(),
             key_file: recorded.key_file.clone(),
@@ -543,7 +538,7 @@ mod tests {
     fn the_running_version_by_mode() {
         let client = "this machine is a client; upgrade the server on the machine where it runs";
         assert_eq!(
-            running_version(&record(Deployment::Client)),
+            running_version(&record(Deployment::Client)).map_err(|e| e.to_string()),
             Err(client.to_string())
         );
         assert_eq!(
@@ -598,14 +593,16 @@ mod tests {
     #[test]
     fn an_upgrade_refuses_a_client_and_a_downgrade() {
         assert_eq!(
-            upgrade_plan(&record(Deployment::Client), &known("0.5.0"), "0.6.0", false),
+            upgrade_plan(&record(Deployment::Client), &known("0.5.0"), "0.6.0", false)
+                .map_err(|e| e.to_string()),
             Err(
                 "this machine is a client; upgrade the server on the machine where it runs"
                     .to_string()
             )
         );
         assert_eq!(
-            upgrade_plan(&record(docker_mode()), &known("0.7.0"), "0.6.0", false),
+            upgrade_plan(&record(docker_mode()), &known("0.7.0"), "0.6.0", false)
+                .map_err(|e| e.to_string()),
             Err(
                 "refusing to downgrade the server from 0.7.0 to 0.6.0; pass --allow-downgrade \
                  to override"

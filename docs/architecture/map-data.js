@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "9f2f6168",
+ "commit": "de5e98e9",
  "crates": [
   {
    "bins": [
@@ -7036,6 +7036,17 @@ window.KKT_GRAPH = {
      "variants": [
       "Already",
       "Proceed"
+     ]
+    },
+    {
+     "doc": "Why `kkt upgrade` will not replace the server.",
+     "kind": "enum",
+     "path": "UpgradeError",
+     "variants": [
+      "OnAClient",
+      "InvalidVersion",
+      "Incomparable",
+      "Downgrade"
      ]
     },
     {
