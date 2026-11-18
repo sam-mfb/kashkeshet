@@ -2,9 +2,9 @@
 //! the managed backups folder, and a copy of the new backup wherever the
 //! person asks.
 
+use crate::ContainerError;
 use crate::here;
-use crate::in_server::{SERVER, host, unexpected};
-use crate::services::worded;
+use crate::in_server::{SERVER, host};
 use kkt_container::{Folder, Output, Project, Projects, User};
 use std::path::{Path, PathBuf};
 
@@ -27,7 +27,7 @@ pub(crate) fn backup(
     project: &Project,
     working_dir: Result<&Path, &String>,
     dest: Option<&Path>,
-) -> Result<PathBuf, String> {
+) -> Result<PathBuf, ContainerError> {
     let name = backup_in_container(projects, project)?;
     let Some(dest) = dest else {
         return Ok(backups(project.folder).join(name));
@@ -35,15 +35,18 @@ pub(crate) fn backup(
     // A folder typed relative to where the person is, not to the managed
     // folder the tool's commands run in.
     let dest = working_dir
-        .map_err(|e| format!("could not find the current folder: {e}"))?
+        .map_err(|e| ContainerError::Io {
+            what: "could not find the current folder".to_string(),
+            detail: e.clone(),
+        })?
         .join(dest);
     let here_folder = here();
     projects
         .make_folders(&host(&here_folder), &[&dest])
-        .map_err(|e| e.to_string())?;
+        .map_err(ContainerError::from)?;
     projects
         .copy_out(project, SERVER, &format!("{BACKUPS_MOUNT}/{name}"), &dest)
-        .map_err(|e| worded(projects, e))?;
+        .map_err(|e| ContainerError::from_tool(projects, e))?;
     Ok(dest.join(name))
 }
 
@@ -51,7 +54,7 @@ pub(crate) fn backup(
 pub(crate) fn backup_in_container(
     projects: &dyn Projects,
     project: &Project,
-) -> Result<String, String> {
+) -> Result<String, ContainerError> {
     let said = projects
         .exec(
             project,
@@ -61,14 +64,14 @@ pub(crate) fn backup_in_container(
             Output::Captured,
         )
         .and_then(|ran| ran.succeeded())
-        .map_err(|e| worded(projects, e))?;
+        .map_err(|e| ContainerError::from_tool(projects, e))?;
     let line = said
         .lines()
         .find_map(|l| l.strip_prefix("Backed up to "))
-        .ok_or_else(|| unexpected("`kkt backup`", said.trim()))?;
+        .ok_or_else(|| ContainerError::unexpected("`kkt backup`", said.trim()))?;
     Path::new(line.trim())
         .file_name()
         .and_then(|n| n.to_str())
         .map(str::to_string)
-        .ok_or_else(|| unexpected("`kkt backup`", line))
+        .ok_or_else(|| ContainerError::unexpected("`kkt backup`", line))
 }

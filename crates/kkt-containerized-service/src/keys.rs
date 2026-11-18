@@ -1,10 +1,10 @@
 //! The server's keys as the running container shows them, beside their
 //! copies on this machine.
 
+use crate::ContainerError;
 use crate::KeyCopy;
 use crate::here;
 use crate::in_server::{SERVER, host};
-use crate::services::worded;
 use kkt_container::{Output, Project, Projects, User};
 use std::path::Path;
 
@@ -14,11 +14,11 @@ pub(crate) fn compare_web_key(
     projects: &dyn Projects,
     project: &Project,
     web_key_file: &Path,
-) -> Result<KeyCopy, String> {
+) -> Result<KeyCopy, ContainerError> {
     let here_folder = here();
     let copy = projects
         .read(&host(&here_folder), web_key_file)
-        .map_err(|e| e.to_string())?;
+        .map_err(ContainerError::from)?;
     let ran = projects
         .exec(
             project,
@@ -27,7 +27,7 @@ pub(crate) fn compare_web_key(
             &["kkt", "key", "show", "--web"],
             Output::Captured,
         )
-        .map_err(|e| worded(projects, e))?;
+        .map_err(|e| ContainerError::from_tool(projects, e))?;
     let server = ran.stdout.trim();
     if !ran.success() || server.is_empty() {
         // Its output is left out: it may hold the key.
@@ -35,7 +35,10 @@ pub(crate) fn compare_web_key(
             Some(code) => format!("exit {code}, no key"),
             None => "ended by a signal".to_string(),
         };
-        return Err(format!("`{}` failed ({detail})", ran.command));
+        return Err(ContainerError::Command {
+            command: ran.command,
+            detail,
+        });
     }
     Ok(if copy.trim() == server {
         KeyCopy::Same

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "e5143e3f",
+ "commit": "04882082",
  "crates": [
   {
    "bins": [
@@ -5360,13 +5360,26 @@ window.KKT_GRAPH = {
      "path": "ContainerConfig"
     },
     {
-     "doc": "Why a `Container` operation failed: a message for the person running kkt, which names what failed and why.",
-     "kind": "struct",
-     "methods": [
-      "message",
-      "new"
-     ],
-     "path": "ContainerError"
+     "doc": "Why a `Container` operation failed.",
+     "kind": "enum",
+     "path": "ContainerError",
+     "variants": [
+      "NotAvailable",
+      "ToolMissing",
+      "CannotRun",
+      "Command",
+      "Io",
+      "Unexpected",
+      "NoContainer",
+      "Refused",
+      "KeyFile",
+      "StartTimeout",
+      "LoginTimeout",
+      "HttpsDisabled",
+      "NotPlain",
+      "Incomplete",
+      "NotRestored"
+     ]
     },
     {
      "doc": "kkt's containerized service over `projects`.",
@@ -22672,6 +22685,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-containerized-service",
    "items": [
+    "FileAction",
     "FileState",
     "Folder",
     "Output",
@@ -22687,6 +22701,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "FileAction",
       "FileState",
       "Folder",
       "Output",
@@ -22701,7 +22716,6 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "FileAction",
     "Ran",
     "ServiceConfig",
     "testing",
@@ -29420,7 +29434,7 @@ window.KKT_CONCERNS = {
    "layer": "platform"
   },
   "kkt-containerized-service": {
-   "concern": "kkt's server installed as a containerized service. `Container` is the contract its install commands use: setting the service up, its status and name pack, discovering an install, starting and stopping it, runs of the server's program in its container, reading its config home, backups, upgrades, the admin key and the web key's comparison, with its records, its error (`ContainerError`) and what it is given (`ConfigReader`, `LoginLink`). `Containerized` implements it over kkt-container's general `Projects`, whatever tool implements it: the Compose files that come with this program, the settings file and what its files say, the sharing node's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`. It never names a container tool.",
+   "concern": "kkt's server installed as a containerized service. `Container` is the contract its install commands use: setting the service up, its status and name pack, discovering an install, starting and stopping it, runs of the server's program in its container, reading its config home, backups, upgrades, the admin key and the web key's comparison, with its records, its error (`ContainerError`, the kinds of failure, each worded for the person) and what it is given (`ConfigReader`, `LoginLink`). `Containerized` implements it over kkt-container's general `Projects`, whatever tool implements it: the Compose files that come with this program, the settings file and what its files say, the sharing node's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`. It never names a container tool.",
    "kind": "logic",
    "layer": "operations"
   },

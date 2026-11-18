@@ -3,10 +3,10 @@
 //! shared, starting it, and saving the server's keys' copies on this
 //! machine.
 
+use crate::ContainerError;
 use crate::backup::backups;
 use crate::files::{ENV_FILE, PENDING_TAILNET, embedded};
 use crate::in_server::SERVER;
-use crate::services::worded;
 use crate::{Browser, NodeLogin, SharingNode, Tell};
 use crate::{Inputs, KeyCopies, LoginLink, Provisioned};
 use kkt_clock::{Clock, Span};
@@ -108,7 +108,7 @@ pub(crate) async fn provision(
     project: &Project<'_>,
     inputs: &Inputs,
     keys: &KeyCopies,
-) -> Result<Provisioned, String> {
+) -> Result<Provisioned, ContainerError> {
     let projects = parts.projects;
     let tell = parts.tell;
     check_tool(projects, project)?;
@@ -124,7 +124,7 @@ pub(crate) async fn provision(
         tell.say("Starting Tailscale...");
         projects
             .up(project, &[SHARING], Output::Terminal)
-            .map_err(|e| worded(projects, e))?;
+            .map_err(|e| ContainerError::from_tool(projects, e))?;
         let node = log_in(parts, project).await?;
         write_env(
             projects,
@@ -140,7 +140,7 @@ pub(crate) async fn provision(
     tell.say("Starting kkt (this takes a minute if the image has to be downloaded)...");
     projects
         .up(project, &[], Output::Terminal)
-        .map_err(|e| worded(projects, e))?;
+        .map_err(|e| ContainerError::from_tool(projects, e))?;
     let saved = save_keys(parts, project, keys).await?;
     say_saved(tell, &saved);
     tell.say(&format!(
@@ -181,7 +181,7 @@ pub(crate) async fn save_keys(
     parts: &Parts<'_>,
     project: &Project<'_>,
     keys: &KeyCopies,
-) -> Result<SavedKeys, String> {
+) -> Result<SavedKeys, ContainerError> {
     let access = wait_for_key(parts, project, ServerKey::Access).await?;
     let web_key = wait_for_key(parts, project, ServerKey::Web).await?;
     // Only a server whose operator asked for one has an admin key, so it is
@@ -193,12 +193,20 @@ pub(crate) async fn save_keys(
         if let Some(parent) = path.parent()
             && !made.contains(&parent)
         {
-            parts.key_files.create_dir_all(parent)?;
+            parts
+                .key_files
+                .create_dir_all(parent)
+                .map_err(ContainerError::KeyFile)?;
             made.push(parent);
         }
     }
     // A copy is always replaced: it follows the server's key.
-    let write = |path: &Path, key: &str| parts.key_files.write_key(path, key, true);
+    let write = |path: &Path, key: &str| {
+        parts
+            .key_files
+            .write_key(path, key, true)
+            .map_err(ContainerError::KeyFile)
+    };
     write(&keys.access, &access)?;
     write(&keys.web, &web_key)?;
     let admin = match admin_key {
@@ -237,7 +245,7 @@ pub(crate) async fn wait_for_key(
     parts: &Parts<'_>,
     project: &Project<'_>,
     which: ServerKey,
-) -> Result<String, String> {
+) -> Result<String, ContainerError> {
     let projects = parts.projects;
     poll(
         parts.clock,
@@ -252,17 +260,14 @@ pub(crate) async fn wait_for_key(
                     key_show(which),
                     Output::Captured,
                 )
-                .map_err(|e| worded(projects, e))?;
+                .map_err(|e| ContainerError::from_tool(projects, e))?;
             let key = ran.stdout.trim();
             Ok((ran.success() && !key.is_empty()).then(|| key.to_string()))
         },
     )
     .await?
-    .ok_or_else(|| {
-        format!(
-            "kkt did not start or did not make its keys in time; `{}` shows why",
-            projects.typed(&["logs", SERVER])
-        )
+    .ok_or_else(|| ContainerError::StartTimeout {
+        logs: projects.typed(&["logs", SERVER]),
     })
 }
 
@@ -274,7 +279,7 @@ pub(crate) async fn wait_for_key(
 pub(crate) fn read_admin_key(
     projects: &dyn Projects,
     project: &Project,
-) -> Result<Option<String>, String> {
+) -> Result<Option<String>, ContainerError> {
     let ran = projects
         .exec(
             project,
@@ -283,7 +288,7 @@ pub(crate) fn read_admin_key(
             key_show(ServerKey::Admin),
             Output::Captured,
         )
-        .map_err(|e| worded(projects, e))?;
+        .map_err(|e| ContainerError::from_tool(projects, e))?;
     let key = ran.stdout.trim();
     match ran.status {
         Some(0) if !key.is_empty() => Ok(Some(key.to_string())),
@@ -292,33 +297,41 @@ pub(crate) fn read_admin_key(
         {
             Ok(None)
         }
-        status => Err(format!(
-            "`{}` failed ({})",
-            ran.command,
-            match status {
+        status => Err(ContainerError::Command {
+            command: ran.command,
+            detail: match status {
                 Some(code) => format!("exit {code}, could not read the admin key"),
                 None => "ended by a signal".to_string(),
-            }
-        )),
+            },
+        }),
     }
 }
 
 /// Fails with a clear message if the tool, or its Compose, is missing.
-fn check_tool(projects: &dyn Projects, project: &Project) -> Result<(), String> {
+fn check_tool(projects: &dyn Projects, project: &Project) -> Result<(), ContainerError> {
     let tool = projects.tool();
     projects.available(project).map_err(|e| match e {
-        ProjectError::Missing { command, cause } => format!(
-            "{tool} is not available: could not run `{command}`: {cause}. Install {tool} with Compose and run setup again"
-        ),
-        other @ ProjectError::Failed { .. } => format!("{tool} is not available: {other}"),
-        other => worded(projects, other),
+        ProjectError::Missing { command, cause } => ContainerError::ToolMissing {
+            tool: tool.to_string(),
+            command,
+            cause,
+        },
+        other @ ProjectError::Failed { .. } => ContainerError::NotAvailable {
+            tool: tool.to_string(),
+            error: other,
+        },
+        other => ContainerError::from_tool(projects, other),
     })
 }
 
-fn make_folder(projects: &dyn Projects, project: &Project, path: &Path) -> Result<(), String> {
+fn make_folder(
+    projects: &dyn Projects,
+    project: &Project,
+    path: &Path,
+) -> Result<(), ContainerError> {
     projects
         .make_folders(project, &[path])
-        .map_err(|e| e.to_string())
+        .map_err(ContainerError::from)
 }
 
 /// Writes the Compose files that come with this program into the folder.
@@ -326,7 +339,7 @@ pub(crate) fn write_embedded(
     projects: &dyn Projects,
     project: &Project,
     sharing: bool,
-) -> Result<(), String> {
+) -> Result<(), ContainerError> {
     for (name, text) in embedded(sharing) {
         let path = project.folder.path().join(name);
         if let Some(parent) = path.parent() {
@@ -341,7 +354,7 @@ pub(crate) fn write_embedded(
                     private: false,
                 }],
             )
-            .map_err(|e| e.to_string())?;
+            .map_err(ContainerError::from)?;
     }
     Ok(())
 }
@@ -352,7 +365,7 @@ pub(crate) fn write_env(
     projects: &dyn Projects,
     project: &Project,
     text: &str,
-) -> Result<(), String> {
+) -> Result<(), ContainerError> {
     let path = project.folder.path().join(ENV_FILE);
     projects
         .write(
@@ -363,12 +376,12 @@ pub(crate) fn write_env(
                 private: true,
             }],
         )
-        .map_err(|e| e.to_string())
+        .map_err(ContainerError::from)
 }
 
 /// Makes the backups folder belong to the user the server's image runs
 /// as, so the container can write to it, without needing sudo on the host.
-fn own_backups(projects: &dyn Projects, project: &Project) -> Result<(), String> {
+fn own_backups(projects: &dyn Projects, project: &Project) -> Result<(), ContainerError> {
     let owner = IMAGE_USER_ID.to_string();
     projects
         .run_once(
@@ -381,12 +394,15 @@ fn own_backups(projects: &dyn Projects, project: &Project) -> Result<(), String>
         )
         .and_then(|ran| ran.succeeded())
         .map(|_| ())
-        .map_err(|e| worded(projects, e))
+        .map_err(|e| ContainerError::from_tool(projects, e))
 }
 
 /// Waits for the Tailscale container to be logged in, showing the login
 /// link once, and returns the node's name as `(hostname, tailnet)`.
-async fn log_in(parts: &Parts<'_>, project: &Project<'_>) -> Result<(String, String), String> {
+async fn log_in(
+    parts: &Parts<'_>,
+    project: &Project<'_>,
+) -> Result<(String, String), ContainerError> {
     let Parts {
         projects,
         tell,
@@ -396,8 +412,7 @@ async fn log_in(parts: &Parts<'_>, project: &Project<'_>) -> Result<(String, Str
         settings,
         ..
     } = *parts;
-    let unexpected =
-        |detail: &str| format!("unexpected output from `tailscale status --json`: {detail}");
+    let unexpected = |detail: &str| ContainerError::unexpected("`tailscale status --json`", detail);
     let mut said_link = false;
     // Polls spent logged out with no link, and whether the container has
     // been restarted for one.
@@ -412,7 +427,7 @@ async fn log_in(parts: &Parts<'_>, project: &Project<'_>) -> Result<(String, Str
                 &["tailscale", "status", "--json"],
                 Output::Captured,
             )
-            .map_err(|e| worded(projects, e))?;
+            .map_err(|e| ContainerError::from_tool(projects, e))?;
         if !ran.success() {
             // The container is still starting.
             return Ok(None);
@@ -432,7 +447,7 @@ async fn log_in(parts: &Parts<'_>, project: &Project<'_>) -> Result<(String, Str
                         );
                         projects
                             .restart(project, SHARING, Output::Terminal)
-                            .map_err(|e| worded(projects, e))?;
+                            .map_err(|e| ContainerError::from_tool(projects, e))?;
                         restarted = true;
                     }
                 }
@@ -462,11 +477,9 @@ async fn log_in(parts: &Parts<'_>, project: &Project<'_>) -> Result<(String, Str
         }
     })
     .await?
-    .ok_or(
-        "Tailscale is not logged in yet. Run setup again to continue; the containers are left as they are",
-    )?;
+    .ok_or(ContainerError::LoginTimeout)?;
     if !found.https {
-        return Err("HTTPS certificates are not enabled for your tailnet. Turn them on at https://login.tailscale.com/admin/dns (\"Enable HTTPS\"), then run setup again".into());
+        return Err(ContainerError::HttpsDisabled);
     }
     let full = found
         .name
@@ -491,8 +504,8 @@ async fn poll<T>(
     clock: &dyn Clock,
     wait: Duration,
     every: Duration,
-    mut attempt: impl FnMut() -> Result<Option<T>, String>,
-) -> Result<Option<T>, String> {
+    mut attempt: impl FnMut() -> Result<Option<T>, ContainerError>,
+) -> Result<Option<T>, ContainerError> {
     let end = clock.now() + Span::from_std(wait).unwrap_or(Span::MAX);
     let pause = Span::from_std(every).unwrap_or(Span::MAX);
     loop {

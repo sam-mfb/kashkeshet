@@ -201,7 +201,7 @@
   },
   "kkt-containerized-service": {
    "layer": "operations",
-   "concern": "kkt's server installed as a containerized service. `Container` is the contract its install commands use: setting the service up, its status and name pack, discovering an install, starting and stopping it, runs of the server's program in its container, reading its config home, backups, upgrades, the admin key and the web key's comparison, with its records, its error (`ContainerError`) and what it is given (`ConfigReader`, `LoginLink`). `Containerized` implements it over kkt-container's general `Projects`, whatever tool implements it: the Compose files that come with this program, the settings file and what its files say, the sharing node's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`. It never names a container tool.",
+   "concern": "kkt's server installed as a containerized service. `Container` is the contract its install commands use: setting the service up, its status and name pack, discovering an install, starting and stopping it, runs of the server's program in its container, reading its config home, backups, upgrades, the admin key and the web key's comparison, with its records, its error (`ContainerError`, the kinds of failure, each worded for the person) and what it is given (`ConfigReader`, `LoginLink`). `Containerized` implements it over kkt-container's general `Projects`, whatever tool implements it: the Compose files that come with this program, the settings file and what its files say, the sharing node's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`. It never names a container tool.",
    "kind": "logic"
   },
   "kkt-remote-access": {

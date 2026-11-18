@@ -1,9 +1,9 @@
 //! Giving the installed server an admin key for `/mcp-admin`, and saving
 //! its copy on this machine.
 
+use crate::ContainerError;
 use crate::KeyCopies;
 use crate::in_server::SERVER;
-use crate::services::worded;
 use crate::setup::{Parts, ServerKey, read_admin_key, save_keys, say_saved, wait_for_key};
 use kkt_container::{Output, Project, User};
 use std::path::PathBuf;
@@ -23,7 +23,7 @@ pub(crate) async fn add_admin_key(
     project: &Project<'_>,
     keys: &KeyCopies,
     name: &str,
-) -> Result<PathBuf, String> {
+) -> Result<PathBuf, ContainerError> {
     let projects = parts.projects;
     let tell = parts.tell;
     // Wait for the server to be up before asking it about its admin key.
@@ -41,16 +41,18 @@ pub(crate) async fn add_admin_key(
                 Output::Terminal,
             )
             .and_then(|ran| ran.succeeded())
-            .map_err(|e| worded(projects, e))?;
+            .map_err(|e| ContainerError::from_tool(projects, e))?;
     }
     tell.say("Restarting kkt so it serves /mcp-admin...");
     projects
         .restart(project, SERVER, Output::Terminal)
-        .map_err(|e| worded(projects, e))?;
+        .map_err(|e| ContainerError::from_tool(projects, e))?;
     let saved = save_keys(parts, project, keys).await?;
     say_saved(tell, &saved);
     saved.admin.ok_or_else(|| {
-        "unexpected output from `kkt key show --admin`: kkt has no admin key after making one"
-            .to_string()
+        ContainerError::unexpected(
+            "`kkt key show --admin`",
+            "kkt has no admin key after making one",
+        )
     })
 }
