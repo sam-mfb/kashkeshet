@@ -3,7 +3,7 @@
 //! answered on this machine (`ConnectionReads`).
 
 use crate::machine::keys::{make_default_key, read_key};
-use crate::machine::native::NativeSetupFiles;
+use crate::machine::native::{NativeSetupFiles, ServeReads};
 use crate::machine::settings::ServeOptions;
 use crate::machine::settings::Sources;
 use crate::machine::settings::serve_settings_and_sources;
@@ -45,11 +45,12 @@ impl ConnectionSource for ConnectionReads<'_> {
     type KeySource = Sources;
 
     fn recorded(&self) -> Result<Option<RecordedServer>, SourceError> {
-        Ok(
-            kkt_install_commands::record::read_setup(self.env, &NativeSetupFiles)
-                .map_err(source_error)?
-                .map(|record| kkt_install_commands::deployment::recorded_server(&record)),
+        Ok(kkt_install_commands::record::read_setup(
+            &ServeReads::new(self.env, self.platform),
+            &NativeSetupFiles,
         )
+        .map_err(source_error)?
+        .map(|record| kkt_install_commands::deployment::recorded_server(&record)))
     }
 
     fn serve(&self, flags: ConnectionOptions) -> Result<ServeConnection<Sources>, SourceError> {

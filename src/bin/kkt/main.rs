@@ -185,7 +185,7 @@ async fn run(
         } => {
             if !ignore_setup {
                 kkt_install_commands::record::check_setup(
-                    env,
+                    install.serve,
                     install.setup_files,
                     install.service,
                     install.output,
@@ -201,7 +201,6 @@ async fn run(
             name,
         } => kkt_operator_commands::key::create(
             &operator,
-            env,
             kkt_operator_commands::key::NewKey {
                 kind,
                 path,
@@ -218,7 +217,7 @@ async fn run(
         }
         Task::Service(action) => kkt_install_commands::service::run(&install, action).await,
         Task::Backup { folder, db, config } => {
-            kkt_install_commands::lifecycle::backup(&install, env, folder.as_deref(), db, config)
+            kkt_install_commands::lifecycle::backup(&install, folder.as_deref(), db, config)
         }
         Task::Status => kkt_install_commands::lifecycle::status(&install, env, platform).await,
         Task::Upgrade { allow_downgrade } => {
@@ -229,10 +228,10 @@ async fn run(
         }
         Task::Switch(how) => kkt_install_commands::setup::run_switch(&install, env, how).await,
         Task::KeyHeader { key_file, json } => {
-            kkt_operator_commands::key::header(&operator, env, key_file, json)
+            kkt_operator_commands::key::header(&operator, key_file, json)
         }
         Task::KeyShow { key_file, kind } => {
-            return kkt_operator_commands::key::show(&operator, env, key_file, kind);
+            return kkt_operator_commands::key::show(&operator, key_file, kind);
         }
         Task::Connect {
             client,
