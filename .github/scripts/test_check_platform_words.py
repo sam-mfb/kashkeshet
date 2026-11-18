@@ -56,6 +56,29 @@ class ProblemsIn(unittest.TestCase):
              "f.rs:2: a public item's name names kkt: KktThing"])
 
 
+class ToolProblemsIn(unittest.TestCase):
+    def found(self, text, own=frozenset()):
+        return check.tool_problems_in(text, "f.rs", set(own))
+
+    def test_a_string_that_names_a_tool_the_crate_is_not_for_is_found(self):
+        self.assertEqual(self.found('let s = "Log in to Tailscale by opening: {url}";\n'),
+                         ['f.rs:1: a string names tailscale, which the crate\'s description does not: '
+                          '"Log in to Tailscale by opening: {url}"'])
+        self.assertEqual(len(self.found('let s = "run `launchctl print` and `systemctl status`";\n')), 2)
+
+    def test_a_tool_the_description_names_is_the_crates_own(self):
+        self.assertEqual(self.found('let c = "docker compose up";\n', {"docker", "compose"}), [])
+        self.assertEqual(self.found('let c = "xdg-open";\n', {"xdg-open"}), [])
+
+    def test_comments_doc_comments_and_tests_are_not_read(self):
+        text = ('/// Started by systemd.\n// "tailscale"\n'
+                '#[cfg(test)]\nmod tests {\n    fn t() { let a = "docker"; }\n}\n')
+        self.assertEqual(self.found(text), [])
+
+    def test_a_word_inside_another_is_not_a_tool(self):
+        self.assertEqual(self.found('let a = "digital"; let b = "composer";\n'), [])
+
+
 class DescriptionProblems(unittest.TestCase):
     def found(self, crates):
         with tempfile.TemporaryDirectory() as tmp:
@@ -119,18 +142,25 @@ class Problems(unittest.TestCase):
             root = Path(tmp)
             (root / "docs/architecture").mkdir(parents=True)
             (root / "docs/architecture/concerns.json").write_text(json.dumps({"crates": {
-                "kkt-plain": {"layer": "platform"}, "kkt-core": {"layer": "core"}}}))
+                "kkt-plain": {"layer": "platform"}, "kkt-core": {"layer": "core"},
+                "kkt-git": {"layer": "platform", "concern": "The commit a folder is at in git."}}}))
             for crate, path, text in [
                 ("kkt-plain", "src/lib.rs", 'pub const A: &str = "kkt";\n'),
                 ("kkt-plain", "src/tests.rs", 'const B: &str = "kkt";\n'),
                 ("kkt-plain", "src/x/tests/more.rs", 'const C: &str = "kkt";\n'),
-                ("kkt-core", "src/lib.rs", 'const D: &str = "kkt";\n'),
+                ("kkt-plain", "src/open.rs", 'const E: &str = "Log in to Tailscale";\n'),
+                ("kkt-plain", "src/testing.rs", 'const F: &str = "docker";\n'),
+                ("kkt-plain", "src/testing/more.rs", 'const G: &str = "docker";\n'),
+                ("kkt-git", "src/lib.rs", 'const H: &str = "git";\n'),
+                ("kkt-core", "src/lib.rs", 'const D: &str = "kkt"; const I: &str = "docker";\n'),
             ]:
                 file = root / "crates" / crate / path
                 file.parent.mkdir(parents=True, exist_ok=True)
                 file.write_text(text)
             self.assertEqual(check.problems(root),
-                             ['crates/kkt-plain/src/lib.rs:1: a string names kkt: "kkt"'])
+                             ['crates/kkt-plain/src/lib.rs:1: a string names kkt: "kkt"',
+                              "crates/kkt-plain/src/open.rs:1: a string names tailscale, which the "
+                              "crate's description does not: \"Log in to Tailscale\""])
 
 
 if __name__ == "__main__":

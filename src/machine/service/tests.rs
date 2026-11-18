@@ -28,7 +28,7 @@ fn this_platforms_service_is_ready_with_only_its_own_folder() {
     } else {
         assert!(matches!(
             ready(Some("/home/sam"), Some("/config")),
-            Err(ServiceError::Unsupported)
+            Err(ServiceError::Unsupported(_))
         ));
     }
 }
@@ -45,10 +45,19 @@ fn this_platforms_service_keeps_its_missing_folder_and_unsupported_messages() {
             "no home directory to install the service in: set HOME"
         );
     } else {
-        assert!(matches!(error, ServiceError::Unsupported));
-        assert_eq!(
-            error.to_string(),
-            "kkt service works with launchd on macOS and systemd on Linux, not on this system"
-        );
+        assert!(matches!(error, ServiceError::Unsupported(_)));
+        assert_eq!(error.to_string(), UNSUPPORTED);
     }
+}
+
+/// On every platform, so the words are pinned where CI runs.
+#[test]
+fn an_unsupported_system_is_told_which_service_managers_kkt_works_with() {
+    let error = kkt_bare_service::Unsupported::new(UNSUPPORTED.to_string())
+        .ready()
+        .expect_err("unsupported");
+    assert_eq!(
+        error.to_string(),
+        "kkt service works with launchd on macOS and systemd on Linux, not on this system"
+    );
 }

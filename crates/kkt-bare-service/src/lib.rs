@@ -2,9 +2,8 @@
 //! the user's login, as a contract: [`Service`], what kkt asks of the service manager, in kkt's
 //! terms, with the values it takes and gives ([`Spec`], [`ServiceState`],
 //! [`Settings`]) and its errors ([`ServiceError`]). A wrapper crate named for
-//! each service manager implements it: kkt-bare-service-launchd on macOS and
-//! kkt-bare-service-systemd on Linux. The program picks one by platform, or
-//! [`Unsupported`] elsewhere.
+//! each service manager implements it. The program picks one by platform, or
+//! [`Unsupported`] where there is none.
 //!
 //! [`plan`] works out what the service runs and which keys to make, from
 //! plain inputs. [`check_bind`] says whether the service's server could
@@ -158,12 +157,26 @@ pub trait Service {
 }
 
 /// The service on a system with no service manager kkt works with: every
-/// question is answered with [`ServiceError::Unsupported`].
-pub struct Unsupported;
+/// question is answered with [`ServiceError::Unsupported`], which says what
+/// the program gave [`Unsupported::new`].
+pub struct Unsupported {
+    said: String,
+}
+
+impl Unsupported {
+    /// `said` is what to tell the person, in the program's words.
+    pub fn new(said: String) -> Unsupported {
+        Unsupported { said }
+    }
+
+    fn refuse(&self) -> ServiceError {
+        ServiceError::Unsupported(self.said.clone())
+    }
+}
 
 impl Service for Unsupported {
     fn ready(&self) -> Result<(), ServiceError> {
-        Err(ServiceError::Unsupported)
+        Err(self.refuse())
     }
     fn install<'a>(
         &'a self,
@@ -171,7 +184,8 @@ impl Service for Unsupported {
         _: Settings,
         _: &'a Spec,
     ) -> Pending<'a, Vec<String>> {
-        Box::pin(async { Err(ServiceError::Unsupported) })
+        let refused = self.refuse();
+        Box::pin(async { Err(refused) })
     }
     fn dry_run<'a>(
         &'a self,
@@ -179,58 +193,61 @@ impl Service for Unsupported {
         _: Settings,
         _: &'a Spec,
     ) -> Pending<'a, Vec<String>> {
-        Box::pin(async { Err(ServiceError::Unsupported) })
+        let refused = self.refuse();
+        Box::pin(async { Err(refused) })
     }
     fn check_started<'a>(&'a self, _: &'a dyn Clock, _: Settings) -> Pending<'a, ()> {
-        Box::pin(async { Err(ServiceError::Unsupported) })
+        let refused = self.refuse();
+        Box::pin(async { Err(refused) })
     }
     fn installed_args(&self) -> Result<Option<Vec<String>>, ServiceError> {
-        Err(ServiceError::Unsupported)
+        Err(self.refuse())
     }
     fn uninstall(&self) -> Result<Vec<String>, ServiceError> {
-        Err(ServiceError::Unsupported)
+        Err(self.refuse())
     }
     fn start(&self) -> Result<Vec<String>, ServiceError> {
-        Err(ServiceError::Unsupported)
+        Err(self.refuse())
     }
     fn stop(&self) -> Result<Vec<String>, ServiceError> {
-        Err(ServiceError::Unsupported)
+        Err(self.refuse())
     }
     fn add_key(
         &self,
         _: &Path,
         _: &dyn Fn(&Path) -> Result<(), String>,
     ) -> Result<bool, ServiceError> {
-        Err(ServiceError::Unsupported)
+        Err(self.refuse())
     }
     fn state(&self) -> Result<ServiceState, ServiceError> {
-        Err(ServiceError::Unsupported)
+        Err(self.refuse())
     }
     fn status(&self) -> Result<Vec<String>, ServiceError> {
-        Err(ServiceError::Unsupported)
+        Err(self.refuse())
     }
     fn logs(&self, _: usize, _: bool) -> Result<Vec<String>, ServiceError> {
-        Err(ServiceError::Unsupported)
+        Err(self.refuse())
     }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
-    #[error("kkt service works with launchd on macOS and systemd on Linux, not on this system")]
-    Unsupported,
+    /// No service manager kkt works with on this system. The text is the
+    /// program's, given to [`Unsupported::new`].
+    #[error("{0}")]
+    Unsupported(String),
     #[error("no home directory to install the service in: set HOME")]
     NoHome,
     #[error("the service is not installed; run `kkt service install` first")]
     NotInstalled,
-    /// This user has no desktop login session, and the service runs in
-    /// one: as over SSH before anyone has logged in at the computer's
-    /// screen, or for a user that never logs in there.
-    #[error(
-        "kkt's service runs while you are logged in at this Mac's desktop, and this user is not \
-         logged in there now. Log in at the desktop and run the command again, or run `kkt serve` \
-         yourself instead."
-    )]
-    NoLoginSession,
+    /// This user has no login session for the service to run in: as over
+    /// SSH before anyone has logged in at the computer's screen, or for a
+    /// user that never logs in there. The implementation words both texts:
+    /// `refusal`, said when a service command is refused, with what to do;
+    /// and `fact`, the fact alone, for a place where the person asked for
+    /// no service command.
+    #[error("{refusal}")]
+    NoLoginSession { refusal: String, fact: String },
     #[error("{value:?} can't go in a service file: {reason}")]
     BadValue { value: String, reason: &'static str },
     #[error("could not {action} {}: {source}", path.display())]

@@ -251,7 +251,7 @@ impl Agent {
         if finished.success() {
             Ok(Some(finished.stdout))
         } else if finished.code == Some(NO_DOMAIN) && finished.said(NO_DOMAIN_TEXT) {
-            Err(ServiceError::NoLoginSession)
+            Err(no_login_session())
         } else if finished.code == Some(NOT_FOUND) || finished.said("Could not find service") {
             Ok(None)
         } else {
@@ -570,5 +570,18 @@ fn reload_failed(
         None => format!(
             "`{command}` failed after launchd removed the old service: {detail}. {STOPPED} Run `kkt service start` to load it, and `kkt service status` to check."
         ),
+    }
+}
+
+/// This user has no desktop login session for the service to run in, in
+/// launchd's terms: the person must log in at the Mac's desktop.
+pub(crate) fn no_login_session() -> ServiceError {
+    ServiceError::NoLoginSession {
+        refusal: "kkt's service runs while you are logged in at this Mac's desktop, and this user \
+                  is not logged in there now. Log in at the desktop and run the command again, or \
+                  run `kkt serve` yourself instead."
+            .to_string(),
+        fact: "no one is logged in at this Mac's desktop, so the service cannot be asked"
+            .to_string(),
     }
 }

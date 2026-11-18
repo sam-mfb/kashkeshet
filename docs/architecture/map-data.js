@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "030c6e03",
+ "commit": "05efb472",
  "crates": [
   {
    "bins": [
@@ -4179,8 +4179,11 @@ window.KKT_GRAPH = {
      "path": "Spec"
     },
     {
-     "doc": "The service on a system with no service manager kkt works with: every question is answered with `ServiceError::Unsupported`.",
+     "doc": "The service on a system with no service manager kkt works with: every question is answered with `ServiceError::Unsupported`, which says what the program gave `Unsupported::new`.",
      "kind": "struct",
+     "methods": [
+      "new"
+     ],
      "path": "Unsupported"
     },
     {
@@ -29150,7 +29153,7 @@ window.KKT_CONCERNS = {
    "layer": "operations"
   },
   "kkt-browser": {
-   "concern": "Opens a link in the person's browser with the system's own opener, and reports once if that failed.",
+   "concern": "Opens a link in the person's browser with the system's own opener (`open` or `xdg-open`), and reports once if that failed.",
    "kind": "effect",
    "layer": "platform"
   },
