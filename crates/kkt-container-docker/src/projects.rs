@@ -246,7 +246,7 @@ impl Projects for Docker {
         let id = self.succeed(&ps, Output::Captured)?;
         let id = id.trim();
         if id.is_empty() || !id.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return Err(ProjectError::Unexpected {
+            return Err(ProjectError::NoContainer {
                 command: ps.to_string(),
                 detail: format!("no container ID for {service}"),
             });

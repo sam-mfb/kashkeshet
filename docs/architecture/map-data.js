@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "392599e3",
+ "commit": "3c4674eb",
  "crates": [
   {
    "bins": [
@@ -125,6 +125,12 @@ window.KKT_GRAPH = {
      "crate": "kashkeshet",
      "trait": "Browser",
      "trait_crate": "kkt-container-docker",
+     "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "Tell",
+     "trait_crate": "kkt-containerized-service",
      "type": null
     },
     {
@@ -5056,6 +5062,7 @@ window.KKT_GRAPH = {
       "Missing",
       "Failed",
       "Unexpected",
+      "NoContainer",
       "File",
       "Refused"
      ]
@@ -5382,6 +5389,7 @@ window.KKT_GRAPH = {
      "feature": "testing",
      "kind": "struct",
      "methods": [
+      "current_folder",
       "failing_dir",
       "failing_write",
       "knowing",
@@ -5465,12 +5473,32 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [],
+   "contracts": [
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
+       "type": null
+      }
+     ],
+     "trait": "Tell"
+    }
+   ],
    "crate_doc": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever container tool implements it.",
    "dev_only": false,
    "features": {},
    "foreign_implements": [],
-   "holders": [],
+   "holders": [
+    {
+     "holds": [
+      {
+       "crate": "kkt-containerized-service",
+       "trait": "Tell"
+      }
+     ],
+     "type": "Containerized"
+    }
+   ],
    "implements": [
     {
      "crate": "kkt-containerized-service",
@@ -5487,6 +5515,14 @@ window.KKT_GRAPH = {
       "new"
      ],
      "path": "Containerized"
+    },
+    {
+     "doc": "Tells the person running kkt one line.",
+     "kind": "trait",
+     "methods": [
+      "say"
+     ],
+     "path": "Tell"
     }
    ],
    "lib": "kkt_containerized_service",
@@ -5495,10 +5531,23 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-containerized-service",
    "produces": [],
    "released_program": false,
-   "slots": [],
+   "slots": [
+    {
+     "at": "Containerized::new",
+     "kind": "param",
+     "name": "tell",
+     "traits": [
+      {
+       "crate": "kkt-containerized-service",
+       "trait": "Tell"
+      }
+     ]
+    }
+   ],
    "testing_third_party": [],
    "third_party": [
-    "futures"
+    "futures",
+    "serde_json"
    ]
   },
   {
@@ -11444,6 +11493,7 @@ window.KKT_GRAPH = {
      "doc": "The machine's facts as one process sees them.",
      "kind": "trait",
      "methods": [
+      "current_dir",
       "env",
       "path_dirs",
       "platform",
@@ -11480,7 +11530,8 @@ window.KKT_GRAPH = {
       "platform",
       "process_id",
       "program_path",
-      "path_dirs"
+      "path_dirs",
+      "current_dir"
      ],
      "kind": "struct",
      "path": "testing::FixedMachine"
@@ -11536,6 +11587,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_machine_os",
    "machine_work": {
     "src/lib.rs": [
+     "env::current_dir",
      "env::current_exe",
      "env::split_paths",
      "env::var_os",
@@ -19277,12 +19329,19 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Containerized"
+    "Containerized",
+    "Tell"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "adapts",
    "roles": [
+    {
+     "detail": [
+      "a type of its own implements Tell"
+     ],
+     "role": "adapts"
+    },
     {
      "detail": [
       "Containerized"
@@ -22681,13 +22740,18 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "Time",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
    "features": [],
    "from": "kkt-containerized-service",
    "items": [
+    "Arg",
+    "Carry",
     "ConfigReader",
     "Container",
     "Existing",
@@ -22697,13 +22761,15 @@ window.KKT_GRAPH = {
     "Inputs",
     "KeyCopies",
     "KeyCopy",
+    "Login",
     "LoginLink",
     "Output",
     "Project",
     "ProjectError",
     "Projects",
     "Provisioned",
-    "State"
+    "State",
+    "User"
    ],
    "kind": "normal",
    "optional": false,
@@ -22717,6 +22783,8 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "Arg",
+      "Carry",
       "ConfigReader",
       "Existing",
       "FileState",
@@ -22725,29 +22793,55 @@ window.KKT_GRAPH = {
       "Inputs",
       "KeyCopies",
       "KeyCopy",
+      "Login",
       "LoginLink",
       "Output",
       "Project",
       "ProjectError",
       "Projects",
       "Provisioned",
-      "State"
+      "State",
+      "User"
      ],
      "role": "uses"
     }
    ],
    "target": null,
    "test_items": [
+    "ContainerConfig",
     "FileAction",
     "ProjectFile",
     "Ran",
     "ServiceConfig",
-    "User",
     "testing",
     "testing::Memory",
-    "testing::MemoryProjects"
+    "testing::MemoryProjects",
+    "testing::Request"
    ],
    "to": "kkt-container"
+  },
+  {
+   "features": [],
+   "from": "kkt-containerized-service",
+   "items": [
+    "Env",
+    "XDG_CONFIG_HOME_DEFAULT"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Env",
+      "XDG_CONFIG_HOME_DEFAULT"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-machine"
   },
   {
    "features": [
@@ -22755,22 +22849,8 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-containerized-service",
    "items": [
-    "Container",
-    "Existing",
-    "FileAction",
-    "FileState",
-    "Folder",
-    "Output",
-    "Project",
-    "ProjectError",
-    "ProjectFile",
-    "Projects",
-    "Ran",
-    "ServiceConfig",
-    "User",
-    "testing",
-    "testing::Memory",
-    "testing::MemoryProjects"
+    "Time",
+    "testing::FixedClock"
    ],
    "kind": "dev",
    "optional": false,
@@ -22778,14 +22858,73 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Time"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::FixedClock"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-containerized-service",
+   "items": [
+    "Arg",
+    "Carry",
+    "ConfigReader",
+    "Container",
+    "ContainerConfig",
+    "Existing",
+    "FileAction",
+    "FileState",
+    "Folder",
+    "InServer",
+    "KeyCopy",
+    "Login",
+    "Output",
+    "Project",
+    "ProjectError",
+    "ProjectFile",
+    "Projects",
+    "Ran",
+    "ServiceConfig",
+    "State",
+    "User",
+    "testing",
+    "testing::Memory",
+    "testing::MemoryProjects",
+    "testing::Request"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Arg",
+      "Carry",
+      "ConfigReader",
       "FileAction",
       "FileState",
       "Folder",
+      "KeyCopy",
+      "Login",
       "Output",
       "ProjectError",
       "Ran",
       "User",
-      "testing"
+      "testing",
+      "testing::Request"
      ],
      "role": "uses"
     },
@@ -29274,7 +29413,7 @@ window.KKT_CONCERNS = {
    "layer": "operations"
   },
   "kkt-containerized-service": {
-   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, and starting and stopping the service, and hands the operations it does not do itself to a fallback `Container`.",
+   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, starting and stopping the service, its status and name pack, runs of the server's program in its container, reading its config home, backups and the web key's comparison, and hands the operations it does not do itself to a fallback `Container`.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -29314,7 +29453,7 @@ window.KKT_CONCERNS = {
    "layer": "programs"
   },
   "kkt-files": {
-   "concern": "General file access: reading and writing whole files, listing folders, making, renaming and removing files and folders, private files, and absolute and canonical paths.",
+   "concern": "General file access: reading and writing whole files, listing folders, making, renaming and removing files and folders, private files, absolute and canonical paths, and the folder the process works in.",
    "kind": "effect",
    "layer": "platform"
   },
@@ -31286,6 +31425,23 @@ window.KKT_ASSEMBLY = {
       {
        "at": "InstallParts",
        "param": "container"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-containerized-service",
+     "note": "what the containerized service tells the person, such as a work folder in the container it could not remove",
+     "own": "TerminalTell, the containerized service's lines on kkt-terminal's standard output, a line each",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
+     "to": [
+      {
+       "at": "Containerized::new",
+       "param": "tell"
       }
      ]
     },

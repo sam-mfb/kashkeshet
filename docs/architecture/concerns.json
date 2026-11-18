@@ -201,7 +201,7 @@
   },
   "kkt-containerized-service": {
    "layer": "operations",
-   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, and starting and stopping the service, and hands the operations it does not do itself to a fallback `Container`.",
+   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, starting and stopping the service, its status and name pack, runs of the server's program in its container, reading its config home, backups and the web key's comparison, and hands the operations it does not do itself to a fallback `Container`.",
    "kind": "logic"
   },
   "kkt-remote-access": {
@@ -327,7 +327,7 @@
   "kkt-files": {
    "layer": "platform",
    "kind": "effect",
-   "concern": "General file access: reading and writing whole files, listing folders, making, renaming and removing files and folders, private files, and absolute and canonical paths."
+   "concern": "General file access: reading and writing whole files, listing folders, making, renaming and removing files and folders, private files, absolute and canonical paths, and the folder the process works in."
   },
   "kkt-listen": {
    "layer": "platform",

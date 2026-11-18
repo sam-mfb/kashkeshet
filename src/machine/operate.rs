@@ -197,7 +197,24 @@ type Containerized = kkt_containerized_service::Containerized<
 fn containerized() -> Containerized {
     let docker =
         || kkt_container_docker::Docker::new(Box::new(super::browser::OpenerBrowser::new()));
-    kkt_containerized_service::Containerized::new(docker(), docker())
+    // The folder kkt was run in, read once: the paths a person types are
+    // relative to it.
+    let working_dir = OsMachine.current_dir().map_err(|e| e.to_string());
+    kkt_containerized_service::Containerized::new(
+        docker(),
+        docker(),
+        Box::new(TerminalTell),
+        working_dir,
+    )
+}
+
+/// The containerized service's lines, on the terminal, a line each.
+struct TerminalTell;
+
+impl kkt_containerized_service::Tell for TerminalTell {
+    fn say(&self, line: &str) {
+        kkt_terminal::Terminal.output(format_args!("{line}\n"));
+    }
 }
 
 /// The server `kkt lanes` acts on: as kkt-setup's `lanes_on` says, from

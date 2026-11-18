@@ -342,7 +342,7 @@ impl Projects for MemoryProjects {
     fn inspect(&self, _project: &Project, service: &str) -> Result<ServiceConfig, ProjectError> {
         let command = self.command(&["inspect", service]);
         if !self.running.borrow().contains(service) {
-            return Err(ProjectError::Unexpected {
+            return Err(ProjectError::NoContainer {
                 command,
                 detail: format!("{service} is not running"),
             });

@@ -13,6 +13,8 @@ pub struct FixedMachine {
     /// The program's path; `None` when it cannot be found.
     pub program_path: Option<PathBuf>,
     pub path_dirs: Vec<PathBuf>,
+    /// The folder the process works in; `None` when it cannot be found.
+    pub current_dir: Option<PathBuf>,
 }
 
 impl Machine for FixedMachine {
@@ -36,5 +38,10 @@ impl Machine for FixedMachine {
     }
     fn path_dirs(&self) -> Vec<PathBuf> {
         self.path_dirs.clone()
+    }
+    fn current_dir(&self) -> io::Result<PathBuf> {
+        self.current_dir
+            .clone()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no current folder"))
     }
 }

@@ -41,6 +41,10 @@ impl Machine for OsMachine {
             .map(|path| std::env::split_paths(&path).collect())
             .unwrap_or_default()
     }
+
+    fn current_dir(&self) -> std::io::Result<PathBuf> {
+        std::env::current_dir()
+    }
 }
 
 /// The [`Env`] the variables `var` gives make, with the folders `named`

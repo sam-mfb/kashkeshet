@@ -84,6 +84,9 @@ pub trait Machine {
     fn program_path(&self) -> std::io::Result<PathBuf>;
     /// The folders `$PATH` names, in order; none when it is unset.
     fn path_dirs(&self) -> Vec<PathBuf>;
+    /// The folder this process works in, which relative paths are taken
+    /// from. The error is the operating system's.
+    fn current_dir(&self) -> std::io::Result<PathBuf>;
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -107,6 +110,7 @@ mod tests {
             process_id: 1,
             program_path: None,
             path_dirs: Vec::new(),
+            current_dir: None,
         };
         let env = machine.env(&["A_DIR", "C_DIR"]);
         assert_eq!(env.named("A_DIR"), Some(Path::new("/a")));
@@ -122,6 +126,7 @@ mod tests {
             process_id: 42,
             program_path: Some(PathBuf::from("/bin/kkt")),
             path_dirs: vec![PathBuf::from("/bin")],
+            current_dir: Some(PathBuf::from("/home/me")),
         };
         assert_eq!(machine.env(&[]), env(Some("/config"), None));
         assert_eq!(machine.platform(), Platform::MacOs);
@@ -131,12 +136,21 @@ mod tests {
             PathBuf::from("/bin/kkt")
         );
         assert_eq!(machine.path_dirs(), [PathBuf::from("/bin")]);
+        assert_eq!(
+            machine.current_dir().expect("a folder"),
+            PathBuf::from("/home/me")
+        );
         let lost = testing::FixedMachine {
             program_path: None,
+            current_dir: None,
             ..machine
         };
         assert_eq!(
             lost.program_path().expect_err("no path").kind(),
+            std::io::ErrorKind::NotFound
+        );
+        assert_eq!(
+            lost.current_dir().expect_err("no folder").kind(),
             std::io::ErrorKind::NotFound
         );
     }

@@ -11,6 +11,9 @@ publish = false
 futures.workspace = true
 kkt-clock = { path = "../kkt-clock" }
 kkt-container = { path = "../kkt-container" }
+kkt-machine = { path = "../kkt-machine" }
+serde_json.workspace = true
 
 [dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-container = { path = "../kkt-container", features = ["testing"] }

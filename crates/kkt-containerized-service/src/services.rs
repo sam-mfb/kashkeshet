@@ -23,7 +23,7 @@ pub(crate) fn down(
 
 /// A failure as the person is told it: a tool that could not be run at
 /// all is said to be not available, by its name.
-fn worded(projects: &dyn Projects, error: ProjectError) -> String {
+pub(crate) fn worded(projects: &dyn Projects, error: ProjectError) -> String {
     match error {
         ProjectError::Missing { .. } => format!("{} is not available: {error}", projects.tool()),
         other => other.to_string(),

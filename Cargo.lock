@@ -1307,6 +1307,8 @@ dependencies = [
  "futures",
  "kkt-clock",
  "kkt-container",
+ "kkt-machine",
+ "serde_json",
 ]
 
 [[package]]

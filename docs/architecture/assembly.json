@@ -422,6 +422,23 @@
      "note": "kkt's containerized service, over Docker as the general Projects with Docker as its fallback, injected into the install commands."
     },
     {
+     "own": "TerminalTell, the containerized service's lines on kkt-terminal's standard output, a line each",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
+     "crate": "kkt-containerized-service",
+     "to": [
+      {
+       "at": "Containerized::new",
+       "param": "tell"
+      }
+     ],
+     "note": "what the containerized service tells the person, such as a work folder in the container it could not remove"
+    },
+    {
      "own": "HereLanes, picking the server kkt lanes acts on from what is installed here: ContainerLanes, kkt lanes run in the container over kkt-containerized-service's Containerized, or kkt-operator-commands' LocalLanes",
      "suppliers": [
       {

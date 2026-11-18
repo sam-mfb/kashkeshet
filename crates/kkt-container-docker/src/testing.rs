@@ -136,6 +136,15 @@ impl Scripted {
         self
     }
 
+    /// The folder the person runs kkt in, as this host answers it: `/home/me`
+    /// unless [`Self::without_working_dir`] took it away.
+    pub fn current_folder(&self) -> io::Result<PathBuf> {
+        self.0
+            .working_dir
+            .clone()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no current folder"))
+    }
+
     /// A write of exactly `text` is shown as `name`, not line by line.
     pub fn knowing(self, name: &str, text: &str) -> Scripted {
         self.0
@@ -313,9 +322,6 @@ impl Runner for Scripted {
     }
 
     fn working_dir(&self) -> io::Result<PathBuf> {
-        self.0
-            .working_dir
-            .clone()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no current folder"))
+        self.current_folder()
     }
 }
