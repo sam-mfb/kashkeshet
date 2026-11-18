@@ -301,6 +301,35 @@ async fn a_poll_stops_at_the_end_of_its_wait() {
 }
 
 #[tokio::test]
+async fn a_polled_wait_asks_only_before_its_end() {
+    // `fetch` alone, with no deadline racing it: the wait is 3 seconds, the
+    // poll 2, so it asks at 0 and 2 and not at 3.
+    let clock = FixedClock::new(start());
+    let mut server = FakeServer::new(&clock, vec![Ok(Vec::new()), Ok(Vec::new()), Ok(Vec::new())]);
+    server.polls = true;
+    let options = once();
+    let (waited, ()) = within(async {
+        tokio::join!(
+            fetch(
+                &server,
+                &clock,
+                Settings::DEFAULT,
+                ME,
+                0,
+                &options,
+                None,
+                Duration::from_secs(3),
+            ),
+            advance(&clock, 0, vec![2, 1]),
+        )
+    })
+    .await;
+    assert!(waited.expect("a wait").messages.is_empty());
+    assert_eq!(server.waits().len(), 2);
+    assert_eq!(clock.now(), start() + Span::seconds(3));
+}
+
+#[tokio::test]
 async fn a_lost_connection_is_retried_with_a_doubling_pause() {
     let clock = FixedClock::new(start());
     let mut answers: Vec<_> = (0..7).map(|_| Err(lost())).collect();
