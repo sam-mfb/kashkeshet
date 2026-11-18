@@ -1615,6 +1615,7 @@ dependencies = [
  "kkt-lane-files",
  "kkt-llm-agent-config",
  "kkt-machine",
+ "kkt-names",
  "kkt-rules",
  "kkt-setup",
  "tokio",

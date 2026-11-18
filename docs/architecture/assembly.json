@@ -2584,10 +2584,6 @@
       {
        "at": "new_key_file",
        "param": "files"
-      },
-      {
-       "at": "write_admin_name",
-       "param": "files"
       }
      ],
      "note": "kkt setup, kkt service install, kkt upgrade, kkt status",
@@ -2746,10 +2742,6 @@
       },
       {
        "at": "new_key_file",
-       "param": "files"
-      },
-      {
-       "at": "write_admin_name",
        "param": "files"
       }
      ],

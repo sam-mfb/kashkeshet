@@ -12,7 +12,7 @@ use kkt_setup as setup;
 use std::path::PathBuf;
 
 pub(crate) use kkt_deployment::admin_name_line;
-pub(crate) use kkt_deployment::{KeyKind, admin_key_collision, new_key_file, write_admin_name};
+pub(crate) use kkt_deployment::{KeyKind, admin_key_collision, new_key_file};
 
 /// The reads finding an operator key makes, on this machine.
 struct EnvReads<'a, 'p, C: ConnectionSource, D>(&'a Env, &'a InstallParts<'p, C, D>);

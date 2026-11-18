@@ -8,7 +8,6 @@ use crate::Deployment;
 use kkt_containerized_service::KeyCopies;
 use kkt_keys::access_key_file;
 use kkt_keys::{ADMIN_KEY_COPY_FILE_NAME, WEB_KEY_COPY_FILE_NAME};
-use kkt_keys::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_keys::{admin_key_path, web_key_path};
 use std::path::{Path, PathBuf};
 
@@ -233,13 +232,9 @@ pub fn create_asks_for_docker(kind: KeyKind, path_given: bool) -> bool {
 /// What `kkt key create` refuses before it writes anything, in order: a web
 /// or admin key of a server `in_docker` (as [`create_asks_for_docker`]
 /// says to ask), whose host copies only mirror the container's; and a
-/// `name` for any key but the admin key, or one that is not a valid admin
-/// name. Returns the admin name to tie to the new key.
-pub fn create_checks(
-    kind: KeyKind,
-    in_docker: bool,
-    name: Option<&str>,
-) -> Result<Option<AdminName>, String> {
+/// `name` for any key but the admin key. Whether a name is a valid admin
+/// name is the caller's next check.
+pub fn create_checks(kind: KeyKind, in_docker: bool, name: Option<&str>) -> Result<(), String> {
     if in_docker {
         return Err(match kind {
             KeyKind::Admin => "make or rotate the admin key inside the container: `docker compose exec kkt kkt key create --admin --force --name <name>`, then restart kkt and rerun setup with --admin-key to save the host copy".into(),
@@ -249,9 +244,7 @@ pub fn create_checks(
     if name.is_some() && kind != KeyKind::Admin {
         return Err("--name names the admin agent, so it goes with --admin".into());
     }
-    name.map(|name| AdminName::new(name, MAX_ADMIN_NAME_CHARS))
-        .transpose()
-        .map_err(|e| e.to_string())
+    Ok(())
 }
 
 /// What `kkt key create --admin --path` refuses before it writes anything,
@@ -687,22 +680,12 @@ mod tests {
                 create_checks(kind, false, Some("sentinel")),
                 Err("--name names the admin agent, so it goes with --admin".to_string())
             );
-            assert_eq!(create_checks(kind, false, None), Ok(None));
+            assert_eq!(create_checks(kind, false, None), Ok(()));
         }
         assert_eq!(
             create_checks(KeyKind::Admin, false, Some("sentinel")),
-            Ok(Some(
-                AdminName::new("admin-sentinel", MAX_ADMIN_NAME_CHARS).unwrap()
-            ))
+            Ok(())
         );
-        assert_eq!(create_checks(KeyKind::Admin, false, None), Ok(None));
-        assert_eq!(
-            create_checks(KeyKind::Admin, false, Some("Bad Name")),
-            Err(
-                "the admin name must be lowercase letters and digits, in words joined by single \
-                 hyphens, such as `sentinel` (which becomes `admin-sentinel`); got \"Bad Name\""
-                    .to_string()
-            )
-        );
+        assert_eq!(create_checks(KeyKind::Admin, false, None), Ok(()));
     }
 }

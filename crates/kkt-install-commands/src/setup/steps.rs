@@ -3,7 +3,7 @@
 
 use super::InstallOptions;
 use crate::doctor::{clients_server_mode, setup_of};
-use crate::keys::{admin_key_collision, new_key_file, write_admin_name};
+use crate::keys::{admin_key_collision, new_key_file};
 use crate::record::{
     DOCKER_KEY_FILE_NAME, docker_folder, docker_url, read_setup, read_unfinished, read_unrecorded,
     write_setup_record,
@@ -277,7 +277,13 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                             kkt_deployment::admin_name_written(
                                 path,
                                 Some(&name.to_string()),
-                                write_admin_name(self.parts.key_files, path, &key, Some(name)),
+                                self.parts
+                                    .key_files
+                                    .write_admin_name(
+                                        path,
+                                        Some(kkt_keys::bound_to(name, &key).as_str()),
+                                    )
+                                    .map_err(|e| e.to_string()),
                             )
                             .map(drop)
                         })

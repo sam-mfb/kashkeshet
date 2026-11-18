@@ -17,7 +17,7 @@ pub use places::{
     configured_key, create_asks_for_docker, create_checks, create_destination_check,
     docker_key_copies, operator_key, recorded_key,
 };
-pub use writes::{new_key_file, write_admin_name};
+pub use writes::new_key_file;
 
 use kkt_keys::{
     ADMIN_KEY_COPY_FILE_NAME, AdminNameFile, KeyFiles, admin_name_path, read_admin_name,
