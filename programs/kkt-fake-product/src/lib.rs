@@ -14,7 +14,6 @@
 
 use kkt_admission::{AdminAdmission, Admission, Principal};
 use kkt_api_admin::Swarms;
-use kkt_api_agent::Api;
 use kkt_api_agent::{Agent, Audit, Code, Operator, Permission, Permissions, RuleError, SwarmId};
 use kkt_clock::Clock;
 use kkt_entropy::Entropy;
@@ -122,13 +121,13 @@ impl FakeIdentify {
 impl Identify for FakeIdentify {
     fn avatar<'a>(
         &'a self,
-        api: &'a dyn Api,
+        tokens: &'a dyn kkt_identity::Tokens,
         principal: &'a Principal,
         token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {
         Box::pin(async move {
             let swarm = FakeIdentify::agents_swarm(principal)?;
-            let actor = api.in_swarm(swarm.clone()).authenticate(token).await?;
+            let actor = tokens.authenticate(swarm.clone(), token).await?;
             Ok(Identified { swarm, actor })
         })
     }
