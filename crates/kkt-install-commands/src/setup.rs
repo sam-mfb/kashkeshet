@@ -13,6 +13,8 @@ use steps::{OsSteps, OsSwitchSteps};
 
 /// `kkt setup`: asks on the terminal if there is one, and does the work
 /// through [`OsSteps`].
+/// It must run on a tokio runtime of many threads: it blocks on the
+/// runtime from inside.
 pub async fn run<D: crate::ServiceDefaults>(
     env: &Env,
     platform: Platform,
@@ -28,7 +30,7 @@ pub async fn run<D: crate::ServiceDefaults>(
         options,
     };
     // Steps are synchronous; doctor's checks are async, so they block on
-    // this runtime from inside.
+    // this runtime from inside, which needs a runtime of many threads.
     tokio::task::block_in_place(|| {
         setup::run(&answers, Build::CURRENT.version, &ask, &steps).map(|_| ())
     })
@@ -36,6 +38,8 @@ pub async fn run<D: crate::ServiceDefaults>(
 
 /// `kkt switch`: asks on the terminal if there is one, and does the work
 /// through [`OsSwitchSteps`].
+/// It must run on a tokio runtime of many threads: it blocks on the
+/// runtime from inside.
 pub async fn run_switch<D>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,

@@ -26,8 +26,10 @@
 //! same byte for byte
 //! (`each_swarm_reads_the_same_whether_or_not_the_other_is_there`).
 
-// Shared helper: each test binary uses a different subset.
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "a shared helper: each test binary uses a different subset"
+)]
 mod client;
 
 use client::{Answer, Client, Event};

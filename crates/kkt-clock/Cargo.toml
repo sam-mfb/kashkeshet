@@ -10,11 +10,12 @@ publish = false
 [dependencies]
 chrono.workspace = true
 futures.workspace = true
-tokio.workspace = true
+# Only `FixedClock`, under `testing`, uses it.
+tokio = { workspace = true, optional = true }
 
 [features]
 # `testing`: `FixedClock`, a clock that moves only when told to.
-testing = []
+testing = ["dep:tokio"]
 
 [dev-dependencies]
 # `time` for the compile-only checks of disallowed time calls.

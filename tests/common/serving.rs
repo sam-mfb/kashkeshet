@@ -13,8 +13,10 @@
 //! running out of ports, fails the test with each server's exit status and
 //! output.
 
-// Each test file builds this module on its own, and none uses every item.
-#![allow(dead_code)]
+#![expect(
+    dead_code,
+    reason = "each test file builds this module on its own, and none uses every item"
+)]
 
 use std::net::SocketAddr;
 use std::process::Stdio;
