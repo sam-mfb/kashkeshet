@@ -31,6 +31,10 @@ impl Tailscale {
         Tailscale { rerun }
     }
 
+    /// The command whose answer [`Tailscale::read_status`] reads: run it
+    /// wherever Tailscale runs, such as in a container.
+    pub const STATUS_COMMAND: [&'static str; 3] = ["tailscale", "status", "--json"];
+
     fn runner(&self) -> runner::OsRunner {
         runner::OsRunner { rerun: self.rerun }
     }

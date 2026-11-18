@@ -5,7 +5,7 @@
 
 use crate::ContainerError;
 use crate::backup::backups;
-use crate::files::{ENV_FILE, PENDING_TAILNET, embedded};
+use crate::files::{ENV_FILE, PENDING_TAILNET, SHARING, embedded};
 use crate::in_server::SERVER;
 use crate::{Browser, NodeLogin, SharingNode, Tell};
 use crate::{Inputs, KeyCopies, LoginLink, Provisioned};
@@ -15,8 +15,6 @@ use kkt_keys::KeyFiles;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-/// The service the Tailscale container runs in, when the install is shared.
-const SHARING: &str = "tailscale";
 /// The user ID the server's image runs as. A host folder it writes backups
 /// to must belong to it.
 const IMAGE_USER_ID: u32 = 10001;
@@ -412,7 +410,10 @@ async fn log_in(
         settings,
         ..
     } = *parts;
-    let unexpected = |detail: &str| ContainerError::unexpected("`tailscale status --json`", detail);
+    let command = sharing.status_command();
+    let command: Vec<&str> = command.iter().map(String::as_str).collect();
+    let said_command = format!("`{}`", command.join(" "));
+    let unexpected = |detail: &str| ContainerError::unexpected(&said_command, detail);
     let mut said_link = false;
     // Polls spent logged out with no link, and whether the container has
     // been restarted for one.
@@ -420,13 +421,7 @@ async fn log_in(
     let mut restarted = false;
     let found = poll(parts.clock, settings.login_wait, settings.poll_interval, || {
         let ran = projects
-            .exec(
-                project,
-                SHARING,
-                User::Default,
-                &["tailscale", "status", "--json"],
-                Output::Captured,
-            )
+            .exec(project, SHARING, User::Default, &command, Output::Captured)
             .map_err(|e| ContainerError::from_tool(projects, e))?;
         if !ran.success() {
             // The container is still starting.
