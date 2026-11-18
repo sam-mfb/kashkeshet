@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "6c8675f7",
+ "commit": "c85b9125",
  "crates": [
   {
    "bins": [
@@ -860,23 +860,6 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kkt-admission",
-       "type": "AnyBearer"
-      },
-      {
-       "crate": "kkt-admission",
-       "type": "Open"
-      },
-      {
-       "crate": "kkt-admission",
-       "type": "SharedKey"
-      }
-     ],
-     "trait": "Mode"
-    },
-    {
-     "implementors": [
-      {
        "crate": "kashkeshet",
        "type": null
       },
@@ -893,26 +876,7 @@ window.KKT_GRAPH = {
    "features": {},
    "foreign_implements": [],
    "holders": [],
-   "implements": [
-    {
-     "crate": "kkt-admission",
-     "trait": "Mode",
-     "trait_crate": "kkt-admission",
-     "type": "AnyBearer"
-    },
-    {
-     "crate": "kkt-admission",
-     "trait": "Mode",
-     "trait_crate": "kkt-admission",
-     "type": "Open"
-    },
-    {
-     "crate": "kkt-admission",
-     "trait": "Mode",
-     "trait_crate": "kkt-admission",
-     "type": "SharedKey"
-    }
-   ],
+   "implements": [],
    "items": [
     {
      "doc": "How a server admits callers to its admin endpoint, `/mcp-admin`: one of the modes that ask for a credential.",
@@ -942,11 +906,6 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "Lets in every caller that presents a bearer token, as `Principal::Bearer`.",
-     "kind": "struct",
-     "path": "AnyBearer"
-    },
-    {
      "doc": "A bearer token a caller presented, not judged by admission.",
      "kind": "struct",
      "methods": [
@@ -972,19 +931,6 @@ window.KKT_GRAPH = {
       "Admitted",
       "Refused"
      ]
-    },
-    {
-     "doc": "A way of admitting callers: what every mode provides.",
-     "kind": "trait",
-     "methods": [
-      "admit"
-     ],
-     "path": "Mode"
-    },
-    {
-     "doc": "Lets every caller in, whatever it presents, as `Principal::Anyone`.",
-     "kind": "struct",
-     "path": "Open"
     },
     {
      "doc": "Who an admitted caller is, as far as admission can tell.",
@@ -1168,7 +1114,7 @@ window.KKT_GRAPH = {
       },
       {
        "crate": "kkt-agent-client-mcp",
-       "type": "AdminRemote"
+       "type": null
       },
       {
        "crate": "kkt-agent-client-mcp",
@@ -1400,21 +1346,11 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "kkt-agent-client over MCP, through rmcp and reqwest: `Mcp` implements its `Servers`, and `Client`, `Remote` and `AdminRemote` its `Avatars` and `Watched`.",
+   "crate_doc": "kkt-agent-client over MCP, through rmcp and reqwest: `Mcp` implements its `Servers`, `Client` its `Avatars`, and `Remote` its `Watched`, with an admin's view of its own.",
    "dev_only": false,
    "features": {},
    "foreign_implements": [],
-   "holders": [
-    {
-     "holds": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ],
-     "type": "AdminRemote"
-    }
-   ],
+   "holders": [],
    "implements": [
     {
      "crate": "kkt-agent-client-mcp",
@@ -1432,7 +1368,7 @@ window.KKT_GRAPH = {
      "crate": "kkt-agent-client-mcp",
      "trait": "Watched",
      "trait_crate": "kkt-agent-client",
-     "type": "AdminRemote"
+     "type": null
     },
     {
      "crate": "kkt-agent-client-mcp",
@@ -1442,14 +1378,6 @@ window.KKT_GRAPH = {
     }
    ],
    "items": [
-    {
-     "doc": "Message and channel reads over the admin endpoint, `/mcp-admin`, for `kkt watch --admin`: every channel, closed and hidden ones included.",
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "AdminRemote"
-    },
     {
      "doc": "The server at `url`, reached with the access key `key` (if it needs one), with no agent credentials held in the transport.",
      "kind": "struct",
@@ -1514,19 +1442,7 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-agent-client-mcp",
    "produces": [],
    "released_program": false,
-   "slots": [
-    {
-     "at": "AdminRemote::new",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    }
-   ],
+   "slots": [],
    "testing_third_party": [],
    "third_party": [
     "futures",
@@ -2196,14 +2112,6 @@ window.KKT_GRAPH = {
      "path": "CredentialFileFacts"
     },
     {
-     "doc": "One process's exclusive hold on a file that it alone may write, such as `kkt watch`'s state file.",
-     "kind": "struct",
-     "methods": [
-      "take"
-     ],
-     "path": "FileLock"
-    },
-    {
      "doc": "Why a `FileLock` was not taken.",
      "kind": "enum",
      "path": "LockRefused",
@@ -2236,11 +2144,6 @@ window.KKT_GRAPH = {
      "doc": "Applies the caller's credential-file rule to this opened handle.",
      "kind": "fn",
      "path": "make_private"
-    },
-    {
-     "doc": "Reads from the same opened file whose owner and mode the caller checks.",
-     "kind": "fn",
-     "path": "read_secret"
     },
     {
      "doc": "The agent's token: from a private file, or else from the environment.",
@@ -4618,16 +4521,6 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
-     "doc": "The config directory, under `$XDG_CONFIG_HOME`, on every platform.",
-     "kind": "const",
-     "path": "CONFIG_DIR"
-    },
-    {
-     "doc": "The config file `kkt serve` reads, in the config directory, if it exists.",
-     "kind": "const",
-     "path": "CONFIG_FILE_NAME"
-    },
-    {
      "doc": "What a config file says, in the file's own terms: each setting it gives, or `None`.",
      "fields": [
       "name_pack",
@@ -6690,11 +6583,6 @@ window.KKT_GRAPH = {
      "path": "Inspector"
     },
     {
-     "doc": "The name of the check that the server accepted the key.",
-     "kind": "const",
-     "path": "KEY_CHECK"
-    },
-    {
      "doc": "What a `Prober` found in a key file.",
      "fields": [
       "mode",
@@ -6762,11 +6650,6 @@ window.KKT_GRAPH = {
       "NoResult",
       "Read"
      ]
-    },
-    {
-     "doc": "The name of the check that the server answered at all.",
-     "kind": "const",
-     "path": "SERVER_CHECK"
     },
     {
      "doc": "The name of the doctor line about how `kkt setup` set this machine up.",
@@ -10396,24 +10279,9 @@ window.KKT_GRAPH = {
      "path": "ACCESS_KEY_FILE_MODE"
     },
     {
-     "doc": "Where `kkt key create` writes a key, in the config directory.",
-     "kind": "const",
-     "path": "ACCESS_KEY_FILE_NAME"
-    },
-    {
      "doc": "A Docker setup's host copy of the admin key, beside the host copy of the access key.",
      "kind": "const",
      "path": "ADMIN_KEY_COPY_FILE_NAME"
-    },
-    {
-     "doc": "The admin agent's key for `/mcp-admin`, beside the access key.",
-     "kind": "const",
-     "path": "ADMIN_KEY_FILE_NAME"
-    },
-    {
-     "doc": "Added to an admin key file's name for the file of its admin agent's name (`admin-key.name` beside `admin-key`): written with the key by `kkt key create --admin --name`, read with it by `kkt serve`.",
-     "kind": "const",
-     "path": "ADMIN_NAME_FILE_SUFFIX"
     },
     {
      "doc": "Which access key a server uses.",
@@ -10508,11 +10376,6 @@ window.KKT_GRAPH = {
      "doc": "A Docker setup's host copy of the web key, beside the host copy of the access key.",
      "kind": "const",
      "path": "WEB_KEY_COPY_FILE_NAME"
-    },
-    {
-     "doc": "The operator login key, beside the access key.",
-     "kind": "const",
-     "path": "WEB_KEY_FILE_NAME"
     },
     {
      "doc": "Where `kkt key create` writes a key when no `--path` is given: the access key file in kkt's config directory, `config_dir`.",
@@ -10731,11 +10594,6 @@ window.KKT_GRAPH = {
       "write"
      ],
      "path": "Disk"
-    },
-    {
-     "doc": "The file name extension of a lane file.",
-     "kind": "const",
-     "path": "EXTENSION"
     },
     {
      "doc": "The commit a lane folder is at.",
@@ -11989,11 +11847,6 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
-     "doc": "What every admin agent's name starts with.",
-     "kind": "const",
-     "path": "ADMIN_PREFIX"
-    },
-    {
      "doc": "",
      "kind": "const",
      "path": "ANIMALS"
@@ -12006,11 +11859,6 @@ window.KKT_GRAPH = {
       "new"
      ],
      "path": "AdminName"
-    },
-    {
-     "doc": "",
-     "kind": "const",
-     "path": "CHANNEL_PREFIX"
     },
     {
      "doc": "Random characters in a channel ID, after its `ch_` prefix.",
@@ -13948,9 +13796,6 @@ window.KKT_GRAPH = {
     {
      "doc": "The log file at `path`, appended to, and rolled over by its policy.",
      "kind": "struct",
-     "methods": [
-      "open"
-     ],
      "path": "RotatingFile"
     },
     {
@@ -13978,17 +13823,6 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
-    {
-     "at": "RotatingFile::open",
-     "kind": "param",
-     "name": "clock",
-     "traits": [
-      {
-       "crate": "kkt-clock",
-       "trait": "Clock"
-      }
-     ]
-    },
     {
      "at": "open_log_file",
      "kind": "param",
@@ -18869,17 +18703,13 @@ window.KKT_GRAPH = {
      "detail": [
       "AdminAdmission",
       "ServerKey",
+      "SharedKey",
       "key_refusal",
       "server_keys",
+      "server_keys::ServerKeys",
       "server_keys::check"
      ],
      "role": "uses"
-    },
-    {
-     "detail": [
-      "SharedKey"
-     ],
-     "role": "wires"
     }
    ],
    "target": null,
@@ -21000,7 +20830,7 @@ window.KKT_GRAPH = {
      "detail": [
       "Client implements Avatars",
       "Mcp implements Servers",
-      "AdminRemote implements Watched",
+      "a type of its own implements Watched",
       "Remote implements Watched"
      ],
      "role": "implements"
@@ -30226,26 +30056,6 @@ window.KKT_ASSEMBLY = {
       {
        "at": "new_key_file",
        "param": "entropy"
-      }
-     ]
-    }
-   ]
-  },
-  "kkt-rolling-file": {
-   "wiring": [
-    {
-     "crate": "kkt-rolling-file",
-     "from": [
-      {
-       "at": "open_log_file",
-       "param": "clock"
-      }
-     ],
-     "passes_on": "the clock the program gave open_log_file",
-     "to": [
-      {
-       "at": "RotatingFile::open",
-       "param": "clock"
       }
      ]
     }

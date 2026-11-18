@@ -30,9 +30,9 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
 /// The config directory, under `$XDG_CONFIG_HOME`, on every platform.
-pub const CONFIG_DIR: &str = "kkt";
+pub(crate) const CONFIG_DIR: &str = "kkt";
 /// The config file `kkt serve` reads, in the config directory, if it exists.
-pub const CONFIG_FILE_NAME: &str = "config.toml";
+pub(crate) const CONFIG_FILE_NAME: &str = "config.toml";
 
 /// kkt's config directory: `kkt` under the supplied config-home folder.
 /// With no config home there is no default config directory.

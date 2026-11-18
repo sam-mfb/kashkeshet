@@ -114,7 +114,7 @@ impl Watched for Remote {
 /// admin endpoint does not wait, so `wait` asks again every
 /// `settings.watch_admin_poll` on the injected clock until something comes
 /// or the wait is over.
-pub struct AdminRemote {
+pub(crate) struct AdminRemote {
     client: Client,
     clock: Arc<dyn Clock>,
     settings: Settings,
@@ -122,7 +122,7 @@ pub struct AdminRemote {
 
 impl AdminRemote {
     /// `client` must reach the admin endpoint with the admin key.
-    pub fn new(client: Client, clock: Arc<dyn Clock>, settings: Settings) -> Self {
+    pub(crate) fn new(client: Client, clock: Arc<dyn Clock>, settings: Settings) -> Self {
         Self {
             client,
             clock,
