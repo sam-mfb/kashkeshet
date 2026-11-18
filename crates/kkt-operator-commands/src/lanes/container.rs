@@ -3,11 +3,11 @@
 //! limit read from the container's own config file. The host's config
 //! file plays no part; the container never reads it.
 
+use super::{LaneFuture, LaneImport, LaneServer};
+use crate::{Output, Paths};
 use kkt_api_agent::LaneSource;
 use kkt_container::Folder;
 use kkt_containerized_service::{Arg, Carry, ConfigReader, InServer, ServiceContainer};
-use kkt_operator_commands::lanes::{LaneFuture, LaneImport, LaneServer};
-use kkt_operator_commands::{Output, Paths};
 use std::path::Path;
 
 /// The start of the name of the folder in the kkt container that `kkt lanes
@@ -21,7 +21,7 @@ const LANES_IMPORT_FOLDER: &str = "/tmp/kkt-lanes-import";
 const LANES_EXPORT_FOLDER: &str = "/tmp/kkt-lanes-export";
 
 /// The lanes of kkt installed in a container in `folder`.
-pub(crate) struct ContainerLanes<'a> {
+pub struct ContainerLanes<'a> {
     pub container: &'a dyn ServiceContainer,
     /// Reads the container's config file.
     pub configs: &'a dyn ConfigReader,
@@ -102,31 +102,40 @@ impl LaneServer for ContainerLanes<'_> {
     /// `--config`, so it reads only the default config file there.
     fn lane_limit(&self) -> Result<usize, String> {
         let default = kkt_rules::Settings::DEFAULT.max_lane_chars;
-        kkt_setup::lane_reports::docker_limit(
-            self.container.has_settings(&self.folder),
-            default,
-            || {
-                let said = self
-                    .container
-                    .config_home_file(&self.folder, &kkt_config_file::config_file_in_home())?;
-                // Only the lane limit is used, so the paths are not, and a
-                // `~/` path need only be read as one: the home given is a
-                // stand-in for the container's.
-                let settings = self
-                    .configs
-                    .settings(&said, Path::new("/"), Some(Path::new("/")))
-                    // Names the setting that is wrong.
-                    .map_err(|detail| {
-                        format!("unexpected output from the kkt container's config file: {detail}")
-                    })?;
-                Ok(settings.max_lane_chars.unwrap_or(default))
-            },
-        )
+        docker_limit(self.container.has_settings(&self.folder), default, || {
+            let said = self
+                .container
+                .config_home_file(&self.folder, &kkt_config_file::config_file_in_home())?;
+            // Only the lane limit is used, so the paths are not, and a
+            // `~/` path need only be read as one: the home given is a
+            // stand-in for the container's.
+            let settings = self
+                .configs
+                .settings(&said, Path::new("/"), Some(Path::new("/")))
+                // Names the setting that is wrong.
+                .map_err(|detail| {
+                    format!("unexpected output from the kkt container's config file: {detail}")
+                })?;
+            Ok(settings.max_lane_chars.unwrap_or(default))
+        })
     }
 }
 
 fn text(text: &str) -> Arg {
     Arg::Text(text.into())
+}
+
+/// The lane limit of kkt in a container: `default` when the folder holds
+/// no install yet, else what `read` finds there.
+fn docker_limit(
+    present: bool,
+    default: usize,
+    read: impl FnOnce() -> Result<usize, String>,
+) -> Result<usize, String> {
+    if !present {
+        return Ok(default);
+    }
+    read().map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
 }
 
 #[cfg(test)]
@@ -209,10 +218,37 @@ mod tests {
         memory
     }
 
+    /// The container's config file, read for its one setting here: a
+    /// `max_lane_chars = N` line, refused by name when N is not a whole
+    /// number, as the program's reader refuses it.
+    struct Configs;
+    impl ConfigReader for Configs {
+        fn settings(
+            &self,
+            text: &str,
+            _: &Path,
+            _: Option<&Path>,
+        ) -> Result<kkt_containerized_service::ContainerConfig, String> {
+            let mut max_lane_chars = None;
+            for line in text.lines() {
+                if let Some(value) = line.strip_prefix("max_lane_chars = ") {
+                    max_lane_chars =
+                        Some(value.parse::<usize>().map_err(|_| {
+                            format!("max_lane_chars: {value} is not a whole number")
+                        })?);
+                }
+            }
+            Ok(kkt_containerized_service::ContainerConfig {
+                name_pack: None,
+                max_lane_chars,
+            })
+        }
+    }
+
     fn lanes<'a>(memory: &'a Memory, said: &'a Said) -> ContainerLanes<'a> {
         ContainerLanes {
             container: memory,
-            configs: &crate::machine::settings::ContainerConfigs,
+            configs: &Configs,
             paths: &Here,
             output: said,
             folder: folder(),
@@ -239,6 +275,18 @@ mod tests {
             folder: "/home/me/lanes".into(),
             commit: commit.map(str::to_string),
         }
+    }
+
+    #[test]
+    fn a_new_docker_install_uses_the_default_without_reading_container_settings() {
+        assert_eq!(
+            docker_limit(false, 123, || panic!("no install to read")),
+            Ok(123)
+        );
+        assert_eq!(
+            docker_limit(true, 123, || Err("unreadable".into())),
+            Err("could not read the lane text limit of kkt in Docker: unreadable".into())
+        );
     }
 
     #[test]

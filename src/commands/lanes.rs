@@ -1,12 +1,11 @@
 //! The lane folder on this machine's disk and git, which the operator's lane
-//! commands take (`LaneDisk`, `LaneGit`); the lanes of kkt in a container,
-//! over the containerized service's `ServiceContainer` (`ContainerLanes`); and tests of
-//! those commands over this program's real parts.
+//! commands take (`LaneDisk`, `LaneGit`); and tests of those commands over
+//! this program's real parts, among them kkt-operator-commands'
+//! `ContainerLanes` over this program's reader of the container's config
+//! file.
 mod commit;
-mod container;
 mod disk;
 pub(crate) use commit::LaneGit;
-pub(crate) use container::ContainerLanes;
 pub(crate) use disk::LaneDisk;
 #[cfg(test)]
 use kkt_machine::{Env, Platform};
@@ -96,6 +95,138 @@ mod tests {
             existing_db(&test_env(None), TEST_PLATFORM, None, None),
             Err("no home directory to find the database in: set HOME or pass --db".to_string())
         );
+    }
+
+    /// kkt-operator-commands' `ContainerLanes` over this program's reader
+    /// of the container's config file, in a container installed in
+    /// `/data/docker`.
+    mod container {
+        use futures::future::BoxFuture;
+        use kkt_clock::{Clock, Time};
+        use kkt_container::Folder;
+        use kkt_containerized_service::testing::Memory;
+        use kkt_containerized_service::{Inputs, KeyCopies, LoginLink, ServiceContainer};
+        use kkt_operator_commands::lanes::{ContainerLanes, LaneServer};
+        use kkt_operator_commands::{Output, Paths};
+        use std::fmt::Arguments;
+        use std::path::{Path, PathBuf};
+
+        struct Unused;
+        impl Clock for Unused {
+            fn now(&self) -> Time {
+                panic!("no clock is read")
+            }
+            fn sleep_until(&self, _: Time) -> BoxFuture<'_, ()> {
+                panic!("nothing sleeps")
+            }
+        }
+        impl LoginLink for Unused {
+            fn show(&self, _: &str) {
+                panic!("no login")
+            }
+            fn open_requested(&self) -> bool {
+                panic!("no login")
+            }
+        }
+        impl Paths for Unused {
+            fn absolute(&self, _: &Path) -> std::io::Result<PathBuf> {
+                panic!("no path is resolved")
+            }
+            fn canonicalize(&self, _: &Path) -> std::io::Result<PathBuf> {
+                panic!("no path is resolved")
+            }
+        }
+        impl Output for Unused {
+            fn output(&self, _: Arguments<'_>) {
+                panic!("nothing is said")
+            }
+            fn errors(&self, _: Arguments<'_>) {
+                panic!("nothing is said")
+            }
+        }
+
+        fn folder() -> Folder {
+            Folder("/data/docker".into())
+        }
+
+        fn installed() -> Memory {
+            let memory = Memory::new(None, String::new());
+            let inputs = Inputs {
+                version: "0.4.0".into(),
+                project: "kkt".into(),
+                port: 7420,
+                allow_hosts: vec![],
+                sharing: None,
+            };
+            let keys = KeyCopies {
+                access: "/k/a".into(),
+                web: "/k/w".into(),
+                admin: "/k/m".into(),
+            };
+            futures::executor::block_on(memory.provision(
+                &Unused,
+                &Unused,
+                &folder(),
+                &inputs,
+                &keys,
+            ))
+            .expect("installed");
+            memory
+        }
+
+        fn lanes(memory: &Memory) -> ContainerLanes<'_> {
+            ContainerLanes {
+                container: memory,
+                configs: &crate::machine::settings::ContainerConfigs,
+                paths: &Unused,
+                output: &Unused,
+                folder: folder(),
+            }
+        }
+
+        #[test]
+        fn the_lane_limit_is_the_containers_own_setting_or_the_default() {
+            let default = kkt_rules::Settings::DEFAULT.max_lane_chars;
+
+            // No install yet: the default, and nothing is read.
+            let memory = Memory::new(None, String::new());
+            assert_eq!(lanes(&memory).lane_limit(), Ok(default));
+            assert!(memory.config_home_reads().is_empty());
+
+            // An install with no config file, or one without the setting.
+            let memory = installed();
+            assert_eq!(lanes(&memory).lane_limit(), Ok(default));
+            memory
+                .set_config_home_file("kkt/config.toml".into(), "name_pack = \"animals\"\n".into());
+            assert_eq!(lanes(&memory).lane_limit(), Ok(default));
+
+            // Its own setting, read from where `kkt` in the container finds
+            // its config file; a path under the home folder reads too.
+            memory.set_config_home_file(
+                "kkt/config.toml".into(),
+                "db = \"~/kkt.db\"\nmax_lane_chars = 20\n".into(),
+            );
+            assert_eq!(lanes(&memory).lane_limit(), Ok(20));
+            assert_eq!(
+                memory.config_home_reads(),
+                vec![PathBuf::from("kkt/config.toml"); 3]
+            );
+        }
+
+        #[test]
+        fn a_lane_limit_that_cannot_be_read_names_the_setting() {
+            let memory = installed();
+            memory.set_config_home_file("kkt/config.toml".into(), "max_lane_chars = 0.5\n".into());
+            let err = lanes(&memory).lane_limit().expect_err("refused");
+            assert!(
+                err.starts_with(
+                    "could not read the lane text limit of kkt in Docker: unexpected output from \
+                     the kkt container's config file: "
+                ),
+                "{err}"
+            );
+            assert!(err.contains("max_lane_chars"), "{err}");
+        }
     }
 
     #[test]

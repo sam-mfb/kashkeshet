@@ -1,15 +1,21 @@
 //! Lanes on this machine's server: `kkt lanes export` and `kkt lanes
 //! import`, the server they act on as a contract ([`LaneServer`], which
-//! the program picks through [`LaneServers`]), its local implementation
-//! ([`LocalLanes`]), and reading a lane folder, checking it and importing
-//! it, which `kkt setup` also uses.
+//! the program picks through [`LaneServers`]), which server that is for a
+//! deployment ([`lanes_on`]), its two implementations ([`LocalLanes`] and
+//! [`ContainerLanes`]), the report of an import, and reading a lane
+//! folder, checking it and importing it, which `kkt setup` also uses.
+
+mod container;
+mod report;
+
+pub use container::ContainerLanes;
 
 use crate::{LaneParts, OperatorParts};
 use kkt_api_agent::LaneSource;
 use kkt_api_operator::LaneSave;
+use kkt_deployment::Deployment;
 use kkt_lane_files as lane_files;
 use kkt_rules::{CommandLine, ImportedLane, LaneOutcome};
-use kkt_setup as setup;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -54,6 +60,37 @@ pub struct LaneImport {
     pub retire_missing: bool,
     /// Where the lanes came from, if not the folder they were read from.
     pub source: Option<LaneSource>,
+}
+
+/// The server `kkt lanes` acts on, by how kkt is deployed here.
+#[derive(Debug, PartialEq, Eq)]
+pub enum LanesOn {
+    /// kkt in Docker, run from this folder.
+    Docker(PathBuf),
+    /// The local database `kkt serve` would use, or the one `--db` names.
+    Local,
+}
+
+/// Which server `kkt lanes` acts on, given this machine's `deployment`
+/// (`None` with no record) and whether `--db` or `--config` was given
+/// (`local_options`).
+pub fn lanes_on(deployment: Option<&Deployment>, local_options: bool) -> Result<LanesOn, String> {
+    match deployment {
+        Some(Deployment::Docker { folder, .. }) => {
+            if local_options {
+                return Err(
+                    "kkt in Docker keeps its lanes in the container; --db and --config \
+                            apply only to a local server"
+                        .into(),
+                );
+            }
+            Ok(LanesOn::Docker(folder.clone()))
+        }
+        Some(Deployment::Client) => Err("this machine is a client; run `kkt lanes` on the \
+                                   machine where the server runs"
+            .into()),
+        Some(Deployment::Service { .. }) | None => Ok(LanesOn::Local),
+    }
 }
 
 /// Which server `kkt lanes` acts on. The program picks it from what is
@@ -346,9 +383,9 @@ pub fn import_lanes_for_setup(
 /// One line for each lane an import touched, then one saying where from and
 /// how many of each.
 fn import_report(done: &[ImportedLane], source: &LaneSource) -> String {
-    setup::lane_reports::import_report(
+    report::import_report(
         done.iter().map(|lane| {
-            use setup::lane_reports::Outcome;
+            use report::Outcome;
             let outcome = match lane.outcome {
                 LaneOutcome::Created => Outcome::Created,
                 LaneOutcome::Updated(version) => Outcome::Updated(version),
@@ -362,4 +399,51 @@ fn import_report(done: &[ImportedLane], source: &LaneSource) -> String {
         &source.folder,
         source.commit.as_deref(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn docker() -> Deployment {
+        Deployment::Docker {
+            folder: PathBuf::from("/data/docker"),
+            tailscale: false,
+            hostname: None,
+            tailnet: None,
+        }
+    }
+
+    const SERVICE: Deployment = Deployment::Service { tailscale: false };
+
+    #[test]
+    fn lanes_act_on_docker_in_its_folder_without_local_options() {
+        assert_eq!(
+            lanes_on(Some(&docker()), false),
+            Ok(LanesOn::Docker(PathBuf::from("/data/docker")))
+        );
+        assert_eq!(
+            lanes_on(Some(&docker()), true),
+            Err("kkt in Docker keeps its lanes in the container; --db and --config apply only to a local server".into())
+        );
+    }
+
+    #[test]
+    fn lanes_act_on_the_local_database_for_a_service_or_no_record() {
+        for local_options in [false, true] {
+            assert_eq!(lanes_on(Some(&SERVICE), local_options), Ok(LanesOn::Local));
+            assert_eq!(lanes_on(None, local_options), Ok(LanesOn::Local));
+        }
+    }
+
+    #[test]
+    fn lanes_are_refused_on_a_client() {
+        assert_eq!(
+            lanes_on(Some(&Deployment::Client), false),
+            Err(
+                "this machine is a client; run `kkt lanes` on the machine where the server runs"
+                    .into()
+            )
+        );
+    }
 }

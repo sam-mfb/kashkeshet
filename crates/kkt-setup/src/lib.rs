@@ -2,7 +2,7 @@
 //! server in Docker, or a client of a server elsewhere), the record that
 //! says so, and which server this machine's clients use (`kkt switch`
 //! changes it). It also decides, by how the machine is set up, which server
-//! `kkt lanes` and `kkt backup` act on, which key files a local backup
+//! `kkt backup` acts on, which key files a local backup
 //! holds, where each key file is, which server installed with no record is
 //! here.
 //!
@@ -26,7 +26,6 @@ mod installed_here;
 mod key_finders;
 mod key_writes;
 mod keys;
-pub mod lane_reports;
 mod local;
 mod record;
 mod switch;
@@ -35,7 +34,7 @@ pub mod testing;
 #[cfg(test)]
 mod tests;
 
-pub use acts_on::{BackupOf, LanesOn, backup_of, lanes_on};
+pub use acts_on::{BackupOf, backup_of};
 pub use adopt::{
     AdoptSteps, Unrecorded, service_runs_defaults, unreadable_service, unrecorded_here,
     unrecorded_service,
