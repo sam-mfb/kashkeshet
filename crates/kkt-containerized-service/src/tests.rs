@@ -358,14 +358,16 @@ fn a_tool_that_cannot_run_is_not_available_by_its_name_and_a_failure_says_how() 
 // ----------------------------------------------------------------- fallback
 
 #[test]
-fn what_it_does_not_do_itself_goes_to_the_fallback() {
-    let service = service(local(LOCAL_ENV));
-    let clock = FixedClock::new(Time::from_parts(2026, 11, 17, 12, 0, 0).unwrap());
-    // The fallback has no install there, so it refuses; the refusal is the
-    // fallback's own.
-    assert!(block_on(service.upgrade(&clock, &folder(), "0.5.0", None)).is_err());
-    assert!(service.projects.log().is_empty());
-    assert_eq!(service.fallback.calls(), ["upgrade"]);
+fn nothing_goes_to_the_fallback() {
+    let (service, _, clock) = installed(
+        Rc::new(kkt_keys::testing::Memory::new()),
+        LOCAL_SETTINGS,
+        with_backup(server(no_admin(), vec![])),
+    );
+    block_on(service.upgrade(&*clock, &folder(), "0.5.0", None)).unwrap();
+    let _ = block_on(service.add_admin_key(&*clock, &folder(), &key_copies(), "kkt-admin"));
+    assert!(!service.projects.log().is_empty());
+    assert!(service.fallback.calls().is_empty());
 }
 
 // ----------------------------------------------------------------- runs in the server
@@ -1096,4 +1098,233 @@ fn a_missing_tool_is_said_by_its_name_with_what_to_do() {
         error.ends_with(". Install tool with Compose and run setup again"),
         "{error}"
     );
+}
+
+// ---------------------------------------------------------------- the admin key and upgrade
+
+/// Over running projects whose commands in a service `answer` answers,
+/// with `keys` as the key files and `env` as the settings file, the
+/// service and the lines it says.
+fn installed(
+    keys: Rc<kkt_keys::testing::Memory>,
+    env: &str,
+    answer: impl Fn(&Request) -> Result<(Option<i32>, String, String), ProjectError> + 'static,
+) -> (
+    Containerized<MemoryProjects, Memory>,
+    Said,
+    std::sync::Arc<FixedClock>,
+) {
+    let clock = std::sync::Arc::new(FixedClock::new(
+        Time::from_parts(2026, 11, 17, 12, 0, 0).unwrap(),
+    ));
+    let ticking = clock.clone();
+    let projects = MemoryProjects::new(&["kkt"])
+        .with_file(at(".env"), env)
+        .answering(move |request| {
+            ticking.advance(kkt_clock::Span::seconds(3));
+            answer(request)
+        });
+    let said = Said::default();
+    let service = Containerized::new(
+        projects,
+        Memory::new(None, String::new()),
+        Box::new(said.clone()),
+        Box::new(Node),
+        Box::new(NoBrowser),
+        Box::new(KeysIn(keys)),
+        Ok(PathBuf::from("/home/me")),
+    );
+    service.up(&folder()).unwrap();
+    (service, said, clock)
+}
+
+const LOCAL_SETTINGS: &str = "KKT_VERSION=0.4.0\nCOMPOSE_PROJECT_NAME=kkt\nKKT_PORT=7420\n";
+
+/// `answer`, with `kkt backup` answered as a backup that worked.
+fn with_backup(
+    answer: impl Fn(&Request) -> Result<(Option<i32>, String, String), ProjectError> + 'static,
+) -> impl Fn(&Request) -> Result<(Option<i32>, String, String), ProjectError> + 'static {
+    move |request| match request {
+        Request::Exec { args, .. } if args.iter().any(|a| a == "backup") => Ok((
+            Some(0),
+            "Backed up to /backups/kkt-backup-1\n".into(),
+            String::new(),
+        )),
+        _ => answer(request),
+    }
+}
+
+#[test]
+fn the_admin_key_is_made_kkt_restarted_and_every_copy_replaced() {
+    let keys = Rc::new(
+        kkt_keys::testing::Memory::new()
+            .with_file("/home/me/.config/kkt/docker-access-key", "old\n")
+            .with_file("/home/me/.config/kkt-admin/docker-admin-key", "old\n"),
+    );
+    let made = Rc::new(RefCell::new(false));
+    let making = made.clone();
+    let (service, said, clock) = installed(keys.clone(), LOCAL_SETTINGS, move |request| {
+        let Request::Exec { args, .. } = request else {
+            return Ok((Some(0), String::new(), String::new()));
+        };
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        Ok(match args.as_slice() {
+            [.., "create", "--admin", "--name", "kkt-admin"] => {
+                *making.borrow_mut() = true;
+                (Some(0), String::new(), String::new())
+            }
+            [.., "--admin"] if *making.borrow() => (Some(0), format!("{ADMIN}\n"), String::new()),
+            [.., "--admin"] => (Some(4), String::new(), "no admin key".into()),
+            [.., "--web"] => (Some(0), format!("{WEB}\n"), String::new()),
+            _ => (Some(0), format!("{ACCESS}\n"), String::new()),
+        })
+    });
+    let copy = block_on(service.add_admin_key(&*clock, &folder(), &key_copies(), "kkt-admin"));
+    assert_eq!(
+        copy,
+        Ok(PathBuf::from("/home/me/.config/kkt-admin/docker-admin-key"))
+    );
+    for (path, key) in [
+        ("/home/me/.config/kkt/docker-access-key", ACCESS),
+        ("/home/me/.config/kkt/docker-web-key", WEB),
+        ("/home/me/.config/kkt-admin/docker-admin-key", ADMIN),
+    ] {
+        let file = keys.file(Path::new(path)).expect("a copy");
+        assert_eq!(file.text, format!("{key}\n"), "{path}");
+        assert_eq!(file.mode, Some(kkt_keys::ACCESS_KEY_FILE_MODE), "{path}");
+    }
+    let log = service.projects.log();
+    assert!(
+        log.contains(&"tool compose restart kkt".to_string()),
+        "{log:?}"
+    );
+    assert!(said.0.borrow().iter().all(|line| keyless(line)));
+}
+
+#[test]
+fn no_admin_key_reaches_an_error_or_a_line_said_when_its_read_fails_after_printing_it() {
+    for admin in [
+        (Some(1), format!("{ADMIN}\n"), format!("partial {ADMIN}")),
+        (None, format!("{ADMIN}\n"), String::new()),
+        (Some(0), "  \n".to_string(), String::new()),
+    ] {
+        let (service, said, clock) = installed(
+            Rc::new(kkt_keys::testing::Memory::new()),
+            LOCAL_SETTINGS,
+            move |request| {
+                let Request::Exec { args, .. } = request else {
+                    return Ok((Some(0), String::new(), String::new()));
+                };
+                Ok(match args.last().map(String::as_str) {
+                    Some("--admin") => (admin.0, admin.1.clone(), admin.2.clone()),
+                    Some("--web") => (Some(0), format!("{WEB}\n"), String::new()),
+                    _ => (Some(0), format!("{ACCESS}\n"), String::new()),
+                })
+            },
+        );
+        let error = block_on(service.add_admin_key(&*clock, &folder(), &key_copies(), "kkt-admin"))
+            .unwrap_err();
+        assert!(keyless(&error), "{error}");
+        assert!(
+            error.ends_with("(exit 1, could not read the admin key)")
+                || error.ends_with("(ended by a signal)")
+                || error.ends_with("(exit 0, could not read the admin key)"),
+            "{error}"
+        );
+        assert!(said.0.borrow().iter().all(|line| keyless(line)));
+    }
+}
+
+#[test]
+fn an_upgrade_selects_the_version_and_keeps_every_other_setting() {
+    let keys = Rc::new(kkt_keys::testing::Memory::new());
+    let (service, said, clock) = installed(
+        keys,
+        "# mine\nKKT_PORT=8000\nKKT_VERSION=0.3.9\nEXTRA=1\n",
+        with_backup(server(no_admin(), vec![])),
+    );
+    block_on(service.upgrade(&*clock, &folder(), "0.4.0", Some(&key_copies()))).unwrap();
+    assert_eq!(
+        service.projects.file_text(&at(".env")),
+        Some((
+            "# mine\nKKT_PORT=8000\nKKT_VERSION=0.4.0\nEXTRA=1\n".to_string(),
+            true
+        ))
+    );
+    let log = service.projects.log();
+    let pull = log.iter().position(|l| l == "tool compose pull");
+    let backup = log
+        .iter()
+        .position(|l| l.contains("kkt backup /backups"))
+        .expect("a backup");
+    assert!(pull.is_some_and(|pull| backup < pull), "{log:?}");
+    assert!(said.0.borrow().iter().all(|line| keyless(line)));
+}
+
+#[test]
+fn no_key_reaches_a_line_said_when_an_upgrade_cannot_save_the_key_copies() {
+    // Each key's show fails after printing its key; the upgrade stands and
+    // says how to save them, without any key.
+    for failing in ["", "--web", "--admin"] {
+        let (service, said, clock) = installed(
+            Rc::new(kkt_keys::testing::Memory::new()),
+            LOCAL_SETTINGS,
+            move |request| {
+                let Request::Exec { args, .. } = request else {
+                    return Ok((Some(0), String::new(), String::new()));
+                };
+                let last = args.last().map(String::as_str).unwrap_or("");
+                let which = match last {
+                    "--web" | "--admin" => last,
+                    "/backups" => {
+                        return Ok((
+                            Some(0),
+                            "Backed up to /backups/kkt-backup-1\n".into(),
+                            String::new(),
+                        ));
+                    }
+                    _ => "",
+                };
+                let key = match which {
+                    "--web" => WEB,
+                    "--admin" => ADMIN,
+                    _ => ACCESS,
+                };
+                Ok(if which == failing {
+                    (Some(1), format!("{key}\n"), key.to_string())
+                } else if which == "--admin" {
+                    (Some(4), String::new(), "no admin key".into())
+                } else {
+                    (Some(0), format!("{key}\n"), String::new())
+                })
+            },
+        );
+        block_on(service.upgrade(&*clock, &folder(), "0.5.0", Some(&key_copies()))).unwrap();
+        let said = said.0.borrow();
+        let line = said
+            .iter()
+            .find(|l| l.starts_with("kkt is running, but its keys could not be saved"))
+            .unwrap_or_else(|| panic!("{failing}: {said:?}"));
+        assert!(
+            line.contains("run `tool compose exec kkt kkt key show --web` in /data/docker"),
+            "{line}"
+        );
+        assert!(said.iter().all(|l| keyless(l)), "{failing}: {said:?}");
+    }
+}
+
+#[test]
+fn set_version_replaces_or_adds_the_version_line_and_keeps_the_rest() {
+    assert_eq!(
+        crate::files::set_version("A=1\nKKT_VERSION=0.1\nB=2\n", "0.2"),
+        "A=1\nKKT_VERSION=0.2\nB=2\n"
+    );
+    assert_eq!(
+        crate::files::set_version("KKT_PORT=8000", "0.2"),
+        "KKT_PORT=8000\nKKT_VERSION=0.2\n"
+    );
+    assert!(crate::files::is_shared(
+        "KKT_VERSION=1\n COMPOSE_FILE=compose.tailscale.yaml \n"
+    ));
+    assert!(!crate::files::is_shared("KKT_VERSION=1\n"));
 }

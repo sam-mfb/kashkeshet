@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a5ce233e",
+ "commit": "3d5d2b84",
  "crates": [
   {
    "bins": [
@@ -4857,6 +4857,10 @@ window.KKT_GRAPH = {
       {
        "crate": "kashkeshet",
        "type": "terminal::browser_login::TerminalLink"
+      },
+      {
+       "crate": "kkt-containerized-service",
+       "type": null
       }
      ],
      "trait": "LoginLink"
@@ -5566,6 +5570,12 @@ window.KKT_GRAPH = {
      "trait": "Container",
      "trait_crate": "kkt-container",
      "type": "Containerized"
+    },
+    {
+     "crate": "kkt-containerized-service",
+     "trait": "LoginLink",
+     "trait_crate": "kkt-container",
+     "type": null
     }
    ],
    "items": [
@@ -5579,7 +5589,7 @@ window.KKT_GRAPH = {
      "path": "Browser"
     },
     {
-     "doc": "kkt's containerized service over `projects`, handing the operations it does not do itself to `fallback`.",
+     "doc": "kkt's containerized service over `projects`.",
      "kind": "struct",
      "methods": [
       "new"
@@ -19434,6 +19444,9 @@ window.KKT_GRAPH = {
    "test_items": [
     "Inputs",
     "KeyCopies",
+    "Project",
+    "ProjectFile",
+    "Projects",
     "Sharing",
     "testing",
     "testing::Memory",
@@ -20736,6 +20749,9 @@ window.KKT_GRAPH = {
     "Inputs",
     "KeyCopies",
     "LoginLink",
+    "Project",
+    "ProjectFile",
+    "Projects",
     "Sharing",
     "testing",
     "testing::Memory",
@@ -20750,6 +20766,7 @@ window.KKT_GRAPH = {
       "Arg",
       "Carry",
       "Folder",
+      "Projects",
       "testing"
      ],
      "role": "uses"
@@ -22950,7 +22967,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Containerized implements Container"
+      "Containerized implements Container",
+      "a type of its own implements LoginLink"
      ],
      "role": "implements"
     },
@@ -22967,7 +22985,6 @@ window.KKT_GRAPH = {
       "KeyCopies",
       "KeyCopy",
       "Login",
-      "LoginLink",
       "Output",
       "Project",
       "ProjectError",
@@ -23126,7 +23143,6 @@ window.KKT_GRAPH = {
       "Folder",
       "KeyCopy",
       "Login",
-      "LoginLink",
       "Output",
       "ProjectError",
       "Ran",
@@ -29652,7 +29668,7 @@ window.KKT_CONCERNS = {
    "layer": "operations"
   },
   "kkt-containerized-service": {
-   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, setting the service up (its files, the Tailscale container's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`), starting and stopping it, its status and name pack, runs of the server's program in its container, reading its config home, backups and the web key's comparison, and hands the operations it does not do itself to a fallback `Container`. What a sharing node's status answer says comes from the `SharingNode` it declares, and a login link opens in the `Browser` it declares.",
+   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, setting the service up (its files, the Tailscale container's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`), starting and stopping it, its status and name pack, runs of the server's program in its container, reading its config home, backups, the web key's comparison, the admin key and upgrades, with the settings put back when an upgrade fails; it hands nothing to the fallback `Container` it still takes. What a sharing node's status answer says comes from the `SharingNode` it declares, and a login link opens in the `Browser` it declares.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -31659,7 +31675,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "impl": "kkt-containerized-service::Containerized",
-     "note": "kkt's containerized service, over Docker as the general Projects with Docker as its fallback, injected into the install commands.",
+     "note": "kkt's containerized service, over Docker as the general Projects, injected into the install commands. It still takes a Docker as its fallback, and hands it nothing.",
      "to": [
       {
        "at": "InstallParts",
