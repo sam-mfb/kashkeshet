@@ -5592,3 +5592,32 @@ async fn the_admin_contract_is_the_rules_own_operations() {
 async fn the_shared_scenarios_hold_on_the_stand_in() {
     run_all(fast_backend).await;
 }
+
+#[tokio::test]
+async fn every_page_an_agent_or_an_admin_asks_for_is_capped_in_the_rules() {
+    let settings = Settings {
+        default_limit: 2,
+        max_limit: 2,
+        ..Settings::DEFAULT
+    };
+    let w = world_with(settings, Arc::new(SeqEntropy::new(42))).await;
+    let a = w.agent().await;
+    for name in ["one", "two", "three"] {
+        w.channel(&a, name, true, &[]).await;
+    }
+    let agents: &dyn kkt_api_agent::Api = &w.rules;
+    let admin: &dyn kkt_api_admin::Admin = &w.rules;
+    // More than the cap gives the cap; none gives one, never an empty page.
+    for (asked, given) in [(1000, 2), (0, 1), (1, 1)] {
+        let page = agents
+            .list_channels(&a, ChannelQuery::all(asked))
+            .await
+            .unwrap();
+        assert_eq!(page.items.len(), given, "an agent asking for {asked}");
+        let page = admin
+            .admin_list_channels(&web_page(), None, asked, None)
+            .await
+            .unwrap();
+        assert_eq!(page.items.len(), given, "an admin asking for {asked}");
+    }
+}

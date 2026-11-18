@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "0bd9417c",
+ "commit": "e929c4fe",
  "crates": [
   {
    "bins": [
@@ -14122,7 +14122,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "methods": [
-      "limit",
       "limits",
       "problems",
       "record_lines"

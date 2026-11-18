@@ -210,14 +210,6 @@ impl Settings {
             line("purpose_preview_chars", purpose_preview_chars),
         ]
     }
-
-    /// Clamps an agent's requested `limit` to `1..=max_limit`, using the default when absent.
-    pub fn limit(&self, requested: Option<u32>) -> usize {
-        match requested {
-            Some(n) => (n as usize).clamp(1, self.max_limit),
-            None => self.default_limit,
-        }
-    }
 }
 
 /// The name of the check that a count must be at least 1.
