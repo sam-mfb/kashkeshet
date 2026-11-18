@@ -48,22 +48,36 @@ fn mode_of(_: &std::fs::Metadata) -> u32 {
     0
 }
 
+/// The error text each writer gives a person, with the path the same in
+/// both: the old one as setup worded it (`could not write <path>: <cause>`,
+/// kkt-container-docker's `DockerError::io`), the new one as
+/// `OsKeyFiles::write_key` words it.
+#[derive(Debug, PartialEq, Eq)]
+struct Errors {
+    old: Option<String>,
+    new: Option<String>,
+}
+
 /// Runs each writer on its own copy of the case `prepare` makes, and
-/// returns both outcomes, with the new writer's error text when it fails.
-fn both(name: &str, prepare: impl Fn(&Path) -> PathBuf) -> (Outcome, Outcome, Option<String>) {
+/// returns both outcomes and both error texts.
+fn both(name: &str, prepare: impl Fn(&Path) -> PathBuf) -> (Outcome, Outcome, Errors) {
     let dir = scratch::Dir::new(&format!("kkt-key-writers-{name}"));
     let old_path = prepare(&dir.path().join("old"));
     let new_path = prepare(&dir.path().join("new"));
     // Docker wrote the trimmed key and a line's end.
     let old = write_private_file(&old_path, &format!("{KEY}\n"));
     let new = OsKeyFiles.write_key(&new_path, KEY, true);
-    let error = new.as_ref().err().cloned();
-    if let Err(e) = &old {
-        eprintln!("{name}: the old writer failed: {e}");
-    }
-    if let Some(e) = &error {
-        eprintln!("{name}: the new writer failed: {e}");
-    }
+    // Setup worded a failed copy as `could not write <path>: <cause>`. The
+    // two copies sit in folders of their own, so the old text names the
+    // new copy's path, to compare the rest.
+    let errors = Errors {
+        old: old
+            .as_ref()
+            .err()
+            .map(|e| format!("could not write {}: {e}", new_path.display())),
+        new: new.as_ref().err().cloned(),
+    };
+    eprintln!("{name}: {errors:?}");
     (
         Outcome {
             worked: old.is_ok(),
@@ -73,7 +87,7 @@ fn both(name: &str, prepare: impl Fn(&Path) -> PathBuf) -> (Outcome, Outcome, Op
             worked: new.is_ok(),
             left: left(&new_path),
         },
-        error,
+        errors,
     )
 }
 
@@ -90,18 +104,19 @@ fn with_file(base: &Path, text: &str, mode: u32) -> PathBuf {
 
 #[test]
 fn a_new_copy_is_the_same_from_both_writers() {
-    let (old, new, _) = both("new", |base| {
+    let (old, new, errors) = both("new", |base| {
         std::fs::create_dir_all(base).unwrap();
         base.join("copy")
     });
     assert!(old.worked);
     assert_eq!(old, new);
+    assert_eq!(errors.old, errors.new);
 }
 
 #[cfg(unix)]
 #[test]
 fn a_copy_over_another_text_is_the_same_from_both_writers() {
-    let (old, new, _) = both("other-text", |base| {
+    let (old, new, errors) = both("other-text", |base| {
         with_file(
             base,
             "an older and much longer key text than the new one\n",
@@ -110,36 +125,39 @@ fn a_copy_over_another_text_is_the_same_from_both_writers() {
     });
     assert!(old.worked);
     assert_eq!(old, new);
+    assert_eq!(errors.old, errors.new);
 }
 
 #[cfg(unix)]
 #[test]
 fn a_copy_over_a_file_others_may_read_is_made_private_by_both_writers() {
-    let (old, new, _) = both("loose", |base| with_file(base, "old\n", 0o644));
+    let (old, new, errors) = both("loose", |base| with_file(base, "old\n", 0o644));
     assert!(old.worked);
     assert_eq!(old, new);
+    assert_eq!(errors.old, errors.new);
 }
 
 #[cfg(unix)]
 #[test]
 fn a_copy_over_a_read_only_file_ends_the_same_from_both_writers() {
-    let (old, new, error) = both("read-only", |base| with_file(base, "old\n", 0o400));
-    eprintln!("read-only: old {old:?}, new {new:?}, new error {error:?}");
+    let (old, new, errors) = both("read-only", |base| with_file(base, "old\n", 0o400));
     assert_eq!(old, new);
+    assert_eq!(errors.old, errors.new);
 }
 
 #[test]
 fn a_copy_whose_folder_is_missing_fails_alike_and_leaves_nothing() {
-    let (old, new, error) = both("no-folder", |base| base.join("missing").join("copy"));
+    let (old, new, errors) = both("no-folder", |base| base.join("missing").join("copy"));
     assert!(!old.worked);
     assert_eq!(old, new);
     assert_eq!(new.left, Left::Nothing);
-    assert!(error.unwrap().starts_with("could not write "));
+    assert!(errors.new.is_some());
+    assert_eq!(errors.old, errors.new);
 }
 
 #[test]
 fn a_copy_whose_path_is_a_folder_fails_alike_and_leaves_the_folder() {
-    let (old, new, error) = both("a-folder", |base| {
+    let (old, new, errors) = both("a-folder", |base| {
         let path = base.join("copy");
         std::fs::create_dir_all(&path).unwrap();
         path
@@ -147,5 +165,6 @@ fn a_copy_whose_path_is_a_folder_fails_alike_and_leaves_the_folder() {
     assert!(!old.worked);
     assert_eq!(old, new);
     assert_eq!(new.left, Left::Folder);
-    assert!(error.unwrap().starts_with("could not write "));
+    assert!(errors.new.is_some());
+    assert_eq!(errors.old, errors.new);
 }
