@@ -166,7 +166,7 @@
   },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to.",
+   "concern": "The record of how this machine is set up, its fields, text form and place, and the conversation that produces it: `kkt setup`, `kkt switch`, and adopting a server installed with no record.",
    "kind": "logic"
   },
   "kkt-bare-service": {

@@ -15,6 +15,7 @@ kkt-clock = { path = "../kkt-clock" }
 kkt-config-file = { path = "../kkt-config-file" }
 kkt-container = { path = "../kkt-container" }
 kkt-containerized-service = { path = "../kkt-containerized-service" }
+kkt-hash = { path = "../kkt-hash" }
 kkt-diagnostics = { path = "../kkt-diagnostics" }
 kkt-entropy = { path = "../kkt-entropy" }
 kkt-machine = { path = "../kkt-machine" }

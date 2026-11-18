@@ -90,9 +90,7 @@ pub async fn status<D: ServiceDefaults>(
     let found_unfinished = unfinished.as_ref().ok().and_then(Option::as_ref);
     let found_unrecorded = unrecorded.as_ref().ok().and_then(Option::as_ref);
     if let Some(path) = local_web_key(parts, env, found_unfinished, found_unrecorded)? {
-        parts
-            .output
-            .output(format_args!("{}", setup::web_key_line(&path)));
+        parts.output.output(format_args!("{}", web_key_line(&path)));
     }
     let admin_key = local_operator_key(
         parts,
@@ -108,7 +106,7 @@ pub async fn status<D: ServiceDefaults>(
     if let Some(path) = admin_key {
         parts
             .output
-            .output(format_args!("{}", setup::admin_key_line(&path)));
+            .output(format_args!("{}", admin_key_line(&path)));
         let key = parts
             .key_files
             .read(&path)
@@ -132,7 +130,7 @@ pub async fn status<D: ServiceDefaults>(
             let config = parts.serve.config(None)?;
             parts.output.output(format_args!(
                 "{}",
-                setup::configured_name_pack_line(&config.name_pack)
+                configured_name_pack_line(&config.name_pack)
             ));
             service::run(parts, ServiceAction::Status).await
         }
@@ -147,7 +145,7 @@ pub async fn status<D: ServiceDefaults>(
                     &kkt_config_file::config_file_in_home(),
                 )
                 .map_err(|e| e.to_string())?;
-            for line in setup::docker_status_lines(&state, folder.path()) {
+            for line in docker_status_lines(&state, folder.path()) {
                 parts.output.output(format_args!("{line}"));
             }
             Ok(())
@@ -239,7 +237,7 @@ pub async fn upgrade<D: ServiceDefaults>(
 /// load (`kkt service start` finishes that), the upgrade is recorded only
 /// when `kkt upgrade` is run again.
 fn unrecorded_upgrade(error: ServiceError) -> String {
-    setup::service_upgrade_error(
+    service_upgrade_error(
         &error.to_string(),
         matches!(error, ServiceError::ReloadFailed { .. }),
     )
@@ -253,7 +251,7 @@ pub async fn uninstall<D: ServiceDefaults>(
     platform: Platform,
 ) -> Result<(), String> {
     let record = recorded_setup(parts, env, platform)?;
-    let stays_client = setup::uninstall_record(&record, Build::CURRENT.version);
+    let stays_client = uninstall_record(&record, Build::CURRENT.version);
     match record.mode {
         setup::Mode::Docker(install) => {
             parts
@@ -271,7 +269,7 @@ pub async fn uninstall<D: ServiceDefaults>(
         write_setup_record(env, parts.setup_files, &client)?;
         parts
             .output
-            .output(format_args!("{}", setup::uninstall_line(Some(&client))));
+            .output(format_args!("{}", uninstall_line(Some(&client))));
         return Ok(());
     }
     let config_dir = kkt_config_file::config_dir(env.config_home().as_deref())
@@ -279,7 +277,7 @@ pub async fn uninstall<D: ServiceDefaults>(
     parts.setup_files.remove_record(&config_dir)?;
     parts
         .output
-        .output(format_args!("{}", setup::uninstall_line(None)));
+        .output(format_args!("{}", uninstall_line(None)));
     Ok(())
 }
 
@@ -374,8 +372,186 @@ fn local_backup<D>(
     Ok(())
 }
 
+/// Clients switched to another server keep using it after the local install goes.
+pub(crate) fn uninstall_record(record: &setup::Record, version: &str) -> Option<setup::Record> {
+    record.clients.clone().map(|server| setup::Record {
+        mode: setup::Mode::Client,
+        written_by: version.to_string(),
+        url: server.url,
+        key_file: server.key_file,
+        clients: None,
+    })
+}
+
+pub(crate) fn uninstall_line(client: Option<&setup::Record>) -> String {
+    match client {
+        Some(client) => format!("Removed this machine's server. Data, keys, backups and client configurations were \
+             kept, and this machine stays set up as a client of {}.\n", client.url),
+        None => "Removed this machine's setup. Data, keys, backups and client configurations were kept.\n".into(),
+    }
+}
+
+pub(crate) fn web_key_line(path: &Path) -> String {
+    format!(
+        "Web key: {} (read with `kkt key show --web`)\n",
+        path.display()
+    )
+}
+
+pub(crate) fn admin_key_line(path: &Path) -> String {
+    format!(
+        "Admin key: {} (read with `kkt key show --admin`; agents holding it use /mcp-admin)\n",
+        path.display()
+    )
+}
+
+pub(crate) fn configured_name_pack_line(name: &str) -> String {
+    format!("Name pack (configured; serve flags may override): {name}\n")
+}
+
+pub(crate) fn docker_status_lines(
+    state: &kkt_containerized_service::State,
+    folder: &Path,
+) -> Vec<String> {
+    let mut lines = Vec::new();
+    lines.push(match &state.name_pack {
+        Ok(pack) => format!("Name pack: {pack}\n"),
+        Err(reason) => format!("Name pack: unavailable ({reason})\n"),
+    });
+    lines.push(format!("Docker folder: {}\n", folder.display()));
+    lines.push(format!(
+        "Settings present: {}\nRunning: {}\nVersion: {}\nTailscale: {}\n",
+        state.files_present,
+        state.running,
+        state.version.as_deref().unwrap_or("unknown"),
+        state.sharing
+    ));
+    match &state.login {
+        Some(kkt_containerized_service::Login::LoggedIn) => lines.push("Tailscale login: logged in\n".into()),
+        Some(kkt_containerized_service::Login::NeedsLogin) => lines.push("Tailscale login: needed. The machine's key expired, or it was logged out, so it is off the tailnet. Run `kkt setup` to log in again.\n".into()),
+        Some(kkt_containerized_service::Login::Unreachable) => lines.push("Tailscale login: unknown; the Tailscale container does not answer\n".into()),
+        Some(kkt_containerized_service::Login::Other(state)) => lines.push(format!("Tailscale login: {state}\n")),
+        None => {}
+    }
+    lines
+}
+
+pub(crate) fn service_upgrade_error(error: &str, reload_failed: bool) -> String {
+    match reload_failed {
+        true => format!(
+            "{error} This upgrade is not recorded yet: once the service is loaded, run `kkt upgrade` again to record the new version."
+        ),
+        false => error.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_status_uninstall_and_upgrade_lines_are_pinned() {
+        // The uninstall record and its lines.
+        let server = setup::Record {
+            mode: setup::Mode::Service { tailscale: false },
+            written_by: "0.9.0".into(),
+            url: "http://127.0.0.1:7420/mcp".into(),
+            key_file: Some(PathBuf::from("/k/access")),
+            clients: Some(setup::Server {
+                url: "https://other.example/mcp".into(),
+                key_file: Some(PathBuf::from("/k/client")),
+            }),
+        };
+        assert_eq!(
+            uninstall_record(&server, "1.0.0"),
+            Some(setup::Record {
+                mode: setup::Mode::Client,
+                written_by: "1.0.0".into(),
+                url: "https://other.example/mcp".into(),
+                key_file: Some(PathBuf::from("/k/client")),
+                clients: None,
+            })
+        );
+        let alone = setup::Record {
+            clients: None,
+            ..server.clone()
+        };
+        assert_eq!(uninstall_record(&alone, "1.0.0"), None);
+        let client = uninstall_record(&server, "1.0.0").expect("stays a client");
+        assert_eq!(
+            uninstall_line(Some(&client)),
+            "Removed this machine's server. Data, keys, backups and client configurations were \
+             kept, and this machine stays set up as a client of https://other.example/mcp.\n"
+        );
+        assert_eq!(
+            uninstall_line(None),
+            "Removed this machine's setup. Data, keys, backups and client configurations were kept.\n"
+        );
+        // The key lines and the name pack line.
+        assert_eq!(
+            web_key_line(Path::new("/k/web")),
+            "Web key: /k/web (read with `kkt key show --web`)\n"
+        );
+        assert_eq!(
+            admin_key_line(Path::new("/k/admin")),
+            "Admin key: /k/admin (read with `kkt key show --admin`; agents holding it use /mcp-admin)\n"
+        );
+        assert_eq!(
+            configured_name_pack_line("animals"),
+            "Name pack (configured; serve flags may override): animals\n"
+        );
+        // The upgrade error, with and without a failed reload.
+        assert_eq!(service_upgrade_error("It failed.", false), "It failed.");
+        assert_eq!(
+            service_upgrade_error("It failed.", true),
+            "It failed. This upgrade is not recorded yet: once the service is loaded, run `kkt upgrade` again to record the new version."
+        );
+        // Docker's status lines, every login state.
+        let folder = Path::new("/d");
+        let mut state = kkt_containerized_service::State {
+            files_present: true,
+            running: true,
+            version: Some("0.9.0".into()),
+            name_pack: Ok("animals".into()),
+            sharing: true,
+            login: Some(kkt_containerized_service::Login::LoggedIn),
+        };
+        let head = |pack: &str, version: &str| {
+            vec![
+                format!("Name pack: {pack}\n"),
+                "Docker folder: /d\n".to_string(),
+                format!(
+                    "Settings present: true\nRunning: true\nVersion: {version}\nTailscale: true\n"
+                ),
+            ]
+        };
+        let mut want = head("animals", "0.9.0");
+        want.push("Tailscale login: logged in\n".into());
+        assert_eq!(docker_status_lines(&state, folder), want);
+        state.login = Some(kkt_containerized_service::Login::NeedsLogin);
+        let mut want = head("animals", "0.9.0");
+        want.push("Tailscale login: needed. The machine's key expired, or it was logged out, so it is off the tailnet. Run `kkt setup` to log in again.\n".into());
+        assert_eq!(docker_status_lines(&state, folder), want);
+        state.login = Some(kkt_containerized_service::Login::Unreachable);
+        let mut want = head("animals", "0.9.0");
+        want.push("Tailscale login: unknown; the Tailscale container does not answer\n".into());
+        assert_eq!(docker_status_lines(&state, folder), want);
+        state.login = Some(kkt_containerized_service::Login::Other("Starting".into()));
+        let mut want = head("animals", "0.9.0");
+        want.push("Tailscale login: Starting\n".into());
+        assert_eq!(docker_status_lines(&state, folder), want);
+        state.login = None;
+        state.name_pack = Err("no config".into());
+        state.version = None;
+        assert_eq!(
+            docker_status_lines(&state, folder),
+            vec![
+                "Name pack: unavailable (no config)\n".to_string(),
+                "Docker folder: /d\n".to_string(),
+                "Settings present: true\nRunning: true\nVersion: unknown\nTailscale: true\n"
+                    .to_string(),
+            ]
+        );
+    }
+
     use super::*;
     use std::cell::RefCell;
 
@@ -919,7 +1095,7 @@ mod tests {
             ]
         );
         assert!(
-            said.0.borrow().ends_with(&setup::uninstall_line(None)),
+            said.0.borrow().ends_with(&uninstall_line(None)),
             "{}",
             said.0.borrow()
         );
