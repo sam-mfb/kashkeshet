@@ -711,6 +711,10 @@ fn a_name_pack_with_no_container_is_unidentified() {
 struct Node;
 
 impl SharingNode for Node {
+    fn status_command(&self) -> Vec<String> {
+        ["tailscale", "status", "--json"].map(String::from).to_vec()
+    }
+
     fn login(&self, answer: &str) -> Option<NodeLogin> {
         match answer {
             "" => None,
@@ -760,6 +764,55 @@ fn a_shared_installs_status_says_whether_tailscale_is_logged_in() {
     let unreachable =
         tailscale(TAILSCALE_ENV).answering(|_| Ok((Some(1), String::new(), "not running".into())));
     assert_eq!(status_of(unreachable).login, Some(Login::Unreachable));
+}
+
+/// A sharing node asked with a command of its own, read as [`Node`] reads.
+struct OwnCommand;
+
+impl SharingNode for OwnCommand {
+    fn status_command(&self) -> Vec<String> {
+        vec!["share-node".into(), "state".into()]
+    }
+    fn login(&self, answer: &str) -> Option<NodeLogin> {
+        Node.login(answer)
+    }
+    fn status(&self, answer: &str) -> Result<NodeStatus, String> {
+        Node.status(answer)
+    }
+}
+
+#[test]
+fn the_sharing_node_is_asked_with_the_command_it_gives() {
+    let asked = Rc::new(RefCell::new(Vec::new()));
+    let seen = asked.clone();
+    let projects = tailscale(TAILSCALE_ENV).answering(move |request| {
+        if let Request::Exec { service, args, .. } = request
+            && service == "tailscale"
+        {
+            seen.borrow_mut().push(args.clone());
+        }
+        Ok((Some(0), "in".into(), String::new()))
+    });
+    let state = Containerized::new(
+        projects,
+        Box::new(Said::default()),
+        Box::new(OwnCommand),
+        Box::new(NoBrowser),
+        Box::new(KeysIn(Rc::new(kkt_keys::testing::Memory::new()))),
+        Ok(PathBuf::from("/home/me")),
+    )
+    .status(
+        &folder(),
+        &Packs,
+        "default-pack",
+        Path::new("kkt/config.toml"),
+    )
+    .unwrap();
+    assert_eq!(state.login, Some(Login::LoggedIn));
+    assert_eq!(
+        *asked.borrow(),
+        vec![vec!["share-node".to_string(), "state".to_string()]]
+    );
 }
 
 #[test]
