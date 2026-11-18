@@ -1703,7 +1703,6 @@ dependencies = [
 name = "kkt-setup"
 version = "0.10.0"
 dependencies = [
- "kkt-container",
  "kkt-containerized-service",
  "kkt-entropy",
  "kkt-hash",

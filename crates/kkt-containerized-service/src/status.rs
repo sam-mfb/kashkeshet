@@ -4,16 +4,13 @@
 //! the Tailscale container is logged in.
 
 use crate::ContainerError;
-use crate::files::{ENV_FILE, TAILSCALE_COMPOSE_FILE, version_in_env};
+use crate::files::{ENV_FILE, SHARING, TAILSCALE_COMPOSE_FILE, version_in_env};
 use crate::in_server::SERVER;
 use crate::{ConfigReader, Login, State};
 use crate::{NodeLogin, SharingNode};
 use kkt_container::{FileState, Output, Project, ProjectError, Projects, User};
 use kkt_machine::Env;
 use std::path::{Path, PathBuf};
-
-/// The service the Tailscale container runs in, when the install is shared.
-const SHARING: &str = "tailscale";
 
 /// `reader` parses the container's config file, for its name pack.
 /// `default_name_pack` is the name pack `kkt serve` uses when its settings
@@ -74,14 +71,10 @@ fn login_state(
     project: &Project,
     sharing: &dyn SharingNode,
 ) -> Result<Login, ContainerError> {
+    let command = sharing.status_command();
+    let command: Vec<&str> = command.iter().map(String::as_str).collect();
     let ran = projects
-        .exec(
-            project,
-            SHARING,
-            User::Default,
-            &["tailscale", "status", "--json"],
-            Output::Captured,
-        )
+        .exec(project, SHARING, User::Default, &command, Output::Captured)
         .map_err(|e| ContainerError::from_tool(projects, e))?;
     if !ran.success() {
         return Ok(Login::Unreachable);
