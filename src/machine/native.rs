@@ -272,16 +272,13 @@ impl<D> LaneServers for HereLanes<'_, '_, D> {
         &self,
         db: Option<PathBuf>,
         config: Option<PathBuf>,
-    ) -> Result<Box<dyn LaneServer + '_>, String> {
-        let deployment = self
-            .installed
-            .recorded()
-            .map_err(|e| e.to_string())?
-            .map(|keys| keys.deployment);
+    ) -> Result<Box<dyn LaneServer + '_>, kkt_operator_commands::PartError> {
+        let deployment = self.installed.recorded()?.map(|keys| keys.deployment);
         let on = kkt_operator_commands::lanes::lanes_on(
             deployment.as_ref(),
             db.is_some() || config.is_some(),
-        )?;
+        )
+        .map_err(|e| kkt_operator_commands::PartError(Box::new(e)))?;
         Ok(self.native.lanes_on(on, db, config))
     }
 }
@@ -308,6 +305,7 @@ impl<D> kkt_install_commands::ImportLanes for SetupLanes<'_, '_, D> {
         };
         let server = native.lanes_on(on, None, None);
         kkt_operator_commands::lanes::check_lanes_for_setup(&native.lane_parts(), &*server, folder)
+            .map_err(|e| e.to_string())
     }
     /// Into the server `record` says this machine runs; a service runs on
     /// the config file and database `kkt serve` finds by default.
@@ -320,6 +318,7 @@ impl<D> kkt_install_commands::ImportLanes for SetupLanes<'_, '_, D> {
         };
         let server = native.lanes_on(on, None, None);
         kkt_operator_commands::lanes::import_lanes_for_setup(&native.lane_parts(), &*server, folder)
+            .map_err(|e| e.to_string())
     }
 }
 

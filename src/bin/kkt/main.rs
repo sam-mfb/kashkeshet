@@ -216,7 +216,9 @@ async fn run(
                 .map_err(|e| e.to_string())
         }
         Task::Lanes { action, db, config } => {
-            kkt_operator_commands::lanes::run(&operator, action, db, config).await
+            kkt_operator_commands::lanes::run(&operator, action, db, config)
+                .await
+                .map_err(|e| e.to_string())
         }
         Task::Service(action) => kkt_install_commands::service::run(&install, action).await,
         Task::Backup { folder, db, config } => {

@@ -10,8 +10,8 @@ mod report;
 
 pub use container::{Carried, ContainerLanes, RunArg, ServerInContainer};
 
-use crate::{LaneParts, OperatorParts};
-use kkt_api_agent::LaneSource;
+use crate::{LaneParts, OperatorParts, PartError};
+use kkt_api_agent::{LaneSource, RuleError};
 use kkt_api_operator::LaneSave;
 use kkt_deployment::Deployment;
 use kkt_lane_files as lane_files;
@@ -33,6 +33,66 @@ pub enum LanesAction {
     },
 }
 
+/// Why a lane command failed: a source's own error, or the step here
+/// that failed.
+#[derive(Debug, thiserror::Error)]
+pub enum LaneError {
+    /// The server `kkt lanes` acts on could not be picked.
+    #[error(transparent)]
+    Here(PartError),
+    /// The serve config could not be read.
+    #[error(transparent)]
+    Config(PartError),
+    #[error(transparent)]
+    Database(#[from] DatabaseError),
+    #[error(transparent)]
+    Rule(#[from] RuleError),
+    #[error(transparent)]
+    Read(#[from] lane_files::ReadError),
+    #[error(transparent)]
+    Write(#[from] lane_files::WriteError),
+    /// A run of kkt in the container failed.
+    #[error(transparent)]
+    Run(PartError),
+    /// `--retire-missing` would retire every lane: the rule's message.
+    #[error("{}", .0.message)]
+    RetireAll(RuleError),
+    /// A lane in `folder` that the lane rules refuse.
+    #[error("{}: {}", folder.display(), source.message)]
+    Check {
+        folder: PathBuf,
+        #[source]
+        source: RuleError,
+    },
+    #[error("--source-folder is for `kkt lanes import` in the container itself")]
+    SourceInContainer,
+    #[error("could not resolve {}: {source}", path.display())]
+    Resolve {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("could not read the lane text limit of kkt in Docker: {0}")]
+    LimitUnread(PartError),
+    #[error(
+        "could not read the lane text limit of kkt in Docker: unexpected output from the kkt \
+         container's config file: {0}"
+    )]
+    LimitSetting(PartError),
+}
+
+/// Why `kkt lanes` cannot act on this machine's server.
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+pub enum LanesOnError {
+    #[error(
+        "kkt in Docker keeps its lanes in the container; --db and --config apply only to a \
+         local server"
+    )]
+    DockerTakesNoLocalOptions,
+    #[error("this machine is a client; run `kkt lanes` on the machine where the server runs")]
+    OnAClient,
+}
+
 /// A server's lanes, as the lane commands reach them: on a database this
 /// machine opens ([`LocalLanes`]), or wherever else the program finds the
 /// server.
@@ -42,15 +102,15 @@ pub trait LaneServer {
     fn export<'a>(&'a self, dest: &'a Path) -> LaneFuture<'a, ()>;
     /// Whether this server can record `source` as where an import came
     /// from; the refusal to print if not. Asked before the folder is read.
-    fn check_source(&self, source: Option<&LaneSource>) -> Result<(), String>;
+    fn check_source(&self, source: Option<&LaneSource>) -> Result<(), LaneError>;
     /// Imports the lanes read from a folder. Returns the report to print.
     fn import(&self, lanes: LaneImport) -> LaneFuture<'_, String>;
     /// The longest lane text the server takes.
-    fn lane_limit(&self) -> Result<usize, String>;
+    fn lane_limit(&self) -> Result<usize, LaneError>;
 }
 
 /// What a [`LaneServer`] gives back, in time.
-pub type LaneFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, String>> + 'a>>;
+pub type LaneFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, LaneError>> + 'a>>;
 
 /// Lanes read from a folder, to import.
 pub struct LaneImport {
@@ -74,21 +134,18 @@ pub enum LanesOn {
 /// Which server `kkt lanes` acts on, given this machine's `deployment`
 /// (`None` with no record) and whether `--db` or `--config` was given
 /// (`local_options`).
-pub fn lanes_on(deployment: Option<&Deployment>, local_options: bool) -> Result<LanesOn, String> {
+pub fn lanes_on(
+    deployment: Option<&Deployment>,
+    local_options: bool,
+) -> Result<LanesOn, LanesOnError> {
     match deployment {
         Some(Deployment::Docker { folder, .. }) => {
             if local_options {
-                return Err(
-                    "kkt in Docker keeps its lanes in the container; --db and --config \
-                            apply only to a local server"
-                        .into(),
-                );
+                return Err(LanesOnError::DockerTakesNoLocalOptions);
             }
             Ok(LanesOn::Docker(folder.clone()))
         }
-        Some(Deployment::Client) => Err("this machine is a client; run `kkt lanes` on the \
-                                   machine where the server runs"
-            .into()),
+        Some(Deployment::Client) => Err(LanesOnError::OnAClient),
         Some(Deployment::Service { .. }) | None => Ok(LanesOn::Local),
     }
 }
@@ -103,7 +160,7 @@ pub trait LaneServers {
         &self,
         db: Option<PathBuf>,
         config: Option<PathBuf>,
-    ) -> Result<Box<dyn LaneServer + '_>, String>;
+    ) -> Result<Box<dyn LaneServer + '_>, PartError>;
 }
 
 /// `kkt lanes`: on the server [`LaneServers::here`] picks.
@@ -112,8 +169,11 @@ pub async fn run(
     command: LanesAction,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
-) -> Result<(), String> {
-    let server = parts.lane_servers.here(db, config)?;
+) -> Result<(), LaneError> {
+    let server = parts
+        .lane_servers
+        .here(db, config)
+        .map_err(LaneError::Here)?;
     match command {
         LanesAction::Export { folder } => server.export(&folder).await,
         LanesAction::Import {
@@ -167,7 +227,7 @@ impl LaneServer for LocalLanes<'_> {
         Box::pin(async move {
             let parts = &self.parts;
             let (operator, _) = local_operator(parts, self.db.clone(), self.config.clone())?;
-            let lanes = operator.current_lanes().await.map_err(|e| e.to_string())?;
+            let lanes = operator.current_lanes().await?;
             let files: Vec<lane_files::LaneFile> = lanes
                 .iter()
                 .map(|l| lane_files::LaneFile {
@@ -176,8 +236,7 @@ impl LaneServer for LocalLanes<'_> {
                     text: l.current.text.clone(),
                 })
                 .collect();
-            let written =
-                lane_files::write_folder(parts.lanes, dest, &files).map_err(|e| e.to_string())?;
+            let written = lane_files::write_folder(parts.lanes, dest, &files)?;
             for l in &lanes {
                 parts.output.output(format_args!(
                     "{} (version {})\n",
@@ -193,7 +252,7 @@ impl LaneServer for LocalLanes<'_> {
             Ok(())
         })
     }
-    fn check_source(&self, _: Option<&LaneSource>) -> Result<(), String> {
+    fn check_source(&self, _: Option<&LaneSource>) -> Result<(), LaneError> {
         Ok(())
     }
     fn import(&self, lanes: LaneImport) -> LaneFuture<'_, String> {
@@ -206,12 +265,12 @@ impl LaneServer for LocalLanes<'_> {
             lanes.source,
         ))
     }
-    fn lane_limit(&self) -> Result<usize, String> {
+    fn lane_limit(&self) -> Result<usize, LaneError> {
         Ok(self
             .parts
             .serve
             .config(self.config.clone())
-            .map_err(|e| e.to_string())?
+            .map_err(LaneError::Config)?
             .max_lane_chars)
     }
 }
@@ -252,11 +311,11 @@ pub fn local_operator(
     parts: &LaneParts<'_>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
-) -> Result<(DirectAccess, usize), String> {
-    let from_file = parts.serve.config(config).map_err(|e| e.to_string())?;
+) -> Result<(DirectAccess, usize), LaneError> {
+    let from_file = parts.serve.config(config).map_err(LaneError::Config)?;
     let max_lane_chars = from_file.max_lane_chars;
-    let path = existing_db(parts, db, from_file.db).map_err(|e| e.to_string())?;
-    let db = parts.database.open(&path).map_err(|e| e.to_string())?;
+    let path = existing_db(parts, db, from_file.db)?;
+    let db = parts.database.open(&path).map_err(DatabaseError::Open)?;
     // Key mode: the one swarm. Lanes belong to the server, not to a swarm.
     Ok((
         DirectAccess::new(db, kkt_api_agent::SwarmId::main(), parts.clock.clone()),
@@ -274,7 +333,7 @@ async fn local_import_lanes(
     read: lane_files::Read,
     retire_missing: bool,
     source: Option<LaneSource>,
-) -> Result<String, String> {
+) -> Result<String, LaneError> {
     let (operator, max_lane_chars) = local_operator(parts, db, config)?;
     let skipped_files = read.skipped_names();
     let source = source.unwrap_or_else(|| LaneSource {
@@ -290,8 +349,7 @@ async fn local_import_lanes(
             skipped_files,
             max_lane_chars,
         })
-        .await
-        .map_err(|e| e.to_string())?;
+        .await?;
     Ok(import_report(&done, &source))
 }
 
@@ -304,8 +362,8 @@ fn read_lanes_warning(
     output: &dyn crate::Output,
     folder: &Path,
     retire_missing: bool,
-) -> Result<lane_files::Read, String> {
-    let read = lane_files::read_folder(disk, commits, folder).map_err(|e| e.to_string())?;
+) -> Result<lane_files::Read, LaneError> {
+    let read = lane_files::read_folder(disk, commits, folder)?;
     warn_skipped(output, &read.skipped);
     if retire_missing {
         kkt_rules::check_retire_missing(
@@ -313,7 +371,7 @@ fn read_lanes_warning(
             read.lanes.len(),
             read.skipped.len(),
         )
-        .map_err(|e| e.message)?;
+        .map_err(LaneError::RetireAll)?;
     }
     Ok(read)
 }
@@ -339,11 +397,11 @@ fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
 }
 
 /// The lane limit from this machine's default serve config, else the owner's default.
-pub fn local_lane_limit(parts: &LaneParts<'_>) -> Result<usize, String> {
+pub fn local_lane_limit(parts: &LaneParts<'_>) -> Result<usize, LaneError> {
     Ok(parts
         .serve
         .config(None)
-        .map_err(|e| e.to_string())?
+        .map_err(LaneError::Config)?
         .max_lane_chars)
 }
 
@@ -358,12 +416,16 @@ pub(crate) fn check_lanes_folder(
     output: &dyn crate::Output,
     folder: &Path,
     max_lane_chars: usize,
-) -> Result<usize, String> {
-    let read = lane_files::read_folder(disk, commits, folder).map_err(|e| e.to_string())?;
+) -> Result<usize, LaneError> {
+    let read = lane_files::read_folder(disk, commits, folder)?;
     warn_skipped(output, &read.skipped);
     let count = read.lanes.len();
-    kkt_rules::check_lane_import(&lane_saves(read.lanes), max_lane_chars)
-        .map_err(|e| format!("{}: {}", read.folder.display(), e.message))?;
+    kkt_rules::check_lane_import(&lane_saves(read.lanes), max_lane_chars).map_err(|source| {
+        LaneError::Check {
+            folder: read.folder.clone(),
+            source,
+        }
+    })?;
     Ok(count)
 }
 
@@ -374,7 +436,7 @@ pub fn check_lanes_for_setup(
     parts: &LaneParts<'_>,
     server: &dyn LaneServer,
     folder: &Path,
-) -> Result<usize, String> {
+) -> Result<usize, LaneError> {
     let max_lane_chars = server.lane_limit()?;
     check_lanes_folder(
         parts.lanes,
@@ -392,9 +454,8 @@ pub fn import_lanes_for_setup(
     parts: &LaneParts<'_>,
     server: &dyn LaneServer,
     folder: &Path,
-) -> Result<String, String> {
-    let read = lane_files::read_folder(parts.lanes, parts.lane_commit, folder)
-        .map_err(|e| e.to_string())?;
+) -> Result<String, LaneError> {
+    let read = lane_files::read_folder(parts.lanes, parts.lane_commit, folder)?;
     let report = tokio::runtime::Handle::current().block_on(server.import(LaneImport {
         read,
         retire_missing: false,
@@ -446,8 +507,12 @@ mod tests {
             Ok(LanesOn::Docker(PathBuf::from("/data/docker")))
         );
         assert_eq!(
-            lanes_on(Some(&docker()), true),
-            Err("kkt in Docker keeps its lanes in the container; --db and --config apply only to a local server".into())
+            lanes_on(Some(&docker()), true).map_err(|e| e.to_string()),
+            Err(
+                "kkt in Docker keeps its lanes in the container; --db and --config apply only \
+                 to a local server"
+                    .to_string()
+            )
         );
     }
 
@@ -462,10 +527,10 @@ mod tests {
     #[test]
     fn lanes_are_refused_on_a_client() {
         assert_eq!(
-            lanes_on(Some(&Deployment::Client), false),
+            lanes_on(Some(&Deployment::Client), false).map_err(|e| e.to_string()),
             Err(
                 "this machine is a client; run `kkt lanes` on the machine where the server runs"
-                    .into()
+                    .to_string()
             )
         );
     }

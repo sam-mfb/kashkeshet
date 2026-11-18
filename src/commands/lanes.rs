@@ -35,13 +35,14 @@ fn local_operator(
 ) -> Result<(kkt_rules::DirectAccess, usize), String> {
     let native = crate::machine::native::NativeParts::new(env, platform);
     kkt_operator_commands::lanes::local_operator(&native.lane_parts(), db, config)
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
 fn local_lane_limit(env: &Env) -> Result<usize, String> {
     let native =
         crate::machine::native::NativeParts::new(env, crate::machine::settings::TEST_PLATFORM);
-    kkt_operator_commands::lanes::local_lane_limit(&native.lane_parts())
+    kkt_operator_commands::lanes::local_lane_limit(&native.lane_parts()).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -238,15 +239,24 @@ mod tests {
 
             // No install yet: the default, and nothing is read.
             let memory = Memory::new(None, String::new());
-            assert_eq!(lanes(&memory).lane_limit(), Ok(default));
+            assert_eq!(
+                lanes(&memory).lane_limit().map_err(|e| e.to_string()),
+                Ok(default)
+            );
             assert!(memory.config_home_reads().is_empty());
 
             // An install with no config file, or one without the setting.
             let memory = installed();
-            assert_eq!(lanes(&memory).lane_limit(), Ok(default));
+            assert_eq!(
+                lanes(&memory).lane_limit().map_err(|e| e.to_string()),
+                Ok(default)
+            );
             memory
                 .set_config_home_file("kkt/config.toml".into(), "name_pack = \"animals\"\n".into());
-            assert_eq!(lanes(&memory).lane_limit(), Ok(default));
+            assert_eq!(
+                lanes(&memory).lane_limit().map_err(|e| e.to_string()),
+                Ok(default)
+            );
 
             // Its own setting, read from where `kkt` in the container finds
             // its config file; a path under the home folder reads too.
@@ -254,7 +264,10 @@ mod tests {
                 "kkt/config.toml".into(),
                 "db = \"~/kkt.db\"\nmax_lane_chars = 20\n".into(),
             );
-            assert_eq!(lanes(&memory).lane_limit(), Ok(20));
+            assert_eq!(
+                lanes(&memory).lane_limit().map_err(|e| e.to_string()),
+                Ok(20)
+            );
             assert_eq!(
                 memory.config_home_reads(),
                 vec![PathBuf::from("kkt/config.toml"); 3]
@@ -265,7 +278,10 @@ mod tests {
         fn a_lane_limit_that_cannot_be_read_names_the_setting() {
             let memory = installed();
             memory.set_config_home_file("kkt/config.toml".into(), "max_lane_chars = 0.5\n".into());
-            let err = lanes(&memory).lane_limit().expect_err("refused");
+            let err = lanes(&memory)
+                .lane_limit()
+                .expect_err("refused")
+                .to_string();
             assert!(
                 err.starts_with(
                     "could not read the lane text limit of kkt in Docker: unexpected output from \

@@ -3,8 +3,8 @@
 //! limit read from the container's own config file. The host's config
 //! file plays no part; the container never reads it.
 
-use super::{LaneFuture, LaneImport, LaneServer};
-use crate::{Output, Paths};
+use super::{LaneError, LaneFuture, LaneImport, LaneServer};
+use crate::{Output, PartError, Paths};
 use kkt_api_agent::LaneSource;
 use std::path::{Path, PathBuf};
 
@@ -30,15 +30,15 @@ pub trait ServerInContainer {
         args: &[RunArg],
         folder_prefix: &str,
         carry: Carried,
-    ) -> Result<String, String>;
+    ) -> Result<String, PartError>;
     /// Whether kkt is installed in the folder.
     fn installed(&self) -> bool;
     /// The text of kkt's config file in the container, where `kkt` there
     /// finds it.
-    fn config_file(&self) -> Result<String, String>;
+    fn config_file(&self) -> Result<String, PartError>;
     /// The lane text limit that the config file `text` sets, if it sets
     /// one. The error names the setting that is wrong.
-    fn lane_limit_in(&self, text: &str) -> Result<Option<usize>, String>;
+    fn lane_limit_in(&self, text: &str) -> Result<Option<usize>, PartError>;
 }
 
 /// One argument to kkt's program in the container.
@@ -72,12 +72,18 @@ impl LaneServer for ContainerLanes<'_> {
             let dest = self
                 .paths
                 .absolute(dest)
-                .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
-            let said = self.container.run_kkt(
-                &[text("lanes"), text("export"), RunArg::WorkFolder],
-                LANES_EXPORT_FOLDER,
-                Carried::Out(dest.clone()),
-            )?;
+                .map_err(|source| LaneError::Resolve {
+                    path: dest.to_path_buf(),
+                    source,
+                })?;
+            let said = self
+                .container
+                .run_kkt(
+                    &[text("lanes"), text("export"), RunArg::WorkFolder],
+                    LANES_EXPORT_FOLDER,
+                    Carried::Out(dest.clone()),
+                )
+                .map_err(LaneError::Run)?;
             self.output.output(format_args!("{said}"));
             self.output
                 .errors(format_args!("Exported to {}\n", dest.display()));
@@ -87,11 +93,9 @@ impl LaneServer for ContainerLanes<'_> {
 
     /// The import in the container records the folder on the host as its
     /// source, so no other source can be given.
-    fn check_source(&self, source: Option<&LaneSource>) -> Result<(), String> {
+    fn check_source(&self, source: Option<&LaneSource>) -> Result<(), LaneError> {
         match source {
-            Some(_) => {
-                Err("--source-folder is for `kkt lanes import` in the container itself".into())
-            }
+            Some(_) => Err(LaneError::SourceInContainer),
             None => Ok(()),
         }
     }
@@ -117,6 +121,7 @@ impl LaneServer for ContainerLanes<'_> {
             }
             self.container
                 .run_kkt(&args, LANES_IMPORT_FOLDER, Carried::In(files))
+                .map_err(LaneError::Run)
         })
     }
 
@@ -124,37 +129,26 @@ impl LaneServer for ContainerLanes<'_> {
     /// the default for a new one, whose container starts with no config
     /// file. `kkt lanes import` in the container is run with no
     /// `--config`, so it reads only the default config file there.
-    fn lane_limit(&self) -> Result<usize, String> {
+    fn lane_limit(&self) -> Result<usize, LaneError> {
         let default = kkt_rules::Settings::DEFAULT.max_lane_chars;
-        docker_limit(self.container.installed(), default, || {
-            let said = self.container.config_file()?;
-            let limit = self
-                .container
-                .lane_limit_in(&said)
-                // Names the setting that is wrong.
-                .map_err(|detail| {
-                    format!("unexpected output from the kkt container's config file: {detail}")
-                })?;
-            Ok(limit.unwrap_or(default))
-        })
+        if !self.container.installed() {
+            return Ok(default);
+        }
+        let said = self
+            .container
+            .config_file()
+            .map_err(LaneError::LimitUnread)?;
+        let limit = self
+            .container
+            .lane_limit_in(&said)
+            // Names the setting that is wrong.
+            .map_err(LaneError::LimitSetting)?;
+        Ok(limit.unwrap_or(default))
     }
 }
 
 fn text(text: &str) -> RunArg {
     RunArg::Text(text.into())
-}
-
-/// The lane limit of kkt in a container: `default` when the folder holds
-/// no install yet, else what `read` finds there.
-fn docker_limit(
-    present: bool,
-    default: usize,
-    read: impl FnOnce() -> Result<usize, String>,
-) -> Result<usize, String> {
-    if !present {
-        return Ok(default);
-    }
-    read().map_err(|e| format!("could not read the lane text limit of kkt in Docker: {e}"))
 }
 
 #[cfg(test)]
@@ -214,7 +208,7 @@ mod tests {
             args: &[RunArg],
             folder_prefix: &str,
             carry: Carried,
-        ) -> Result<String, String> {
+        ) -> Result<String, PartError> {
             self.runs
                 .borrow_mut()
                 .push((args.to_vec(), folder_prefix.into(), carry));
@@ -223,23 +217,22 @@ mod tests {
         fn installed(&self) -> bool {
             self.installed
         }
-        fn config_file(&self) -> Result<String, String> {
+        fn config_file(&self) -> Result<String, PartError> {
             *self.config_reads.borrow_mut() += 1;
             if self.config_unread {
-                return Err("no such container".into());
+                return Err(PartError("no such container".into()));
             }
             Ok(self.config.borrow().clone().unwrap_or_default())
         }
         /// A `max_lane_chars = N` line, refused by name when N is not a
         /// whole number, as the program's reader refuses it.
-        fn lane_limit_in(&self, text: &str) -> Result<Option<usize>, String> {
+        fn lane_limit_in(&self, text: &str) -> Result<Option<usize>, PartError> {
             let mut max_lane_chars = None;
             for line in text.lines() {
                 if let Some(value) = line.strip_prefix("max_lane_chars = ") {
-                    max_lane_chars =
-                        Some(value.parse::<usize>().map_err(|_| {
-                            format!("max_lane_chars: {value} is not a whole number")
-                        })?);
+                    max_lane_chars = Some(value.parse::<usize>().map_err(|_| {
+                        PartError(format!("max_lane_chars: {value} is not a whole number").into())
+                    })?);
                 }
             }
             Ok(max_lane_chars)
@@ -279,18 +272,6 @@ mod tests {
             folder: "/home/me/lanes".into(),
             commit: commit.map(str::to_string),
         }
-    }
-
-    #[test]
-    fn a_new_docker_install_uses_the_default_without_reading_container_settings() {
-        assert_eq!(
-            docker_limit(false, 123, || panic!("no install to read")),
-            Ok(123)
-        );
-        assert_eq!(
-            docker_limit(true, 123, || Err("unreadable".into())),
-            Err("could not read the lane text limit of kkt in Docker: unreadable".into())
-        );
     }
 
     #[test]
@@ -380,14 +361,19 @@ mod tests {
         };
         let refusal = "--source-folder is for `kkt lanes import` in the container itself";
         let server = lanes(&stand, &said);
-        assert_eq!(server.check_source(Some(&source)), Err(refusal.into()));
-        assert_eq!(server.check_source(None), Ok(()));
+        assert_eq!(
+            server
+                .check_source(Some(&source))
+                .map_err(|e| e.to_string()),
+            Err(refusal.to_string())
+        );
+        assert_eq!(server.check_source(None).map_err(|e| e.to_string()), Ok(()));
         let done = futures::executor::block_on(server.import(LaneImport {
             read: read(None),
             retire_missing: false,
             source: Some(source),
         }));
-        assert_eq!(done, Err(refusal.into()));
+        assert_eq!(done.map_err(|e| e.to_string()), Err(refusal.to_string()));
         assert!(stand.runs.borrow().is_empty());
     }
 
@@ -398,18 +384,30 @@ mod tests {
 
         // No install yet: the default, and nothing is read.
         let stand = Stand::default();
-        assert_eq!(lanes(&stand, &said).lane_limit(), Ok(default));
+        assert_eq!(
+            lanes(&stand, &said).lane_limit().map_err(|e| e.to_string()),
+            Ok(default)
+        );
         assert_eq!(*stand.config_reads.borrow(), 0);
 
         // An install with no config file, or one without the setting.
         let stand = installed("");
-        assert_eq!(lanes(&stand, &said).lane_limit(), Ok(default));
+        assert_eq!(
+            lanes(&stand, &said).lane_limit().map_err(|e| e.to_string()),
+            Ok(default)
+        );
         *stand.config.borrow_mut() = Some("name_pack = \"animals\"\n".into());
-        assert_eq!(lanes(&stand, &said).lane_limit(), Ok(default));
+        assert_eq!(
+            lanes(&stand, &said).lane_limit().map_err(|e| e.to_string()),
+            Ok(default)
+        );
 
         // Its own setting.
         *stand.config.borrow_mut() = Some("db = \"~/kkt.db\"\nmax_lane_chars = 20\n".into());
-        assert_eq!(lanes(&stand, &said).lane_limit(), Ok(20));
+        assert_eq!(
+            lanes(&stand, &said).lane_limit().map_err(|e| e.to_string()),
+            Ok(20)
+        );
         assert_eq!(*stand.config_reads.borrow(), 3);
     }
 
@@ -419,7 +417,8 @@ mod tests {
         *stand.config.borrow_mut() = Some("max_lane_chars = 0.5\n".into());
         let err = lanes(&stand, &Said::default())
             .lane_limit()
-            .expect_err("refused");
+            .expect_err("refused")
+            .to_string();
         assert!(
             err.starts_with(
                 "could not read the lane text limit of kkt in Docker: unexpected output from \

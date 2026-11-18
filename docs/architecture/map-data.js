@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "3e5c66a9",
+ "commit": "9f2f6168",
  "crates": [
   {
    "bins": [
@@ -13803,6 +13803,26 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "Why a lane command failed: a source's own error, or the step here that failed.",
+     "kind": "enum",
+     "path": "lanes::LaneError",
+     "variants": [
+      "Here",
+      "Config",
+      "Database",
+      "Rule",
+      "Read",
+      "Write",
+      "Run",
+      "RetireAll",
+      "Check",
+      "SourceInContainer",
+      "Resolve",
+      "LimitUnread",
+      "LimitSetting"
+     ]
+    },
+    {
      "doc": "What a `LaneServer` gives back, in time.",
      "kind": "type",
      "path": "lanes::LaneFuture"
@@ -13852,6 +13872,15 @@ window.KKT_GRAPH = {
      "variants": [
       "Docker",
       "Local"
+     ]
+    },
+    {
+     "doc": "Why `kkt lanes` cannot act on this machine's server.",
+     "kind": "enum",
+     "path": "lanes::LanesOnError",
+     "variants": [
+      "DockerTakesNoLocalOptions",
+      "OnAClient"
      ]
     },
     {
@@ -27290,7 +27319,9 @@ window.KKT_GRAPH = {
     "LaneCommit",
     "LaneFile",
     "Read",
+    "ReadError",
     "Skipped",
+    "WriteError",
     "file_name",
     "read_folder",
     "write_folder"
@@ -27305,7 +27336,9 @@ window.KKT_GRAPH = {
       "LaneCommit",
       "LaneFile",
       "Read",
+      "ReadError",
       "Skipped",
+      "WriteError",
       "file_name",
       "read_folder",
       "write_folder"
@@ -27315,7 +27348,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "Skip"
+    "Skip",
+    "testing::Memory"
    ],
    "to": "kkt-lane-files"
   },
@@ -27491,6 +27525,43 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-keys"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-operator-commands",
+   "items": [
+    "Disk",
+    "LaneCommit",
+    "LaneFile",
+    "Read",
+    "Skip",
+    "Skipped",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Disk",
+      "Read",
+      "Skip"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-lane-files"
   },
   {
    "features": [],
