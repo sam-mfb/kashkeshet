@@ -4,7 +4,6 @@
 //! Nothing here knows what runs in the services: the caller names the
 //! files, services, commands and variables.
 
-use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -118,11 +117,13 @@ pub enum FileAction {
 }
 
 /// Why an operation on a project failed.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ProjectError {
     /// The tool could not be started at all.
+    #[error("could not run `{command}`: {cause}")]
     Missing { command: String, cause: String },
     /// A command ran and did not succeed.
+    #[error("`{command}` failed ({})", failed_detail(*status, stdout, stderr))]
     Failed {
         command: String,
         status: Option<i32>,
@@ -130,11 +131,14 @@ pub enum ProjectError {
         stderr: String,
     },
     /// A command's answer was not what the operation reads.
+    #[error("unexpected output from `{command}`: {detail}")]
     Unexpected { command: String, detail: String },
     /// The tool named no container for a service, or an answer that is
     /// not a container's ID.
+    #[error("no container from `{command}`: {detail}")]
     NoContainer { command: String, detail: String },
     /// A file in or for the project could not be read, written or made.
+    #[error("could not {} {}: {detail}", action.verb(), path.display())]
     File {
         action: FileAction,
         path: PathBuf,
@@ -142,7 +146,34 @@ pub enum ProjectError {
         detail: String,
     },
     /// An argument the implementation will not pass on.
+    #[error("{what}")]
     Refused { what: String },
+}
+
+/// A failed command's exit status and what it said: its error output, or
+/// else its output, trimmed (`exit 1: no such service`, or `ended by a
+/// signal: ...`).
+fn failed_detail(status: Option<i32>, stdout: &str, stderr: &str) -> String {
+    let said = if stderr.trim().is_empty() {
+        stdout
+    } else {
+        stderr
+    };
+    match status {
+        Some(code) => format!("exit {code}: {}", said.trim()),
+        None => format!("ended by a signal: {}", said.trim()),
+    }
+}
+
+impl FileAction {
+    /// The verb a failed file action is said with.
+    fn verb(self) -> &'static str {
+        match self {
+            FileAction::Read => "read",
+            FileAction::Write => "write",
+            FileAction::Make => "create",
+        }
+    }
 }
 
 impl ProjectError {
@@ -157,17 +188,7 @@ impl ProjectError {
                 stdout,
                 stderr,
                 ..
-            } => {
-                let said = if stderr.trim().is_empty() {
-                    stdout
-                } else {
-                    stderr
-                };
-                match status {
-                    Some(code) => format!("exit {code}: {}", said.trim()),
-                    None => format!("ended by a signal: {}", said.trim()),
-                }
-            }
+            } => failed_detail(*status, stdout, stderr),
             ProjectError::Unexpected { detail, .. } => detail.clone(),
             ProjectError::NoContainer { detail, .. } => detail.clone(),
             ProjectError::File { detail, .. } => detail.clone(),
@@ -185,41 +206,6 @@ impl ProjectError {
         }
     }
 }
-
-impl fmt::Display for ProjectError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ProjectError::Missing { command, cause } => {
-                write!(f, "could not run `{command}`: {cause}")
-            }
-            ProjectError::Failed { command, .. } => {
-                write!(f, "`{command}` failed ({})", self.detail())
-            }
-            ProjectError::Unexpected { command, detail } => {
-                write!(f, "unexpected output from `{command}`: {detail}")
-            }
-            ProjectError::NoContainer { command, detail } => {
-                write!(f, "no container from `{command}`: {detail}")
-            }
-            ProjectError::File {
-                action,
-                path,
-                detail,
-                ..
-            } => {
-                let verb = match action {
-                    FileAction::Read => "read",
-                    FileAction::Write => "write",
-                    FileAction::Make => "create",
-                };
-                write!(f, "could not {verb} {}: {detail}", path.display())
-            }
-            ProjectError::Refused { what } => write!(f, "{what}"),
-        }
-    }
-}
-
-impl std::error::Error for ProjectError {}
 
 /// A container tool's operations on Compose projects. Each command runs in
 /// the project's folder, without the project's shielded variables.

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "2d7fb743",
+ "commit": "c8404a9f",
  "crates": [
   {
    "bins": [
@@ -4957,7 +4957,9 @@ window.KKT_GRAPH = {
     }
    ],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -6483,6 +6485,7 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "rusqlite",
+    "thiserror",
     "tokio"
    ]
   },
@@ -7697,7 +7700,9 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
