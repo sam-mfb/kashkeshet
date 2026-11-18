@@ -70,7 +70,7 @@ These principles are not an exhaustive list of best practices or responsible cod
 
 2.5 Modules SHOULD provide stand-in or mock implementations of their contracts that can be used in testing without the need for significant dependencies.
 
-2.6 Modules MUST have automated tests that test their contract.
+2.6 A module's contract MUST be tested by automated tests.
 
 2.7 Contracts MUST be defined in terms of functionality not implementation.
 
@@ -155,6 +155,8 @@ These principles are not an exhaustive list of best practices or responsible cod
 3.8.2 If idiomatic in a given language, contract code MAY provide methods that operate on the contract and values used by the contract.
 
 3.8.3 Contract code MUST NOT provide effects, implementation-specific methods, or configured values.
+
+3.8.3.1 A configured value is a specific value chosen for a given deployment, not a type, default, or immutable constant.
 
 3.9 Only a composition module MAY depend directly on an effect module or on another composition module.
 

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "729a900a",
+ "commit": "12513fb9",
  "crates": [
   {
    "bins": [
@@ -30337,6 +30337,43 @@ window.KKT_ASSEMBLY = {
        "param": "entropy"
       }
      ]
+    },
+    {
+     "crate": "kkt-install-commands",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "setup_files"
+      },
+      {
+       "at": "InstallParts",
+       "param": "container"
+      },
+      {
+       "at": "InstallParts",
+       "param": "service"
+      }
+     ],
+     "note": "doctor, status, setup and upgrade read and write the setup record through these",
+     "passes_on": "the setup files, container and service the program gave InstallParts",
+     "to": [
+      {
+       "at": "record::read_unfinished",
+       "param": "files"
+      },
+      {
+       "at": "record::read_unfinished",
+       "param": "container"
+      },
+      {
+       "at": "record::read_unfinished",
+       "param": "service"
+      },
+      {
+       "at": "record::write_setup_record",
+       "param": "files"
+      }
+     ]
     }
    ]
   },
@@ -30466,6 +30503,26 @@ window.KKT_ASSEMBLY = {
     }
    ]
   },
+  "kkt-rolling-file": {
+   "wiring": [
+    {
+     "crate": "kkt-rolling-file",
+     "from": [
+      {
+       "at": "open_log_file",
+       "param": "clock"
+      }
+     ],
+     "passes_on": "the clock the program gave open_log_file",
+     "to": [
+      {
+       "at": "RotatingFile::open",
+       "param": "clock"
+      }
+     ]
+    }
+   ]
+  },
   "kkt-rules": {
    "wiring": [
     {
@@ -30485,6 +30542,31 @@ window.KKT_ASSEMBLY = {
       },
       {
        "at": "channel_id",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-rules",
+     "from": [
+      {
+       "at": "Startup",
+       "param": "clock"
+      },
+      {
+       "at": "Startup",
+       "param": "entropy"
+      }
+     ],
+     "note": "start builds the rules' Deps from Startup",
+     "passes_on": "the clock and entropy the program gave Startup",
+     "to": [
+      {
+       "at": "Deps",
+       "param": "clock"
+      },
+      {
+       "at": "Deps",
        "param": "entropy"
       }
      ]
@@ -30511,6 +30593,12 @@ window.KKT_ASSEMBLY = {
     },
     {
      "crate": "kkt-web",
+     "from": [
+      {
+       "at": "AdmissionGate::new",
+       "param": "identify"
+      }
+     ],
      "own": "AdmissionGate, asking kkt-admission's web admission and the identity the program gave Parts",
      "suppliers": [
       {
@@ -30639,6 +30727,23 @@ window.KKT_ASSEMBLY = {
       {
        "at": "router",
        "param": "log"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-server",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "identify"
+      }
+     ],
+     "note": "its own web gate, which it hands to kkt-web",
+     "passes_on": "the identity the program gave Parts",
+     "to": [
+      {
+       "at": "AdmissionGate::new",
+       "param": "identify"
       }
      ]
     }
@@ -30983,6 +31088,20 @@ window.KKT_ASSEMBLY = {
    "param": "env",
    "to": "kkt-llm-agent-config",
    "why": "it calls Client::file and Client::source only"
+  },
+  {
+   "at": "Parts",
+   "crate": "kkt-server",
+   "param": "log",
+   "to": "kkt-server",
+   "why": "page builds no Parts: it hands its log to kkt-web's router"
+  },
+  {
+   "at": "inspect_admin_key",
+   "crate": "kkt-diagnostics",
+   "param": "prober",
+   "to": "kkt-diagnostics",
+   "why": "only the program's tests call inspect_admin_key"
   }
  ],
  "programs": {
