@@ -15,3 +15,5 @@ tokio.workspace = true
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+# `time`, for the real-time bound on tests that drive the fake clock.
+tokio = { workspace = true, features = ["time"] }
