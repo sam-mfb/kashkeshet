@@ -31,7 +31,9 @@ use kkt_terminal::Terminal;
 use kkt_terminal::end_on_closed_output;
 use std::path::PathBuf;
 
-#[tokio::main]
+// Many threads: `kkt setup` and `kkt switch` block on this runtime from
+// inside it (`block_in_place`), which only a runtime of many threads allows.
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> std::process::ExitCode {
     // A flag `cli` could not turn into a plain value is an error of a
     // command other than `serve`, `watch`, `register` or `reclaim`, so it
@@ -85,8 +87,6 @@ async fn main() -> std::process::ExitCode {
 
 /// One command, with its inputs as plain values. `cli` makes it from the
 /// command line.
-// Made once at startup, so the size of the largest variant costs nothing.
-#[allow(clippy::large_enum_variant)]
 enum Task {
     Status,
     Upgrade {

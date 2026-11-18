@@ -9,9 +9,13 @@
 //! Each scenario makes its own world over a new database from the backend
 //! [`run_all`] is given; outside it, the world is on the stand-in.
 
-// The helpers serve the crate's own tests too; built for `testing` alone,
-// some are not used.
-#![cfg_attr(not(test), allow(dead_code))]
+#![cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "the helpers serve the crate's own tests too; built for `testing` alone, some are not used"
+    )
+)]
 
 use super::*;
 use crate::events::Notice;

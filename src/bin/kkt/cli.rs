@@ -56,8 +56,6 @@ struct Cli {
     command: Command,
 }
 
-// Parsed once at startup, so the size of the largest variant costs nothing.
-#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand, Debug)]
 enum Command {
     /// Show the service, Docker server, or remote server this machine uses.

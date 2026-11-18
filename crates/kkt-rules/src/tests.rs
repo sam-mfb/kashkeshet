@@ -3417,13 +3417,13 @@ async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
 
     let entry =
         a.w.rules
-            .admin_recall(a.owner.handle.clone(), "handoff".into())
+            .admin_recall(&web_page(), a.owner.handle.clone(), "handoff".into())
             .await
             .unwrap();
     assert_eq!(entry.text, "Next: the parser.");
     let list =
         a.w.rules
-            .admin_list_memories(a.owner.handle.clone(), 10, None)
+            .admin_list_memories(&web_page(), a.owner.handle.clone(), 10, None)
             .await
             .unwrap();
     assert_eq!(list.entries, 1);
@@ -3441,17 +3441,17 @@ async fn the_admin_reads_an_agents_details_as_the_web_page_does() {
         ),
         code(
             a.w.rules
-                .admin_recall("nobody-here".into(), "handoff".into())
+                .admin_recall(&web_page(), "nobody-here".into(), "handoff".into())
                 .await,
         ),
         code(
             a.w.rules
-                .admin_recall(a.owner.handle.clone(), "nothing".into())
+                .admin_recall(&web_page(), a.owner.handle.clone(), "nothing".into())
                 .await,
         ),
         code(
             a.w.rules
-                .admin_list_memories("nobody-here".into(), 10, None)
+                .admin_list_memories(&web_page(), "nobody-here".into(), 10, None)
                 .await,
         ),
     ] {
@@ -3643,7 +3643,7 @@ async fn an_admin_key_without_a_name_is_refused_every_change_and_may_read() {
         .await
         .unwrap();
     w.rules
-        .admin_list_memories(a.handle.clone(), 10, None)
+        .admin_list_memories(&web_page(), a.handle.clone(), 10, None)
         .await
         .unwrap();
     w.rules.current_server_announcement().await.unwrap();
@@ -5236,6 +5236,12 @@ async fn an_operator_without_read_is_refused_every_operator_read() {
         r.admin_new_messages(o, 0, None, 10).await.map(drop),
         r.admin_list_agents(o, None, None, 10, None).await.map(drop),
         r.admin_agent(o, a.handle.clone()).await.map(drop),
+        r.admin_list_memories(o, a.handle.clone(), 10, None)
+            .await
+            .map(drop),
+        r.admin_recall(o, a.handle.clone(), "handoff".into())
+            .await
+            .map(drop),
     ];
     for result in refused {
         lacks(result, Permission::Read);
