@@ -239,7 +239,7 @@ fn backup_before_upgrade(database: &Path, keep: usize, clock: &dyn Clock) -> Res
     let Some(upgrade) = crate::machine::database::pending_upgrade(database)? else {
         return Ok(());
     };
-    let folder = setup::upgrade_backup_folder(database);
+    let folder = setup::upgrade_backup_folder(database)?;
     let contents = backup::Contents {
         database,
         config: None,

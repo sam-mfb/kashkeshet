@@ -66,8 +66,7 @@ impl Watched for Remote {
             let mut arguments = Map::new();
             arguments.insert("after_id".into(), json!(0));
             let value = self.call("activity", arguments).await?;
-            // With no messages in any channel there is no `latest_id`.
-            Ok(value["latest_id"].as_i64().unwrap_or(0))
+            latest_id(&value)
         })
     }
 
@@ -184,7 +183,7 @@ impl Watched for AdminRemote {
             let mut arguments = Map::new();
             arguments.insert("after_id".into(), json!(0));
             let value = self.client.call("activity", arguments).await?;
-            Ok(value["latest_id"].as_i64().unwrap_or(0))
+            latest_id(&value)
         })
     }
 
@@ -295,10 +294,36 @@ fn whole_seconds(wait: Duration) -> u64 {
     wait.as_secs() + u64::from(wait.subsec_nanos() > 0)
 }
 
+/// The newest message ID an `activity` answer gives. With no messages in
+/// any channel it gives none, which is 0: every ID is above it. One that is
+/// not a whole number is a failure, not 0.
+fn latest_id(answer: &Value) -> Result<i64, Failure> {
+    match &answer["latest_id"] {
+        Value::Null => Ok(0),
+        id => id.as_i64().ok_or_else(|| {
+            Failure::Lost("activity gave a latest_id that is not a whole number".into())
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{NewerLane, newer_lane};
+    use super::{NewerLane, latest_id, newer_lane};
     use serde_json::json;
+
+    #[test]
+    fn the_latest_id_is_zero_only_when_there_are_no_messages() {
+        assert_eq!(latest_id(&json!({"latest_id": 42})).ok(), Some(42));
+        assert_eq!(latest_id(&json!({"channels": []})).ok(), Some(0));
+        assert_eq!(latest_id(&json!({"latest_id": null})).ok(), Some(0));
+        for garbled in [json!({"latest_id": "42"}), json!({"latest_id": 4.2})] {
+            assert_eq!(
+                latest_id(&garbled).map_err(|e| e.to_string()),
+                Err("could not reach the server: activity gave a latest_id that is not a whole number".into()),
+                "{garbled}"
+            );
+        }
+    }
 
     #[test]
     fn a_newer_lane_is_read_and_its_absence_is_none() {

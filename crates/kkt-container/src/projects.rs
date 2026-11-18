@@ -105,8 +105,8 @@ pub struct ServiceConfig {
     pub entrypoint: Option<Vec<String>>,
     /// Its environment, as `NAME=value` entries.
     pub env: Option<Vec<String>>,
-    /// The folder it runs in; empty when the image names none.
-    pub working_dir: String,
+    /// The folder it runs in; `None` when the image names none.
+    pub working_dir: Option<String>,
 }
 
 /// What was being done to a file when it failed.

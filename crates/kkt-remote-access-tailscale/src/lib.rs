@@ -15,7 +15,7 @@ const TAILSCALE_HTTPS_PORT: u16 = 443;
 
 mod runner;
 use kkt_remote_access::Node;
-use runner::{Output, Runner};
+use runner::{Output, RunError, Runner};
 
 /// Shares this machine's server through its existing Tailscale login.
 pub struct Tailscale {
@@ -41,7 +41,7 @@ impl Tailscale {
     /// empty when they are missing, empty or not text. The error says why
     /// the answer could not be read.
     pub fn read_status(text: &str) -> Result<Status, String> {
-        let json: Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        let json: Value = serde_json::from_str(text).map_err(|e| json_cause(&e))?;
         let backend_state = json["BackendState"]
             .as_str()
             .ok_or("no BackendState")?
@@ -300,16 +300,18 @@ fn serve(host: &dyn Runner, bind: SocketAddr, rerun: &str) -> Result<(), String>
 
 /// The node whose HTTPS root Tailscale Serve proxies to the server at
 /// `bind`, as [`serve`] sets it up, if there is one. Reads Serve's settings
-/// only, so it needs no login. A Tailscale that cannot be run serves
-/// nothing: `None`.
+/// only, so it needs no login. With no `tailscale` program, nothing is
+/// served: `None`. Any other failure to run it is an error.
 fn served(host: &dyn Runner, bind: SocketAddr) -> Result<Option<Node>, String> {
     if !bind.ip().is_loopback() || bind.port() == 0 {
         return Ok(None);
     }
     let target = format!("http://{bind}");
     let args = ["serve".into(), "status".into(), "--json".into()];
-    let Ok(output) = host.run(&args) else {
-        return Ok(None);
+    let output = match host.run(&args) {
+        Ok(output) => output,
+        Err(RunError { missing: true, .. }) => return Ok(None),
+        Err(error) => return Err(error.into()),
     };
     if !output.success {
         return Err(format!(

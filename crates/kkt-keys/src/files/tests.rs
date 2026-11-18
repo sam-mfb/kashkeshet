@@ -160,6 +160,26 @@ fn the_default_key_is_made_only_when_it_is_the_default_and_missing() {
 }
 
 #[test]
+fn a_default_key_that_cannot_be_looked_at_is_refused_not_made_again() {
+    let path = PathBuf::from("/k/access-key");
+    let mut drawn = false;
+    let mut draw = || {
+        drawn = true;
+        "new".to_owned()
+    };
+    let files = Memory::new()
+        .with_file("/k/access-key", "old\n")
+        .failing("/k/access-key");
+    let made = files.make_default_key(&AccessKey::Default(path.clone()), &mut draw);
+    let error = made.expect_err("refused");
+    assert!(
+        error.starts_with("could not tell whether /k/access-key is there: "),
+        "{error}"
+    );
+    assert!(!drawn);
+}
+
+#[test]
 fn the_admin_name_file_is_written_beside_its_key_or_removed() {
     let files = Memory::new().with_dir("/k");
     let key = Path::new("/k/admin-key");
@@ -172,7 +192,7 @@ fn the_admin_name_file_is_written_beside_its_key_or_removed() {
         Some("bound")
     );
     files.write_admin_name(key, None).expect("removed");
-    assert!(!files.exists(Path::new("/k/admin-key.name")));
+    assert!(!files.try_exists(Path::new("/k/admin-key.name")).unwrap());
     files
         .write_admin_name(key, None)
         .expect("a missing one is fine");
@@ -192,10 +212,10 @@ fn the_stand_in_like_the_disk_writes_only_in_a_folder_that_was_made() {
             .write_admin_name(Path::new("/k/admin-key"), Some("n"))
             .is_err()
     );
-    assert!(!files.exists(Path::new("/k")));
+    assert!(!files.try_exists(Path::new("/k")).unwrap());
     files.create_dir_all(Path::new("/k")).expect("made");
     files.write_key(path, "key", false).expect("written");
-    assert!(files.exists(Path::new("/k")));
+    assert!(files.try_exists(Path::new("/k")).unwrap());
 }
 
 #[test]

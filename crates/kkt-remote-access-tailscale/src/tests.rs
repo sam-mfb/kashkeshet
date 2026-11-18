@@ -11,12 +11,12 @@ const RERUN: &str = "`kkt setup`";
 const DEFAULT_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7420));
 
 struct Fake {
-    replies: RefCell<VecDeque<Result<Output, String>>>,
+    replies: RefCell<VecDeque<Result<Output, RunError>>>,
     calls: RefCell<Vec<Vec<String>>>,
 }
 
 impl Fake {
-    fn new(replies: Vec<Result<Output, String>>) -> Self {
+    fn new(replies: Vec<Result<Output, RunError>>) -> Self {
         Self {
             replies: RefCell::new(replies.into()),
             calls: RefCell::new(Vec::new()),
@@ -25,7 +25,7 @@ impl Fake {
 }
 
 impl Runner for Fake {
-    fn run(&self, args: &[String]) -> Result<Output, String> {
+    fn run(&self, args: &[String]) -> Result<Output, RunError> {
         self.calls.borrow_mut().push(args.to_vec());
         self.replies
             .borrow_mut()
@@ -34,7 +34,15 @@ impl Runner for Fake {
     }
 }
 
-fn reply(value: Value) -> Result<Output, String> {
+/// No `tailscale` program to run.
+fn missing(said: &str) -> Result<Output, RunError> {
+    Err(RunError {
+        missing: true,
+        said: said.to_string(),
+    })
+}
+
+fn reply(value: Value) -> Result<Output, RunError> {
     Ok(Output {
         success: true,
         stdout: value.to_string(),
@@ -42,7 +50,7 @@ fn reply(value: Value) -> Result<Output, String> {
     })
 }
 
-fn running() -> Result<Output, String> {
+fn running() -> Result<Output, RunError> {
     reply(
         json!({"BackendState":"Running", "Self":{"DNSName":"my-mac-1.tail123.ts.net."}, "CertDomains":["my-mac-1.tail123.ts.net"]}),
     )
@@ -84,7 +92,7 @@ fn prepare_reports_login_and_https_actions_before_any_changes() {
         assert!(prepare(&host, RERUN).unwrap_err().contains(expected));
         assert_eq!(host.calls.borrow().len(), 1);
     }
-    let host = Fake::new(vec![Err("Tailscale is not installed".into())]);
+    let host = Fake::new(vec![missing("Tailscale is not installed")]);
     assert!(prepare(&host, RERUN).unwrap_err().contains("not installed"));
 }
 
@@ -188,7 +196,7 @@ fn bad_status_config_and_command_failures_do_not_succeed() {
     );
 }
 
-fn printed(stdout: &str) -> Result<Output, String> {
+fn printed(stdout: &str) -> Result<Output, RunError> {
     Ok(Output {
         success: true,
         stdout: stdout.into(),
@@ -196,7 +204,7 @@ fn printed(stdout: &str) -> Result<Output, String> {
     })
 }
 
-fn failed(stderr: &str) -> Result<Output, String> {
+fn failed(stderr: &str) -> Result<Output, RunError> {
     Ok(Output {
         success: false,
         stdout: String::new(),
@@ -325,7 +333,7 @@ fn served_is_none_when_tailscale_proxies_elsewhere_serves_nothing_or_is_not_inst
             stdout: String::new(),
             stderr: String::new(),
         }),
-        Err("could not run Tailscale: not found".to_string()),
+        missing("could not run Tailscale: not found"),
     ] {
         let host = Fake::new(vec![answer]);
         assert_eq!(served(&host, DEFAULT_BIND).unwrap(), None);
@@ -353,6 +361,18 @@ fn served_says_when_serves_settings_cannot_be_read() {
     let error = served(&Fake::new(vec![failed]), DEFAULT_BIND).unwrap_err();
     assert!(error.contains("local tailscaled"), "{error}");
     assert!(served(&Fake::new(vec![invalid]), DEFAULT_BIND).is_err());
+}
+
+#[test]
+fn a_tailscale_that_is_there_but_cannot_be_run_is_an_error_not_nothing_served() {
+    let refused = Err(RunError {
+        missing: false,
+        said: "could not run Tailscale: Permission denied (os error 13); install Tailscale, \
+               start it and log in, then rerun `setup`"
+            .to_string(),
+    });
+    let error = served(&Fake::new(vec![refused]), DEFAULT_BIND).unwrap_err();
+    assert!(error.contains("Permission denied"), "{error}");
 }
 
 #[test]
@@ -406,7 +426,17 @@ fn a_status_answer_without_a_backend_state_cannot_be_read() {
         Err("no BackendState".to_string())
     );
     let not_json = Tailscale::read_status("not json").expect_err("not json");
-    assert!(not_json.starts_with("expected"), "{not_json}");
+    assert_eq!(not_json, "syntax error at line 1 column 2");
+}
+
+#[test]
+fn an_unreadable_status_answer_never_repeats_what_it_held() {
+    // A value of the wrong shape, which serde's own text would quote.
+    let error =
+        Tailscale::read_status(r#"{"BackendState": "Running", "Self": {"DNSName": "secret-node"}"#)
+            .expect_err("cut short");
+    assert!(!error.contains("secret-node"), "{error}");
+    assert!(error.starts_with("unexpected end at line 1"), "{error}");
 }
 
 #[test]
