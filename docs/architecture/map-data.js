@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "eff5382f",
+ "commit": "83794822",
  "crates": [
   {
    "bins": [
@@ -16837,6 +16837,7 @@ window.KKT_GRAPH = {
       "add_admin_key",
       "allow_kkt",
       "check_lanes",
+      "check_typed_key",
       "detect_clients",
       "discard_key",
       "doctor",
@@ -16927,11 +16928,6 @@ window.KKT_GRAPH = {
      "path": "Unrecorded"
     },
     {
-     "doc": "",
-     "kind": "fn",
-     "path": "admin_key_line"
-    },
-    {
      "doc": "Talking with the person running `kkt setup`.",
      "kind": "mod",
      "path": "ask"
@@ -16982,21 +16978,6 @@ window.KKT_GRAPH = {
      "path": "ask::unanswered"
     },
     {
-     "doc": "One key per server, so another server's saved key is never replaced.",
-     "kind": "fn",
-     "path": "client_key"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "configured_name_pack_line"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "docker_status_lines"
-    },
-    {
      "doc": "Where the setup record is: `setup.toml` in kkt's config directory, `config_dir`, beside the config file and the access key.",
      "kind": "fn",
      "path": "record_path"
@@ -17015,16 +16996,6 @@ window.KKT_GRAPH = {
      "doc": "Refuses an installed kkt service with no record unless its service file, which runs `kkt <args>`, runs it with the default config file's settings (`runs_defaults`): those are what `kkt setup` and `kkt upgrade` install, so a record could ...",
      "kind": "fn",
      "path": "service_runs_defaults"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "service_upgrade_error"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "staged_client_key"
     },
     {
      "doc": "Switches this machine's clients to the server `how` names: checks it, changing nothing if it fails; points each client at it; and records it.",
@@ -17060,16 +17031,6 @@ window.KKT_GRAPH = {
      "path": "unfinished_path"
     },
     {
-     "doc": "",
-     "kind": "fn",
-     "path": "uninstall_line"
-    },
-    {
-     "doc": "Clients switched to another server keep using it after the local install goes.",
-     "kind": "fn",
-     "path": "uninstall_record"
-    },
-    {
      "doc": "What is said of an installed kkt service with no record that cannot be recorded as it is; `what` says why.",
      "kind": "fn",
      "path": "unreadable_service"
@@ -17088,16 +17049,6 @@ window.KKT_GRAPH = {
      "doc": "Whether `written_by`, the version a record names, says that version is not known: the record adopts a service whose version nothing says.",
      "kind": "fn",
      "path": "version_not_known"
-    },
-    {
-     "doc": "What setup says while it waits for the server at `url`, set up as `mode`, to answer.",
-     "kind": "fn",
-     "path": "waiting_note"
-    },
-    {
-     "doc": "",
-     "kind": "fn",
-     "path": "web_key_line"
     }
    ],
    "lib": "kkt_setup",
@@ -24794,7 +24745,8 @@ window.KKT_GRAPH = {
     "Login",
     "LoginLink",
     "ServiceContainer",
-    "Sharing"
+    "Sharing",
+    "State"
    ],
    "kind": "normal",
    "optional": false,
@@ -24808,7 +24760,8 @@ window.KKT_GRAPH = {
       "Login",
       "LoginLink",
       "ServiceContainer",
-      "Sharing"
+      "Sharing",
+      "State"
      ],
      "role": "uses"
     }
@@ -25040,9 +24993,31 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
+    "sha256"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "sha256"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-hash"
+  },
+  {
+   "features": [],
+   "from": "kkt-install-commands",
+   "items": [
     "KeyFiles",
     "admin_key_path",
     "bound_to",
+    "check_access_key",
     "web_key_path"
    ],
    "kind": "normal",
@@ -25054,6 +25029,7 @@ window.KKT_GRAPH = {
       "KeyFiles",
       "admin_key_path",
       "bound_to",
+      "check_access_key",
       "web_key_path"
      ],
      "role": "uses"
@@ -25210,25 +25186,15 @@ window.KKT_GRAPH = {
     "TailscaleLogin",
     "Unfinished",
     "Unrecorded",
-    "admin_key_line",
     "ask::Prompter",
-    "client_key",
-    "configured_name_pack_line",
-    "docker_status_lines",
     "recorded_setup",
     "run",
     "service_runs_defaults",
-    "service_upgrade_error",
-    "staged_client_key",
     "switch",
-    "uninstall_line",
-    "uninstall_record",
     "unreadable_service",
     "unrecorded_here",
     "unrecorded_service",
-    "version_not_known",
-    "waiting_note",
-    "web_key_line"
+    "version_not_known"
    ],
    "kind": "normal",
    "optional": false,
@@ -25252,24 +25218,14 @@ window.KKT_GRAPH = {
       "Record",
       "Unfinished",
       "Unrecorded",
-      "admin_key_line",
-      "client_key",
-      "configured_name_pack_line",
-      "docker_status_lines",
       "recorded_setup",
       "run",
       "service_runs_defaults",
-      "service_upgrade_error",
-      "staged_client_key",
       "switch",
-      "uninstall_line",
-      "uninstall_record",
       "unreadable_service",
       "unrecorded_here",
       "unrecorded_service",
-      "version_not_known",
-      "waiting_note",
-      "web_key_line"
+      "version_not_known"
      ],
      "role": "uses"
     },
@@ -25317,9 +25273,11 @@ window.KKT_GRAPH = {
     "ContainerConfig",
     "Inputs",
     "KeyCopies",
+    "Login",
     "LoginLink",
     "ServiceContainer",
     "Sharing",
+    "State",
     "testing::Memory"
    ],
    "kind": "dev",
@@ -25329,6 +25287,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ConfigReader",
+      "Login",
       "LoginLink"
      ],
      "role": "uses"
@@ -28603,71 +28562,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
-    "Login",
-    "State"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Login",
-      "State"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-containerized-service"
-  },
-  {
-   "features": [],
-   "from": "kkt-setup",
-   "items": [
-    "sha256"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "sha256"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-hash"
-  },
-  {
-   "features": [],
-   "from": "kkt-setup",
-   "items": [
-    "check_access_key"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "check_access_key"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-keys"
-  },
-  {
-   "features": [],
-   "from": "kkt-setup",
-   "items": [
     "Client"
    ],
    "kind": "normal",
@@ -28730,6 +28624,27 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-toml"
+  },
+  {
+   "features": [],
+   "from": "kkt-setup",
+   "items": [
+    "check_access_key"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "check_access_key"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
   },
   {
    "features": [],
@@ -29927,7 +29842,7 @@ window.KKT_CONCERNS = {
    "layer": "assembly"
   },
   "kkt-setup": {
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to.",
+   "concern": "The record of how this machine is set up, its fields, text form and place, and the conversation that produces it: `kkt setup`, `kkt switch`, and adopting a server installed with no record.",
    "kind": "logic",
    "layer": "operations"
   },
