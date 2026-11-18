@@ -51,4 +51,5 @@ fn another_owners_file_is_refused_even_if_private() {
 fn make_agent_secret_private(file: &std::fs::File, path: &Path, uid: u32) -> Result<bool, String> {
     kkt_agent_files::make_private(file, path, uid, credential_check)
         .map(|warning| warning.is_some())
+        .map_err(|e| e.to_string())
 }
