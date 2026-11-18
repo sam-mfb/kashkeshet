@@ -1,6 +1,8 @@
 //! Read-only connection diagnostics. The checks and their names are here,
 //! made from what a probe finds (`server.rs`), and doctor's plan of them
-//! (`plan.rs`) and setup's wait for a new server (`wait.rs`). What touches
+//! (`plan.rs`), its lines about how this machine runs kkt and the fixes
+//! that follow (`this_machine.rs`), and setup's wait for a new server
+//! (`wait.rs`). What touches
 //! the machine, reading key files and probing a server, is behind the
 //! [`Prober`] it declares, which the program supplies: it reports plain
 //! facts, and the checks here word what they mean for kkt.
@@ -10,6 +12,7 @@ mod probe;
 mod server;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
+mod this_machine;
 mod wait;
 
 pub use plan::{
@@ -21,6 +24,11 @@ pub use probe::{
 use std::net::SocketAddr;
 use std::path::Path;
 use std::time::Duration;
+pub use this_machine::{
+    DockerKkt, ServiceSeen, Setup, TailscaleLogin, UnrecordedServer, WebKeyCopy, admin_key_fix,
+    docker_check, docker_web_key_check, server_fix, service_check, tailscale_login_check,
+    unrecorded_check, web_key_fix,
+};
 use url::Url;
 pub use wait::{SetupServer, Wait, setup_wait, until_reachable};
 
