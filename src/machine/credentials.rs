@@ -77,11 +77,13 @@ fn private_warning(text: &str) {
 struct StateFile(kkt_agent_files::StateFile);
 
 impl watch::Place for StateFile {
-    fn load(&self) -> Result<Option<i64>, String> {
-        self.0.load()
+    fn load(&self) -> Result<Option<i64>, watch::PlaceError> {
+        self.0.load().map_err(|said| watch::PlaceError(said.into()))
     }
-    fn save(&self, id: i64) -> Result<(), String> {
-        self.0.save(id)
+    fn save(&self, id: i64) -> Result<(), watch::PlaceError> {
+        self.0
+            .save(id)
+            .map_err(|said| watch::PlaceError(said.into()))
     }
 }
 
