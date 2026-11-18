@@ -45,6 +45,35 @@ pub(crate) fn embedded(tailscale: bool) -> Vec<(&'static str, &'static str)> {
     }
 }
 
+/// The settings file `env` with its `KKT_VERSION` line set to `version`,
+/// every other line kept as it is. A file with no such line gains one at
+/// its end.
+pub(crate) fn set_version(env: &str, version: &str) -> String {
+    let mut out: Vec<String> = env
+        .lines()
+        .map(|line| {
+            if line.starts_with("KKT_VERSION=") {
+                format!("KKT_VERSION={version}")
+            } else {
+                line.to_string()
+            }
+        })
+        .collect();
+    if !out.iter().any(|l| l.starts_with("KKT_VERSION=")) {
+        out.push(format!("KKT_VERSION={version}"));
+    }
+    let mut text = out.join("\n");
+    text.push('\n');
+    text
+}
+
+/// Whether the settings file `env` is a shared install's: it selects the
+/// Compose file of an install shared over Tailscale.
+pub(crate) fn is_shared(env: &str) -> bool {
+    let line = format!("COMPOSE_FILE={TAILSCALE_COMPOSE_FILE}");
+    env.lines().any(|l| l.trim() == line)
+}
+
 /// The kkt version the settings file `env` selects, from its `KKT_VERSION`
 /// line.
 pub(crate) fn version_in_env(env: &str) -> Option<String> {

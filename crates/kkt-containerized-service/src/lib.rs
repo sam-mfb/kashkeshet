@@ -12,9 +12,10 @@
 //! from it, never naming a tool itself. What the sharing node's status
 //! answer means comes from the `SharingNode` it is given.
 //!
-//! The operations it does not do itself it hands to the fallback
-//! `Container` it is given.
+//! It does every operation itself. It still takes a fallback `Container`,
+//! which it hands nothing.
 
+mod admin_key;
 mod backup;
 mod files;
 mod in_server;
@@ -25,6 +26,7 @@ mod setup;
 mod status;
 #[cfg(test)]
 mod tests;
+mod upgrade;
 
 use futures::future::LocalBoxFuture;
 use kkt_clock::Clock;
@@ -34,6 +36,18 @@ use kkt_container::{
 };
 use kkt_keys::KeyFiles;
 use std::path::{Path, PathBuf};
+
+/// The login link of the operations that never log a sharing node in
+/// (the admin key and upgrade): it shows nothing and is never asked to
+/// open.
+struct NoLogin;
+
+impl LoginLink for NoLogin {
+    fn show(&self, _: &str) {}
+    fn open_requested(&self) -> bool {
+        false
+    }
+}
 
 /// No folder: paths in it are taken as they are, relative ones from where
 /// the person ran kkt.
@@ -89,10 +103,17 @@ pub enum NodeLogin {
     Other(String),
 }
 
-/// kkt's containerized service over `projects`, handing the operations it
-/// does not do itself to `fallback`.
+/// kkt's containerized service over `projects`. It does every operation
+/// itself; `fallback` is still taken, and handed nothing.
 pub struct Containerized<P, F> {
     projects: P,
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "every operation is done here; the fallback is taken, and handed nothing, until the container split's last step removes it"
+        )
+    )]
     fallback: F,
     tell: Box<dyn Tell>,
     sharing: Box<dyn SharingNode>,
@@ -106,7 +127,7 @@ pub struct Containerized<P, F> {
 }
 
 impl<P: Projects, F: Container> Containerized<P, F> {
-    /// The service over `projects`, with `fallback` for the rest, telling
+    /// The service over `projects`, taking `fallback` and handing it nothing, telling
     /// the person what they need to know through `tell`, reading what the
     /// sharing node says of itself through `sharing`, opening a login link
     /// in `browser`, and writing the server's key copies through
@@ -182,7 +203,10 @@ impl<P: Projects, F: Container> Container for Containerized<P, F> {
         keys: &'a KeyCopies,
         name: &'a str,
     ) -> LocalBoxFuture<'a, Result<PathBuf, String>> {
-        self.fallback.add_admin_key(clock, folder, keys, name)
+        Box::pin(async move {
+            let parts = self.setup_parts(clock, &NoLogin);
+            admin_key::add_admin_key(&parts, &self.project(folder), keys, name).await
+        })
     }
     fn status(
         &self,
@@ -227,7 +251,10 @@ impl<P: Projects, F: Container> Container for Containerized<P, F> {
         new_version: &'a str,
         keys: Option<&'a KeyCopies>,
     ) -> LocalBoxFuture<'a, Result<(), String>> {
-        self.fallback.upgrade(clock, folder, new_version, keys)
+        Box::pin(async move {
+            let parts = self.setup_parts(clock, &NoLogin);
+            upgrade::upgrade(&parts, &self.project(folder), new_version, keys).await
+        })
     }
     fn run_in_server(&self, folder: &Folder, command: &InServer<'_>) -> Result<String, String> {
         in_server::run_in_server(&self.projects, &*self.tell, &self.project(folder), command)

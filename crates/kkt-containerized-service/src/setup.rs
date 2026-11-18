@@ -324,7 +324,11 @@ fn make_folder(projects: &dyn Projects, project: &Project, path: &Path) -> Resul
 }
 
 /// Writes the Compose files that come with this program into the folder.
-fn write_embedded(projects: &dyn Projects, project: &Project, sharing: bool) -> Result<(), String> {
+pub(crate) fn write_embedded(
+    projects: &dyn Projects,
+    project: &Project,
+    sharing: bool,
+) -> Result<(), String> {
     for (name, text) in embedded(sharing) {
         let path = project.folder.path().join(name);
         if let Some(parent) = path.parent() {

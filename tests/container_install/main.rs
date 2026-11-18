@@ -1950,6 +1950,309 @@ fn upgrade_replaces_key_copies() -> String {
     run.transcript()
 }
 
+// ---------------------------------------------------------------- the admin key and upgrade, every way they fail
+
+/// Answers for the server's three key reads, the most particular first, so
+/// `kkt key show` stands only for the access key's read; then `extra`.
+fn key_reads(
+    access: Vec<Answer>,
+    web: Vec<Answer>,
+    admin: Vec<Answer>,
+    extra: Vec<(&'static str, Vec<Answer>)>,
+) -> Rules {
+    let mut all = vec![
+        ("key show --admin", admin),
+        ("key show --web", web),
+        ("kkt key show", access),
+    ];
+    all.extend(extra);
+    rules(all)
+}
+
+fn admin_key_cannot_run() -> String {
+    let with = |rules: Rules| {
+        let run = Run::new(rules, installed_local(LOCAL_ENV));
+        run.add_admin_key();
+        run
+    };
+    let access = || vec![ok(&format!("{ACCESS}\n"))];
+    let web = || vec![ok(&format!("{WEB}\n"))];
+    let none_then_made = || vec![exit(4, "", "no admin key"), ok(&format!("{ADMIN}\n"))];
+    cases(&[
+        case(
+            "the first access key read cannot run",
+            &with(key_reads(
+                vec![cannot_run("broken pipe")],
+                web(),
+                none_then_made(),
+                vec![],
+            )),
+        ),
+        case(
+            "the admin key read cannot run",
+            &with(key_reads(
+                access(),
+                web(),
+                vec![cannot_run("broken pipe")],
+                vec![],
+            )),
+        ),
+        case(
+            "making the key cannot run",
+            &with(key_reads(
+                access(),
+                web(),
+                none_then_made(),
+                vec![("key create", vec![cannot_run("broken pipe")])],
+            )),
+        ),
+        case(
+            "the restart cannot run",
+            &with(key_reads(
+                access(),
+                web(),
+                none_then_made(),
+                vec![("restart kkt", vec![cannot_run("broken pipe")])],
+            )),
+        ),
+        case(
+            "the access key read after the restart cannot run",
+            &with(key_reads(
+                vec![ok(&format!("{ACCESS}\n")), cannot_run("broken pipe")],
+                web(),
+                none_then_made(),
+                vec![],
+            )),
+        ),
+        case(
+            "the web key read cannot run",
+            &with(key_reads(
+                access(),
+                vec![cannot_run("broken pipe")],
+                none_then_made(),
+                vec![],
+            )),
+        ),
+        case(
+            "the second admin key read cannot run",
+            &with(key_reads(
+                access(),
+                web(),
+                vec![exit(4, "", "no admin key"), cannot_run("broken pipe")],
+                vec![],
+            )),
+        ),
+    ])
+}
+
+fn admin_key_more_failures() -> String {
+    let with = |rules: Rules, files: Box<dyn FnOnce(Scripted) -> Scripted>| {
+        let run = Run::new(rules, files);
+        run.add_admin_key();
+        run
+    };
+    let access = || vec![ok(&format!("{ACCESS}\n"))];
+    let web = || vec![ok(&format!("{WEB}\n"))];
+    let has_one = || vec![ok(&format!("{ADMIN}\n"))];
+    let installed =
+        || -> Box<dyn FnOnce(Scripted) -> Scripted> { Box::new(installed_local(LOCAL_ENV)) };
+    let failing = |make: fn(Scripted) -> Scripted| -> Box<dyn FnOnce(Scripted) -> Scripted> {
+        Box::new(move |host| make(installed_local(LOCAL_ENV)(host)))
+    };
+    cases(&[
+        case(
+            "the admin key read ends by a signal, having printed the key",
+            &with(
+                key_reads(
+                    access(),
+                    web(),
+                    vec![Ok(Reply::signal(&format!("{ADMIN}\n")))],
+                    vec![],
+                ),
+                installed(),
+            ),
+        ),
+        case(
+            "the admin key read prints no key",
+            &with(
+                key_reads(access(), web(), vec![ok("")], vec![]),
+                installed(),
+            ),
+        ),
+        case(
+            "after the restart the admin key read fails, having printed the key",
+            &with(
+                key_reads(
+                    access(),
+                    web(),
+                    vec![
+                        exit(4, "", "no admin key"),
+                        exit(1, &format!("{ADMIN}\n"), ""),
+                    ],
+                    vec![],
+                ),
+                installed(),
+            ),
+        ),
+        case(
+            "the key copies' folder cannot be made",
+            &with(
+                key_reads(access(), web(), has_one(), vec![]),
+                failing(|host| host.failing_dir("/home/me/.config/kkt")),
+            ),
+        ),
+        case(
+            "the admin key copy's folder cannot be made",
+            &with(
+                key_reads(access(), web(), has_one(), vec![]),
+                failing(|host| host.failing_dir("/home/me/.config/kkt-admin")),
+            ),
+        ),
+        case(
+            "the access key copy cannot be written",
+            &with(
+                key_reads(access(), web(), has_one(), vec![]),
+                failing(|host| host.failing_write("/home/me/.config/kkt/docker-access-key", 0)),
+            ),
+        ),
+        case(
+            "the admin key copy cannot be written",
+            &with(
+                key_reads(access(), web(), has_one(), vec![]),
+                failing(|host| {
+                    host.failing_write("/home/me/.config/kkt-admin/docker-admin-key", 0)
+                }),
+            ),
+        ),
+    ])
+}
+
+fn upgrade_cannot_run() -> String {
+    let with = |rules: Rules| {
+        let run = Run::new(rules, installed_local(LOCAL_ENV));
+        run.upgrade(Some(&keys()));
+        run
+    };
+    let access = || vec![ok(&format!("{ACCESS}\n"))];
+    let web = || vec![ok(&format!("{WEB}\n"))];
+    let no_admin = || vec![exit(4, "", "no admin key")];
+    cases(&[
+        case(
+            "the backup cannot run",
+            &with(rules(vec![("kkt backup", vec![cannot_run("broken pipe")])])),
+        ),
+        case(
+            "the pull cannot run: the settings are put back",
+            &with(rules(vec![(
+                "compose --project-directory /data/docker pull",
+                vec![cannot_run("broken pipe")],
+            )])),
+        ),
+        case(
+            "the start cannot run: the settings are put back",
+            &with(rules(vec![("up -d", vec![cannot_run("broken pipe")])])),
+        ),
+        case(
+            "the access key read cannot run: said, and the upgrade stands",
+            &with(key_reads(
+                vec![cannot_run("broken pipe")],
+                web(),
+                no_admin(),
+                vec![],
+            )),
+        ),
+        case(
+            "the web key read cannot run: said, and the upgrade stands",
+            &with(key_reads(
+                access(),
+                vec![cannot_run("broken pipe")],
+                no_admin(),
+                vec![],
+            )),
+        ),
+        case(
+            "the admin key read cannot run: said, and the upgrade stands",
+            &with(key_reads(
+                access(),
+                web(),
+                vec![cannot_run("broken pipe")],
+                vec![],
+            )),
+        ),
+    ])
+}
+
+fn upgrade_more_failures() -> String {
+    let with = |rules: Rules, files: Box<dyn FnOnce(Scripted) -> Scripted>| {
+        let run = Run::new(rules, files);
+        run.upgrade(Some(&keys()));
+        run
+    };
+    let installed =
+        || -> Box<dyn FnOnce(Scripted) -> Scripted> { Box::new(installed_local(LOCAL_ENV)) };
+    cases(&[
+        case(
+            "the backup says nothing of where it went",
+            &with(rules(vec![("kkt backup", vec![ok("done\n")])]), installed()),
+        ),
+        case(
+            "the backup names no folder",
+            &with(
+                rules(vec![("kkt backup", vec![ok("Backed up to /\n")])]),
+                installed(),
+            ),
+        ),
+        case(
+            "the pull ends by a signal: the settings are put back",
+            &with(
+                rules(vec![(
+                    "compose --project-directory /data/docker pull",
+                    vec![Ok(Reply::signal(""))],
+                )]),
+                installed(),
+            ),
+        ),
+        case(
+            "the start fails and the settings cannot be put back",
+            &with(
+                rules(vec![(
+                    "up -d",
+                    vec![exit(1, "", "port is already allocated")],
+                )]),
+                Box::new(|host: Scripted| installed_local(LOCAL_ENV)(host).failing_write(ENV, 1)),
+            ),
+        ),
+        case(
+            "a Tailscale install's serve folder cannot be made",
+            &with(
+                rules(vec![]),
+                Box::new(|host: Scripted| {
+                    installed_tailscale(TAILSCALE_ENV)(host).failing_dir("/data/docker/tailscale")
+                }),
+            ),
+        ),
+        case(
+            "the admin key read fails, having printed the key: said, and the upgrade stands",
+            &with(
+                rules(vec![(
+                    "key show --admin",
+                    vec![exit(1, &format!("{ADMIN}\n"), "")],
+                )]),
+                installed(),
+            ),
+        ),
+        case(
+            "a key copy cannot be written: said, and the upgrade stands",
+            &with(
+                rules(vec![]),
+                Box::new(|host: Scripted| {
+                    installed_local(LOCAL_ENV)(host).failing_write(WEB_COPY, 0)
+                }),
+            ),
+        ),
+    ])
+}
+
 pinned! {
     setup_local => super::setup_local();
     setup_local_with_an_admin_key => super::setup_local_with_an_admin_key();
@@ -1998,4 +2301,8 @@ pinned! {
     setup_key_copy_without_a_folder => super::setup_key_copy_without_a_folder();
     setup_replaces_key_copies => super::setup_replaces_key_copies();
     upgrade_replaces_key_copies => super::upgrade_replaces_key_copies();
+    admin_key_cannot_run => super::admin_key_cannot_run();
+    admin_key_more_failures => super::admin_key_more_failures();
+    upgrade_cannot_run => super::upgrade_cannot_run();
+    upgrade_more_failures => super::upgrade_more_failures();
 }

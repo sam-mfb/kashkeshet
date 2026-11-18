@@ -187,8 +187,8 @@ impl<'a, D> NativeOperate<'a, D> {
 }
 
 /// kkt's containerized service as the program runs it: over Docker as the
-/// general `Projects`, with Docker doing what the service does not do
-/// itself yet.
+/// general `Projects`. It does every operation itself, and hands the Docker
+/// it still takes as its fallback nothing.
 type Containerized = kkt_containerized_service::Containerized<
     kkt_container_docker::Docker,
     kkt_container_docker::Docker,

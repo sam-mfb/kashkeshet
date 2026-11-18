@@ -419,7 +419,7 @@
       }
      ],
      "impl": "kkt-containerized-service::Containerized",
-     "note": "kkt's containerized service, over Docker as the general Projects with Docker as its fallback, injected into the install commands."
+     "note": "kkt's containerized service, over Docker as the general Projects, injected into the install commands. It still takes a Docker as its fallback, and hands it nothing."
     },
     {
      "own": "TerminalTell, the containerized service's lines on kkt-terminal's standard output, a line each",
