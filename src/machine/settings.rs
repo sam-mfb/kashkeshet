@@ -536,6 +536,72 @@ mod tests {
     use crate::scratch;
     use kkt_server::ServerSettings;
 
+    /// Which bad setting the startup checks report, of all those given, as
+    /// `check_settings` asks it.
+    fn first_reported(problems: Vec<(&'static str, &'static str, String)>) -> String {
+        ServerSettings::DEFAULT
+            .check(problems)
+            .expect_err("a problem")
+            .rule
+    }
+
+    /// The order bad settings are reported in, pinned: given every kind of
+    /// problem at once, last first, each report names the next in this list.
+    #[test]
+    fn bad_settings_are_reported_in_a_fixed_order() {
+        const ORDER: &[(&str, &str)] = &[
+            ("bind", "check_bind"),
+            ("allow_any_bind", "check_bind"),
+            ("dependency_log_level", "check_dependency_log_level"),
+            ("default_limit", "floor"),
+            ("max_body_bytes", "floor"),
+            ("max_channel_name_chars", "floor"),
+            ("max_purpose_chars", "floor"),
+            ("max_description_chars", "floor"),
+            ("max_note_chars", "floor"),
+            ("max_server_announcement_chars", "floor"),
+            ("max_memory_entry_chars", "floor"),
+            ("max_memory_chars", "floor"),
+            ("max_lane_chars", "floor"),
+            ("sends_per_minute", "floor"),
+            ("registrations_per_minute", "floor"),
+            ("max_agents", "floor"),
+            ("web_page_messages", "floor"),
+            ("web_member_excerpt_chars", "floor"),
+            ("upgrade_backups_kept", "floor"),
+            ("max_response_bytes", "floor"),
+            ("max_limit", "default_limit"),
+            ("max_memory_chars", "max_memory_entry_chars"),
+            ("web_page_messages", "ceiling"),
+            ("web_session_lifetime", "floor"),
+            ("waiting_grace", "max_wait"),
+            ("max_wait", "default_wait"),
+            ("allow_host", "host"),
+        ];
+        let mut left: Vec<_> = ORDER
+            .iter()
+            .rev()
+            .map(|(name, check)| (*name, *check, format!("{name}/{check}")))
+            .collect();
+        // One the order does not know comes after every known one.
+        left.insert(
+            0,
+            ("product_setting", "floor", "product_setting/floor".into()),
+        );
+        let mut reported = Vec::new();
+        while !left.is_empty() {
+            let rule = first_reported(left.clone());
+            left.retain(|(_, _, r)| *r != rule);
+            reported.push(rule);
+        }
+        let mut expected: Vec<_> = ORDER
+            .iter()
+            .map(|(name, check)| format!("{name}/{check}"))
+            .collect();
+        expected.push("product_setting/floor".into());
+        assert_eq!(reported, expected);
+    }
+
     #[test]
     fn dependency_levels_that_would_log_secrets_are_refused() {
         for level in [LogLevel::Error, LogLevel::Warn, LogLevel::Info] {

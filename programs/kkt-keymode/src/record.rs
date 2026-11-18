@@ -70,3 +70,141 @@ pub(crate) fn new_server_run(run: &ServerRun) -> kkt_rules::NewServerRun {
         instructions_sha256: run.instructions_sha256.clone(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! The run record's settings text, pinned byte for byte through kkt-keymode's
+    //! own lines, which are kkt's without a log file: a plain server, and one with every setting
+    //! given, whose text fixes the place of every name. A changed text
+    //! changes what every existing install records.
+
+    use super::*;
+    use std::time::Duration;
+
+    fn plain(server: &ServerSettings) -> RecordedSettings<'_> {
+        RecordedSettings {
+            server,
+            rules: kkt_rules::Settings::DEFAULT,
+            backup: kkt_backup::Settings::DEFAULT,
+            allow_any_bind: false,
+            log_level: LogLevel::Info,
+            dependency_log_level: LogLevel::Warn,
+            config_file: None,
+            access_key_file: None,
+            web_key_file: None,
+            admin_key_file: None,
+            admin_name: None,
+        }
+    }
+
+    fn text(settings: &RecordedSettings<'_>) -> String {
+        settings
+            .lines()
+            .into_iter()
+            .map(|(name, value)| format!("{name}={value}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    const DEFAULT_LIMITS: &str = "name_pack=animals\n\
+         max_response_bytes=8192\n\
+         default_limit=20\n\
+         max_limit=100\n\
+         max_body_bytes=8192\n\
+         max_channel_name_chars=64\n\
+         max_purpose_chars=500\n\
+         max_description_chars=300\n\
+         max_note_chars=10000\n\
+         max_server_announcement_chars=4000\n\
+         max_memory_entry_chars=20000\n\
+         max_memory_chars=100000\n\
+         max_lane_chars=8000\n\
+         sends_per_minute=30\n\
+         registrations_per_minute=20\n\
+         max_agents=1000\n\
+         default_wait_ms=30000\n\
+         max_wait_ms=50000\n\
+         waiting_grace_ms=3000\n\
+         member_preview=3\n\
+         purpose_preview_chars=120\n\
+         web_session_lifetime_ms=43200000\n\
+         web_page_messages=50\n\
+         web_member_excerpt_chars=80\n\
+         upgrade_backups_kept=5";
+
+    #[test]
+    fn a_plain_server_records_the_defaults() {
+        let server = ServerSettings::DEFAULT;
+        assert_eq!(
+            text(&plain(&server)),
+            format!(
+                "allow_any_bind=false\n{DEFAULT_LIMITS}\nlog_level=info\ndependency_log_level=warn"
+            )
+        );
+    }
+
+    #[test]
+    fn a_server_with_every_setting_given_records_them_all_in_order() {
+        let server = ServerSettings {
+            allowed_origins: vec!["http://b.example".into(), "http://a.example".into()],
+            allowed_hosts: vec!["b.example".into(), "a.example".into()],
+            ..ServerSettings::DEFAULT
+        };
+        let settings = RecordedSettings {
+            rules: kkt_rules::Settings {
+                max_limit: 99,
+                default_wait: Duration::from_secs(12),
+                ..kkt_rules::Settings::DEFAULT
+            },
+            allow_any_bind: true,
+            log_level: LogLevel::Debug,
+            dependency_log_level: LogLevel::Error,
+            config_file: Some("/home/sam/.config/kkt/config.toml".into()),
+            access_key_file: Some("/keys/access-key".into()),
+            web_key_file: Some("/keys/web-key".into()),
+            admin_key_file: Some("/keys/admin-key".into()),
+            admin_name: Some("admin-sentinel".into()),
+            ..plain(&server)
+        };
+        assert_eq!(
+            text(&settings),
+            "allow_any_bind=true\n\
+             name_pack=animals\n\
+             max_response_bytes=8192\n\
+             default_limit=20\n\
+             max_limit=99\n\
+             max_body_bytes=8192\n\
+             max_channel_name_chars=64\n\
+             max_purpose_chars=500\n\
+             max_description_chars=300\n\
+             max_note_chars=10000\n\
+             max_server_announcement_chars=4000\n\
+             max_memory_entry_chars=20000\n\
+             max_memory_chars=100000\n\
+             max_lane_chars=8000\n\
+             sends_per_minute=30\n\
+             registrations_per_minute=20\n\
+             max_agents=1000\n\
+             default_wait_ms=12000\n\
+             max_wait_ms=50000\n\
+             waiting_grace_ms=3000\n\
+             member_preview=3\n\
+             purpose_preview_chars=120\n\
+             web_session_lifetime_ms=43200000\n\
+             web_page_messages=50\n\
+             web_member_excerpt_chars=80\n\
+             upgrade_backups_kept=5\n\
+             log_level=debug\n\
+             dependency_log_level=error\n\
+             allowed_origin=http://a.example\n\
+             allowed_origin=http://b.example\n\
+             allowed_host=a.example\n\
+             allowed_host=b.example\n\
+             config_file=/home/sam/.config/kkt/config.toml\n\
+             access_key_file=/keys/access-key\n\
+             web_key_file=/keys/web-key\n\
+             admin_key_file=/keys/admin-key\n\
+             admin_name=admin-sentinel"
+        );
+    }
+}
