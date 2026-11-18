@@ -614,3 +614,181 @@ mod tests {
         );
     }
 }
+
+/// Records and notes kkt 0.10.0 wrote (`tests/v0_10_0`, made by 0.10.0's
+/// own code): today's code reads each, and writes the same bytes back.
+#[cfg(test)]
+mod v0_10_0 {
+    use super::*;
+
+    const RECORDS: [(&str, &str); 4] = [
+        (
+            "record-service.toml",
+            include_str!("../tests/v0_10_0/record-service.toml"),
+        ),
+        (
+            "record-docker-tailscale.toml",
+            include_str!("../tests/v0_10_0/record-docker-tailscale.toml"),
+        ),
+        (
+            "record-client.toml",
+            include_str!("../tests/v0_10_0/record-client.toml"),
+        ),
+        (
+            "record-service-switched.toml",
+            include_str!("../tests/v0_10_0/record-service-switched.toml"),
+        ),
+    ];
+
+    const NOTES: [(&str, &str); 2] = [
+        (
+            "unfinished-docker-tailscale.toml",
+            include_str!("../tests/v0_10_0/unfinished-docker-tailscale.toml"),
+        ),
+        (
+            "unfinished-service.toml",
+            include_str!("../tests/v0_10_0/unfinished-service.toml"),
+        ),
+    ];
+
+    #[test]
+    fn records_0_10_0_wrote_are_read_and_written_back_byte_for_byte() {
+        for (name, text) in RECORDS {
+            let record =
+                Record::parse(text, Path::new(name)).unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert_eq!(record.written_by, "0.10.0", "{name}");
+            assert_eq!(record.render().expect("rendered"), text, "{name}");
+        }
+    }
+
+    #[test]
+    fn notes_0_10_0_wrote_are_read_and_written_back_byte_for_byte() {
+        for (name, text) in NOTES {
+            let note =
+                Unfinished::parse(text, Path::new(name)).unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert_eq!(note.render().expect("rendered"), text, "{name}");
+        }
+    }
+}
+
+/// Every sentence about a record or note that is not right, pinned exactly:
+/// existing installs meet these.
+#[cfg(test)]
+mod refusals {
+    use super::*;
+
+    const SERVICE: &str = include_str!("../tests/v0_10_0/record-service.toml");
+    const DOCKER: &str = include_str!("../tests/v0_10_0/record-docker-tailscale.toml");
+    const CLIENT: &str = include_str!("../tests/v0_10_0/record-client.toml");
+    const NOTE: &str = include_str!("../tests/v0_10_0/unfinished-docker-tailscale.toml");
+
+    fn record(text: &str) -> String {
+        Record::parse(text, Path::new("/s/setup.toml"))
+            .err()
+            .expect("refused")
+            .to_string()
+    }
+
+    fn note(text: &str) -> String {
+        Unfinished::parse(text, Path::new("/s/unfinished.toml"))
+            .err()
+            .expect("refused")
+            .to_string()
+    }
+
+    #[test]
+    fn every_record_refusal_says_what_it_always_said() {
+        let at = "the setup record /s/setup.toml";
+        assert_eq!(
+            record(&SERVICE.replace("format = 1", "format = 2")),
+            format!("{at} has format 2, but this kkt reads format 1; run `kkt setup` again")
+        );
+        assert_eq!(
+            record(&SERVICE.replace("[service]\ntailscale = false\n", "")),
+            format!(
+                "{at} has mode \"service\", which needs a [service] table and no [docker] table"
+            )
+        );
+        assert_eq!(
+            record(&DOCKER.replace("mode = \"docker\"", "mode = \"service\"")),
+            format!(
+                "{at} has mode \"service\", which needs a [service] table and no [docker] table"
+            )
+        );
+        assert_eq!(
+            record(&SERVICE.replace("mode = \"service\"", "mode = \"docker\"")),
+            format!(
+                "{at} has mode \"docker\", which needs a [docker] table and no [service] table"
+            )
+        );
+        assert_eq!(
+            record(&SERVICE.replace("mode = \"service\"", "mode = \"client\"")),
+            format!("{at} has mode \"client\", which has no [service] or [docker] table")
+        );
+        assert_eq!(
+            record(&SERVICE.replace("mode = \"service\"", "mode = \"cloud\"")),
+            format!("{at} has an unknown mode \"cloud\": expected service, docker or client")
+        );
+        assert_eq!(
+            record(&format!(
+                "{CLIENT}\n[clients]\nurl = \"https://other.example/mcp\"\n"
+            )),
+            format!(
+                "{at} has mode \"client\" and a [clients] table, which is only for a machine that runs a server"
+            )
+        );
+        assert_eq!(
+            record(&SERVICE.replace("/home/sam/.config/kkt/access-key", "access-key")),
+            format!("{at} has a relative path access-key")
+        );
+        let invalid = record("format = ");
+        assert!(
+            invalid.starts_with(&format!("{at} is not valid: ")),
+            "{invalid}"
+        );
+    }
+
+    #[test]
+    fn every_note_refusal_says_what_it_always_said() {
+        let at = "the unfinished setup /s/unfinished.toml";
+        assert_eq!(
+            note(&NOTE.replace("mode = \"docker\"", "mode = \"client\"")),
+            format!("{at} has mode \"client\": expected docker or service")
+        );
+        assert_eq!(
+            note(&NOTE.replace("\"codex\"", "\"cursor\"")),
+            format!("{at} has an unknown client \"cursor\"")
+        );
+        assert_eq!(
+            note(
+                &NOTE
+                    .replace("ts_hostname = \"kkt\"\n", "")
+                    .replace("ts_authkey_file = \"/home/sam/ts-authkey\"\n", "")
+            ),
+            format!("{at} is for Docker over Tailscale but has no ts_hostname")
+        );
+        assert_eq!(
+            note(&NOTE.replace("mode = \"docker\"", "mode = \"service\"")),
+            format!("{at} has ts_hostname, which is only for Docker over Tailscale")
+        );
+        assert_eq!(
+            note(
+                &NOTE
+                    .replace("tailscale = true", "tailscale = false")
+                    .replace("ts_hostname = \"kkt\"\n", "")
+            ),
+            format!("{at} has ts_authkey_file but no ts_hostname")
+        );
+        assert_eq!(
+            note(&NOTE.replace("/home/sam/ts-authkey", "ts-authkey")),
+            format!("{at} has a relative path ts-authkey")
+        );
+        let inner = note(&format!(
+            "{NOTE}\n[record]\nformat = 2\nmode = \"client\"\nwritten_by = \"0.10.0\"\nurl = \"https://h/mcp\"\n"
+        ));
+        assert_eq!(
+            inner,
+            format!("{at} has format 2, but this kkt reads format 1; run `kkt setup` again")
+        );
+    }
+}

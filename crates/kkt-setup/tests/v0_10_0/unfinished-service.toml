@@ -1,0 +1,14 @@
+mode = "service"
+tailscale = false
+allow_hosts = []
+clients = ["claude-code"]
+
+[record]
+format = 1
+mode = "service"
+written_by = "0.10.0"
+url = "http://127.0.0.1:7420/mcp"
+key_file = "/home/sam/.config/kkt/access-key"
+
+[record.service]
+tailscale = false
