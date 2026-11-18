@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "1f4462d6",
+ "commit": "eff5382f",
  "crates": [
   {
    "bins": [
@@ -1588,6 +1588,31 @@ window.KKT_GRAPH = {
      "path": "AdminKey"
     },
     {
+     "doc": "Why `AdminKey` could not find the admin key: the implementation's own error, passed on unread.",
+     "kind": "struct",
+     "path": "AdminKeyError"
+    },
+    {
+     "doc": "Why `register`, `reclaim`, `watch` or `connect` failed.",
+     "kind": "enum",
+     "path": "AgentCommandError",
+     "variants": [
+      "UnknownClient",
+      "LaneRefused",
+      "Unreachable",
+      "Refused",
+      "KeyFile",
+      "NoAdminKey",
+      "Name",
+      "Connection",
+      "Watch",
+      "ClientConfig",
+      "Credentials",
+      "AdminKey",
+      "Program"
+     ]
+    },
+    {
      "doc": "The effects and facts the agents' commands take.",
      "fields": [
       "connection",
@@ -1636,6 +1661,22 @@ window.KKT_GRAPH = {
      "path": "Credentials"
     },
     {
+     "doc": "Why `Credentials` or a `CredentialSlot` failed: the implementation's own error, passed on unread.",
+     "kind": "struct",
+     "path": "CredentialsError"
+    },
+    {
+     "doc": "A credential file that another user owns, which kkt neither reads nor tightens.",
+     "fields": [
+      "path",
+      "quoted",
+      "owner",
+      "uid"
+     ],
+     "kind": "struct",
+     "path": "ForeignCredentialFile"
+    },
+    {
      "doc": "Reading a key file.",
      "kind": "trait",
      "methods": [
@@ -1677,6 +1718,11 @@ window.KKT_GRAPH = {
       "kkt_path"
      ],
      "path": "Program"
+    },
+    {
+     "doc": "Why `Program` could not give this program's path: the implementation's own error, passed on unread.",
+     "kind": "struct",
+     "path": "ProgramError"
     },
     {
      "doc": "`kkt connect`: writes or prints a client's MCP config for this machine's server.",
@@ -2090,7 +2136,9 @@ window.KKT_GRAPH = {
     }
    ],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -19213,14 +19261,17 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "AdminKey",
+    "AdminKeyError",
     "AgentParts",
     "CredentialSlot",
     "Credentials",
+    "CredentialsError",
     "KeyText",
     "KeyUnread",
     "NewAvatar",
     "Output",
     "Program",
+    "ProgramError",
     "connect",
     "connect::run",
     "credential_file_check",
@@ -19246,9 +19297,12 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "AdminKeyError",
       "AgentParts",
+      "CredentialsError",
       "KeyUnread",
       "NewAvatar",
+      "ProgramError",
       "connect",
       "connect::run",
       "credential_file_check",
@@ -21421,6 +21475,7 @@ window.KKT_GRAPH = {
    "items": [
     "Client",
     "ClientCommand",
+    "ClientConfigError",
     "Host",
     "Setup",
     "configure"
@@ -21433,6 +21488,7 @@ window.KKT_GRAPH = {
      "detail": [
       "Client",
       "ClientCommand",
+      "ClientConfigError",
       "Host",
       "Setup",
       "configure"
@@ -21473,6 +21529,7 @@ window.KKT_GRAPH = {
    "items": [
     "MAX_HANDLE_CHARS",
     "MAX_LANE_NAME_CHARS",
+    "NameError",
     "check_lane_name",
     "check_proposed_handle"
    ],
@@ -21484,6 +21541,7 @@ window.KKT_GRAPH = {
      "detail": [
       "MAX_HANDLE_CHARS",
       "MAX_LANE_NAME_CHARS",
+      "NameError",
       "check_lane_name",
       "check_proposed_handle"
      ],
@@ -21503,6 +21561,7 @@ window.KKT_GRAPH = {
     "Place",
     "Report",
     "Settings",
+    "WatchError",
     "run"
    ],
    "kind": "normal",
@@ -21516,6 +21575,7 @@ window.KKT_GRAPH = {
       "Place",
       "Report",
       "Settings",
+      "WatchError",
       "run"
      ],
      "role": "uses"

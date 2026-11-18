@@ -2,7 +2,7 @@
 //! and state files, with setup's credential-file rule and the warnings on
 //! standard error.
 
-use kkt_agent_commands::{CredentialSlot, Credentials};
+use kkt_agent_commands::{CredentialSlot, Credentials, CredentialsError};
 use kkt_diagnostics as diagnostics;
 use kkt_log::{Level, Log};
 use kkt_log_tracing::TracingLog;
@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 pub(crate) struct CredentialFiles;
 
 impl Credentials for CredentialFiles {
-    fn reserve(&self, path: PathBuf) -> Result<Box<dyn CredentialSlot>, String> {
+    fn reserve(&self, path: PathBuf) -> Result<Box<dyn CredentialSlot>, CredentialsError> {
         kkt_agent_files::CredentialFile::create(path, |path, e| {
             TracingLog.record(
                 Level::Warn,
@@ -27,15 +27,18 @@ impl Credentials for CredentialFiles {
             );
         })
         .map(|file| Box::new(CredentialFile(file)) as Box<dyn CredentialSlot>)
+        .map_err(|said| CredentialsError(said.into()))
     }
 
-    fn token(&self, file: Option<&Path>) -> Result<String, String> {
+    fn token(&self, file: Option<&Path>) -> Result<String, CredentialsError> {
         kkt_agent_files::watch_token(file, credential_check, private_warning)
+            .map_err(|said| CredentialsError(said.into()))
     }
 
-    fn claim_state(&self, path: PathBuf) -> Result<Box<dyn watch::Place>, String> {
+    fn claim_state(&self, path: PathBuf) -> Result<Box<dyn watch::Place>, CredentialsError> {
         kkt_agent_files::StateFile::claim(path)
             .map(|file| Box::new(StateFile(file)) as Box<dyn watch::Place>)
+            .map_err(|said| CredentialsError(said.into()))
     }
 }
 
@@ -43,8 +46,10 @@ impl Credentials for CredentialFiles {
 struct CredentialFile(kkt_agent_files::CredentialFile);
 
 impl CredentialSlot for CredentialFile {
-    fn save(&mut self, secret: &str) -> Result<(), String> {
-        self.0.save(secret)
+    fn save(&mut self, secret: &str) -> Result<(), CredentialsError> {
+        self.0
+            .save(secret)
+            .map_err(|said| CredentialsError(said.into()))
     }
 }
 
@@ -60,6 +65,7 @@ fn credential_check(
         facts.mode,
         facts.caller_uid,
     )
+    .map_err(|e| e.to_string())
     .map(|fix| {
         fix.map(|fix| kkt_agent_files::PrivateMode {
             mode: fix.mode,

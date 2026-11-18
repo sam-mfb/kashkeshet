@@ -14,10 +14,14 @@ mod agent;
 mod client;
 pub mod connect;
 mod credential_file;
+mod error;
 pub mod watch;
 
 pub use agent::{NewAvatar, reclaim, register};
 pub use credential_file::{CredentialFileFix, credential_file_check};
+pub use error::{
+    AdminKeyError, AgentCommandError, CredentialsError, ForeignCredentialFile, ProgramError,
+};
 
 use kkt_agent_client::Servers;
 use kkt_clock::Clock;
@@ -65,7 +69,7 @@ pub struct AgentParts<C: ConnectionSource> {
 /// Where the admin key is.
 pub trait AdminKey {
     /// The file `given`, else where `kkt key show --admin` finds it.
-    fn path(&self, given: Option<PathBuf>) -> Result<PathBuf, String>;
+    fn path(&self, given: Option<PathBuf>) -> Result<PathBuf, AdminKeyError>;
 }
 
 /// Agent credential files and watch state files.
@@ -73,16 +77,16 @@ pub trait Credentials {
     /// Reserves `path` for a credential, creating it now so that a call to
     /// the server is not made for nothing; it is removed again if dropped
     /// unsaved.
-    fn reserve(&self, path: PathBuf) -> Result<Box<dyn CredentialSlot>, String>;
+    fn reserve(&self, path: PathBuf) -> Result<Box<dyn CredentialSlot>, CredentialsError>;
     /// The token in `file`, else in the environment.
-    fn token(&self, file: Option<&Path>) -> Result<String, String>;
+    fn token(&self, file: Option<&Path>) -> Result<String, CredentialsError>;
     /// The watch state file at `path`, claimed for this watch alone.
-    fn claim_state(&self, path: PathBuf) -> Result<Box<dyn kkt_watch::Place>, String>;
+    fn claim_state(&self, path: PathBuf) -> Result<Box<dyn kkt_watch::Place>, CredentialsError>;
 }
 
 /// A reserved credential file.
 pub trait CredentialSlot {
-    fn save(&mut self, secret: &str) -> Result<(), String>;
+    fn save(&mut self, secret: &str) -> Result<(), CredentialsError>;
 }
 
 /// Reading a key file.
@@ -102,7 +106,7 @@ pub struct KeyUnread {
 /// This program.
 pub trait Program {
     /// The path of `kkt`, which a client's config runs.
-    fn kkt_path(&self) -> Result<PathBuf, String>;
+    fn kkt_path(&self) -> Result<PathBuf, ProgramError>;
 }
 
 /// Standard output.

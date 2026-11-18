@@ -1,7 +1,7 @@
 //! `kkt register` and `kkt reclaim`: an avatar from a server, with its
 //! credentials saved.
 
-use crate::{AgentParts, client};
+use crate::{AgentCommandError, AgentParts, client};
 use kkt_agent_client::Failure;
 use kkt_deployment::connection::{ConnectionOptions, ConnectionSource};
 use kkt_names as names;
@@ -23,7 +23,7 @@ pub async fn register<C: ConnectionSource>(
     token_file: PathBuf,
     recovery_file: Option<PathBuf>,
     asked: NewAvatar<'_>,
-) -> Result<(), String> {
+) -> Result<(), AgentCommandError> {
     let NewAvatar {
         handle,
         lane,
@@ -32,30 +32,42 @@ pub async fn register<C: ConnectionSource>(
     // The server checks the handle and lane too; checking first gives the
     // reason, and leaves no files behind.
     if let Some(handle) = handle {
-        names::check_proposed_handle(handle, names::MAX_HANDLE_CHARS).map_err(|e| e.to_string())?;
+        names::check_proposed_handle(handle, names::MAX_HANDLE_CHARS)
+            .map_err(AgentCommandError::Name)?;
     }
     if let Some(lane) = lane {
-        names::check_lane_name(lane, names::MAX_LANE_NAME_CHARS).map_err(|e| e.to_string())?;
+        names::check_lane_name(lane, names::MAX_LANE_NAME_CHARS)
+            .map_err(AgentCommandError::Name)?;
     }
     let server = parts.servers.avatars(client::agent(parts, connection)?);
-    let mut token = parts.credentials.reserve(token_file)?;
+    let mut token = parts
+        .credentials
+        .reserve(token_file)
+        .map_err(AgentCommandError::Credentials)?;
     let mut recovery = recovery_file
         .map(|path| parts.credentials.reserve(path))
-        .transpose()?;
+        .transpose()
+        .map_err(AgentCommandError::Credentials)?;
     let registered = server
         .register(handle, lane)
         .await
         .map_err(|e| match (&e, lane) {
             // Which lane, and why, is not a credential.
             (Failure::Refused { code, message }, Some(_)) if lane_refused(code, message) => {
-                format!("the server refused the lane: {message}")
+                AgentCommandError::LaneRefused {
+                    message: message.clone(),
+                }
             }
             _ => avatar_error(e),
         })?;
     // Save credentials before any optional call that might fail.
-    token.save(&registered.token)?;
+    token
+        .save(&registered.token)
+        .map_err(AgentCommandError::Credentials)?;
     if let Some(recovery) = &mut recovery {
-        recovery.save(&registered.recovery_code)?;
+        recovery
+            .save(&registered.recovery_code)
+            .map_err(AgentCommandError::Credentials)?;
     }
     if let Some(description) = description {
         server
@@ -76,15 +88,23 @@ pub async fn reclaim<C: ConnectionSource>(
     handle: &str,
     recovery_file: PathBuf,
     token_file: PathBuf,
-) -> Result<(), String> {
-    let recovery = parts.credentials.token(Some(&recovery_file))?;
+) -> Result<(), AgentCommandError> {
+    let recovery = parts
+        .credentials
+        .token(Some(&recovery_file))
+        .map_err(AgentCommandError::Credentials)?;
     let server = parts.servers.avatars(client::agent(parts, connection)?);
-    let mut token = parts.credentials.reserve(token_file)?;
+    let mut token = parts
+        .credentials
+        .reserve(token_file)
+        .map_err(AgentCommandError::Credentials)?;
     let reclaimed = server
         .reclaim(handle, &recovery)
         .await
         .map_err(avatar_error)?;
-    token.save(&reclaimed.token)?;
+    token
+        .save(&reclaimed.token)
+        .map_err(AgentCommandError::Credentials)?;
     parts.output.output(&format!("{}\n", reclaimed.handle));
     Ok(())
 }
@@ -105,14 +125,10 @@ pub(crate) fn lane_refused(code: &str, message: &str) -> bool {
 }
 
 // Do not echo server or transport error details for credential-bearing calls.
-fn avatar_error(error: Failure) -> String {
+fn avatar_error(error: Failure) -> AgentCommandError {
     match error {
         // A refused key keeps the message it had when it counted as lost.
-        Failure::Lost(_) | Failure::KeyRefused { .. } => {
-            "could not reach the server or read its reply".into()
-        }
-        Failure::Refused { code, .. } => {
-            format!("the server refused the avatar request ({code})")
-        }
+        Failure::Lost(_) | Failure::KeyRefused { .. } => AgentCommandError::Unreachable,
+        Failure::Refused { code, .. } => AgentCommandError::Refused { code },
     }
 }
