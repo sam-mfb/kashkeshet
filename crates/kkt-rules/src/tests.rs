@@ -2048,7 +2048,10 @@ async fn registration_stops_at_the_agent_cap_and_revoking_frees_room() {
     w.agent().await;
     let err = w.rules.register().await.expect_err("over the cap");
     assert_eq!(err.code, Code::LimitReached);
-    w.operator.revoke(a.handle.clone()).await.expect("revoke");
+    w.operator
+        .revoke(&command_line(), a.handle.clone())
+        .await
+        .expect("revoke");
     // The refused registration gave back its use of the rate limit, so this
     // is the third of three.
     w.rules.register().await.expect("room after revoking");
@@ -2066,7 +2069,11 @@ async fn a_revoked_token_is_refused_like_an_unknown_one() {
         .await
         .expect("send");
 
-    let revoked = w.operator.revoke(me.handle.clone()).await.expect("revoke");
+    let revoked = w
+        .operator
+        .revoke(&command_line(), me.handle.clone())
+        .await
+        .expect("revoke");
     assert_eq!(
         revoked,
         Revoked::Now {
@@ -2106,17 +2113,23 @@ async fn a_revoked_token_is_refused_like_an_unknown_one() {
 async fn revoking_twice_or_an_unknown_agent_is_reported() {
     let w = world().await;
     let a = w.agent().await;
-    w.operator.revoke(a.handle.clone()).await.expect("revoke");
+    w.operator
+        .revoke(&command_line(), a.handle.clone())
+        .await
+        .expect("revoke");
     w.clock.advance(Span::minutes(5));
     assert_eq!(
-        w.operator.revoke(a.handle.clone()).await.expect("again"),
+        w.operator
+            .revoke(&command_line(), a.handle.clone())
+            .await
+            .expect("again"),
         Revoked::Already {
             at: "2026-10-23T14:00:00Z".into()
         }
     );
     let err = w
         .operator
-        .revoke("no-such-agent".into())
+        .revoke(&command_line(), "no-such-agent".into())
         .await
         .expect_err("unknown");
     assert_eq!(err.code, Code::NotFound);
@@ -2138,7 +2151,10 @@ async fn reclaim_rejects_wrong_credentials_and_revoked_avatars_identically() {
     }
     // Failed attempts leave the current token usable.
     w.rules.authenticate(Some(&a.token)).await.unwrap();
-    w.operator.revoke(a.handle.clone()).await.unwrap();
+    w.operator
+        .revoke(&command_line(), a.handle.clone())
+        .await
+        .unwrap();
     errors.push(
         w.rules
             .reclaim(a.handle, a.recovery_code)
@@ -2962,7 +2978,10 @@ async fn no_recovery_code_for_a_missing_or_revoked_agent() {
         ),
         Code::NotFound
     );
-    w.operator.revoke(a.handle.clone()).await.unwrap();
+    w.operator
+        .revoke(&command_line(), a.handle.clone())
+        .await
+        .unwrap();
     assert_eq!(
         code(
             w.rules
@@ -4760,7 +4779,7 @@ async fn an_import_with_changes_needs_a_server_run_on_the_database() {
     let clock = Arc::new(FixedClock::new(
         Time::from_parts(2026, 10, 23, 14, 0, 0).unwrap(),
     ));
-    let operator = CommandLine::new(memory_db(), SwarmId::main(), clock);
+    let operator = DirectAccess::new(memory_db(), SwarmId::main(), clock);
     // Nothing to change needs no run.
     assert!(
         operator
@@ -5620,4 +5639,32 @@ async fn every_page_an_agent_or_an_admin_asks_for_is_capped_in_the_rules() {
             .unwrap();
         assert_eq!(page.items.len(), given, "an admin asking for {asked}");
     }
+}
+
+#[tokio::test]
+async fn direct_access_checks_the_operators_permissions() {
+    let w = world().await;
+    let a = w.agent().await;
+    let only = |permission| Operator::new(Permissions::of(&[permission]), Audit::CommandLine);
+    lacks(
+        w.operator
+            .revoke(&only(Permission::Read), a.handle.clone())
+            .await
+            .map(drop),
+        Permission::Change,
+    );
+    lacks(
+        w.operator.agents(&only(Permission::Change)).await.map(drop),
+        Permission::Read,
+    );
+    // The refused revocation changed nothing: the token still works.
+    let listed = w.operator.agents(&only(Permission::Read)).await.unwrap();
+    assert!(listed.iter().all(|s| s.revoked_at.is_none()));
+    assert_eq!(
+        w.operator
+            .revoke(&only(Permission::Change), a.handle.clone())
+            .await
+            .map(|r| matches!(r, Revoked::Now { .. })),
+        Ok(true)
+    );
 }

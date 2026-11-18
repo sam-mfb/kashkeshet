@@ -2665,7 +2665,7 @@
      "crate": "kkt-rules",
      "to": [
       {
-       "at": "CommandLine::new",
+       "at": "DirectAccess::new",
        "param": "clock"
       }
      ],

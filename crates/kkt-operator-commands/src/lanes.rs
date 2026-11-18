@@ -15,7 +15,7 @@ use kkt_api_agent::LaneSource;
 use kkt_api_operator::LaneSave;
 use kkt_deployment::Deployment;
 use kkt_lane_files as lane_files;
-use kkt_rules::{CommandLine, ImportedLane, LaneOutcome};
+use kkt_rules::{DirectAccess, ImportedLane, LaneOutcome};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -234,14 +234,14 @@ pub fn local_operator(
     parts: &LaneParts<'_>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
-) -> Result<(CommandLine, usize), String> {
+) -> Result<(DirectAccess, usize), String> {
     let from_file = parts.serve.config(config)?;
     let max_lane_chars = from_file.max_lane_chars;
     let path = existing_db(parts, db, from_file.db)?;
     let db = parts.database.open(&path)?;
     // Key mode: the one swarm. Lanes belong to the server, not to a swarm.
     Ok((
-        CommandLine::new(db, kkt_api_agent::SwarmId::main(), parts.clock.clone()),
+        DirectAccess::new(db, kkt_api_agent::SwarmId::main(), parts.clock.clone()),
         max_lane_chars,
     ))
 }

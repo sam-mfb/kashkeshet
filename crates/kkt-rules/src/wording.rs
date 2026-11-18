@@ -15,7 +15,9 @@ pub struct DefaultWording;
 impl OperatorWording for DefaultWording {
     fn operator(&self, audit: &Audit) -> String {
         match audit {
-            Audit::WebPage | Audit::AdminEndpoint { key_name: None } => "The operator".into(),
+            Audit::WebPage | Audit::CommandLine | Audit::AdminEndpoint { key_name: None } => {
+                "The operator".into()
+            }
             Audit::AdminEndpoint {
                 key_name: Some(name),
             } => format!("The operator (via {name})"),

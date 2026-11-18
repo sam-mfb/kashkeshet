@@ -154,7 +154,7 @@ pub(crate) struct World {
     pub(crate) clock: Arc<FixedClock>,
     pub(crate) run_id: i64,
     /// The operator, on the same database.
-    pub(crate) operator: CommandLine,
+    pub(crate) operator: DirectAccess,
     /// The world's database, to make a change to it fail on cue.
     pub(crate) faults: kkt_db::testing::FaultyBackend,
 }
@@ -197,7 +197,7 @@ pub(crate) async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) ->
         })
         .await
         .expect("record run");
-    let operator = CommandLine::new(db.clone(), SwarmId::main(), clock.clone());
+    let operator = DirectAccess::new(db.clone(), SwarmId::main(), clock.clone());
     let rules = Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
@@ -595,6 +595,19 @@ pub(crate) fn lacks(result: Result<()>, permission: Permission) {
     let e = result.expect_err("refused for lacking a permission");
     assert_eq!(e.code, Code::Unauthenticated);
     assert_eq!(e.refusal, Some(Refusal::LacksPermission(permission)));
+}
+
+/// The operator of a command run against the database file: every
+/// permission, recorded as the command line.
+pub(crate) fn command_line() -> Operator {
+    Operator::new(
+        Permissions::of(&[
+            Permission::Read,
+            Permission::Change,
+            Permission::IssueRecoveryCodes,
+        ]),
+        Audit::CommandLine,
+    )
 }
 
 /// A new agent in the swarm `rules` act in.
@@ -1459,8 +1472,11 @@ async fn the_operator_lists_agents_with_their_revocations() {
     let a = w.agent().await;
     w.clock.advance(Span::minutes(5));
     let b = w.agent().await;
-    w.operator.revoke(a.handle.clone()).await.expect("revoke");
-    let agents = w.operator.agents().await.expect("list");
+    w.operator
+        .revoke(&command_line(), a.handle.clone())
+        .await
+        .expect("revoke");
+    let agents = w.operator.agents(&command_line()).await.expect("list");
     let handles: Vec<_> = agents.iter().map(|s| s.handle.as_str()).collect();
     assert_eq!(handles, [b.handle.as_str(), a.handle.as_str()]);
     assert_eq!(agents[0].revoked_at, None);
