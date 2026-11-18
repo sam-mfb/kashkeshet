@@ -18,9 +18,14 @@ pub(crate) fn for_this_os(env: &Env) -> Box<dyn Service> {
             env.config_home().as_deref(),
         ))
     } else {
-        Box::new(kkt_bare_service::Unsupported)
+        Box::new(kkt_bare_service::Unsupported::new(UNSUPPORTED.to_string()))
     }
 }
+
+/// What `kkt service` says on a system with no service manager it works
+/// with.
+const UNSUPPORTED: &str =
+    "kkt service works with launchd on macOS and systemd on Linux, not on this system";
 
 #[cfg(test)]
 mod tests;

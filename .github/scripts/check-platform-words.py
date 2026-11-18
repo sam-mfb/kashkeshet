@@ -10,6 +10,13 @@ Ordinary comments and crate names in code paths are not read.
 Tests are left out: files named tests.rs, folders named tests, and modules
 under `#[cfg(test)]`.
 
+A platform crate's words are its caller's in another way too: a string in
+one may name a program or service kkt works with (TOOL) only when the
+crate's map description names it, because the crate is for that tool. A
+login prompt for Tailscale in the terminal crate fails; `docker compose` in
+the Docker crate passes. Test support (files named testing.rs and folders
+named testing) is left out of this rule as well, since no person sees it.
+
 It also reads the crate descriptions and layer texts concerns.json gives
 the map: a platform crate's description, and the platform layer's text,
 must not say kkt or kashkeshet, other crates' names included, and none may
@@ -41,6 +48,12 @@ NEGATIVE = re.compile(r"\bnot\b|\bnever\b|\bnothing\b|\bcannot\b|n['’]t\b", re
 # One to three short sentences: room for the longest descriptions that keep
 # the rules, with a margin.
 MAX_DESCRIPTION = 360
+# The programs and services kkt works with, as a person would see them named.
+TOOL = re.compile(
+    r"\b(tailscale|docker|compose|podman|launchd|launchctl|systemd|systemctl|journalctl|claude|"
+    r"codex|opencode|antigravity|muse code|git|sqlite|xdg-open)\b",
+    re.IGNORECASE,
+)
 TEST_MODULE = re.compile(r"#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{")
 
 
@@ -99,6 +112,25 @@ def is_test_file(path, src):
     return path.name == "tests.rs" or "tests" in relative.parts[:-1]
 
 
+def is_test_support(path, src):
+    relative = path.relative_to(src)
+    return path.name == "testing.rs" or "testing" in relative.parts[:-1]
+
+
+def tool_problems_in(text, where, own):
+    """The tools named in one file's strings that are not among `own`, the
+    tools its crate's description names: `where:line: …` for each."""
+    code = without_test_modules(without_comments(text))
+    found = []
+    for string in STRING.finditer(code):
+        body = string.group(2) if string.group(2) is not None else string.group(3)
+        for tool in sorted({t.lower() for t in TOOL.findall(body)} - own):
+            line = code.count("\n", 0, string.start()) + 1
+            found.append(f"{where}:{line}: a string names {tool}, which the crate's description does not: "
+                         f"{string.group(0)[:80]}")
+    return found
+
+
 def problems_in(text, where):
     """The kkt words in one file's code: `where:line: …` for each."""
     code = without_test_modules(without_comments(text))
@@ -151,12 +183,17 @@ def description_problems(root):
 
 def problems(root):
     found = description_problems(root)
+    concerns = json.loads((root / "docs/architecture/concerns.json").read_text())
     for crate in platform_crates(root):
+        own = {t.lower() for t in TOOL.findall(concerns["crates"][crate].get("concern", ""))}
         src = root / "crates" / crate / "src"
         for path in sorted(src.rglob("*.rs")):
             if is_test_file(path, src):
                 continue
-            found += problems_in(path.read_text(), str(path.relative_to(root)))
+            text, where = path.read_text(), str(path.relative_to(root))
+            found += problems_in(text, where)
+            if not is_test_support(path, src):
+                found += tool_problems_in(text, where, own)
     return found
 
 
@@ -165,8 +202,9 @@ def main():
     found = problems(root)
     if found:
         print("check-platform-words: a platform crate names kkt (it must know nothing of kkt, "
-              "so the caller passes kkt's words in), or a crate's map description says kkt "
-              "where it may not, gives history, says what it is not, or runs long:", file=sys.stderr)
+              "so the caller passes kkt's words in), or a tool its description does not name, "
+              "or a crate's map description says kkt where it may not, gives history, says "
+              "what it is not, or runs long:", file=sys.stderr)
         for line in found:
             print(line, file=sys.stderr)
         sys.exit(1)

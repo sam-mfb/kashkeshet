@@ -870,7 +870,7 @@ fn every_question_about_the_domain_reports_a_missing_login_session() {
     ];
     for result in results {
         let err = result.expect_err("no login session");
-        assert!(matches!(err, ServiceError::NoLoginSession), "{err}");
+        assert!(matches!(err, ServiceError::NoLoginSession { .. }), "{err}");
     }
 }
 
@@ -902,12 +902,23 @@ fn a_missing_login_session_is_told_apart_from_a_service_not_loaded() {
 
 #[test]
 fn a_missing_login_session_is_said_in_plain_words() {
-    let said = ServiceError::NoLoginSession.to_string();
-    assert!(said.contains("logged in at this Mac's desktop"), "{said}");
-    assert!(said.contains("`kkt serve`"), "{said}");
-    assert!(
-        !said.contains("launchctl") && !said.contains("domain"),
-        "{said}"
+    let system = Fake::default()
+        .with_file(PLIST)
+        .answer(PRINT, NO_DOMAIN, "", NO_DOMAIN_SAID);
+    let err = mac().state(&system).expect_err("no login session");
+    let ServiceError::NoLoginSession { refusal, fact } = &err else {
+        panic!("{err}");
+    };
+    assert_eq!(
+        err.to_string(),
+        "kkt's service runs while you are logged in at this Mac's desktop, and this user is not \
+         logged in there now. Log in at the desktop and run the command again, or run `kkt serve` \
+         yourself instead."
+    );
+    assert_eq!(&err.to_string(), refusal);
+    assert_eq!(
+        fact,
+        "no one is logged in at this Mac's desktop, so the service cannot be asked"
     );
 }
 
@@ -915,6 +926,6 @@ fn a_missing_login_session_is_said_in_plain_words() {
 fn an_install_without_a_login_session_leaves_no_service_file() {
     let system = Fake::default().answer(PRINT, NO_DOMAIN, "", NO_DOMAIN_SAID);
     let err = install(&mac(), &system, &mac_spec()).expect_err("no login session");
-    assert!(matches!(err, ServiceError::NoLoginSession), "{err}");
+    assert!(matches!(err, ServiceError::NoLoginSession { .. }), "{err}");
     assert!(system.file(PLIST).is_none());
 }
