@@ -1339,6 +1339,40 @@ mod flow {
     }
 
     #[test]
+    fn a_malformed_key_is_refused_word_for_word_before_any_check() {
+        for (typed, refusal) in [
+            (
+                "short",
+                "that key is not valid: access_key_file must hold a key of at least 32 \
+                 characters",
+            ),
+            (
+                "0123456789abcdef 0123456789abcdef",
+                "that key is not valid: access_key_file must hold only printable ASCII with no \
+                 spaces",
+            ),
+        ] {
+            let ask = Script::with(vec![Reply::Text(typed), Reply::Text(KEY)]);
+            let steps = Fake::default();
+            let answers = Answers {
+                key_file: None,
+                ..client_flags()
+            };
+            run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
+            assert_eq!(ask.told.borrow()[0], refusal, "{typed}");
+            assert_eq!(*ask.asked.borrow(), ["--key-file", "--key-file"], "{typed}");
+            assert_eq!(
+                steps.checked(),
+                [
+                    "address https://kkt.tail1234.ts.net/mcp".to_string(),
+                    format!("key typed {KEY} for https://kkt.tail1234.ts.net/mcp"),
+                ],
+                "{typed}"
+            );
+        }
+    }
+
+    #[test]
     fn a_malformed_key_is_asked_for_again_without_a_check() {
         let ask = Script::with(vec![Reply::Text("short"), Reply::Text(KEY)]);
         let steps = Fake::default();
