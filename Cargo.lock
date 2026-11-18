@@ -1083,7 +1083,6 @@ dependencies = [
  "kkt-probe",
  "kkt-provenance",
  "kkt-remote-access-tailscale",
- "kkt-result-format",
  "kkt-revision",
  "kkt-rolling-file",
  "kkt-rules",
@@ -1376,7 +1375,6 @@ dependencies = [
  "kkt-log-tracing",
  "kkt-mcp",
  "kkt-names",
- "kkt-result-format",
  "kkt-rules",
  "kkt-server",
  "kkt-shutdown",
@@ -1475,7 +1473,6 @@ dependencies = [
  "kkt-mcp",
  "kkt-names",
  "kkt-provenance",
- "kkt-result-format",
  "kkt-rules",
  "kkt-server",
  "kkt-shutdown",
@@ -1571,7 +1568,6 @@ dependencies = [
  "kkt-identity-keymode",
  "kkt-log",
  "kkt-names",
- "kkt-result-format",
  "kkt-rules",
  "kkt-shutdown",
  "kkt-toml",
@@ -1579,6 +1575,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tokio-util",
  "tower",
@@ -1636,20 +1633,6 @@ dependencies = [
  "kkt-remote-access",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "kkt-result-format"
-version = "0.10.0"
-dependencies = [
- "kkt-api-admin",
- "kkt-api-agent",
- "kkt-api-operator",
- "kkt-clock",
- "kkt-names",
- "kkt-rules",
- "serde_json",
- "thiserror",
 ]
 
 [[package]]
@@ -1714,7 +1697,6 @@ dependencies = [
  "kkt-mcp",
  "kkt-names",
  "kkt-provenance",
- "kkt-result-format",
  "kkt-rules",
  "kkt-shutdown",
  "kkt-web",

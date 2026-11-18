@@ -18,6 +18,7 @@ use crate::format_choice::{FormatChoice, chosen};
 use crate::mcp_tools::{self, with_limits, with_text};
 use crate::mcp_transport::Transport;
 use crate::principal;
+use crate::result_format::{Format, Formatter};
 use crate::tool_text;
 use axum::Router;
 use kkt_api_admin::AdminApi;
@@ -27,7 +28,6 @@ use kkt_api_agent::{
 use kkt_api_operator::{ChannelChange, LaneSave};
 use kkt_identity::Identify;
 use kkt_log::{Field, Level, Log};
-use kkt_result_format::{Format, Formatter};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::service::RequestContext;

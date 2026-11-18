@@ -240,7 +240,7 @@ struct Settings {
     bind: SocketAddr,
     allow_any_bind: bool,
     rules: kkt_rules::Settings,
-    formatter: kkt_result_format::Settings,
+    formatter: kkt_mcp::result_format::Settings,
     web: kkt_web::Settings,
     backups: kkt_backup::Settings,
     allow_origins: Vec<String>,
@@ -331,10 +331,10 @@ fn settings(args: &Args) -> Result<Settings, String> {
             max_memory_chars: config.max_memory_chars.unwrap_or(defaults.max_memory_chars),
             ..defaults
         },
-        formatter: kkt_result_format::Settings {
+        formatter: kkt_mcp::result_format::Settings {
             max_response_bytes: config
                 .max_response_bytes
-                .unwrap_or(kkt_result_format::Settings::DEFAULT.max_response_bytes),
+                .unwrap_or(kkt_mcp::result_format::Settings::DEFAULT.max_response_bytes),
         },
         web: kkt_web::Settings::DEFAULT,
         backups: kkt_backup::Settings {
