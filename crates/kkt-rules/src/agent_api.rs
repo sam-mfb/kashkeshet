@@ -10,6 +10,13 @@ impl Rules {
     pub fn limits(&self) -> Limits {
         self.settings().limits()
     }
+
+    /// A page size an agent or an admin asked for, kept between 1 and
+    /// `max_limit`: every page the agent and admin operations give is
+    /// capped here, whoever calls them.
+    pub(crate) fn page_size(&self, limit: usize) -> usize {
+        limit.clamp(1, self.settings().max_limit)
+    }
 }
 
 impl Settings {
@@ -96,7 +103,14 @@ impl Agents for Rules {
         limit: usize,
         cursor: Option<String>,
     ) -> Answer<'a, Page<AgentInfo>> {
-        Box::pin(Rules::list_agents(self, me, query, lane, limit, cursor))
+        Box::pin(Rules::list_agents(
+            self,
+            me,
+            query,
+            lane,
+            self.page_size(limit),
+            cursor,
+        ))
     }
 }
 
@@ -110,6 +124,10 @@ impl Channels for Rules {
         me: &'a Agent,
         q: ChannelQuery,
     ) -> Answer<'a, Page<ChannelInfo>> {
+        let q = ChannelQuery {
+            limit: self.page_size(q.limit),
+            ..q
+        };
         Box::pin(Rules::list_channels(self, me, q))
     }
 
@@ -176,7 +194,13 @@ impl Channels for Rules {
         limit: usize,
         cursor: Option<String>,
     ) -> Answer<'a, Members> {
-        Box::pin(Rules::list_members(self, me, channel_id, limit, cursor))
+        Box::pin(Rules::list_members(
+            self,
+            me,
+            channel_id,
+            self.page_size(limit),
+            cursor,
+        ))
     }
 }
 
@@ -186,6 +210,10 @@ impl Messages for Rules {
     }
 
     fn read<'a>(&'a self, me: &'a Agent, q: ReadQuery) -> Answer<'a, MessagePage> {
+        let q = ReadQuery {
+            limit: self.page_size(q.limit),
+            ..q
+        };
         Box::pin(Rules::read(self, me, q))
     }
 
@@ -194,6 +222,10 @@ impl Messages for Rules {
     }
 
     fn search<'a>(&'a self, me: &'a Agent, q: SearchQuery) -> Answer<'a, Vec<SearchHit>> {
+        let q = SearchQuery {
+            limit: self.page_size(q.limit),
+            ..q
+        };
         Box::pin(Rules::search(self, me, q))
     }
 
@@ -202,6 +234,10 @@ impl Messages for Rules {
     }
 
     fn wait_for_messages<'a>(&'a self, me: &'a Agent, q: WaitQuery) -> Answer<'a, WaitResult> {
+        let q = WaitQuery {
+            limit: self.page_size(q.limit),
+            ..q
+        };
         Box::pin(Rules::wait_for_messages(self, me, q))
     }
 }
@@ -230,7 +266,12 @@ impl Memory for Rules {
         limit: usize,
         cursor: Option<String>,
     ) -> Answer<'a, MemoryList> {
-        Box::pin(Rules::list_memories(self, me, limit, cursor))
+        Box::pin(Rules::list_memories(
+            self,
+            me,
+            self.page_size(limit),
+            cursor,
+        ))
     }
 }
 
@@ -244,6 +285,10 @@ impl kkt_api_agent::Lanes for Rules {
     }
 
     fn takeable_lanes_page(&self, limit: usize, cursor: Option<String>) -> Answer<'_, Page<Lane>> {
-        Box::pin(Rules::takeable_lanes_page(self, limit, cursor))
+        Box::pin(Rules::takeable_lanes_page(
+            self,
+            self.page_size(limit),
+            cursor,
+        ))
     }
 }
