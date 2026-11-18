@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "3c4674eb",
+ "commit": "3cccb583",
  "crates": [
   {
    "bins": [
@@ -126,6 +126,12 @@ window.KKT_GRAPH = {
      "trait": "Browser",
      "trait_crate": "kkt-container-docker",
      "type": null
+    },
+    {
+     "crate": "kashkeshet",
+     "trait": "SharingNode",
+     "trait_crate": "kkt-containerized-service",
+     "type": "machine::sharing_node::TailscaleNode"
     },
     {
      "crate": "kashkeshet",
@@ -623,6 +629,16 @@ window.KKT_GRAPH = {
      "doc": "What kkt-server builds with, from `options`: each config key and flag onto one `ServerSettings` field, and its default where none is given.",
      "kind": "fn",
      "path": "machine::settings::server_settings"
+    },
+    {
+     "doc": "Adapts kkt-remote-access-tailscale's reader of Tailscale's status answer to the sharing node kkt-containerized-service reads a shared install's login through.",
+     "kind": "mod",
+     "path": "machine::sharing_node"
+    },
+    {
+     "doc": "The Tailscale container a shared install runs, as Tailscale's own reader reads its status answer.",
+     "kind": "struct",
+     "path": "machine::sharing_node::TailscaleNode"
     },
     {
      "doc": "This program's path, as this machine gives it, and how kkt words a failure to find it.",
@@ -5478,6 +5494,15 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kashkeshet",
+       "type": "machine::sharing_node::TailscaleNode"
+      }
+     ],
+     "trait": "SharingNode"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
        "type": null
       }
      ],
@@ -5494,6 +5519,10 @@ window.KKT_GRAPH = {
       {
        "crate": "kkt-containerized-service",
        "trait": "Tell"
+      },
+      {
+       "crate": "kkt-containerized-service",
+       "trait": "SharingNode"
       }
      ],
      "type": "Containerized"
@@ -5517,6 +5546,24 @@ window.KKT_GRAPH = {
      "path": "Containerized"
     },
     {
+     "doc": "Where a sharing node's login stands, as its status answer says.",
+     "kind": "enum",
+     "path": "NodeLogin",
+     "variants": [
+      "LoggedIn",
+      "NeedsLogin",
+      "Other"
+     ]
+    },
+    {
+     "doc": "Reads what the node that shares the server says of itself, whatever shares it.",
+     "kind": "trait",
+     "methods": [
+      "login"
+     ],
+     "path": "SharingNode"
+    },
+    {
      "doc": "Tells the person running kkt one line.",
      "kind": "trait",
      "methods": [
@@ -5535,6 +5582,17 @@ window.KKT_GRAPH = {
     {
      "at": "Containerized::new",
      "kind": "param",
+     "name": "sharing",
+     "traits": [
+      {
+       "crate": "kkt-containerized-service",
+       "trait": "SharingNode"
+      }
+     ]
+    },
+    {
+     "at": "Containerized::new",
+     "kind": "param",
      "name": "tell",
      "traits": [
       {
@@ -5546,8 +5604,7 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
-    "futures",
-    "serde_json"
+    "futures"
    ]
   },
   {
@@ -13635,10 +13692,26 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
+     "doc": "What a Tailscale node's status answer says, in Tailscale's terms (`Tailscale::read_status`).",
+     "fields": [
+      "backend_state",
+      "auth_url",
+      "dns_name",
+      "cert_domains"
+     ],
+     "kind": "struct",
+     "methods": [
+      "needs_login",
+      "running"
+     ],
+     "path": "Status"
+    },
+    {
      "doc": "Shares this machine's server through its existing Tailscale login.",
      "kind": "struct",
      "methods": [
-      "new"
+      "new",
+      "read_status"
      ],
      "path": "Tailscale"
     }
@@ -19330,6 +19403,8 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Containerized",
+    "NodeLogin",
+    "SharingNode",
     "Tell"
    ],
    "kind": "normal",
@@ -19338,9 +19413,16 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "machine::sharing_node::TailscaleNode implements SharingNode",
       "a type of its own implements Tell"
      ],
      "role": "adapts"
+    },
+    {
+     "detail": [
+      "NodeLogin"
+     ],
+     "role": "uses"
     },
     {
      "detail": [
@@ -29413,7 +29495,7 @@ window.KKT_CONCERNS = {
    "layer": "operations"
   },
   "kkt-containerized-service": {
-   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, starting and stopping the service, its status and name pack, runs of the server's program in its container, reading its config home, backups and the web key's comparison, and hands the operations it does not do itself to a fallback `Container`.",
+   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, starting and stopping the service, its status and name pack, runs of the server's program in its container, reading its config home, backups and the web key's comparison, and hands the operations it does not do itself to a fallback `Container`. What a sharing node's status answer says of its login comes from the `SharingNode` it declares.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -29568,7 +29650,7 @@ window.KKT_CONCERNS = {
    "layer": "platform"
   },
   "kkt-remote-access-tailscale": {
-   "concern": "Implements the remote-access contract over the host's Tailscale login: tailscale's commands and what their answers mean.",
+   "concern": "Implements the remote-access contract over the host's Tailscale login: tailscale's commands and what their answers mean; and reads a status answer a caller got wherever Tailscale runs.",
    "kind": "effect",
    "layer": "platform"
   },
@@ -31442,6 +31524,23 @@ window.KKT_ASSEMBLY = {
       {
        "at": "Containerized::new",
        "param": "tell"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-containerized-service",
+     "note": "kkt status, for a shared install: whether its Tailscale container is logged in",
+     "own": "TailscaleNode, a shared install's Tailscale login read from the Tailscale container's status answer by kkt-remote-access-tailscale's reader",
+     "suppliers": [
+      {
+       "crate": "kkt-remote-access-tailscale",
+       "item": "Tailscale"
+      }
+     ],
+     "to": [
+      {
+       "at": "Containerized::new",
+       "param": "sharing"
       }
      ]
     },

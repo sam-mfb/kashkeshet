@@ -361,3 +361,61 @@ fn the_refusals_name_the_command_their_caller_gives() {
     assert!(error.contains("rerun `other init`"), "{error}");
     assert!(!error.contains("kkt"), "{error}");
 }
+
+#[test]
+fn a_status_answer_reads_as_tailscale_says_it() {
+    let answer = json!({
+        "BackendState": "NeedsLogin",
+        "AuthURL": "https://login.tailscale.com/a/abc",
+        "Self": {"DNSName": "node-1.tail1234.ts.net."},
+        "CertDomains": ["node-1.tail1234.ts.net", 7],
+    });
+    assert_eq!(
+        Tailscale::read_status(&answer.to_string()),
+        Ok(Status {
+            backend_state: "NeedsLogin".into(),
+            auth_url: Some("https://login.tailscale.com/a/abc".into()),
+            dns_name: Some("node-1.tail1234.ts.net".into()),
+            cert_domains: vec!["node-1.tail1234.ts.net".into()],
+        })
+    );
+}
+
+#[test]
+fn a_status_answer_needs_only_its_backend_state() {
+    let answer = json!({"BackendState": "Running", "AuthURL": "", "Self": {}});
+    assert_eq!(
+        Tailscale::read_status(&answer.to_string()),
+        Ok(Status {
+            backend_state: "Running".into(),
+            auth_url: None,
+            dns_name: None,
+            cert_domains: Vec::new(),
+        })
+    );
+}
+
+#[test]
+fn a_status_answer_without_a_backend_state_cannot_be_read() {
+    assert_eq!(
+        Tailscale::read_status(r#"{"BackendState": 3}"#),
+        Err("no BackendState".to_string())
+    );
+    assert_eq!(
+        Tailscale::read_status("{}"),
+        Err("no BackendState".to_string())
+    );
+    let not_json = Tailscale::read_status("not json").expect_err("not json");
+    assert!(not_json.starts_with("expected"), "{not_json}");
+}
+
+#[test]
+fn a_status_says_whether_the_node_runs_or_waits_for_a_login() {
+    let read = |state: &str| {
+        Tailscale::read_status(&json!({"BackendState": state}).to_string()).expect("readable")
+    };
+    assert!(read("Running").running() && !read("Running").needs_login());
+    assert!(read("NeedsLogin").needs_login() && !read("NeedsLogin").running());
+    let starting = read("Starting");
+    assert!(!starting.running() && !starting.needs_login());
+}

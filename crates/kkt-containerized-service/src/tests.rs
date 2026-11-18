@@ -1,7 +1,7 @@
 //! Containerized over projects in memory: the managed folder's reads, the
 //! service's start and stop, and what it hands to its fallback.
 
-use crate::{Containerized, Tell};
+use crate::{Containerized, NodeLogin, SharingNode, Tell};
 use futures::executor::block_on;
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
@@ -59,6 +59,7 @@ fn over<P: Projects>(
         projects,
         Memory::new(None, String::new()),
         Box::new(said),
+        Box::new(Node),
         working_dir,
     )
 }
@@ -689,16 +690,28 @@ fn a_name_pack_with_no_container_is_unidentified() {
     );
 }
 
+/// A sharing node whose status answer is its login in a word: `in`,
+/// `out` or any other state; an empty answer cannot be read.
+struct Node;
+
+impl SharingNode for Node {
+    fn login(&self, answer: &str) -> Option<NodeLogin> {
+        match answer {
+            "" => None,
+            "in" => Some(NodeLogin::LoggedIn),
+            "out" => Some(NodeLogin::NeedsLogin),
+            other => Some(NodeLogin::Other(other.to_string())),
+        }
+    }
+}
+
 #[test]
 fn a_shared_installs_status_says_whether_tailscale_is_logged_in() {
     for (said, login) in [
-        (r#"{"BackendState":"Running"}"#, Login::LoggedIn),
-        (r#"{"BackendState":"NeedsLogin"}"#, Login::NeedsLogin),
-        (
-            r#"{"BackendState":"Starting"}"#,
-            Login::Other("Starting".into()),
-        ),
-        ("not json", Login::Other("an unreadable answer".into())),
+        ("in", Login::LoggedIn),
+        ("out", Login::NeedsLogin),
+        ("Starting", Login::Other("Starting".into())),
+        ("", Login::Other("an unreadable answer".into())),
     ] {
         let projects =
             tailscale(TAILSCALE_ENV).answering(move |_| Ok((Some(0), said.into(), String::new())));

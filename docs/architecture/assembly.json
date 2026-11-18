@@ -439,6 +439,23 @@
      "note": "what the containerized service tells the person, such as a work folder in the container it could not remove"
     },
     {
+     "own": "TailscaleNode, a shared install's Tailscale login read from the Tailscale container's status answer by kkt-remote-access-tailscale's reader",
+     "suppliers": [
+      {
+       "crate": "kkt-remote-access-tailscale",
+       "item": "Tailscale"
+      }
+     ],
+     "crate": "kkt-containerized-service",
+     "to": [
+      {
+       "at": "Containerized::new",
+       "param": "sharing"
+      }
+     ],
+     "note": "kkt status, for a shared install: whether its Tailscale container is logged in"
+    },
+    {
      "own": "HereLanes, picking the server kkt lanes acts on from what is installed here: ContainerLanes, kkt lanes run in the container over kkt-containerized-service's Containerized, or kkt-operator-commands' LocalLanes",
      "suppliers": [
       {

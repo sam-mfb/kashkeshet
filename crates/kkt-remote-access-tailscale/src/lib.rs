@@ -34,6 +34,68 @@ impl Tailscale {
     fn runner(&self) -> runner::OsRunner {
         runner::OsRunner { rerun: self.rerun }
     }
+
+    /// What an answer of `tailscale status --json` says, read from its
+    /// text. It runs nothing: the caller asked Tailscale, wherever it runs.
+    /// Only `BackendState` must be there; the other fields are `None` or
+    /// empty when they are missing, empty or not text. The error says why
+    /// the answer could not be read.
+    pub fn read_status(text: &str) -> Result<Status, String> {
+        let json: Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        let backend_state = json["BackendState"]
+            .as_str()
+            .ok_or("no BackendState")?
+            .to_string();
+        let non_empty = |v: &Value| v.as_str().filter(|s| !s.is_empty()).map(str::to_string);
+        Ok(Status {
+            backend_state,
+            auth_url: non_empty(&json["AuthURL"]),
+            dns_name: non_empty(&json["Self"]["DNSName"])
+                .map(|name| name.trim_end_matches('.').to_string()),
+            cert_domains: json["CertDomains"]
+                .as_array()
+                .map(|domains| {
+                    domains
+                        .iter()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default(),
+        })
+    }
+}
+
+/// What a Tailscale node's status answer says, in Tailscale's terms
+/// ([`Tailscale::read_status`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Status {
+    /// The node's state: `Running` once logged in, `NeedsLogin` while it
+    /// waits for a login, or another of Tailscale's states.
+    pub backend_state: String,
+    /// The link to log in with, while one is needed.
+    pub auth_url: Option<String>,
+    /// The node's full name on the tailnet, without the trailing dot.
+    pub dns_name: Option<String>,
+    /// The names HTTPS certificates can be issued for; empty when the
+    /// tailnet has not enabled HTTPS.
+    pub cert_domains: Vec<String>,
+}
+
+/// The backend state of a node that is logged in and running.
+const RUNNING: &str = "Running";
+/// The backend state of a node that waits for someone to log in.
+const NEEDS_LOGIN: &str = "NeedsLogin";
+
+impl Status {
+    /// Whether the node is logged in and running.
+    pub fn running(&self) -> bool {
+        self.backend_state == RUNNING
+    }
+
+    /// Whether the node waits for someone to log in.
+    pub fn needs_login(&self) -> bool {
+        self.backend_state == NEEDS_LOGIN
+    }
 }
 
 impl kkt_remote_access::RemoteAccess for Tailscale {
@@ -51,8 +113,10 @@ impl kkt_remote_access::RemoteAccess for Tailscale {
     }
 }
 
+/// The status answer as sharing this machine's server checks it: every
+/// field it needs must be there and well formed.
 #[derive(Deserialize)]
-struct Status {
+struct NodeReport {
     #[serde(rename = "BackendState")]
     backend_state: String,
     #[serde(rename = "Self")]
@@ -75,14 +139,14 @@ fn prepare(host: &dyn Runner, rerun: &str) -> Result<Node, String> {
 fn node(host: &dyn Runner, https: bool, rerun: &str) -> Result<Node, String> {
     let output = host.run(&["status".into(), "--json".into()])?;
     // Tailscale may exit nonzero while logged out but still return status JSON.
-    let status: Status = serde_json::from_str(&output.stdout).map_err(|e| {
+    let status: NodeReport = serde_json::from_str(&output.stdout).map_err(|e| {
         format!(
             "could not read Tailscale status; start Tailscale and log in, then rerun {rerun} \
              (its output could not be read: {})",
             json_cause(&e)
         )
     })?;
-    if status.backend_state != "Running" {
+    if status.backend_state != RUNNING {
         return Err(format!(
             "Tailscale is {}; open Tailscale and log in (or run `tailscale up`), then rerun {rerun}",
             status.backend_state

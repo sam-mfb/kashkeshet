@@ -6,6 +6,7 @@
 use crate::files::{ENV_FILE, TAILSCALE_COMPOSE_FILE, version_in_env};
 use crate::in_server::SERVER;
 use crate::services::worded;
+use crate::{NodeLogin, SharingNode};
 use kkt_container::{
     ConfigReader, FileState, Login, Output, Project, ProjectError, Projects, State, User,
 };
@@ -22,6 +23,7 @@ const SHARING: &str = "tailscale";
 pub(crate) fn status(
     projects: &dyn Projects,
     project: &Project,
+    sharing: &dyn SharingNode,
     reader: &dyn ConfigReader,
     default_name_pack: &str,
     config_file: &Path,
@@ -45,7 +47,7 @@ pub(crate) fn status(
         .lines()
         .any(|l| l.trim() == format!("COMPOSE_FILE={TAILSCALE_COMPOSE_FILE}"));
     let login = if tailscale {
-        Some(login_state(projects, project)?)
+        Some(login_state(projects, project, sharing)?)
     } else {
         None
     };
@@ -66,7 +68,11 @@ pub(crate) fn status(
 }
 
 /// Asks the Tailscale container whether it is logged in.
-fn login_state(projects: &dyn Projects, project: &Project) -> Result<Login, String> {
+fn login_state(
+    projects: &dyn Projects,
+    project: &Project,
+    sharing: &dyn SharingNode,
+) -> Result<Login, String> {
     let ran = projects
         .exec(
             project,
@@ -79,15 +85,10 @@ fn login_state(projects: &dyn Projects, project: &Project) -> Result<Login, Stri
     if !ran.success() {
         return Ok(Login::Unreachable);
     }
-    // What the answer means moves to the Tailscale crate in a later step;
-    // only its backend state is read here.
-    let state = serde_json::from_str::<serde_json::Value>(&ran.stdout)
-        .ok()
-        .and_then(|json| json["BackendState"].as_str().map(str::to_string));
-    Ok(match state.as_deref() {
-        Some("Running") => Login::LoggedIn,
-        Some("NeedsLogin") => Login::NeedsLogin,
-        Some(other) => Login::Other(other.to_string()),
+    Ok(match sharing.login(&ran.stdout) {
+        Some(NodeLogin::LoggedIn) => Login::LoggedIn,
+        Some(NodeLogin::NeedsLogin) => Login::NeedsLogin,
+        Some(NodeLogin::Other(state)) => Login::Other(state),
         None => Login::Other("an unreadable answer".to_string()),
     })
 }
