@@ -469,4 +469,73 @@ mod tests {
             )
         );
     }
+
+    /// Lane files in memory, under `/work`.
+    struct Files(Vec<(&'static str, &'static str)>);
+
+    impl lane_files::Disk for Files {
+        fn file_names(&self, folder: &Path) -> std::io::Result<Vec<String>> {
+            Ok(self
+                .0
+                .iter()
+                .map(|(path, _)| Path::new(path))
+                .filter(|path| path.parent() == Some(folder))
+                .filter_map(|path| path.file_name()?.to_str().map(str::to_string))
+                .collect())
+        }
+        fn read(&self, path: &Path) -> std::io::Result<String> {
+            self.0
+                .iter()
+                .find(|(at, _)| Path::new(at) == path)
+                .map(|(_, text)| text.to_string())
+                .ok_or_else(|| std::io::Error::other("no such file"))
+        }
+        fn create_dir_all(&self, _: &Path) -> std::io::Result<()> {
+            unreachable!("nothing is written")
+        }
+        fn write(&self, _: &Path, _: &str) -> std::io::Result<()> {
+            unreachable!("nothing is written")
+        }
+        fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
+            Ok(Path::new("/work").join(path))
+        }
+    }
+
+    struct Quiet;
+    impl crate::Output for Quiet {
+        fn output(&self, _: std::fmt::Arguments<'_>) {}
+        fn errors(&self, _: std::fmt::Arguments<'_>) {}
+    }
+
+    /// The two refusals that print a lane rule's message alone, word for
+    /// word: retiring every lane, and a lane the rules refuse, named by its
+    /// folder.
+    #[test]
+    fn the_lane_rules_refusals_are_pinned() {
+        let commits = kkt_lane_files::testing::Memory::new();
+        let notes = Files(vec![("/work/lanes/notes.md", "# Notes")]);
+        assert_eq!(
+            read_lanes_warning(&notes, &commits, &Quiet, Path::new("lanes"), true)
+                .map(|_| ())
+                .map_err(|e| e.to_string()),
+            Err(
+                "/work/lanes has no lane files, only skipped .md files, so --retire-missing would \
+                 retire every lane; name the folder that holds the lanes"
+                    .to_string()
+            )
+        );
+        let long = Files(vec![(
+            "/work/lanes/reviewer.md",
+            "---\nname: reviewer\ndescription: Reviews.\n---\n\nRead every line carefully.\n",
+        )]);
+        assert_eq!(
+            check_lanes_folder(&long, &commits, &Quiet, Path::new("lanes"), 5)
+                .map(|_| ())
+                .map_err(|e| e.to_string()),
+            Err(
+                "/work/lanes: lane reviewer: the lane's instructions must be at most 5 characters"
+                    .to_string()
+            )
+        );
+    }
 }
