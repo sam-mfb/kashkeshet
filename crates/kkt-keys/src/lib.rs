@@ -16,8 +16,7 @@ pub mod testing;
 pub use admin_name::{admin_name_line, admin_name_written, bound_in, bound_to};
 pub use files::{KeyFiles, ReadError, SelectedKeys};
 pub use place::{
-    ACCESS_KEY_FILE_MODE, ACCESS_KEY_FILE_NAME, ADMIN_KEY_COPY_FILE_NAME, ADMIN_KEY_FILE_NAME,
-    ADMIN_NAME_FILE_SUFFIX, NO_ADMIN_KEY_EXIT, WEB_KEY_COPY_FILE_NAME, WEB_KEY_FILE_NAME,
+    ACCESS_KEY_FILE_MODE, ADMIN_KEY_COPY_FILE_NAME, NO_ADMIN_KEY_EXIT, WEB_KEY_COPY_FILE_NAME,
     access_key_file, admin_key_path, admin_name_path, web_key_path,
 };
 
