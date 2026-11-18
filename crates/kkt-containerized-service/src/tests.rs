@@ -1,11 +1,11 @@
-//! Containerized over projects in memory: the managed folder's reads, the
-//! service's start and stop, and what it hands to its fallback.
+//! Containerized over projects in memory: each operation it does, and how
+//! each can fail.
 
 use crate::{Containerized, NodeLogin, NodeStatus, SharingNode, Tell};
 use futures::executor::block_on;
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
-use kkt_container::testing::{Memory, MemoryProjects, Request};
+use kkt_container::testing::{MemoryProjects, Request};
 use kkt_container::{
     Arg, Carry, ConfigReader, Container, ContainerConfig, Existing, FileAction, Folder, InServer,
     KeyCopy, Login, Output, Project, ProjectError, ProjectFile, Projects, Ran, ServiceConfig,
@@ -26,7 +26,7 @@ fn at(name: &str) -> PathBuf {
     Path::new(FOLDER).join(name)
 }
 
-fn service(projects: MemoryProjects) -> Containerized<MemoryProjects, Memory> {
+fn service(projects: MemoryProjects) -> Containerized<MemoryProjects> {
     working_in(projects, Ok(PathBuf::from("/home/me"))).0
 }
 
@@ -45,7 +45,7 @@ impl Tell for Said {
 fn working_in(
     projects: MemoryProjects,
     working_dir: Result<PathBuf, String>,
-) -> (Containerized<MemoryProjects, Memory>, Said) {
+) -> (Containerized<MemoryProjects>, Said) {
     let said = Said::default();
     (over(projects, said.clone(), working_dir), said)
 }
@@ -54,10 +54,9 @@ fn over<P: Projects>(
     projects: P,
     said: Said,
     working_dir: Result<PathBuf, String>,
-) -> Containerized<P, Memory> {
+) -> Containerized<P> {
     Containerized::new(
         projects,
-        Memory::new(None, String::new()),
         Box::new(said),
         Box::new(Node),
         Box::new(NoBrowser),
@@ -66,7 +65,7 @@ fn over<P: Projects>(
     )
 }
 
-fn failing(error: ProjectError) -> Containerized<Failing, Memory> {
+fn failing(error: ProjectError) -> Containerized<Failing> {
     over(
         Failing(error),
         Said::default(),
@@ -353,21 +352,6 @@ fn a_tool_that_cannot_run_is_not_available_by_its_name_and_a_failure_says_how() 
         &io::Error::other("gone"),
     ));
     assert_eq!(file.up(&folder()), Err("could not read /x: gone".into()));
-}
-
-// ----------------------------------------------------------------- fallback
-
-#[test]
-fn nothing_goes_to_the_fallback() {
-    let (service, _, clock) = installed(
-        Rc::new(kkt_keys::testing::Memory::new()),
-        LOCAL_SETTINGS,
-        with_backup(server(no_admin(), vec![])),
-    );
-    block_on(service.upgrade(&*clock, &folder(), "0.5.0", None)).unwrap();
-    let _ = block_on(service.add_admin_key(&*clock, &folder(), &key_copies(), "kkt-admin"));
-    assert!(!service.projects.log().is_empty());
-    assert!(service.fallback.calls().is_empty());
 }
 
 // ----------------------------------------------------------------- runs in the server
@@ -879,7 +863,6 @@ fn set_up(
     let keys = Rc::new(keys);
     let service = Containerized::new(
         projects,
-        Memory::new(None, String::new()),
         Box::new(said.clone()),
         Box::new(Node),
         Box::new(NoBrowser),
@@ -1110,7 +1093,7 @@ fn installed(
     env: &str,
     answer: impl Fn(&Request) -> Result<(Option<i32>, String, String), ProjectError> + 'static,
 ) -> (
-    Containerized<MemoryProjects, Memory>,
+    Containerized<MemoryProjects>,
     Said,
     std::sync::Arc<FixedClock>,
 ) {
@@ -1127,7 +1110,6 @@ fn installed(
     let said = Said::default();
     let service = Containerized::new(
         projects,
-        Memory::new(None, String::new()),
         Box::new(said.clone()),
         Box::new(Node),
         Box::new(NoBrowser),

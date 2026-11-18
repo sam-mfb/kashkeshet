@@ -419,7 +419,7 @@
       }
      ],
      "impl": "kkt-containerized-service::Containerized",
-     "note": "kkt's containerized service, over Docker as the general Projects, injected into the install commands. It still takes a Docker as its fallback, and hands it nothing."
+     "note": "kkt's containerized service, over Docker as the general Projects, injected into the install commands."
     },
     {
      "own": "TerminalTell, the containerized service's lines on kkt-terminal's standard output, a line each",
@@ -1242,23 +1242,6 @@
       }
      ],
      "note": "in AgentParts' connection, which each command reads"
-    },
-    {
-     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container-docker's Browser",
-     "suppliers": [
-      {
-       "crate": "kkt-browser",
-       "item": "SystemBrowser"
-      }
-     ],
-     "crate": "kkt-container-docker",
-     "to": [
-      {
-       "at": "Docker::new",
-       "param": "browser"
-      }
-     ],
-     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener"
     },
     {
      "impl": "kkt-rolling-file::RotatingFile",
@@ -2560,44 +2543,6 @@
      "note": "the backup's time"
     },
     {
-     "produces": "kkt-container::State",
-     "from": [
-      {
-       "at": "InstallParts",
-       "param": "container"
-      }
-     ],
-     "crate": "kkt-setup",
-     "to": [
-      {
-       "at": "docker_status_lines",
-       "param": "state"
-      },
-      {
-       "at": "doctor_checks::docker_check",
-       "param": "state"
-      }
-     ],
-     "note": "kkt status, kkt doctor"
-    },
-    {
-     "produces": "kkt-container::KeyCopy",
-     "from": [
-      {
-       "at": "InstallParts",
-       "param": "container"
-      }
-     ],
-     "crate": "kkt-setup",
-     "to": [
-      {
-       "at": "doctor_checks::docker_web_key_check",
-       "param": "compared"
-      }
-     ],
-     "note": "kkt doctor"
-    },
-    {
      "passes_on": "the key files the program gave InstallParts",
      "crate": "kkt-setup",
      "to": [
@@ -3160,13 +3105,6 @@
    "at": "page",
    "param": "sessions",
    "why": "it hands over a kkt-web Sessions it builds: a value of a type kkt-server names, not an injection; its clock and entropy are wired into Sessions::new"
-  },
-  {
-   "crate": "kashkeshet",
-   "to": "kkt-container-docker",
-   "at": "Docker::scripted",
-   "param": "browser",
-   "why": "only the program's tests call it, over a scripted host (tests/container_install/); the program builds Docker with Docker::new"
   }
  ]
 }

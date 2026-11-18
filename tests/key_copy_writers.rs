@@ -1,10 +1,10 @@
-//! The key copies' writer, before and after the container split: setup
-//! wrote a key copy with kkt-container-docker's own private write, and now
-//! writes it with kkt-keys-os' `OsKeyFiles::write_key`, forced. On real
-//! files, both must leave the same bytes and mode, and succeed or fail
-//! alike, in each case a copy can meet.
+//! The key copies' writer, on real files: setup and upgrade write a key
+//! copy with kkt-keys-os' `OsKeyFiles::write_key`, forced. Each case is held
+//! to the bytes, mode, outcome and error text that the writer the container
+//! split retired gave in it (kkt-container-docker's own private write, fed
+//! the trimmed key and a line's end), so an install's key copies are what
+//! they always were.
 
-use kkt_container_docker::testing::write_private_file;
 use kkt_keys::KeyFiles;
 use kkt_keys_os::OsKeyFiles;
 use kkt_scratch as scratch;
@@ -48,52 +48,22 @@ fn mode_of(_: &std::fs::Metadata) -> u32 {
     0
 }
 
-/// The error text each writer gives a person, with the path the same in
-/// both: the old one as setup worded it (`could not write <path>: <cause>`,
-/// kkt-container-docker's `DockerError::io`), the new one as
-/// `OsKeyFiles::write_key` words it.
-#[derive(Debug, PartialEq, Eq)]
-struct Errors {
-    old: Option<String>,
-    new: Option<String>,
-}
-
-/// Runs each writer on its own copy of the case `prepare` makes, and
-/// returns both outcomes and both error texts.
-fn both(name: &str, prepare: impl Fn(&Path) -> PathBuf) -> (Outcome, Outcome, Errors) {
-    let dir = scratch::Dir::new(&format!("kkt-key-writers-{name}"));
-    let old_path = prepare(&dir.path().join("old"));
-    let new_path = prepare(&dir.path().join("new"));
-    // Docker wrote the trimmed key and a line's end.
-    let old = write_private_file(&old_path, &format!("{KEY}\n"));
-    let new = OsKeyFiles.write_key(&new_path, KEY, true);
-    // Setup worded a failed copy as `could not write <path>: <cause>`. The
-    // two copies sit in folders of their own, so the old text names the
-    // new copy's path, to compare the rest.
-    let errors = Errors {
-        old: old
-            .as_ref()
-            .err()
-            .map(|e| format!("could not write {}: {e}", new_path.display())),
-        new: new.as_ref().err().cloned(),
-    };
-    // The scratch folder differs from run to run; the texts name it `<dir>`.
-    let here = dir.path().join("new").display().to_string();
-    let errors = Errors {
-        old: errors.old.map(|e| e.replace(&here, "<dir>")),
-        new: errors.new.map(|e| e.replace(&here, "<dir>")),
-    };
-    eprintln!("{name}: {errors:?}");
+/// Writes the key with `OsKeyFiles::write_key`, forced, in the case
+/// `prepare` makes. Returns what it left and the error text a person sees,
+/// with the scratch folder, which differs from run to run, named `<dir>`.
+fn write(name: &str, prepare: impl Fn(&Path) -> PathBuf) -> (Outcome, Option<String>) {
+    let dir = scratch::Dir::new(&format!("kkt-key-writer-{name}"));
+    let base = dir.path().join("new");
+    let path = prepare(&base);
+    let written = OsKeyFiles.write_key(&path, KEY, true);
+    let here = base.display().to_string();
+    let error = written.as_ref().err().map(|e| e.replace(&here, "<dir>"));
     (
         Outcome {
-            worked: old.is_ok(),
-            left: left(&old_path),
+            worked: written.is_ok(),
+            left: left(&path),
         },
-        Outcome {
-            worked: new.is_ok(),
-            left: left(&new_path),
-        },
-        errors,
+        error,
     )
 }
 
@@ -130,7 +100,7 @@ fn written() -> Outcome {
 #[cfg(unix)]
 fn may_write_read_only_files() -> bool {
     use std::os::unix::fs::PermissionsExt;
-    let dir = scratch::Dir::new("kkt-key-writers-probe");
+    let dir = scratch::Dir::new("kkt-key-writer-probe");
     let path = dir.path().join("probe");
     std::fs::write(&path, "").unwrap();
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400)).unwrap();
@@ -138,58 +108,47 @@ fn may_write_read_only_files() -> bool {
 }
 
 #[test]
-fn a_new_copy_is_the_same_from_both_writers() {
-    let (old, new, errors) = both("new", |base| {
+fn a_new_copy_is_the_key_and_a_line_end_kept_private() {
+    let (outcome, error) = write("new", |base| {
         std::fs::create_dir_all(base).unwrap();
         base.join("copy")
     });
-    assert!(old.worked);
-    assert_eq!(old, new);
-    assert_eq!(errors.old, errors.new);
-    assert_eq!(new, written());
-    assert_eq!(errors.new, None);
+    assert_eq!(outcome, written());
+    assert_eq!(error, None);
 }
 
 #[cfg(unix)]
 #[test]
-fn a_copy_over_another_text_is_the_same_from_both_writers() {
-    let (old, new, errors) = both("other-text", |base| {
+fn a_copy_over_another_text_is_replaced_whole() {
+    let (outcome, error) = write("other-text", |base| {
         with_file(
             base,
             "an older and much longer key text than the new one\n",
             0o600,
         )
     });
-    assert!(old.worked);
-    assert_eq!(old, new);
-    assert_eq!(errors.old, errors.new);
-    assert_eq!(new, written());
-    assert_eq!(errors.new, None);
+    assert_eq!(outcome, written());
+    assert_eq!(error, None);
 }
 
 #[cfg(unix)]
 #[test]
-fn a_copy_over_a_file_others_may_read_is_made_private_by_both_writers() {
-    let (old, new, errors) = both("loose", |base| with_file(base, "old\n", 0o644));
-    assert!(old.worked);
-    assert_eq!(old, new);
-    assert_eq!(errors.old, errors.new);
-    assert_eq!(new, written());
-    assert_eq!(errors.new, None);
+fn a_copy_over_a_file_others_may_read_is_made_private() {
+    let (outcome, error) = write("loose", |base| with_file(base, "old\n", 0o644));
+    assert_eq!(outcome, written());
+    assert_eq!(error, None);
 }
 
 #[cfg(unix)]
 #[test]
-fn a_copy_over_a_read_only_file_ends_the_same_from_both_writers() {
-    let (old, new, errors) = both("read-only", |base| with_file(base, "old\n", 0o400));
-    assert_eq!(old, new);
-    assert_eq!(errors.old, errors.new);
+fn a_copy_over_a_read_only_file_fails_and_leaves_it() {
+    let (outcome, error) = write("read-only", |base| with_file(base, "old\n", 0o400));
     if may_write_read_only_files() {
-        assert_eq!(new, written());
-        assert_eq!(errors.new, None);
+        assert_eq!(outcome, written());
+        assert_eq!(error, None);
     } else {
         assert_eq!(
-            new,
+            outcome,
             Outcome {
                 worked: false,
                 left: Left::File {
@@ -199,42 +158,44 @@ fn a_copy_over_a_read_only_file_ends_the_same_from_both_writers() {
             }
         );
         assert_eq!(
-            errors.new.as_deref(),
+            error.as_deref(),
             Some("could not write <dir>/copy: Permission denied (os error 13)")
         );
     }
 }
 
 #[test]
-fn a_copy_whose_folder_is_missing_fails_alike_and_leaves_nothing() {
-    let (old, new, errors) = both("no-folder", |base| base.join("missing").join("copy"));
-    assert!(!old.worked);
-    assert_eq!(old, new);
-    assert_eq!(new.left, Left::Nothing);
-    assert!(errors.new.is_some());
-    assert_eq!(errors.old, errors.new);
-    assert!(!new.worked);
+fn a_copy_whose_folder_is_missing_fails_and_leaves_nothing() {
+    let (outcome, error) = write("no-folder", |base| base.join("missing").join("copy"));
     assert_eq!(
-        errors.new.as_deref(),
+        outcome,
+        Outcome {
+            worked: false,
+            left: Left::Nothing
+        }
+    );
+    assert_eq!(
+        error.as_deref(),
         Some("could not write <dir>/missing/copy: No such file or directory (os error 2)")
     );
 }
 
 #[test]
-fn a_copy_whose_path_is_a_folder_fails_alike_and_leaves_the_folder() {
-    let (old, new, errors) = both("a-folder", |base| {
+fn a_copy_whose_path_is_a_folder_fails_and_leaves_the_folder() {
+    let (outcome, error) = write("a-folder", |base| {
         let path = base.join("copy");
         std::fs::create_dir_all(&path).unwrap();
         path
     });
-    assert!(!old.worked);
-    assert_eq!(old, new);
-    assert_eq!(new.left, Left::Folder);
-    assert!(errors.new.is_some());
-    assert_eq!(errors.old, errors.new);
-    assert!(!new.worked);
     assert_eq!(
-        errors.new.as_deref(),
+        outcome,
+        Outcome {
+            worked: false,
+            left: Left::Folder
+        }
+    );
+    assert_eq!(
+        error.as_deref(),
         Some("could not write <dir>/copy: Is a directory (os error 21)")
     );
 }

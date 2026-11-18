@@ -9,6 +9,10 @@
 //!
 //! The keys here are made up. No key may reach a command's arguments, a
 //! line said or an error, and every scenario checks that.
+//!
+//! The transcripts stay pinned for good. With one subject left, the one
+//! that writes the files when `UPDATE_GOLDEN` is set, `UPDATE_GOLDEN` is
+//! still not used on an existing file without Sam (msg 4071).
 
 use futures::executor::block_on;
 use kkt_clock::Time;
@@ -17,8 +21,8 @@ use kkt_container::{
     Arg, Carry, ConfigReader, Container, ContainerConfig, Folder, InServer, Inputs, KeyCopies,
     LoginLink, Sharing,
 };
-use kkt_container_docker::Browser;
 use kkt_container_docker::testing::{Reply, Scripted};
+use kkt_containerized_service::Browser;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::fmt::Debug;

@@ -1290,14 +1290,10 @@ dependencies = [
 name = "kkt-container-docker"
 version = "0.10.0"
 dependencies = [
- "futures",
  "kkt-clock",
  "kkt-container",
- "kkt-machine",
  "kkt-scratch",
  "serde_json",
- "thiserror",
- "tokio",
 ]
 
 [[package]]

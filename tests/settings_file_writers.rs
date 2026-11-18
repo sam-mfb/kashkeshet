@@ -1,16 +1,14 @@
-//! The managed folder's settings file's writer, before and after the
-//! container split: setup and upgrade wrote it with kkt-container-docker's
-//! own private write, and now write it through Docker's `Projects::write`,
-//! as a private file. On real files, both must leave the same bytes and
-//! mode, succeed or fail alike, and say the same to a person, in each case
-//! the file can meet; and an upgrade that writes the new version and then
-//! puts the old settings back must end the same from both.
+//! The managed folder's settings file's writer, on real files: setup and
+//! upgrade write it through Docker's `Projects::write`, as a private file.
+//! Each case is held to the bytes, mode, outcome and error text that the
+//! writer the container split retired gave in it (kkt-container-docker's
+//! own private write), including an upgrade that writes the new version
+//! and then puts the old settings back, so an install's settings file is
+//! what it always was.
 
 use kkt_container::{Folder, Project, ProjectFile, Projects};
-use kkt_container_docker::testing::write_private_file;
-use kkt_container_docker::{Browser, Docker};
+use kkt_container_docker::Docker;
 use kkt_scratch as scratch;
-use std::io;
 use std::path::Path;
 
 /// The settings file as setup writes it, with an auth key, which is why it
@@ -27,19 +25,7 @@ TS_HOSTNAME=kkt-1\nTS_TAILNET=tail1234.ts.net\nTS_AUTHKEY=tskey-auth-k123456CNTR
 /// The settings file's name in the managed folder.
 const SETTINGS_FILE: &str = ".env";
 
-/// A browser no write opens.
-struct NoBrowser;
-
-impl Browser for NoBrowser {
-    fn open(&self, _: &str) -> io::Result<()> {
-        unreachable!("writing a file opens no link")
-    }
-    fn open_failure(&self) -> Option<String> {
-        None
-    }
-}
-
-/// What a write left: whether it worked, and what is at the path after.
+/// What the writes left: whether they worked, and what is at the path after.
 #[derive(Debug, PartialEq, Eq)]
 struct Outcome {
     worked: bool,
@@ -75,47 +61,22 @@ fn mode_of(_: &std::fs::Metadata) -> u32 {
     0
 }
 
-/// The error text each writer gives a person, with the managed folder the
-/// same in both: the old one as setup and upgrade worded it (`could not
-/// write <path>: <cause>`, kkt-container-docker's `DockerError::io`), the
-/// new one as `ProjectError` words a failed write.
-#[derive(Debug, PartialEq, Eq)]
-struct Errors {
-    old: Option<String>,
-    new: Option<String>,
-}
-
 /// Writes `texts` in turn into the settings file of a managed folder that
-/// `prepare` makes, once with the old writer and once through Docker's
-/// `Projects::write`, each in a folder of its own, stopping at a write that
-/// fails. Returns both outcomes and the error texts of the write that
-/// failed, if one did.
-fn both(name: &str, prepare: impl Fn(&Path), texts: &[&str]) -> (Outcome, Outcome, Errors) {
-    let dir = scratch::Dir::new(&format!("kkt-settings-writers-{name}"));
-    let old_folder = dir.path().join("old");
-    let new_folder = dir.path().join("new");
-    prepare(&old_folder);
-    prepare(&new_folder);
-    let old_path = old_folder.join(SETTINGS_FILE);
-    let new_path = new_folder.join(SETTINGS_FILE);
-
-    let mut old_error = None;
-    for text in texts {
-        if let Err(e) = write_private_file(&old_path, text) {
-            // Setup and upgrade worded it so. The two folders differ, so the
-            // old text names the new folder's file, to compare the rest.
-            old_error = Some(format!("could not write {}: {e}", new_path.display()));
-            break;
-        }
-    }
-
-    let docker = Docker::new(Box::new(NoBrowser));
-    let folder = Folder(new_folder.clone());
+/// `prepare` makes, through Docker's `Projects::write`, stopping at a write
+/// that fails. Returns what was left and the failed write's error text,
+/// with the scratch folder, which differs from run to run, named `<dir>`.
+fn write(name: &str, prepare: impl Fn(&Path), texts: &[&str]) -> (Outcome, Option<String>) {
+    let dir = scratch::Dir::new(&format!("kkt-settings-writer-{name}"));
+    let managed = dir.path().join("new");
+    prepare(&managed);
+    let path = managed.join(SETTINGS_FILE);
+    let docker = Docker::new();
+    let folder = Folder(managed.clone());
     let project = Project {
         folder: &folder,
         shielded: &[],
     };
-    let mut new_error = None;
+    let mut error = None;
     for text in texts {
         if let Err(e) = docker.write(
             &project,
@@ -125,27 +86,18 @@ fn both(name: &str, prepare: impl Fn(&Path), texts: &[&str]) -> (Outcome, Outcom
                 private: true,
             }],
         ) {
-            new_error = Some(e.to_string());
+            error = Some(e.to_string());
             break;
         }
     }
-    // The scratch folder differs from run to run; the texts name it `<dir>`.
-    let here = new_folder.display().to_string();
-    let errors = Errors {
-        old: old_error.map(|e| e.replace(&here, "<dir>")),
-        new: new_error.map(|e| e.replace(&here, "<dir>")),
-    };
-    eprintln!("{name}: {errors:?}");
+    let here = managed.display().to_string();
+    let error = error.map(|e| e.replace(&here, "<dir>"));
     (
         Outcome {
-            worked: errors.old.is_none(),
-            left: left(&old_path),
+            worked: error.is_none(),
+            left: left(&path),
         },
-        Outcome {
-            worked: errors.new.is_none(),
-            left: left(&new_path),
-        },
-        errors,
+        error,
     )
 }
 
@@ -183,7 +135,7 @@ fn written(text: &str) -> Outcome {
 #[cfg(unix)]
 fn may_write_read_only_files() -> bool {
     use std::os::unix::fs::PermissionsExt;
-    let dir = scratch::Dir::new("kkt-settings-writers-probe");
+    let dir = scratch::Dir::new("kkt-settings-writer-probe");
     let path = dir.path().join("probe");
     std::fs::write(&path, "").unwrap();
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400)).unwrap();
@@ -195,73 +147,52 @@ fn empty_folder(folder: &Path) {
 }
 
 #[test]
-fn a_new_settings_file_is_the_same_from_both_writers() {
-    let (old, new, errors) = both("new", empty_folder, &[SETTINGS]);
-    assert!(old.worked);
-    assert_eq!(old, new);
-    assert_eq!(errors.old, errors.new);
-    assert_eq!(new, written(SETTINGS));
-    assert_eq!(errors.new, None);
+fn a_new_settings_file_is_its_text_kept_private() {
+    let (outcome, error) = write("new", empty_folder, &[SETTINGS]);
+    assert_eq!(outcome, written(SETTINGS));
+    assert_eq!(error, None);
 }
 
 #[cfg(unix)]
 #[test]
-fn an_upgraded_settings_file_is_the_same_from_both_writers() {
-    let (old, new, errors) = both("upgraded", with_settings(SETTINGS, 0o600), &[UPGRADED]);
-    assert!(old.worked);
-    assert_eq!(old, new);
-    assert_eq!(errors.old, errors.new);
-    assert_eq!(new, written(UPGRADED));
-    assert_eq!(errors.new, None);
+fn an_upgraded_settings_file_is_replaced_whole() {
+    let (outcome, error) = write("upgraded", with_settings(SETTINGS, 0o600), &[UPGRADED]);
+    assert_eq!(outcome, written(UPGRADED));
+    assert_eq!(error, None);
 }
 
 #[cfg(unix)]
 #[test]
-fn a_settings_file_put_back_after_a_failed_pull_is_the_same_from_both_writers() {
+fn a_settings_file_put_back_after_a_failed_pull_is_the_old_text_exactly() {
     // Upgrade selects the new version, the pull fails, and the old
     // settings are written back.
-    let (old, new, errors) = both(
+    let (outcome, error) = write(
         "put-back",
         with_settings(SETTINGS, 0o600),
         &[UPGRADED, SETTINGS],
     );
-    assert!(old.worked);
-    assert_eq!(old, new);
-    assert_eq!(errors.old, errors.new);
-    assert_eq!(
-        new.left,
-        Left::File {
-            bytes: SETTINGS.as_bytes().to_vec(),
-            mode: 0o600
-        }
-    );
-    assert_eq!(new, written(SETTINGS));
-    assert_eq!(errors.new, None);
+    assert_eq!(outcome, written(SETTINGS));
+    assert_eq!(error, None);
 }
 
 #[cfg(unix)]
 #[test]
-fn a_settings_file_others_may_read_is_made_private_by_both_writers() {
-    let (old, new, errors) = both("loose", with_settings(SETTINGS, 0o644), &[UPGRADED]);
-    assert!(old.worked);
-    assert_eq!(old, new);
-    assert_eq!(errors.old, errors.new);
-    assert_eq!(new, written(UPGRADED));
-    assert_eq!(errors.new, None);
+fn a_settings_file_others_may_read_is_made_private() {
+    let (outcome, error) = write("loose", with_settings(SETTINGS, 0o644), &[UPGRADED]);
+    assert_eq!(outcome, written(UPGRADED));
+    assert_eq!(error, None);
 }
 
 #[cfg(unix)]
 #[test]
-fn a_read_only_settings_file_ends_the_same_from_both_writers() {
-    let (old, new, errors) = both("read-only", with_settings(SETTINGS, 0o400), &[UPGRADED]);
-    assert_eq!(old, new);
-    assert_eq!(errors.old, errors.new);
+fn a_read_only_settings_file_fails_and_is_left() {
+    let (outcome, error) = write("read-only", with_settings(SETTINGS, 0o400), &[UPGRADED]);
     if may_write_read_only_files() {
-        assert_eq!(new, written(UPGRADED));
-        assert_eq!(errors.new, None);
+        assert_eq!(outcome, written(UPGRADED));
+        assert_eq!(error, None);
     } else {
         assert_eq!(
-            new,
+            outcome,
             Outcome {
                 worked: false,
                 left: Left::File {
@@ -271,42 +202,44 @@ fn a_read_only_settings_file_ends_the_same_from_both_writers() {
             }
         );
         assert_eq!(
-            errors.new.as_deref(),
+            error.as_deref(),
             Some("could not write <dir>/.env: Permission denied (os error 13)")
         );
     }
 }
 
 #[test]
-fn a_settings_file_whose_folder_is_missing_fails_alike_and_leaves_nothing() {
-    let (old, new, errors) = both("no-folder", |_: &Path| {}, &[SETTINGS]);
-    assert!(!old.worked);
-    assert_eq!(old, new);
-    assert_eq!(new.left, Left::Nothing);
-    assert!(errors.new.is_some());
-    assert_eq!(errors.old, errors.new);
-    assert!(!new.worked);
+fn a_settings_file_whose_folder_is_missing_fails_and_leaves_nothing() {
+    let (outcome, error) = write("no-folder", |_: &Path| {}, &[SETTINGS]);
     assert_eq!(
-        errors.new.as_deref(),
+        outcome,
+        Outcome {
+            worked: false,
+            left: Left::Nothing
+        }
+    );
+    assert_eq!(
+        error.as_deref(),
         Some("could not write <dir>/.env: No such file or directory (os error 2)")
     );
 }
 
 #[test]
-fn a_settings_file_that_is_a_folder_fails_alike_and_leaves_the_folder() {
-    let (old, new, errors) = both(
+fn a_settings_file_that_is_a_folder_fails_and_leaves_the_folder() {
+    let (outcome, error) = write(
         "a-folder",
         |folder: &Path| std::fs::create_dir_all(folder.join(SETTINGS_FILE)).unwrap(),
         &[SETTINGS],
     );
-    assert!(!old.worked);
-    assert_eq!(old, new);
-    assert_eq!(new.left, Left::Folder);
-    assert!(errors.new.is_some());
-    assert_eq!(errors.old, errors.new);
-    assert!(!new.worked);
     assert_eq!(
-        errors.new.as_deref(),
+        outcome,
+        Outcome {
+            worked: false,
+            left: Left::Folder
+        }
+    );
+    assert_eq!(
+        error.as_deref(),
         Some("could not write <dir>/.env: Is a directory (os error 21)")
     );
 }

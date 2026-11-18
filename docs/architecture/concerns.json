@@ -196,12 +196,12 @@
   },
   "kkt-container-docker": {
    "layer": "operations",
-   "concern": "Implements kkt-container's `Container` with Docker and Compose: the Compose files, the managed folder and the docker commands, among them a run in the container with its work folder made by mktemp and files copied in or out; and kkt-container's general `Projects`, each operation one `docker compose` command in the project's folder. It opens a sharing setup's login link through a `Browser` it declares.",
+   "concern": "Implements kkt-container's general `Projects` with Docker Compose: each operation one `docker compose` command in the project's folder, and the project's files. It knows nothing of what runs in the project.",
    "kind": "effect"
   },
   "kkt-containerized-service": {
    "layer": "operations",
-   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, setting the service up (its files, the Tailscale container's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`), starting and stopping it, its status and name pack, runs of the server's program in its container, reading its config home, backups, the web key's comparison, the admin key and upgrades, with the settings put back when an upgrade fails; it hands nothing to the fallback `Container` it still takes. What a sharing node's status answer says comes from the `SharingNode` it declares, and a login link opens in the `Browser` it declares.",
+   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, setting the service up (its files, the Tailscale container's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`), starting and stopping it, its status and name pack, runs of the server's program in its container, reading its config home, backups, the web key's comparison, the admin key and upgrades, with the settings put back when an upgrade fails. What a sharing node's status answer says comes from the `SharingNode` it declares, and a login link opens in the `Browser` it declares.",
    "kind": "logic"
   },
   "kkt-remote-access": {

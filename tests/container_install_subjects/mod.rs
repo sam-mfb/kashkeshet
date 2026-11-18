@@ -3,41 +3,40 @@
 //! runs once for each subject here, and each subject's transcript must
 //! match the same file in `tests/container_install/`.
 //!
-//! This folder sits outside `tests/container_install/` on purpose. While the
-//! container split is under way, a step may add a subject here, and may
-//! change the `Containerized` subject's construction to hand it the parts
-//! it takes (msg 4045). Until its last step, no step removes a subject or
-//! changes the Docker subject. No step changes the scenarios, what the
-//! scripted host answers, or their files, which all live in that folder.
-//! The harness there may gain a check that can only catch more, such as a
-//! further check on every transcript; that is within the rule (msg 4060).
+//! This folder sits outside `tests/container_install/` on purpose. During
+//! the container split a step could add a subject here, and change the
+//! `Containerized` subject's construction to hand it the parts it takes
+//! (msg 4045). The split's last step removed the Docker subject, with the
+//! old code it ran (msg 4071); `Containerized` is the only one left. No
+//! step changes the scenarios, what the scripted host answers, or their
+//! files, which all live in that folder. The harness there may gain a
+//! check that can only catch more, such as a further check on every
+//! transcript; that is within the rule (msg 4060).
 
 use kashkeshet::machine::sharing_node::TailscaleNode;
 use kkt_container::Container;
+use kkt_container_docker::Docker;
 use kkt_container_docker::testing::Scripted;
-use kkt_container_docker::{Browser, Docker};
-use kkt_containerized_service::{Containerized, Tell};
+use kkt_containerized_service::{Browser, Containerized, Tell};
 use kkt_keys::KeyFiles;
 use std::io;
 use std::path::Path;
 
 /// The subjects, by name, in the order they run.
-pub const SUBJECTS: &[&str] = &["Docker", "Containerized"];
+pub const SUBJECTS: &[&str] = &["Containerized"];
 
 /// The subject named `name`, over the scripted host `host`, opening a
 /// login link in `browser`.
 pub fn subject(name: &str, browser: Box<dyn Browser>, host: Scripted) -> Box<dyn Container> {
     match name {
-        "Docker" => Box::new(Docker::scripted(browser, host)),
         // kkt's containerized service over Docker as the general
-        // `Projects`, with Docker on the same host doing the rest. It opens
-        // the login link itself, and writes the key copies on the same host.
+        // `Projects` on the scripted host. It opens the login link itself,
+        // and writes the key copies on the same host.
         "Containerized" => Box::new(Containerized::new(
-            Docker::scripted(Box::new(NoBrowser), host.clone()),
-            Docker::scripted(Box::new(NoBrowser), host.clone()),
+            Docker::scripted(host.clone()),
             Box::new(Transcript(host.clone())),
             Box::new(TailscaleNode),
-            Box::new(LinkOpener(browser)),
+            browser,
             Box::new(KeyCopiesOn(host.clone())),
             host.current_folder().map_err(|e| e.to_string()),
         )),
@@ -52,32 +51,6 @@ struct Transcript(Scripted);
 impl Tell for Transcript {
     fn say(&self, line: &str) {
         self.0.note(&format!("{:<8} {line}", "say"));
-    }
-}
-
-/// The browser of the Dockers inside `Containerized`, which open no login
-/// link: `Containerized` opens it.
-struct NoBrowser;
-
-impl Browser for NoBrowser {
-    fn open(&self, _: &str) -> io::Result<()> {
-        unreachable!("only Containerized opens a login link")
-    }
-    fn open_failure(&self) -> Option<String> {
-        None
-    }
-}
-
-/// The test's browser, which writes into the transcript, as the
-/// containerized service's own `Browser`.
-struct LinkOpener(Box<dyn Browser>);
-
-impl kkt_containerized_service::Browser for LinkOpener {
-    fn open(&self, url: &str) -> io::Result<()> {
-        self.0.open(url)
-    }
-    fn open_failure(&self) -> Option<String> {
-        self.0.open_failure()
     }
 }
 

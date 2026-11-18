@@ -334,19 +334,4 @@ impl Runner for Scripted {
             .insert(path.to_path_buf(), contents.to_string());
         Ok(())
     }
-
-    fn say(&self, line: &str) {
-        self.note(&format!("{:<8} {line}", "say"));
-    }
-
-    fn working_dir(&self) -> io::Result<PathBuf> {
-        self.current_folder()
-    }
-}
-
-/// Writes `contents` to `path` on this machine as a private file, exactly
-/// as Docker's host writes a key copy and the settings file, for a test
-/// that compares it with another writer.
-pub fn write_private_file(path: &Path, contents: &str) -> io::Result<()> {
-    super::runner::write(path, contents, true)
 }

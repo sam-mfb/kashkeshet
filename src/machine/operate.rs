@@ -187,22 +187,15 @@ impl<'a, D> NativeOperate<'a, D> {
 }
 
 /// kkt's containerized service as the program runs it: over Docker as the
-/// general `Projects`. It does every operation itself, and hands the Docker
-/// it still takes as its fallback nothing.
-type Containerized = kkt_containerized_service::Containerized<
-    kkt_container_docker::Docker,
-    kkt_container_docker::Docker,
->;
+/// general `Projects`.
+type Containerized = kkt_containerized_service::Containerized<kkt_container_docker::Docker>;
 
 fn containerized() -> Containerized {
-    let docker =
-        || kkt_container_docker::Docker::new(Box::new(super::browser::OpenerBrowser::new()));
     // The folder kkt was run in, read once: the paths a person types are
     // relative to it.
     let working_dir = OsMachine.current_dir().map_err(|e| e.to_string());
     kkt_containerized_service::Containerized::new(
-        docker(),
-        docker(),
+        kkt_container_docker::Docker::new(),
         Box::new(TerminalTell),
         Box::new(super::sharing_node::TailscaleNode),
         Box::new(super::browser::OpenerBrowser::new()),

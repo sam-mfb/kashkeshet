@@ -1,6 +1,6 @@
 [package]
 name = "kkt-container-docker"
-description = "kkt-container over Docker and Compose"
+description = "kkt-container's Projects over Docker Compose"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,19 +8,15 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-futures.workspace = true
-kkt-clock = { path = "../kkt-clock" }
 kkt-container = { path = "../kkt-container" }
-kkt-machine = { path = "../kkt-machine" }
 serde_json.workspace = true
-thiserror.workspace = true
+# Only the `testing` host keeps time, on a fixed clock.
+kkt-clock = { path = "../kkt-clock", optional = true }
 
 [features]
 # `testing`: `testing::Scripted`, a scripted host that keeps a transcript,
 # and `Docker::scripted`, which builds a Docker over one.
-testing = ["kkt-clock/testing"]
+testing = ["dep:kkt-clock", "kkt-clock/testing"]
 
 [dev-dependencies]
-kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-scratch = { path = "../kkt-scratch" }
-tokio.workspace = true

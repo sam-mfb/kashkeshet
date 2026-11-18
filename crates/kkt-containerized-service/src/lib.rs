@@ -11,9 +11,6 @@
 //! for the key copies, and takes the tool's name and how its commands are typed
 //! from it, never naming a tool itself. What the sharing node's status
 //! answer means comes from the `SharingNode` it is given.
-//!
-//! It does every operation itself. It still takes a fallback `Container`,
-//! which it hands nothing.
 
 mod admin_key;
 mod backup;
@@ -103,18 +100,9 @@ pub enum NodeLogin {
     Other(String),
 }
 
-/// kkt's containerized service over `projects`. It does every operation
-/// itself; `fallback` is still taken, and handed nothing.
-pub struct Containerized<P, F> {
+/// kkt's containerized service over `projects`.
+pub struct Containerized<P> {
     projects: P,
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "every operation is done here; the fallback is taken, and handed nothing, until the container split's last step removes it"
-        )
-    )]
-    fallback: F,
     tell: Box<dyn Tell>,
     sharing: Box<dyn SharingNode>,
     /// Where a sharing setup's login link opens when the person asks.
@@ -126,16 +114,14 @@ pub struct Containerized<P, F> {
     working_dir: Result<PathBuf, String>,
 }
 
-impl<P: Projects, F: Container> Containerized<P, F> {
-    /// The service over `projects`, taking `fallback` and handing it nothing, telling
-    /// the person what they need to know through `tell`, reading what the
+impl<P: Projects> Containerized<P> {
+    /// The service over `projects`, telling the person what they need to know through `tell`, reading what the
     /// sharing node says of itself through `sharing`, opening a login link
     /// in `browser`, and writing the server's key copies through
     /// `key_files`. `working_dir` is the folder the person ran kkt in, read
     /// once by the caller, or why it could not be found.
     pub fn new(
         projects: P,
-        fallback: F,
         tell: Box<dyn Tell>,
         sharing: Box<dyn SharingNode>,
         browser: Box<dyn Browser>,
@@ -144,7 +130,6 @@ impl<P: Projects, F: Container> Containerized<P, F> {
     ) -> Self {
         Containerized {
             projects,
-            fallback,
             tell,
             sharing,
             browser,
@@ -182,7 +167,7 @@ impl<P: Projects, F: Container> Containerized<P, F> {
     }
 }
 
-impl<P: Projects, F: Container> Container for Containerized<P, F> {
+impl<P: Projects> Container for Containerized<P> {
     fn provision<'a>(
         &'a self,
         clock: &'a dyn Clock,

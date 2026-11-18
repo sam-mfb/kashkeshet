@@ -1,117 +1,21 @@
-//! kkt-container over Docker and Compose: `Docker` implements its
-//! `Container`, and its general `Projects` (in `projects`). It holds the Compose files that come with this program, the
-//! folder kkt manages for them, and the commands that set it up, start it,
-//! back it up, run kkt in it, upgrade it and remove it. All of
-//! it goes through the private runner, so it is tested against a fake host. A sharing setup's login link opens in
-//! the [`Browser`] it declares, which the program supplies.
-//!
-//! The caller passes in what a person wants (the setup answers) and what
-//! was set up (the setup record).
-//!
-//! `Inputs.project` names the Compose project and its containers and volumes.
-//! `Inputs.allow_hosts` is written to `.env` as `KKT_ALLOW_HOSTS`;
-//! `Inputs.sharing` starts the Tailscale sidecar and waits for its login.
+//! kkt-container's general `Projects` over Docker Compose: `Docker` runs
+//! each operation as the `docker compose` command for it, in the project's
+//! folder (in `projects`). It knows nothing of what runs in the project.
+//! Every command and file goes through the private runner, so it is tested
+//! against a fake host.
 
-mod browser;
-mod compose;
-mod files;
-mod in_server;
-mod lifecycle;
-mod name_pack;
 mod projects;
-mod provision;
-mod tailscale;
+mod runner;
 #[cfg(feature = "testing")]
 pub mod testing;
-#[cfg(test)]
-mod tests;
 
-pub use browser::Browser;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
-use futures::future::LocalBoxFuture;
-use kkt_clock::Clock;
-use kkt_container::Container;
-use kkt_container::{
-    ConfigReader, Existing, Folder, InServer, Inputs, KeyCopies, KeyCopy, Login, LoginLink,
-    Provisioned, State,
-};
-mod runner;
-#[cfg(test)]
-use files::env_text;
-use files::{ENV_FILE, docker_env, tailscale_auth_key, version_in_env};
-use in_server::{config_home_file, run_in_server};
-#[cfg(test)]
-use kkt_container::{ContainerConfig, Sharing as Tailscale};
-use lifecycle::{backup, compare_web_key, down, existing, status, up, upgrade};
 use runner::OsHost;
 
-use provision::{LinkAndBrowser, add_admin_key, provision};
-
-/// The exit code of `kkt key show --admin` when the server has no admin
-/// key.
-const NO_ADMIN_KEY_EXIT: i32 = 4;
-
-/// The exit code of a command given an option it does not know, as a kkt
-/// from before admin keys is given `kkt key show --admin`.
-const UNKNOWN_OPTION_EXIT: i32 = 2;
-
-/// Where the Compose file mounts the backups folder in the container.
-const DOCKER_BACKUPS_MOUNT: &str = "/backups";
-/// The environment variables Compose reads, which would take the place of
-/// the managed folder's settings file if they were set where kkt runs, so
-/// every Docker command runs without them.
-const DOCKER_MANAGED_VARIABLES: &[&str] = &[
-    "COMPOSE_FILE",
-    "COMPOSE_PATH_SEPARATOR",
-    "COMPOSE_PROFILES",
-    "COMPOSE_PROJECT_NAME",
-    "COMPOSE_ENV_FILES",
-    "KKT_VERSION",
-    "KKT_PORT",
-    "TS_HOSTNAME",
-    "TS_TAILNET",
-    "TS_AUTHKEY",
-];
-/// What `TS_TAILNET` is set to until the Tailscale container has logged in
-/// and the real name is known. The Compose file needs some value to start
-/// the Tailscale container alone; kkt does not run with it.
-const DOCKER_PENDING_TAILNET: &str = "pending.invalid";
-
-/// How long setup and upgrade wait on the containers, and how often they
-/// ask. The wrapper uses [`Settings::DEFAULT`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Settings {
-    /// How long to wait for someone to log the Tailscale container in.
-    pub docker_login_wait: Duration,
-    /// How long to wait for the kkt container to start and make its access
-    /// key.
-    pub docker_start_wait: Duration,
-    /// How many checks to wait for a login link from a Tailscale container
-    /// that needs a login before restarting it. A node whose key expired, or
-    /// that was logged out, is not asking for a login, so it shows no link
-    /// until it is restarted; a new one shows its link within a few seconds.
-    pub docker_link_wait_polls: u32,
-    /// How often to ask while waiting for the Tailscale login or for kkt.
-    pub docker_poll_interval: Duration,
-}
-
-impl Settings {
-    /// Ten minutes for the login and two for kkt to start, asking every two
-    /// seconds; a Tailscale container with no login link after five checks
-    /// is restarted.
-    pub const DEFAULT: Settings = Settings {
-        docker_login_wait: Duration::from_secs(10 * 60),
-        docker_start_wait: Duration::from_secs(2 * 60),
-        docker_link_wait_polls: 5,
-        docker_poll_interval: Duration::from_secs(2),
-    };
-}
-
-/// Private machine operations used by Docker logic and its tests.
+/// Private machine operations used by Docker and its tests.
 trait Runner {
     /// Runs `command` and collects its output.
     fn run(&self, command: &Command) -> io::Result<Finished>;
@@ -126,11 +30,6 @@ trait Runner {
     /// Writes `contents`, replacing any file there. With `private` only the
     /// owner may read it, whether or not the file existed.
     fn write_file(&self, path: &Path, contents: &str, private: bool) -> io::Result<()>;
-    /// Tells the person one line.
-    fn say(&self, line: &str);
-    /// The folder the person ran kkt in, which paths they typed are relative
-    /// to. Docker commands run elsewhere, in the managed folder.
-    fn working_dir(&self) -> io::Result<PathBuf>;
 }
 
 /// A program to run and its arguments.
@@ -142,24 +41,8 @@ struct Command {
     pub unset: Vec<String>,
     /// The folder to run in. Compose finds the files `COMPOSE_FILE` names
     /// relative to where it runs, not to `--project-directory`, so Compose
-    /// commands run in the managed folder.
+    /// commands run in the project's folder.
     pub current_dir: Option<PathBuf>,
-}
-
-impl Command {
-    /// A `docker` command that does not see the variables Compose would let
-    /// override the managed folder's settings file.
-    fn docker(args: Vec<String>) -> Command {
-        Command {
-            program: "docker",
-            args,
-            unset: DOCKER_MANAGED_VARIABLES
-                .iter()
-                .map(|v| v.to_string())
-                .collect(),
-            current_dir: None,
-        }
-    }
 }
 
 /// Shown the way a person would type it, for messages.
@@ -186,81 +69,16 @@ struct Finished {
     pub stderr: String,
 }
 
-impl Finished {
-    pub fn success(&self) -> bool {
-        self.code == Some(0)
-    }
-
-    /// What the command said when it failed, for a message.
-    fn detail(&self) -> String {
-        let said = if self.stderr.trim().is_empty() {
-            &self.stdout
-        } else {
-            &self.stderr
-        };
-        match self.code {
-            Some(code) => format!("exit {code}: {}", said.trim()),
-            None => format!("ended by a signal: {}", said.trim()),
-        }
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-enum DockerError {
-    #[error("Docker is not available: {0}")]
-    NotAvailable(String),
-    #[error("`{command}` failed ({detail})")]
-    Command { command: String, detail: String },
-    #[error("{what}: {source}")]
-    Io {
-        what: String,
-        #[source]
-        source: io::Error,
-    },
-    #[error(
-        "Tailscale is not logged in yet. Run setup again to continue; the containers are left as they are"
-    )]
-    LoginTimeout,
-    #[error(
-        "HTTPS certificates are not enabled for your tailnet. Turn them on at https://login.tailscale.com/admin/dns (\"Enable HTTPS\"), then run setup again"
-    )]
-    HttpsDisabled,
-    #[error(
-        "kkt did not start or did not make its keys in time; `docker compose logs kkt` shows why"
-    )]
-    StartTimeout,
-    #[error("unexpected output from {what}: {detail}")]
-    Unexpected { what: &'static str, detail: String },
-    #[error("{0} is not a plain path under the config home")]
-    NotPlain(String),
-    /// The managed folder is there but lacks something setup writes, or has
-    /// a setting setup does not write, said as "its ...".
-    #[error("{0}")]
-    Incomplete(String),
-}
-
-impl DockerError {
-    fn io(what: impl Into<String>, source: io::Error) -> DockerError {
-        DockerError::Io {
-            what: what.into(),
-            source,
-        }
-    }
-}
-
-/// Docker and Compose implement the container contract directly. A
-/// sharing setup's login link opens in `browser` when the person asks.
+/// Docker and Compose, implementing kkt-container's `Projects` directly.
 pub struct Docker {
-    browser: Box<dyn Browser>,
     /// The machine the commands run on and the files are written to.
     host: Box<dyn Runner>,
 }
 
 impl Docker {
-    /// Docker and Compose, opening a login link in `browser`.
-    pub fn new(browser: Box<dyn Browser>) -> Docker {
+    /// Docker and Compose on this machine.
+    pub fn new() -> Docker {
         Docker {
-            browser,
             host: Box::new(OsHost),
         }
     }
@@ -268,126 +86,16 @@ impl Docker {
     /// Docker and Compose over a scripted host instead of this machine,
     /// for tests: `host` answers every command and keeps a transcript.
     #[cfg(feature = "testing")]
-    pub fn scripted(browser: Box<dyn Browser>, host: testing::Scripted) -> Docker {
+    pub fn scripted(host: testing::Scripted) -> Docker {
         Docker {
-            browser,
             host: Box::new(host),
         }
     }
 }
 
-impl Container for Docker {
-    fn provision<'a>(
-        &'a self,
-        clock: &'a dyn Clock,
-        login: &'a dyn LoginLink,
-        folder: &'a Folder,
-        inputs: &'a Inputs,
-        keys: &'a KeyCopies,
-    ) -> LocalBoxFuture<'a, Result<Provisioned, String>> {
-        Box::pin(async move {
-            provision(
-                &*self.host,
-                clock,
-                Settings::DEFAULT,
-                LinkAndBrowser {
-                    link: login,
-                    browser: &*self.browser,
-                },
-                folder,
-                inputs,
-                keys,
-            )
-            .await
-            .map_err(|e| e.to_string())
-        })
+impl Default for Docker {
+    /// Docker and Compose on this machine, as [`Docker::new`].
+    fn default() -> Docker {
+        Docker::new()
     }
-    fn add_admin_key<'a>(
-        &'a self,
-        clock: &'a dyn Clock,
-        folder: &'a Folder,
-        keys: &'a KeyCopies,
-        name: &'a str,
-    ) -> LocalBoxFuture<'a, Result<PathBuf, String>> {
-        Box::pin(async move {
-            add_admin_key(&*self.host, clock, Settings::DEFAULT, folder, keys, name)
-                .await
-                .map_err(|e| e.to_string())
-        })
-    }
-    fn status(
-        &self,
-        folder: &Folder,
-        reader: &dyn ConfigReader,
-        default_name_pack: &str,
-        config_file: &Path,
-    ) -> Result<State, String> {
-        status(&*self.host, folder, reader, default_name_pack, config_file)
-            .map_err(|e| e.to_string())
-    }
-    fn existing(&self, folder: &Folder) -> Result<Option<Existing>, String> {
-        existing(&*self.host, folder).map_err(|e| e.to_string())
-    }
-    fn compare_web_key(&self, folder: &Folder, web_key_file: &Path) -> Result<KeyCopy, String> {
-        compare_web_key(&*self.host, folder, web_key_file).map_err(|e| e.to_string())
-    }
-    fn up(&self, folder: &Folder) -> Result<(), String> {
-        up(&*self.host, folder).map_err(|e| e.to_string())
-    }
-    fn down(&self, folder: &Folder, remove_data: bool) -> Result<(), String> {
-        down(&*self.host, folder, remove_data).map_err(|e| e.to_string())
-    }
-    fn backup(&self, folder: &Folder, dest: Option<&Path>) -> Result<PathBuf, String> {
-        backup(&*self.host, folder, dest).map_err(|e| e.to_string())
-    }
-    fn upgrade<'a>(
-        &'a self,
-        clock: &'a dyn Clock,
-        folder: &'a Folder,
-        new_version: &'a str,
-        keys: Option<&'a KeyCopies>,
-    ) -> LocalBoxFuture<'a, Result<(), String>> {
-        Box::pin(async move {
-            upgrade(
-                &*self.host,
-                clock,
-                Settings::DEFAULT,
-                folder,
-                new_version,
-                keys,
-            )
-            .await
-            .map_err(|e| e.to_string())
-        })
-    }
-    fn run_in_server(&self, folder: &Folder, command: &InServer<'_>) -> Result<String, String> {
-        run_in_server(&*self.host, folder, command).map_err(|e| e.to_string())
-    }
-    fn config_home_file(&self, folder: &Folder, relative: &Path) -> Result<String, String> {
-        config_home_file(&*self.host, folder, relative).map_err(|e| e.to_string())
-    }
-    fn has_settings(&self, folder: &Folder) -> bool {
-        has_settings(&*self.host, folder)
-    }
-    fn settings_file(&self, folder: &Folder) -> bool {
-        settings_file(&*self.host, folder)
-    }
-    fn version(&self, folder: &Folder) -> Result<String, String> {
-        installed_version(&*self.host, folder)
-    }
-    fn sharing_key(&self, path: &Path) -> Result<String, String> {
-        tailscale_auth_key(&*self.host, path)
-    }
-}
-
-fn has_settings(runner: &dyn Runner, folder: &Folder) -> bool {
-    runner.exists(&folder.path().join(ENV_FILE))
-}
-fn settings_file(runner: &dyn Runner, folder: &Folder) -> bool {
-    runner.is_file(&folder.path().join(ENV_FILE))
-}
-fn installed_version(runner: &dyn Runner, folder: &Folder) -> Result<String, String> {
-    let path = folder.path().join(ENV_FILE);
-    let text = docker_env(runner, folder.path())?;
-    version_in_env(&text).ok_or_else(|| format!("{} has no KKT_VERSION", path.display()))
 }
