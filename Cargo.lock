@@ -1327,6 +1327,8 @@ dependencies = [
  "kkt-keys",
  "kkt-machine",
  "semver",
+ "thiserror",
+ "url",
 ]
 
 [[package]]

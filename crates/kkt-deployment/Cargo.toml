@@ -11,3 +11,5 @@ publish = false
 kkt-keys = { path = "../kkt-keys" }
 kkt-machine = { path = "../kkt-machine" }
 semver.workspace = true
+thiserror.workspace = true
+url.workspace = true

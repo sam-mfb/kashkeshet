@@ -3,6 +3,7 @@
 
 use kkt_keys::AccessKey;
 use std::path::{Path, PathBuf};
+use url::Url;
 
 /// A server, as this machine's clients reach it: its MCP endpoint, and the
 /// file holding its access key, if it has one.
@@ -169,6 +170,62 @@ pub fn serve_connection(
         }
     };
     Ok(Connection { url, key_file })
+}
+
+/// Why an address is not a server address a client may be given.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum AddressError {
+    /// It holds a control character, such as a line break.
+    #[error("URL contains a control character")]
+    ControlCharacter,
+    /// It is not an absolute http:// or https:// address with a host.
+    #[error("URL must be an absolute http:// or https:// address")]
+    NotAbsolute,
+    /// It holds a user name or a password, which belong in the key file.
+    #[error(
+        "put credentials in the key file, not in the URL; query strings and fragments are not supported"
+    )]
+    Credentials,
+    /// It holds a query string.
+    #[error(
+        "put credentials in the key file, not in the URL; query strings and fragments are not supported"
+    )]
+    Query,
+    /// It holds a fragment.
+    #[error(
+        "put credentials in the key file, not in the URL; query strings and fragments are not supported"
+    )]
+    Fragment,
+}
+
+/// `given` as a server address a client may be given: an absolute http://
+/// or https:// address with a host, and no control character, user name,
+/// password, query or fragment, so no secret is kept in it. With
+/// `bare_path`, an address with no path is given that path; a path
+/// supplied is left as it is, for a server behind a forwarding setup.
+pub fn server_address(given: &str, bare_path: Option<&str>) -> Result<String, AddressError> {
+    if given.chars().any(char::is_control) {
+        return Err(AddressError::ControlCharacter);
+    }
+    let mut url = Url::parse(given).map_err(|_| AddressError::NotAbsolute)?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(AddressError::NotAbsolute);
+    }
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err(AddressError::Credentials);
+    }
+    if url.query().is_some() {
+        return Err(AddressError::Query);
+    }
+    if url.fragment().is_some() {
+        return Err(AddressError::Fragment);
+    }
+    if let Some(path) = bare_path
+        && url.path() == "/"
+    {
+        url.set_path(path);
+    }
+    Ok(url.to_string())
 }
 
 #[cfg(test)]
@@ -370,5 +427,97 @@ mod tests {
             client_connection(&source, ConnectionOptions::NONE, false).expect("connection");
         assert_eq!(connection.key_file, Some("key".into()));
         assert_eq!(*source.calls.borrow(), ["record", "serve", "absolute"]);
+    }
+
+    #[test]
+    fn an_address_without_a_path_is_given_the_mcp_path_and_secrets_are_refused() {
+        assert_eq!(
+            server_address("http://127.0.0.1:7420/mcp", Some("/mcp")),
+            Ok("http://127.0.0.1:7420/mcp".to_string())
+        );
+        assert_eq!(
+            server_address("https://kkt.tail1234.ts.net", Some("/mcp")).map_err(|e| e.to_string()),
+            Ok("https://kkt.tail1234.ts.net/mcp".to_string())
+        );
+        assert_eq!(
+            server_address("https://kkt.tail1234.ts.net/", Some("/mcp")).map_err(|e| e.to_string()),
+            Ok("https://kkt.tail1234.ts.net/mcp".to_string())
+        );
+        assert_eq!(
+            server_address("http://h/prefix/mcp", Some("/mcp")).map_err(|e| e.to_string()),
+            Ok("http://h/prefix/mcp".to_string())
+        );
+        let absolute = "URL must be an absolute http:// or https:// address".to_string();
+        assert_eq!(
+            server_address("ftp://h/mcp", Some("/mcp")).map_err(|e| e.to_string()),
+            Err(absolute.clone())
+        );
+        assert_eq!(
+            server_address("not a url", Some("/mcp")).map_err(|e| e.to_string()),
+            Err(absolute)
+        );
+        assert_eq!(
+            server_address("http://h/\u{7}", Some("/mcp")).map_err(|e| e.to_string()),
+            Err("URL contains a control character".to_string())
+        );
+        let secret = "put credentials in the key file, not in the URL; query strings and fragments are not supported".to_string();
+        for refused in [
+            "http://u:p@h/mcp",
+            "http://u@h/mcp",
+            "http://:p@h/mcp",
+            "http://h/mcp?q=1",
+            "http://h/mcp#f",
+        ] {
+            assert_eq!(
+                server_address(refused, Some("/mcp")).map_err(|e| e.to_string()),
+                Err(secret.clone()),
+                "{refused}"
+            );
+        }
+        assert_eq!(
+            server_address("file:///tmp/x", Some("/mcp")).map_err(|e| e.to_string()),
+            Err("URL must be an absolute http:// or https:// address".to_string())
+        );
+    }
+
+    /// An address already in the setup record is used as it is: the address
+    /// rule is applied when an address is given, never to one recorded.
+    #[test]
+    fn a_recorded_address_is_not_checked_again() {
+        struct Recorded;
+        impl ConnectionSource for Recorded {
+            type KeySource = ();
+            fn recorded(&self) -> Result<Option<RecordedServer>, String> {
+                Ok(Some(RecordedServer {
+                    server: ServerAddress {
+                        url: "http://h/mcp?q=1".into(),
+                        key_file: None,
+                    },
+                    switched_to: None,
+                }))
+            }
+            fn serve(&self, _: ConnectionOptions) -> Result<ServeConnection<()>, String> {
+                panic!("a recorded server is not read from the serve settings")
+            }
+            fn make_default_key(&self, _: &AccessKey) -> Result<(), String> {
+                Ok(())
+            }
+            fn check_key(&self, _: &Path, _: &()) -> Result<(), String> {
+                Ok(())
+            }
+            fn absolute(&self, path: &Path) -> Result<PathBuf, String> {
+                Ok(path.to_owned())
+            }
+        }
+        assert!(server_address("http://h/mcp?q=1", None).is_err());
+        let url = |c: Result<Connection, String>| c.map(|c| c.url);
+        assert_eq!(
+            url(client_connection(&Recorded, ConnectionOptions::NONE, true)),
+            Ok("http://h/mcp?q=1".to_string())
+        );
+        assert_eq!(
+            url(admin_connection(&Recorded, ConnectionOptions::NONE)),
+            Ok("http://h/mcp?q=1".to_string())
+        );
     }
 }

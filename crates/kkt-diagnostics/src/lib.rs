@@ -21,7 +21,6 @@ pub use plan::{
 pub use probe::{
     Answered, Check, Initialized, KeyFile, Prober, Probing, Reply, ReplyError, Status, Unprobed,
 };
-use std::net::SocketAddr;
 use std::path::Path;
 use std::time::Duration;
 pub use this_machine::{
@@ -29,7 +28,6 @@ pub use this_machine::{
     docker_check, docker_web_key_check, server_fix, service_check, tailscale_login_check,
     unrecorded_check, web_key_fix,
 };
-use url::Url;
 pub use wait::{SetupServer, Wait, setup_wait, until_reachable};
 
 /// How long the probes and setup's wait for a new server take. The program
@@ -239,34 +237,6 @@ pub async fn inspect_with_key(
 /// `'\''`.
 pub fn shell_word(text: &str) -> String {
     format!("'{}'", text.replace('\'', "'\\''"))
-}
-
-/// Validate an HTTP MCP endpoint without allowing secrets in its URL. With
-/// none given, the server on `bind`; a bare origin means `mcp_path`, the
-/// path the server's MCP endpoint is at; a supplied path is left intact for
-/// forwarding setups.
-pub fn endpoint(bind: SocketAddr, given: Option<&str>, mcp_path: &str) -> Result<String, String> {
-    let default = format!("http://{bind}{mcp_path}");
-    let text = given.unwrap_or(&default);
-    if text.chars().any(char::is_control) {
-        return Err("URL contains a control character".into());
-    }
-    let mut url =
-        Url::parse(text).map_err(|_| "URL must be an absolute http:// or https:// address")?;
-    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
-        return Err("URL must be an absolute http:// or https:// address".into());
-    }
-    if !url.username().is_empty()
-        || url.password().is_some()
-        || url.query().is_some()
-        || url.fragment().is_some()
-    {
-        return Err("put credentials in the key file, not in the URL; query strings and fragments are not supported".into());
-    }
-    if url.path() == "/" {
-        url.set_path(mcp_path);
-    }
-    Ok(url.to_string())
 }
 
 /// The name of the check that the server answered at all.
