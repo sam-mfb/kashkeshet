@@ -1,13 +1,23 @@
 //! Backups, as a contract: layouts, names, file modes and pruning choices,
 //! worked out from the time and source paths the caller supplies, and
 //! [`Backups`], writing a layout into a folder and pruning old backups
-//! there. kkt-backup-os implements [`Backups`] on disk.
+//! there. kkt-backup-os implements [`Backups`] on disk. It also decides
+//! which server a backup acts on ([`backup_of`], from where the caller
+//! says this machine's server is), which key files a local backup holds
+//! ([`backup_keys`]), and where backups go ([`upgrade_backup_folder`],
+//! [`service_backup_folder`]).
 
+mod folders;
+mod keys;
 mod settings;
+mod source;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
+pub use folders::{service_backup_folder, upgrade_backup_folder};
+pub use keys::{AccessKeyFrom, BackupKeys, FileThere, backup_keys};
 pub use settings::{Problem, Settings};
+pub use source::{BackupOf, ServerHere, backup_of};
 
 use kkt_clock::Time;
 use std::path::{Path, PathBuf};

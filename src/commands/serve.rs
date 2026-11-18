@@ -22,7 +22,6 @@ use kkt_machine::{Env, Platform};
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rolling_file::{LogPolicy, open_log_file};
 use kkt_server::{self as app, Parts};
-use kkt_setup as setup;
 use kkt_shutdown::Shutdown;
 use kkt_shutdown::Signals;
 use kkt_shutdown_os::StopSignals;
@@ -260,7 +259,7 @@ fn backup_before_upgrade(database: &Path, keep: usize, clock: &dyn Clock) -> Res
     let Some(upgrade) = crate::machine::database::pending_upgrade(database)? else {
         return Ok(());
     };
-    let folder = setup::upgrade_backup_folder(database)?;
+    let folder = backup::upgrade_backup_folder(database)?;
     let contents = backup::Contents {
         database,
         config: None,

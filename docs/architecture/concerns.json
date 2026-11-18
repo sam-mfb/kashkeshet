@@ -166,7 +166,7 @@
   },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what backup does. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and where key files are. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic"
   },
   "kkt-bare-service": {
@@ -226,7 +226,7 @@
   },
   "kkt-backup": {
    "layer": "operations",
-   "concern": "Backups, as a contract: each backup's name, contents, file modes and retention. `Backups` writes a backup into a folder and prunes old ones, and an operating-system crate implements it.",
+   "concern": "Backups, as a contract: each backup's name, contents, file modes and retention, which server a backup acts on, which key files it holds, and where it goes. `Backups` writes a backup into a folder and prunes old ones, and an operating-system crate implements it.",
    "kind": "contract"
   },
   "kkt-backup-os": {

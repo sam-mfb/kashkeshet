@@ -2,8 +2,6 @@
 use crate::{Mode, Record};
 use std::path::{Path, PathBuf};
 const CLIENT_KEY_FILE_NAME: &str = "client-access-key";
-const UPGRADE_BACKUP_FOLDER: &str = "upgrade-backups";
-const SERVICE_BACKUP_FOLDER: &str = "backups";
 
 pub fn staged_client_key(dir: &Path) -> PathBuf {
     dir.join(format!("{CLIENT_KEY_FILE_NAME}.partial"))
@@ -20,20 +18,6 @@ pub fn client_key(staged: &Path, url: &str) -> Result<PathBuf, String> {
         .map(|b| format!("{b:02x}"))
         .collect();
     Ok(dir.join(format!("{CLIENT_KEY_FILE_NAME}-{server}")))
-}
-
-/// The folder for the backups made before an upgrade, beside `database`. A
-/// database path in no folder, such as `/`, is refused.
-pub fn upgrade_backup_folder(database: &Path) -> Result<PathBuf, String> {
-    let folder = database
-        .parent()
-        .ok_or_else(|| format!("{} is not a database file in a folder", database.display()))?;
-    Ok(folder.join(UPGRADE_BACKUP_FOLDER))
-}
-pub fn service_backup_folder(config_dir: Option<PathBuf>) -> Result<PathBuf, String> {
-    Ok(config_dir
-        .ok_or("set HOME to find the backup folder")?
-        .join(SERVICE_BACKUP_FOLDER))
 }
 
 /// Clients switched to another server keep using it after the local install goes.
@@ -140,14 +124,6 @@ mod tests {
         assert_eq!(
             client_key(Path::new("/"), "https://a.example/mcp"),
             Err("/ is not in a folder to keep keys in".to_string())
-        );
-        assert_eq!(
-            upgrade_backup_folder(Path::new("/")),
-            Err("/ is not a database file in a folder".to_string())
-        );
-        assert_eq!(
-            upgrade_backup_folder(Path::new("/d/kkt.db")),
-            Ok(PathBuf::from("/d/upgrade-backups"))
         );
     }
 }

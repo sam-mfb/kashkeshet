@@ -1,15 +1,14 @@
 //! Which key files a local `kkt backup` holds beside the database and the
 //! config file: the access key, the web key, the admin key and the admin
-//! name. These are backup's own rules, not serve's: a backup copies what is
-//! there and makes nothing. The program says whether each file exists, and
-//! copies the files decided here.
+//! name. A backup copies what is there and makes nothing. The caller says
+//! whether each file exists, and copies the files decided here.
 
 use kkt_keys::{admin_key_path, admin_name_path, web_key_path};
 use std::path::{Path, PathBuf};
 
-/// What the program found when it looked for a file: whether it exists, or
-/// the error inspecting it.
-pub type Found = Result<bool, String>;
+/// Whether a file is there, as the caller found when it looked, or the
+/// error inspecting it.
+pub type FileThere = Result<bool, String>;
 
 /// Where the access key may be, from the serve config and the defaults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -51,7 +50,7 @@ pub struct BackupKeys {
 /// the backup.
 pub fn backup_keys(
     from: AccessKeyFrom<'_>,
-    found: &mut dyn FnMut(&Path) -> Found,
+    found: &mut dyn FnMut(&Path) -> FileThere,
 ) -> Result<BackupKeys, String> {
     let access_key = match (from.configured, from.no_access_key) {
         (Some(path), _) => Some(path.to_path_buf()),
@@ -75,7 +74,7 @@ pub fn backup_keys(
 /// `candidate`, if it exists.
 fn present(
     candidate: Option<PathBuf>,
-    found: &mut dyn FnMut(&Path) -> Found,
+    found: &mut dyn FnMut(&Path) -> FileThere,
 ) -> Result<Option<PathBuf>, String> {
     let Some(path) = candidate else {
         return Ok(None);
@@ -94,12 +93,12 @@ mod tests {
 
     /// The files a test machine has, and the paths `found` was asked about.
     struct Machine {
-        files: BTreeMap<PathBuf, Found>,
+        files: BTreeMap<PathBuf, FileThere>,
         asked: Vec<PathBuf>,
     }
 
     impl Machine {
-        fn with(files: &[(&str, Found)]) -> Machine {
+        fn with(files: &[(&str, FileThere)]) -> Machine {
             Machine {
                 files: files
                     .iter()

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "2b80e501",
+ "commit": "213fbd86",
  "crates": [
   {
    "bins": [
@@ -3702,6 +3702,36 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
+     "doc": "Where the access key may be, from the serve config and the defaults.",
+     "fields": [
+      "configured",
+      "no_access_key",
+      "default"
+     ],
+     "kind": "struct",
+     "path": "AccessKeyFrom"
+    },
+    {
+     "doc": "The key files a backup holds.",
+     "fields": [
+      "access_key",
+      "web_key",
+      "admin_key",
+      "admin_name"
+     ],
+     "kind": "struct",
+     "path": "BackupKeys"
+    },
+    {
+     "doc": "What `kkt backup` backs up, and where to.",
+     "kind": "enum",
+     "path": "BackupOf",
+     "variants": [
+      "Docker",
+      "Local"
+     ]
+    },
+    {
      "doc": "Where backups are written and pruned.",
      "kind": "trait",
      "methods": [
@@ -3739,6 +3769,11 @@ window.KKT_GRAPH = {
      "path": "FileCopy"
     },
     {
+     "doc": "Whether a file is there, as the caller found when it looked, or the error inspecting it.",
+     "kind": "type",
+     "path": "FileThere"
+    },
+    {
      "doc": "An immutable backup layout.",
      "kind": "struct",
      "methods": [
@@ -3764,6 +3799,16 @@ window.KKT_GRAPH = {
      "path": "Problem"
     },
     {
+     "doc": "Where this machine's server is, as the caller reads it from how the machine is set up.",
+     "kind": "enum",
+     "path": "ServerHere",
+     "variants": [
+      "ThisMachine",
+      "InDocker",
+      "Elsewhere"
+     ]
+    },
+    {
      "doc": "How many completed backups to keep when upgrading a database.",
      "fields": [
       "upgrade_backups_kept"
@@ -3774,6 +3819,16 @@ window.KKT_GRAPH = {
       "record_lines"
      ],
      "path": "Settings"
+    },
+    {
+     "doc": "The key files a backup holds, given where the access key may be (`from`).",
+     "kind": "fn",
+     "path": "backup_keys"
+    },
+    {
+     "doc": "What `kkt backup` backs up, given where this machine's server is (`server`), the folder given (`into`) and whether `--db` or `--config` was given (`local_options`).",
+     "kind": "fn",
+     "path": "backup_of"
     },
     {
      "doc": "The names, copies, metadata and privacy for a backup, without reading or writing its files.",
@@ -3789,6 +3844,11 @@ window.KKT_GRAPH = {
      "doc": "Finished backup names to remove, oldest first.",
      "kind": "fn",
      "path": "old_names"
+    },
+    {
+     "doc": "The folder for a service's backups, in kkt's config folder (`config_dir`, `None` without a home).",
+     "kind": "fn",
+     "path": "service_backup_folder"
     },
     {
      "doc": "`Memory`, backups in memory, for tests.",
@@ -3819,6 +3879,11 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "testing::Written"
+    },
+    {
+     "doc": "The folder for the backups made before an upgrade, beside `database`.",
+     "kind": "fn",
+     "path": "upgrade_backup_folder"
     }
    ],
    "lib": "kkt_backup",
@@ -3828,6 +3893,15 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
+    {
+     "at": "backup_keys",
+     "foreign": [
+      "core::ops::function::FnMut"
+     ],
+     "kind": "param",
+     "name": "found",
+     "traits": []
+    },
     {
      "at": "layout",
      "kind": "param",
@@ -15825,16 +15899,6 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
-     "doc": "Where the access key may be, from the serve config and the defaults.",
-     "fields": [
-      "configured",
-      "no_access_key",
-      "default"
-     ],
-     "kind": "struct",
-     "path": "AccessKeyFrom"
-    },
-    {
      "doc": "How setup finds a server to adopt: the part of `super::Steps` it uses.",
      "kind": "trait",
      "methods": [
@@ -15876,26 +15940,6 @@ window.KKT_GRAPH = {
      "path": "Ask"
     },
     {
-     "doc": "The key files a backup holds.",
-     "fields": [
-      "access_key",
-      "web_key",
-      "admin_key",
-      "admin_name"
-     ],
-     "kind": "struct",
-     "path": "BackupKeys"
-    },
-    {
-     "doc": "What `kkt backup` backs up, and where to.",
-     "kind": "enum",
-     "path": "BackupOf",
-     "variants": [
-      "Docker",
-      "Local"
-     ]
-    },
-    {
      "doc": "The key a client-only machine uses for its server.",
      "kind": "enum",
      "path": "ClientKey",
@@ -15915,11 +15959,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "DockerSetup"
-    },
-    {
-     "doc": "What the program found when it looked for a file: whether it exists, or the error inspecting it.",
-     "kind": "type",
-     "path": "Found"
     },
     {
      "doc": "What is known about the server on this machine, for telling whether it runs in Docker: in order, its record, the note of an unfinished setup, or a server found installed with no record.",
@@ -16258,16 +16297,6 @@ window.KKT_GRAPH = {
      "path": "ask::unanswered"
     },
     {
-     "doc": "The key files a backup holds, given where the access key may be (`from`).",
-     "kind": "fn",
-     "path": "backup_keys"
-    },
-    {
-     "doc": "What `kkt backup` backs up, given the recorded `mode` (`None` with no record), the folder given (`into`) and whether `--db` or `--config` was given (`local_options`).",
-     "kind": "fn",
-     "path": "backup_of"
-    },
-    {
      "doc": "One key per server, so another server's saved key is never replaced.",
      "kind": "fn",
      "path": "client_key"
@@ -16424,11 +16453,6 @@ window.KKT_GRAPH = {
      "path": "run"
     },
     {
-     "doc": "",
-     "kind": "fn",
-     "path": "service_backup_folder"
-    },
-    {
      "doc": "Refuses an installed kkt service with no record unless its service file, which runs `kkt <args>`, runs it with the default config file's settings (`runs_defaults`): those are what `kkt setup` and `kkt upgrade` install, so a record could ...",
      "kind": "fn",
      "path": "service_runs_defaults"
@@ -16502,11 +16526,6 @@ window.KKT_GRAPH = {
      "path": "unrecorded_service"
     },
     {
-     "doc": "The folder for the backups made before an upgrade, beside `database`.",
-     "kind": "fn",
-     "path": "upgrade_backup_folder"
-    },
-    {
      "doc": "Whether `written_by`, the version a record names, says that version is not known: the record adopts a service whose version nothing says.",
      "kind": "fn",
      "path": "version_not_known"
@@ -16560,15 +16579,6 @@ window.KKT_GRAPH = {
        "trait": "ask::Lines"
       }
      ]
-    },
-    {
-     "at": "backup_keys",
-     "foreign": [
-      "core::ops::function::FnMut"
-     ],
-     "kind": "param",
-     "name": "found",
-     "traits": []
     },
     {
      "at": "connection::admin_connection",
@@ -18924,7 +18934,8 @@ window.KKT_GRAPH = {
     "Backups",
     "Contents",
     "Settings",
-    "layout"
+    "layout",
+    "upgrade_backup_folder"
    ],
    "kind": "normal",
    "optional": false,
@@ -18935,7 +18946,8 @@ window.KKT_GRAPH = {
       "Backups",
       "Contents",
       "Settings",
-      "layout"
+      "layout",
+      "upgrade_backup_folder"
      ],
      "role": "uses"
     }
@@ -20257,8 +20269,7 @@ window.KKT_GRAPH = {
     "connection",
     "connection::ConnectionOptions",
     "record_path",
-    "unfinished_path",
-    "upgrade_backup_folder"
+    "unfinished_path"
    ],
    "kind": "normal",
    "optional": false,
@@ -20285,8 +20296,7 @@ window.KKT_GRAPH = {
       "connection",
       "connection::ConnectionOptions",
       "record_path",
-      "unfinished_path",
-      "upgrade_backup_folder"
+      "unfinished_path"
      ],
      "role": "uses"
     }
@@ -21857,6 +21867,31 @@ window.KKT_GRAPH = {
     "Span"
    ],
    "to": "kkt-clock"
+  },
+  {
+   "features": [],
+   "from": "kkt-backup",
+   "items": [
+    "admin_key_path",
+    "admin_name_path",
+    "web_key_path"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "admin_key_path",
+      "admin_name_path",
+      "web_key_path"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
   },
   {
    "features": [
@@ -23944,9 +23979,16 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
+    "AccessKeyFrom",
+    "BackupKeys",
+    "BackupOf",
     "Backups",
     "Contents",
-    "layout"
+    "ServerHere",
+    "backup_keys",
+    "backup_of",
+    "layout",
+    "service_backup_folder"
    ],
    "kind": "normal",
    "optional": false,
@@ -23954,9 +23996,16 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "AccessKeyFrom",
+      "BackupKeys",
+      "BackupOf",
       "Backups",
       "Contents",
-      "layout"
+      "ServerHere",
+      "backup_keys",
+      "backup_of",
+      "layout",
+      "service_backup_folder"
      ],
      "role": "uses"
     }
@@ -24424,11 +24473,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
-    "AccessKeyFrom",
     "AdoptSteps",
     "Answers",
-    "BackupKeys",
-    "BackupOf",
     "ClientKey",
     "DockerSetup",
     "InstallCheck",
@@ -24450,8 +24496,6 @@ window.KKT_GRAPH = {
     "admin_key_line",
     "admin_name_line",
     "ask::Prompter",
-    "backup_keys",
-    "backup_of",
     "client_key",
     "configured_name_pack_line",
     "connection",
@@ -24466,7 +24510,6 @@ window.KKT_GRAPH = {
     "new_key_file",
     "recorded_setup",
     "run",
-    "service_backup_folder",
     "service_runs_defaults",
     "service_upgrade_error",
     "staged_client_key",
@@ -24498,7 +24541,6 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "BackupOf",
       "ClientKey",
       "InstallCheck",
       "KeyKind",
@@ -24511,8 +24553,6 @@ window.KKT_GRAPH = {
       "admin_key_collision",
       "admin_key_line",
       "admin_name_line",
-      "backup_keys",
-      "backup_of",
       "client_key",
       "configured_name_pack_line",
       "connection",
@@ -24526,7 +24566,6 @@ window.KKT_GRAPH = {
       "new_key_file",
       "recorded_setup",
       "run",
-      "service_backup_folder",
       "service_runs_defaults",
       "service_upgrade_error",
       "staged_client_key",
@@ -27813,7 +27852,6 @@ window.KKT_GRAPH = {
     "access_key_file",
     "admin_key_path",
     "admin_name_line",
-    "admin_name_path",
     "admin_name_written",
     "bound_to",
     "check_access_key",
@@ -27834,7 +27872,6 @@ window.KKT_GRAPH = {
       "access_key_file",
       "admin_key_path",
       "admin_name_line",
-      "admin_name_path",
       "admin_name_written",
       "bound_to",
       "check_access_key",
@@ -28865,7 +28902,7 @@ window.KKT_CONCERNS = {
    "layer": "dev"
   },
   "kkt-backup": {
-   "concern": "Backups, as a contract: each backup's name, contents, file modes and retention. `Backups` writes a backup into a folder and prunes old ones, and an operating-system crate implements it.",
+   "concern": "Backups, as a contract: each backup's name, contents, file modes and retention, which server a backup acts on, which key files it holds, and where it goes. `Backups` writes a backup into a folder and prunes old ones, and an operating-system crate implements it.",
    "kind": "contract",
    "layer": "operations"
   },
@@ -29110,7 +29147,7 @@ window.KKT_CONCERNS = {
    "layer": "assembly"
   },
   "kkt-setup": {
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what backup does. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and where key files are. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic",
    "layer": "operations"
   },

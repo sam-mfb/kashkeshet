@@ -10,6 +10,7 @@ publish = false
 [dependencies]
 thiserror.workspace = true
 kkt-clock = { path = "../kkt-clock" }
+kkt-keys = { path = "../kkt-keys" }
 
 [features]
 # `testing::Memory`, backups in memory, for other crates' tests.
