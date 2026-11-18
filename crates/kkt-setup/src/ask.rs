@@ -279,6 +279,56 @@ mod terminal_ask_tests {
         );
     }
 
+    /// What a question says when it gets no answer, pinned exactly.
+    #[test]
+    fn every_unanswered_question_says_what_it_always_said() {
+        let flagless = setup::Question {
+            text: "Continue?",
+            flag: "",
+            default: None,
+        };
+        assert_eq!(
+            setup::unanswered(flagless).to_string(),
+            "Continue? No terminal to ask on."
+        );
+        let not_there = NotInteractive;
+        assert_eq!(
+            Prompter::new(&not_there)
+                .confirm(question(None))
+                .map_err(|e| e.to_string()),
+            Err("Connect Codex to kkt? No terminal to ask on: pass --clients.".to_string())
+        );
+        let ended = ScriptedLines::new([None]);
+        assert_eq!(
+            Prompter::new(&ended)
+                .confirm(question(None))
+                .map_err(|e| e.to_string()),
+            Err(
+                "no answer: Connect Codex to kkt? No terminal to ask on: pass --clients."
+                    .to_string()
+            )
+        );
+        let broken = Broken;
+        assert_eq!(
+            Prompter::new(&broken)
+                .text(question(None), "")
+                .map_err(|e| e.to_string()),
+            Err("could not read the terminal: closed".to_string())
+        );
+    }
+
+    /// A terminal that cannot be read.
+    struct Broken;
+    impl Lines for Broken {
+        fn interactive(&self) -> bool {
+            true
+        }
+        fn say(&self, _text: &str) {}
+        fn read_line(&self, _prompt: &str) -> Result<Option<String>, String> {
+            Err("could not read the terminal: closed".into())
+        }
+    }
+
     struct NotInteractive;
     impl Lines for NotInteractive {
         fn interactive(&self) -> bool {
