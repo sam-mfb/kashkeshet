@@ -1448,7 +1448,6 @@ dependencies = [
  "kkt-names",
  "kkt-provenance",
  "kkt-remote-access",
- "kkt-rules",
  "kkt-setup",
  "tokio",
 ]

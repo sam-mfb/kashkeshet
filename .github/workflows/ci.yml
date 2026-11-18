@@ -99,6 +99,11 @@ jobs:
       - name: Platform crates name nothing of kkt
         run: python3 .github/scripts/check-platform-words.py
 
+      # A lint exception is an expect with a reason, never an allow
+      # (RUST.md 9), so a stale exception fails once its lint stops firing.
+      - name: Lint exceptions are expects with reasons
+        run: python3 .github/scripts/check-lint-exceptions.py
+
       - name: Build tests
         run: cargo test --workspace --locked --no-run
 

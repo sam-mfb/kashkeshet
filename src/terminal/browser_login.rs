@@ -9,7 +9,10 @@ use kkt_terminal::BrowserLink;
 pub struct TerminalLink(BrowserLink);
 
 impl TerminalLink {
-    #[allow(clippy::new_without_default)]
+    #[expect(
+        clippy::new_without_default,
+        reason = "a handle on the terminal or the system, made by name where the program wires it; `Default` would let one be made unseen"
+    )]
     pub fn new() -> Self {
         Self(BrowserLink::new())
     }

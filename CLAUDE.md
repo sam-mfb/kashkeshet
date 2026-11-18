@@ -321,6 +321,9 @@ a sign the crate lines are wrong.
   also fails on a map description in concerns.json that names kkt in the
   platform layer, gives history, says what a crate is not, or runs past
   one to three short sentences.
+  `.github/scripts/check-lint-exceptions.py` fails on an `allow` attribute
+  and on an `expect` with no reason: a lint exception is
+  `#[expect(.., reason = "..")]` (RUST.md 9).
   `docs/architecture/check-programs.py` builds the map from the code and
   fails on a kind that does not fit, a broken rule, and machine work in a
   program's own code that the temporary-breaks table in
