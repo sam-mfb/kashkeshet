@@ -122,10 +122,6 @@ impl KeyFiles for Memory {
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such file"))
     }
 
-    fn exists(&self, path: &Path) -> bool {
-        self.try_exists(path).unwrap_or(false)
-    }
-
     fn try_exists(&self, path: &Path) -> io::Result<bool> {
         self.check(path)?;
         Ok(self.files.borrow().contains_key(path) || self.dirs.borrow().contains(path))

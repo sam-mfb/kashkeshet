@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "e62ed59e",
+ "commit": "030c6e03",
  "crates": [
   {
    "bins": [
@@ -2628,6 +2628,9 @@ window.KKT_GRAPH = {
       "cursor"
      ],
      "kind": "struct",
+     "methods": [
+      "all"
+     ],
      "path": "ChannelQuery"
     },
     {
@@ -4074,7 +4077,8 @@ window.KKT_GRAPH = {
      "variants": [
       "NoHomeForDb",
       "NoHomeForKey",
-      "NotText"
+      "NotText",
+      "KeyFile"
      ]
     },
     {
@@ -10419,7 +10423,6 @@ window.KKT_GRAPH = {
      "kind": "trait",
      "methods": [
       "create_dir_all",
-      "exists",
       "is_file",
       "keep_staged",
       "make_default_key",
@@ -10655,7 +10658,6 @@ window.KKT_GRAPH = {
      "fs::write",
      "os::unix::fs::OpenOptionsExt",
      "os::unix::fs::PermissionsExt",
-     "Path::exists",
      "Path::is_file",
      "Path::try_exists"
     ]
@@ -16539,7 +16541,7 @@ window.KKT_GRAPH = {
      "path": "upgrade"
     },
     {
-     "doc": "",
+     "doc": "The folder for the backups made before an upgrade, beside `database`.",
      "kind": "fn",
      "path": "upgrade_backup_folder"
     },

@@ -351,7 +351,7 @@ fn inspect_finds_the_container_then_reads_how_it_was_started() {
             command: Some(vec!["serve".into(), "--bind".into(), "0.0.0.0:80".into()]),
             entrypoint: Some(vec!["/bin/app".into()]),
             env: Some(vec!["HOME=/home/app".into(), "PATH".into()]),
-            working_dir: "/data".into(),
+            working_dir: Some("/data".into()),
         }
     );
     assert_eq!(
@@ -381,9 +381,21 @@ fn inspect_reports_fields_it_cannot_read_as_missing() {
             command: None,
             entrypoint: None,
             env: None,
-            working_dir: String::new(),
+            working_dir: None,
         }
     );
+    // An image that names no folder: Docker says so with an empty one.
+    for said in [r#"{"WorkingDir":""}"#, r#"{"WorkingDir":7}"#] {
+        let (docker, _host) = over(vec![Ok(exit(0, "ab\n", "")), Ok(exit(0, said, ""))]);
+        assert_eq!(
+            docker
+                .inspect(&project(&folder), "web")
+                .unwrap()
+                .working_dir,
+            None,
+            "{said}"
+        );
+    }
 }
 
 #[test]

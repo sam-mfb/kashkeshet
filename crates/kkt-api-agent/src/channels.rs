@@ -36,7 +36,7 @@ pub struct ChannelInfo {
     pub new_messages: Option<i64>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ChannelQuery {
     pub query: Option<String>,
     pub member_only: bool,
@@ -44,6 +44,21 @@ pub struct ChannelQuery {
     pub after_id: Option<i64>,
     pub limit: usize,
     pub cursor: Option<String>,
+}
+
+impl ChannelQuery {
+    /// Every channel the agent can see, `limit` to a page, from the first:
+    /// no search, filter or new-message count.
+    pub fn all(limit: usize) -> ChannelQuery {
+        ChannelQuery {
+            query: None,
+            member_only: false,
+            with_agent: None,
+            after_id: None,
+            limit,
+            cursor: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -8,22 +8,27 @@ const SERVICE_BACKUP_FOLDER: &str = "backups";
 pub fn staged_client_key(dir: &Path) -> PathBuf {
     dir.join(format!("{CLIENT_KEY_FILE_NAME}.partial"))
 }
-/// One key per server, so another server's saved key is never replaced.
-pub fn client_key(staged: &Path, url: &str) -> PathBuf {
-    let dir = staged.parent().unwrap_or(Path::new("."));
+/// One key per server, so another server's saved key is never replaced. It
+/// goes beside the staged key; a staged path in no folder is refused.
+pub fn client_key(staged: &Path, url: &str) -> Result<PathBuf, String> {
+    let dir = staged
+        .parent()
+        .ok_or_else(|| format!("{} is not in a folder to keep keys in", staged.display()))?;
     let server: String = kkt_hash::sha256(url.as_bytes())
         .iter()
         .take(6)
         .map(|b| format!("{b:02x}"))
         .collect();
-    dir.join(format!("{CLIENT_KEY_FILE_NAME}-{server}"))
+    Ok(dir.join(format!("{CLIENT_KEY_FILE_NAME}-{server}")))
 }
 
-pub fn upgrade_backup_folder(database: &Path) -> PathBuf {
-    database
+/// The folder for the backups made before an upgrade, beside `database`. A
+/// database path in no folder, such as `/`, is refused.
+pub fn upgrade_backup_folder(database: &Path) -> Result<PathBuf, String> {
+    let folder = database
         .parent()
-        .unwrap_or(Path::new("."))
-        .join(UPGRADE_BACKUP_FOLDER)
+        .ok_or_else(|| format!("{} is not a database file in a folder", database.display()))?;
+    Ok(folder.join(UPGRADE_BACKUP_FOLDER))
 }
 pub fn service_backup_folder(config_dir: Option<PathBuf>) -> Result<PathBuf, String> {
     Ok(config_dir
@@ -112,5 +117,37 @@ pub fn service_upgrade_error(error: &str, reload_failed: bool) -> String {
             "{error} This upgrade is not recorded yet: once the service is loaded, run `kkt upgrade` again to record the new version."
         ),
         false => error.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_client_key_goes_beside_the_staged_one_named_for_its_server() {
+        let staged = staged_client_key(Path::new("/c/kkt"));
+        let kept = client_key(&staged, "https://a.example/mcp").expect("in a folder");
+        assert_eq!(kept.parent(), Some(Path::new("/c/kkt")));
+        assert_ne!(
+            kept,
+            client_key(&staged, "https://b.example/mcp").expect("in a folder")
+        );
+    }
+
+    #[test]
+    fn a_path_in_no_folder_is_refused_not_taken_as_here() {
+        assert_eq!(
+            client_key(Path::new("/"), "https://a.example/mcp"),
+            Err("/ is not in a folder to keep keys in".to_string())
+        );
+        assert_eq!(
+            upgrade_backup_folder(Path::new("/")),
+            Err("/ is not a database file in a folder".to_string())
+        );
+        assert_eq!(
+            upgrade_backup_folder(Path::new("/d/kkt.db")),
+            Ok(PathBuf::from("/d/upgrade-backups"))
+        );
     }
 }

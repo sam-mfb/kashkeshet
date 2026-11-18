@@ -12,13 +12,11 @@ use std::path::{Path, PathBuf};
 
 /// Private key files: the server's, and the client key copies setup
 /// writes. Every path given is one of those files or the folder that holds
-/// them; the plain file tests and steps (`exists`, `try_exists`, `is_file`,
+/// them; the plain file tests and steps (`try_exists`, `is_file`,
 /// `create_dir_all`, `keep_staged`, `remove`) are for those files only.
 pub trait KeyFiles {
     /// The file's text, exactly as written.
     fn read(&self, path: &Path) -> io::Result<String>;
-    /// Whether a file is at `path`, as `Path::exists` says.
-    fn exists(&self, path: &Path) -> bool;
     /// Whether a file is at `path`, or why that cannot be told.
     fn try_exists(&self, path: &Path) -> io::Result<bool>;
     /// Whether `path` is a file, following links.
@@ -118,7 +116,10 @@ pub trait KeyFiles {
         let AccessKey::Default(path) = access else {
             return Ok(None);
         };
-        if self.exists(path) {
+        let there = self
+            .try_exists(path)
+            .map_err(|e| format!("could not tell whether {} is there: {e}", path.display()))?;
+        if there {
             return Ok(None);
         }
         if let Some(dir) = path.parent() {

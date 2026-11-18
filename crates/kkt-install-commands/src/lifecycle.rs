@@ -42,6 +42,16 @@ pub fn backup<D>(
     }
 }
 
+/// Whether the key file at `path` is there, or why that cannot be told.
+fn key_file_there(files: &dyn kkt_keys::KeyFiles, path: &Path) -> Result<bool, String> {
+    files.try_exists(path).map_err(|e| {
+        format!(
+            "could not tell whether the key file {} is there: {e}",
+            path.display()
+        )
+    })
+}
+
 /// `kkt status`: how this machine is set up, its web and admin keys, and
 /// then the service's or the Docker server's state.
 pub async fn status<D: ServiceDefaults>(
@@ -63,15 +73,18 @@ pub async fn status<D: ServiceDefaults>(
             .output
             .output(format_args!("{}", setup::web_key_line(&path)));
     }
-    if let Some(path) = local_operator_key(
+    let admin_key = local_operator_key(
         parts,
         env,
         found_unfinished,
         found_unrecorded,
         KeyKind::Admin,
-    )?
-    .filter(|path| parts.key_files.exists(path))
-    {
+    )?;
+    let admin_key = match admin_key {
+        Some(path) if !key_file_there(parts.key_files, &path)? => None,
+        other => other,
+    };
+    if let Some(path) = admin_key {
         parts
             .output
             .output(format_args!("{}", setup::admin_key_line(&path)));
@@ -573,10 +586,6 @@ mod tests {
         }
         fn read_optional(&self, _: &Path) -> std::io::Result<Option<String>> {
             self.asked("key_files.read_optional")
-        }
-        fn exists(&self, _: &Path) -> bool {
-            self.0.borrow_mut().push("key_files.exists");
-            false
         }
         fn try_exists(&self, _: &Path) -> std::io::Result<bool> {
             self.asked("key_files.try_exists")

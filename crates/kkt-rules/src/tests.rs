@@ -2282,13 +2282,7 @@ async fn channel_notes_are_replaced_cleared_and_attributed_to_the_last_editor() 
     assert_eq!(changed.edited_at, Some(clock::to_text(w.clock.now())));
     let listed = w
         .rules
-        .list_channels(
-            &a,
-            ChannelQuery {
-                limit: 100,
-                ..Default::default()
-            },
-        )
+        .list_channels(&a, ChannelQuery::all(100))
         .await
         .unwrap();
     assert_eq!(listed.items[0].note.text, "next");

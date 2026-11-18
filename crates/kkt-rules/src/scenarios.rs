@@ -250,13 +250,7 @@ impl World {
 
     pub(crate) async fn visible_ids(&self, me: &Agent) -> Vec<String> {
         self.rules
-            .list_channels(
-                me,
-                ChannelQuery {
-                    limit: 100,
-                    ..Default::default()
-                },
-            )
+            .list_channels(me, ChannelQuery::all(100))
             .await
             .expect("list")
             .items
@@ -1004,8 +998,7 @@ async fn list_channels_filters_and_pages() {
             &b,
             ChannelQuery {
                 query: Some("toml".into()),
-                limit: 10,
-                ..Default::default()
+                ..ChannelQuery::all(10)
             },
         )
         .await
@@ -1021,8 +1014,7 @@ async fn list_channels_filters_and_pages() {
             &b,
             ChannelQuery {
                 member_only: true,
-                limit: 10,
-                ..Default::default()
+                ..ChannelQuery::all(10)
             },
         )
         .await
@@ -1036,8 +1028,7 @@ async fn list_channels_filters_and_pages() {
             &b,
             ChannelQuery {
                 with_agent: Some(a.handle.clone()),
-                limit: 10,
-                ..Default::default()
+                ..ChannelQuery::all(10)
             },
         )
         .await
@@ -1056,9 +1047,8 @@ async fn list_channels_filters_and_pages() {
             .list_channels(
                 &b,
                 ChannelQuery {
-                    limit: 1,
                     cursor,
-                    ..Default::default()
+                    ..ChannelQuery::all(1)
                 },
             )
             .await
@@ -1084,8 +1074,7 @@ async fn list_channels_counts_new_messages() {
             &a,
             ChannelQuery {
                 after_id: Some(first.id),
-                limit: 10,
-                ..Default::default()
+                ..ChannelQuery::all(10)
             },
         )
         .await
