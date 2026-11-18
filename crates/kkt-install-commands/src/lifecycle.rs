@@ -286,7 +286,7 @@ fn stop_sharing(
     remote: &dyn kkt_remote_access::RemoteAccess,
 ) -> Result<(), String> {
     if shared {
-        remote.stop(serve.bind()?)?;
+        remote.stop(serve.bind()?).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -473,25 +473,32 @@ mod tests {
     struct Tailscale(RefCell<Vec<Vec<String>>>);
 
     impl kkt_remote_access::RemoteAccess for Tailscale {
-        fn prepare(&self) -> Result<kkt_remote_access::Node, String> {
+        fn prepare(&self) -> Result<kkt_remote_access::Node, kkt_remote_access::SharingError> {
             self.0.borrow_mut().push(vec!["prepare".into()]);
-            Err("tailscale is not here".into())
+            Err(not_here())
         }
-        fn serve(&self, _: std::net::SocketAddr) -> Result<(), String> {
+        fn serve(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
             self.0.borrow_mut().push(vec!["serve".into()]);
-            Err("tailscale is not here".into())
+            Err(not_here())
         }
         fn served(
             &self,
             _: std::net::SocketAddr,
-        ) -> Result<Option<kkt_remote_access::Node>, String> {
+        ) -> Result<Option<kkt_remote_access::Node>, kkt_remote_access::SharingError> {
             self.0.borrow_mut().push(vec!["served".into()]);
-            Err("tailscale is not here".into())
+            Err(not_here())
         }
-        fn stop(&self, _: std::net::SocketAddr) -> Result<(), String> {
+        fn stop(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
             self.0.borrow_mut().push(vec!["stop".into()]);
-            Err("tailscale is not here".into())
+            Err(not_here())
         }
+    }
+
+    fn not_here() -> kkt_remote_access::SharingError {
+        kkt_remote_access::SharingError::new(
+            kkt_remote_access::Sharing::Unavailable,
+            "tailscale is not here",
+        )
     }
 
     #[test]

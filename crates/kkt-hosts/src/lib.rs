@@ -17,7 +17,8 @@ const ALWAYS_ALLOWED_HOSTS: &[&str] = &["localhost", "127.0.0.1", "::1"];
 
 /// A setting the server refuses to start with, as checked here: the
 /// setting's name and why.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("{name} {rule}")]
 pub struct SettingError {
     pub name: &'static str,
     pub rule: String,
@@ -31,14 +32,6 @@ impl SettingError {
         }
     }
 }
-
-impl std::fmt::Display for SettingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.name, self.rule)
-    }
-}
-
-impl std::error::Error for SettingError {}
 
 /// The host names the server answers to.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -244,6 +237,17 @@ pub fn check_bind(
 
 #[cfg(test)]
 mod tests {
+    use super::SettingError as Refused;
+
+    #[test]
+    fn a_setting_error_says_the_setting_then_why() {
+        let error = Refused::new("allow_host", "must be a host name, not \"a b\"");
+        assert_eq!(
+            error.to_string(),
+            "allow_host must be a host name, not \"a b\""
+        );
+    }
+
     use super::*;
 
     fn hosts(extra: &[&str]) -> AllowedHosts {

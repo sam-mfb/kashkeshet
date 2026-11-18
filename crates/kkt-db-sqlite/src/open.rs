@@ -383,28 +383,14 @@ fn open_with(
 }
 
 /// Why creating a new database file did not succeed.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum CreateError {
     /// A file or folder already exists at that path; it was not opened.
+    #[error("a database file already exists")]
     Exists,
     /// Opening a missing path failed.
-    Open(DbError),
-}
-impl std::fmt::Display for CreateError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Exists => f.write_str("a database file already exists"),
-            Self::Open(error) => std::fmt::Display::fmt(error, f),
-        }
-    }
-}
-impl std::error::Error for CreateError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Exists => None,
-            Self::Open(error) => Some(error),
-        }
-    }
+    #[error("{0}")]
+    Open(#[source] DbError),
 }
 
 /// A database file.
