@@ -57,7 +57,10 @@ fn write(name: &str, prepare: impl Fn(&Path) -> PathBuf) -> (Outcome, Option<Str
     let path = prepare(&base);
     let written = OsKeyFiles.write_key(&path, KEY, true);
     let here = base.display().to_string();
-    let error = written.as_ref().err().map(|e| e.replace(&here, "<dir>"));
+    let error = written
+        .as_ref()
+        .err()
+        .map(|e| e.to_string().replace(&here, "<dir>"));
     (
         Outcome {
             worked: written.is_ok(),

@@ -3,7 +3,7 @@
 //! server's key files and the client key copies setup writes, as
 //! kkt-keys names and places them. Key generation is the caller's.
 
-use kkt_keys::KeyFiles;
+use kkt_keys::{KeyFileAction, KeyFileError, KeyFiles};
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -40,20 +40,19 @@ impl KeyFiles for OsKeyFiles {
         std::fs::metadata(path).map(|metadata| permission_bits(&metadata))
     }
 
-    fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
-        std::fs::create_dir_all(dir).map_err(|e| format!("could not create {}: {e}", dir.display()))
+    fn create_dir_all(&self, dir: &Path) -> Result<(), KeyFileError> {
+        std::fs::create_dir_all(dir).map_err(|e| KeyFileError::file(KeyFileAction::Create, dir, e))
     }
 
-    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String> {
-        std::fs::rename(staged, path)
-            .map_err(|e| format!("could not move the key to {}: {e}", path.display()))
+    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), KeyFileError> {
+        std::fs::rename(staged, path).map_err(|e| KeyFileError::file(KeyFileAction::Move, path, e))
     }
 
     fn remove(&self, path: &Path) -> io::Result<()> {
         std::fs::remove_file(path)
     }
 
-    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String> {
+    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), KeyFileError> {
         let mut options = std::fs::OpenOptions::new();
         options.write(true);
         if force {
@@ -67,11 +66,10 @@ impl KeyFiles for OsKeyFiles {
             options.mode(kkt_keys::ACCESS_KEY_FILE_MODE);
         }
         let mut file = options.open(path).map_err(|e| match e.kind() {
-            io::ErrorKind::AlreadyExists => format!(
-                "{} already exists; pass --force to replace it",
-                path.display()
-            ),
-            _ => format!("could not write {}: {e}", path.display()),
+            io::ErrorKind::AlreadyExists => KeyFileError::Exists {
+                path: path.to_owned(),
+            },
+            _ => KeyFileError::file(KeyFileAction::Write, path, e),
         })?;
         // The mode above applies only to a new file; an existing one replaced
         // with --force keeps its old mode unless it is set here.
@@ -81,9 +79,9 @@ impl KeyFiles for OsKeyFiles {
             file.set_permissions(std::fs::Permissions::from_mode(
                 kkt_keys::ACCESS_KEY_FILE_MODE,
             ))
-            .map_err(|e| format!("could not restrict {}: {e}", path.display()))?;
+            .map_err(|e| KeyFileError::file(KeyFileAction::Restrict, path, e))?;
         }
-        writeln!(file, "{key}").map_err(|e| format!("could not write {}: {e}", path.display()))
+        writeln!(file, "{key}").map_err(|e| KeyFileError::file(KeyFileAction::Write, path, e))
     }
 
     fn write_admin_name(&self, admin_key: &Path, bound: Option<&str>) -> io::Result<()> {
@@ -137,7 +135,9 @@ mod tests {
         let under_file = file.join("keys");
         let cause = std::fs::create_dir_all(&under_file).expect_err("not a folder");
         assert_eq!(
-            OsKeyFiles.create_dir_all(&under_file),
+            OsKeyFiles
+                .create_dir_all(&under_file)
+                .map_err(|e| e.to_string()),
             Err(format!(
                 "could not create {}: {cause}",
                 under_file.display()
@@ -147,7 +147,9 @@ mod tests {
         let taken = dir.join("taken");
         std::fs::write(&taken, "old").expect("taken");
         assert_eq!(
-            OsKeyFiles.write_key(&taken, "key", false),
+            OsKeyFiles
+                .write_key(&taken, "key", false)
+                .map_err(|e| e.to_string()),
             Err(format!(
                 "{} already exists; pass --force to replace it",
                 taken.display()
@@ -161,7 +163,9 @@ mod tests {
             .open(&missing)
             .expect_err("no folder");
         assert_eq!(
-            OsKeyFiles.write_key(&missing, "key", false),
+            OsKeyFiles
+                .write_key(&missing, "key", false)
+                .map_err(|e| e.to_string()),
             Err(format!("could not write {}: {cause}", missing.display()))
         );
 
@@ -169,7 +173,9 @@ mod tests {
         std::fs::write(&staged, "key").expect("staged");
         let cause = std::fs::rename(dir.join("nothing-staged"), &missing).expect_err("no folder");
         assert_eq!(
-            OsKeyFiles.keep_staged(&dir.join("nothing-staged"), &missing),
+            OsKeyFiles
+                .keep_staged(&dir.join("nothing-staged"), &missing)
+                .map_err(|e| e.to_string()),
             Err(format!(
                 "could not move the key to {}: {cause}",
                 missing.display()

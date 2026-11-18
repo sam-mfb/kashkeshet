@@ -37,12 +37,7 @@ pub fn admin_name_line(
 ) -> Result<Option<String>, String> {
     let docker_host_copy = path.file_name() == Some(OsStr::new(ADMIN_KEY_COPY_FILE_NAME));
     name_line(path, key, label, docker_host_copy, |names| {
-        files.read_optional(names).map_err(|e| {
-            format!(
-                "invalid setting: the admin name could not be read from {}: {e}",
-                names.display()
-            )
-        })
+        files.read_optional(names)
     })
 }
 
@@ -52,13 +47,16 @@ fn name_line(
     key: &str,
     label: &str,
     docker_host_copy: bool,
-    read: impl FnOnce(&Path) -> Result<Option<String>, String>,
+    read: impl FnOnce(&Path) -> std::io::Result<Option<String>>,
 ) -> Result<Option<String>, String> {
     if docker_host_copy {
         return Ok(None);
     }
     let make = "`kkt key create --admin --force --name <name>` makes a named one";
-    Ok(Some(match read_admin_name(path, key, read)? {
+    // The name file's error says what is wrong with it; this says what was
+    // being read.
+    let named = read_admin_name(path, key, read).map_err(|e| format!("invalid setting: {e}"))?;
+    Ok(Some(match named {
         AdminNameFile::Named(name) => format!("{label}: {name}"),
         AdminNameFile::None => format!("{label}: none, so the key may only read; {make}"),
         AdminNameFile::OtherKey(names) => format!(
