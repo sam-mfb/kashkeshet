@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "82ce518e",
+ "commit": "2bec79c8",
  "crates": [
   {
    "bins": [
@@ -11424,9 +11424,72 @@ window.KKT_GRAPH = {
      "path": "ClientCommand"
     },
     {
+     "doc": "Why configuring a client failed.",
+     "kind": "enum",
+     "path": "ClientConfigError",
+     "variants": [
+      "NoHome",
+      "File",
+      "TemporaryLeft",
+      "NoBackupName",
+      "NoFolder",
+      "Malformed",
+      "NotText",
+      "Encode",
+      "WrongFile",
+      "Key",
+      "Command",
+      "NoAllowSetting",
+      "NotConnected",
+      "ClaudeDirNotText",
+      "DirectoryUnresolved",
+      "ConfigUnresolved",
+      "NotRestored",
+      "NotRemoved",
+      "NotMerged",
+      "From",
+      "InConfig",
+      "InFile",
+      "OfClient"
+     ]
+    },
+    {
      "doc": "The environment variables naming the clients' own folders, which the program asks the environment for (kkt-machine's `Env::named`).",
      "kind": "const",
      "path": "ENV_FOLDERS"
+    },
+    {
+     "doc": "A value that could not be written out.",
+     "kind": "enum",
+     "path": "Encoded",
+     "variants": [
+      "Header",
+      "Config",
+      "ClaudeConfig",
+      "Ordered"
+     ]
+    },
+    {
+     "doc": "The step on a file or folder that failed.",
+     "kind": "enum",
+     "path": "FileAction",
+     "variants": [
+      "Read",
+      "BackUp",
+      "Restrict",
+      "Create",
+      "Prepare",
+      "Write"
+     ]
+    },
+    {
+     "doc": "A config path with no folder above it.",
+     "kind": "enum",
+     "path": "Folder",
+     "variants": [
+      "ConfigPath",
+      "CodexConfig"
+     ]
     },
     {
      "doc": "",
@@ -11462,6 +11525,52 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Setup"
+    },
+    {
+     "doc": "The shapes of a client's config kkt refuses to edit.",
+     "kind": "enum",
+     "path": "Shape",
+     "variants": [
+      "NotObjects",
+      "Json",
+      "TomlUnchanged",
+      "Toml",
+      "TomlIn",
+      "McpServersNotTable",
+      "KktNotTable",
+      "HeadersNotTable",
+      "NoKktEntry",
+      "CodexIsToml",
+      "AllowNotList",
+      "PermissionsNotList",
+      "BashNotWordOrObject",
+      "KeyPathCharacters",
+      "Order"
+     ]
+    },
+    {
+     "doc": "A path that is not UTF-8.",
+     "kind": "enum",
+     "path": "Text",
+     "variants": [
+      "KktPath",
+      "KeyPath",
+      "KeyFilePath"
+     ]
+    },
+    {
+     "doc": "Why Codex's TOML could not be read: the parser's reason, its lines joined, and where it found the problem.",
+     "kind": "struct",
+     "path": "TomlProblem"
+    },
+    {
+     "doc": "Why the folder of Claude Code's config could not be resolved.",
+     "kind": "enum",
+     "path": "Unresolved",
+     "variants": [
+      "NoParent",
+      "Io"
+     ]
     },
     {
      "doc": "Lets `client` always use kkt's tools and `kkt watch`, in its default files (following its own variables, as `Client::file` does).",
@@ -11670,7 +11779,8 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "serde",
-    "serde_json"
+    "serde_json",
+    "thiserror"
    ]
   },
   {
@@ -25700,6 +25810,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-llm-agent-config",
    "items": [
+    "SettingError",
     "check_access_key"
    ],
    "kind": "normal",
@@ -25708,6 +25819,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "SettingError",
       "check_access_key"
      ],
      "role": "uses"
@@ -25745,7 +25857,8 @@ window.KKT_GRAPH = {
     "Document",
     "EditError",
     "Found",
-    "IfMissing"
+    "IfMissing",
+    "ParseError"
    ],
    "kind": "normal",
    "optional": false,
@@ -25756,7 +25869,8 @@ window.KKT_GRAPH = {
       "Document",
       "EditError",
       "Found",
-      "IfMissing"
+      "IfMissing",
+      "ParseError"
      ],
      "role": "uses"
     }
