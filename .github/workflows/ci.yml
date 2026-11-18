@@ -194,14 +194,15 @@ jobs:
         with:
           persist-credentials: false
 
-      # Playwright and its Chromium, at the version the lock file pins.
+      # Playwright and its Chromium, at the version the lock file pins, as
+      # the script installs them.
       - name: Cache Playwright and its Chromium
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             target/tmp/page-test
             ~/.cache/ms-playwright
-          key: page-test-${{ runner.os }}-${{ hashFiles('docs/architecture/page-test/package-lock.json') }}
+          key: page-test-${{ runner.os }}-${{ hashFiles('docs/architecture/page-test/package-lock.json', 'docs/architecture/run-page-test.sh') }}
 
       # Draws the committed map-data.js in a headless Chromium, in both
       # themes, and checks the page: routes, labels, panels and layout.
