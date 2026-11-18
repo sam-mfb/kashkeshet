@@ -14,6 +14,28 @@ pub enum Level {
     Trace,
 }
 
+impl Level {
+    /// Every level, least verbose first, with the name each goes by.
+    pub const ALL: [(Level, &'static str); 5] = [
+        (Level::Error, "error"),
+        (Level::Warn, "warn"),
+        (Level::Info, "info"),
+        (Level::Debug, "debug"),
+        (Level::Trace, "trace"),
+    ];
+
+    /// The name this level goes by, such as `info`.
+    pub fn name(self) -> &'static str {
+        match self {
+            Level::Error => "error",
+            Level::Warn => "warn",
+            Level::Info => "info",
+            Level::Debug => "debug",
+            Level::Trace => "trace",
+        }
+    }
+}
+
 /// A borrowed field's formatting, retained until the provider records it.
 #[derive(Clone, Copy)]
 pub enum Value<'a> {

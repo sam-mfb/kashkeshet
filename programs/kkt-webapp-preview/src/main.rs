@@ -21,7 +21,6 @@ use kkt_hosts::AllowedHosts;
 use kkt_keys::KeyFiles;
 use kkt_keys_os::OsKeyFiles;
 use kkt_log::{Level, Log};
-use kkt_log_tracing::LogLevel;
 use kkt_log_tracing::TracingLog;
 use kkt_shutdown::Shutdown;
 use kkt_shutdown::Signals;
@@ -74,7 +73,7 @@ async fn main() -> ExitCode {
     let log = TracingLog;
     // With no log there is nowhere to say why, so the exit code says the
     // preview did not run.
-    if kkt_log_tracing::init_stderr_logging(LOG_OWN_TARGETS, LogLevel::Info).is_err() {
+    if kkt_log_tracing::init_stderr_logging(LOG_OWN_TARGETS, Level::Info).is_err() {
         return ExitCode::FAILURE;
     }
     match run(Args::parse(), &log).await {

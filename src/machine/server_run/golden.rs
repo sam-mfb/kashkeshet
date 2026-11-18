@@ -49,8 +49,8 @@ const BUILD: Build = Build {
     commit: "abc123",
 };
 
-fn level(name: &str) -> LogLevel {
-    LogLevel::ALL
+fn level(name: &str) -> Level {
+    Level::ALL
         .iter()
         .find(|(_, n)| *n == name)
         .map(|(level, _)| *level)
