@@ -1,6 +1,6 @@
 [package]
 name = "kkt-setup"
-description = "kkt setup: the setup record and the steps of setup and switch"
+description = "The setup record of how this machine is set up, and the conversation that produces it: kkt setup, kkt switch and adopting an unrecorded server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,8 +10,6 @@ publish = false
 [dependencies]
 kkt-keys = { path = "../kkt-keys" }
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
-kkt-containerized-service = { path = "../kkt-containerized-service" }
-kkt-hash = { path = "../kkt-hash" }
 kkt-names = { path = "../kkt-names" }
 serde.workspace = true
 kkt-toml = { path = "../kkt-toml" }
