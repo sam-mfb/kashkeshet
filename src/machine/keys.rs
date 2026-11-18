@@ -147,6 +147,7 @@ mod tests {
         let setup_lanes = native.setup_lanes();
         let install = native.install_parts(&setup_lanes);
         let installed = kkt_install_commands::record::InstallReads::new(&install, env, platform);
+        let installed = crate::machine::native::InstalledOnThisMachine(&installed);
         let lane_servers = native.lane_servers(&installed);
         kkt_operator_commands::keys::optional_key_path(
             &native.operator_parts(&installed, &lane_servers),
@@ -222,6 +223,56 @@ mod tests {
         assert_eq!(
             local_operator_key(&env, TEST_PLATFORM, None, None, KeyKind::Admin),
             Err(said)
+        );
+    }
+
+    /// A Docker setup whose install finished but whose record waits for
+    /// its remaining steps: what is installed here reads it as unfinished,
+    /// never as recorded, so the access key is still the serve config's,
+    /// while the web key is the host copy that setup saves.
+    #[test]
+    fn an_unfinished_setup_is_not_read_as_recorded() {
+        use kkt_setup::{DockerSetup, Mode, Purpose, Record, Unfinished};
+        let home = scratch::Dir::new("keys-unfinished");
+        let env = test_env(Some(&home));
+        let config_dir =
+            kkt_config_file::config_dir(env.config_home().as_deref()).expect("config dir");
+        let folder = home.join("docker");
+        std::fs::create_dir_all(&folder).expect("docker folder");
+        std::fs::write(folder.join(".env"), "KKT_VERSION=0.10.0\n").expect("settings file");
+        std::fs::create_dir_all(&config_dir).expect("config dir");
+        let unfinished = Unfinished {
+            purpose: Purpose::Docker,
+            tailscale: false,
+            allow_hosts: vec![],
+            clients: vec![],
+            tailscale_login: None,
+            record: Some(Record {
+                mode: Mode::Docker(DockerSetup {
+                    folder,
+                    tailscale: false,
+                    hostname: None,
+                    tailnet: None,
+                }),
+                written_by: "0.10.0".into(),
+                url: "http://127.0.0.1:7420/mcp".into(),
+                key_file: Some(config_dir.join("recorded-access-key")),
+                clients: None,
+            }),
+        };
+        std::fs::write(
+            kkt_setup::unfinished_path(&config_dir),
+            unfinished.render().expect("note"),
+        )
+        .expect("unfinished note");
+        let access = crate::machine::settings::default_access_key(&env).expect("key path");
+        assert_eq!(
+            optional_key_path(&env, TEST_PLATFORM, unused_args, None, KeyKind::Access),
+            Ok(Some(access))
+        );
+        assert_eq!(
+            optional_key_path(&env, TEST_PLATFORM, unused_args, None, KeyKind::Web),
+            Ok(Some(config_dir.join(kkt_keys::WEB_KEY_COPY_FILE_NAME)))
         );
     }
 

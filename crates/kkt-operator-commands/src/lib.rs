@@ -1,11 +1,10 @@
 //! The operator's commands on this machine's server: `kkt key` (create,
 //! header, show), `kkt lanes` (export, import) and `kkt agent` (list,
 //! revoke), and the lane import and check that `kkt setup` asks for. What
-//! is installed here comes as kkt-setup's [`InstalledHere`], and the server
-//! `kkt lanes` acts on as [`lanes::LaneServers`] picks it; every other
-//! effect and serving fact comes through [`OperatorParts`].
-//!
-//! [`InstalledHere`]: kkt_setup::InstalledHere
+//! is installed here comes as the [`InstalledHere`] this crate declares, in
+//! kkt-deployment's terms, and the server `kkt lanes` acts on as
+//! [`lanes::LaneServers`] picks it; every other effect and serving fact
+//! comes through [`OperatorParts`].
 
 pub mod agent;
 pub mod key;
@@ -57,10 +56,24 @@ pub trait Output {
     fn errors(&self, text: Arguments<'_>);
 }
 
+/// What is installed on this machine, as the key lookups need it, in
+/// kkt-deployment's terms. Each read is made only when asked, so a lookup
+/// that stops at the record reads nothing more.
+pub trait InstalledHere {
+    /// The server this machine's setup record names, with its access key
+    /// file, if `kkt setup` wrote a record.
+    fn recorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String>;
+    /// A setup that did not finish, if the install it noted is still here.
+    fn unfinished(&self) -> Result<Option<kkt_deployment::UnfinishedSetup>, String>;
+    /// A server kkt installed here, in Docker or as a service, with no
+    /// record. An error says why the server cannot be made out.
+    fn unrecorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String>;
+}
+
 /// Implementations chosen by the program.
 pub struct OperatorParts<'a> {
     /// What is installed on this machine.
-    pub installed: &'a dyn kkt_setup::InstalledHere,
+    pub installed: &'a dyn InstalledHere,
     pub serve: &'a dyn ServeConfig,
     pub paths: &'a dyn Paths,
     /// Private key files: the server's, and the client key copies setup

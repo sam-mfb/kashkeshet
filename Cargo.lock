@@ -1619,7 +1619,6 @@ dependencies = [
  "kkt-machine",
  "kkt-names",
  "kkt-rules",
- "kkt-setup",
  "tokio",
 ]
 
