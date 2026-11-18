@@ -165,14 +165,15 @@ pub async fn upgrade<D: ServiceDefaults>(
 ) -> Result<(), String> {
     let record = recorded_setup(parts, env, platform)?;
     let recorded = deployment::recorded(&record);
-    let running = match kkt_deployment::running_version(&recorded)? {
+    let running = match kkt_deployment::running_version(&recorded).map_err(|e| e.to_string())? {
         kkt_deployment::RunningVersion::DockerSettings(folder) => {
             deployment::server_version(&parts.container.version(&kkt_container::Folder(folder))?)
         }
         kkt_deployment::RunningVersion::Recorded(version) => version,
     };
     let plan =
-        kkt_deployment::upgrade_plan(&recorded, &running, Build::CURRENT.version, allow_downgrade)?;
+        kkt_deployment::upgrade_plan(&recorded, &running, Build::CURRENT.version, allow_downgrade)
+            .map_err(|e| e.to_string())?;
     let Some(how) = plan.replace else {
         parts.output.output(format_args!("{}\n", plan.said));
         return Ok(());

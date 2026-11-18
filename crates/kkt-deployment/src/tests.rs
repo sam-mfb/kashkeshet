@@ -213,11 +213,12 @@ fn the_serve_guard_refusals_are_pinned() {
 #[test]
 fn the_upgrade_refusals_are_pinned() {
     assert_eq!(
-        upgrade(&ServerVersion::Known("0.4.0".into()), "invalid", true),
+        upgrade(&ServerVersion::Known("0.4.0".into()), "invalid", true).map_err(|e| e.to_string()),
         Err("this kkt has an invalid version \"invalid\"".to_string())
     );
     assert_eq!(
-        upgrade(&ServerVersion::Known("local-test".into()), "0.4.0", false),
+        upgrade(&ServerVersion::Known("local-test".into()), "0.4.0", false)
+            .map_err(|e| e.to_string()),
         Err(
             "cannot compare server version \"local-test\" with 0.4.0; pass \
              --allow-downgrade to replace it explicitly"
@@ -225,7 +226,7 @@ fn the_upgrade_refusals_are_pinned() {
         )
     );
     assert_eq!(
-        upgrade(&ServerVersion::Known("0.5.0".into()), "0.4.0", false),
+        upgrade(&ServerVersion::Known("0.5.0".into()), "0.4.0", false).map_err(|e| e.to_string()),
         Err(
             "refusing to downgrade the server from 0.5.0 to 0.4.0; pass --allow-downgrade \
              to override"
