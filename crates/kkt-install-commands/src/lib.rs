@@ -166,4 +166,7 @@ pub struct InstallParts<'a, C: ConnectionSource, D = ()> {
     pub database: &'a dyn Databases,
     pub backups: &'a dyn kkt_backup::Backups,
     pub output: &'a dyn Output,
+    /// The path of the server's MCP endpoint, which setup puts at the end
+    /// of the addresses it records.
+    pub mcp_path: &'static str,
 }
