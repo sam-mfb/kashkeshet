@@ -833,7 +833,8 @@
         } else if (w.own) {
           const suppliers = w.suppliers.map((x) => ({ crate: x.crate, item: x.item || null }));
           const own = suppliers.length === 1 && suppliers[0].crate === program;
-          out.push({ ...at, how: own ? "own" : "adapts", suppliers, item: w.own });
+          // An adapter may wrap what the injector was given (`from`).
+          out.push({ ...at, how: own ? "own" : "adapts", suppliers, item: w.own, from: w.from || [] });
         } else if (w.passes_on) {
           out.push({ ...at, how: "passed", suppliers: [], item: w.passes_on, from: w.from || [] });
         } else if (w.produces && w.by) {
@@ -862,11 +863,17 @@
     const hops = deliveries();
     const fills = (h, injector, slot) => h.receiver === injector && h.slots.some((t) => t.at === slot.at && t.param === slot.param);
     const feeders = (h) => hops.filter((f) => h.from.some((slot) => fills(f, h.program, slot)));
+    // An adapter that wraps what its injector was given starts a route of
+    // its own, from its suppliers, and also carries on each route that
+    // fed it.
     const chains = (h, seen) => {
-      if (h.how !== "passed" && h.how !== "produced") return [[h]];
+      const passes = h.how === "passed" || h.how === "produced";
+      const wraps = h.how === "adapts" && h.from.length > 0;
+      if (!passes && !wraps) return [[h]];
       if (seen.has(h)) return [];
       const next = new Set(seen).add(h);
-      return feeders(h).flatMap((f) => chains(f, next)).map((c) => [...c, h]);
+      const fed = feeders(h).flatMap((f) => chains(f, next)).map((c) => [...c, h]);
+      return wraps ? [[h], ...fed] : fed;
     };
     routeCache = hops.flatMap((h) => chains(h, new Set()));
     return routeCache;
@@ -883,6 +890,14 @@
   // that value and what produced it: "Env, from OsMachine".
   function carried(route, upto = route.length - 1) {
     const o = route[0];
+    // After an adapter wraps it, what is carried is the adapter, wrapping
+    // what came before: "AdmissionGate (over kkt-admission), wrapping
+    // KeyMode (kkt-identity-keymode)".
+    const wrapAt = route.slice(1, upto + 1).map((h, i) => (h.how === "adapts" ? i + 1 : -1)).filter((i) => i > 0).pop();
+    if (wrapAt) {
+      const w = route[wrapAt];
+      return `${typeName(w.item)} (over ${andList(supplierCrates(w))}), wrapping ${carried(route, wrapAt - 1)}`;
+    }
     const asked = route.slice(0, upto + 1).reverse().find((h) => h.how === "produces" || h.how === "produced");
     if (asked) {
       const source = asked.how === "produces" ? asked.suppliers[0].item : o.how === "injects" ? o.item.split("::").pop() : typeName(o.item);
@@ -907,7 +922,8 @@
     const into = (h) => `${h.receiver} (${h.slots.map((t) => `${t.at}: ${t.param}`).join(", ")})`;
     return el("div", { class: "delivery-words" }, begin,
       route.map((h, i) => [i ? (h.how === "produced" ? `; ${h.program} asks it for ${h.item.split("::").pop()} and hands that to `
-        : `; ${h.program} passes it on to `) : " → ", into(h)]),
+        : h.how === "adapts" ? `; ${h.program} wraps it in its ${typeName(h.item)} and hands that to `
+        : h.receiver === h.program ? `; ${h.program} puts it in its own ` : `; ${h.program} passes it on to `) : " → ", into(h)]),
       route.length > 1 ? " (the map shows that it is passed on, not when: at start-up or on each call)" : "");
   }
 
@@ -1104,7 +1120,12 @@
       // What this hop carries, at this hop: a value a contract's operation
       // gave is named from where it was asked for.
       const here = (r) => carried(r, r.findIndex((h) => h.program === line.program && h.receiver === line.receiver));
-      labelOn(path, line, [...line.routes.filter(ownWork).map(here), ...line.routes.filter((r) => !ownWork(r)).map(here)],
+      // A route from a ticked crate comes first, then one that ends at a
+      // ticked crate, so a shortened label keeps the value the viewer
+      // asked about; then the injector's own work.
+      const rank = (r) => (r[0].suppliers.some((x) => focus.has(x.crate)) ? 0
+        : focus.has(r[r.length - 1].receiver) ? 1 : ownWork(r) ? 2 : 3);
+      labelOn(path, line, [...line.routes].sort((a, b) => rank(a) - rank(b)).map(here),
         allOwn ? " own-work" : "", passed ? " · passed on" : "");
     }
   }
@@ -1335,6 +1356,7 @@
     // where a program's wiring fills it: elsewhere it is a plain value.
     const slots = c.slots.filter((sl) => sl.traits.length || (sl.holds || []).length || fillsOf(c.name, sl).length);
     const goes = goesOf(c.name);
+    const passes = passesOf(c.name);
     const builds = c.builds || [];
     return [
       section("contracts", "Contracts it defines", c.contracts.length, () => el("ul", { class: "flows" }, c.contracts.map((t) => el("li", {},
@@ -1358,6 +1380,7 @@
         sl.traits.length || (sl.holds || []).length ? null : (sl.foreign || []).map((t, i) => [i ? ", " : "", el("code", {}, t)]),
         fillsOf(c.name, sl).length ? el("div", { class: "muted" }, "filled with ", fillsOf(c.name, sl).join("; ")) : null)))),
       section("goes", "Where its work goes", goes.length, () => el("ul", { class: "flows" }, goes.map((g) => el("li", {}, g)))),
+      section("passes", "What it passes on", passes.length, () => el("ul", { class: "flows" }, passes.map((g) => el("li", {}, g)))),
     ];
   }
 
@@ -1367,7 +1390,23 @@
     return [...new Set(routes().filter((r) => {
       const last = r[r.length - 1];
       return last.receiver === name && last.slots.some((t) => t.at === slot.at && t.param === slot.name);
-    }).map((r) => `${carried(r)}, by ${r[0].program}`))];
+    }).map((r) => `${carried(r)}, by ${r[0].program}${passersWords(r)}`))];
+  }
+  // The crates a route passes through after its injector: ", passed on by
+  // kkt-server".
+  function passersWords(route) {
+    const through = [...new Set(route.slice(1).map((h) => h.program))].filter((c) => c !== route[0].program);
+    return through.length ? `, passed on by ${andList(through)}` : "";
+  }
+  // What a crate hands on of what it was given: each hop it makes after
+  // another crate's, as what is carried there and the slots it fills.
+  function passesOf(name) {
+    return [...new Set(routes().flatMap((r) => r.map((h, i) => [h, i]).filter(([h, i]) => i > 0 && h.program === name && h.receiver !== name)
+      .map(([h, i]) => {
+        // Who gave it: the last crate before this one on the route.
+        const giver = r.slice(0, i).reverse().find((x) => x.program !== name);
+        return `${carried(r, i)}, from ${giver ? giver.program : r[0].program} → ${h.receiver}'s ${h.slots.map((t) => `${t.at} (${t.param})`).join(", ")}`;
+      })))];
   }
 
   // Where a crate's work goes: each route that begins with it, as what is
@@ -1375,7 +1414,7 @@
   function goesOf(name) {
     return [...new Set(routes().filter((r) => supplierCrates(r[0]).includes(name)).map((r) => {
       const last = r[r.length - 1];
-      return `${carried(r)} → ${last.receiver}'s ${last.slots.map((t) => `${t.at} (${t.param})`).join(", ")}, by ${r[0].program}`;
+      return `${carried(r)} → ${last.receiver}'s ${last.slots.map((t) => `${t.at} (${t.param})`).join(", ")}, by ${r[0].program}${passersWords(r)}`;
     }))];
   }
 
