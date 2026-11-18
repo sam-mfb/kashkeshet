@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "6e645394",
+ "commit": "2552ef82",
  "crates": [
   {
    "bins": [
@@ -16981,6 +16981,18 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "Why there is no setup record to act on, and what to do about it.",
+     "kind": "enum",
+     "path": "NoRecord",
+     "variants": [
+      "Unfinished",
+      "UnfinishedUnreadable",
+      "Nothing",
+      "Found",
+      "FoundUnreadable"
+     ]
+    },
+    {
      "doc": "What this machine is for, as chosen with `--mode` or asked.",
      "kind": "enum",
      "methods": [
@@ -17026,6 +17038,43 @@ window.KKT_GRAPH = {
      "path": "Record"
     },
     {
+     "doc": "A setup record or note that cannot be read, naming the file.",
+     "fields": [
+      "file",
+      "path",
+      "problem"
+     ],
+     "kind": "struct",
+     "path": "RecordError"
+    },
+    {
+     "doc": "What is wrong with a setup record or note, said after its name.",
+     "kind": "enum",
+     "path": "RecordProblem",
+     "variants": [
+      "Invalid",
+      "Format",
+      "ModeTables",
+      "UnknownMode",
+      "ClientWithClients",
+      "RelativePath",
+      "UnfinishedMode",
+      "UnknownClient",
+      "NoTsHostname",
+      "TsHostnameNotDocker",
+      "AuthKeyWithoutHostname"
+     ]
+    },
+    {
+     "doc": "A setup record or note that could not be written as text.",
+     "fields": [
+      "file",
+      "cause"
+     ],
+     "kind": "struct",
+     "path": "RenderError"
+    },
+    {
      "doc": "A server, as this machine's clients reach it.",
      "fields": [
       "url",
@@ -17033,6 +17082,15 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Server"
+    },
+    {
+     "doc": "Which of setup's files an error is about.",
+     "kind": "enum",
+     "path": "SetupFile",
+     "variants": [
+      "Record",
+      "Unfinished"
+     ]
     },
     {
      "doc": "What `kkt setup` does to the machine.",
@@ -17338,7 +17396,8 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
-    "serde"
+    "serde",
+    "thiserror"
    ]
   },
   {
@@ -28784,6 +28843,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
+    "ParseError",
+    "WriteError",
     "read",
     "write"
    ],
@@ -28793,6 +28854,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "ParseError",
+      "WriteError",
       "read",
       "write"
      ],
