@@ -21,7 +21,6 @@ kkt-hosts = { path = "../kkt-hosts" }
 kkt-identity = { path = "../kkt-identity" }
 kkt-mcp = { path = "../kkt-mcp" }
 kkt-entropy = { path = "../kkt-entropy" }
-kkt-names = { path = "../kkt-names" }
 kkt-provenance = { path = "../kkt-provenance" }
 kkt-shutdown = { path = "../kkt-shutdown" }
 kkt-web = { path = "../kkt-web" }
@@ -41,6 +40,8 @@ kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
 kkt-rules = { path = "../kkt-rules", features = ["testing"] }
 kkt-web = { path = "../kkt-web", features = ["testing"] }
+# An admin's name, for the tests that act as a named admin.
+kkt-names = { path = "../kkt-names" }
 serde_json.workspace = true
 tokio.workspace = true
 tower.workspace = true

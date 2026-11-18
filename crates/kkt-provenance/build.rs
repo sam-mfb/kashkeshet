@@ -36,6 +36,7 @@ fn main() {
         "../../Cargo.lock",
         "../../src",
         "../../crates",
+        "../../programs",
         "../../compose.yaml",
         "../../compose.tailscale.yaml",
         "../../tailscale/serve.json",

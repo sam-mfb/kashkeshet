@@ -10,8 +10,10 @@
 //! org, and nothing more. Server-wide message IDs are the same: their gaps
 //! count other swarms' messages.
 
-// Shared helper: each test binary uses a different subset.
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "a shared helper: each test binary uses a different subset"
+)]
 mod client;
 
 use client::Client;

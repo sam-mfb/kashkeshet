@@ -309,6 +309,9 @@ impl ServeFacts for ServeReads<'_> {
             no_access_key: options.no_access_key,
         })
     }
+    fn default_name_pack(&self) -> String {
+        kkt_rules::Settings::DEFAULT.name_pack.name().to_string()
+    }
     fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
         let (_, options) = settings::read_config(self.env, None)?;
         let settings = settings::resolve(
