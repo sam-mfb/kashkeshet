@@ -9,20 +9,21 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 /// A link shown at the terminal, with a wait for Enter: at a terminal, it
 /// shows the link and offers to open it when Enter is pressed; away from
-/// one, such as in a script, it only prints the link. It never opens a
-/// browser itself. The words it shows are those of a Tailscale login, its
-/// one use today.
+/// one, such as in a script, it only prints the link. It opens no browser
+/// itself.
 pub struct BrowserLink {
+    lead: String,
     pressed: Arc<AtomicBool>,
 }
 
 impl BrowserLink {
-    #[expect(
-        clippy::new_without_default,
-        reason = "a handle on the terminal or the system, made by name where the program wires it; `Default` would let one be made unseen"
-    )]
-    pub fn new() -> BrowserLink {
+    /// `lead` says what to do with the link, in the caller's words, such as
+    /// "Sign in by opening". At a terminal it is followed by " this link:"
+    /// and the link on a line of its own; away from one, by ": " and the
+    /// link.
+    pub fn new(lead: String) -> BrowserLink {
         BrowserLink {
+            lead,
             pressed: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -31,18 +32,13 @@ impl BrowserLink {
 impl BrowserLink {
     /// Shows the link, offering browser opening only at a terminal.
     pub fn show(&self, url: &str) {
-        if !(Terminal.interactive() && Terminal.output_is_terminal()) {
-            Terminal.output(format_args!("Log in to Tailscale by opening: {url}\n"));
+        let at_terminal = Terminal.interactive() && Terminal.output_is_terminal();
+        Terminal.output(format_args!("{}", self.said(url, at_terminal)));
+        if !at_terminal {
             return;
         }
-        Terminal.output(format_args!(
-            "Log in to Tailscale by opening this link:\n  {url}\n"
-        ));
-        Terminal.output(format_args!(
-            "Press Enter to open it in your browser (or open it yourself).\n"
-        ));
         // A key press is waited for on its own thread, so that the caller
-        // goes on with its work meanwhile. If the person logs in another
+        // goes on with its work meanwhile. If the person goes on another
         // way, this thread is left waiting; it reads nothing else.
         let pressed = Arc::clone(&self.pressed);
         std::thread::spawn(move || {
@@ -50,6 +46,19 @@ impl BrowserLink {
                 Terminal.output(format_args!("{message}\n"));
             }
         });
+    }
+
+    /// What [`show`](Self::show) prints, at a terminal or away from one.
+    fn said(&self, url: &str, at_terminal: bool) -> String {
+        let lead = &self.lead;
+        if at_terminal {
+            format!(
+                "{lead} this link:\n  {url}\n\
+                 Press Enter to open it in your browser (or open it yourself).\n"
+            )
+        } else {
+            format!("{lead}: {url}\n")
+        }
     }
 
     /// Takes one pending Enter-key request to open the link.
@@ -84,11 +93,25 @@ mod tests {
 
     #[test]
     fn there_is_no_request_until_a_key_is_pressed_and_a_request_is_taken_once() {
-        let link = BrowserLink::new();
+        let link = BrowserLink::new("Open".to_string());
         assert!(!link.open_requested());
         link.pressed.store(true, Ordering::SeqCst);
         assert!(link.open_requested());
         assert!(!link.open_requested());
+    }
+
+    #[test]
+    fn the_link_is_shown_after_the_callers_words() {
+        let link = BrowserLink::new("Sign in by opening".to_string());
+        assert_eq!(
+            link.said("https://example.com/a", false),
+            "Sign in by opening: https://example.com/a\n"
+        );
+        assert_eq!(
+            link.said("https://example.com/a", true),
+            "Sign in by opening this link:\n  https://example.com/a\n\
+             Press Enter to open it in your browser (or open it yourself).\n"
+        );
     }
 
     #[test]

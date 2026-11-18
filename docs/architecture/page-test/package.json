@@ -1,0 +1,8 @@
+{
+  "name": "kkt-crate-map-page-test",
+  "private": true,
+  "description": "Playwright, at a pinned version, for the crate map's headless page test; run-page-test.sh installs it under target/tmp/page-test",
+  "dependencies": {
+    "playwright": "1.65.1"
+  }
+}

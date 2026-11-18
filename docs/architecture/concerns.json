@@ -346,7 +346,7 @@
   },
   "kkt-browser": {
    "layer": "platform",
-   "concern": "Opens a link in the person's browser with the system's own opener, and reports once if that failed.",
+   "concern": "Opens a link in the person's browser with the system's own opener (`open` or `xdg-open`), and reports once if that failed.",
    "kind": "effect"
   },
   "kkt-log-tracing": {

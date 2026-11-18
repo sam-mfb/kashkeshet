@@ -80,13 +80,16 @@ impl Admin for Rules {
         ))
     }
 
-    fn admin_list_memories(
-        &self,
+    fn admin_list_memories<'a>(
+        &'a self,
+        operator: &'a Operator,
         handle: String,
         limit: usize,
         cursor: Option<String>,
-    ) -> Answer<'_, MemoryList> {
-        Box::pin(Rules::admin_list_memories(self, handle, limit, cursor))
+    ) -> Answer<'a, MemoryList> {
+        Box::pin(Rules::admin_list_memories(
+            self, operator, handle, limit, cursor,
+        ))
     }
 
     fn admin_message<'a>(&'a self, operator: &'a Operator, id: i64) -> Answer<'a, Message> {
@@ -121,8 +124,13 @@ impl Admin for Rules {
         Box::pin(Rules::admin_read(self, operator, q))
     }
 
-    fn admin_recall(&self, handle: String, name: String) -> Answer<'_, MemoryEntry> {
-        Box::pin(Rules::admin_recall(self, handle, name))
+    fn admin_recall<'a>(
+        &'a self,
+        operator: &'a Operator,
+        handle: String,
+        name: String,
+    ) -> Answer<'a, MemoryEntry> {
+        Box::pin(Rules::admin_recall(self, operator, handle, name))
     }
 }
 
