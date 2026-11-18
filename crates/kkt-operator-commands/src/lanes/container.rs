@@ -204,6 +204,8 @@ mod tests {
         config: RefCell<Option<String>>,
         runs: RefCell<Vec<RunKkt>>,
         config_reads: RefCell<usize>,
+        /// Whether the config file cannot be read.
+        config_unread: bool,
     }
 
     impl ServerInContainer for &Stand {
@@ -223,6 +225,9 @@ mod tests {
         }
         fn config_file(&self) -> Result<String, String> {
             *self.config_reads.borrow_mut() += 1;
+            if self.config_unread {
+                return Err("no such container".into());
+            }
             Ok(self.config.borrow().clone().unwrap_or_default())
         }
         /// A `max_lane_chars = N` line, refused by name when N is not a
@@ -423,5 +428,57 @@ mod tests {
             "{err}"
         );
         assert!(err.contains("max_lane_chars"), "{err}");
+    }
+
+    /// Paths typed here cannot be made absolute.
+    struct Nowhere;
+    impl Paths for Nowhere {
+        fn absolute(&self, _: &Path) -> std::io::Result<PathBuf> {
+            Err(std::io::Error::other("refused"))
+        }
+        fn canonicalize(&self, _: &Path) -> std::io::Result<PathBuf> {
+            panic!("nothing is made canonical")
+        }
+    }
+
+    /// The refusals the lanes of kkt in a container word themselves, word
+    /// for word.
+    #[test]
+    fn the_container_lanes_refusals_are_pinned() {
+        let said = Said::default();
+        let unread = Stand {
+            installed: true,
+            config_unread: true,
+            ..Stand::default()
+        };
+        assert_eq!(
+            lanes(&unread, &said)
+                .lane_limit()
+                .map_err(|e| e.to_string()),
+            Err(
+                "could not read the lane text limit of kkt in Docker: no such container"
+                    .to_string()
+            )
+        );
+        let stand = installed("");
+        *stand.config.borrow_mut() = Some("max_lane_chars = 0.5\n".into());
+        assert_eq!(
+            lanes(&stand, &said).lane_limit().map_err(|e| e.to_string()),
+            Err(
+                "could not read the lane text limit of kkt in Docker: unexpected output from \
+                 the kkt container's config file: max_lane_chars: 0.5 is not a whole number"
+                    .to_string()
+            )
+        );
+        let stand = installed("");
+        let server = ContainerLanes {
+            container: Box::new(&stand),
+            paths: &Nowhere,
+            output: &said,
+        };
+        assert_eq!(
+            futures::executor::block_on(server.export(Path::new("out"))).map_err(|e| e.to_string()),
+            Err("could not resolve out: refused".to_string())
+        );
     }
 }
