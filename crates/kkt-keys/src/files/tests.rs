@@ -263,3 +263,14 @@ fn the_stand_in_gives_a_files_mode_or_says_it_cannot_look() {
         .failing("/k/locked");
     assert!(refused.mode(Path::new("/k/locked")).is_err());
 }
+
+#[test]
+fn a_read_error_names_the_file_and_keeps_the_systems_reason() {
+    let error = ReadError {
+        path: PathBuf::from("/k/access-key"),
+        error: io::Error::new(io::ErrorKind::PermissionDenied, "denied"),
+    };
+    assert_eq!(error.to_string(), "could not read /k/access-key: denied");
+    let source = std::error::Error::source(&error).expect("the io error");
+    assert_eq!(source.to_string(), "denied");
+}

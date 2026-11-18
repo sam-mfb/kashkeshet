@@ -74,7 +74,7 @@ The shared crates are reorganized so that every dependency is injected and each 
   `kkt-container-os` goes. `Docker` does not implement `ServiceContainer`, and
   `Docker::new` takes no browser. `kkt-container` holds only `Projects`,
   its records, `Folder` (without `backups`) and `testing::MemoryProjects`,
-  and depends on no other crate; it and kkt-container-docker are platform
+  and depends on no other crate of the workspace; it and kkt-container-docker are platform
   crates. Files, commands and messages are unchanged; this changes the
   shared Rust API.
 - **Remote sharing contract and implementation.**
